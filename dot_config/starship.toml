@@ -1,0 +1,44 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Inserts a blank line between shell prompts
+# add_newline = false
+
+format = '''
+${env_var.RADIO_CTL}
+${env_var.PNPM}
+$directory$rust$git_branch$git_status$package$golang$terraform$docker_context$python$docker_context$nodejs$cmd_duration
+[﬌](bold green) 
+'''
+# [username]
+# style_user = "green bold"
+# style_root = "red bold"
+# format = "[$user]($style) "
+# disabled = false
+# show_always = false
+
+# configure directory
+[directory]
+read_only = " "
+truncation_length = 10
+truncate_to_repo = true # truncates directory to root folder if in github repo
+style = "bold italic blue"
+
+[git_branch]
+style = "bold #6699ff"
+
+[package]
+display_private = true
+
+[cmd_duration]
+min_time = 4
+show_milliseconds = false
+disabled = false
+style = "bold italic red"
+
+[env_var.PNPM]
+default = 'pnpm ✖'
+format = "[$symbol($env_value)](green dimmed)"
+
+[env_var.RADIO_CTL]
+default = 'radioctl ✖'
+format = "[$symbol($env_value)](yellow dimmed)"
