@@ -1,0 +1,25 @@
+[user]
+	email = gnohj@users.noreply.github.com
+	name = gnohj
+
+[alias]
+  co = checkout
+  cob = checkout -b
+  b = branch
+  pr = "!f() { git fetch -fu ${2:-upstream} refs/pull/$1/head:pr/$1 && git checkout pr/$1; }; f"
+  pr-clean = "!git checkout master ; git for-each-ref refs/heads/pr/* --format=\"%(refname)\" | while read ref ; do branch=${ref#refs/heads/} ; git branch -D $branch ; done"
+  [url "https://"]
+  insteadOf = git://
+
+[pull]
+	ff = only
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[maintenance]
+	repo = /Users/gnohj/Repos/znap
+	repo = /Users/gnohj/Repos/marlonrichert/zsh-autocomplete
+[gpg]
+	program = gpg2
