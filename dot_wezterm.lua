@@ -16,6 +16,8 @@ config.colors = {
 	brights = { "#214969", "#E52E2E", "#44FFB1", "#FFE073", "#A277FF", "#a277ff", "#24EAF7", "#24EAF7" },
 }
 
+config.max_fps = 120
+
 config.keys = {
 	-- Make Option-Left equivalent to Alt-b which many line editors interpret as backward-word
 	{ key = "LeftArrow", mods = "OPT", action = wezterm.action({ SendString = "\x1bb" }) },
@@ -44,11 +46,13 @@ config.keys = {
 }
 
 config.font = wezterm.font("RobotoMono Nerd Font")
+config.font_size = 13.5
 
 config.enable_tab_bar = false
 
 config.window_decorations = "RESIZE"
-config.window_background_opacity = 0.95
+config.window_background_opacity = 0.875
 config.macos_window_background_blur = 2
+config.window_close_confirmation = "NeverPrompt"
 
 return config
