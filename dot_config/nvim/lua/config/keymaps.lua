@@ -7,6 +7,9 @@ local opts = { noremap = true, silent = true }
 
 keymap("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
 
+-- delete without yanking
+keymap({ "n", "v" }, "<leader>d", [["_d]])
+
 -- move text up and down
 keymap("v", "J", ":m .+1<CR>==", opts)
 keymap("v", "K", ":m .-2<CR>==", opts)
