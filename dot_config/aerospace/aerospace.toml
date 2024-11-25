@@ -11,7 +11,8 @@ after-login-command = []
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
 after-startup-command = [
   'exec-and-forget sketchybar --reload',
-  'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xCFEBBF83 inactive_color=0x33434c5e width=4.0'
+  # 'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xCFEBBF83 inactive_color=0x33434c5e width=4.0'
+  'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xFF03b1D3 inactive_color=0x33434c5e width=2.5',
 ]
 
 # Start AeroSpace at login
@@ -20,7 +21,7 @@ start-at-login = true
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',
-  'sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE'
+  'sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -53,7 +54,7 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 on-focus-changed = [
   'move-mouse window-lazy-center',
   'exec-and-forget /bin/bash -c /opt/homebrew/bin/sketchybar --trigger front_app_switched',
-  'exec-and-forget sketchybar --trigger update_windows'
+  'exec-and-forget sketchybar --trigger update_windows',
 ]
 
 
@@ -66,16 +67,16 @@ on-focus-changed = [
 #                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
 #outer.bottom numbers have to match presentation.sh variables. built-in retina display is excluded from presentation mode, so this only works on external monitors.
-outer.bottom =        [{monitor.'^built-in retina display$' = 10 }, 10]
-outer.top =        [{monitor.'^built-in retina display$' = 20 }, 52]
-outer.left =       13
-outer.right =      13
+outer.bottom = [{ monitor.'^built-in retina display$' = 10 }, 10]
+outer.top = [{ monitor.'^built-in retina display$' = 20 }, 52]
+outer.left = 13
+outer.right = 13
 inner.horizontal = 10
-inner.vertical =   10
+inner.vertical = 10
 
-[exec]                   # Again, you don't need to copy all config sections to your config.
-inherit-env-vars = true  # If you don't touch "exec" section,
-[exec.env-vars]          # it will fallback to "default-config.toml"
+[exec] # Again, you don't need to copy all config sections to your config.
+inherit-env-vars = true # If you don't touch "exec" section,
+[exec.env-vars] # it will fallback to "default-config.toml"
 PATH = '/opt/homebrew/bin:/opt/homebrew/sbin:${PATH}'
 
 # 'main' binding mode declaration
@@ -211,25 +212,28 @@ alt-shift-semicolon = 'mode service'
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
 [mode.service.binding]
 esc = [
- 'reload-config',
- 'exec-and-forget sketchybar --trigger hide_message',
- 'exec-and-forget sketchybar --reload',
- 'mode main'
- ]
- b = [
-   'exec-and-forget ~/.config/aerospace/presentation.sh on',
-   'exec-and-forget sketchybar --bar height=0',
-   'exec-and-forget sketchybar --trigger hide_message',
-   'mode main'
+  'reload-config',
+  'exec-and-forget sketchybar --trigger hide_message',
+  'exec-and-forget sketchybar --reload',
+  'mode main',
+]
+b = [
+  'exec-and-forget ~/.config/aerospace/presentation.sh on',
+  'exec-and-forget sketchybar --bar height=0',
+  'exec-and-forget sketchybar --trigger hide_message',
+  'mode main',
 ]
 shift-b = [
-   'exec-and-forget ~/.config/aerospace/presentation.sh off',
-   'exec-and-forget sketchybar --bar height=36',
-   'exec-and-forget sketchybar --trigger hide_message',
-   'mode main'
+  'exec-and-forget ~/.config/aerospace/presentation.sh off',
+  'exec-and-forget sketchybar --bar height=36',
+  'exec-and-forget sketchybar --trigger hide_message',
+  'mode main',
 ]
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
-f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+f = [
+  'layout floating tiling',
+  'mode main',
+] # Toggle between floating and tiling layout
 backspace = ['close-all-windows-but-current', 'mode main']
 
 # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
@@ -293,9 +297,7 @@ run = "move-node-to-workspace P"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.finder'
-run = [
-'layout floating'
-]
+run = ['layout floating']
 
 [[on-window-detected]]
 if.app-id = 'com.brave.Browser'
