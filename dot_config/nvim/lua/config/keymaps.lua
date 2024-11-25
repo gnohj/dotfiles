@@ -59,3 +59,42 @@ vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
 keymap("n", "<leader>h", function()
   require("pounce").pounce({})
 end, { desc = "Pounce" })
+
+-- package-info keymaps
+keymap(
+  "n",
+  "<leader>cpt",
+  "<cmd>lua require('package-info').toggle()<cr>",
+  { silent = true, noremap = true, desc = "Toggle" }
+)
+keymap(
+  "n",
+  "<leader>cpd",
+  "<cmd>lua require('package-info').delete()<cr>",
+  { silent = true, noremap = true, desc = "Delete package" }
+)
+keymap(
+  "n",
+  "<leader>cpu",
+  "<cmd>lua require('package-info').update()<cr>",
+  { silent = true, noremap = true, desc = "Update package" }
+)
+keymap(
+  "n",
+  "<leader>cpi",
+  "<cmd>lua require('package-info').install()<cr>",
+  { silent = true, noremap = true, desc = "Install package" }
+)
+keymap(
+  "n",
+  "<leader>cpc",
+  "<cmd>lua require('package-info').change_version()<cr>",
+  { silent = true, noremap = true, desc = "Change package version" }
+)
+
+local function insertFullPath()
+  local full_path = vim.fn.expand("%:p") -- Get the full file path
+  vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
+end
+
+keymap("n", "<leader>bf", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
