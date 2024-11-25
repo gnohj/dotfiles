@@ -29,7 +29,7 @@ keymap("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
 keymap("n", "<leader>+", "<C-a>", { desc = "Increment number" })
 keymap("n", "<leader>=", "<C-x>", { desc = "Decrement number" })
 
-vim.keymap.set("n", "<S-h>", function()
+keymap("n", "<S-h>", function()
   require("telescope.builtin").buffers(require("telescope.themes").get_ivy({
     sort_mru = true,
     sort_lastused = true,
@@ -46,7 +46,7 @@ vim.keymap.set("n", "<S-h>", function()
 end, { desc = "[P]Open telescope buffers" })
 
 -- reveal active file in neotree
-vim.keymap.set("n", "<C-a>", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
+keymap("n", "<C-a>", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
 
 -- Quickscope --
 -- vim.cmd([[
@@ -54,3 +54,8 @@ vim.keymap.set("n", "<C-a>", ":Neotree reveal<CR>", { desc = "Reveal active file
 --   highlight QuickScopeSecondary guifg='#5fffff' gui=underline ctermfg=81 cterm=underline
 -- ]])
 vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
+
+-- pounce
+keymap("n", "<leader>h", function()
+  require("pounce").pounce({})
+end, { desc = "Pounce" })
