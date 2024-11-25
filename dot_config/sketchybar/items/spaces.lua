@@ -40,7 +40,7 @@ local function selectCurrentWorkspace(focusedWorkspaceName)
 			item:set({
 				icon = { color = isSelected and settings.colors.bg1 or settings.colors.light_blue },
 				label = { color = isSelected and settings.colors.bg1 or settings.colors.light_blue },
-				background = { color = isSelected and settings.colors.light_green or settings.colors.bg1 },
+				background = { color = isSelected and settings.colors.light_blue or settings.colors.bg1 },
 			})
 		end
 	end
