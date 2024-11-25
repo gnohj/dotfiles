@@ -43,6 +43,8 @@ return {
       bg = "#112638",
       inactive_bg = "#2c3043",
     }
+    local icons = require("lazyvim.config").icons
+    local Util = require("lazyvim.util")
 
     return {
 
@@ -74,6 +76,19 @@ return {
         lualine_b = { "branch" },
         lualine_c = {
           { unsaved_buffers, color = { fg = "#FF0000" } }, -- Shows in red if there are unsaved buffers
+          {
+            "diagnostics",
+            symbols = {
+              error = icons.diagnostics.Error,
+              warn = icons.diagnostics.Warn,
+              info = icons.diagnostics.Info,
+              hint = icons.diagnostics.Hint,
+            },
+          },
+          {
+            require("package-info").get_status,
+            color = Util.ui.fg("Statement"),
+          },
         },
         lualine_x = {
           {
