@@ -18,8 +18,5 @@
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 	required = true
-[maintenance]
-	repo = /Users/gnohj/Repos/znap
-	repo = /Users/gnohj/Repos/marlonrichert/zsh-autocomplete
 [gpg]
 	program = gpg2
