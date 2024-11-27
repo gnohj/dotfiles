@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 return {
   "jiaoshijie/undotree",
   dependencies = "nvim-lua/plenary.nvim",

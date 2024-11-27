@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 --[=====[
 You can delete entries from DB by this command. This command does not remove
 the file itself, only from DB.

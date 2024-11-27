@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 return {
   "gaelph/logsitter.nvim",
   dependencies = { "nvim-treesitter/nvim-treesitter" },
