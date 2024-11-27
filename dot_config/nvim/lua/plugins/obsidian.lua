@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 vim.keymap.set("n", "gf", function()
   if require("obsidian").util.cursor_on_markdown_link() then
     return "<cmd>ObsidianFollowLink<CR>"
