@@ -21,11 +21,11 @@ return {
         swift = "print",
       },
     })
-    local logsitter = require("logsitter")
+    -- local logsitter = require("logsitter")
 
     -- logsitter (turbo console log)
     vim.keymap.set("n", "<leader>tc", function()
-      require(logsitter).log()
+      require("logsitter").log()
     end, { desc = "Turbo Console Log" })
   end,
 }
