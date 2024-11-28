@@ -34,15 +34,15 @@ config.keys = {
 	{ mods = "CMD|SHIFT", key = "RightArrow", action = act.ActivateTabRelative(1) },
 	{ mods = "CMD", key = "+", action = act.IncreaseFontSize },
 	{ mods = "CMD", key = "-", action = act.DecreaseFontSize },
-	{
-		key = "Escape",
-		mods = "NONE",
-		action = act.Multiple({
-			act.CopyMode("ClearPattern"),
-			act.CopyMode("AcceptPattern"),
-			act.CopyMode({ SetSelectionMode = "Cell" }),
-		}),
-	},
+	-- {
+	-- 	key = "Escape",
+	-- 	mods = "NONE",
+	-- 	action = act.Multiple({
+	-- 		act.CopyMode("ClearPattern"),
+	-- 		act.CopyMode("AcceptPattern"),
+	-- 		act.CopyMode({ SetSelectionMode = "Cell" }),
+	-- 	}),
+	-- },
 }
 
 config.font = wezterm.font("RobotoMono Nerd Font")
