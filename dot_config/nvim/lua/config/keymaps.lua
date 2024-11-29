@@ -45,9 +45,6 @@ keymap("n", "<S-h>", function()
   }))
 end, { desc = "[P]Open telescope buffers" })
 
--- reveal active file in neotree
-keymap("n", "<C-a>", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
-
 -- Quickscope --
 -- vim.cmd([[
 --   highlight QuickScopePrimary ='#afff5f' gui=underline ctermfg=155 cterm=underline
@@ -97,4 +94,7 @@ local function insertFullPath()
   vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
 end
 
-keymap("n", "<leader>bf", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
+keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
+
+-- reveal active file in neotree
+keymap("n", "<leader>fa", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
