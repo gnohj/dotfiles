@@ -20,29 +20,45 @@ config.max_fps = 120
 
 config.keys = {
 	-- Make Option-Left equivalent to Alt-b which many line editors interpret as backward-word
-	{ key = "LeftArrow", mods = "OPT", action = wezterm.action({ SendString = "\x1bb" }) },
+	{
+		key = "LeftArrow",
+		mods = "OPT",
+		action = wezterm.action({ SendString = "\x1bb" }),
+	},
 	-- Make Option-Right equivalent to Alt-f; forward-word
-	{ key = "RightArrow", mods = "OPT", action = wezterm.action({ SendString = "\x1bf" }) },
-	{ mods = "OPT", key = "LeftArrow", action = act.SendKey({ mods = "ALT", key = "b" }) },
-	{ mods = "OPT", key = "RightArrow", action = act.SendKey({ mods = "ALT", key = "f" }) },
-	{ mods = "CMD", key = "LeftArrow", action = act.SendKey({ mods = "CTRL", key = "a" }) },
-	{ mods = "CMD", key = "RightArrow", action = act.SendKey({ mods = "CTRL", key = "e" }) },
-	{ mods = "CMD", key = "Backspace", action = act.SendKey({ mods = "CTRL", key = "u" }) },
-	{ mods = "CMD|OPT", key = "LeftArrow", action = act.ActivateTabRelative(-1) },
-	{ mods = "CMD|OPT", key = "RightArrow", action = act.ActivateTabRelative(1) },
-	{ mods = "CMD|SHIFT", key = "LeftArrow", action = act.ActivateTabRelative(-1) },
-	{ mods = "CMD|SHIFT", key = "RightArrow", action = act.ActivateTabRelative(1) },
-	{ mods = "CMD", key = "+", action = act.IncreaseFontSize },
-	{ mods = "CMD", key = "-", action = act.DecreaseFontSize },
-	-- {
-	-- 	key = "Escape",
-	-- 	mods = "NONE",
-	-- 	action = act.Multiple({
-	-- 		act.CopyMode("ClearPattern"),
-	-- 		act.CopyMode("AcceptPattern"),
-	-- 		act.CopyMode({ SetSelectionMode = "Cell" }),
-	-- 	}),
-	-- },
+	{
+		key = "RightArrow",
+		mods = "OPT",
+		action = wezterm.action({ SendString = "\x1bf" }),
+	},
+	-- Select next tab with cmd-opt-left/right arrow
+	{
+		key = "LeftArrow",
+		mods = "CMD|OPT",
+		action = wezterm.action.ActivateTabRelative(-1),
+	},
+	{
+		key = "RightArrow",
+		mods = "CMD|OPT",
+		action = wezterm.action.ActivateTabRelative(1),
+	},
+	-- Select next pane with cmd-left/right arrow
+	{
+		key = "LeftArrow",
+		mods = "CMD",
+		action = wezterm.action({ ActivatePaneDirection = "Prev" }),
+	},
+	{
+		key = "RightArrow",
+		mods = "CMD",
+		action = wezterm.action({ ActivatePaneDirection = "Next" }),
+	},
+	-- on cmd-s, send esc, then ':w<enter>'. This makes cmd-s trigger a save action in neovim
+	{
+		key = "s",
+		mods = "CMD",
+		action = wezterm.action({ SendString = "\x1b:w\n" }),
+	},
 }
 
 config.font = wezterm.font("RobotoMono Nerd Font")
