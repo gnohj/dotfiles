@@ -19,6 +19,7 @@ config.colors = {
 config.max_fps = 120
 
 config.keys = {
+
 	-- Make Option-Left equivalent to Alt-b which many line editors interpret as backward-word
 	{
 		key = "LeftArrow",
