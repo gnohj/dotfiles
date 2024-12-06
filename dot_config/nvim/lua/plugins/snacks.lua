@@ -4,6 +4,8 @@ end
 
 return {
   "folke/snacks.nvim",
+  lazy = false,
+  priority = 1000,
   opts = function(_, opts)
     -- Configure the dashboard
     opts.dashboard = {
