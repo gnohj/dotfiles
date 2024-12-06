@@ -24,7 +24,6 @@ else
       { "LazyVim/LazyVim", import = "lazyvim.plugins" },
       { import = "lazyvim.plugins.extras.formatting.prettier" },
       { import = "lazyvim.plugins.extras.linting.eslint" },
-      { "folke/snacks.nvim", opts = { dashboard = { enabled = true } } },
       {
         "lukas-reineke/indent-blankline.nvim",
         enabled = false,
