@@ -22,6 +22,7 @@ local spaceConfigs <const> = {
 	["3"] = { icon = "", name = "Slack" },
 	["4"] = { icon = "󰊻", name = "Teams" },
 	["B"] = { icon = "󰖟", name = "Browser" },
+	["D"] = { icon = "", name = "Discord" },
 	["E"] = { icon = "󰨞", name = "Editor" },
 	["C"] = { icon = "󰃭", name = "Calendar" },
 	["M"] = { icon = "", name = "Mail" },
