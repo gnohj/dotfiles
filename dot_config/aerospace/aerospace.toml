@@ -135,7 +135,7 @@ alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-alt-a = 'workspace A' # In your config, you can drop workspace bindings that you don't need
+alt-a = 'workspace A'     # In your config, you can drop workspace bindings that you don't need
 alt-b = 'workspace B'
 alt-c = 'workspace C'
 alt-d = 'workspace D'
@@ -148,6 +148,7 @@ alt-n = 'workspace N'
 alt-o = 'workspace O'
 alt-p = 'workspace P'
 alt-q = 'workspace Q'
+alt-cmd-r = 'workspace R' # exception due to mac keybinding of option-r is trademark registered symbol; this was remapped in karabiner elements
 alt-s = 'workspace S'
 alt-t = 'workspace T'
 alt-u = 'workspace U'
@@ -240,7 +241,7 @@ run = "move-node-to-workspace E"
 
 [[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
-run = "move-node-to-workspace X"
+run = "move-node-to-workspace R"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome'
@@ -297,9 +298,9 @@ E = 1
 D = 1
 G = 1
 Q = 1
+R = 1
 S = 1
 W = 1
-X = 1
 B = 2
 C = 2
 F = 2
