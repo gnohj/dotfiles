@@ -496,6 +496,31 @@
                 },
                 "rules": [
                     {
+                        "description": "Disable Option+R outputting the trademark symbol to Option+Cmd+R",
+                        "manipulators": [
+                            {
+                                "from": {
+                                    "key_code": "r",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "left_option"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "r",
+                                        "modifiers": [
+                                            "left_option",
+                                            "left_command"
+                                        ]
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
                         "description": "Disable Cmd+Q Quit (rev 2)",
                         "manipulators": [
                             {
