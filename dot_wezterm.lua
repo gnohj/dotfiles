@@ -1,7 +1,5 @@
 local wezterm = require("wezterm")
 
-local act = wezterm.action
-
 local config = wezterm.config_builder()
 
 config.colors = {
@@ -64,6 +62,13 @@ config.keys = {
 
 config.font = wezterm.font("RobotoMono Nerd Font")
 config.font_size = 13.5
+
+config.window_padding = {
+	left = 2,
+	right = 2,
+	top = 4,
+	bottom = 0,
+}
 
 config.enable_tab_bar = false
 
