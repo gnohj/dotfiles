@@ -275,7 +275,7 @@ run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'com.whimsical.desktop'
-run = "move-node-to-workspace L"
+run = "move-node-to-workspace U"
 
 
 [[on-window-detected]]
@@ -297,6 +297,7 @@ run = "move-node-to-workspace Z"
 E = 1
 D = 1
 G = 1
+L = 1
 Q = 1
 R = 1
 S = 1
