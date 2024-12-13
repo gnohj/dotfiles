@@ -55,6 +55,11 @@ return {
 
     -- Ensure the LazyGit theme and config are applied
 
+    opts.input = {}
+    opts.gitbrowse = {}
+    opts.scroll = { enabled = false }
+    opts.indent = { enabled = false }
+
     return opts
   end,
 }
