@@ -57,8 +57,11 @@ return {
 
     opts.input = {}
     opts.gitbrowse = {}
+    opts.dim = {}
+    opts.notifier = {}
     opts.scroll = { enabled = false }
     opts.indent = { enabled = false }
+    opts.animate = { enabled = false }
 
     return opts
   end,
