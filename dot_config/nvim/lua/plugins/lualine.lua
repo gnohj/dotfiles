@@ -87,7 +87,8 @@ return {
           },
           {
             require("package-info").get_status,
-            color = Util.ui.fg("Statement"),
+            color = { fg = "#ff9e64" },
+            -- color = Snacks.util.color("Statement"),
           },
         },
         lualine_x = {
