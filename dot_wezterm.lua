@@ -73,7 +73,7 @@ config.window_padding = {
 config.enable_tab_bar = false
 
 config.window_decorations = "RESIZE"
-config.window_background_opacity = 0.875
+config.window_background_opacity = 0.905
 config.macos_window_background_blur = 2
 config.window_close_confirmation = "NeverPrompt"
 
