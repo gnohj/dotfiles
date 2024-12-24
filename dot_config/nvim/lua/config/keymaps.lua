@@ -98,3 +98,35 @@ keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc 
 
 -- reveal active file in neotree
 keymap("n", "<leader>fa", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
+
+keymap("n", "<leader><leader>v", function()
+  if next(require("diffview.lib").views) == nil then
+    vim.cmd("DiffviewOpen --imply-local")
+  else
+    vim.cmd("DiffviewClose")
+  end
+end)
+
+keymap("n", "<leader><leader>vm", function()
+  if next(require("diffview.lib").views) == nil then
+    vim.cmd("DiffviewOpen origin/master...HEAD --imply-local")
+  else
+    vim.cmd("DiffviewClose")
+  end
+end)
+
+keymap("n", "<leader><leader>vd", function()
+  if next(require("diffview.lib").views) == nil then
+    vim.cmd("DiffviewOpen origin/develop...HEAD --imply-local")
+  else
+    vim.cmd("DiffviewClose")
+  end
+end)
+
+keymap("n", "<leader><leader>vf", function()
+  if next(require("diffview.lib").views) == nil then
+    vim.cmd("DiffviewFileHistory %")
+  else
+    vim.cmd("DiffviewClose")
+  end
+end)

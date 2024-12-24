@@ -10,6 +10,7 @@
   pr-clean = "!git checkout master ; git for-each-ref refs/heads/pr/* --format=\"%(refname)\" | while read ref ; do branch=${ref#refs/heads/} ; git branch -D $branch ; done"
   [url "https://"]
   insteadOf = git://
+  dt = "! args=$@; shift $#; nvim -c \"DiffviewOpen $args\"" # diff view tool
 
 [pull]
 	ff = only
