@@ -21,6 +21,14 @@ local function unsaved_buffers()
   return unsaved and "⚠️ Unsaved Buffers" or "" -- Display warning icon if there are unsaved buffers
 end
 
+local function current_buffer_unsaved()
+  if vim.api.nvim_buf_get_option(0, "modified") then
+    return "" -- A red circle (use any symbol you prefer)
+  else
+    return "" -- No symbol if there are no unsaved changes
+  end
+end
+
 return {
   "nvim-lualine/lualine.nvim",
   opts = function(_, opts)
@@ -76,6 +84,7 @@ return {
         lualine_b = { "branch" },
         lualine_c = {
           { unsaved_buffers, color = { fg = "#FF0000" } }, -- Shows in red if there are unsaved buffers
+          { current_buffer_unsaved, color = { fg = "#FF0000" } }, -- Red circle for unsaved changes
           {
             "diagnostics",
             symbols = {

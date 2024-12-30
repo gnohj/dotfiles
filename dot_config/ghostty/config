@@ -1,32 +1,43 @@
+# color
 custom-shader = shaders/bloom025.glsl
 config-file = ghostty-theme
-command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
+background-opacity = 0.65
+background-blur-radius = 20
 
+# fonts
 font-family = "RobotoMono Nerd Font"
 font-size = 13
+
+# cursor
+shell-integration-features = no-cursor
 cursor-style = block
 cursor-style-blink = false
-background-opacity = 0.725
-background-blur-radius = 20
-shell-integration-features = no-cursor
+
+# quick terminal
+keybind = global:cmd+s=toggle_quick_terminal
+# keybind = cmd+s=toggle_quick_terminal
+quick-terminal-animation-duration = 0.08
+
+# tmux
+command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
+
+# window
 gtk-titlebar = false
-confirm-close-surface = false
+mouse-hide-while-typing = true
 macos-titlebar-style = hidden
 window-decoration = true
 window-padding-balance = true
 window-padding-x = 4,2
 window-padding-y = 6,0
-auto-update = check
-
-keybind = global:cmd+s=toggle_quick_terminal
-# keybind = cmd+s=toggle_quick_terminal
-quick-terminal-animation-duration = 0.08
-mouse-hide-while-typing = true
-
+macos-window-shadow = false
 macos-option-as-alt = right
 
+# keybinds
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
-
 # This doesn't work when in tmux, if outside tmux the regular ctrl+l works
 keybind = super+k=clear_screen
+
+# misc
+confirm-close-surface = false
+auto-update = check
