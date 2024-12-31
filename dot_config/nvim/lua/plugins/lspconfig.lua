@@ -10,6 +10,7 @@ return {
         enabled = false,
         exclude = {}, -- filetypes for which you don't want to enable inlay hints
       },
+      diagnostics = { virtual_text = false },
     },
   },
 }
