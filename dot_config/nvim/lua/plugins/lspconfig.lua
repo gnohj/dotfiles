@@ -14,6 +14,7 @@ return {
           enabled = false,
         },
         -- https://github.com/yioneko/vtsls
+        -- https://github.com/LazyVim/LazyVim/discussions/4430
         vtsls = {
           filetypes = {
             "javascript",
@@ -32,6 +33,7 @@ return {
               tsserver = {
                 maxTsServerMemory = 8192,
               },
+              disableAutomaticTypingAcquisition = true,
               inlayHints = {
                 enumMemberValues = true,
                 functionLikeReturnTypes = true,
