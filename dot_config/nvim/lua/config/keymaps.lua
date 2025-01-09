@@ -107,7 +107,7 @@ keymap("n", "<leader><leader>v", function()
   end
 end)
 
-keymap("n", "<leader><leader>vm", function()
+keymap("n", "<leader><leader>m", function()
   if next(require("diffview.lib").views) == nil then
     vim.cmd("DiffviewOpen origin/master...HEAD --imply-local")
   else
@@ -115,7 +115,7 @@ keymap("n", "<leader><leader>vm", function()
   end
 end)
 
-keymap("n", "<leader><leader>vd", function()
+keymap("n", "<leader><leader>d", function()
   if next(require("diffview.lib").views) == nil then
     vim.cmd("DiffviewOpen origin/develop...HEAD --imply-local")
   else
@@ -123,7 +123,7 @@ keymap("n", "<leader><leader>vd", function()
   end
 end)
 
-keymap("n", "<leader><leader>vf", function()
+keymap("n", "<leader><leader>f", function()
   if next(require("diffview.lib").views) == nil then
     vim.cmd("DiffviewFileHistory %")
   else
