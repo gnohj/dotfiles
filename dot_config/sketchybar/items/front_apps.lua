@@ -39,27 +39,41 @@ local function updateWindows(windows)
 		-- print("windowNAme", windowName);
 		local icon = settings.icons.apps[windowName] or settings.icons.apps["default"]
 		-- print("iconz", icon)
+		frontApps[windowName] = sbar.add("item", constants.items.FRONT_APPS .. "." .. windowName, {
+			label = {
+				padding_left = 0,
+				string = windowName,
+			},
+			icon = {
+				string = icon,
+				font = settings.fonts.icons(),
+			},
+			click_script = "aerospace focus --window-id " .. windowId,
+		})
 
-		-- Fetch workspace name and then add the frontApp item
-		sbar.exec(constants.aerospace.GET_CURRENT_WORKSPACE, function(workspaceName)
-			local labelString = windowName .. " | " .. workspaceName
-
-			frontApps[windowName] = sbar.add("item", constants.items.FRONT_APPS .. "." .. windowName, {
-				label = {
-					padding_left = 0,
-					string = labelString, -- Interpolating windowName and workspaceName
-				},
-				icon = {
-					string = icon,
-					font = settings.fonts.icons(),
-				},
-				click_script = "aerospace focus --window-id " .. windowId,
-			})
-
-			frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
-				selectFocusedWindow(env.INFO)
-			end)
+		frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
+			selectFocusedWindow(env.INFO)
 		end)
+		-- Fetch workspace name and then add the frontApp item
+		-- sbar.exec(constants.aerospace.GET_CURRENT_WORKSPACE, function(workspaceName)
+		-- 	local labelString = windowName .. " | " .. workspaceName
+		--
+		-- 	frontApps[windowName] = sbar.add("item", constants.items.FRONT_APPS .. "." .. windowName, {
+		-- 		label = {
+		-- 			padding_left = 0,
+		-- 			string = labelString, -- Interpolating windowName and workspaceName
+		-- 		},
+		-- 		icon = {
+		-- 			string = icon,
+		-- 			font = settings.fonts.icons(),
+		-- 		},
+		-- 		click_script = "aerospace focus --window-id " .. windowId,
+		-- 	})
+		--
+		-- 	frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
+		-- 		selectFocusedWindow(env.INFO)
+		-- 	end)
+		-- end)
 	end
 
 	sbar.exec(constants.aerospace.GET_CURRENT_WINDOW, function(frontAppName)
