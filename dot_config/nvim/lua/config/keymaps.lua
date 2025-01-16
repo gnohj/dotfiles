@@ -130,3 +130,10 @@ keymap("n", "<leader><leader>f", function()
     vim.cmd("DiffviewClose")
   end
 end)
+
+keymap(
+  "n",
+  "<leader>as",
+  ":lua require('copilot.suggestion').toggle_auto_trigger()<CR>",
+  { silent = true, noremap = true, desc = "Toggle Copilot Virtual Text Suggestions" }
+)

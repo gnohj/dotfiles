@@ -7,8 +7,8 @@ return {
   event = "InsertEnter",
   opts = {
     suggestion = {
-      -- change this back to true for virtual text and not blink-cmp suggestions
-      enabled = false,
+      -- change this back to false for adding suggestions through cmp
+      enabled = true,
       auto_trigger = true,
       keymap = {
         accept = "<S-z>",
