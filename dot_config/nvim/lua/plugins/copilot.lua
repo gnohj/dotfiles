@@ -7,12 +7,14 @@ return {
   event = "InsertEnter",
   opts = {
     suggestion = {
-      enabled = true,
+      -- change this back to true for virtual text and not blink-cmp suggestions
+      enabled = false,
       auto_trigger = true,
       keymap = {
         accept = "<S-z>",
       },
     },
     panel = { enabled = false },
+    filetypes = { markdown = true, help = true, yaml = true },
   },
 }
