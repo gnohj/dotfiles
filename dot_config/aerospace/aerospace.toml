@@ -10,9 +10,9 @@ after-login-command = []
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
 after-startup-command = [
-  'exec-and-forget sketchybar --reload',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
   # 'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xCFEBBF83 inactive_color=0x33434c5e width=4.0',
-  'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xFF03b1D3 inactive_color=0x33434c5e width=1.5',
+  'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xFF03b1D3 inactive_color=2x33434c5e width=3.5',
 ]
 
 # Start AeroSpace at login
@@ -21,7 +21,7 @@ start-at-login = true
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',
-  'sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+  '/opt/homebrew/bin/sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -54,7 +54,7 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 on-focus-changed = [
   'move-mouse window-lazy-center',
   'exec-and-forget /bin/bash -c /opt/homebrew/bin/sketchybar --trigger front_app_switched',
-  'exec-and-forget sketchybar --trigger update_windows',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --trigger update_windows',
 ]
 
 
@@ -196,20 +196,20 @@ alt-shift-semicolon = 'mode service'
 [mode.service.binding]
 esc = [
   'reload-config',
-  'exec-and-forget sketchybar --trigger hide_message',
-  'exec-and-forget sketchybar --reload',
+  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
+  'exec-and-forget opt/homebrew/bin/sketchybar --reload',
   'mode main',
 ]
 b = [
   'exec-and-forget ~/.config/aerospace/presentation.sh on',
-  'exec-and-forget sketchybar --bar height=0',
-  'exec-and-forget sketchybar --trigger hide_message',
+  'exec-and-forget opt/homebrew/bin/sketchybar --bar height=0',
+  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
   'mode main',
 ]
 shift-b = [
   'exec-and-forget ~/.config/aerospace/presentation.sh off',
-  'exec-and-forget sketchybar --bar height=36',
-  'exec-and-forget sketchybar --trigger hide_message',
+  'exec-and-forget opt/homebrew/bin/sketchybar --bar height=36',
+  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
   'mode main',
 ]
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
@@ -231,8 +231,9 @@ alt-shift-l = ['join-with right', 'mode main']
 if.app-id = 'com.mitchellh.ghostty'
 run = "move-node-to-workspace T"
 
-# if.app-id = 'com.github.wez.wezterm'
-# run = "move-node-to-workspace T"
+[[on-window-detected]]
+if.app-id = 'com.github.wez.wezterm'
+run = "move-node-to-workspace T"
 
 [[on-window-detected]]
 if.app-id = 'net.kovidgoyal.kitty'
@@ -240,11 +241,11 @@ run = "move-node-to-workspace T"
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
-run = "move-node-to-workspace E"
+run = "move-node-to-workspace W"
 
 [[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
-run = "move-node-to-workspace R"
+run = "move-node-to-workspace E"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome'
@@ -278,7 +279,7 @@ run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'com.whimsical.desktop'
-run = "move-node-to-workspace U"
+run = "move-node-to-workspace X"
 
 
 [[on-window-detected]]
@@ -302,8 +303,8 @@ D = 1
 G = 1
 L = 1
 Q = 1
-R = 1
 S = 1
+X = 1
 W = 1
 B = 2
 C = 2
