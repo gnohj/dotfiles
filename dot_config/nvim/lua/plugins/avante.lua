@@ -9,10 +9,11 @@ return {
   lazy = false,
   version = false, -- set this if you want to always pull the latest change
   opts = {
-    provider = "openai",
-    openai = {
-      model = "gpt-4o-mini",
-    },
+    -- provider = "openai",
+    -- openai = {
+    --   model = "gpt-4o-mini",
+    -- },
+    provider = "copilot",
   },
   build = "make",
   -- build = "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false" -- for windows
