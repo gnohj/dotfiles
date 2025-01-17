@@ -135,5 +135,5 @@ keymap(
   "n",
   "<leader>as",
   ":lua require('copilot.suggestion').toggle_auto_trigger()<CR>",
-  { silent = true, noremap = true, desc = "Toggle Copilot Virtual Text Suggestions" }
+  { silent = true, noremap = true, desc = "copilot: toggle virtual text suggestions" }
 )
