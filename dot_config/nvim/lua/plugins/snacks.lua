@@ -66,10 +66,13 @@ return {
 
     -- Ensure the LazyGit theme and config are applied
 
+    opts.bigfile = {}
+    opts.bufdelete = {}
     opts.input = {}
     opts.gitbrowse = {}
     opts.dim = {}
     opts.notifier = {}
+    opts.toggle = {}
     opts.scroll = { enabled = false }
     opts.indent = { enabled = false }
     opts.animate = { enabled = false }
