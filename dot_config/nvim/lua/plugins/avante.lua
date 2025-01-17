@@ -7,7 +7,7 @@ return {
   "yetone/avante.nvim",
   event = "VeryLazy",
   lazy = false,
-  version = false, -- set this if you want to always pull the latest change
+  version = false,
   opts = {
     -- provider = "openai",
     -- openai = {
@@ -15,8 +15,8 @@ return {
     -- },
     provider = "copilot",
   },
+  -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
   build = "make",
-  -- build = "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false" -- for windows
   dependencies = {
     "stevearc/dressing.nvim",
     "nvim-lua/plenary.nvim",
