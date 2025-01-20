@@ -1,0 +1,254 @@
+if [ -f "$HOME/.zsh_env" ]; then
+  source "$HOME/.zsh_env"
+fi
+
+# --------------------------------------------------------------------- Starship Prompt
+autoload -Uz compinit
+compinit
+
+radio_ctl_prompt=$(get_rc)
+if [[ $radio_ctl_prompt != 1 ]] then;
+  export RADIO_CTL=$(get_rc)
+fi
+
+if typeset -f update_rc >/dev/null 2>&1; then
+  update_rc
+fi
+
+getPNPM() {
+  pnpm_version_manifest=$(node -p -e "require('./package.json').packageManager" 2>/dev/null)
+  pnpm_version=$(pnpm --version 2>/dev/null)
+  if [[ $pnpm_version_manifest == *"pnpm@"* ]] && [[ -z "$(echo $pnpm_version | grep -o "Unsupported")" ]]; then
+    echo "[pnpm v$pnpm_version]"
+  else
+    echo 1
+  fi
+}
+pnpm_prompt=$(getPNPM)
+if [[ $pnpm_prompt != 1 ]] then;
+  export PNPM=$(getPNPM)
+fi
+
+# brew init starship - https://github.com/starship/starship/issues/3418
+if [[ "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select" || \
+      "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select-wrapped" ]]; then
+    zle -N zle-keymap-select "";
+fi
+
+eval "$(starship init zsh)"
+
+# brew activate autosuggestions
+source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# brew activate zsh-syntax-highlighting
+source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# https://github.com/3rd/image.nvim
+export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
+
+# Obisidian
+alias oo='cd $HOME/Obsidian/second-brain'
+# Obsidian review
+alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
+export PATH="$HOME/bin:$PATH"
+
+# Chezmoi
+alias cz='chezmoi'
+
+# NeoVim Shorcuts
+alias vi=nvim
+alias vim=nvim
+alias n=nvim
+export EDITOR=nvim
+
+# Kitty stuff
+change_kitty_transparency() {
+	sh ~/.config/kitty/change-profile.sh
+}
+
+toggle_kitty_transparency() {
+	sh ~/.config/kitty/toggle-transparency.sh
+}
+
+kitty-reload() {
+    kill -SIGUSR1 $(pidof kitty)
+}
+
+# Git Shorcuts
+alias g="git"
+alias cob="gcbz"
+alias co="gco"
+alias gst="git status"
+alias gamend="g commit --amend --date=now --no-edit"
+alias gpom="g pull origin master"
+alias gcom="g checkout master"
+alias gpod="g pull origin develop"
+alias gcod="g checkout develop"
+alias lg="lazygit"
+
+# reload zshell
+alias reload="source ~/.zshrc"
+
+# speedtest
+alias speed="speedtest"
+
+# Load NeoFetch
+neofetch
+
+# pnpm
+alias pn="pnpm"
+
+# history command - default only shows last 15 entries.. passeing 1 arg shows all entries
+alias history='history 1'
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=500000
+SAVEHIST=500000
+setopt appendhistory
+setopt INC_APPEND_HISTORY  
+setopt SHARE_HISTORY
+
+# Yarn clean
+alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
+
+# Disable Console Do Not Track (specification)
+export DO_NOT_TRACK=1
+
+
+# NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completionsource /Users/jameshong/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+reload_prompt() {
+    nvm use
+    corepack enable
+    reload
+}
+
+# Needs 'jq' installed
+jq -r .version package.json 2>/dev/null
+if [ $? -eq 0 ]
+then
+  nvm use
+fi
+
+# Fastly CLI Auto Completion
+eval "$(fastly --completion-script-zsh)"
+
+export FORCE_COLOR=1
+
+# zoxide "inspired by z/jump-around"
+eval "$(zoxide init zsh)"
+
+# The following lines were added by compinstall
+bindkey '^I' expand-or-complete-prefix
+zstyle ':completion:*' completer _complete _prefix
+set -o completeinword
+
+# End of lines added by compinstall
+
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /opt/homebrew/bin/terraform terraform
+
+# pnpm
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# direnv
+eval "$(direnv hook $SHELL)"
+
+# eza for modern ls view
+alias ls="eza --icons=always --long --all"
+
+# tmux
+alias tmux-list="tmux list-sessions"
+alias tmux-inferno="tmux switch -t inferno"
+alias tmux-web="tmux switch -t web"
+
+# restore tmux session
+alias tmux-save="tmux run-shell ~/.tmux/plugins/tmux-resurrect/scripts/save.sh"
+alias tmux-restore="tmux run-shell ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+
+# thefuck
+eval $(thefuck --alias)
+eval $(thefuck --alias fk)
+eval $(thefuck --alias fck)
+
+# bat
+alias cat="bat"
+export BAT_THEME=tokyonight_night
+
+# https://github.com/jeffreytse/zsh-vi-mode
+  if [ -f "$(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh" ]; then
+    source $(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+    ZVM_VI_ESCAPE_BINDKEY=kj
+    ZVM_VI_INSERT_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+    ZVM_VI_VISUAL_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+    ZVM_VI_OPPEND_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+
+    function tmux_left_pane() {
+      export TMUX_PANE_DIRECTION="right"
+      if [[ $TMUX_PANE_DIRECTION == "right" ]]; then
+        tmux select-pane -L # Move to the left (opposite of right)
+      elif [[ $TMUX_PANE_DIRECTION == "bottom" ]]; then
+        tmux select-pane -U # Move to the top (opposite of bottom)
+      fi
+      tmux resize-pane -Z
+    }
+
+    zvm_define_widget tmux_left_pane
+
+    function zvm_after_lazy_keybindings() {
+      zvm_bindkey vicmd 'gh' beginning-of-line
+      zvm_bindkey vicmd 'gl' end-of-line
+      zvm_bindkey vicmd '^[f' tmux_left_pane
+      zvm_bindkey viins '^[f' tmux_left_pane
+    }
+
+    function zvm_before_init_commands() {
+      zvm_bindkey viins '^[[A' history-beginning-search-backward
+      zvm_bindkey viins '^[[B' history-beginning-search-forward
+      zvm_bindkey vicmd '^[[A' history-beginning-search-backward
+      zvm_bindkey vicmd '^[[B' history-beginning-search-forward
+    }
+
+    ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+    ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+    ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
+
+    # Source .fzf.zsh so that the ctrl+r bindkey is given back fzf
+    zvm_after_init_commands+=('[ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh')
+  fi
+
+
+if [ -f ~/.fzf.zsh ]; then
+  source ~/.fzf.zsh
+else
+  if [ "$install_this_package" != "no" ]; then
+    echo
+    echo "Installing fzf, please wait..."
+    mkdir -p $HOME/github
+    cd $HOME/github
+    git clone --depth 1 https://github.com/junegunn/fzf.git 2>&1 >/dev/null
+    if [ ! -d "$HOME/github/fzf" ]; then
+      echo -e "${boldRed}Warning: Failed to clone the fzf repository. Check this manually.${noColor}"
+    else
+      echo "Successfully cloned the fzf repository."
+      echo -e "y\ny\nn" | $HOME/github/fzf/install 2>&1 >/dev/null
+      source ~/.fzf.zsh
+      echo "Successfully installed fzf"
+    fi
+  fi
+fi
+
+# https://github.com/zsh-users/zsh-history-substring-search - place this after fzf
+source $HOMEBREW_PREFIX/share/zsh-history-substring-search/zsh-history-substring-search.zsh
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+  
+
