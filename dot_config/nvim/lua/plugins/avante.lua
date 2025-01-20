@@ -16,7 +16,7 @@ return {
     provider = "copilot",
   },
   -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
-  build = "make",
+  build = "make BUILD_FROM_SOURCE=true",
   dependencies = {
     "stevearc/dressing.nvim",
     "nvim-lua/plenary.nvim",
