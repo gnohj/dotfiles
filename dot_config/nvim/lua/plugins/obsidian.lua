@@ -49,9 +49,6 @@ vim.keymap.set("n", "<leader>oz", ':Telescope live_grep search_dirs={"/Users/gno
 vim.keymap.set("n", "<leader>ok", ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>")
 -- delete file in current buffer
 vim.keymap.set("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>")
--- strip date from note title and replace dashes with spaces
--- must have cursor on title
-vim.keymap.set("n", "<leader>of", ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>")
 
 return {
   {

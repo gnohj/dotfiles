@@ -5,6 +5,8 @@
 -- local keymap = vim.keymap.set
 local opt = vim.opt
 
+vim.opt.textwidth = 80
+
 vim.o.swapfile = false
 
 -- This allows telelescope to always look at the cwd of the project versus the root_dir of a buffer (which can change based on whatever buffer is open)
