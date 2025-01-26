@@ -6,22 +6,14 @@ return {
   "MeanderingProgrammer/render-markdown.nvim",
   enabled = true,
   opts = function()
-    -- Define color variables
-    local color1_bg = "#f265b5"
-    local color2_bg = "#37f499"
-    local color3_bg = "#04d1f9"
-    local color4_bg = "#a48cf2"
-    local color5_bg = "#f1fc79"
-    local color6_bg = "#f7c67f"
-    local color_fg = "#323449"
-
     -- Heading colors (when not hovered over), extends through the entire line
-    vim.cmd(string.format([[highlight Headline1Bg guifg=%s guibg=%s]], color_fg, color1_bg))
-    vim.cmd(string.format([[highlight Headline2Bg guifg=%s guibg=%s]], color_fg, color2_bg))
-    vim.cmd(string.format([[highlight Headline3Bg guifg=%s guibg=%s]], color_fg, color3_bg))
-    vim.cmd(string.format([[highlight Headline4Bg guifg=%s guibg=%s]], color_fg, color4_bg))
-    vim.cmd(string.format([[highlight Headline5Bg guifg=%s guibg=%s]], color_fg, color5_bg))
-    vim.cmd(string.format([[highlight Headline6Bg guifg=%s guibg=%s]], color_fg, color6_bg))
+    vim.cmd(string.format([[highlight Headline1Bg guifg=%s guibg=%s]], "#f38ba8", "#4d3649"))
+    vim.cmd(string.format([[highlight Headline2Bg guifg=%s guibg=%s]], "#f9b387", "#4d3d43"))
+    vim.cmd(string.format([[highlight Headline3Bg guifg=%s guibg=%s]], "#f9e2af", "#4c474b"))
+    vim.cmd(string.format([[highlight Headline4Bg guifg=%s guibg=%s]], "#a6e3a1", "#3c4948"))
+    vim.cmd(string.format([[highlight Headline5Bg guifg=%s guibg=%s]], "#74c7ec", "#314358"))
+    vim.cmd(string.format([[highlight Headline6Bg guifg=%s guibg=%s]], "#b4befe", "#3c405b"))
+    vim.cmd(string.format([[highlight Headline7Bg guifg=%s guibg=%s]], "#cba6f7", "#403b5a"))
 
     return {
       bullet = {
