@@ -4,6 +4,8 @@
 
 local keymap = vim.keymap.set
 local opts = { noremap = true, silent = true }
+local harpoon = require("harpoon")
+harpoon:setup()
 
 keymap("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
 
@@ -53,7 +55,7 @@ end, { desc = "[P]Open telescope buffers" })
 vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
 
 -- pounce
-keymap("n", "<leader>h", function()
+keymap("n", "<leader>hp", function()
   require("pounce").pounce({})
 end, { desc = "Pounce" })
 
@@ -207,3 +209,31 @@ end, { desc = "[P]Terminal on tmux pane" })
 -- vim.keymap.set({ "n", "v", "i" }, "<M-o", function()
 --   tmux_pane_function("/Users/gnohj/Obsidian/second-brain")
 -- end, { desc = "[P]Terminal Notes on tmux pane" })
+
+vim.keymap.set("n", "<leader>ha", function()
+  harpoon:list():add()
+end)
+vim.keymap.set("n", "<C-e>", function()
+  harpoon.ui:toggle_quick_menu(harpoon:list())
+end)
+
+vim.keymap.set("n", "<leader>hs", function()
+  harpoon:list():select(1)
+end)
+vim.keymap.set("n", "<leader>hd", function()
+  harpoon:list():select(2)
+end)
+vim.keymap.set("n", "<leader>hf", function()
+  harpoon:list():select(3)
+end)
+vim.keymap.set("n", "<leader>hg", function()
+  harpoon:list():select(4)
+end)
+
+-- Toggle previous & next buffers stored within Harpoon list
+vim.keymap.set("n", "<C-P>", function()
+  harpoon:list():prev()
+end)
+vim.keymap.set("n", "<C-N>", function()
+  harpoon:list():next()
+end)
