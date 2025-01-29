@@ -237,3 +237,7 @@ end)
 vim.keymap.set("n", "<C-N>", function()
   harpoon:list():next()
 end)
+
+-- Navigate buffers
+keymap("n", "<Tab>", ":bnext<CR>", opts) -- Switch to the next buffer
+keymap("n", "<S-Tab>", ":bprev<CR>", opts) -- Switch to the previous buffer
