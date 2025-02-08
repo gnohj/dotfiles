@@ -18,3 +18,21 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.opt_local.wrap = true
   end,
 })
+
+-- Fold keymaps in markdown files
+vim.api.nvim_create_autocmd("BufRead", {
+  pattern = "*.md",
+  callback = function()
+    -- Avoid running zk multiple times for the same buffer
+    if vim.b.zk_executed then
+      return
+    end
+    vim.b.zk_executed = true -- Mark as executed
+    -- Use `vim.defer_fn` to add a slight delay before executing `zk`
+    vim.defer_fn(function()
+      vim.cmd("normal zk")
+      vim.cmd("silent write")
+      vim.notify("Folded keymaps", vim.log.levels.INFO)
+    end, 100) -- Delay in milliseconds (100ms should be enough)
+  end,
+})
