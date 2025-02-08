@@ -234,7 +234,7 @@ end)
 vim.keymap.set("n", "<C-P>", function()
   harpoon:list():prev()
 end)
-vim.keymap.set("n", "<C-N>", function()
+vim.keymap.set("n", "<C-O>", function()
   harpoon:list():next()
 end)
 
