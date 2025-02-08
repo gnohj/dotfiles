@@ -67,7 +67,7 @@ else
           -- "netrwPlugin",
           "tarPlugin",
           "tohtml",
-          "tutor",
+          -- "tutor",
           "zipPlugin",
         },
       },

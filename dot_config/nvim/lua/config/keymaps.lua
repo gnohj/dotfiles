@@ -99,7 +99,7 @@ end
 keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
 
 -- reveal active file in neotree
-keymap("n", "<leader>fa", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
+-- keymap("n", "<leader>fa", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
 
 keymap("n", "<leader><leader>v", function()
   if next(require("diffview.lib").views) == nil then
