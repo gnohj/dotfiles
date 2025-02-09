@@ -25,7 +25,7 @@ local prompts = {
 return {
   "CopilotC-Nvim/CopilotChat.nvim",
   dependencies = {
-    { "nvim-telescope/telescope.nvim" }, -- Use telescope for help actions
+    { "folke/snacks.nvim" },
     { "nvim-lua/plenary.nvim" },
   },
   event = "VeryLazy",
@@ -139,27 +139,27 @@ return {
     })
   end,
   keys = {
-    -- Show prompts actions with telescope
+    -- Show prompts actions with snacks picker
     {
       "<leader>zp",
       function()
         local actions = require("CopilotChat.actions")
-        require("CopilotChat.integrations.telescope").pick(actions.prompt_actions())
+        require("CopilotChat.integrations.snacks").pick(actions.prompt_actions())
       end,
       desc = "CopilotChat - Prompt actions",
     },
-    -- Show prompts actions with telescope
+    -- Show prompts actions with snacks picker
     {
       "<leader>zh",
       function()
         local actions = require("CopilotChat.actions")
-        require("CopilotChat.integrations.telescope").pick(actions.help_actions())
+        require("CopilotChat.integrations.snacks").pick(actions.help_actions())
       end,
       desc = "CopilotChat - Help actions",
     },
     {
       "<leader>zp",
-      ":lua require('CopilotChat.integrations.telescope').pick(require('CopilotChat.actions').prompt_actions({selection = require('CopilotChat.select').visual}))<CR>",
+      ":lua require('CopilotChat.integrations.snacks').pick(require('CopilotChat.actions').prompt_actions({selection = require('CopilotChat.select').visual}))<CR>",
       mode = "x",
       desc = "CopilotChat - Prompt actions",
     },
