@@ -13,7 +13,15 @@ return {
     -- openai = {
     --   model = "gpt-4o-mini",
     -- },
-    provider = "copilot",
+    -- provider = "copilot",
+    provider = "claude",
+    claude = {
+      endpoint = "https://api.anthropic.com",
+      model = "claude-3-5-sonnet-20241022",
+      temperature = 0,
+      max_tokens = 4096,
+    },
+    hints = { enabled = false },
   },
   -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
   build = "make BUILD_FROM_SOURCE=true",
