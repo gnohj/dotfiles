@@ -6,7 +6,7 @@ end
 return {
   "yetone/avante.nvim",
   event = "VeryLazy",
-  lazy = false,
+  lazy = true,
   version = false,
   opts = {
     -- provider = "openai",
