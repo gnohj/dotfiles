@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 -- Custom component to display buffer count
 local function buffer_count()
   local buffers = vim.fn.getbufinfo({ buflisted = 1 }) -- Only count listed buffers
