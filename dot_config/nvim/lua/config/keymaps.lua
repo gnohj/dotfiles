@@ -31,21 +31,22 @@ keymap("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
 keymap("n", "<leader>+", "<C-a>", { desc = "Increment number" })
 keymap("n", "<leader>=", "<C-x>", { desc = "Decrement number" })
 
--- keymap("n", "<S-h>", function()
---   require("telescope.builtin").buffers(require("telescope.themes").get_ivy({
---     sort_mru = true,
---     sort_lastused = true,
---     initial_mode = "normal",
---     -- Pre-select the current buffer
---     -- ignore_current_buffer = false,
---     -- select_current = true,
---     layout_config = {
---       -- Set preview width, 0.7 sets it to 70% of the window width
---       preview_width = 0.7,
---       height = 0.7,
---     },
---   }))
--- end, { desc = "[P]Open telescope buffers" })
+-- Navigate buffers
+keymap("n", "<Tab>", ":bnext<CR>", opts) -- Switch to the next buffer
+keymap("n", "<S-Tab>", ":bprev<CR>", opts) -- Switch to the previous buffer
+
+keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "Alternate buffer" })
+
+local function insertFullPath()
+  local full_path = vim.fn.expand("%:p") -- Get the full file path
+  vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
+end
+
+keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
+
+-------------------------------------------------------------------------------
+--                           Quickscope
+-------------------------------------------------------------------------------
 
 -- Quickscope --
 -- vim.cmd([[
@@ -54,10 +55,17 @@ keymap("n", "<leader>=", "<C-x>", { desc = "Decrement number" })
 -- ]])
 vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
 
--- pounce
+-------------------------------------------------------------------------------
+--                           Pounce
+-------------------------------------------------------------------------------
+
 keymap("n", "<leader>hp", function()
   require("pounce").pounce({})
 end, { desc = "Pounce" })
+
+-------------------------------------------------------------------------------
+--                           Package Info
+-------------------------------------------------------------------------------
 
 -- package-info keymaps
 keymap(
@@ -91,15 +99,9 @@ keymap(
   { silent = true, noremap = true, desc = "Change package version" }
 )
 
-local function insertFullPath()
-  local full_path = vim.fn.expand("%:p") -- Get the full file path
-  vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
-end
-
-keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
-
--- reveal active file in neotree
--- keymap("n", "<leader>fa", ":Neotree reveal<CR>", { desc = "Reveal active file in neotree" })
+-------------------------------------------------------------------------------
+--                           DiffView
+-------------------------------------------------------------------------------
 
 keymap("n", "<leader><leader>v", function()
   if next(require("diffview.lib").views) == nil then
@@ -133,6 +135,10 @@ keymap("n", "<leader><leader>f", function()
   end
 end)
 
+-------------------------------------------------------------------------------
+--                           Toggle Copilot Virtual Text
+-------------------------------------------------------------------------------
+
 keymap(
   "n",
   "<leader>as",
@@ -140,6 +146,9 @@ keymap(
   { silent = true, noremap = true, desc = "copilot: toggle virtual text suggestions" }
 )
 
+-------------------------------------------------------------------------------
+--                           TMUX New Pane Peek
+-------------------------------------------------------------------------------
 local function tmux_pane_function(dir)
   -- NOTE: variable that controls the auto-cd behavior
   local auto_cd_to_new_dir = true
@@ -201,7 +210,7 @@ local function tmux_pane_function(dir)
 end
 
 -- If I execute the function without an argument, it will open the dir where the current file lives
-vim.keymap.set({ "n", "v", "i" }, "<M-f>", function()
+keymap({ "n", "v", "i" }, "<M-f>", function()
   tmux_pane_function("/Users/gnohj/Obsidian/second-brain")
 end, { desc = "[P]Terminal on tmux pane" })
 
@@ -210,39 +219,24 @@ end, { desc = "[P]Terminal on tmux pane" })
 --   tmux_pane_function("/Users/gnohj/Obsidian/second-brain")
 -- end, { desc = "[P]Terminal Notes on tmux pane" })
 
-vim.keymap.set("n", "<leader>ha", function()
+-------------------------------------------------------------------------------
+--                           Harpoon
+-------------------------------------------------------------------------------
+keymap("n", "<leader>ha", function()
   harpoon:list():add()
-end)
-vim.keymap.set("n", "<C-e>", function()
-  harpoon.ui:toggle_quick_menu(harpoon:list())
-end)
+end, { desc = "Add file to Harpoon" })
 
-vim.keymap.set("n", "<leader>hs", function()
-  harpoon:list():select(1)
-end)
-vim.keymap.set("n", "<leader>hd", function()
-  harpoon:list():select(2)
-end)
-vim.keymap.set("n", "<leader>hf", function()
-  harpoon:list():select(3)
-end)
-vim.keymap.set("n", "<leader>hg", function()
-  harpoon:list():select(4)
-end)
+keymap("n", "<C-e>", function()
+  harpoon.ui:toggle_quick_menu(harpoon:list())
+end, { desc = "Toggle Harpoon menu" })
 
 -- Toggle previous & next buffers stored within Harpoon list
-vim.keymap.set("n", "<C-P>", function()
+keymap("n", "<C-P>", function()
   harpoon:list():prev()
 end)
-vim.keymap.set("n", "<C-O>", function()
+keymap("n", "<C-O>", function()
   harpoon:list():next()
 end)
-
--- Navigate buffers
-keymap("n", "<Tab>", ":bnext<CR>", opts) -- Switch to the next buffer
-keymap("n", "<S-Tab>", ":bprev<CR>", opts) -- Switch to the previous buffer
-
-keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "Alternate buffer" })
 
 -------------------------------------------------------------------------------
 --                           Folding section
@@ -253,7 +247,7 @@ keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "Alternate buffer" })
 --
 -- Use <CR> to fold when in normal mode
 -- To see help about folds use `:help fold`
-vim.keymap.set("n", "<CR>", function()
+keymap("n", "<CR>", function()
   -- Get the current line number
   local line = vim.fn.line(".")
   -- Get the fold level of the current line
@@ -316,13 +310,11 @@ local function fold_markdown_headings(levels)
   vim.fn.winrestview(saved_view)
 end
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- Keymap for unfolding markdown headings of level 2 or above
 -- Changed all the markdown folding and unfolding keymaps from <leader>mfj to
 -- zj, zk, zl, z; and zu respectively lamw25wmal
-vim.keymap.set("n", "zu", function()
+keymap("n", "zu", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- vim.keymap.set("n", "<leader>mfu", function()
@@ -332,12 +324,10 @@ vim.keymap.set("n", "zu", function()
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Unfold all headings level 2 or above" })
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- gk jummps to the markdown heading above and then folds it
 -- zi by default toggles folding, but I don't need it lamw25wmal
-vim.keymap.set("n", "zi", function()
+keymap("n", "zi", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- Difference between normal and normal!
@@ -349,11 +339,9 @@ vim.keymap.set("n", "zi", function()
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold the heading cursor currently on" })
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- Keymap for folding markdown headings of level 1 or above
-vim.keymap.set("n", "zj", function()
+keymap("n", "zj", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- vim.keymap.set("n", "<leader>mfj", function()
@@ -365,12 +353,10 @@ vim.keymap.set("n", "zj", function()
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 1 or above" })
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- Keymap for folding markdown headings of level 2 or above
 -- I know, it reads like "madafaka" but "k" for me means "2"
-vim.keymap.set("n", "zk", function()
+keymap("n", "zk", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- vim.keymap.set("n", "<leader>mfk", function()
@@ -382,11 +368,9 @@ vim.keymap.set("n", "zk", function()
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 2 or above" })
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- Keymap for folding markdown headings of level 3 or above
-vim.keymap.set("n", "zl", function()
+keymap("n", "zl", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- vim.keymap.set("n", "<leader>mfl", function()
@@ -398,11 +382,9 @@ vim.keymap.set("n", "zl", function()
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 3 or above" })
 
--- HACK: Fold markdown headings in Neovim with a keymap
--- https://youtu.be/EYczZLNEnIY
 --
 -- Keymap for folding markdown headings of level 4 or above
-vim.keymap.set("n", "z;", function()
+keymap("n", "z;", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
   -- vim.keymap.set("n", "<leader>mf;", function()
@@ -413,7 +395,3 @@ vim.keymap.set("n", "z;", function()
   fold_markdown_headings({ 6, 5, 4 })
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 4 or above" })
-
--------------------------------------------------------------------------------
---                         End Folding section
--------------------------------------------------------------------------------

@@ -54,7 +54,7 @@ return {
   },
   opts = {
     picker = {
-      formatters = { file = { filename_first = true, truncuate = 100 } },
+      formatters = { file = { filename_first = true, truncuate = 500 } },
       transform = function(item)
         if not item.file then
           return item
