@@ -54,7 +54,7 @@ return {
   },
   opts = {
     picker = {
-      formatters = { file = { filename_first = true, truncuate = 500 } },
+      formatters = { file = { filename_first = true, truncuate = 100 } },
       transform = function(item)
         if not item.file then
           return item
@@ -155,6 +155,29 @@ return {
 ]],
       },
     },
+    -- This keeps the image on the top right corner, basically leaving your
+    -- text area free, suggestion found in reddit by user `Redox_ahmii`
+    -- https://www.reddit.com/r/neovim/comments/1irk9mg/comment/mdfvk8b/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
+    styles = {
+      snacks_image = {
+        relative = "editor",
+        col = -1,
+      },
+    },
+    image = {
+      enabled = true,
+      doc = {
+        inline = false,
+        float = true,
+        max_width = 60,
+        max_height = 30,
+      },
+    },
+    -- Configure notifier
+    notifier = {
+      enabled = true,
+      top_down = false,
+    },
 
     -- Configure LazyGit
     lazygit = {
@@ -191,7 +214,6 @@ return {
     input = {},
     gitbrowse = {},
     dim = {},
-    notifier = {},
     toggle = {},
     scroll = { enabled = false },
     indent = { enabled = false },
