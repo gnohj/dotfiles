@@ -15,7 +15,11 @@ return {
   {
     "saghen/blink.cmp",
     enabled = true,
-    dependencies = { "moyiz/blink-emoji.nvim", "giuxtaposition/blink-cmp-copilot" },
+    dependencies = {
+      "moyiz/blink-emoji.nvim",
+      "giuxtaposition/blink-cmp-copilot",
+      "Kaiser-Yang/blink-cmp-avante",
+    },
     opts = function(_, opts)
       opts.enabled = function()
         -- Get the current buffer's filetype
@@ -31,6 +35,7 @@ return {
       -- NOTE: by default lazyvim already includes the lazydev source, so not adding it here again
       opts.sources = vim.tbl_deep_extend("force", opts.sources or {}, {
         default = {
+          "avante",
           "lsp",
           "path",
           "snippets",
@@ -60,6 +65,14 @@ return {
           --   score_offset = 1000, -- show at a higher priority than lsp
           --   opts = {},
           -- },
+          avante = {
+            module = "blink-cmp-avante",
+            name = "Avante",
+            opts = {
+              -- options for blink-cmp-avante
+            },
+          },
+
           lsp = {
             name = "lsp",
             enabled = true,

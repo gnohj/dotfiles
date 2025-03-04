@@ -420,3 +420,5 @@ vim.keymap.set("n", "<leader>aA", function()
     end
   end
 end, { desc = "Add All Buffer Files To Aider" })
+
+vim.opt.completeopt = { "menuone", "popup", "noinsert" }
