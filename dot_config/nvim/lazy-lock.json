@@ -1,5 +1,5 @@
 {
-  "CopilotChat.nvim": { "branch": "main", "commit": "bdddfebb057aca1d91a9f7f8331fa3cbd82d30d5" },
+  "CopilotChat.nvim": { "branch": "main", "commit": "908b53d0ac99e47b384f772f28a76949537676e8" },
   "LazyVim": { "branch": "main", "commit": "3f034d0a7f58031123300309f2efd3bb0356ee21" },
   "SchemaStore.nvim": { "branch": "main", "commit": "171c54b58076c7454c40da4dfba1aab21171c143" },
   "avante.nvim": { "branch": "main", "commit": "e408b820c86b1de657c420e2a6825457bfca9550" },
