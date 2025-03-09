@@ -54,7 +54,7 @@ return {
   },
   opts = {
     picker = {
-      formatters = { file = { filename_first = true, truncuate = 100 } },
+      formatters = { file = { filename_first = true, truncuate = 80 } },
       transform = function(item)
         if not item.file then
           return item
@@ -65,7 +65,7 @@ return {
         return item
       end,
       debug = {
-        scores = true, -- show scores in the list
+        scores = false,
       },
       layout = {
         preset = "ivy",
