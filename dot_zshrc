@@ -93,8 +93,8 @@ alias reload="source ~/.zshrc"
 # speedtest
 alias speed="speedtest"
 
-# Load NeoFetch
-neofetch
+# Load Fastfetch
+fastfetch
 
 # pnpm
 alias pn="pnpm"
