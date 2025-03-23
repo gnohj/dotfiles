@@ -56,10 +56,11 @@ export PATH="$HOME/bin:$PATH"
 alias cz='chezmoi'
 
 # NeoVim Shorcuts
+ESLINT_USE_FLAT_CONFIG=false
 alias vi=nvim
 alias vim=nvim
-alias n=nvim
-export EDITOR=nvim
+alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
+export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
 
 # Kitty stuff
 change_kitty_transparency() {
@@ -252,3 +253,5 @@ export NVM_DIR="$HOME/.nvm"
 
 # Aider
 export AIDER_SUBTREE_ONLY=1
+
+. "$HOME/.local/bin/env"
