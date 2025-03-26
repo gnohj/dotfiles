@@ -32,7 +32,7 @@ return {
   opts = function(_, opts)
     -- Initialize options
     opts = opts or {}
-    opts.model = "gpt-4o"
+    opts.model = "gpt-4o-2024-11-20"
 
     -- Format username
     local user = (vim.env.USER or "User"):gsub("^%l", string.upper)
@@ -40,6 +40,8 @@ return {
     -- opts.answer_header = "## Copilot "
     -- opts.error_header = "## Error "
     opts.prompts = prompts
+
+    opts.sticky = "#buffer"
 
     opts.mappings = {
       -- Use tab for completion
