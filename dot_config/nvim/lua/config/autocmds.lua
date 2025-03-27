@@ -23,17 +23,43 @@ vim.api.nvim_create_autocmd("FileType", {
 vim.api.nvim_create_autocmd("BufRead", {
   pattern = "*.md",
   callback = function()
+    -- Get the current buffer and its name
+    local bufnr = vim.api.nvim_get_current_buf()
+    local bufname = vim.api.nvim_buf_get_name(bufnr)
+
+    -- Skip completely if we're in diffview
+    if bufname:match("^diffview://") then
+      return
+    end
+
+    -- Skip if the filetype is related to diffview
+    local filetype = vim.bo.filetype
+    if filetype:match("^diffview") then
+      return
+    end
+
     -- Avoid running zk multiple times for the same buffer
     if vim.b.zk_executed then
       return
     end
+
     vim.b.zk_executed = true -- Mark as executed
+
     -- Use `vim.defer_fn` to add a slight delay before executing `zk`
     vim.defer_fn(function()
-      vim.cmd("normal zk")
-      vim.cmd("silent write")
-      vim.notify("Folded keymaps", vim.log.levels.INFO)
-    end, 100) -- Delay in milliseconds (100ms should be enough)
+      -- Double-check we're still in the same buffer and it's valid
+      if vim.api.nvim_get_current_buf() == bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+        vim.cmd("normal zk")
+
+        -- Only try to write if it's a normal buffer
+        if vim.bo.buftype == "" then
+          pcall(function()
+            vim.cmd("silent write")
+          end)
+          vim.notify("Folded keymaps", vim.log.levels.INFO)
+        end
+      end
+    end, 100)
   end,
 })
 
