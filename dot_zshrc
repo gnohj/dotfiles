@@ -255,3 +255,10 @@ export NVM_DIR="$HOME/.nvm"
 export AIDER_SUBTREE_ONLY=1
 
 . "$HOME/.local/bin/env"
+
+# bun completions
+[ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
