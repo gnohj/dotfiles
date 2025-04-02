@@ -54,6 +54,9 @@ return {
   },
   opts = {
     picker = {
+      sources = {
+        files = { hidden = true },
+      },
       formatters = { file = { filename_first = true, truncuate = 80 } },
       transform = function(item)
         if not item.file then
