@@ -1,7 +1,6 @@
 if vim.g.vscode then
   return {}
 end
-
 local mini_files_km = require("config.modules.mini-files-km")
 
 return {
@@ -53,6 +52,7 @@ return {
       use_as_default_explorer = true,
       -- If set to false, files are moved to the trash directory
       -- To get this dir run :echo stdpath('data')
+      -- ~/.local/share/neobean/mini.files/trash
       permanent_delete = false,
     })
     return opts
