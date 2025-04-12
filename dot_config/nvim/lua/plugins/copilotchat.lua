@@ -32,7 +32,7 @@ return {
   opts = function(_, opts)
     -- Initialize options
     opts = opts or {}
-    opts.model = "gpt-4o-2024-11-20"
+    -- opts.model = "gpt-4o-2024-11-20"
 
     -- Format username
     local user = (vim.env.USER or "User"):gsub("^%l", string.upper)

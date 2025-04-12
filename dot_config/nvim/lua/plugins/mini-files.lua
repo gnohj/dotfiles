@@ -1,6 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
 local mini_files_km = require("config.modules.mini-files-km")
 
 return {
@@ -36,8 +33,8 @@ return {
       paste_from_clipboard = "<space>p",
       copy_path = "<M-c>",
       -- Don't use "i" as it conflicts wit insert mode
-      preview_image = "<space>i",
-      preview_image_popup = "<M-i>",
+      -- preview_image = "<space>i",
+      -- preview_image_popup = "<M-i>",
     }
 
     opts.windows = vim.tbl_deep_extend("force", opts.windows or {}, {
