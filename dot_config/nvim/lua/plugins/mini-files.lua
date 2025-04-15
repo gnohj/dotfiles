@@ -91,7 +91,7 @@ return {
     -- Set up mini.files
     require("mini.files").setup(opts)
     -- Load custom keymaps
-    mini_files_km.setup(opts)
+    -- mini_files_km.setup(opts)
 
     -- -- Load Git integration
     -- -- git config is slowing mini.files too much, so disabling it
