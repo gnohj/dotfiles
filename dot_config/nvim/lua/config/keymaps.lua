@@ -44,6 +44,18 @@ end
 
 keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
 
+-- LazyVim doesn't run eslint for nvim versions > 0.10.0 - https://github.com/LazyVim/LazyVim/issues/5861
+vim.keymap.set("n", "<leader>cf", function()
+  -- Run the normal formatter first
+  vim.lsp.buf.format()
+
+  -- Then run EslintFixAll if ESLint is attached
+  local eslint_client = LazyVim.lsp.get_clients({ name = "eslint", bufnr = 0 })[1]
+  if eslint_client then
+    vim.cmd("EslintFixAll")
+  end
+end, { desc = "Format and fix ESLint issues" })
+
 -------------------------------------------------------------------------------
 --                           Grugfar
 -------------------------------------------------------------------------------
