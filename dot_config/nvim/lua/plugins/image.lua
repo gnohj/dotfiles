@@ -5,6 +5,7 @@ end
 return {
   {
     "3rd/image.nvim",
+    enabled = false,
     priority = 1002,
     ft = { "markdown", "quarto", "vimwiki" },
     dependencies = {
@@ -21,7 +22,7 @@ return {
       integrations = {
         markdown = {
           enabled = true,
-          only_render_image_at_cursor = true,
+          only_render_image_at_cursor = false,
           filetypes = { "markdown", "vimwiki", "quarto" },
         },
       },
