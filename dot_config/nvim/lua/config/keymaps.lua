@@ -81,9 +81,9 @@ vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
 --                           Pounce
 -------------------------------------------------------------------------------
 
-keymap("n", "<leader>hp", function()
-  require("pounce").pounce({})
-end, { desc = "Pounce" })
+-- keymap("n", "<leader>hp", function()
+--   require("pounce").pounce({})
+-- end, { desc = "Pounce" })
 
 -------------------------------------------------------------------------------
 --                           Package Info

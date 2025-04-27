@@ -4,4 +4,5 @@ end
 
 return {
   "rlane/pounce.nvim",
+  enabled = false,
 }
