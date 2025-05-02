@@ -116,7 +116,7 @@ export DO_NOT_TRACK=1
 
 
 reload_prompt() {
-    nvm use
+    fnm use
     corepack enable
     reload
 }
@@ -125,7 +125,7 @@ reload_prompt() {
 jq -r .version package.json 2>/dev/null
 if [ $? -eq 0 ]
 then
-  nvm use
+  fnm use
 fi
 
 # Fastly CLI Auto Completion
@@ -247,9 +247,9 @@ bindkey '^[[B' history-substring-search-down
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Aider
 export AIDER_SUBTREE_ONLY=1
@@ -262,3 +262,6 @@ export AIDER_SUBTREE_ONLY=1
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# fnm
+eval "$(fnm env --use-on-cd --shell zsh)"
