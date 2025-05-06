@@ -99,6 +99,9 @@ fastfetch
 # pnpm
 alias pn="pnpm"
 
+# clr
+alias clr="clear"
+
 # history command - default only shows last 15 entries.. passeing 1 arg shows all entries
 alias history='history 1'
 HISTFILE="$HOME/.zsh_history"
