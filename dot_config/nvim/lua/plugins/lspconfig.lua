@@ -5,16 +5,10 @@ end
 return {
   {
     "neovim/nvim-lspconfig",
-    opts = {
-      servers = {
-        tsserver = {
-          enabled = false,
-        },
-        ts_ls = {
-          enabled = false,
-        },
-        -- https://github.com/yioneko/vtsls
-        -- https://github.com/LazyVim/LazyVim/discussions/4430
+    opts = function(_, opts)
+      opts.servers = {
+        tsserver = { enabled = false },
+        ts_ls = { enabled = false },
         vtsls = {
           filetypes = {
             "javascript",
@@ -48,12 +42,20 @@ return {
             },
           },
         },
-      },
-      inlay_hints = {
+      }
+
+      opts.inlay_hints = {
         enabled = false,
-        exclude = {}, -- filetypes for which you don't want to enable inlay hints
-      },
-      diagnostics = { virtual_text = false },
-    },
+        exclude = {},
+      }
+
+      opts.diagnostics = {
+        virtual_text = false,
+      }
+
+      -- 🔒 disable <leader>ca keymap here (cleaner than on_attach override)
+      -- local keys = require("lazyvim.plugins.lsp.keymaps").get()
+      -- keys[#keys + 1] = { "<leader>ca", false }
+    end,
   },
 }
