@@ -176,6 +176,26 @@ eval $(thefuck --alias)
 eval $(thefuck --alias fk)
 eval $(thefuck --alias fck)
 
+
+# fzf
+fkill() {
+  local pid=$(ps -ef | sed 1d | fzf \
+    --height 40% \
+    --reverse \
+    --multi \
+    --header='[kill:process]' \
+    --preview='echo {}; echo; ps -p {2} -o pid,ppid,pgid,command -ww' \
+    --preview-window=down:3:wrap | awk '{print $2}')
+  
+  if [ "x$pid" != "x" ]; then
+    echo $pid | xargs kill -${1:-9}
+    echo "Process $pid killed"
+  fi
+}
+
+# Create the alias
+alias kp='fkill'
+
 # bat
 alias cat="bat"
 export BAT_THEME=tokyonight_night
