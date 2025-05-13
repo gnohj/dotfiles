@@ -9,6 +9,10 @@ vim.opt.textwidth = 80
 
 vim.o.swapfile = false
 
+vim.opt.wrap = true
+
+vim.g.snacks_animate = false
+
 -- This allows telelescope to always look at the cwd of the project versus the root_dir of a buffer (which can change based on whatever buffer is open)
 -- cwd: usually starts off however you started neovim . or neovim of the directory; if for some reason you cwd: /apps/ on command line then this will be the new cwd
 vim.g.root_spec = { "cwd" }
