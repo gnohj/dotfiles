@@ -15,8 +15,9 @@ keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "Delete without yanking" })
 -- move text up and down
 keymap("v", "J", ":m .+1<CR>==", opts)
 keymap("v", "K", ":m .-2<CR>==", opts)
-keymap("x", "J", ":move '>+1<CR>gv-gv", opts)
-keymap("x", "K", ":move '<-2<CR>gv-gv", opts)
+
+keymap("v", "J", ":m '>+1<CR>gv=gv", { desc = "[P]Move line down in visual mode" })
+keymap("v", "K", ":m '<-2<CR>gv=gv", { desc = "[P]Move line up in visual mode" })
 
 -- yank to system clipboard
 keymap({ "n", "v" }, "<leader>y", '"+y', opts)
@@ -24,8 +25,8 @@ keymap({ "n", "v" }, "<leader>y", '"+y', opts)
 -- paste from system clipboard
 keymap({ "n", "v" }, "<leader>p", '"+p', opts)
 
--- removes highlighting after escaping vim search
-keymap("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
+-- Set highlight on search, but clear on pressing <Esc> in normal mode
+keymap("n", "<Esc>", "<cmd>nohlsearch<CR>")
 
 -- increment/decrement numbers
 keymap("n", "<leader>+", "<C-a>", { desc = "Increment number" })
