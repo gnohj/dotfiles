@@ -9,8 +9,6 @@ vim.opt.textwidth = 80
 
 vim.o.swapfile = false
 
-vim.opt.wrap = true
-
 vim.g.snacks_animate = false
 
 -- This allows telelescope to always look at the cwd of the project versus the root_dir of a buffer (which can change based on whatever buffer is open)

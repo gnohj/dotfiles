@@ -9,17 +9,6 @@ vim.api.nvim_create_autocmd("BufEnter", {
   desc = "Disable New Line Comment",
 })
 
--- Clear jump list when vim starts
-
-local augroup = vim.api.nvim_create_augroup("ruicsh/autocmds/clear-jumps", { clear = true })
-
-vim.api.nvim_create_autocmd("VimEnter", {
-  group = augroup,
-  callback = function()
-    vim.cmd.clearjumps()
-  end,
-})
-
 -- Disable built-in spellchecking for Markdown - https://github.com/LazyVim/LazyVim/discussions/392
 vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
 vim.api.nvim_create_autocmd("FileType", {

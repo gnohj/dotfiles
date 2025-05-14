@@ -1,9 +1,17 @@
+# Actual source config located here:  ~/Library/Application Support/lazygit
+
 customCommands:
   - key: "x"
     prompts:
       - type: "input"
-        title: "Commit"
+        title: "Commit and bypass hooks"
         initialValue: ""
-    command: git commit -m "{{index .PromptResponses 0}}" --no-verify
+    command: HUSKY=0 git commit -m "{{index .PromptResponses 0}}" --no-verify
     context: "global"
-    subprocess: true
+    subprocess: yes
+
+  - key: "X"
+    description: "Amend last commit and bypass hooks"
+    command: "HUSKY=0 git commit --amend --date=now --no-edit"
+    context: "global"
+    subprocess: yes
