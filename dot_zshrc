@@ -2,6 +2,10 @@ if [ -f "$HOME/.zsh_env" ]; then
   source "$HOME/.zsh_env"
 fi
 
+if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
+  source "$HOME/.zsh_radioctl_cmds"
+fi
+
 # --------------------------------------------------------------------- Starship Prompt
 autoload -Uz compinit
 compinit
@@ -36,6 +40,9 @@ if [[ "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select" || \
 fi
 
 eval "$(starship init zsh)"
+
+# change the config dir for xdg
+export XDG_CONFIG_HOME="$HOME/.config"
 
 # brew activate autosuggestions
 source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
