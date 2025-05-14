@@ -1,5 +1,3 @@
-# Actual source config located here:  ~/Library/Application Support/lazygit
-
 customCommands:
   - key: "x"
     prompts:
