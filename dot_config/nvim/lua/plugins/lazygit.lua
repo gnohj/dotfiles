@@ -19,7 +19,7 @@ return {
   -- order to load the plugin when the command is run for the first time
   keys = {
     {
-      "<leader>lg",
+      "<leader>gg",
       function()
         require("snacks.lazygit").open() -- Hooking snacks LazyGit
       end,
