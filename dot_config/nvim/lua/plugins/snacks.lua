@@ -57,7 +57,7 @@ return {
       sources = {
         files = { hidden = true },
       },
-      formatters = { file = { filename_first = true, truncuate = 80 } },
+      formatters = { file = { filename_first = true, truncate = 80 } },
       transform = function(item)
         if not item.file then
           return item
@@ -122,8 +122,8 @@ return {
             -- add the following keymap to your config
             ["<Esc>"] = { "close", mode = { "n", "i" } },
             -- I'm used to scrolling like this in LazyGit
-            -- ["J"] = { "preview_scroll_down", mode = { "i", "n" } },
-            -- ["K"] = { "preview_scroll_up", mode = { "i", "n" } },
+            ["J"] = { "preview_scroll_down", mode = { "i", "n" } },
+            ["K"] = { "preview_scroll_up", mode = { "i", "n" } },
             -- ["H"] = { "preview_scroll_left", mode = { "i", "n" } },
             -- ["L"] = { "preview_scroll_right", mode = { "i", "n" } },
           },
