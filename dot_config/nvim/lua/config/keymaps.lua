@@ -76,7 +76,7 @@ vim.keymap.set(
 --   highlight QuickScopePrimary ='#afff5f' gui=underline ctermfg=155 cterm=underline
 --   highlight QuickScopeSecondary guifg='#5fffff' gui=underline ctermfg=81 cterm=underline
 -- ]])
-vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
+-- vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
 
 -------------------------------------------------------------------------------
 --                           Pounce
@@ -145,14 +145,6 @@ end)
 keymap("n", "<leader><leader>d", function()
   if next(require("diffview.lib").views) == nil then
     vim.cmd("DiffviewOpen origin/develop...HEAD")
-  else
-    vim.cmd("DiffviewClose")
-  end
-end)
-
-keymap("n", "<leader><leader>f", function()
-  if next(require("diffview.lib").views) == nil then
-    vim.cmd("DiffviewFileHistory %")
   else
     vim.cmd("DiffviewClose")
   end
