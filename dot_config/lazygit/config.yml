@@ -1,3 +1,20 @@
+notARepository: "quit"
+git:
+  overrideGpg: true
+os:
+  editPreset: nvim
+gui:
+  showBottomLine: false
+  theme:
+    activeBorderColor:
+      - cyan
+    selectedLineBgColor:
+      - black
+    unstagedChangesColor:
+      - yellow
+  border: rounded
+  nerdFontsVersion: "3"
+
 customCommands:
   - key: "x"
     prompts:
