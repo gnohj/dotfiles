@@ -42,5 +42,18 @@ return {
       colors.fg_gutter = fg_gutter
       colors.fg_sidebar = fg_dark
     end,
+    on_highlights = function(hl, colors)
+      -- Diffview
+      hl.DiffChange = { fg = "#F6F6F5", bg = "#202624" }
+      hl.DiffAdd = { fg = "#87E58E", bg = "#22372C" }
+      hl.DiffDelete = { fg = "#E95678", bg = "#342231" }
+      hl.DiffText = { fg = "#FFBFA9", bg = "#202624", bold = true }
+
+      hl.DiffviewFolderSign = { fg = "#A7DFEF" }
+      hl.DiffviewNonText = { fg = colors.comment }
+      hl.diffAdded = { fg = "#97EDA2", bold = true }
+      hl.diffChanged = { fg = "#F6F6B6", bold = true }
+      hl.diffRemoved = { fg = "#EC6A88", bold = true }
+    end,
   },
 }
