@@ -1,3 +1,7 @@
+if vim.g.vscode then
+  return {}
+end
+
 local mini_files_km = require("config.modules.mini-files-km")
 
 return {
