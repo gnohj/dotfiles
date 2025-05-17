@@ -16,6 +16,8 @@ config.colors = {
 
 config.max_fps = 120
 
+config.enable_kitty_graphics = true
+
 config.keys = {
 
 	-- Make Option-Left equivalent to Alt-b which many line editors interpret as backward-word
@@ -61,12 +63,12 @@ config.keys = {
 }
 
 config.font = wezterm.font("RobotoMono Nerd Font")
-config.font_size = 13.5
+config.font_size = 14.5
 
 config.window_padding = {
 	left = 2,
 	right = 2,
-	top = 4,
+	top = 7.5,
 	bottom = 0,
 }
 
