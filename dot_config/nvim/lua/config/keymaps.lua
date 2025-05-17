@@ -32,10 +32,6 @@ keymap("n", "<Esc>", "<cmd>nohlsearch<CR>")
 keymap("n", "<leader>+", "<C-a>", { desc = "Increment number" })
 keymap("n", "<leader>=", "<C-x>", { desc = "Decrement number" })
 
--- Navigate buffers
-keymap("n", "<Tab>", ":bnext<CR>", opts) -- Switch to the next buffer
-keymap("n", "<S-Tab>", ":bprev<CR>", opts) -- Switch to the previous buffer
-
 keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "Alternate buffer" })
 
 local function insertFullPath()
@@ -66,25 +62,6 @@ vim.keymap.set(
   '<cmd>lua require("grug-far").open({ prefills = { paths = vim.fn.expand("%") } })<cr>',
   { noremap = true, silent = true }
 )
-
--------------------------------------------------------------------------------
---                           Quickscope
--------------------------------------------------------------------------------
-
--- Quickscope --
--- vim.cmd([[
---   highlight QuickScopePrimary ='#afff5f' gui=underline ctermfg=155 cterm=underline
---   highlight QuickScopeSecondary guifg='#5fffff' gui=underline ctermfg=81 cterm=underline
--- ]])
--- vim.g.qs_highlight_on_keys = { "f", "F", "t", "T" }
-
--------------------------------------------------------------------------------
---                           Pounce
--------------------------------------------------------------------------------
-
--- keymap("n", "<leader>hp", function()
---   require("pounce").pounce({})
--- end, { desc = "Pounce" })
 
 -------------------------------------------------------------------------------
 --                           Package Info
@@ -249,9 +226,9 @@ end, { desc = "Toggle Harpoon menu" })
 keymap("n", "<C-P>", function()
   harpoon:list():prev()
 end)
-keymap("n", "<C-O>", function()
-  harpoon:list():next()
-end)
+-- keymap("n", "<C-O>", function() - disable this for jumplist previous command
+--   harpoon:list():next()
+-- end)
 
 -------------------------------------------------------------------------------
 --                           Folding section
