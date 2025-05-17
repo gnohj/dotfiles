@@ -46,6 +46,14 @@ return {
           fold_open = "",
           done = "",
         },
+        hooks = {
+          -- https://github.com/sindrets/diffview.nvim/issues/113
+          diff_buf_win_enter = function(bufnr, winid, ctx)
+            -- Turn off cursor line for diffview windows because of bg conflict
+            -- https://github.com/neovim/neovim/issues/9800
+            vim.wo[winid].culopt = "number"
+          end,
+        },
         -- stylua: ignore start
         keymaps = {
           -- Easier to just configure what I need.
