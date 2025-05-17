@@ -5,7 +5,11 @@
 -- local keymap = vim.keymap.set
 local opt = vim.opt
 
-vim.opt.textwidth = 80
+opt.textwidth = 80
+opt.timeout = true
+opt.timeoutlen = 1000
+
+vim.g.snacks_animate = false
 
 vim.o.swapfile = false
 
