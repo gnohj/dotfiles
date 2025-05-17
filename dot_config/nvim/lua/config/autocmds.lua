@@ -178,3 +178,18 @@ vim.api.nvim_create_autocmd("User", {
     map_split(buf_id, "<C-v>", "vertical")
   end,
 })
+
+vim.api.nvim_create_autocmd("BufWinEnter", {
+  once = true,
+  callback = function()
+    vim.schedule(function()
+      vim.cmd("clearjumps")
+    end)
+  end,
+})
+
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    vim.cmd("clearjumps")
+  end,
+})
