@@ -54,6 +54,51 @@ return {
       hl.diffAdded = { fg = "#97EDA2", bold = true }
       hl.diffChanged = { fg = "#F6F6B6", bold = true }
       hl.diffRemoved = { fg = "#EC6A88", bold = true }
+
+      -- Noice
+      -- Default/generic elements
+      hl.NoiceCmdlinePopupBorder = { fg = colors.border }
+      hl.NoiceCmdlinePopupTitle = { fg = colors.blue }
+      hl.NoiceCmdlineIcon = { fg = colors.blue }
+
+      -- Filter-specific elements
+      hl.NoiceCmdlinePopupBorderFilter = { fg = colors.teal }
+      hl.NoiceCmdlineIconFilter = { fg = colors.teal }
+      hl.NoiceCmdlinePopupTitleFilter = { fg = colors.teal }
+
+      -- Command line elements
+      hl.NoiceCmdlineIconCmdline = { fg = colors.magenta }
+      hl.NoiceCmdlinePopupBorderCmdline = { fg = colors.magenta }
+      hl.NoiceCmdlinePopupTitleCmdline = { fg = colors.magenta }
+
+      -- Search elements
+      hl.NoiceCmdlineIconSearch = { fg = colors.green }
+      hl.NoiceCmdlinePopupBorderSearch = { fg = colors.green }
+      hl.NoiceCmdlinePopupTitleSearch = { fg = colors.green }
+
+      -- Lua elements
+      hl.NoiceCmdlineIconLua = { fg = colors.yellow }
+      hl.NoiceCmdlinePopupBorderLua = { fg = colors.yellow }
+      hl.NoiceCmdlinePopupTitleLua = { fg = colors.yellow }
+
+      -- Help elements
+      hl.NoiceCmdlineIconHelp = { fg = colors.orange }
+      hl.NoiceCmdlinePopupBorderHelp = { fg = colors.orange }
+      hl.NoiceCmdlinePopupTitleHelp = { fg = colors.orange }
+
+      -- Input elements
+      hl.NoiceCmdlineIconInput = { fg = colors.blue }
+      hl.NoiceCmdlinePopupBorderInput = { fg = colors.blue }
+      hl.NoiceCmdlinePopupTitleInput = { fg = colors.blue }
+
+      -- Calculator elements
+      hl.NoiceCmdlineIconCalculator = { fg = colors.purple }
+      hl.NoiceCmdlinePopupBorderCalculator = { fg = colors.purple }
+      hl.NoiceCmdlinePopupTitleCalculator = { fg = colors.purple }
+
+      -- Completion and mini elements
+      hl.NoiceCompletionItemKindDefault = { fg = colors.blue }
+      hl.NoiceMini = { bg = colors.bg_highlight, fg = colors.fg }
     end,
   },
 }
