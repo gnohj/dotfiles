@@ -414,3 +414,15 @@ vim.keymap.set("n", "<leader>aA", function()
 end, { desc = "Add All Buffer Files To Aider" })
 
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
+
+-------------------------------------------------------------------------------
+--                           Noice
+-------------------------------------------------------------------------------
+vim.keymap.set({ "n", "v", "i" }, "<leader>nh", function()
+  require("noice").cmd("all")
+end, { desc = "[P]Noice History" })
+
+-- Dismiss noice notifications
+vim.keymap.set({ "n", "v", "i" }, "<leader>nd", function()
+  require("noice").cmd("dismiss")
+end, { desc = "Dismiss All" })
