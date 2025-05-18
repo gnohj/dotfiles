@@ -124,6 +124,8 @@ alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
 # Disable Console Do Not Track (specification)
 export DO_NOT_TRACK=1
 
+# fnm
+eval "$(fnm env --use-on-cd --shell zsh)"
 
 reload_prompt() {
     fnm use
@@ -293,5 +295,3 @@ export AIDER_SUBTREE_ONLY=1
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-# fnm
-eval "$(fnm env --use-on-cd --shell zsh)"
