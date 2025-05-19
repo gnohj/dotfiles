@@ -1,3 +1,4 @@
+
 if [ -f "$HOME/.zsh_env" ]; then
   source "$HOME/.zsh_env"
 fi
@@ -18,6 +19,8 @@ fi
 if typeset -f update_rc >/dev/null 2>&1; then
   update_rc
 fi
+
+
 
 getPNPM() {
   pnpm_version_manifest=$(node -p -e "require('./package.json').packageManager" 2>/dev/null)
@@ -101,7 +104,7 @@ alias reload="source ~/.zshrc"
 alias speed="speedtest"
 
 # Load Fastfetch
-fastfetch
+# fastfetch
 
 # pnpm
 alias pn="pnpm"
@@ -262,26 +265,6 @@ export BAT_THEME=tokyonight_night
     zvm_after_init_commands+=('[ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh')
   fi
 
-
-if [ -f ~/.fzf.zsh ]; then
-  source ~/.fzf.zsh
-else
-  if [ "$install_this_package" != "no" ]; then
-    echo
-    echo "Installing fzf, please wait..."
-    mkdir -p $HOME/github
-    cd $HOME/github
-    git clone --depth 1 https://github.com/junegunn/fzf.git 2>&1 >/dev/null
-    if [ ! -d "$HOME/github/fzf" ]; then
-      echo -e "${boldRed}Warning: Failed to clone the fzf repository. Check this manually.${noColor}"
-    else
-      echo "Successfully cloned the fzf repository."
-      echo -e "y\ny\nn" | $HOME/github/fzf/install 2>&1 >/dev/null
-      source ~/.fzf.zsh
-      echo "Successfully installed fzf"
-    fi
-  fi
-fi
 
 # https://github.com/zsh-users/zsh-history-substring-search - place this after fzf
 source $HOMEBREW_PREFIX/share/zsh-history-substring-search/zsh-history-substring-search.zsh
