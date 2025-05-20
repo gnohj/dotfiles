@@ -7,7 +7,14 @@ if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
 
-# --------------------------------------------------------------------- Starship Prompt
+# Disable Console Do Not Track (specification)
+export DO_NOT_TRACK=1
+
+# Force color for cli apps
+export FORCE_COLOR=1
+
+
+# --------------------------------------------------------------------- Prompt
 autoload -Uz compinit
 compinit
 
@@ -54,7 +61,9 @@ source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 # https://github.com/3rd/image.nvim
 export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 
-# ---------------------------------------------------------------------  Set Custom Aliases
+
+
+# --------------------------------------------------------------------- Custom Aliases
 
 # Obisidian
 alias oo='cd $HOME/Obsidian/second-brain'
@@ -93,19 +102,34 @@ alias speed="speedtest"
 # Load Fastfetch
 # fastfetch
 
+# Yarn clean
+alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
+
 # pnpm
 alias pn="pnpm"
 
 # clr
 alias clr="clear"
 
+# bat
+alias cat="bat"
+export BAT_THEME=tokyonight_night
+
+# fkill
+alias kp='fkill'
+
+# eza for modern ls view
+alias ls="eza --icons=always --long --all"
+
+
+# ---------------------------------------------------------------------  History
 # history command - default only shows last 15 entries.. passeing 1 arg shows all entries
 alias history='history 1'
 bindkey '^p' history-search-backward
 bindkey '^n' history-search-forward
 
 HISTFILE="$HOME/.zsh_history"
-HISTSIZE=5000
+HISTSIZE=10000
 SAVEHIST=$HISTSIZE
 HISTDUP=erase
 setopt appendhistory
@@ -116,16 +140,12 @@ setopt hist_save_no_dups
 setopt hist_ignore_dups
 setopt hist_find_no_dups
 
-# Completion styling
+# ---------------------------------------------------------------------  Integrations
+
+# Completion styling - allow case-insensitive matching for cd
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
-# Yarn clean
-alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
-
-# Disable Console Do Not Track (specification)
-export DO_NOT_TRACK=1
-
-# Kitty stuff
+# -----------------------------  Kitty Terminal
 change_kitty_transparency() {
 	sh ~/.config/kitty/change-profile.sh
 }
@@ -138,7 +158,8 @@ kitty-reload() {
     kill -SIGUSR1 $(pidof kitty)
 }
 
-# fnm
+# -----------------------------  FNM
+
 eval "$(fnm env --use-on-cd --shell zsh)"
 
 reload_prompt() {
@@ -154,19 +175,16 @@ reload_prompt() {
 #   fnm use
 # fi
 
-# Fastly CLI Auto Completion
+# -----------------------------  Fastly CLI Auto Completion
 eval "$(fastly --completion-script-zsh)"
 
-export FORCE_COLOR=1
-
-# zoxide "inspired by z/jump-around"
+# ----------------------------- Zoxide "inspired by z/jump-around"
 eval "$(zoxide init zsh)"
 
 # The following lines were added by compinstall
 bindkey '^I' expand-or-complete-prefix
 zstyle ':completion:*' completer _complete _prefix
 set -o completeinword
-
 # End of lines added by compinstall
 
 autoload -U +X bashcompinit && bashcompinit
@@ -179,58 +197,18 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-# direnv
+# -----------------------------  Direnv
+
 eval "$(direnv hook $SHELL)"
 
-# eza for modern ls view
-alias ls="eza --icons=always --long --all"
 
-# thefuck
+# -----------------------------  TheFuck
 eval $(thefuck --alias)
 eval $(thefuck --alias fk)
 eval $(thefuck --alias fck)
 
-# fzf
-fkill() {
-  local pid=$(ps -ef | sed 1d | fzf \
-    --height 40% \
-    --reverse \
-    --multi \
-    --header='[kill:process]' \
-    --preview='echo {}; echo; ps -p {2} -o pid,ppid,pgid,command -ww' \
-    --preview-window=down:3:wrap | awk '{print $2}')
-  
-  if [ "x$pid" != "x" ]; then
-    echo $pid | xargs kill -${1:-9}
-    echo "Process $pid killed"
-  fi
-}
 
-# Create the alias
-alias kp='fkill'
-
-# bat
-alias cat="bat"
-export BAT_THEME=tokyonight_night
-
-# Sesh
-function sesh-sessions() {
-  {
-    exec </dev/tty
-    exec <&1
-    local session
-    session=$(sesh list -t -c | fzf --height 40% --reverse --border-label ' sesh ' --border --prompt '⚡  ')
-    zle reset-prompt > /dev/null 2>&1 || true
-    [[ -z "$session" ]] && return
-    sesh connect $session
-  }
-}
-zle -N sesh-sessions
-# Bind Ctrl+X to the sesh-sessions widget
-bindkey -M emacs '^x' sesh-sessions
-bindkey -M vicmd '^x' sesh-sessions
-bindkey -M viins '^x' sesh-sessions
-
+# -----------------------------  ZSH VI Mode
 # https://github.com/jeffreytse/zsh-vi-mode
   if [ -f "$(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh" ]; then
     source $(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
@@ -274,6 +252,7 @@ bindkey -M viins '^x' sesh-sessions
   fi
 
 
+# -----------------------------  ZSH History Substring Search
 # https://github.com/zsh-users/zsh-history-substring-search - place this after fzf
 source $HOMEBREW_PREFIX/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 bindkey '^[[A' history-substring-search-up
@@ -281,19 +260,19 @@ bindkey '^[[B' history-substring-search-down
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# Aider
+# -----------------------------  Aider
 export AIDER_SUBTREE_ONLY=1
 
 . "$HOME/.local/bin/env"
 
-# bun completions
+# -----------------------------  Bun completions
 [ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-# Check if delta is installed (git-delta: a syntax-highlighting pager for git)
+# -----------------------------  Delta (nicer git diff)
 if ! command -v delta &> /dev/null; then
     echo "Delta not found. Installing delta..."
     # macOS - install with Homebrew
@@ -321,6 +300,7 @@ if command -v delta &> /dev/null; then
     alias gdelta='git diff | delta'
 fi
 
+# -----------------------------  Sesh (Tmux Manager)
 # Check if sesh is installed (Smart tmux session manager)
 if ! command -v sesh &> /dev/null; then
     echo "Sesh not found. Installing sesh..."
@@ -331,4 +311,23 @@ if ! command -v sesh &> /dev/null; then
         echo "Homebrew not found. Please install Homebrew first, then run: brew install joshmedeski/sesh/sesh"
     fi
 fi
+
+function sesh-sessions() {
+  {
+    exec </dev/tty
+    exec <&1
+    local session
+    session=$(sesh list -t -c | fzf --height 40% --reverse --border-label ' sesh ' --border --prompt '⚡  ')
+    zle reset-prompt > /dev/null 2>&1 || true
+    [[ -z "$session" ]] && return
+    sesh connect $session
+  }
+}
+zle -N sesh-sessions
+# Bind Ctrl+X to the sesh-sessions widget
+bindkey -M emacs '^x' sesh-sessions
+bindkey -M vicmd '^x' sesh-sessions
+bindkey -M viins '^x' sesh-sessions
+
+# -----------------------------  End
 
