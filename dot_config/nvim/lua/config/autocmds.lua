@@ -2,6 +2,65 @@
 -- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.lua
 -- Add any additional autocmds here
 
+-- Mini.files key bindings
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "minifiles",
+  callback = function(args)
+    local buf_id = args.buf
+
+    -- Make sure mini.files is available
+    local ok, mini_files = pcall(require, "mini.files")
+    if not ok then
+      vim.notify("mini.files not available", vim.log.levels.WARN)
+      return
+    end
+
+    vim.keymap.set("n", "<space>y", function()
+      -- Get the current entry (file or directory)
+      local curr_entry = mini_files.get_fs_entry()
+      if curr_entry then
+        local path = curr_entry.path
+        -- Build the osascript command to copy the file or directory to the clipboard
+        local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
+        local result = vim.fn.system(cmd)
+        if vim.v.shell_error ~= 0 then
+          vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
+        else
+          vim.notify(vim.fn.fnamemodify(path, ":t"), vim.log.levels.INFO)
+          vim.notify("Copied to system clipboard", vim.log.levels.INFO)
+        end
+      else
+        vim.notify("No file or directory selected", vim.log.levels.WARN)
+      end
+    end, { buffer = buf_id, noremap = true, silent = true, desc = "Copy file/directory to clipboard" })
+
+    -- Copy path to clipboard
+    vim.keymap.set("n", "<space>fy", function()
+      -- Get the current entry using the API
+      local curr_entry = mini_files.get_fs_entry()
+
+      if curr_entry then
+        local path = curr_entry.path
+
+        -- Format the path (replace home directory with ~)
+        path = path:gsub(vim.fn.expand("$HOME"), "~")
+
+        -- Copy to clipboard
+        vim.fn.setreg("+", path)
+        vim.fn.setreg('"', path)
+
+        vim.notify("Copied to clipboard: " .. path, vim.log.levels.INFO)
+      else
+        vim.notify("No file or directory selected", vim.log.levels.WARN)
+      end
+    end, {
+      buffer = buf_id,
+      desc = "Copy path to clipboard",
+    })
+  end,
+  desc = "Set up mini.files keymaps",
+})
+
 vim.api.nvim_create_autocmd("BufEnter", {
   callback = function()
     vim.opt.formatoptions:remove({ "c", "r", "o" })
