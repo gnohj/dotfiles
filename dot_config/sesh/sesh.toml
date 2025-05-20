@@ -65,6 +65,11 @@ startup_command = "nvim chezmoi.toml.tmpl"
 preview_command = "bat --style=snip --color=always ~/.local/share/chezmoi/dot_config/chezmoi.toml.tmpl"
 
 [[session]]
+name = "etc_hosts  📥"
+path = "/etc/hosts"
+startup_command = "cat /etc/hosts"
+
+[[session]]
 name = "fastfetch_config"
 path = "~/.config/fastfetch"
 startup_command = "nvim config.jsonc"
