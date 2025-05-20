@@ -182,33 +182,33 @@ return {
       top_down = false,
     },
 
-    -- Configure LazyGit
-    lazygit = {
-      -- Automatically configure lazygit to use the current colorscheme
-      configure = true,
-      -- Extra configuration for lazygit that will be merged with the default
-      config = {
-        os = { editPreset = "nvim-remote" },
-        gui = { nerdFontsVersion = "3" },
-      },
-      theme_path = vim.fs.normalize(vim.fn.stdpath("cache") .. "/lazygit-theme.yml"),
-      -- Theme for lazygit
-      theme = {
-        [241] = { fg = "Special" },
-        activeBorderColor = { fg = "MatchParen", bold = true },
-        cherryPickedCommitBgColor = { fg = "Identifier" },
-        cherryPickedCommitFgColor = { fg = "Function" },
-        defaultFgColor = { fg = "Normal" },
-        inactiveBorderColor = { fg = "FloatBorder" },
-        optionsTextColor = { fg = "Function" },
-        searchingActiveBorderColor = { fg = "MatchParen", bold = true },
-        selectedLineBgColor = { bg = "Visual" }, -- Set to `default` to have no background colour
-        unstagedChangesColor = { fg = "DiagnosticError" },
-      },
-      win = {
-        style = "lazygit",
-      },
-    },
+    -- Configure LazyGit - use macoS global shorttcut to open lazygit via new tmux window - command + g
+    -- lazygit = {
+    --   -- Automatically configure lazygit to use the current colorscheme
+    --   configure = true,
+    --   -- Extra configuration for lazygit that will be merged with the default
+    --   config = {
+    --     os = { editPreset = "nvim-remote" },
+    --     gui = { nerdFontsVersion = "3" },
+    --   },
+    --   theme_path = vim.fs.normalize(vim.fn.stdpath("cache") .. "/lazygit-theme.yml"),
+    --   -- Theme for lazygit
+    --   theme = {
+    --     [241] = { fg = "Special" },
+    --     activeBorderColor = { fg = "MatchParen", bold = true },
+    --     cherryPickedCommitBgColor = { fg = "Identifier" },
+    --     cherryPickedCommitFgColor = { fg = "Function" },
+    --     defaultFgColor = { fg = "Normal" },
+    --     inactiveBorderColor = { fg = "FloatBorder" },
+    --     optionsTextColor = { fg = "Function" },
+    --     searchingActiveBorderColor = { fg = "MatchParen", bold = true },
+    --     selectedLineBgColor = { bg = "Visual" }, -- Set to `default` to have no background colour
+    --     unstagedChangesColor = { fg = "DiagnosticError" },
+    --   },
+    --   win = {
+    --     style = "lazygit",
+    --   },
+    -- },
 
     -- Ensure the LazyGit theme and config are applied
 
