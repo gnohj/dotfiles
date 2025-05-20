@@ -1,6 +1,8 @@
 Vim Tmux Navigator
 ==================
 
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/christoomey/vim-tmux-navigator/main.yml?style=flat-square&logo=github)](https://github.com/christoomey/vim-tmux-navigator/actions/workflows/main.yml)
+
 This plugin is a repackaging of [Mislav Marohnić's](https://mislav.net/) tmux-navigator
 configuration described in [this gist][]. When combined with a set of tmux
 key bindings, the plugin will allow you to navigate seamlessly between
@@ -66,6 +68,7 @@ If you are using [lazy.nvim](https://github.com/folke/lazy.nvim). Add the follow
     "TmuxNavigateUp",
     "TmuxNavigateRight",
     "TmuxNavigatePrevious",
+    "TmuxNavigatorProcessList",
   },
   keys = {
     { "<c-h>", "<cmd><C-U>TmuxNavigateLeft<cr>" },
@@ -90,8 +93,9 @@ Add the following to your `~/.tmux.conf` file:
 ``` tmux
 # Smart pane switching with awareness of Vim splits.
 # See: https://github.com/christoomey/vim-tmux-navigator
+vim_pattern='(\\S+/)?(^|/)g?\.?(view|l?n?vim?x?|fzf)(diff)?(-wrapped)?$'
 is_vim="ps -o state= -o comm= -t '#{pane_tty}' \
-    | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?|fzf)(diff)?$'"
+    | grep -iqE '^[^TXZ ]+ +${vim_pattern}'"
 bind-key -n 'C-h' if-shell "$is_vim" 'send-keys C-h'  'select-pane -L'
 bind-key -n 'C-j' if-shell "$is_vim" 'send-keys C-j'  'select-pane -D'
 bind-key -n 'C-k' if-shell "$is_vim" 'send-keys C-k'  'select-pane -U'
@@ -130,6 +134,14 @@ set -g @vim_navigator_mapping_up "C-k"
 set -g @vim_navigator_mapping_down "C-j"
 set -g @vim_navigator_mapping_prev ""  # removes the C-\ binding
 ```
+
+To disable the automatic mapping of `<prefix> C-l` to `send C-l` (which is
+intended to restore the "clear screen" functionality):
+
+```tmux
+set -g @vim_navigator_prefix_mapping_clear_screen ""
+```
+
 Don't forget to run tpm:
 
 ``` tmux
@@ -229,11 +241,13 @@ mapping.
 
 #### Ignoring programs that use Ctrl+hjkl movement
 
-In interactive programs such as FZF, Ctrl+hjkl can be used instead of the arrow keys to move the selection up and down. If vim-tmux-navigator is getting in your way trying to change the active window instead, you can make it be ignored and work as if this plugin were not enabled. Just modify the `is_vim` variable(that you have either on the snipped you pasted on `~/.tmux.conf` or on the `vim-tmux-navigator.tmux` file). For example, to add the program `foobar`:
+In interactive programs such as FZF or the built-in Vim terminal, Ctrl+hjkl can be used instead of the arrow keys to move the selection up and down. If vim-tmux-navigator is getting in your way trying to change the active window instead, you can make it be ignored and work as if this plugin were not enabled. Just modify the `is_vim` variable(that you have either on the snipped you pasted on `~/.tmux.conf` or on the `vim-tmux-navigator.tmux` file). For example, to add the program `foobar`:
 
 ```diff
-- is_vim="ps -o state= -o comm= -t '#{pane_tty}' | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?|fzf)(diff)?$'"
-+ is_vim="ps -o state= -o comm= -t '#{pane_tty}' | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?|fzf|foobar)(diff)?$'"
+- vim_pattern='(\\S+/)?(^|/)g?\.?(view|l?n?vim?x?|fzf)(diff)?(-wrapped)?$'
++ vim_pattern='(\\S+/)?(^|/)g?\.?(view|l?n?vim?x?|fzf|foobar)(diff)?(-wrapped)?$'
+is_vim="ps -o state= -o comm= -t '#{pane_tty}' \
+    | grep -iqE '^[^TXZ ]+ +${vim_pattern}'"
 ```
 
 #### Restoring Clear Screen (C-l)
@@ -280,8 +294,9 @@ Tmux doesn't have an option, so whatever key bindings you have need to be set
 to conditionally wrap based on position on screen:
 
 ```tmux
+vim_pattern='(\\S+/)?(^|/)g?\.?(view|l?n?vim?x?|fzf)(diff)?(-wrapped)?$'
 is_vim="ps -o state= -o comm= -t '#{pane_tty}' \
-    | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?|fzf)(diff)?$'"
+    | grep -iqE '^[^TXZ ]+ +${vim_pattern}'"
 bind-key -n 'C-h' if-shell "$is_vim" { send-keys C-h } { if-shell -F '#{pane_at_left}'   {} { select-pane -L } }
 bind-key -n 'C-j' if-shell "$is_vim" { send-keys C-j } { if-shell -F '#{pane_at_bottom}' {} { select-pane -D } }
 bind-key -n 'C-k' if-shell "$is_vim" { send-keys C-k } { if-shell -F '#{pane_at_top}'    {} { select-pane -U } }
@@ -440,9 +455,7 @@ sources the non-interactive config.
 
 ### It doesn't work in Vim's `terminal` mode
 
-Terminal mode is currently unsupported as adding this plugin's mappings there
-causes conflict with movement mappings for FZF (it also uses terminal mode).
-There's a conversation about this in https://github.com/christoomey/vim-tmux-navigator/pull/172
+Terminal mode is now supported :)
 
 ### It Doesn't Work in tmate
 
@@ -466,14 +479,15 @@ If this doesn't solve your problem, you can also try the following:
 
 Replace the `is_vim` variable in your `~/.tmux.conf` file with:
 ```tmux
+vim_pattern='(\\S+/)?(^|/)g?\.?(view|l?n?vim?x?|fzf)(diff)?(-wrapped)?$'
 if-shell '[ -f /.dockerenv ]' \
   "is_vim=\"ps -o state=,comm= -t '#{pane_tty}' \
-      | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?)(diff)?$'\""
+      | grep -iqE '^[^TXZ ]+ +${vim_pattern}'\""
   # Filter out docker instances of nvim from the host system to prevent
   # host from thinking nvim is running in a pseudoterminal when its not.
   "is_vim=\"ps -o state=,comm=,cgroup= -t '#{pane_tty}' \
       | grep -ivE '^.+ +.+ +.+\\/docker\\/.+$' \
-      | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?)(diff)? +'\""
+      | grep -iqE '^[^TXZ ]+ +${vim_pattern}'\""
 ```
 
 Details: The output of the ps command on the host system includes processes
