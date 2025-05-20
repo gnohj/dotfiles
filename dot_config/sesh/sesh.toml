@@ -9,6 +9,11 @@ name = "bat_config_folder"
 path = "~/.config/bat"
 
 [[session]]
+name = "bin_folder"
+path = "~/bin"
+startup_command = "ls"
+
+[[session]]
 name = "chezmoi_repo"
 path = "~/.local/share/chezmoi"
 startup_command = "gg"
@@ -45,6 +50,10 @@ path = "~/Obsidian/second-brain"
 name = "sketchybar_folder"
 path = "~/.config/sketchybar"
 startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
+
+[[session]]
+name = "tpm_folder (tmux plugins)"
+path = "~/.tmux/"
 
 [[session]]
 name = "web_repo"
