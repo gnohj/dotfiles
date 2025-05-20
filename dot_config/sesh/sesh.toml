@@ -129,7 +129,7 @@ preview_command = "bat --language=toml --style=snip --color=always ~/.config/ses
 
 [[session]]
 name = "starship_config"
-path = "~/.config/starship.toml"
+path = "~/.config"
 startup_command = "nvim starship.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/starship.toml"
 
