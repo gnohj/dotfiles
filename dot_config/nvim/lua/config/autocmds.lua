@@ -233,6 +233,7 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = {
     "PlenaryTestPopup",
     "grug-far",
+    "goto-preview",
     "help",
     "lspinfo",
     "notify",
