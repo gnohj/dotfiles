@@ -1,4 +1,4 @@
-
+# ---------------------------------------------------------------------  Load User Settings
 if [ -f "$HOME/.zsh_env" ]; then
   source "$HOME/.zsh_env"
 fi
@@ -19,8 +19,6 @@ fi
 if typeset -f update_rc >/dev/null 2>&1; then
   update_rc
 fi
-
-
 
 getPNPM() {
   pnpm_version_manifest=$(node -p -e "require('./package.json').packageManager" 2>/dev/null)
@@ -56,6 +54,8 @@ source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 # https://github.com/3rd/image.nvim
 export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 
+# ---------------------------------------------------------------------  Set Custom Aliases
+
 # Obisidian
 alias oo='cd $HOME/Obsidian/second-brain'
 # Obsidian review
@@ -71,19 +71,6 @@ alias vi=nvim
 alias vim=nvim
 alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
 export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
-
-# Kitty stuff
-change_kitty_transparency() {
-	sh ~/.config/kitty/change-profile.sh
-}
-
-toggle_kitty_transparency() {
-	sh ~/.config/kitty/toggle-transparency.sh
-}
-
-kitty-reload() {
-    kill -SIGUSR1 $(pidof kitty)
-}
 
 # Git Shorcuts
 alias g="git"
@@ -138,6 +125,19 @@ alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
 # Disable Console Do Not Track (specification)
 export DO_NOT_TRACK=1
 
+# Kitty stuff
+change_kitty_transparency() {
+	sh ~/.config/kitty/change-profile.sh
+}
+
+toggle_kitty_transparency() {
+	sh ~/.config/kitty/toggle-transparency.sh
+}
+
+kitty-reload() {
+    kill -SIGUSR1 $(pidof kitty)
+}
+
 # fnm
 eval "$(fnm env --use-on-cd --shell zsh)"
 
@@ -148,11 +148,11 @@ reload_prompt() {
 }
 
 # Needs 'jq' installed
-jq -r .version package.json 2>/dev/null
-if [ $? -eq 0 ]
-then
-  fnm use
-fi
+# jq -r .version package.json 2>/dev/null
+# if [ $? -eq 0 ]
+# then
+#   fnm use
+# fi
 
 # Fastly CLI Auto Completion
 eval "$(fastly --completion-script-zsh)"
@@ -223,6 +223,24 @@ alias kp='fkill'
 alias cat="bat"
 export BAT_THEME=tokyonight_night
 
+# Sesh
+function sesh-sessions() {
+  {
+    exec </dev/tty
+    exec <&1
+    local session
+    session=$(sesh list -t -c | fzf --height 40% --reverse --border-label ' sesh ' --border --prompt '⚡  ')
+    zle reset-prompt > /dev/null 2>&1 || true
+    [[ -z "$session" ]] && return
+    sesh connect $session
+  }
+}
+zle -N sesh-sessions
+# Bind Ctrl+X to the sesh-sessions widget
+bindkey -M emacs '^x' sesh-sessions
+bindkey -M vicmd '^x' sesh-sessions
+bindkey -M viins '^x' sesh-sessions
+
 # https://github.com/jeffreytse/zsh-vi-mode
   if [ -f "$(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh" ]; then
     source $(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
@@ -289,3 +307,30 @@ export AIDER_SUBTREE_ONLY=1
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# Check if delta is installed (git-delta: a syntax-highlighting pager for git)
+if ! command -v delta &> /dev/null; then
+    echo "Delta not found. Installing delta..."
+    # macOS - install with Homebrew
+    if command -v brew &> /dev/null; then
+        brew install git-delta
+        echo "Delta installed successfully!"
+    else
+        echo "Homebrew not found. Please install Homebrew first, then run: brew install git-delta"
+    fi
+fi
+
+# Configure git to use delta if it's installed
+if command -v delta &> /dev/null; then
+    # Configure delta as git pager if not already configured
+    if ! git config --get core.pager | grep -q "delta"; then
+        git config --global core.pager "delta"
+        git config --global interactive.diffFilter "delta --color-only"
+        git config --global delta.navigate true
+        git config --global delta.light false
+        git config --global delta.side-by-side true
+        git config --global delta.line-numbers true
+        echo "Git configured to use delta as pager"
+    fi
+    # Set an alias for viewing git diffs with delta
+    alias gdelta='git diff | delta'
+fi
