@@ -3,127 +3,142 @@
 startup_command = "nvim -c ':lua Snacks.picker.files()'"
 preview_command = "eza --all --git --icons --color=always {}"
 
-# repos
+# folders
 [[session]]
-name = "inferno-monorepo"
+name = "bat_config_folder"
+path = "~/.config/bat"
+
+[[session]]
+name = "chezmoi_repo"
+path = "~/.local/share/chezmoi"
+startup_command = "gg"
+
+[[session]]
+name = "developer_Folder 📥"
+path = "~/Developer"
+startup_command = "ls"
+
+[[session]]
+name = "downloads_folder 📥"
+path = "~/Downloads"
+startup_command = "ls"
+
+[[session]]
+name = "desktop_folder 📥"
+path = "~/Desktop"
+startup_command = "ls"
+
+[[session]]
+name = "inferno_repo"
 path = "~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
-name = "second-brain"
+name = "neovim_folder"
+path = "~/.config/nvim/"
+
+[[session]]
+name = "second_brain_repo"
 path = "~/Obsidian/second-brain"
 
 [[session]]
-name = "web"
+name = "sketchybar_folder"
+path = "~/.config/sketchybar"
+startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
+
+[[session]]
+name = "web_repo"
 path = "~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 # configs
 [[session]]
-name = "aerospace config"
+name = "aerospace_config"
 path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/aerospace/aerospace.toml"
 
 [[session]]
-name = "chezmoi"
-path = "~/.local/share/chezmoi"
-startup_command = "gg"
+name = "chezmoi_config"
+path = "~/.local/share/chezmoi/dot_config/chezmoi"
+startup_command = "nvim chezmoi.toml.tmpl"
+preview_command = "bat --style=snip --color=always ~/.local/share/chezmoi/dot_config/chezmoi.toml.tmpl"
 
 [[session]]
-name = "downloads 📥"
-path = "~/Downloads"
-startup_command = "ls"
-
-[[session]]
-name = "fastfetch"
+name = "fastfetch_config"
 path = "~/.config/fastfetch"
 startup_command = "nvim config.jsonc"
 preview_command = "bat --color=always ~/.config/fastfetch/config.jsonc"
 
 [[session]]
-name = "git config"
+name = "git_config"
 path = "~/.gitconfig"
 startup_command = "nvim .gitconfig"
 preview_command = "bat --language=bash --style=snip --color=always ~/.gitconfig"
 
 [[session]]
-name = "ghostty"
+name = "ghostty_config"
 path = "~/.config/ghostty"
 startup_command = "nvim config"
 preview_command = "bat --language=bash --style=snip --color=always ~/.config/ghostty/config"
 
 [[session]]
-name = "lazygit"
+name = "lazygit_config"
 path = "~/.config/lazygit"
 startup_command = "nvim config.yml"
 preview_command = "bat --color=always ~/.config/lazygit/config.yml"
 
+[[session]]
+name = "npmrc_config"
+path = "~/.npmrc"
+startup_command = "nvim .npmrc"
+preview_command = "bat --language=bash --style=snip --color=always ~/.npmrc"
 
 [[session]]
-name = "neovim plugins"
-path = "~/.config/nvim/lua/plugins"
-startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
+name = "radioctl_session"
+path = "~/."
+startup_command = "nvim .radioctl2"
+preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
-name = "neovim config"
-path = "~/.config/nvim/"
-
-[[session]]
-name = "neovim keymaps"
-path = "~/.config/nvim/lua/config"
-startup_command = "nvim keymaps.lua"
-preview_command = "bat --color=always ~/.config/nvim/lua/config/keymaps.lua"
-
-[[session]]
-name = "neovim autocmds"
-path = "~/.config/nvim/lua/config"
-startup_command = "nvim autocmds.lua"
-preview_command = "bat --color=always ~/.config/nvim/lua/config/autocmds.lua"
-
-[[session]]
-name = "radioctl cmds"
+name = "radioctl_cmd_config"
 path = "~/.zsh_radioctl_cmds"
 startup_command = "nvim .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 [[session]]
-name = "sesh config"
+name = "sesh_config"
 path = "~/.config/sesh"
 startup_command = "nvim sesh.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/sesh/sesh.toml"
 
-[[session]]
-name = "sketchybar config"
-path = "~/.config/sketchybar"
-startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
 
 [[session]]
-name = "starship config"
+name = "starship_config"
 path = "~/.config/starship.toml"
 startup_command = "nvim starship.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/starship.toml"
 
 [[session]]
-name = "tmux config"
+name = "tmux_config"
 path = "~/."
 startup_command = "nvim .tmux.conf"
 preview_command = "bat --language=bash --style=snip --color=always ~/.tmux.conf"
 
 [[session]]
-name = "wezterm config"
+name = "wezterm_config"
 path = "~/.wezterm.lua"
 startup_command = "nvim .wezterm.lua"
 preview_command = "bat --color=always ~/.wezterm.lua"
 
 [[session]]
-name = "zshrc env"
+name = "zsh_env"
 path = "~/.zsh_env"
 startup_command = "nvim .zsh_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_env"
 
 [[session]]
-name = "zshrc config"
+name = "zshrc_config"
 path = "~/."
 startup_command = "nvim .zshrc"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zshrc"
