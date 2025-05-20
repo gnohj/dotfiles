@@ -61,7 +61,8 @@ source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 # https://github.com/3rd/image.nvim
 export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 
-
+# Completion styling - allow case-insensitive matching for cd
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
 # --------------------------------------------------------------------- Custom Aliases
 
@@ -121,6 +122,20 @@ alias kp='fkill'
 # eza for modern ls view
 alias ls="eza --icons=always --long --all"
 
+# pnpm
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# brew leaves list (installed packages by me)
+alias leaves="brew leaves"
+
+# brew outdated list (installed packages by me)
+alias outdated="comm -12 <(brew leaves | sort) <(brew outdated --formula | awk '{print \$1}' | sort) | awk '{print \"outdated brew package: \" \$1}'"
+
+
 
 # ---------------------------------------------------------------------  History
 # history command - default only shows last 15 entries.. passeing 1 arg shows all entries
@@ -142,8 +157,6 @@ setopt hist_find_no_dups
 
 # ---------------------------------------------------------------------  Integrations
 
-# Completion styling - allow case-insensitive matching for cd
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
 # -----------------------------  Kitty Terminal
 change_kitty_transparency() {
@@ -166,6 +179,7 @@ reload_prompt() {
     fnm use
     corepack enable
     reload
+    outdated
 }
 
 # Needs 'jq' installed
@@ -179,7 +193,6 @@ reload_prompt() {
 eval "$(fastly --completion-script-zsh)"
 
 # ----------------------------- Zoxide "inspired by z/jump-around"
-eval "$(zoxide init zsh)"
 
 # The following lines were added by compinstall
 bindkey '^I' expand-or-complete-prefix
@@ -190,12 +203,8 @@ set -o completeinword
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /opt/homebrew/bin/terraform terraform
 
-# pnpm
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
+eval "$(zoxide init zsh)"
+
 
 # -----------------------------  Direnv
 
