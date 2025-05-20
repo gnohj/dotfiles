@@ -185,20 +185,10 @@ eval "$(direnv hook $SHELL)"
 # eza for modern ls view
 alias ls="eza --icons=always --long --all"
 
-# tmux
-alias tmux-list="tmux list-sessions"
-alias tmux-inferno="tmux switch -t inferno"
-alias tmux-web="tmux switch -t web"
-
-# restore tmux session
-alias tmux-save="tmux run-shell ~/.tmux/plugins/tmux-resurrect/scripts/save.sh"
-alias tmux-restore="tmux run-shell ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
-
 # thefuck
 eval $(thefuck --alias)
 eval $(thefuck --alias fk)
 eval $(thefuck --alias fck)
-
 
 # fzf
 fkill() {
@@ -291,10 +281,6 @@ bindkey '^[[B' history-substring-search-down
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# export NVM_DIR="$HOME/.nvm"
-# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
 # Aider
 export AIDER_SUBTREE_ONLY=1
 
@@ -334,3 +320,15 @@ if command -v delta &> /dev/null; then
     # Set an alias for viewing git diffs with delta
     alias gdelta='git diff | delta'
 fi
+
+# Check if sesh is installed (Smart tmux session manager)
+if ! command -v sesh &> /dev/null; then
+    echo "Sesh not found. Installing sesh..."
+    if command -v brew &> /dev/null; then
+        brew install sesh
+        echo "Sesh installed successfully!"
+    else
+        echo "Homebrew not found. Please install Homebrew first, then run: brew install joshmedeski/sesh/sesh"
+    fi
+fi
+
