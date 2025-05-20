@@ -2,8 +2,6 @@ if vim.g.vscode then
   return {}
 end
 
-local mini_files_km = require("config.modules.mini-files-km")
-
 return {
   "echasnovski/mini.files",
   opts = function(_, opts)
@@ -29,18 +27,6 @@ return {
       trim_right = ">",
     })
 
-    -- Here I define my custom keymaps in a centralized place
-    opts.custom_keymaps = {
-      open_tmux_pane = "<M-t>",
-      copy_to_clipboard = "<space>yy",
-      zip_and_copy = "<space>yz",
-      paste_from_clipboard = "<space>p",
-      copy_path = "<M-c>",
-      -- Don't use "i" as it conflicts wit insert mode
-      -- preview_image = "<space>i",
-      -- preview_image_popup = "<M-i>",
-    }
-
     opts.windows = vim.tbl_deep_extend("force", opts.windows or {}, {
       preview = true,
       width_focus = 30,
@@ -53,7 +39,7 @@ return {
       use_as_default_explorer = true,
       -- If set to false, files are moved to the trash directory
       -- To get this dir run :echo stdpath('data')
-      -- ~/.local/share/neobean/mini.files/trash
+      -- ~/.local/share/nvim/mini.files/trash
       permanent_delete = false,
     })
     return opts
@@ -90,15 +76,4 @@ return {
       desc = "Open mini.files (cwd)",
     },
   },
-
-  config = function(_, opts)
-    -- Set up mini.files
-    require("mini.files").setup(opts)
-    -- Load custom keymaps
-    -- mini_files_km.setup(opts)
-
-    -- -- Load Git integration
-    -- -- git config is slowing mini.files too much, so disabling it
-    -- mini_files_git.setup()
-  end,
 }
