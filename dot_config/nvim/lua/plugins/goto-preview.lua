@@ -5,6 +5,7 @@ end
 return {
   "rmagatti/goto-preview",
   event = "BufEnter",
+  dependencies = "rmagatti/logger.nvim",
   config = true,
   keys = {
     {
