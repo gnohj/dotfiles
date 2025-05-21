@@ -1,4 +1,24 @@
-# ---------------------------------------------------------------------  Load User Settings
+#-------------------------------------------------------------------------------
+#--                  Zshrc Prerequisites
+#-------------------------------------------------------------------------------
+# Mac Only
+# Neovim + Git + Terminal (nerd font configured/installed) + NPM + PNPM + Yarn
+
+
+#-------------------------------------------------------------------------------
+#--         Powerlevel10k Instant Prompt (INFO: disabled for fastfetch)
+#-------------------------------------------------------------------------------
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+# if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+#   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+# fi
+
+
+#-------------------------------------------------------------------------------
+#--                      User Settings
+#-------------------------------------------------------------------------------
 if [ -f "$HOME/.zsh_env" ]; then
   source "$HOME/.zsh_env"
 fi
@@ -7,72 +27,129 @@ if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
 
-# Disable Console Do Not Track (specification)
-export DO_NOT_TRACK=1
 
-# Force color for cli apps
-export FORCE_COLOR=1
+#-------------------------------------------------------------------------------
+#--                           Zinit
+#-------------------------------------------------------------------------------
 
+# Set the directory we want to store zinit and plugins
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
-# --------------------------------------------------------------------- Prompt
-autoload -Uz compinit
-compinit
-
-radio_ctl_prompt=$(get_rc)
-if [[ $radio_ctl_prompt != 1 ]] then;
-  export RADIO_CTL=$(get_rc)
+# Download Zinit (optimized lady loading plugin manager), if it's not there yet
+if [ ! -d "$ZINIT_HOME" ]; then
+   mkdir -p "$(dirname $ZINIT_HOME)"
+   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
 
-if typeset -f update_rc >/dev/null 2>&1; then
-  update_rc
-fi
+# Source/Load zinit
+source "${ZINIT_HOME}/zinit.zsh"
 
-getPNPM() {
-  pnpm_version_manifest=$(node -p -e "require('./package.json').packageManager" 2>/dev/null)
-  pnpm_version=$(pnpm --version 2>/dev/null)
-  if [[ $pnpm_version_manifest == *"pnpm@"* ]] && [[ -z "$(echo $pnpm_version | grep -o "Unsupported")" ]]; then
-    echo "[pnpm v$pnpm_version]"
-  else
-    echo 1
-  fi
+alias zstatus='zinit status'
+
+
+#-------------------------------------------------------------------------------
+#--                 Zinit - Prompt (Powerlevel10k)
+#-------------------------------------------------------------------------------
+
+zinit ice depth=1; zinit light romkatv/powerlevel10k
+
+#-------------------------------------------------------------------------------
+#--                 Zinit - Plugins
+#-------------------------------------------------------------------------------
+
+zinit light zsh-users/zsh-completions
+zinit light zsh-users/zsh-autosuggestions
+zinit light zsh-users/zsh-syntax-highlighting
+# zinit light Aloxaf/fzf-tab - TODO: doesn't work
+
+
+#-------------------------------------------------------------------------------
+#--                 Zinit -  Snippets
+#-------------------------------------------------------------------------------
+
+zinit snippet OMZ::plugins/git/git.plugin.zsh
+zinit snippet OMZL::git.zsh
+zinit snippet OMZP::aws
+zinit snippet OMZP::chezmoi
+zinit snippet OMZP::command-not-found
+zinit snippet OMZP::docker
+zinit snippet OMZP::git
+zinit snippet OMZP::golang
+zinit snippet OMZP::npm
+zinit snippet OMZP::ssh
+zinit snippet OMZP::sudo
+
+#-------------------------------------------------------------------------------
+#--        Zinit -  Load Completions whenever zshell starts
+#-------------------------------------------------------------------------------
+
+# Define the function with the correct name
+function _history_substring_search_config() {
+  bindkey '^[[A' history-substring-search-up
+  bindkey '^[[B' history-substring-search-down
 }
-pnpm_prompt=$(getPNPM)
-if [[ $pnpm_prompt != 1 ]] then;
-  export PNPM=$(getPNPM)
-fi
 
-# brew init starship - https://github.com/starship/starship/issues/3418
-if [[ "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select" || \
-      "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select-wrapped" ]]; then
-    zle -N zle-keymap-select "";
-fi
+# Set ice modifiers BEFORE loading the plugin
+zinit ice wait lucid atload'_history_substring_search_config'
+zinit load zsh-users/zsh-history-substring-search
 
-eval "$(starship init zsh)"
+# Load completions whenever zshell starts
+# initializes entire zsh completion system, process all registered completion fns, builds completion cache
+autoload -Uz compinit && compinit
 
-# change the config dir for xdg
-export XDG_CONFIG_HOME="$HOME/.config"
+#-------------------------------------------------------------------------------
+#--        Zinit -  Replay all Cached Completions
+#-------------------------------------------------------------------------------
 
-# brew activate autosuggestions
-source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+zinit cdreplay -q
 
-# brew activate zsh-syntax-highlighting
-source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# https://github.com/3rd/image.nvim
-export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
+#-------------------------------------------------------------------------------
+#                  Keybindings
+#-------------------------------------------------------------------------------
 
-# Completion styling - allow case-insensitive matching for cd
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+# bindkey '^p' history-search-backward
+# bindkey '^n' history-search-forward
 
-# --------------------------------------------------------------------- Custom Aliases
+
+#-------------------------------------------------------------------------------
+#                  History
+#-------------------------------------------------------------------------------
+
+HISTSIZE=5000
+HISTFILE=~/.zsh_history
+SAVEHIST=$HISTSIZE
+HISTDUP=erase # erase all dupes in history file
+setopt appendhistory
+setopt sharehistory
+# setopt hist_ignore_space - i want sensitive args to be persisted
+setopt hist_ignore_all_dups
+setopt hist_save_no_dups
+setopt hist_ignore_dups
+setopt hist_find_no_dups
+
+
+#-------------------------------------------------------------------------------
+#                  Completion Styling
+#-------------------------------------------------------------------------------
+
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+# zstyle ':completion:*' menu no - TODO: fzf/tab plugin doesnt work, so commented this out
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
+
+
+#-------------------------------------------------------------------------------
+#                  Aliases
+#-------------------------------------------------------------------------------
 
 # Obisidian
 alias oo='cd $HOME/Obsidian/second-brain'
 # Obsidian review
 alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
-export PATH="$HOME/bin:$PATH"
 
-# Chezmoi
+# Chezmoi - todo add chezmoi check/download (brew)
 alias cz='chezmoi'
 
 # NeoVim Shorcuts
@@ -97,11 +174,9 @@ alias gg="lazygit"
 # reload zshell
 alias reload="source ~/.zshrc"
 
-# speedtest
+# speedtest - todo add speedtest-cli check/download (brew)
 alias speed="speedtest"
 
-# Load Fastfetch
-# fastfetch
 
 # Yarn clean
 alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
@@ -110,24 +185,13 @@ alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
 alias pn="pnpm"
 
 # clr
-alias clr="clear"
+alias c='clear'
 
-# bat
+# bat - todo add bat check/download (brew)
 alias cat="bat"
-export BAT_THEME=tokyonight_night
 
-# fkill
-alias kp='fkill'
-
-# eza for modern ls view
+# eza for modern ls view - todo add eza check/download (brew)
 alias ls="eza --icons=always --long --all"
-
-# pnpm
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
 
 # brew leaves list (installed packages by me)
 alias leaves="brew leaves"
@@ -135,86 +199,99 @@ alias leaves="brew leaves"
 # brew outdated list (installed packages by me)
 alias outdated="comm -12 <(brew leaves | sort) <(brew outdated --formula | awk '{print \$1}' | sort) | awk '{print \"outdated brew package: \" \$1}'"
 
+#-------------------------------------------------------------------------------
+#                  Paths
+#-------------------------------------------------------------------------------
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+# pnpm
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
 
 
-# ---------------------------------------------------------------------  History
-# history command - default only shows last 15 entries.. passeing 1 arg shows all entries
-alias history='history 1'
-bindkey '^p' history-search-backward
-bindkey '^n' history-search-forward
 
-HISTFILE="$HOME/.zsh_history"
-HISTSIZE=10000
-SAVEHIST=$HISTSIZE
-HISTDUP=erase
-setopt appendhistory
-setopt INC_APPEND_HISTORY
-setopt sharehistory
-setopt hist_ignore_all_dups
-setopt hist_save_no_dups
-setopt hist_ignore_dups
-setopt hist_find_no_dups
+#-------------------------------------------------------------------------------
+#                  Script Integrations
+#-------------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------  Integrations
+# -----------------------------  Aider - todo add Aider check/download (brew)
+export AIDER_SUBTREE_ONLY=1
+
+. "$HOME/.local/bin/env"
+
+# -----------------------------  Bun completions - todo add bun check/download (brew)
+[ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
 
 
-# -----------------------------  Kitty Terminal
-change_kitty_transparency() {
-	sh ~/.config/kitty/change-profile.sh
+# -----------------------------  Delta (nicer git diff)
+if ! command -v delta &> /dev/null; then
+    echo "Delta not found. Installing delta..."
+    # macOS - install with Homebrew
+    if command -v brew &> /dev/null; then
+        brew install git-delta
+        echo "Delta installed successfully!"
+    else
+        echo "Homebrew not found. Please install Homebrew first, then run: brew install git-delta"
+    fi
+fi
+
+# Configure git to use delta if it's installed
+if command -v delta &> /dev/null; then
+    # Configure delta as git pager if not already configured
+    if ! git config --get core.pager | grep -q "delta"; then
+        git config --global core.pager "delta"
+        git config --global interactive.diffFilter "delta --color-only"
+        git config --global delta.navigate true
+        git config --global delta.light false
+        git config --global delta.side-by-side true
+        git config --global delta.line-numbers true
+        echo "Git configured to use delta as pager"
+    fi
+    # Set an alias for viewing git diffs with delta
+    alias gdelta='git diff | delta'
+fi
+
+
+#
+# -----------------------------  Fastfetch - todo add fastfetch check/download (brew)
+# INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
+# Add a flag to control fastfetch execution
+fastfetch
+
+
+# -----------------------------  Sesh (Tmux Manager)
+# Check if sesh is installed (Smart tmux session manager)
+if ! command -v sesh &> /dev/null; then
+    echo "Sesh not found. Installing sesh..."
+    if command -v brew &> /dev/null; then
+        brew install sesh
+        echo "Sesh installed successfully!"
+    else
+        echo "Homebrew not found. Please install Homebrew first, then run: brew install joshmedeski/sesh/sesh"
+    fi
+fi
+
+function sesh-sessions() {
+  {
+    exec </dev/tty
+    exec <&1
+    local session
+    session=$(sesh list -t -c | fzf --height 40% --reverse --border-label ' sesh ' --border --prompt '⚡  ')
+    zle reset-prompt > /dev/null 2>&1 || true
+    [[ -z "$session" ]] && return
+    sesh connect $session
+  }
 }
-
-toggle_kitty_transparency() {
-	sh ~/.config/kitty/toggle-transparency.sh
-}
-
-kitty-reload() {
-    kill -SIGUSR1 $(pidof kitty)
-}
-
-# -----------------------------  FNM
-
-eval "$(fnm env --use-on-cd --shell zsh)"
-
-reload_prompt() {
-    fnm use
-    corepack enable
-    reload
-    outdated
-}
-
-# Needs 'jq' installed
-# jq -r .version package.json 2>/dev/null
-# if [ $? -eq 0 ]
-# then
-#   fnm use
-# fi
-
-# -----------------------------  Fastly CLI Auto Completion
-eval "$(fastly --completion-script-zsh)"
-
-# ----------------------------- Zoxide "inspired by z/jump-around"
-
-# The following lines were added by compinstall
-bindkey '^I' expand-or-complete-prefix
-zstyle ':completion:*' completer _complete _prefix
-set -o completeinword
-# End of lines added by compinstall
-
-autoload -U +X bashcompinit && bashcompinit
-complete -o nospace -C /opt/homebrew/bin/terraform terraform
-
-eval "$(zoxide init zsh)"
-
-
-# -----------------------------  Direnv
-
-eval "$(direnv hook $SHELL)"
-
-
-# -----------------------------  TheFuck
-eval $(thefuck --alias)
-eval $(thefuck --alias fk)
-eval $(thefuck --alias fck)
+zle -N sesh-sessions
+# Bind Ctrl+X to the sesh-sessions widget
+bindkey -M emacs '^x' sesh-sessions
+bindkey -M vicmd '^x' sesh-sessions
+bindkey -M viins '^x' sesh-sessions
 
 
 # -----------------------------  ZSH VI Mode
@@ -260,83 +337,43 @@ eval $(thefuck --alias fck)
     zvm_after_init_commands+=('[ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh')
   fi
 
+#-------------------------------------------------------------------------------
+#                  Global Helpers
+#-------------------------------------------------------------------------------
 
-# -----------------------------  ZSH History Substring Search
-# https://github.com/zsh-users/zsh-history-substring-search - place this after fzf
-source $HOMEBREW_PREFIX/share/zsh-history-substring-search/zsh-history-substring-search.zsh
-bindkey '^[[A' history-substring-search-up
-bindkey '^[[B' history-substring-search-down
+# Disable Console Do Not Track (specification)
+export DO_NOT_TRACK=1
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# Force color for cli apps
+export FORCE_COLOR=1
 
-# -----------------------------  Aider
-export AIDER_SUBTREE_ONLY=1
-
-. "$HOME/.local/bin/env"
-
-# -----------------------------  Bun completions
-[ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-# -----------------------------  Delta (nicer git diff)
-if ! command -v delta &> /dev/null; then
-    echo "Delta not found. Installing delta..."
-    # macOS - install with Homebrew
-    if command -v brew &> /dev/null; then
-        brew install git-delta
-        echo "Delta installed successfully!"
-    else
-        echo "Homebrew not found. Please install Homebrew first, then run: brew install git-delta"
-    fi
-fi
-
-# Configure git to use delta if it's installed
-if command -v delta &> /dev/null; then
-    # Configure delta as git pager if not already configured
-    if ! git config --get core.pager | grep -q "delta"; then
-        git config --global core.pager "delta"
-        git config --global interactive.diffFilter "delta --color-only"
-        git config --global delta.navigate true
-        git config --global delta.light false
-        git config --global delta.side-by-side true
-        git config --global delta.line-numbers true
-        echo "Git configured to use delta as pager"
-    fi
-    # Set an alias for viewing git diffs with delta
-    alias gdelta='git diff | delta'
-fi
-
-# -----------------------------  Sesh (Tmux Manager)
-# Check if sesh is installed (Smart tmux session manager)
-if ! command -v sesh &> /dev/null; then
-    echo "Sesh not found. Installing sesh..."
-    if command -v brew &> /dev/null; then
-        brew install sesh
-        echo "Sesh installed successfully!"
-    else
-        echo "Homebrew not found. Please install Homebrew first, then run: brew install joshmedeski/sesh/sesh"
-    fi
-fi
-
-function sesh-sessions() {
-  {
-    exec </dev/tty
-    exec <&1
-    local session
-    session=$(sesh list -t -c | fzf --height 40% --reverse --border-label ' sesh ' --border --prompt '⚡  ')
-    zle reset-prompt > /dev/null 2>&1 || true
-    [[ -z "$session" ]] && return
-    sesh connect $session
-  }
+# Global Reload Prompt Fn
+reload_prompt() {
+    # Suppress stderr when running fnm use - it will fail quietly if no .nvmrc exists
+    fnm use 2>/dev/null || true
+    corepack enable
+    update_rc
+    get_rc
+    reload
+    outdated
 }
-zle -N sesh-sessions
-# Bind Ctrl+X to the sesh-sessions widget
-bindkey -M emacs '^x' sesh-sessions
-bindkey -M vicmd '^x' sesh-sessions
-bindkey -M viins '^x' sesh-sessions
 
-# -----------------------------  End
+#-------------------------------------------------------------------------------
+#                  Power Level 10k Configuration
+#-------------------------------------------------------------------------------
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+
+#-------------------------------------------------------------------------------
+#                  Eval Integrations
+#-------------------------------------------------------------------------------
+
+eval $(thefuck --alias fk) # todo add thefuck check/download (brew)
+eval "$(direnv hook $SHELL)" # todo add direnv check/download (brew)
+eval "$(fastly --completion-script-zsh)"  # todo add fastly cli check/download (brew)
+eval "$(fnm env --use-on-cd --shell zsh)" # todo add fnm check/download (brew)
+eval "$(fzf --zsh)" # todo add fzf check/download (brew)
+eval "$(zoxide init zsh)" # todo add zoxide check/download (brew)
 
