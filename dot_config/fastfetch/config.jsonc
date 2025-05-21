@@ -1,17 +1,20 @@
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  // sesh startup cmds won't work with fast fetch custom images
+  // https://github.com/joshmedeski/sesh/discussions/254
+  // fyi: it will work with the default mac os image.. so comment this out for now
   "logo": {
     // If working with tmux, you need to use kitty-icat instead of kitty-direct
     // https://discord.com/channels/1005603569187160125/1324828708128821271/1327261766014599218
-    "type": "kitty-icat",
-    "source": "~/.config/fastfetch/images/gundamg.webp",
-    "height": 20,
-    "width": 30,
-    "position": "left",
-    "padding": {
-      "top": 3,
-      "right": 3,
-    },
+    // "type": "kitty-icat",
+    // "source": "~/.config/fastfetch/images/gundamg.webp",
+    // "height": 20,
+    // "width": 30,
+    // "position": "left",
+    // "padding": {
+    //   "top": 3,
+    //   "right": 3,
+    // },
   },
   "display": {
     "separator": " ",
