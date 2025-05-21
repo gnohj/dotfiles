@@ -15,12 +15,23 @@
 #   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 # fi
 
+#-------------------------------------------------------------------------------
+#--                      Zsh Configuration
+#-------------------------------------------------------------------------------
+export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
+
+# Set up function path to include functions directory
+fpath=("$ZDOTDIR/functions" $fpath)
+
+# Redirect zsh_sessions to the new location - used by Terminal.app on macOS
+export SHELL_SESSIONS_DIR="$ZDOTDIR/zsh_sessions"
+
 
 #-------------------------------------------------------------------------------
 #--                      User Settings
 #-------------------------------------------------------------------------------
-if [ -f "$HOME/.zsh_env" ]; then
-  source "$HOME/.zsh_env"
+if [ -f "$HOME/.zsh_gnohj_env" ]; then
+  source "$HOME/.zsh_gnohj_env"
 fi
 
 if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
@@ -95,7 +106,7 @@ zinit load zsh-users/zsh-history-substring-search
 
 # Load completions whenever zshell starts
 # initializes entire zsh completion system, process all registered completion fns, builds completion cache
-autoload -Uz compinit && compinit
+autoload -Uz compinit && compinit -d $ZSH_COMPDUMP
 
 #-------------------------------------------------------------------------------
 #--        Zinit -  Replay all Cached Completions
@@ -117,7 +128,8 @@ zinit cdreplay -q
 #-------------------------------------------------------------------------------
 
 HISTSIZE=5000
-HISTFILE=~/.zsh_history
+# Updated history file location
+HISTFILE=$ZDOTDIR/.zsh_history
 SAVEHIST=$HISTSIZE
 HISTDUP=erase # erase all dupes in history file
 setopt appendhistory
@@ -149,7 +161,7 @@ alias oo='cd $HOME/Obsidian/second-brain'
 # Obsidian review
 alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 
-# Chezmoi - todo add chezmoi check/download (brew)
+# Chezmoi - TODO: add chezmoi check/download (brew)
 alias cz='chezmoi'
 
 # NeoVim Shorcuts
@@ -171,10 +183,10 @@ alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
 alias gg="lazygit"
 
-# reload zshell
-alias reload="source ~/.zshrc"
+# reload zshell - Updated to reflect new location
+alias reload="source $ZDOTDIR/.zshrc"
 
-# speedtest - todo add speedtest-cli check/download (brew)
+# speedtest - TODO: add speedtest-cli check/download (brew)
 alias speed="speedtest"
 
 
@@ -187,10 +199,10 @@ alias pn="pnpm"
 # clr
 alias c='clear'
 
-# bat - todo add bat check/download (brew)
+# bat - TODO: add bat check/download (brew)
 alias cat="bat"
 
-# eza for modern ls view - todo add eza check/download (brew)
+# eza for modern ls view - TODO: add eza check/download (brew)
 alias ls="eza --icons=always --long --all"
 
 # brew leaves list (installed packages by me)
@@ -219,12 +231,12 @@ esac
 #                  Script Integrations
 #-------------------------------------------------------------------------------
 
-# -----------------------------  Aider - todo add Aider check/download (brew)
+# -----------------------------  Aider - TODO: add Aider check/download (brew)
 export AIDER_SUBTREE_ONLY=1
 
 . "$HOME/.local/bin/env"
 
-# -----------------------------  Bun completions - todo add bun check/download (brew)
+# -----------------------------  Bun completions - TODO: add bun check/download (brew)
 [ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
 
 
@@ -258,7 +270,7 @@ fi
 
 
 #
-# -----------------------------  Fastfetch - todo add fastfetch check/download (brew)
+# -----------------------------  Fastfetch - TODO: add fastfetch check/download (brew)
 # INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
 # Add a flag to control fastfetch execution
 fastfetch
@@ -347,15 +359,68 @@ export DO_NOT_TRACK=1
 # Force color for cli apps
 export FORCE_COLOR=1
 
-# Global Reload Prompt Fn
-reload_prompt() {
-    # Suppress stderr when running fnm use - it will fail quietly if no .nvmrc exists
+# Define the custom radioctl segment function for Powerlevel10k
+function prompt_radio_ctl() {
+  if [[ $RADIO_CTL != 1 ]]; then
+    p10k segment -f yellow -t "$RADIO_CTL"
+  fi
+}
+
+# Define the custom pnpm segment function for Powerlevel10k
+function prompt_pnpm_info() {
+  if [[ $PNPM != 1 ]]; then
+    p10k segment -f green -t "$PNPM"
+  fi
+}
+
+# Helper function to reload zsh configuration without running fastfetch
+reload_zsh_config() {
+    # Save current directory
+    local current_dir=$(pwd)
+    
+    # Suppress stderr when running fnm use
     fnm use 2>/dev/null || true
     corepack enable
-    update_rc
-    get_rc
-    reload
+    
+    # Update radioctl
+    if typeset -f update_rc > /dev/null 2>&1; then
+      update_rc
+    fi
+    radio_ctl_prompt=$(get_rc)
+    if [[ $radio_ctl_prompt != 1 ]]; then
+      export RADIO_CTL=$(get_rc)
+    fi
+    
+    # Update pnpm
+    pnpm_prompt=$(getPNPM)
+    if [[ $pnpm_prompt != 1 ]]; then
+      export PNPM=$(getPNPM)
+    fi
+    
+    # Source only zsh configurations, not the whole .zshrc
+    if [ -f "$HOME/.zsh_env" ]; then
+      source "$HOME/.zsh_env"
+    fi
+    
+    if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
+      source "$HOME/.zsh_radioctl_cmds"
+    fi
+    
+    # Source p10k.zsh to update the prompt appearance
+    [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
+    
+    # Change back to original directory (in case any of the sourced files changed it)
+    cd "$current_dir"
+    
+    # Check outdated packages
     outdated
+}
+
+# Global Reload Prompt Fn (updated to use the helper function)
+reload_prompt() {
+    reload_zsh_config
+    # Refresh the prompt (forces p10k to redraw)
+    zle reset-prompt 2>/dev/null || true
 }
 
 #-------------------------------------------------------------------------------
@@ -363,17 +428,18 @@ reload_prompt() {
 #-------------------------------------------------------------------------------
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+[[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 
 
 #-------------------------------------------------------------------------------
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
 
-eval $(thefuck --alias fk) # todo add thefuck check/download (brew)
-eval "$(direnv hook $SHELL)" # todo add direnv check/download (brew)
-eval "$(fastly --completion-script-zsh)"  # todo add fastly cli check/download (brew)
-eval "$(fnm env --use-on-cd --shell zsh)" # todo add fnm check/download (brew)
-eval "$(fzf --zsh)" # todo add fzf check/download (brew)
-eval "$(zoxide init zsh)" # todo add zoxide check/download (brew)
+eval $(thefuck --alias fk) # TODO: add thefuck check/download (brew)
+eval "$(direnv hook $SHELL)" # TODO: add direnv check/download (brew)
+eval "$(fastly --completion-script-zsh)"  # TODO: add fastly cli check/download (brew)
+eval "$(fnm env --use-on-cd --shell zsh)" # TODO: add fnm check/download (brew)
+eval "$(fzf --zsh)" # TODO: add fzf check/download (brew)
 
+export _ZO_DATA_DIR="$ZDOTDIR"
+eval "$(zoxide init zsh)" # TODO: add zoxide check/download (brew)
