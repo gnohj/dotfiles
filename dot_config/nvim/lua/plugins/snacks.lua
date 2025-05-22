@@ -134,15 +134,15 @@ return {
     dashboard = {
       preset = {
         keys = {
-          {
-            icon = " ",
-            key = "c",
-            desc = "Config",
-            action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
-          },
+          -- {
+          --   icon = " ",
+          --   key = "c",
+          --   desc = "Config",
+          --   action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
+          -- },
           { icon = " ", key = "s", desc = "Restore Session", section = "session" },
           { icon = "󰒲 ", key = "l", desc = "Lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
-          { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+          { icon = " ", key = "<Esc>", desc = "Quit", action = ":qa" },
         },
         header = [[
                                                                     

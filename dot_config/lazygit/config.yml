@@ -1,4 +1,5 @@
 notARepository: "quit"
+quitOnTopLevelReturn: true # hitting esc quits on top level window
 git:
   overrideGpg: true
 os:

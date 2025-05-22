@@ -1,3 +1,13 @@
+#  ███████╗███████╗███████╗██╗  ██╗     ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗ 
+#  ██╔════╝██╔════╝██╔════╝██║  ██║    ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝ 
+#  ███████╗█████╗  ███████╗███████║    ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
+#  ╚════██║██╔══╝  ╚════██║██╔══██║    ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
+#  ███████║███████╗███████║██║  ██║    ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
+#  ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝     ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝ 
+#
+#  Smart session manager for the terminal
+#  https://github.com/joshmedeski/sesh
+
 # default
 [default_session]
 startup_command = "nvim -c ':lua Snacks.picker.files()'"
@@ -135,24 +145,24 @@ preview_command = "bat --language=toml --style=snip --color=always ~/.config/sta
 
 [[session]]
 name = "tmux_config"
-path = "~/."
-startup_command = "nvim .tmux.conf"
-preview_command = "bat --language=bash --style=snip --color=always ~/.tmux.conf"
+path = "~/.config/tmux"
+startup_command = "nvim tmux.conf"
+preview_command = "bat --language=bash --style=snip --color=always ~/.config/tmux//tmux.conf"
 
 [[session]]
 name = "wezterm_config"
-path = "~/.wezterm.lua"
-startup_command = "nvim .wezterm.lua"
-preview_command = "bat --color=always ~/.wezterm.lua"
+path = "~/.config/wezterm"
+startup_command = "nvim wezterm.lua"
+preview_command = "bat --color=always ~/.config/wezterm/wezterm.lua"
 
 [[session]]
-name = "zsh_env"
-path = "~/.zsh_env"
-startup_command = "nvim .zsh_env"
-preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_env"
+name = "zsh_gnohj_env"
+path = "~/.zsh_gnoh=env"
+startup_command = "nvim .zsh_gnohj_env"
+preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
 
 [[session]]
 name = "zshrc_config"
-path = "~/."
+path = "~/zshrc"
 startup_command = "nvim .zshrc"
-preview_command = "bat --language=bash --style=snip --color=always ~/.zshrc"
+preview_command = "bat --language=bash --style=snip --color=always ~/zshrc/.zshrc"
