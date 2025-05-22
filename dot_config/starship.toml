@@ -10,11 +10,8 @@
 
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# Inserts a blank line between shell prompts
-# add_newline = false
-
 format = '''
-${env_var.RADIO_CTL}
+(${env_var.RADIO_CTL})
 $directory$rust$git_branch$git_status$package$golang$terraform$docker_context$python$docker_context$nodejs$cmd_duration
 [﬌](bold green) 
 '''
@@ -45,5 +42,5 @@ disabled = false
 style = "bold italic red"
 
 [env_var.RADIO_CTL]
-default = 'radioctl ✖'
+default = ''
 format = "[$symbol($env_value)](yellow dimmed)"

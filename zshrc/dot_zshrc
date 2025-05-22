@@ -67,9 +67,14 @@ source "${ZINIT_HOME}/zinit.zsh"
 # zinit ice depth=1; zinit light romkatv/powerlevel10k
 
 # Load Custom Segments for starship prompt before starship get's evaled
-radio_ctl_prompt=$(get_rc)
-if [[ $radio_ctl_prompt != 1 ]] then;
-  export RADIO_CTL=$(get_rc)
+# Only set RADIO_CTL in git directories
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    radio_ctl_prompt=$(get_rc)
+    if [[ $radio_ctl_prompt != 1 ]]; then
+      export RADIO_CTL="$(get_rc)"
+    fi
+else
+    unset RADIO_CTL  # Completely unset when not in git
 fi
 
 # brew init starship - https://github.com/starship/starship/issues/3418
