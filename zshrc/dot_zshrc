@@ -67,14 +67,15 @@ source "${ZINIT_HOME}/zinit.zsh"
 # zinit ice depth=1; zinit light romkatv/powerlevel10k
 
 # Load Custom Segments for starship prompt before starship get's evaled
-# Only set RADIO_CTL in git directories
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     radio_ctl_prompt=$(get_rc)
     if [[ $radio_ctl_prompt != 1 ]]; then
+      export STARSHIP_CONFIG=~/.config/starship/starship-radioctl.toml
       export RADIO_CTL="$(get_rc)"
     fi
 else
-    unset RADIO_CTL  # Completely unset when not in git
+    export STARSHIP_CONFIG=~/.config/starship/starship.toml
+    unset RADIO_CTL
 fi
 
 # brew init starship - https://github.com/starship/starship/issues/3418
@@ -430,15 +431,18 @@ export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {
-  fnm use 2>/dev/null || true
-
+  # set the right pnpm version, fnm eval below will detect right node version
   corepack enable
+
+  # source zshrc file
   reload
 
+  # update radioctl cli
   if typeset -f update_rc >/dev/null 2>&1; then
     update_rc
   fi
 
+  # check for outdated brew packages
   outdated
 }
 
