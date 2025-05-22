@@ -11,7 +11,6 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
 format = '''
-(${env_var.RADIO_CTL})
 $directory$rust$git_branch$git_status$package$golang$terraform$docker_context$python$docker_context$nodejs$cmd_duration
 [﬌](bold green) 
 '''
@@ -43,4 +42,5 @@ style = "bold italic red"
 
 [env_var.RADIO_CTL]
 default = ''
+variable = "RADIO_CTL"
 format = "[$symbol($env_value)](yellow dimmed)"
