@@ -6,7 +6,7 @@
 
 
 #-------------------------------------------------------------------------------
-#--         Powerlevel10k Instant Prompt (INFO: disabled for fastfetch)
+#--         Powerlevel10k Instant Prompt (disabled for fastfetch)
 #-------------------------------------------------------------------------------
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -27,7 +27,6 @@ fpath=("$ZDOTDIR/functions" $fpath)
 export SHELL_SESSIONS_DIR="$ZDOTDIR/zsh_sessions"
 
 
-
 #-------------------------------------------------------------------------------
 #--                      User Settings
 #-------------------------------------------------------------------------------
@@ -38,9 +37,6 @@ fi
 if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
-
-export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d149,fg:#44FFb1"
-
 
 
 #-------------------------------------------------------------------------------
@@ -59,14 +55,37 @@ fi
 # Source/Load zinit
 source "${ZINIT_HOME}/zinit.zsh"
 
-alias zstatus='zinit status'
 
 
 #-------------------------------------------------------------------------------
-#--                 Zinit - Prompt (Powerlevel10k)
+#--                 Zinit - Prompt
 #-------------------------------------------------------------------------------
 
-zinit ice depth=1; zinit light romkatv/powerlevel10k
+
+# Load Powerlevel10k (disabled for starship)
+# export PROMPT_NAME="powerlevel10k"
+# zinit ice depth=1; zinit light romkatv/powerlevel10k
+
+# Load Custom Segments for starship prompt before starship get's evaled
+radio_ctl_prompt=$(get_rc)
+if [[ $radio_ctl_prompt != 1 ]] then;
+  export RADIO_CTL=$(get_rc)
+fi
+
+# brew init starship - https://github.com/starship/starship/issues/3418
+if [[ "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select" || \
+      "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select-wrapped" ]]; then
+    zle -N zle-keymap-select "";
+fi
+
+
+# Load starship
+export PROMPT_NAME="starship"
+zinit ice as"command" from"gh-r" \
+          atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
+          atpull"%atclone" src"init.zsh"
+zinit load starship/starship
+
 
 #-------------------------------------------------------------------------------
 #--                 Zinit - Plugins
@@ -196,6 +215,9 @@ setopt hist_find_no_dups
 #-------------------------------------------------------------------------------
 #                  Aliases
 #-------------------------------------------------------------------------------
+
+# Zinit Status
+alias zstatus='zinit status'
 
 # Obisidian
 alias oo='cd $HOME/Obsidian/second-brain'
@@ -396,76 +418,29 @@ export DO_NOT_TRACK=1
 # Force color for cli apps
 export FORCE_COLOR=1
 
-# Define the custom radioctl segment function for Powerlevel10k
-function prompt_radio_ctl() {
-  if [[ $RADIO_CTL != 1 ]]; then
-    p10k segment -f yellow -t "$RADIO_CTL"
-  fi
-}
-
-# Define the custom pnpm segment function for Powerlevel10k
-function prompt_pnpm_info() {
-  if [[ $PNPM != 1 ]]; then
-    p10k segment -f green -t "$PNPM"
-  fi
-}
-
-# Helper function to reload zsh configuration without running fastfetch
-reload_zsh_config() {
-    # Save current directory
-    local current_dir=$(pwd)
-    
-    # Suppress stderr when running fnm use
-    fnm use 2>/dev/null || true
-    corepack enable
-    
-    # Update radioctl
-    if typeset -f update_rc > /dev/null 2>&1; then
-      update_rc
-    fi
-    radio_ctl_prompt=$(get_rc)
-    if [[ $radio_ctl_prompt != 1 ]]; then
-      export RADIO_CTL=$(get_rc)
-    fi
-    
-    # Update pnpm
-    pnpm_prompt=$(getPNPM)
-    if [[ $pnpm_prompt != 1 ]]; then
-      export PNPM=$(getPNPM)
-    fi
-    
-    # Source only zsh configurations, not the whole .zshrc
-    if [ -f "$HOME/.zsh_env" ]; then
-      source "$HOME/.zsh_env"
-    fi
-    
-    if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
-      source "$HOME/.zsh_radioctl_cmds"
-    fi
-    
-    # Source p10k.zsh to update the prompt appearance
-    [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
-    
-    # Change back to original directory (in case any of the sourced files changed it)
-    cd "$current_dir"
-    
-    # Check outdated packages
-    outdated
-}
+# Adds color to fzf- for commands not tab, ex: ctrl + r
+export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1"
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {
-    reload_zsh_config
-    # Refresh the prompt (forces p10k to redraw)
-    zle reset-prompt 2>/dev/null || true
+  fnm use 2>/dev/null || true
+
+  corepack enable
+  reload
+
+  if typeset -f update_rc >/dev/null 2>&1; then
+    update_rc
+  fi
+
+  outdated
 }
 
 #-------------------------------------------------------------------------------
-#                  Power Level 10k Configuration
+#                  Power Level 10k Configuration (disabled for starship)
 #-------------------------------------------------------------------------------
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
+# [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 
 
 #-------------------------------------------------------------------------------
