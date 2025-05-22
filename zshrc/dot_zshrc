@@ -215,6 +215,8 @@ setopt hist_find_no_dups
 #-------------------------------------------------------------------------------
 #                  Aliases
 #-------------------------------------------------------------------------------
+# Blacklist for `you-should-use` plugin
+export YSU_IGNORED_ALIASES=("vi" "vim")
 
 # Zinit Status
 alias zstatus='zinit status'
@@ -229,9 +231,9 @@ alias cz='chezmoi'
 
 # NeoVim Shorcuts
 ESLINT_USE_FLAT_CONFIG=false
+alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
 alias vi=nvim
 alias vim=nvim
-alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
 export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
 
 # Git Shorcuts
