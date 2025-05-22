@@ -39,7 +39,7 @@ if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
 
-export FZF_DEFAULT_OPTS='--ansi'
+export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d149,fg:#44FFb1"
 
 
 
