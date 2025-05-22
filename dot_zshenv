@@ -1,2 +1,2 @@
-#  Zshell entry point to look for zshrc file
+#  Zshell entry point
 export ZDOTDIR=$HOME/zshrc

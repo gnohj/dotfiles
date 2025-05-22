@@ -15,7 +15,6 @@
 
 format = '''
 ${env_var.RADIO_CTL}
-${env_var.PNPM}
 $directory$rust$git_branch$git_status$package$golang$terraform$docker_context$python$docker_context$nodejs$cmd_duration
 [﬌](bold green) 
 '''
@@ -34,7 +33,7 @@ truncate_to_repo = true    # truncates directory to root folder if in github rep
 style = "bold italic blue"
 
 [git_branch]
-style = "bold #6699ff"
+style = "bold #04d1f9"
 
 [package]
 display_private = true
@@ -44,10 +43,6 @@ min_time = 4
 show_milliseconds = false
 disabled = false
 style = "bold italic red"
-
-[env_var.PNPM]
-default = 'pnpm ✖'
-format = "[$symbol($env_value)](green dimmed)"
 
 [env_var.RADIO_CTL]
 default = 'radioctl ✖'
