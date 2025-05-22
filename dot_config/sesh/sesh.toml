@@ -139,9 +139,9 @@ preview_command = "bat --language=toml --style=snip --color=always ~/.config/ses
 
 [[session]]
 name = "starship_config"
-path = "~/.config"
+path = "~/.config/starship"
 startup_command = "nvim starship.toml"
-preview_command = "bat --language=toml --style=snip --color=always ~/.config/starship.toml"
+preview_command = "bat --language=toml --style=snip --color=always ~/.config/starship/starship.toml"
 
 [[session]]
 name = "tmux_config"

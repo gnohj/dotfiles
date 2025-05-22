@@ -1,3 +1,13 @@
+#  ██╗      █████╗ ███████╗██╗   ██╗ ██████╗ ██╗████████╗
+#  ██║     ██╔══██╗╚══███╔╝╚██╗ ██╔╝██╔════╝ ██║╚══██╔══╝
+#  ██║     ███████║  ███╔╝  ╚████╔╝ ██║  ███╗██║   ██║
+#  ██║     ██╔══██║ ███╔╝    ╚██╔╝  ██║   ██║██║   ██║
+#  ███████╗██║  ██║███████╗   ██║   ╚██████╔╝██║   ██║
+#  ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝   ╚═╝
+#
+#  Simple terminal UI for git commands
+#  https://github.com/jesseduffield/lazygit
+
 notARepository: "quit"
 quitOnTopLevelReturn: true # hitting esc quits on top level window
 git:
