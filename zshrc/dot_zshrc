@@ -27,6 +27,7 @@ fpath=("$ZDOTDIR/functions" $fpath)
 export SHELL_SESSIONS_DIR="$ZDOTDIR/zsh_sessions"
 
 
+
 #-------------------------------------------------------------------------------
 #--                      User Settings
 #-------------------------------------------------------------------------------
@@ -37,6 +38,9 @@ fi
 if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
+
+export FZF_DEFAULT_OPTS='--ansi'
+
 
 
 #-------------------------------------------------------------------------------
@@ -68,27 +72,35 @@ zinit ice depth=1; zinit light romkatv/powerlevel10k
 #--                 Zinit - Plugins
 #-------------------------------------------------------------------------------
 
-zinit light zsh-users/zsh-completions
-zinit light zsh-users/zsh-autosuggestions
+# zinit light zsh-users/zsh-completions - changes text green/red depending on valid command
 zinit light zsh-users/zsh-syntax-highlighting
-# zinit light Aloxaf/fzf-tab - TODO: doesn't work
+
+# loads extra completion definitions that aren't officially part of zsh
+zinit load zsh-users/zsh-completions
+
+# shows a single suggestions (gray text after your cursor) based on latest cmd history
+# can accept it with right arrow.. this plugin has no back suggestions..
+# if you want to go back to (recento to latest comand history) just toggle <C-p> previous or <C-n> next
+zinit light zsh-users/zsh-autosuggestions
+
+# 📎 ZSH plugin that reminds you to use existing aliases for commands you just typed
+zinit load MichaelAquilina/zsh-you-should-use
 
 
 #-------------------------------------------------------------------------------
 #--                 Zinit -  Snippets
 #-------------------------------------------------------------------------------
 
-zinit snippet OMZ::plugins/git/git.plugin.zsh
+# adds git aliases, g=git, gst=git status, etc.
+zinit snippet OMZ::plugins/git/git.plugin.zsh 
 zinit snippet OMZL::git.zsh
+
+# mostly just cli completions
 zinit snippet OMZP::aws
 zinit snippet OMZP::chezmoi
 zinit snippet OMZP::command-not-found
 zinit snippet OMZP::docker
-zinit snippet OMZP::git
 zinit snippet OMZP::golang
-zinit snippet OMZP::npm
-zinit snippet OMZP::ssh
-zinit snippet OMZP::sudo
 
 #-------------------------------------------------------------------------------
 #--        Zinit -  Load Completions whenever zshell starts
@@ -96,8 +108,8 @@ zinit snippet OMZP::sudo
 
 # Define the function with the correct name
 function _history_substring_search_config() {
-  bindkey '^[[A' history-substring-search-up
-  bindkey '^[[B' history-substring-search-down
+  bindkey '^P' history-substring-search-up # ctrl + p
+  bindkey '^N' history-substring-search-down # ctrl + n
 }
 
 # Set ice modifiers BEFORE loading the plugin
@@ -107,6 +119,13 @@ zinit load zsh-users/zsh-history-substring-search
 # Load completions whenever zshell starts
 # initializes entire zsh completion system, process all registered completion fns, builds completion cache
 autoload -Uz compinit && compinit -d $ZSH_COMPDUMP
+
+# Call this after zsh completion system loads.
+if [[ -n "$(command -v fzf)" ]]; then
+  # Replace zsh's default completion selection menu with fzf!
+  zinit load Aloxaf/fzf-tab
+fi
+
 
 #-------------------------------------------------------------------------------
 #--        Zinit -  Replay all Cached Completions
@@ -119,8 +138,41 @@ zinit cdreplay -q
 #                  Keybindings
 #-------------------------------------------------------------------------------
 
-# bindkey '^p' history-search-backward
-# bindkey '^n' history-search-forward
+# ELIF Bindings
+# accept single auto suggestion (gray text); use right arrow to accept
+# history substring search - ctrl + p/n; use right arrow to accept
+# autocomplete menu - tab; use arrows to nav; use tab/enter to accept
+
+
+
+# When IN menu, up/down navigate menu items for autocomplete; otherwise always use history substring search
+# bindkey -M menuselect '^[[A' up-line-or-history    # Up arrow
+# bindkey -M menuselect '^[[B' down-line-or-history  # Down arrow
+
+# Press tab to enter menu in auto-complete dropdown, then use arrows to navigate,press enter or tab to select
+# bindkey '^I' menu-select
+
+
+# Fix key bindings for zsh-autocomplete to prevent conflicts
+# bindkey -M menuselect "^[[A" up-line-or-history    # Up arrow
+# bindkey -M menuselect "^[[B" down-line-or-history  # Down arrow
+# bindkey -M menuselect "^[OA" up-line-or-history    # Up arrow (alternate code)
+# bindkey -M menuselect "^[OB" down-line-or-history  # Down arrow (alternate code)
+# bindkey -M menuselect "^[[D" backward-char         # Left arrow
+# bindkey -M menuselect "^[[C" forward-char          # Right arrow
+# bindkey -M menuselect "^[OD" backward-char         # Left arrow (alternate code)
+# bindkey -M menuselect "^[OC" forward-char          # Right arrow (alternate code)
+
+
+#-------------------------------------------------------------------------------
+#                  Completion Styling
+#-------------------------------------------------------------------------------
+
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+zstyle ':fzf-tab:*' fzf-flags --color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1
+zstyle ':fzf-tab:complete:*' fzf-preview 'eza -1 --color=always $realpath'
 
 
 #-------------------------------------------------------------------------------
@@ -139,17 +191,6 @@ setopt hist_ignore_all_dups
 setopt hist_save_no_dups
 setopt hist_ignore_dups
 setopt hist_find_no_dups
-
-
-#-------------------------------------------------------------------------------
-#                  Completion Styling
-#-------------------------------------------------------------------------------
-
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
-zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-# zstyle ':completion:*' menu no - TODO: fzf/tab plugin doesnt work, so commented this out
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
-zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
 
 
 #-------------------------------------------------------------------------------
@@ -172,10 +213,6 @@ alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
 export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
 
 # Git Shorcuts
-alias g="git"
-alias cob="gcbz"
-alias co="gco"
-alias gst="git status"
 alias gamend="g commit --amend --date=now --no-edit"
 alias gpom="g pull origin master"
 alias gcom="g checkout master"
