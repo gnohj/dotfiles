@@ -1,4 +1,7 @@
-background = #021c31
+#s All neovim bg will have slight blue tint with opacity (transparency)
+background = #24354A
+# background = #25364C
+
 foreground = #CBE0F0
 
 cursor-color = #47FF9C
@@ -27,4 +30,3 @@ palette = 14=#04d1f9
 # white
 palette = 7=#ebfafa
 palette = 15=#ebfafa
-
