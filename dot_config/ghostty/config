@@ -47,19 +47,24 @@ window-padding-y = 6,0
 macos-window-shadow = false
 macos-option-as-alt = left
 
-# keybinds
+# ghosty specific keybinds only
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
-# This doesn't work when in tmux, if outside tmux the regular ctrl+l works
 keybind = super+k=clear_screen
-# command + k - sesh
+
+# tmux specific keybinds only
+# command + k to tmux - sesh
 keybind = super+k=text:\x01\x4b
-# command + g - lazygit
+# command + g  to tmu x- lazygit
 keybind = super+g=text:\x01\x67
-# command + l - last session
+# command + l to tmux - last session
 keybind = super+l=text:\x01\x4c
-# command + Z - quit session
+# command + Z to tmux - quit session
 keybind = super+shift+z=text:\x01\x5a
+
+
+# available command keybinds (letters - j , h, m, but it needs to be available
+# in all 4 layers (ghosty, aerospace, tmux, nvim)
 
 # clipboard
 clipboard-read = "allow"
