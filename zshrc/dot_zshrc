@@ -121,6 +121,38 @@ zinit light zsh-users/zsh-autosuggestions
 # 📎 ZSH plugin that reminds you to use existing aliases for commands you just typed
 zinit load MichaelAquilina/zsh-you-should-use
 
+# 🔖 Quickly navigate your work path!
+# zinit load wfxr/formarks
+
+# Load zsh-vi-mode via Zinit with proper configuration
+zinit ice depth=1
+zinit light jeffreytse/zsh-vi-mode
+
+# 🚀 Better vim bindings for Zsh!
+# https://github.com/jeffreytse/zsh-vi-mode
+ZVM_VI_ESCAPE_BINDKEY=jk
+ZVM_VI_INSERT_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+ZVM_VI_VISUAL_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+ZVM_VI_OPPEND_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
+ZVM_VI_HIGHLIGHT_BACKGROUND=#275378
+ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
+
+# INFO: vicmd is short for normal mode
+# INFO: viins is short for insert mode
+function zvm_after_lazy_keybindings() {
+  # zvm_bindkey vicmd 'gh' beginning-of-line
+  # zvm_bindkey vicmd 'gl' end-of-line
+
+  # Restore autosuggestions bindings
+  bindkey '^F' autosuggest-accept
+  bindkey '^E' autosuggest-forward-word
+}
+
+function zvm_after_init() {
+  # Source .fzf.zsh so that ctrl+r works
+  [ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh
+}
+
 
 #-------------------------------------------------------------------------------
 #--                 Zinit -  Snippets
@@ -141,15 +173,6 @@ zinit snippet OMZP::golang
 #--        Zinit -  Load Completions whenever zshell starts
 #-------------------------------------------------------------------------------
 
-# Define the function with the correct name
-function _history_substring_search_config() {
-  bindkey '^P' history-substring-search-up # ctrl + p
-  bindkey '^N' history-substring-search-down # ctrl + n
-}
-
-# Set ice modifiers BEFORE loading the plugin
-zinit ice wait lucid atload'_history_substring_search_config'
-zinit load zsh-users/zsh-history-substring-search
 
 # Load completions whenever zshell starts
 # initializes entire zsh completion system, process all registered completion fns, builds completion cache
@@ -160,6 +183,16 @@ if [[ -n "$(command -v fzf)" ]]; then
   # Replace zsh's default completion selection menu with fzf!
   zinit load Aloxaf/fzf-tab
 fi
+
+# Define the function with the correct name
+function _history_substring_search_config() {
+  bindkey '^P' history-substring-search-up # ctrl + p
+  bindkey '^N' history-substring-search-down # ctrl + n
+}
+
+# Set ice modifiers BEFORE loading the plugin
+zinit ice wait lucid atload'_history_substring_search_config'
+zinit load zsh-users/zsh-history-substring-search
 
 
 #-------------------------------------------------------------------------------
@@ -177,8 +210,6 @@ zinit cdreplay -q
 # accept single auto suggestion (gray text); use right arrow to accept
 # history substring search - ctrl + p/n; use right arrow to accept
 # autocomplete menu - tab; use arrows to nav; use tab/enter to accept
-
-
 
 # When IN menu, up/down navigate menu items for autocomplete; otherwise always use history substring search
 # bindkey -M menuselect '^[[A' up-line-or-history    # Up arrow
@@ -214,7 +245,7 @@ zstyle ':fzf-tab:complete:*' fzf-preview 'eza -1 --color=always $realpath'
 #                  History
 #-------------------------------------------------------------------------------
 
-HISTSIZE=5000
+HISTSIZE=10000
 # Updated history file location
 HISTFILE=$ZDOTDIR/.zsh_history
 SAVEHIST=$HISTSIZE
@@ -244,6 +275,10 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 
 # Chezmoi - TODO: add chezmoi check/download (brew)
 alias cz='chezmoi'
+
+
+# Fzf Shortcuts
+alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
 
 # NeoVim Shorcuts
 ESLINT_USE_FLAT_CONFIG=false
@@ -378,53 +413,9 @@ function sesh-sessions() {
 }
 zle -N sesh-sessions
 # Bind Ctrl+X to the sesh-sessions widget
-bindkey -M emacs '^x' sesh-sessions
 bindkey -M vicmd '^x' sesh-sessions
 bindkey -M viins '^x' sesh-sessions
 
-
-# -----------------------------  ZSH VI Mode
-# https://github.com/jeffreytse/zsh-vi-mode
-  if [ -f "$(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh" ]; then
-    source $(brew --prefix)/opt/zsh-vi-mode/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
-    ZVM_VI_ESCAPE_BINDKEY=jk
-    ZVM_VI_INSERT_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
-    ZVM_VI_VISUAL_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
-    ZVM_VI_OPPEND_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
-
-    function tmux_left_pane() {
-      export TMUX_PANE_DIRECTION="right"
-      if [[ $TMUX_PANE_DIRECTION == "right" ]]; then
-        tmux select-pane -L # Move to the left (opposite of right)
-      elif [[ $TMUX_PANE_DIRECTION == "bottom" ]]; then
-        tmux select-pane -U # Move to the top (opposite of bottom)
-      fi
-      tmux resize-pane -Z
-    }
-
-    zvm_define_widget tmux_left_pane
-
-    function zvm_after_lazy_keybindings() {
-      zvm_bindkey vicmd 'gh' beginning-of-line
-      zvm_bindkey vicmd 'gl' end-of-line
-      zvm_bindkey vicmd '^[f' tmux_left_pane
-      zvm_bindkey viins '^[f' tmux_left_pane
-    }
-
-    function zvm_before_init_commands() {
-      zvm_bindkey viins '^[[A' history-beginning-search-backward
-      zvm_bindkey viins '^[[B' history-beginning-search-forward
-      zvm_bindkey vicmd '^[[A' history-beginning-search-backward
-      zvm_bindkey vicmd '^[[B' history-beginning-search-forward
-    }
-
-    ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
-    ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-    ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
-
-    # Source .fzf.zsh so that the ctrl+r bindkey is given back fzf
-    zvm_after_init_commands+=('[ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh')
-  fi
 
 #-------------------------------------------------------------------------------
 #                  Global Helpers
