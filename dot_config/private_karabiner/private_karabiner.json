@@ -307,6 +307,7 @@
                 "rules": [
                     {
                         "description": "Right Option to Ctrl+Cmd+Alt for Aerospace",
+                        "enabled": false,
                         "manipulators": [
                             {
                                 "from": {
@@ -369,7 +370,6 @@
                     },
                     {
                         "description": "Disable Cmd+Q Quit (rev 2)",
-                        "enabled": false,
                         "manipulators": [
                             {
                                 "description": "",
