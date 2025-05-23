@@ -1,12 +1,27 @@
+#
+#  ██████╗ ██╗  ██╗ ██████╗ ███████╗████████╗████████╗██╗   ██╗
+# ██╔════╝ ██║  ██║██╔═══██╗██╔════╝╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝
+# ██║  ███╗███████║██║   ██║███████╗   ██║      ██║    ╚████╔╝
+# ██║   ██║██╔══██║██║   ██║╚════██║   ██║      ██║     ╚██╔╝
+# ╚██████╔╝██║  ██║╚██████╔╝███████║   ██║      ██║      ██║
+#  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝      ╚═╝      ╚═╝
+#
+# Ghostty is a fast, feature-rich, and cross-platform terminal emulator that uses platform-native UI and GPU acceleration.
+# https://ghostty.org/docs/config/reference
+
+# refresh - command + shift + ,
+
 # color
 custom-shader = shaders/bloom025.glsl
 config-file = ghostty-theme
-background-opacity = 0.65
-background-blur-radius = 20
-
+# sunset-city wallpaper
+background-opacity = 0.965
+# black_gradient..yc41r-fullview
+# background-opacity = 0.925
+background-blur-radius = 80
 # fonts
 font-family = "RobotoMono Nerd Font"
-font-size = 13
+font-size = 15.5
 
 # cursor
 shell-integration-features = no-cursor
@@ -14,12 +29,12 @@ cursor-style = block
 cursor-style-blink = false
 
 # quick terminal
-keybind = global:cmd+s=toggle_quick_terminal
+# keybind = global:cmd+s=toggle_quick_terminal
 # keybind = cmd+s=toggle_quick_terminal
-quick-terminal-animation-duration = 0.08
+# quick-terminal-animation-duration = 0.08
 
-# tmux
-command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
+# tmux - auto login
+# command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
 
 # window
 gtk-titlebar = false
@@ -37,7 +52,22 @@ keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 # This doesn't work when in tmux, if outside tmux the regular ctrl+l works
 keybind = super+k=clear_screen
+# command + k - sesh
+keybind = super+k=text:\x01\x4b
+# command + g - lazygit
+keybind = super+g=text:\x01\x67
+# command + l - last session
+keybind = super+l=text:\x01\x4c
+# command + Z - quit session
+keybind = super+shift+z=text:\x01\x5a
+
+# clipboard
+clipboard-read = "allow"
+clipboard-trim-trailing-spaces = true
+clipboard-write = "allow"
 
 # misc
 confirm-close-surface = false
 auto-update = check
+quit-after-last-window-closed = true
+
