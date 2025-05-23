@@ -10,9 +10,9 @@ return {
       return require("tmux").setup({
         resize = {
           -- enables default keybindings (A-hjkl) for normal mode (A = Alt)
-          enable_default_keybindings = true,
           resize_step_x = 1,
           resize_step_y = 1,
+          enable_default_keybindings = false,
         },
         navigation = {
           -- cycles to opposite pane while navigating into the border (neovim panes only)
