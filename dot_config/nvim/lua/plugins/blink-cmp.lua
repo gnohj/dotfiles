@@ -20,6 +20,7 @@ return {
     enabled = true,
     dependencies = {
       "moyiz/blink-emoji.nvim",
+      "Kaiser-Yang/blink-cmp-dictionary",
       "giuxtaposition/blink-cmp-copilot",
       "Kaiser-Yang/blink-cmp-avante",
     },
@@ -43,6 +44,7 @@ return {
           "snippets",
           "buffer",
           "emoji",
+          "dictionary",
           -- "dadbod",
           -- "copilot",
           -- "avante_commands",
@@ -73,6 +75,42 @@ return {
             name = "Avante",
             opts = {
               -- options for blink-cmp-avante
+            },
+          },
+
+          dictionary = {
+            module = "blink-cmp-dictionary",
+            name = "Dict",
+            score_offset = 20, -- the higher the number, the higher the priority
+            -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
+            enabled = true,
+            max_items = 8,
+            min_keyword_length = 3,
+            opts = {
+              -- -- The dictionary by default now uses fzf, make sure to have it
+              -- -- installed
+              -- -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
+              --
+              -- Do not specify a file, just the path, and in the path you need to
+              -- have your .txt files
+              dictionary_directories = { vim.fn.expand("~/.config/nvim/dictionaries") },
+              -- Notice I'm also adding the words I add to the spell dictionary
+              dictionary_files = {
+                vim.fn.expand("~/.config/nvim/spell/en.utf-8.add"),
+              },
+              -- --  NOTE: To disable the definitions uncomment this section below
+              --
+              -- separate_output = function(output)
+              --   local items = {}
+              --   for line in output:gmatch("[^\r\n]+") do
+              --     table.insert(items, {
+              --       label = line,
+              --       insert_text = line,
+              --       documentation = nil,
+              --     })
+              --   end
+              --   return items
+              -- end,
             },
           },
 

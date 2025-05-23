@@ -18,10 +18,10 @@ local opts = { noremap = true, silent = true }
 local harpoon = require("harpoon")
 harpoon:setup()
 
-keymap("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
+keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 -- delete without yanking
-keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "Delete without yanking" })
+keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "[P]Delete without yanking" })
 
 -- move text up and down
 keymap("v", "J", ":m .+1<CR>==", opts)
@@ -40,17 +40,89 @@ keymap({ "n", "v" }, "<leader>p", '"+p', opts)
 keymap("n", "<Esc>", "<cmd>nohlsearch<CR>")
 
 -- increment/decrement numbers
-keymap("n", "<leader>+", "<C-a>", { desc = "Increment number" })
-keymap("n", "<leader>=", "<C-x>", { desc = "Decrement number" })
+keymap("n", "<leader>+", "<C-a>", { desc = "[P]Increment number" })
+keymap("n", "<leader>=", "<C-x>", { desc = "[P]Decrement number" })
 
-keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "Alternate buffer" })
+keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
   vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
 end
 
-keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "Copy full path" })
+keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "[P]Copy full path" })
+-- Quit or exit neovim, easier than to do <leader>qq
+keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+
+keymap({ "n", "v", "i" }, "<M-h>", function()
+  -- require("noice").cmd("history")
+  require("noice").cmd("all")
+end, { desc = "[P]Noice History" })
+
+-- Dismiss noice notifications
+keymap({ "n", "v", "i" }, "<M-d>", function()
+  require("noice").cmd("dismiss")
+end, { desc = "[P]Dismiss All" })
+
+-- HACK: View and paste images in Neovim like in Obsidian
+-- https://youtu.be/0O3kqGwNzTI
+--
+-- Paste images
+-- I tried using <C-v> but duh, that's used for visual block mode
+keymap({ "n", "i" }, "<M-a>", function()
+  local pasted_image = require("img-clip").paste_image()
+  if pasted_image then
+    -- "Update" saves only if the buffer has been modified since the last save
+    vim.cmd("silent! update")
+    -- Get the current line
+    local line = vim.api.nvim_get_current_line()
+    -- Move cursor to end of line
+    vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], #line })
+    -- I reload the file, otherwise I cannot view the image after pasted
+    vim.cmd("edit!")
+  end
+end, { desc = "[P]Paste image from system clipboard" })
+
+-- Function to get the GitHub URL of the current file
+local function get_github_url_of_current_file()
+  local file_path = vim.fn.expand("%:p")
+  if file_path == "" then
+    vim.notify("No file is currently open", vim.log.levels.WARN)
+    return nil
+  end
+
+  local git_root = vim.fn.systemlist("git rev-parse --show-toplevel")[1]
+  if not git_root or git_root == "" then
+    vim.notify("Could not determine the root directory for the GitHub repository", vim.log.levels.WARN)
+    return nil
+  end
+
+  local origin_url = vim.fn.systemlist("git config --get remote.origin.url")[1]
+  if not origin_url or origin_url == "" then
+    vim.notify("Could not determine the origin URL for the GitHub repository", vim.log.levels.WARN)
+    return nil
+  end
+
+  local branch_name = vim.fn.systemlist("git rev-parse --abbrev-ref HEAD")[1]
+  if not branch_name or branch_name == "" then
+    vim.notify("Could not determine the current branch name", vim.log.levels.WARN)
+    return nil
+  end
+
+  local repo_url = origin_url:gsub("git@github.com[^:]*:", "https://github.com/"):gsub("%.git$", "")
+  local relative_path = file_path:sub(#git_root + 2)
+  return repo_url .. "/blob/" .. branch_name .. "/" .. relative_path
+end
+
+-- Keymap to copy current file's GitHub URL to clipboard
+keymap({ "n", "v", "i" }, "<M-C>", function()
+  local github_url = get_github_url_of_current_file()
+  if github_url then
+    vim.fn.setreg("+", github_url)
+    vim.notify(github_url, vim.log.levels.INFO)
+    vim.notify("GitHub URL copied to clipboard", vim.log.levels.INFO)
+  end
+end, { desc = "[P]Copy GitHub URL of file to clipboard" })
 
 -- LazyVim doesn't run eslint for nvim versions > 0.10.0 - https://github.com/LazyVim/LazyVim/issues/5861
 -- vim.keymap.set("n", "<leader>cf", function()
@@ -83,37 +155,37 @@ keymap(
   "n",
   "<leader>cpt",
   "<cmd>lua require('package-info').toggle()<cr>",
-  { silent = true, noremap = true, desc = "Toggle" }
+  { silent = true, noremap = true, desc = "[P]Package Info Toggle" }
 )
 keymap(
   "n",
   "<leader>cpd",
   "<cmd>lua require('package-info').delete()<cr>",
-  { silent = true, noremap = true, desc = "Delete package" }
+  { silent = true, noremap = true, desc = "[P] Package Info Delete package" }
 )
 keymap(
   "n",
   "<leader>cpu",
   "<cmd>lua require('package-info').update()<cr>",
-  { silent = true, noremap = true, desc = "Update package" }
+  { silent = true, noremap = true, desc = "[P]Package Info Update package" }
 )
 keymap(
   "n",
   "<leader>cpi",
   "<cmd>lua require('package-info').install()<cr>",
-  { silent = true, noremap = true, desc = "Install package" }
+  { silent = true, noremap = true, desc = "[P]Package Info Install package" }
 )
 keymap(
   "n",
   "<leader>cpc",
   "<cmd>lua require('package-info').change_version()<cr>",
-  { silent = true, noremap = true, desc = "Change package version" }
+  { silent = true, noremap = true, desc = "[P]Package Info Change package version" }
 )
 
 -------------------------------------------------------------------------------
 --                           Logsitter
 -------------------------------------------------------------------------------
-keymap("n", "<leader>tc", "<cmd> lua require('logsitter').log()<cr>", { desc = "Turbo Console Log" })
+keymap("n", "<leader>tc", "<cmd> lua require('logsitter').log()<cr>", { desc = "[P]Turbo Console Log" })
 
 -------------------------------------------------------------------------------
 --                           DiffView
@@ -143,7 +215,7 @@ keymap(
   "n",
   "<leader>as",
   ":lua require('copilot.suggestion').toggle_auto_trigger()<CR>",
-  { silent = true, noremap = true, desc = "copilot: toggle virtual text suggestions" }
+  { silent = true, noremap = true, desc = "[P]Copilot: toggle virtual text suggestions" }
 )
 
 -------------------------------------------------------------------------------
@@ -270,11 +342,11 @@ keymap("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>")
 -------------------------------------------------------------------------------
 keymap("n", "<leader>ha", function()
   harpoon:list():add()
-end, { desc = "Add file to Harpoon" })
+end, { desc = "[P]Add file to Harpoon" })
 
 keymap("n", "<C-e>", function()
   harpoon.ui:toggle_quick_menu(harpoon:list())
-end, { desc = "Toggle Harpoon menu" })
+end, { desc = "[P]Toggle Harpoon menu" })
 
 -- Toggle previous & next buffers stored within Harpoon list
 keymap("n", "<C-P>", function()
@@ -465,18 +537,6 @@ vim.keymap.set("n", "<leader>aA", function()
       end
     end
   end
-end, { desc = "Add All Buffer Files To Aider" })
+end, { desc = "[P]Add All Buffer Files To Aider" })
 
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
-
--------------------------------------------------------------------------------
---                           Noice
--------------------------------------------------------------------------------
-vim.keymap.set({ "n", "v", "i" }, "<leader>nh", function()
-  require("noice").cmd("all")
-end, { desc = "[P]Noice History" })
-
--- Dismiss noice notifications
-vim.keymap.set({ "n", "v", "i" }, "<leader>nd", function()
-  require("noice").cmd("dismiss")
-end, { desc = "Dismiss All" })

@@ -7,6 +7,24 @@ return {
   lazy = false,
   priority = 1000,
   keys = {
+    {
+      "<M-b>",
+      function()
+        Snacks.picker.git_branches({
+          layout = "select",
+        })
+      end,
+      desc = "Branches",
+    },
+    {
+      "<M-k>",
+      function()
+        Snacks.picker.keymaps({
+          layout = "vertical",
+        })
+      end,
+      desc = "Keymaps",
+    },
     { "<leader><space>", false },
     -- Open git log in vertical view
     {

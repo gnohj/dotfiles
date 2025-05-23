@@ -25,24 +25,29 @@ vim.api.nvim_create_autocmd("FileType", {
       return
     end
 
-    vim.keymap.set("n", "<space>y", function()
-      -- Get the current entry (file or directory)
-      local curr_entry = mini_files.get_fs_entry()
-      if curr_entry then
-        local path = curr_entry.path
-        -- Build the osascript command to copy the file or directory to the clipboard
-        local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
-        local result = vim.fn.system(cmd)
-        if vim.v.shell_error ~= 0 then
-          vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
+    vim.keymap.set(
+      "n",
+      "<space>y",
+      function()
+        -- Get the current entry (file or directory)
+        local curr_entry = mini_files.get_fs_entry()
+        if curr_entry then
+          local path = curr_entry.path
+          -- Build the osascript command to copy the file or directory to the clipboard
+          local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
+          local result = vim.fn.system(cmd)
+          if vim.v.shell_error ~= 0 then
+            vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
+          else
+            vim.notify(vim.fn.fnamemodify(path, ":t"), vim.log.levels.INFO)
+            vim.notify("Copied to system clipboard", vim.log.levels.INFO)
+          end
         else
-          vim.notify(vim.fn.fnamemodify(path, ":t"), vim.log.levels.INFO)
-          vim.notify("Copied to system clipboard", vim.log.levels.INFO)
+          vim.notify("No file or directory selected", vim.log.levels.WARN)
         end
-      else
-        vim.notify("No file or directory selected", vim.log.levels.WARN)
-      end
-    end, { buffer = buf_id, noremap = true, silent = true, desc = "Copy file/directory to clipboard" })
+      end,
+      { buffer = buf_id, noremap = true, silent = true, desc = "[P]MiniFiles Copy file/directory contents to clipboard" }
+    )
 
     -- Copy path to clipboard
     vim.keymap.set("n", "<space>fy", function()
@@ -65,7 +70,7 @@ vim.api.nvim_create_autocmd("FileType", {
       end
     end, {
       buffer = buf_id,
-      desc = "Copy path to clipboard",
+      desc = "[P]MiniFiles Copy path to clipboard",
     })
   end,
   desc = "Set up mini.files keymaps",
@@ -234,7 +239,7 @@ local map_split = function(buf_id, lhs, direction)
   end
 
   -- Adding `desc` will result into `show_help` entries
-  local desc = "Open in " .. direction .. " split"
+  local desc = "[P]Open in " .. direction .. " split"
   vim.keymap.set("n", lhs, rhs, { buffer = buf_id, desc = desc })
 end
 
@@ -271,7 +276,7 @@ vim.api.nvim_create_autocmd({ "FileType" }, {
     end, {
       buffer = event.buf,
       silent = true,
-      desc = "Close Diffview",
+      desc = "[P]Close Diffview",
     })
   end,
 })
@@ -289,7 +294,7 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
         end, {
           buffer = event.buf,
           silent = true,
-          desc = "Close Diffview",
+          desc = "[P]Close Diffview",
         })
       end
     end
@@ -327,7 +332,7 @@ vim.api.nvim_create_autocmd("FileType", {
       end, {
         buffer = event.buf,
         silent = true,
-        desc = "Quit buffer",
+        desc = "[P]Quit buffer",
       })
     end)
   end,
