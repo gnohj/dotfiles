@@ -1,3 +1,6 @@
+# On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
+# Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
+
 # Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
 lalt - l : /opt/homebrew/bin/aerospace focus right
