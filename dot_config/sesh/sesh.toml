@@ -168,6 +168,6 @@ preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_
 
 [[session]]
 name = "zshrc_config"
-path = "~/zshrc"
+path = "~/.config/zshrc"
 startup_command = "nvim .zshrc"
-preview_command = "bat --language=bash --style=snip --color=always ~/zshrc/.zshrc"
+preview_command = "bat --language=bash --style=snip --color=always ~/.config/zshrc/.zshrc"
