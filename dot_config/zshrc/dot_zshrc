@@ -337,6 +337,8 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
+# add second-brain executables to path - og,on
+export PATH="$HOME/_bin:$PATH"
 
 
 #-------------------------------------------------------------------------------
