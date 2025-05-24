@@ -15,6 +15,12 @@ preview_command = "eza --all --git --icons --color=always {}"
 
 # folders
 [[session]]
+name = "home"
+path = "~/"
+startup_command = "c"
+
+# folders
+[[session]]
 name = "bat_config_folder"
 path = "~/.config/bat"
 
