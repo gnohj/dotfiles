@@ -50,19 +50,41 @@ local function insertFullPath()
   vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
 end
 
-keymap(
-  "n",
-  "<leader>fy",
-  insertFullPath,
-  { silent = true, noremap = true, desc = "[P]Copy full path while in open buffer" }
-)
--- Quit or exit neovim, easier than to do <leader>qq
-keymap({ "n", "v", "i" }, "<M-i>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "[P]Copy full path" })
 
-keymap({ "n", "v", "i" }, "<leader>nh", function()
+-- Quit or exit neovim, easier than to do <leader>qq
+vim.keymap.set({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+-- Quit or exit neovim, easier than to do <leader>qq
+keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+
+keymap({ "n", "v", "i" }, "<M-h>", function()
   -- require("noice").cmd("history")
   require("noice").cmd("all")
 end, { desc = "[P]Noice History" })
+
+-- Dismiss noice notifications
+keymap({ "n", "v", "i" }, "<M-d>", function()
+  require("noice").cmd("dismiss")
+end, { desc = "[P]Dismiss All" })
+
+-- HACK: View and paste images in Neovim like in Obsidian
+-- https://youtu.be/0O3kqGwNzTI
+--
+-- Paste images
+-- I tried using <C-v> but duh, that's used for visual block mode
+keymap({ "n", "i" }, "<M-a>", function()
+  local pasted_image = require("img-clip").paste_image()
+  if pasted_image then
+    -- "Update" saves only if the buffer has been modified since the last save
+    vim.cmd("silent! update")
+    -- Get the current line
+    local line = vim.api.nvim_get_current_line()
+    -- Move cursor to end of line
+    vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], #line })
+    -- I reload the file, otherwise I cannot view the image after pasted
+    vim.cmd("edit!")
+  end
+end, { desc = "[P]Paste image from system clipboard" })
 
 -- LazyVim doesn't run eslint for nvim versions > 0.10.0 - https://github.com/LazyVim/LazyVim/issues/5861
 -- vim.keymap.set("n", "<leader>cf", function()

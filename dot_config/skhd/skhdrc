@@ -1,0 +1,52 @@
+# Focus commands
+lalt - h : /opt/homebrew/bin/aerospace focus left
+lalt - l : /opt/homebrew/bin/aerospace focus right
+
+# Layout commands
+lalt - 1 : /opt/homebrew/bin/aerospace layout tiles horizontal vertical
+lalt - 2 : /opt/homebrew/bin/aerospace layout accordion horizontal vertical
+
+# Move commands
+lalt + shift - h : /opt/homebrew/bin/aerospace move left
+lalt + shift - l : /opt/homebrew/bin/aerospace move right
+
+# Resize commands
+lalt + shift - 0x1B : /opt/homebrew/bin/aerospace resize smart -50
+lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50
+
+# Workspace navigation
+lalt - b : /opt/homebrew/bin/aerospace workspace B
+lalt - c : /opt/homebrew/bin/aerospace workspace C
+lalt - e : /opt/homebrew/bin/aerospace workspace E
+lalt - g : /opt/homebrew/bin/aerospace workspace G
+lalt - m : /opt/homebrew/bin/aerospace workspace M
+lalt - p : /opt/homebrew/bin/aerospace workspace P
+lalt - q : /opt/homebrew/bin/aerospace workspace Q
+lalt - s : /opt/homebrew/bin/aerospace workspace S
+lalt - t : /opt/homebrew/bin/aerospace workspace T
+lalt - w : /opt/homebrew/bin/aerospace workspace W
+lalt - x : /opt/homebrew/bin/aerospace workspace X
+lalt - z : /opt/homebrew/bin/aerospace workspace Z
+
+# Move to workspace
+lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
+lalt + shift - c : /opt/homebrew/bin/aerospace move-node-to-workspace C
+lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
+lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
+lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
+lalt + shift - p : /opt/homebrew/bin/aerospace move-node-to-workspace P
+lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
+lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
+lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
+lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
+lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
+lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
+
+# Fullscreen and navigation
+lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
+lalt - tab : /opt/homebrew/bin/aerospace workspace-back-and-forth
+lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
+
+# Service mode
+lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
+
