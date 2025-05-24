@@ -136,6 +136,11 @@ path = "~/.config/sesh"
 startup_command = "nvim sesh.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/sesh/sesh.toml"
 
+[[session]]
+name = "skhd_config"
+path = "~/.config/skhd"
+startup_command = "nvim skhdrc"
+preview_command = "bat --language=toml --style=snip --color=always ~/.config/skhd/skhdrc"
 
 [[session]]
 name = "starship_config"

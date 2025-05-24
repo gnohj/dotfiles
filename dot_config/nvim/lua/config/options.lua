@@ -13,7 +13,7 @@
 
 local opt = vim.opt
 
-opt.textwidth = 80
+-- opt.textwidth = 80
 opt.timeout = true
 opt.timeoutlen = 1000
 
