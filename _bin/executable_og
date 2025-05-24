@@ -6,7 +6,7 @@ SOURCE_DIR="Zettelkasten"
 DEST_DIR="Notes"
 
 
-# Iterate through all markdown files in the source directory
+# Iterate through all markdown files in the source directory (zettelkasten to notes folder)
 find "$VAULT_DIR/$SOURCE_DIR" -type f -name "*.md" | while read -r file; do
   echo "Processing $file"
 

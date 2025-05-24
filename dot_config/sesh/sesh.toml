@@ -20,7 +20,7 @@ path = "~/.config/bat"
 
 [[session]]
 name = "bin_folder"
-path = "~/bin"
+path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
