@@ -62,10 +62,6 @@ path = "~/.config/sketchybar"
 startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
 
 [[session]]
-name = "tpm_folder"
-path = "~/.tmux/"
-
-[[session]]
 name = "web_repo"
 path = "~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
