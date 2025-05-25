@@ -8,7 +8,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	label = {
 		string = "??%",
 		padding_left = 0,
-		color = settings.colors.light_blue,
+		color = settings.colors.light_green,
 	},
 })
 
@@ -63,7 +63,7 @@ volumeValue:subscribe("volume_change", function(env)
 		volumeValue:set({
 			icon = {
 				string = icon,
-				color = settings.colors.light_blue,
+				color = settings.colors.green,
 			},
 			label = {
 				string = hasVolume and lead .. volume .. "%" or "",
@@ -100,9 +100,9 @@ local function toggleVolumeDetails(env)
 				local counter = 0
 
 				for device in string.gmatch(available, "[^\r\n]+") do
-					local color = settings.colors.light_blue
+					local color = settings.colors.light_green
 					if current == device then
-						color = settings.colors.light_blue
+						color = settings.colors.light_green
 					end
 
 					sbar.add("item", constants.items.VOLUME .. ".device." .. counter, {
@@ -114,9 +114,9 @@ local function toggleVolumeDetails(env)
 							.. '" && sketchybar --set /'
 							.. constants.items.VOLUME
 							.. ".device\\.*/ label.color="
-							.. settings.colors.light_blue
+							.. settings.colors.green
 							.. " --set $NAME label.color="
-							.. settings.colors.light_blue,
+							.. settings.colors.light_green,
 					})
 					counter = counter + 1
 				end

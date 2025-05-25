@@ -12,11 +12,11 @@ calendar:subscribe({ "forced", "routine", "system_woke" }, function(env)
 	calendar:set({
 		label = {
 			string = os.date("%a %d %b, %H:%M"),
-			color = settings.colors.light_green,
+			color = settings.colors.light_blue,
 		},
 	})
 end)
 
 calendar:subscribe("mouse.clicked", function(env)
-	sbar.exec("open -a 'Calendar'")
+	sbar.exec("open -a 'Google Calendar'")
 end)

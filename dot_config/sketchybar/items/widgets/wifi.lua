@@ -186,7 +186,7 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function(env)
 
 		if ipConnected then
 			wifiIcon = settings.icons.text.wifi.connected
-			wifiColor = settings.colors.light_blue
+			wifiColor = settings.colors.green
 		end
 
 		wifi:set({

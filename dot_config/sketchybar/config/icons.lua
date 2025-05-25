@@ -71,6 +71,7 @@ local apps <const> = {
 	["Element"] = ":element:",
 	["Emacs"] = ":emacs:",
 	["Evernote Legacy"] = ":evernote_legacy:",
+	["Excalidraw"] = "󰽉",
 	["FaceTime"] = ":face_time:",
 	["FaceTime 通话"] = ":face_time:",
 	["Figma"] = "",
