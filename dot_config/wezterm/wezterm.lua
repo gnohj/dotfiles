@@ -7,11 +7,10 @@
 --  ╚══╝╚══╝ ╚══════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
 -- A GPU-accelerated cross-platform terminal emulator
 -- https://wezfurlong.org/wezterm/
-
 local wezterm = require("wezterm")
-
 local config = wezterm.config_builder()
 
+-- Colors - load from external theme file like Ghostty
 config.colors = {
 	foreground = "#CBE0F0",
 	background = "#021c31",
@@ -24,69 +23,80 @@ config.colors = {
 	brights = { "#214969", "#E52E2E", "#44FFB1", "#FFE073", "#A277FF", "#a277ff", "#24EAF7", "#24EAF7" },
 }
 
+-- Performance
 config.max_fps = 120
-
 config.enable_kitty_graphics = true
 
-config.keys = {
-
-	-- Make Option-Left equivalent to Alt-b which many line editors interpret as backward-word
-	{
-		key = "LeftArrow",
-		mods = "OPT",
-		action = wezterm.action({ SendString = "\x1bb" }),
-	},
-	-- Make Option-Right equivalent to Alt-f; forward-word
-	{
-		key = "RightArrow",
-		mods = "OPT",
-		action = wezterm.action({ SendString = "\x1bf" }),
-	},
-	-- Select next tab with cmd-opt-left/right arrow
-	{
-		key = "LeftArrow",
-		mods = "CMD|OPT",
-		action = wezterm.action.ActivateTabRelative(-1),
-	},
-	{
-		key = "RightArrow",
-		mods = "CMD|OPT",
-		action = wezterm.action.ActivateTabRelative(1),
-	},
-	-- Select next pane with cmd-left/right arrow
-	{
-		key = "LeftArrow",
-		mods = "CMD",
-		action = wezterm.action({ ActivatePaneDirection = "Prev" }),
-	},
-	{
-		key = "RightArrow",
-		mods = "CMD",
-		action = wezterm.action({ ActivatePaneDirection = "Next" }),
-	},
-	-- on cmd-s, send esc, then ':w<enter>'. This makes cmd-s trigger a save action in neovim
-	{
-		key = "s",
-		mods = "CMD",
-		action = wezterm.action({ SendString = "\x1b:w\n" }),
-	},
-}
-
+-- Font - match Ghostty exactly
 config.font = wezterm.font("RobotoMono Nerd Font")
-config.font_size = 14.5
+config.font_size = 15.5
 
+-- Cursor - match Ghostty style
+config.default_cursor_style = "BlinkingBlock"
+config.cursor_blink_rate = 0 -- false = no blinking
+
+-- Background - match Ghostty
+config.window_background_opacity = 0.965
+config.macos_window_background_blur = 80
+
+-- Window - match Ghostty settings
 config.window_padding = {
-	left = 2,
+	left = 4,
 	right = 2,
-	top = 7.5,
+	top = 6,
 	bottom = 0,
 }
-
 config.enable_tab_bar = false
+config.window_decorations = "RESIZE" -- Similar to window-decoration = true
+config.window_close_confirmation = "NeverPrompt" -- Match confirm-close-surface = false
 
-config.window_decorations = "RESIZE"
-config.window_background_opacity = 0.905
-config.macos_window_background_blur = 2
-config.window_close_confirmation = "NeverPrompt"
+-- macOS specific - match Ghostty
+config.use_dead_keys = false
+config.send_composed_key_when_right_alt_is_pressed = false
+
+-- Hide mouse while typing
+config.hide_mouse_cursor_when_typing = true
+
+-- Keybindings - updated to match Ghostty
+config.keys = {
+	-- WezTerm specific keybinds (match Ghostty inspector/reload)
+	{
+		key = "i",
+		mods = "CMD",
+		action = wezterm.action.ShowDebugOverlay,
+	},
+
+	-- Tmux keybinds (match Ghostty exactly)
+	-- cmd + k to tmux - sesh (prefix + K)
+	{
+		key = "k",
+		mods = "CMD",
+		action = wezterm.action({ SendString = "\x01\x4b" }),
+	},
+	-- cmd + g to tmux - lazygit (prefix + g)
+	{
+		key = "g",
+		mods = "CMD",
+		action = wezterm.action({ SendString = "\x01\x67" }),
+	},
+	-- cmd + l to tmux - last session (prefix + L)
+	{
+		key = "l",
+		mods = "CMD",
+		action = wezterm.action({ SendString = "\x01\x4c" }),
+	},
+	-- cmd + shift + z to tmux - quit session (prefix + Z)
+	{
+		key = "Z",
+		mods = "CMD|SHIFT",
+		action = wezterm.action({ SendString = "\x01\x5a" }),
+	},
+}
+
+-- Clipboard settings (match Ghostty)
+-- WezTerm handles clipboard automatically, no explicit config needed
+
+-- Quit behavior (match Ghostty)
+config.quit_when_all_windows_are_closed = true
 
 return config
