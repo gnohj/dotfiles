@@ -80,6 +80,12 @@ startup_command = "nvim aerospace.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/aerospace/aerospace.toml"
 
 [[session]]
+name = "borders_config"
+path = "~/.config/borders"
+startup_command = "nvim bordersrc"
+preview_command = "bat --language=toml --style=snip --color=always ~/.config/aerospace/bordersrc"
+
+[[session]]
 name = "chezmoi_config"
 path = "~/.local/share/chezmoi/dot_config/chezmoi"
 startup_command = "nvim chezmoi.toml.tmpl"
