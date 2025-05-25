@@ -6,8 +6,8 @@ lalt - h : /opt/homebrew/bin/aerospace focus left
 lalt - l : /opt/homebrew/bin/aerospace focus right
 
 # Layout commands
-lalt - 1 : /opt/homebrew/bin/aerospace layout tiles horizontal vertical
-lalt - 2 : /opt/homebrew/bin/aerospace layout accordion horizontal vertical
+lalt - 0x2C : /opt/homebrew/bin/aerospace layout tiles horizontal vertical      # your / key
+lalt - 0x2B : /opt/homebrew/bin/aerospace layout accordion horizontal vertical  # your , key
 
 # Move commands
 lalt + shift - h : /opt/homebrew/bin/aerospace move left
@@ -20,6 +20,7 @@ lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50
 # Workspace navigation
 lalt - b : /opt/homebrew/bin/aerospace workspace B
 lalt - c : /opt/homebrew/bin/aerospace workspace C
+lalt - d : /opt/homebrew/bin/aerospace workspace D
 lalt - e : /opt/homebrew/bin/aerospace workspace E
 lalt - g : /opt/homebrew/bin/aerospace workspace G
 lalt - m : /opt/homebrew/bin/aerospace workspace M
@@ -34,6 +35,7 @@ lalt - z : /opt/homebrew/bin/aerospace workspace Z
 # Move to workspace
 lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
 lalt + shift - c : /opt/homebrew/bin/aerospace move-node-to-workspace C
+lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
 lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
 lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
