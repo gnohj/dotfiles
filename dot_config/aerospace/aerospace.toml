@@ -270,7 +270,7 @@ run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'com.whimsical.desktop'
-run = "move-node-to-workspace X"
+run = "move-node-to-workspace Y"
 
 [[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
@@ -303,17 +303,23 @@ if.app-id = 'com.apple.finder'
 run = ['layout floating']
 
 
+[[on-window-detected]]
+if.app-id = 'com.brave.Browser'
+run = "move-node-to-workspace Z"
+
+
 [workspace-to-monitor-force-assignment]
 # 1 Monitor - Left Side
 # 2 Monitor - Center
-E = 1
 D = 1
+E = 1
 G = 1
 L = 1
 Q = 1
 S = 1
-X = 1
 W = 1
+Y = 1
+U = 1
 B = 2
 C = 2
 F = 2
