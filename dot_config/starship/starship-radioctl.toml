@@ -12,7 +12,7 @@
 
 format = '''
 (${env_var.RADIO_CTL})
-$directory$rust$git_branch$git_status$package$golang$terraform$docker_context$python$docker_context$nodejs$cmd_duration
+$directory$rust$git_branch$git_status$cmd_duration
 [﬌](bold green) 
 '''
 # [username]
@@ -39,7 +39,7 @@ display_private = true
 min_time = 4
 show_milliseconds = false
 disabled = false
-style = "bold italic red"
+style = "bold italic green"
 
 [env_var.RADIO_CTL]
 default = ''
