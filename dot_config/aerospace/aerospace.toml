@@ -16,12 +16,10 @@
 # Available commands: https://nikitabobko.github.io/AeroSpace/commands
 after-login-command = []
 
-# You can use it to add commands that run after AeroSpace startup.
-# 'after-startup-command' is run after 'after-login-command'
-# Available commands : https://nikitabobko.github.io/AeroSpace/commands
 after-startup-command = [
-  'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
-  'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color=0xFF03b1D3 inactive_color=0x33434c5e width=3.5',
+  # 'exec-and-forget /opt/homebrew/bin/skhd',
+  'exec-and-forget /opt/homebrew/bin/sketchybar',
+  'exec-and-forget /opt/homebrew/opt/borders/bin/borders',
 ]
 
 # Start AeroSpace at login
@@ -75,6 +73,9 @@ on-focus-changed = [
 #                 Monitor pattern is the same as for 'workspace-to-monitor-force-assignment'.
 #                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
+# You can use it to add commands that run after AeroSpace startup.
+# 'after-startup-command' is run after 'after-login-command'
+# Available commands : https://nikitabobko.github.io/AeroSpace/commands
 #outer.bottom numbers have to match presentation.sh variables. built-in retina display is excluded from presentation mode, so this only works on external monitors.
 outer.bottom = [{ monitor.'^built-in retina display$' = 10 }, 10]
 outer.top = [{ monitor.'^built-in retina display$' = 20 }, 52]
