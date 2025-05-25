@@ -57,6 +57,11 @@ vim.keymap.set({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All
 -- Quit or exit neovim, easier than to do <leader>qq
 keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 
+-- Write current file
+vim.keymap.set("n", "<M-w>", function()
+  vim.cmd("write")
+end, { desc = "[P]Write current file" })
+
 keymap({ "n", "v", "i" }, "<M-h>", function()
   -- require("noice").cmd("history")
   require("noice").cmd("all")
