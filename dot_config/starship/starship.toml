@@ -38,7 +38,7 @@ display_private = true
 min_time = 4
 show_milliseconds = false
 disabled = false
-style = "bold italic green"
+format = '[$duration](bold italic #37f499)'
 
 [env_var.RADIO_CTL]
 default = ''
