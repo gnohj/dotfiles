@@ -69,7 +69,7 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 				color = color,
 			},
 			label = {
-				color = settings.colors.light_blue,
+				color = settings.colors.light_green,
 				string = lead .. label,
 				padding_left = 0,
 			},
