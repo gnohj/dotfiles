@@ -7,6 +7,7 @@
 #
 #  Smart session manager for the terminal
 #  https://github.com/joshmedeski/sesh
+blacklist = ["~/Developer/web"]
 
 # default
 [default_session]
@@ -19,7 +20,6 @@ name = "home"
 path = "~/"
 startup_command = "c"
 
-# folders
 [[session]]
 name = "bat_config_folder"
 path = "~/.config/bat"
@@ -52,6 +52,7 @@ startup_command = "ls"
 [[session]]
 name = "inferno_repo"
 path = "~/Developer/inferno-monorepo"
+startup_command = "~/.config/sesh/dev.sh dev ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
@@ -69,7 +70,7 @@ startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
 
 [[session]]
 name = "web_repo"
-path = "~/Developer/web"
+startup_command = "~/.config/sesh/dev.sh dev ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 # configs
