@@ -190,34 +190,17 @@ return {
       enabled = true,
       top_down = false,
     },
-
-    -- Configure LazyGit - use macoS global shorttcut to open lazygit via new tmux window - command + g
-    -- lazygit = {
-    --   -- Automatically configure lazygit to use the current colorscheme
-    --   configure = true,
-    --   -- Extra configuration for lazygit that will be merged with the default
-    --   config = {
-    --     os = { editPreset = "nvim-remote" },
-    --     gui = { nerdFontsVersion = "3" },
-    --   },
-    --   theme_path = vim.fs.normalize(vim.fn.stdpath("cache") .. "/lazygit-theme.yml"),
-    --   -- Theme for lazygit
-    --   theme = {
-    --     [241] = { fg = "Special" },
-    --     activeBorderColor = { fg = "MatchParen", bold = true },
-    --     cherryPickedCommitBgColor = { fg = "Identifier" },
-    --     cherryPickedCommitFgColor = { fg = "Function" },
-    --     defaultFgColor = { fg = "Normal" },
-    --     inactiveBorderColor = { fg = "FloatBorder" },
-    --     optionsTextColor = { fg = "Function" },
-    --     searchingActiveBorderColor = { fg = "MatchParen", bold = true },
-    --     selectedLineBgColor = { bg = "Visual" }, -- Set to `default` to have no background colour
-    --     unstagedChangesColor = { fg = "DiagnosticError" },
-    --   },
-    --   win = {
-    --     style = "lazygit",
-    --   },
-    -- },
+    lazygit = {
+      -- configure lazygit to not use nvim color scheme and load the global config file
+      configure = false,
+      args = { "--use-config-file", vim.fn.expand("~/.config/lazygit/config.yml") },
+      win = {
+        width = 0.99,
+        height = 0.99,
+        row = 0.025,
+        col = 0.025,
+      },
+    },
 
     -- Ensure the LazyGit theme and config are applied
 
