@@ -151,7 +151,8 @@ return {
           -- },
           { icon = " ", key = "s", desc = "Restore Session", section = "session" },
           { icon = "󰒲 ", key = "l", desc = "Lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
-          { icon = " ", key = "<Esc>", desc = "Quit", action = ":qa" },
+          { icon = " ", key = "<Esc>", hidden = true, desc = "Quit", action = ":qa" },
+          { icon = " ", key = "q", desc = "Quit", action = ":qa" },
         },
         header = [[
                                                                     
