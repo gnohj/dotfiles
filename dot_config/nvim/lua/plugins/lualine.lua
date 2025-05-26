@@ -2,6 +2,8 @@ if vim.g.vscode then
   return {}
 end
 
+vim.api.nvim_set_hl(0, "CustomTeal", { fg = "#3EFFDC" })
+
 -- Custom component to display buffer count
 local function buffer_count()
   local buffers = vim.fn.getbufinfo({ buflisted = 1 }) -- Only count listed buffers
@@ -14,25 +16,13 @@ local function file_path()
   return full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
 end
 
-local function unsaved_buffers()
-  local unsaved = false
-  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_get_option(buf, "modified") then
-      unsaved = true
-      break
-    end
-  end
-  return unsaved and "⚠️ Unsaved Buffers" or "" -- Display warning icon if there are unsaved buffers
-end
-
 local function current_buffer_unsaved()
   if vim.api.nvim_buf_get_option(0, "modified") then
-    return "" -- A red circle (use any symbol you prefer)
+    return "●" -- Unicode circle that can be colored
   else
-    return "" -- No symbol if there are no unsaved changes
+    return "" -- No symbol if saved
   end
 end
-
 return {
   "nvim-lualine/lualine.nvim",
   opts = function(_, opts)
@@ -87,8 +77,6 @@ return {
         lualine_a = { "mode" },
         lualine_b = { "branch" },
         lualine_c = {
-          { unsaved_buffers, color = { fg = "#FF0000" } }, -- Shows in red if there are unsaved buffers
-          { current_buffer_unsaved, color = { fg = "#FF0000" } }, -- Red circle for unsaved changes
           {
             "diagnostics",
             symbols = {
@@ -134,18 +122,24 @@ return {
       },
       winbar = {
         lualine_a = {
-          { buffer_count, color = { fg = "#37f499", bg = "", gui = "bold" } }, -- Buffer count with color
+          { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
+        },
+        lualine_b = {
+          { buffer_count, color = { fg = "#37f499", gui = "bold" } },
         },
         lualine_c = {
-          { file_path, color = { fg = "#04d1f9", gui = "bold" } }, -- File path with color
+          { file_path, color = { fg = colors.blue, gui = "bold" } },
         },
       },
       inactive_winbar = {
         lualine_a = {
-          { buffer_count, color = { fg = "#666666", gui = "italic" } }, -- Buffer count for inactive windows
+          { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
+        },
+        lualine_b = {
+          { buffer_count, color = { fg = "#666666", gui = "italic" } },
         },
         lualine_c = {
-          { file_path, color = { fg = "#666666", gui = "italic" } }, -- File path for inactive windows
+          { file_path, color = { fg = "#666666", gui = "italic" } },
         },
       },
     }
