@@ -25,29 +25,29 @@ vim.api.nvim_create_autocmd("FileType", {
       return
     end
 
-    vim.keymap.set(
-      "n",
-      "<space>y",
-      function()
-        -- Get the current entry (file or directory)
-        local curr_entry = mini_files.get_fs_entry()
-        if curr_entry then
-          local path = curr_entry.path
-          -- Build the osascript command to copy the file or directory to the clipboard
-          local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
-          local result = vim.fn.system(cmd)
-          if vim.v.shell_error ~= 0 then
-            vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
-          else
-            vim.notify(vim.fn.fnamemodify(path, ":t"), vim.log.levels.INFO)
-            vim.notify("Copied to system clipboard", vim.log.levels.INFO)
-          end
+    vim.keymap.set("n", "<space>y", function()
+      -- Get the current entry (file or directory)
+      local curr_entry = mini_files.get_fs_entry()
+      if curr_entry then
+        local path = curr_entry.path
+        -- Build the osascript command to copy the file or directory to the clipboard
+        local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
+        local result = vim.fn.system(cmd)
+        if vim.v.shell_error ~= 0 then
+          vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
         else
-          vim.notify("No file or directory selected", vim.log.levels.WARN)
+          vim.notify(vim.fn.fnamemodify(path, ":t"), vim.log.levels.INFO)
+          vim.notify("Copied to system clipboard", vim.log.levels.INFO)
         end
-      end,
-      { buffer = buf_id, noremap = true, silent = true, desc = "[P]MiniFiles Copy file/directory contents to clipboard" }
-    )
+      else
+        vim.notify("No file or directory selected", vim.log.levels.WARN)
+      end
+    end, {
+      buffer = buf_id,
+      noremap = true,
+      silent = true,
+      desc = "[P]MiniFiles Copy file/directory contents to clipboard",
+    })
 
     -- Copy path to clipboard
     vim.keymap.set("n", "<space>fy", function()
@@ -307,11 +307,12 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = {
     "PlenaryTestPopup",
     "grug-far",
-    "goto-preview",
     "help",
     "lspinfo",
     "notify",
     "qf",
+    "quickfix",
+    "neo-tree",
     "spectre_panel",
     "startuptime",
     "tsplayground",
@@ -322,6 +323,9 @@ vim.api.nvim_create_autocmd("FileType", {
     "dbout",
     "gitsigns-blame",
     "Lazy",
+    "snacks_dashboard",
+    "dashboard",
+    "noice",
   },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
