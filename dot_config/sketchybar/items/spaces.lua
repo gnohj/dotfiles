@@ -28,6 +28,7 @@ local spaceConfigs <const> = {
 	["U"] = { name = "Excalidraw", icon = "󰽉" }, -- Using icon instead of app
 	["Y"] = { name = "Whimsical", icon = "󱁉" }, -- Using icon instead of app
 	["Z"] = { name = "Brave", app = "Brave Browser" },
+	-- ["T"] = { name = "Terminal", app = "WezTerm" },
 }
 
 local function selectCurrentWorkspace(focusedWorkspaceName)
