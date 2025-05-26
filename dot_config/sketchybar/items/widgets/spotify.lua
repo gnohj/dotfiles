@@ -131,7 +131,7 @@ local function updateSpotifyInfo()
 				string = displayText,
 				color = isPlaying and settings.colors.light_blue or settings.colors.dirty_white,
 				padding_left = 5,
-				max_chars = 25, -- Set a max width to trigger scrolling
+				max_chars = 20, -- Set a max width to trigger scrolling
 			},
 		})
 	end)
