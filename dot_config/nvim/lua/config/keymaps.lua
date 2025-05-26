@@ -57,6 +57,8 @@ vim.keymap.set({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All
 -- Quit or exit neovim, easier than to do <leader>qq
 keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 
+vim.keymap.set({ "n", "v", "i" }, "<M-r>", "<Nop>", { desc = "[P] Disabled No operation for <M-r>" })
+
 -- Write current file
 vim.keymap.set("n", "<M-w>", function()
   vim.cmd("write")
@@ -73,8 +75,6 @@ keymap({ "n", "v", "i" }, "<M-d>", function()
 end, { desc = "[P]Dismiss All" })
 
 -- HACK: View and paste images in Neovim like in Obsidian
--- https://youtu.be/0O3kqGwNzTI
---
 -- Paste images
 -- I tried using <C-v> but duh, that's used for visual block mode
 keymap({ "n", "i" }, "<M-a>", function()
@@ -91,17 +91,11 @@ keymap({ "n", "i" }, "<M-a>", function()
   end
 end, { desc = "[P]Paste image from system clipboard" })
 
--- LazyVim doesn't run eslint for nvim versions > 0.10.0 - https://github.com/LazyVim/LazyVim/issues/5861
--- vim.keymap.set("n", "<leader>cf", function()
---   -- Run the normal formatter first
---   vim.lsp.buf.format()
---
---   -- Then run EslintFixAll if ESLint is attached
---   local eslint_client = LazyVim.lsp.get_clients({ name = "eslint", bufnr = 0 })[1]
---   if eslint_client then
---     vim.cmd("EslintFixAll")
---   end
--- end, { desc = "Format and fix ESLint issues" })
+-- Disable lazygit which is enabled default by LazyVim
+-- map("n", "<leader>gg", function() Snacks.lazygit( { cwd = LazyVim.root.git() }) end, { desc = "Lazygit (Root Dir)" })
+-- map("n", "<leader>gG", function() Snacks.lazygit() end, { desc = "Lazygit (cwd)" })
+vim.keymap.del("n", "<leader>gg")
+vim.keymap.del("n", "<leader>gG")
 
 -------------------------------------------------------------------------------
 --                           Grugfar
@@ -280,14 +274,6 @@ end, { desc = "[P]Terminal on tmux pane" })
 -- >>>
 -- >>> og # organize saved notes from zettelkasten into notes/[tag] folders
 -- >>> ou # sync local with Notion
-
-keymap("n", "gf", function()
-  if require("obsidian").util.cursor_on_markdown_link() then
-    return "<cmd>ObsidianFollowLink<CR>"
-  else
-    return "gf"
-  end
-end, { noremap = false, expr = true })
 
 -- navigate to vault
 keymap("n", "<leader>oo", ":cd /Users/gnohj/Obsidian/second-brain/<cr>")
