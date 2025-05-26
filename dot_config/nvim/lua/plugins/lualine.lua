@@ -10,6 +10,23 @@ local function buffer_count()
   return "(" .. tostring(#buffers) .. ")"
 end
 
+local function buffer_count_with_unsaved()
+  -- Count only unsaved buffers
+  local unsaved_count = 0
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.api.nvim_buf_get_option(buf, "modified") then
+      unsaved_count = unsaved_count + 1
+    end
+  end
+
+  -- Only show if there are unsaved buffers
+  if unsaved_count > 0 then
+    return string.format("● %d", unsaved_count)
+  else
+    return "" -- Return empty string when no unsaved buffers
+  end
+end
+
 -- Custom component to display the file path, with `~` for the home directory
 local function file_path()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
@@ -77,6 +94,7 @@ return {
         lualine_a = { "mode" },
         lualine_b = { "branch" },
         lualine_c = {
+          { buffer_count_with_unsaved, color = { fg = colors.red } },
           {
             "diagnostics",
             symbols = {
@@ -121,9 +139,9 @@ return {
         },
       },
       winbar = {
-        lualine_a = {
-          { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
-        },
+        -- lualine_a = {
+        --   { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
+        -- },
         lualine_b = {
           { buffer_count, color = { fg = "#37f499", gui = "bold" } },
         },
@@ -132,9 +150,9 @@ return {
         },
       },
       inactive_winbar = {
-        lualine_a = {
-          { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
-        },
+        -- lualine_a = {
+        --   { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
+        -- },
         lualine_b = {
           { buffer_count, color = { fg = "#666666", gui = "italic" } },
         },
