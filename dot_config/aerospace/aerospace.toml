@@ -17,8 +17,8 @@
 after-login-command = []
 
 after-startup-command = [
-  # 'exec-and-forget /opt/homebrew/bin/skhd',
   'exec-and-forget /opt/homebrew/bin/sketchybar',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
   'exec-and-forget /opt/homebrew/opt/borders/bin/borders',
 ]
 
