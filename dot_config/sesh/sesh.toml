@@ -55,8 +55,8 @@ path = "~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
-name = "neovim_folder"
-path = "~/.config/nvim/"
+name = "plugins_nvim_folder"
+path = "~/.config/nvim/lua/plugins"
 
 [[session]]
 name = "second_brain_repo"
@@ -78,6 +78,12 @@ name = "aerospace_config"
 path = "~/.config/aerospace"
 startup_command = "nvim aerospace.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/aerospace/aerospace.toml"
+
+[[session]]
+name = "autocmds_nvim"
+path = "~/.config/nvim/lua/config"
+startup_command = "nvim autocmds.lua"
+preview_command = "bat --color=always ~/.config/nvim/lua/config/autocmds.lua"
 
 [[session]]
 name = "borders_config"
@@ -115,10 +121,29 @@ startup_command = "nvim config"
 preview_command = "bat --language=bash --style=snip --color=always ~/.config/ghostty/config"
 
 [[session]]
+name = "keymaps_nvim"
+path = "~/.config/nvim/lua/config"
+startup_command = "nvim keymaps.lua"
+preview_command = "bat --color=always ~/.config/nvim/lua/config/keymaps.lua"
+
+[[session]]
 name = "lazygit_config"
 path = "~/.config/lazygit"
 startup_command = "nvim config.yml"
 preview_command = "bat --color=always ~/.config/lazygit/config.yml"
+
+
+[[session]]
+name = "lazy_nvim"
+path = "~/.config/nvim/lua/config"
+startup_command = "nvim lazy.lua"
+preview_command = "bat --color=always ~/.config/nvim/lua/config/lazy.lua"
+
+[[session]]
+name = "options_nvim"
+path = "~/.config/nvim/lua/config"
+startup_command = "nvim options.lua"
+preview_command = "bat --color=always ~/.config/nvim/lua/config/options.lua"
 
 [[session]]
 name = "npmrc_config"
