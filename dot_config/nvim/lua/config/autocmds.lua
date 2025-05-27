@@ -329,10 +329,17 @@ vim.api.nvim_create_autocmd("FileType", {
 vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
   group = vim.api.nvim_create_augroup("float_diagnostic", { clear = true }),
   callback = function()
-    vim.diagnostic.open_float(nil, {
-      focus = false,
-      border = "rounded",
-    })
+    -- Get the current mode using the correct API function
+    local current_mode_info = vim.api.nvim_get_mode()
+    local current_mode = current_mode_info.mode
+
+    -- Only open float diagnostics if in Normal mode ('n')
+    if current_mode == "n" then
+      vim.diagnostic.open_float(nil, {
+        focus = false,
+        border = "rounded",
+      })
+    end
   end,
 })
 
