@@ -301,6 +301,15 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
   end,
 })
 
+-- Enable spell checking for markdown files
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "markdown", "md", "mdx" },
+  callback = function()
+    vim.opt_local.spell = true
+    vim.opt_local.spelllang = "en_us"
+  end,
+})
+
 -- close some filetypes with <esc>
 vim.api.nvim_create_autocmd("FileType", {
   group = augroup("close_with_q"),
