@@ -8,9 +8,26 @@ return {
     opts = function(_, opts)
       -- Existing configurations
       opts.servers = {
+        harper_ls = {
+          enabled = true,
+          filetypes = { "markdown", "md", "mdx" },
+          settings = {
+            ["harper-ls"] = {
+              userDictPath = "~/.config/nvim/spell/en.utf-8.add",
+              linters = {
+                ToDoHyphen = false,
+              },
+              isolateEnglish = true,
+              markdown = {
+                IgnoreLinkTitle = true,
+              },
+            },
+          },
+        },
         tsserver = { enabled = false },
         ts_ls = { enabled = false },
         vtsls = {
+          autoUseWorkspaceTsdk = true, -- Add this for better TS version consistency
           filetypes = {
             "javascript",
             "javascriptreact",
@@ -22,11 +39,16 @@ return {
           settings = {
             typescript = {
               updateImportsOnFileMove = "always",
+              format = {
+                enable = false, -- let prettier/eslint handle formatting
+              },
               suggest = {
                 completeFunctionCalls = true,
               },
               tsserver = {
                 maxTsServerMemory = 8192,
+                useSeparateSyntaxServer = true,
+                enablePromptUseWorkspaceTsdk = false,
               },
               disableAutomaticTypingAcquisition = true,
               inlayHints = {
@@ -38,6 +60,10 @@ return {
                 variableTypes = false,
               },
               preferences = {
+                importModuleSpecifier = "auto", -- let ts decide the best import style based on tsconfig
+                updateImportsOnFileMove = {
+                  enabled = "always",
+                },
                 includePackageJsonAutoImports = "off",
               },
             },
@@ -64,7 +90,18 @@ return {
       }
 
       opts.diagnostics = {
-        virtual_text = false,
+        -- virtual_text = false,
+        virtual_text = {
+          -- Enable virtual text but filter by source
+          source = "if_many",
+          format = function(diagnostic)
+            -- Only show virtual text for harper-ls in markdown files
+            if diagnostic.source == "Harper" then
+              return diagnostic.message
+            end
+            return nil
+          end,
+        },
       }
 
       -- Add the eslint setup configuration - this is from https://github.com/iainlane/dotfiles/commit/1abe290bfe071b92a806eea62abadbab18ee63c3

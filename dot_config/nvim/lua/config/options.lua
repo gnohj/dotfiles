@@ -13,15 +13,22 @@
 
 local opt = vim.opt
 
--- opt.textwidth = 80
 opt.timeout = true
 opt.timeoutlen = 1000
 
 vim.g.snacks_animate = false
 
+vim.opt.linebreak = false
+
 vim.o.swapfile = false
 
 vim.g.snacks_animate = false
+
+-- Show LSP diagnostics (inlay hints) in a hover window / popup
+-- https://github.com/neovim/nvim-lspconfig/wiki/UI-Customization#show-line-diagnostics-automatically-in-hover-window
+-- https://www.reddit.com/r/neovim/comments/1168p97/how_can_i_make_lspconfig_wrap_around_these_hints/
+-- Time it takes to show the popup after you hover over the line with an error
+vim.o.updatetime = 200
 
 -- This allows telelescope to always look at the cwd of the project versus the root_dir of a buffer (which can change based on whatever buffer is open)
 -- cwd: usually starts off however you started neovim . or neovim of the directory; if for some reason you cwd: /apps/ on command line then this will be the new cwd
