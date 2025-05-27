@@ -83,7 +83,11 @@ return {
             name = "Dict",
             score_offset = 20, -- the higher the number, the higher the priority
             -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
-            enabled = true,
+            enabled = function()
+              local filetype = vim.bo[0].filetype
+              local markdown_filetypes = { "markdown", "md", "mdx", "rmd" }
+              return vim.tbl_contains(markdown_filetypes, filetype)
+            end,
             max_items = 8,
             min_keyword_length = 3,
             opts = {
