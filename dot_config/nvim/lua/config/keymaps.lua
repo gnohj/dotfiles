@@ -290,6 +290,14 @@ keymap("n", "<leader>ok", ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelk
 -- delete file in current buffer
 keymap("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>")
 
+keymap("n", "gf", function()
+  if require("obsidian").util.cursor_on_markdown_link() then
+    return "<cmd>ObsidianFollowLink<CR>"
+  else
+    return "gf"
+  end
+end, { noremap = false, expr = true })
+
 -------------------------------------------------------------------------------
 --                           Harpoon
 -------------------------------------------------------------------------------
