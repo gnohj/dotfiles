@@ -6,7 +6,7 @@ return {
   "mason-org/mason.nvim",
   opts = {
     ensure_installed = {
-      "eslint",
+      "eslint-lsp",
       "harper-ls",
       "lua-language-server",
       "prettier",

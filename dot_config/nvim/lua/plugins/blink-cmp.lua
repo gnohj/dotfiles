@@ -79,13 +79,13 @@ return {
           },
 
           dictionary = {
-            module = "blink-cmp-dictionary",
+            module = "blink-cmp-dictionary", -- make sure to have wordnet installed to get definitions
             name = "Dict",
             score_offset = 20, -- the higher the number, the higher the priority
             -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
             enabled = function()
               local filetype = vim.bo[0].filetype
-              local markdown_filetypes = { "markdown", "md", "mdx", "rmd" }
+              local markdown_filetypes = { "markdown", "md", "mdx" }
               return vim.tbl_contains(markdown_filetypes, filetype)
             end,
             max_items = 8,
@@ -94,27 +94,10 @@ return {
               -- -- The dictionary by default now uses fzf, make sure to have it
               -- -- installed
               -- -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
-              --
-              -- Do not specify a file, just the path, and in the path you need to
-              -- have your .txt files
               dictionary_directories = { vim.fn.expand("~/.config/nvim/dictionaries") },
-              -- Notice I'm also adding the words I add to the spell dictionary
               dictionary_files = {
                 vim.fn.expand("~/.config/nvim/spell/en.utf-8.add"),
               },
-              -- --  NOTE: To disable the definitions uncomment this section below
-              --
-              -- separate_output = function(output)
-              --   local items = {}
-              --   for line in output:gmatch("[^\r\n]+") do
-              --     table.insert(items, {
-              --       label = line,
-              --       insert_text = line,
-              --       documentation = nil,
-              --     })
-              --   end
-              --   return items
-              -- end,
             },
           },
 
@@ -175,7 +158,6 @@ return {
             -- from the final inserted text
             -- Modified transform_items function based on suggestion by `synic` so
             -- that the luasnip source is not reloaded after each transformation
-            -- https://github.com/linkarzu/dotfiles-latest/discussions/7#discussion-7849902
             -- NOTE: I also tried to add the ";" prefix to all of the snippets loaded from
             -- friendly-snippets in the luasnip.lua file, but I was unable to do
             -- so, so I still have to use the transform_items here
