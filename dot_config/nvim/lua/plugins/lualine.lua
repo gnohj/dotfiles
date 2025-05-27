@@ -19,11 +19,19 @@ local function buffer_count_with_unsaved()
     end
   end
 
-  -- Only show if there are unsaved buffers
+  -- Only show count if there are unsaved buffers
   if unsaved_count > 0 then
-    return string.format("● %d", unsaved_count)
+    return tostring(unsaved_count) -- Just the number, no dot
   else
-    return "" -- Return empty string when no unsaved buffers
+    return ""
+  end
+end
+
+local function current_buffer_unsaved_dot()
+  if vim.api.nvim_buf_get_option(0, "modified") then
+    return "●"
+  else
+    return ""
   end
 end
 
@@ -33,13 +41,6 @@ local function file_path()
   return full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
 end
 
-local function current_buffer_unsaved()
-  if vim.api.nvim_buf_get_option(0, "modified") then
-    return "●" -- Unicode circle that can be colored
-  else
-    return "" -- No symbol if saved
-  end
-end
 return {
   "nvim-lualine/lualine.nvim",
   opts = function(_, opts)
@@ -94,6 +95,7 @@ return {
         lualine_a = { "mode" },
         lualine_b = { "branch" },
         lualine_c = {
+          { current_buffer_unsaved_dot, color = { fg = colors.red } },
           { buffer_count_with_unsaved, color = { fg = colors.red } },
           {
             "diagnostics",
@@ -130,6 +132,7 @@ return {
               if gitsigns then
                 return {
                   added = gitsigns.added,
+
                   modified = gitsigns.changed,
                   removed = gitsigns.removed,
                 }
