@@ -2,14 +2,6 @@ if vim.g.vscode then
   return {}
 end
 
-vim.keymap.set("n", "gf", function()
-  if require("obsidian").util.cursor_on_markdown_link() then
-    return "<cmd>ObsidianFollowLink<CR>"
-  else
-    return "gf"
-  end
-end, { noremap = false, expr = true })
-
 return {
   {
     "epwalsh/obsidian.nvim",
@@ -34,7 +26,6 @@ return {
         time_format = "%H:%M:%S",
       },
       completion = {
-        -- nvim_cmp = true,
         min_chars = 2,
       },
       ui = {
