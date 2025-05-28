@@ -15,7 +15,7 @@
   "chezmoi.nvim": { "branch": "main", "commit": "e0b3ebafd910b63acdfbf6677b44b03eb3d09f19" },
   "chezmoi.vim": { "branch": "main", "commit": "abf37336437867cbd99ce2f8849b717415391cc3" },
   "conform.nvim": { "branch": "master", "commit": "6feb2f28f9a9385e401857b21eeac3c1b66dd628" },
-  "copilot.lua": { "branch": "master", "commit": "a620a5a97b73faba009a8160bab2885316e1451c" },
+  "copilot.lua": { "branch": "master", "commit": "5f726c8e6bbcd7461ee0b870d4e6c8a973b55b64" },
   "diffview.nvim": { "branch": "main", "commit": "4516612fe98ff56ae0415a259ff6361a89419b0a" },
   "dressing.nvim": { "branch": "master", "commit": "2d7c2db2507fa3c4956142ee607431ddb2828639" },
   "eldritch": { "branch": "master", "commit": "adedead3423c58cc2e2ebf30001fe4055ad0e416" },
