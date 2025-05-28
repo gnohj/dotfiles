@@ -14,7 +14,6 @@
 -- Add any additional keymaps here
 
 local keymap = vim.keymap.set
-local opts = { noremap = true, silent = true }
 local harpoon = require("harpoon")
 harpoon:setup()
 
@@ -24,20 +23,19 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "[P]Delete without yanking" })
 
 -- move text up and down
-keymap("v", "J", ":m .+1<CR>==", opts)
-keymap("v", "K", ":m .-2<CR>==", opts)
-
+-- keymap("v", "j", ":m .+1<cr>==", { desc = "[p]move line down in visual mode" })
+-- keymap("v", "k", ":m .-2<cr>==", { desc = "[p]move line up in visual mode" })
 keymap("v", "J", ":m '>+1<CR>gv=gv", { desc = "[P]Move line down in visual mode" })
 keymap("v", "K", ":m '<-2<CR>gv=gv", { desc = "[P]Move line up in visual mode" })
 
 -- yank to system clipboard
-keymap({ "n", "v" }, "<leader>y", '"+y', opts)
+keymap({ "n", "v" }, "<leader>y", '"+y', { noremap = true, silent = true, desc = "[P]Yank to system clipboard" })
 
 -- paste from system clipboard
-keymap({ "n", "v" }, "<leader>p", '"+p', opts)
+keymap({ "n", "v" }, "<leader>p", '"+p', { noremap = true, silent = true, desc = "[P]Paste from system clipboard" })
 
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
-keymap("n", "<Esc>", "<cmd>nohlsearch<CR>")
+keymap("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "[P]Clear search highlight" })
 
 -- increment/decrement numbers
 keymap("n", "<leader>+", "<C-a>", { desc = "[P]Increment number" })
@@ -53,14 +51,14 @@ end
 keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "[P]Copy full path" })
 
 -- Quit or exit neovim, easier than to do <leader>qq
-vim.keymap.set({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 -- Quit or exit neovim, easier than to do <leader>qq
 keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 
-vim.keymap.set({ "n", "v", "i" }, "<M-r>", "<Nop>", { desc = "[P] Disabled No operation for <M-r>" })
+keymap({ "n", "v", "i" }, "<M-r>", "<Nop>", { desc = "[P] Disabled No operation for <M-r>" })
 
 -- Write current file
-vim.keymap.set("n", "<M-w>", function()
+keymap("n", "<M-w>", function()
   vim.cmd("write")
 end, { desc = "[P]Write current file" })
 
@@ -100,7 +98,7 @@ vim.keymap.del("n", "<leader>gG")
 -------------------------------------------------------------------------------
 --                           Grugfar
 -------------------------------------------------------------------------------
-vim.keymap.set(
+keymap(
   { "v" },
   "<leader>s1",
   '<cmd>lua require("grug-far").open({ prefills = { paths = vim.fn.expand("%") } })<cr>',
@@ -276,19 +274,29 @@ end, { desc = "[P]Terminal on tmux pane" })
 -- >>> ou # sync local with Notion
 
 -- navigate to vault
-keymap("n", "<leader>oo", ":cd /Users/gnohj/Obsidian/second-brain/<cr>")
+keymap("n", "<leader>oo", ":cd /Users/gnohj/Obsidian/second-brain/<cr>", { desc = "[P]Obsidian: Navigate to vault" })
 --
 -- convert note to template and remove leading white space
-keymap("n", "<leader>on", ":ObsidianTemplate note<cr> :lua vim.cmd([[1,/^\\S/s/^\\n\\{1,}//]])<cr>")
+keymap(
+  "n",
+  "<leader>on",
+  ":ObsidianTemplate note<cr> :lua vim.cmd([[1,/^\\S/s/^\\n\\{1,}//]])<cr>",
+  { desc = "[P]Obsidian: New note template" }
+)
 -- strip date from note title and replace dashes with spaces
 -- must have cursor on title
-keymap("n", "<leader>of", ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>")
+keymap("n", "<leader>of", ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>", { desc = "[P]Obsidian: Format note title" })
 --
 -- for review workflow
 -- move file in current buffer to zettelkasten folder
-keymap("n", "<leader>ok", ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>")
+keymap(
+  "n",
+  "<leader>ok",
+  ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>",
+  { desc = "[P]Obsidian: Move file to Zettelkasten" }
+)
 -- delete file in current buffer
-keymap("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>")
+keymap("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>", { desc = "[P]Obsidian: Delete file in current buffer" })
 
 keymap("n", "gf", function()
   if require("obsidian").util.cursor_on_markdown_link() then
@@ -296,7 +304,7 @@ keymap("n", "gf", function()
   else
     return "gf"
   end
-end, { noremap = false, expr = true })
+end, { noremap = false, expr = true, desc = "[P]Obsidian: Follow link under cursor" })
 
 -------------------------------------------------------------------------------
 --                           Harpoon
@@ -312,10 +320,7 @@ end, { desc = "[P]Toggle Harpoon menu" })
 -- Toggle previous & next buffers stored within Harpoon list
 keymap("n", "<C-P>", function()
   harpoon:list():prev()
-end)
--- keymap("n", "<C-O>", function() - disable this for jumplist previous command
---   harpoon:list():next()
--- end)
+end, { desc = "[P]Harpoon: Previous file in list" })
 
 -------------------------------------------------------------------------------
 --                           Folding section
@@ -350,53 +355,16 @@ local function set_foldmethod_expr()
     vim.opt.foldmethod = "indent"
     vim.opt.foldtext = "v:lua.require'lazyvim.util'.ui.foldtext()"
   end
-  vim.opt.foldlevel = 99
-end
-
--- Function to fold all headings of a specific level
-local function fold_headings_of_level(level)
-  -- Move to the top of the file
-  vim.cmd("normal! gg")
-  -- Get the total number of lines
-  local total_lines = vim.fn.line("$")
-  for line = 1, total_lines do
-    -- Get the content of the current line
-    local line_content = vim.fn.getline(line)
-    -- "^" -> Ensures the match is at the start of the line
-    -- string.rep("#", level) -> Creates a string with 'level' number of "#" characters
-    -- "%s" -> Matches any whitespace character after the "#" characters
-    -- So this will match `## `, `### `, `#### ` for example, which are markdown headings
-    if line_content:match("^" .. string.rep("#", level) .. "%s") then
-      -- Move the cursor to the current line
-      vim.fn.cursor(line, 1)
-      -- Fold the heading if it matches the level
-      if vim.fn.foldclosed(line) == -1 then
-        vim.cmd("normal! za")
-      end
-    end
-  end
-end
-
-local function fold_markdown_headings(levels)
-  set_foldmethod_expr()
-  -- I save the view to know where to jump back after folding
-  local saved_view = vim.fn.winsaveview()
-  for _, level in ipairs(levels) do
-    fold_headings_of_level(level)
-  end
-  vim.cmd("nohlsearch")
-  -- Restore the view to jump to where I was
-  vim.fn.winrestview(saved_view)
+  -- vim.opt.foldlevel = 99 -- Remove this line.  We'll set foldlevel in the keymaps.
 end
 
 --
--- Keymap for unfolding markdown headings of level 2 or above
+-- UNFOLDING: Keymap for unfolding markdown headings of level 2 or above
 -- Changed all the markdown folding and unfolding keymaps from <leader>mfj to
 -- zj, zk, zl, z; and zu respectively lamw25wmal
 keymap("n", "zu", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
-  -- vim.keymap.set("n", "<leader>mfu", function()
   -- Reloads the file to reflect the changes
   vim.cmd("edit!")
   vim.cmd("normal! zR") -- Unfold all headings
@@ -404,7 +372,7 @@ keymap("n", "zu", function()
 end, { desc = "[P]Unfold all headings level 2 or above" })
 
 --
--- gk jummps to the markdown heading above and then folds it
+-- FOLDING: gk jummps to the markdown heading above and then folds it
 -- zi by default toggles folding, but I don't need it lamw25wmal
 keymap("n", "zi", function()
   -- "Update" saves only if the buffer has been modified since the last save
@@ -419,66 +387,58 @@ keymap("n", "zi", function()
 end, { desc = "[P]Fold the heading cursor currently on" })
 
 --
--- Keymap for folding markdown headings of level 1 or above
+-- FOLDING: Keymap for folding markdown headings of level 1 or above
 keymap("n", "zj", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
-  -- vim.keymap.set("n", "<leader>mfj", function()
-  -- Reloads the file to refresh folds, otheriise you have to re-open neovim
+  -- Reloads the file to refresh folds, otherwise you have to re-open neovim
   vim.cmd("edit!")
-  -- Unfold everything first or I had issues
-  vim.cmd("normal! zR")
-  fold_markdown_headings({ 6, 5, 4, 3, 2, 1 })
+  set_foldmethod_expr() -- Ensure foldmethod is set
+  vim.opt.foldlevel = 0 -- Fold everything
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 1 or above" })
 
 --
--- Keymap for folding markdown headings of level 2 or above
+-- FOLDING: Keymap for folding markdown headings of level 2 or above
 -- I know, it reads like "madafaka" but "k" for me means "2"
 keymap("n", "zk", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
-  -- vim.keymap.set("n", "<leader>mfk", function()
   -- Reloads the file to refresh folds, otherwise you have to re-open neovim
   vim.cmd("edit!")
-  -- Unfold everything first or I had issues
-  vim.cmd("normal! zR")
-  fold_markdown_headings({ 6, 5, 4, 3, 2 })
+  set_foldmethod_expr() -- Ensure foldmethod is set
+  vim.opt.foldlevel = 1 -- Fold level 2 and above
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 2 or above" })
 
 --
--- Keymap for folding markdown headings of level 3 or above
+-- FOLDING: Keymap for folding markdown headings of level 3 or above
 keymap("n", "zl", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
-  -- vim.keymap.set("n", "<leader>mfl", function()
   -- Reloads the file to refresh folds, otherwise you have to re-open neovim
   vim.cmd("edit!")
-  -- Unfold everything first or I had issues
-  vim.cmd("normal! zR")
-  fold_markdown_headings({ 6, 5, 4, 3 })
+  set_foldmethod_expr() -- Ensure foldmethod is set
+  vim.opt.foldlevel = 2 -- Fold level 3 and above
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 3 or above" })
 
 --
--- Keymap for folding markdown headings of level 4 or above
+-- FOLDING: Keymap for folding markdown headings of level 4 or above
 keymap("n", "z;", function()
   -- "Update" saves only if the buffer has been modified since the last save
   vim.cmd("silent update")
-  -- vim.keymap.set("n", "<leader>mf;", function()
   -- Reloads the file to refresh folds, otherwise you have to re-open neovim
   vim.cmd("edit!")
-  -- Unfold everything first or I had issues
-  vim.cmd("normal! zR")
-  fold_markdown_headings({ 6, 5, 4 })
+  set_foldmethod_expr() -- Ensure foldmethod is set
+  vim.opt.foldlevel = 3 -- Fold level 4 and above
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 4 or above" })
 
 -------------------------------------------------------------------------------
 --                           Aider
 -------------------------------------------------------------------------------
-vim.keymap.set("n", "<leader>aA", function()
+keymap("n", "<leader>aA", function()
   local buffers = vim.api.nvim_list_bufs()
 
   for _, buf in ipairs(buffers) do
@@ -499,5 +459,3 @@ vim.keymap.set("n", "<leader>aA", function()
     end
   end
 end, { desc = "[P]Add All Buffer Files To Aider" })
-
-vim.opt.completeopt = { "menuone", "popup", "noinsert" }

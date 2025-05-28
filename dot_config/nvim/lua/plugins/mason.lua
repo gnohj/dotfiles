@@ -8,7 +8,6 @@ return {
     ensure_installed = {
       "eslint-lsp",
       "harper-ls",
-      "lua-language-server",
       "prettier",
       "prettierd",
       "vtsls",
