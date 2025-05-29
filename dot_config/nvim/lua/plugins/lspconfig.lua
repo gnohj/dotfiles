@@ -38,7 +38,6 @@ return {
           },
           settings = {
             typescript = {
-              updateImportsOnFileMove = "always",
               format = {
                 enable = false, -- let prettier/eslint handle formatting
               },
@@ -49,6 +48,14 @@ return {
                 maxTsServerMemory = 8192,
                 useSeparateSyntaxServer = true,
                 enablePromptUseWorkspaceTsdk = false,
+                init_options = {
+                  hostInfo = "neovim",
+                  preferences = {
+                    includeCompletionsForModuleExports = true,
+                    includeCompletionsForImportStatements = true,
+                    importModuleSpecifierPreference = "relative",
+                  },
+                },
               },
               disableAutomaticTypingAcquisition = true,
               inlayHints = {
@@ -60,7 +67,10 @@ return {
                 variableTypes = false,
               },
               preferences = {
-                importModuleSpecifier = "auto", -- let ts decide the best import style based on tsconfig
+                includeCompletionsForModuleExports = true,
+                includeCompletionsForImportStatements = true,
+                importModuleSpecifier = "non-relative",
+                -- importModuleSpecifier = "auto", -- let ts decide the best import style based on tsconfig
                 updateImportsOnFileMove = {
                   enabled = "always",
                 },
