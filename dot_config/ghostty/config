@@ -20,8 +20,17 @@ background-opacity = 0.965
 # background-opacity = 0.925
 background-blur-radius = 80
 # fonts
-font-family = "RobotoMono Nerd Font"
-font-size = 15.5
+font-family = "Hasklug Nerd Font Mono Med"
+# font-family = "RobotoMono Nerd Font"
+# font-family = "JetBrainsMono Nerd Font"
+font-family-italic = "Cartograph CF Italic"
+adjust-cell-width = -5%
+adjust-cell-height = 10%
+adjust-underline-position = 6
+adjust-underline-thickness = 40%
+adjust-cursor-thickness = 150%
+font-size = 14
+# font-size = 15
 
 # cursor
 shell-integration-features = no-cursor
