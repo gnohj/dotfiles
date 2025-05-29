@@ -156,7 +156,7 @@ keymap("n", "<leader><leader>m", function()
   else
     vim.cmd("DiffviewClose")
   end
-end)
+end, { desc = "[P]DiffView: Toggle master branch diff" })
 
 keymap("n", "<leader><leader>d", function()
   if next(require("diffview.lib").views) == nil then
@@ -164,7 +164,7 @@ keymap("n", "<leader><leader>d", function()
   else
     vim.cmd("DiffviewClose")
   end
-end)
+end, { desc = "[P]DiffView: Toggle develop branch diff" })
 
 -------------------------------------------------------------------------------
 --                           Toggle Copilot Virtual Text
