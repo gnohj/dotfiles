@@ -1,4 +1,7 @@
--- Better copy/pasting.
+if vim.g.vscode then
+  return {}
+end
+
 return {
   "gbprod/yanky.nvim",
   opts = {
