@@ -23,6 +23,9 @@ vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.o.swapfile = false
 
+-- Global statusline — one statusline across the entire Neovim window, not per split
+vim.opt.laststatus = 3
+
 vim.g.snacks_animate = false
 
 -- Show LSP diagnostics (inlay hints) in a hover window / popup
