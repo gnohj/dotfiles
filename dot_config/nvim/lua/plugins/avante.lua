@@ -17,18 +17,23 @@ return {
     -- },
     -- provider = "copilot",
     provider = "claude",
-    claude = {
-      endpoint = "https://api.anthropic.com",
-      model = "claude-3-5-sonnet-20241022",
-      temperature = 0,
-      max_tokens = 4096,
-      disable_tools = true,
+    providers = {
+      claude = {
+        endpoint = "https://api.anthropic.com",
+        model = "claude-3-5-sonnet-20241022",
+        extra_request_body = {
+          temperature = 0,
+          max_tokens = 4096,
+          disable_tools = true,
+        },
+      },
     },
     hints = { enabled = false },
   },
   -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
   build = "make BUILD_FROM_SOURCE=true",
   dependencies = {
+    "nvim-treesitter/nvim-treesitter",
     "stevearc/dressing.nvim",
     "nvim-lua/plenary.nvim",
     "MunifTanjim/nui.nvim",
@@ -44,7 +49,6 @@ return {
           drag_and_drop = {
             insert_mode = true,
           },
-          use_absolute_path = true,
         },
       },
     },
