@@ -70,6 +70,10 @@ return {
 
       options = {
         section_separators = { left = " ", right = " " }, -- Remove arrows
+        disabled_filetypes = {
+          statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
+          winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
+        },
         theme = {
           normal = {
             a = { bg = colors.blue, fg = colors.bg, gui = "bold" },
