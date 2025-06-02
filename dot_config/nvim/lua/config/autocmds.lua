@@ -358,6 +358,7 @@ vim.api.nvim_create_autocmd("FileType", {
     "neotest-output-panel",
     "dbout",
     "gitsigns-blame",
+    "OverseerList",
     "Lazy",
     "noice",
   },
