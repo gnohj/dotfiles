@@ -15,5 +15,11 @@ return {
       ["j"] = false, -- Allow j key
       ["k"] = false, -- Allow k key
     },
+    disabled_keys = {
+      ["<Up>"] = {},
+      ["<Down>"] = {},
+      ["<Left>"] = {},
+      ["<Right>"] = {},
+    },
   },
 }
