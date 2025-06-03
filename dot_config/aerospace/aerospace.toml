@@ -244,7 +244,7 @@ backspace = ['close-all-windows-but-current', 'mode main']
 
 
 [[on-window-detected]]
-if.app-id = 'com.google.Chrome'
+if.app-id = 'app.zen-browser.zen'
 run = "move-node-to-workspace B"
 
 [[on-window-detected]]
@@ -254,11 +254,6 @@ run = "move-node-to-workspace M"
 [[on-window-detected]]
 if.app-id = 'com.hnc.Discord'
 run = "move-node-to-workspace D"
-
-[[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep'
-run = "move-node-to-workspace C"
-
 
 [[on-window-detected]]
 if.app-id = 'com.spotify.client'
