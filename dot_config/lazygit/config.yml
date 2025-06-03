@@ -41,3 +41,9 @@ customCommands:
     command: "HUSKY=0 git commit --amend --date=now --no-edit"
     context: "global"
     subprocess: yes
+
+  - key: "z"
+    description: "Stash commit and bypass hooks"
+    command: "HUSKY=0 git stash --no-verify"
+    context: "global"
+    subprocess: yes
