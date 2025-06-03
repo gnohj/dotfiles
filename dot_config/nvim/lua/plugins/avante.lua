@@ -57,6 +57,11 @@ return {
       },
     },
     hints = { enabled = false },
+    windows = {
+      ask = {
+        start_insert = false,
+      },
+    },
   },
   -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
   build = "make BUILD_FROM_SOURCE=true",
