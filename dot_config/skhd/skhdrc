@@ -22,6 +22,7 @@ lalt - b : /opt/homebrew/bin/aerospace workspace B
 lalt - c : /opt/homebrew/bin/aerospace workspace C
 lalt - d : /opt/homebrew/bin/aerospace workspace D
 lalt - e : /opt/homebrew/bin/aerospace workspace E
+lalt - f : /opt/homebrew/bin/aerospace workspace F
 lalt - g : /opt/homebrew/bin/aerospace workspace G
 lalt - m : /opt/homebrew/bin/aerospace workspace M
 lalt - p : /opt/homebrew/bin/aerospace workspace P
@@ -37,6 +38,7 @@ lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
 lalt + shift - c : /opt/homebrew/bin/aerospace move-node-to-workspace C
 lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
 lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
+lalt + shift - f : /opt/homebrew/bin/aerospace move-node-to-workspace F
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
 lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
 lalt + shift - p : /opt/homebrew/bin/aerospace move-node-to-workspace P
