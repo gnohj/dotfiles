@@ -19,6 +19,7 @@ local spaceConfigs <const> = {
 	["E"] = { name = "Teams", app = "Microsoft Teams" },
 	["B"] = { name = "Browser", app = "Google Chrome" },
 	["G"] = { name = "Browser", app = "Zen" },
+	["F"] = { name = "System", app = "System Settings" },
 	["D"] = { name = "Discord", app = "Discord" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["M"] = { name = "Mail", app = "Mail" },
