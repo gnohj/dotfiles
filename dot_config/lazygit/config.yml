@@ -28,6 +28,7 @@ gui:
 
 customCommands:
   - key: "x"
+    description: "Commit and bypass hooks"
     prompts:
       - type: "input"
         title: "Commit and bypass hooks"
