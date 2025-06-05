@@ -276,7 +276,6 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 # Chezmoi - TODO: add chezmoi check/download (brew)
 alias cz='chezmoi'
 
-
 # Fzf Shortcuts
 alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
 
@@ -429,13 +428,16 @@ export DO_NOT_TRACK=1
 # Force color for cli apps
 export FORCE_COLOR=1
 
+# Enable corepack support for each new installation. FNM will call `corepack enable` on every node.js installation
+export FNM_COREPACK_ENABLED=true
+
 # Adds color to fzf- for commands not tab, ex: ctrl + r
 export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1"
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {
   # set the right pnpm version, fnm eval below will detect right node version
-  corepack enable
+  # corepack enable -- not needed anymore simnce fnm will do it below on fnm eval
 
   # source zshrc file
   reload
