@@ -86,3 +86,4 @@ confirm-close-surface = false
 auto-update = check
 quit-after-last-window-closed = true
 
+keybind = shift+enter=text:\n
