@@ -264,6 +264,10 @@ if.app-id = 'md.obsidian'
 run = "move-node-to-workspace N"
 
 [[on-window-detected]]
+if.app-id = 'app.zen-browser.zen'
+run = "move-node-to-workspace Q"
+
+[[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
 run = "move-node-to-workspace C"
 
