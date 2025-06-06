@@ -4,6 +4,7 @@ end
 
 return {
   "nvim-neo-tree/neo-tree.nvim",
+  enabled = false,
   keys = {
     -- I'm using these 2 keyamps already with mini.files, so avoiding conflict
     { "<leader>e", false },
