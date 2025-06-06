@@ -424,6 +424,7 @@ bindkey -M viins '^x' sesh-sessions
 
 # Disable Console Do Not Track (specification)
 export DO_NOT_TRACK=1
+export DISABLE_TELEMETRY=1
 
 # Force color for cli apps
 export FORCE_COLOR=1
