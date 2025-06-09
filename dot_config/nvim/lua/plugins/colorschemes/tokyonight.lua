@@ -29,7 +29,7 @@ return {
         colors.bg = transparent and colors.none or colors.bg
         colors.bg_dark = transparent and colors.none or colors.bg_dark
         colors.bg_float = transparent and colors.none or colors.bg_float
-        colors.bg_highlight = bg_highlight
+        colors.bg_highlight = transparent and colors.none or bg_highlight
         colors.bg_popup = bg_dark
         colors.bg_search = bg_search
         colors.bg_sidebar = transparent and colors.none or colors.bg_sidebar
