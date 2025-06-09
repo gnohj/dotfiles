@@ -16,7 +16,7 @@ preview_command = "eza --all --git --icons --color=always {}"
 
 # folders
 [[session]]
-name = "home"
+name = "home 🏠"
 path = "~/"
 startup_command = "c"
 
@@ -25,12 +25,12 @@ name = "bat_config_folder"
 path = "~/.config/bat"
 
 [[session]]
-name = "bin_folder"
+name = "bin_folder 📥"
 path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
-name = "chezmoi_repo"
+name = "chezmoi_repo 🌐"
 path = "~/.local/share/chezmoi"
 startup_command = "gg"
 
@@ -50,7 +50,7 @@ path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "inferno_repo"
+name = "inferno_repo 🔥"
 path = "~/Developer/inferno-monorepo"
 startup_command = "~/.config/sesh/dev.sh dev ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
@@ -60,7 +60,7 @@ name = "plugins_nvim_folder"
 path = "~/.config/nvim/"
 
 [[session]]
-name = "second_brain_repo"
+name = "second_brain_repo 🧠"
 path = "~/Obsidian/second-brain"
 
 [[session]]
@@ -69,7 +69,7 @@ path = "~/.config/sketchybar"
 startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
 
 [[session]]
-name = "web_repo"
+name = "web_repo 🌐"
 startup_command = "~/.config/sesh/dev.sh dev ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
