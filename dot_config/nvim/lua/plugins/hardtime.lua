@@ -9,6 +9,7 @@ return {
   event = "BufEnter",
   opts = {
     disabled_filetypes = { "qf", "netrw", "NvimTree", "lazy", "mason", "oil" },
+    disable_mouse = false,
     restricted_keys = {
       ["jk"] = false, -- Allow jk combination
       ["kj"] = false, -- Allow kj combination (if you use this too)
