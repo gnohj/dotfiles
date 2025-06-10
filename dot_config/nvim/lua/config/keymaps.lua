@@ -19,6 +19,8 @@ harpoon:setup()
 
 keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
+keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
+
 -- delete without yanking
 keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "[P]Delete without yanking" })
 
