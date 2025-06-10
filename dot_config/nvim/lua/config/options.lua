@@ -23,6 +23,10 @@ vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.o.swapfile = false
 
+-- enable neovim scrolling when in tmux
+vim.opt.mouse = "a"
+vim.opt.mousescroll = "ver:3,hor:0"
+
 -- Global statusline — one statusline across the entire Neovim window, not per split
 vim.opt.laststatus = 3
 
