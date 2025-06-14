@@ -2,6 +2,8 @@ if vim.g.vscode then
   return {}
 end
 
+local colors = require("config.colors")
+
 return {
   "vuki656/package-info.nvim",
   dependencies = { "MunifTanjim/nui.nvim" },
@@ -9,9 +11,6 @@ return {
   opts = {
     package_manager = "pnpm",
     autostart = true,
-    colors = {
-      outdated = "#db4b4b",
-    },
     hide_up_to_date = true,
   },
   config = function(_, opts)
@@ -35,6 +34,6 @@ return {
     end
 
     -- vim.cmd([[highlight PackageInfoUpToDateVersion guifg=]] .. opts.colors.up_to_date)
-    vim.cmd([[highlight PackageInfoOutdatedVersion guifg=]] .. opts.colors.outdated)
+    vim.cmd([[highlight PackageInfoOutdatedVersion guifg=]] .. colors["gnohj_color11"])
   end,
 }

@@ -56,6 +56,11 @@ startup_command = "~/.config/sesh/dev.sh dev ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
+name = "colorscheme folder ⚙️"
+path = "~/.config/colorscheme/"
+
+
+[[session]]
 name = "plugins_nvim_folder ⚙️"
 path = "~/.config/nvim/"
 

@@ -48,6 +48,10 @@ if [ -f "$HOME/.zsh_radioctl_cmds" ]; then
   source "$HOME/.zsh_radioctl_cmds"
 fi
 
+if [ -f "$HOME/.config/colorscheme/colorscheme-vars.sh" ]; then
+  source "$HOME/.config/colorscheme/colorscheme-vars.sh"
+fi
+
 
 #-------------------------------------------------------------------------------
 #--                           Zinit
@@ -233,13 +237,12 @@ zinit cdreplay -q
 #-------------------------------------------------------------------------------
 #                  Auto Suggestion / Completion Styling
 #-------------------------------------------------------------------------------
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#6272A4'
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=$gnohj_color09"
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
-zstyle ':fzf-tab:*' fzf-flags --color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1
+zstyle ':fzf-tab:*' fzf-flags --color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02
 zstyle ':fzf-tab:complete:*' fzf-preview 'eza -1 --color=always $realpath'
-
 
 #-------------------------------------------------------------------------------
 #                  History
@@ -436,7 +439,7 @@ export FORCE_COLOR=1
 export FNM_COREPACK_ENABLED=true
 
 # Adds color to fzf- for commands not tab, ex: ctrl + r
-export FZF_DEFAULT_OPTS="--color=bg+:#214969,gutter:-1,border:#04d1f9,fg:#44FFb1"
+export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02"
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {

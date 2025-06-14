@@ -2,6 +2,8 @@ if vim.g.vscode then
   return {}
 end
 
+local colors = require("config.colors")
+
 return {
   "folke/snacks.nvim",
   lazy = false,
@@ -35,7 +37,7 @@ return {
       "<S-u>",
       function()
         -- Create the highlight group
-        vim.api.nvim_set_hl(0, "CustomTeal", { fg = "#3EFFDC" })
+        vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"] })
 
         -- Get all unsaved buffers
         local unsaved_buffers = {}

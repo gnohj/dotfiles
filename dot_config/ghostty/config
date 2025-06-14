@@ -14,11 +14,12 @@
 # color
 custom-shader = shaders/bloom025.glsl
 config-file = ghostty-theme
-# sunset-city wallpaper
-background-opacity = 0.965
-# black_gradient..yc41r-fullview
+# https://wallhaven.cc/
+background-opacity = 0.72
 # background-opacity = 0.925
-background-blur-radius = 80
+# background-blur-radius = 40
+# background-blur = true
+# background = black
 # fonts
 font-family = "Hasklug Nerd Font Mono Med"
 # font-family = "RobotoMono Nerd Font"
@@ -29,7 +30,7 @@ adjust-cell-height = 10%
 adjust-underline-position = 6
 adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
-font-size = 14
+font-size = 14.5
 # font-size = 15
 
 # cursor

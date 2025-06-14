@@ -1,11 +1,10 @@
 #!/bin/bash
-
+# Auto-generated borders configuration
 options=(
   style=round
   width=2.5
   hidpi=off
-  active_color=0xFF03b1D3
-  inactive_color=0x33434c5e
+  active_color=0xff04d1f9
+  inactive_color=0x336272A4
 )
-
 borders "${options[@]}"
