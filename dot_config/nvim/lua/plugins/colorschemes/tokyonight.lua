@@ -2,21 +2,13 @@ if vim.g.vscode then
   return {}
 end
 
+local colors = require("config.colors")
+
 local transparent = true
--- local bg = "#011628"
-local bg_dark = "#011423"
-local bg_highlight = "#2C3A54"
-local bg_search = "#0A64AC"
-local bg_visual = "#275378"
-local fg = "#c0caf5"
-local fg_dark = "#a9b1d6"
-local fg_gutter = "#4A5F7A"
-local border = "#547998"
 
 return {
   "folke/tokyonight.nvim",
   lazy = true,
-  priority = 1000,
   config = function()
     require("tokyonight").setup({
       style = "storm",
@@ -25,86 +17,114 @@ return {
         sidebars = transparent and "transparent" or "dark",
         floats = transparent and "transparent" or "dark",
       },
-      on_colors = function(colors)
-        colors.bg = transparent and colors.none or colors.bg
-        colors.bg_dark = transparent and colors.none or colors.bg_dark
-        colors.bg_float = transparent and colors.none or colors.bg_float
-        colors.bg_highlight = transparent and colors.none or bg_highlight
-        colors.bg_popup = bg_dark
-        colors.bg_search = bg_search
-        colors.bg_sidebar = transparent and colors.none or colors.bg_sidebar
-        colors.bg_statusline = transparent and colors.none or colors.bg_statusline
-        colors.bg_visual = bg_visual
-        colors.border = border
-        colors.fg = fg
-        colors.fg_dark = fg_dark
-        colors.fg_float = fg
-        colors.fg_gutter = fg_gutter
-        colors.fg_sidebar = fg_dark
-
-        -- colors.bg = transparent and colors.none or colors.bg
-        -- colors.bg_dark = transparent and colors.none or colors.bg
-        -- colors.bg_float = transparent and colors.none or colors.bg
-        -- colors.bg_sidebar = transparent and colors.none or colors.bg
-        -- colors.bg_statusline = transparent and colors.none or colors.bg
+      on_colors = function(global_colors)
+        global_colors.bg = colors["gnohj_color10"]
+        global_colors.bg_dark = colors["gnohj_color13"]
+        -- global_colors.bg_float = transparent and global_colors.none or global_colors.bg_float
+        global_colors.bg_highlight = transparent and global_colors.none or colors["gnohj_color17"]
+        -- global_colors.bg_popup = bg_dark
+        -- global_colors.bg_search = bg_search
+        -- global_colors.bg_sidebar = transparent and global_colors.none or global_colors.bg_sidebar
+        global_colors.bg_statusline = transparent and global_colors.none or colors["gnohj_color10"]
+        global_colors.bg_visual = colors["gnohj_color16"]
+        global_colors.border = colors["gnohj_color13"]
+        global_colors.fg = colors["gnohj_color14"]
+        global_colors.fg_dark = colors["gnohj_color13"]
+        global_colors.fg_float = colors["gnohj_color14"]
+        global_colors.fg_gutter = colors["gnohj_color13"]
+        global_colors.fg_sidebar = colors["gnohj_color13"]
+        global_colors.red = colors["gnohj_color11"]
+        global_colors.orange = colors["gnohj_color06"]
+        -- global_colors.yellow = colors["gnohj_color05"]
+        -- global_colors.green = colors["gnohj_color02"]
+        global_colors.purple = colors["gnohj_color04"]
+        global_colors.cyan = colors["gnohj_color03"]
       end,
-      on_highlights = function(hl, colors)
-        -- Diffview
-        hl.DiffChange = { fg = "#F6F6F5", bg = "#202624" }
-        hl.DiffAdd = { fg = "#87E58E", bg = "#22372C" }
-        hl.DiffDelete = { fg = "#E95678", bg = "#342231" }
-        hl.DiffText = { fg = "#FFBFA9", bg = "#202624", bold = true }
+      on_highlights = function(hl, hl_colors)
+        -- Change the spell underline color
+        SpellBad = { sp = colors["gnohj_color11"], undercurl = true, bold = true, italic = true }
+        SpellCap = { sp = colors["gnohj_color12"], undercurl = true, bold = true, italic = true }
+        SpellLocal = { sp = colors["gnohj_color12"], undercurl = true, bold = true, italic = true }
+        SpellRare = { sp = colors["gnohj_color04"], undercurl = true, bold = true, italic = true }
 
-        hl.DiffviewFolderSign = { fg = "#A7DFEF" }
-        hl.DiffviewNonText = { fg = colors.comment }
-        hl.diffAdded = { fg = "#97EDA2", bold = true }
-        hl.diffChanged = { fg = "#F6F6B6", bold = true }
-        hl.diffRemoved = { fg = "#EC6A88", bold = true }
+        -- Codeblocks for the render-markdown plugin
+        RenderMarkdownCode = { bg = colors["gnohj_color07"] }
+
+        -- This is the plugin that shows you where you are at the top
+        -- TreesitterContext = { sp = colors["gnohj_color10"] }
+        -- MiniFilesNormal = { sp = colors["gnohj_color10"] }
+        -- MiniFilesBorder = { sp = colors["gnohj_color10"] }
+        -- MiniFilesTitle = { sp = colors["gnohj_color10"] }
+        -- MiniFilesTitleFocused = { sp = colors["gnohj_color10"] }
+
+        -- Copilot ghost text
+        hl.CopilotSuggestion = { fg = colors["gnohj_color09"], italic = true }
+        hl.CopilotAnnotation = { fg = colors["gnohj_color09"], italic = true }
+        hl.Comment = { fg = colors["gnohj_color09"], italic = true }
+
+        -- Diffview
+        hl.DiffChange = { fg = colors["gnohj_color27"], bg = colors["gnohj_color28"] }
+        hl.DiffAdd = { fg = colors["gnohj_color29"], bg = colors["gnohj_color30"] }
+        hl.DiffDelete = { fg = colors["gnohj_color31"], bg = colors["gnohj_color32"] }
+        hl.DiffText = { fg = colors["gnohj_color33"], bg = colors["gnohj_color34"], bold = true }
+
+        hl.DiffviewFolderSign = { fg = colors["gnohj_color35"] }
+        hl.DiffviewNonText = { fg = hl_colors.comment }
+        hl.diffAdded = { fg = colors["gnohj_color36"], bold = true }
+        hl.diffChanged = { fg = colors["gnohj_color37"], bold = true }
+        hl.diffRemoved = { fg = colors["gnohj_color38"], bold = true }
+
+        DiagnosticInfo = { fg = colors["gnohj_color03"] }
+        DiagnosticHint = { fg = colors["gnohj_color02"] }
+        DiagnosticWarn = { fg = colors["gnohj_color12"] }
+        DiagnosticOk = { fg = colors["gnohj_color04"] }
+        DiagnosticError = { fg = colors["gnohj_color11"] }
+        RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
 
         -- Noice
         -- Default/generic elements
-        hl.NoiceCmdlinePopupBorder = { fg = colors.border }
-        hl.NoiceCmdlinePopupTitle = { fg = colors.blue }
-        hl.NoiceCmdlineIcon = { fg = colors.blue }
+        hl.NoiceCmdlinePopupBorder = { fg = hl_colors.border }
+        hl.NoiceCmdlinePopupTitle = { fg = hl_colors.blue }
+        hl.NoiceCmdlineIcon = { fg = hl_colors.blue }
 
         -- Filter-specific elements
-        hl.NoiceCmdlinePopupBorderFilter = { fg = colors.teal }
-        hl.NoiceCmdlineIconFilter = { fg = colors.teal }
-        hl.NoiceCmdlinePopupTitleFilter = { fg = colors.teal }
+        hl.NoiceCmdlinePopupBorderFilter = { fg = hl_colors.teal }
+        hl.NoiceCmdlineIconFilter = { fg = hl_colors.teal }
+        hl.NoiceCmdlinePopupTitleFilter = { fg = hl_colors.teal }
 
         -- Command line elements
-        hl.NoiceCmdlineIconCmdline = { fg = colors.magenta }
-        hl.NoiceCmdlinePopupBorderCmdline = { fg = colors.magenta }
-        hl.NoiceCmdlinePopupTitleCmdline = { fg = colors.magenta }
+        hl.NoiceCmdlineIconCmdline = { fg = hl_colors.magenta }
+        hl.NoiceCmdlinePopupBorderCmdline = { fg = hl_colors.magenta }
+        hl.NoiceCmdlinePopupTitleCmdline = { fg = hl_colors.magenta }
 
         -- Search elements
-        hl.NoiceCmdlineIconSearch = { fg = colors.green }
-        hl.NoiceCmdlinePopupBorderSearch = { fg = colors.green }
-        hl.NoiceCmdlinePopupTitleSearch = { fg = colors.green }
+        hl.NoiceCmdlineIconSearch = { fg = hl_colors.green }
+        hl.NoiceCmdlinePopupBorderSearch = { fg = hl_colors.green }
+        hl.NoiceCmdlinePopupTitleSearch = { fg = hl_colors.green }
 
         -- Lua elements
-        hl.NoiceCmdlineIconLua = { fg = colors.yellow }
-        hl.NoiceCmdlinePopupBorderLua = { fg = colors.yellow }
-        hl.NoiceCmdlinePopupTitleLua = { fg = colors.yellow }
+        hl.NoiceCmdlineIconLua = { fg = hl_colors.yellow }
+        hl.NoiceCmdlinePopupBorderLua = { fg = hl_colors.yellow }
+        hl.NoiceCmdlinePopupTitleLua = { fg = hl_colors.yellow }
 
         -- Help elements
-        hl.NoiceCmdlineIconHelp = { fg = colors.orange }
-        hl.NoiceCmdlinePopupBorderHelp = { fg = colors.orange }
-        hl.NoiceCmdlinePopupTitleHelp = { fg = colors.orange }
+        hl.NoiceCmdlineIconHelp = { fg = hl_colors.orange }
+        hl.NoiceCmdlinePopupBorderHelp = { fg = hl_colors.orange }
+        hl.NoiceCmdlinePopupTitleHelp = { fg = hl_colors.orange }
 
         -- Input elements
-        hl.NoiceCmdlineIconInput = { fg = colors.blue }
-        hl.NoiceCmdlinePopupBorderInput = { fg = colors.blue }
-        hl.NoiceCmdlinePopupTitleInput = { fg = colors.blue }
+        hl.NoiceCmdlineIconInput = { fg = hl_colors.blue }
+        hl.NoiceCmdlinePopupBorderInput = { fg = hl_colors.blue }
+        hl.NoiceCmdlinePopupTitleInput = { fg = hl_colors.blue }
 
         -- Calculator elements
-        hl.NoiceCmdlineIconCalculator = { fg = colors.purple }
-        hl.NoiceCmdlinePopupBorderCalculator = { fg = colors.purple }
-        hl.NoiceCmdlinePopupTitleCalculator = { fg = colors.purple }
+        hl.NoiceCmdlineIconCalculator = { fg = hl_colors.purple }
+        hl.NoiceCmdlinePopupBorderCalculator = { fg = hl_colors.purple }
+        hl.NoiceCmdlinePopupTitleCalculator = { fg = hl_colors.purple }
 
         -- Completion and mini elements
-        hl.NoiceCompletionItemKindDefault = { fg = colors.blue }
-        hl.NoiceMini = { bg = colors.bg_highlight, fg = colors.fg }
+        hl.NoiceCompletionItemKindDefault = { fg = hl_colors.blue }
+        hl.NoiceMini = { bg = hl_colors.bg_highlight, fg = hl_colors.fg }
       end,
     })
   end,

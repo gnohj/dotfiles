@@ -1,15 +1,6 @@
-#  ██╗      █████╗ ███████╗██╗   ██╗ ██████╗ ██╗████████╗
-#  ██║     ██╔══██╗╚══███╔╝╚██╗ ██╔╝██╔════╝ ██║╚══██╔══╝
-#  ██║     ███████║  ███╔╝  ╚████╔╝ ██║  ███╗██║   ██║
-#  ██║     ██╔══██║ ███╔╝    ╚██╔╝  ██║   ██║██║   ██║
-#  ███████╗██║  ██║███████╗   ██║   ╚██████╔╝██║   ██║
-#  ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝   ╚═╝
-#
-#  Simple terminal UI for git commands
-#  https://github.com/jesseduffield/lazygit
-
+# LazyGit configuration with custom colors
 notARepository: "quit"
-quitOnTopLevelReturn: true # hitting esc quits on top level window
+quitOnTopLevelReturn: true
 git:
   overrideGpg: true
 os:
@@ -18,15 +9,14 @@ gui:
   showBottomLine: false
   theme:
     activeBorderColor:
-      - cyan
+      - "#04d1f9"
     selectedLineBgColor:
-      - black
+      - "#275378"
     unstagedChangesColor:
-      - yellow
+      - "#f1fc79"
   border: rounded
   nerdFontsVersion: "3"
-
-customCommands:
+  customCommands:
   - key: "x"
     description: "Commit and bypass hooks"
     prompts:

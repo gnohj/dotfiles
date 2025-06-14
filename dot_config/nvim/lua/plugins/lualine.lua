@@ -2,7 +2,9 @@ if vim.g.vscode then
   return {}
 end
 
-vim.api.nvim_set_hl(0, "CustomTeal", { fg = "#3EFFDC" })
+local colors = require("config.colors")
+
+vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"], bg = colors["gnohj_color05"] })
 
 -- Custom component to display buffer count
 local function buffer_count()
@@ -53,18 +55,7 @@ return {
       path = 3,
     })
     local lazy_status = require("lazy.status") -- to configure lazy pending updates count
-    local colors = {
-      blue = "#65D1FF",
-      green = "#3EFFDC",
-      violet = "#FF61EF",
-      yellow = "#FFDA7B",
-      red = "#FF4A4A",
-      fg = "#c3ccdc",
-      bg = "#112638",
-      inactive_bg = "#2c3043",
-    }
     local icons = require("lazyvim.config").icons
-    local Util = require("lazyvim.util")
 
     return {
 
@@ -76,22 +67,22 @@ return {
         },
         theme = {
           normal = {
-            a = { bg = colors.blue, fg = colors.bg, gui = "bold" },
+            a = { bg = colors["gnohj_color03"], fg = colors["gnohj_color10"], gui = "bold" },
           },
           insert = {
-            a = { bg = colors.green, fg = colors.bg, gui = "bold" },
+            a = { bg = colors["gnohj_color02"], fg = colors["gnohj_color10"], gui = "bold" },
           },
           visual = {
-            a = { bg = colors.violet, fg = colors.bg, gui = "bold" },
+            a = { bg = colors["gnohj_color04"], fg = colors["gnohj_color10"], gui = "bold" },
           },
           command = {
-            a = { bg = colors.yellow, fg = colors.bg, gui = "bold" },
+            a = { bg = colors["gnohj_color05"], fg = colors["gnohj_color10"], gui = "bold" },
           },
           replace = {
-            a = { bg = colors.red, fg = colors.bg, gui = "bold" },
+            a = { bg = colors["gnohj_color11"], fg = colors["gnohj_color10"], gui = "bold" },
           },
           inactive = {
-            a = { bg = colors.inactive_bg, fg = colors.semilightgray, gui = "bold" },
+            a = { bg = colors["gnohj_color07"], fg = colors["gnohj_color13"], gui = "bold" },
           },
         },
       },
@@ -99,8 +90,8 @@ return {
         lualine_a = { "mode" },
         lualine_b = { "branch" },
         lualine_c = {
-          { current_buffer_unsaved_dot, color = { fg = colors.red } },
-          { buffer_count_with_unsaved, color = { fg = colors.red } },
+          { current_buffer_unsaved_dot, color = { fg = colors["gnohj_color11"] } },
+          { buffer_count_with_unsaved, color = { fg = colors["gnohj_color11"] } },
           {
             "diagnostics",
             symbols = {
@@ -112,7 +103,7 @@ return {
           },
           {
             require("package-info").get_status,
-            color = { fg = "#ff9e64" },
+            color = { fg = colors["gnohj_color11"] },
             -- color = Snacks.util.color("Statement"),
           },
         },
@@ -120,7 +111,7 @@ return {
           {
             lazy_status.updates,
             cond = lazy_status.has_updates,
-            color = { fg = "#ff9e64" },
+            color = { fg = colors["gnohj_color11"] },
           },
           { "encoding" },
           { "filetype" },
@@ -150,10 +141,10 @@ return {
         --   { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
         -- },
         lualine_b = {
-          { buffer_count, color = { fg = "#37f499", gui = "bold" } },
+          { buffer_count, color = { fg = colors["gnohj_color02"], gui = "bold" } },
         },
         lualine_c = {
-          { file_path, color = { fg = colors.blue, gui = "bold" } },
+          { file_path, color = { fg = colors["gnohj_color03"], gui = "bold" } },
         },
       },
       inactive_winbar = {
@@ -161,10 +152,10 @@ return {
         --   { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
         -- },
         lualine_b = {
-          { buffer_count, color = { fg = "#666666", gui = "italic" } },
+          { buffer_count, color = { fg = colors["gnohj_color09"], gui = "italic" } },
         },
         lualine_c = {
-          { file_path, color = { fg = "#666666", gui = "italic" } },
+          { file_path, color = { fg = colors["gnohj_color09"], gui = "italic" } },
         },
       },
     }

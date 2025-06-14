@@ -2,6 +2,8 @@ if vim.g.vscode then
   return {}
 end
 
+local colors = require("config.colors")
+
 return {
   {
     "folke/flash.nvim",
@@ -44,23 +46,18 @@ return {
 
       -- Set Tokyo Night themed highlights for flash
       vim.api.nvim_set_hl(0, "FlashLabel", {
-        bg = "#7aa2f7", -- Tokyo Night blue (more visible than pink)
-        fg = "#15161e", -- Very dark for contrast
+        bg = colors["gnohj_color08"], -- Tokyo Night blue (more visible than pink)
+        fg = colors["gnohj_color10"], -- Very dark for contrast
         bold = true,
       })
 
       vim.api.nvim_set_hl(0, "FlashBackdrop", {
-        fg = "#565f89", -- Tokyo Night comment color for dimmed text
+        fg = colors["gnohj_color09"], -- Tokyo Night comment color for dimmed text
       })
 
       vim.api.nvim_set_hl(0, "FlashMatch", {
-        bg = "#3d59a1", -- Tokyo Night selection blue
-        fg = "#c0caf5", -- Tokyo Night foreground
-      })
-
-      vim.api.nvim_set_hl(0, "FlashCurrent", {
-        bg = "#ff9e64", -- Tokyo Night orange (keeping this as it works well)
-        fg = "#1f2335", -- Tokyo Night dark background
+        bg = colors["gnohj_color16"], -- Tokyo Night selection blue
+        fg = colors["gnohj_color14"], -- Tokyo Night foreground
       })
     end,
     keys = {
