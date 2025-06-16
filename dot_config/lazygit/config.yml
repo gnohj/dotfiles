@@ -1,4 +1,5 @@
 # LazyGit configuration with custom colors
+# Auto-generated lazygit config
 notARepository: "quit"
 quitOnTopLevelReturn: true
 git:

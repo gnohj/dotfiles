@@ -42,5 +42,3 @@ tmux set -g @catppuccin_window_current_text "#W#{?window_zoomed_flag,#[fg=$gnohj
 # https://github.com/catppuccin/tmux/blob/fe0d245e1c971789d87ab80f492a20709af91c91/catppuccin_tmux.conf#L308-L310
 # set -wF mode-style "fg=$gnohj_color13,bg=$gnohj_color02"
 tmux set -wF mode-style "fg=$gnohj_color02,bg=$gnohj_color13"
-
-tmux set -g mode-style "fg=$gnohj_color03,bg=$gnohj_color16"

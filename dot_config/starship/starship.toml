@@ -6,6 +6,7 @@
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
 # The minimal, blazing-fast, and infinitely customizable prompt
+# Auto-generated starship config
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
