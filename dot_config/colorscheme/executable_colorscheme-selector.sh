@@ -36,3 +36,4 @@ fi
 # Reload tmux configuration again - this is a workaround to get colors updated in sesh
 "$HOME/.config/tmux/set_tmux_colors.sh"
 tmux source-file ~/.config/tmux/tmux.conf
+echo "Tmux colors set and tmux configuration reloaded for sesh."

@@ -14,12 +14,7 @@
 # color
 custom-shader = shaders/bloom025.glsl
 config-file = ghostty-theme
-# https://wallhaven.cc/
-background-opacity = 0.72
-# background-opacity = 0.925
-# background-blur-radius = 40
-# background-blur = true
-# background = black
+
 # fonts
 font-family = "Hasklug Nerd Font Mono Med"
 # font-family = "RobotoMono Nerd Font"
@@ -31,7 +26,6 @@ adjust-underline-position = 6
 adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
 font-size = 14.5
-# font-size = 15
 
 # cursor
 shell-integration-features = no-cursor
@@ -88,3 +82,10 @@ auto-update = check
 quit-after-last-window-closed = true
 
 keybind = shift+enter=text:\n
+
+# background - https://wallhaven.cc/
+# background-blur-radius = 40
+# background-blur = true
+
+background-opacity = 0.72
+# background-opacity = 1.0
