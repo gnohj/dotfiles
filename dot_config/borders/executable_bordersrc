@@ -1,5 +1,5 @@
 #!/bin/bash
-# Auto-generated borders configuration
+# Auto-generated borders config
 options=(
   style=round
   width=2.5

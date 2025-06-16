@@ -6,4 +6,5 @@
 # ╚═════╝ ╚═╝  ╚═╝   ╚═╝
 # A cat(1) clone with wings.
 # https://github.com/sharkdp/bat
+# Auto-generated bat config
 --theme="gnohj-theme"

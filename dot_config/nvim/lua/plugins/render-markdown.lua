@@ -108,31 +108,31 @@ return {
           youtu = { pattern = "youtu%.be", icon = "󰗃 " },
         },
       },
-      -- heading = {
-      --   sign = false,
-      --   icons = { "󰎤 ", "󰎧 ", "󰎪 ", "󰎭 ", "󰎱 ", "󰎳 " },
-      --   -- backgrounds = {
-      --   --   "Headline1Bg",
-      --   --   "Headline2Bg",
-      --   --   "Headline3Bg",
-      --   --   "Headline4Bg",
-      --   --   "Headline5Bg",
-      --   --   "Headline6Bg",
-      --   -- },
-      --   -- foregrounds = {
-      --   --   "Headline1Fg",
-      --   --   "Headline2Fg",
-      --   --   "Headline3Fg",
-      --   --   "Headline4Fg",
-      --   --   "Headline5Fg",
-      --   --   "Headline6Fg",
-      --   -- },
-      -- },
-      -- code = {
-      --   -- if I'm not using yabai, I cannot make the color of the codeblocks
-      --   -- transparent, so just disabling all rendering 😢
-      --   style = "none",
-      -- },
+      heading = {
+        sign = false,
+        icons = { "󰎤 ", "󰎧 ", "󰎪 ", "󰎭 ", "󰎱 ", "󰎳 " },
+        backgrounds = {
+          "Headline1Bg",
+          "Headline2Bg",
+          "Headline3Bg",
+          "Headline4Bg",
+          "Headline5Bg",
+          "Headline6Bg",
+        },
+        foregrounds = {
+          "Headline1Fg",
+          "Headline2Fg",
+          "Headline3Fg",
+          "Headline4Fg",
+          "Headline5Fg",
+          "Headline6Fg",
+        },
+      },
+      code = {
+        -- if I'm not using yabai, I cannot make the color of the codeblocks
+        -- transparent, so just disabling all rendering 😢
+        -- style = "none",
+      },
     }
   end,
 }

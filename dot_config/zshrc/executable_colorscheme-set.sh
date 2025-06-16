@@ -45,6 +45,7 @@ generate_ghostty_config() {
   ghostty_conf_file="$HOME/.config/ghostty/ghostty-theme"
 
   cat >"$ghostty_conf_file" <<EOF
+# Auto-generated ghostty configuration
 background = $gnohj_color10
 foreground = $gnohj_color14
 
@@ -83,6 +84,8 @@ generate_btop_config() {
   btop_conf_file="$HOME/.config/btop/themes/btop-theme.theme"
 
   cat >"$btop_conf_file" <<EOF
+
+# Auto-generated btop theme configuration
 # Main background, empty for terminal default, need to be empty if you want transparent background
 theme[main_bg]=""
 
@@ -192,6 +195,7 @@ generate_starship_config() {
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
 # The minimal, blazing-fast, and infinitely customizable prompt
+# Auto-generated starship config
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
@@ -235,6 +239,7 @@ EOF
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
 # The minimal, blazing-fast, and infinitely customizable prompt
+# Auto-generated starship config for radio control
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
@@ -278,6 +283,7 @@ generate_lazygit_config() {
 
   cat >"$lazygit_conf_file" <<EOF
 # LazyGit configuration with custom colors
+# Auto-generated lazygit config
 notARepository: "quit"
 quitOnTopLevelReturn: true
 git:
@@ -336,7 +342,7 @@ generate_bat_config() {
 <plist version="1.0">
 <dict>
   <key>author</key>
-  <string>Generated from gnohj colorscheme</string>
+  <string>Auto-Generated bat theme</string>
   <key>name</key>
   <string>gnohj-theme</string>
   <key>settings</key>
@@ -415,6 +421,7 @@ EOF
 # ╚═════╝ ╚═╝  ╚═╝   ╚═╝
 # A cat(1) clone with wings.
 # https://github.com/sharkdp/bat
+# Auto-generated bat config
 --theme="gnohj-theme"
 EOF
 
@@ -430,7 +437,7 @@ generate_borders_config() {
   # Generate the borders configuration script
   cat >"$borders_script" <<EOF
 #!/bin/bash
-# Auto-generated borders configuration
+# Auto-generated borders config
 options=(
   style=round
   width=2.5

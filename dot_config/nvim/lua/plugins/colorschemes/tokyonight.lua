@@ -19,17 +19,17 @@ return {
       },
       on_colors = function(global_colors)
         global_colors.bg = colors["gnohj_color10"]
-        global_colors.bg_dark = colors["gnohj_color13"]
-        -- global_colors.bg_float = transparent and global_colors.none or global_colors.bg_float
+        -- global_colors.bg_dark = colors["gnohj_color13"]
+        global_colors.bg_float = transparent and global_colors.none or global_colors.bg_float
         global_colors.bg_highlight = transparent and global_colors.none or colors["gnohj_color17"]
         -- global_colors.bg_popup = bg_dark
         -- global_colors.bg_search = bg_search
-        -- global_colors.bg_sidebar = transparent and global_colors.none or global_colors.bg_sidebar
+        global_colors.bg_sidebar = transparent and global_colors.none or global_colors.bg_sidebar
         global_colors.bg_statusline = transparent and global_colors.none or colors["gnohj_color10"]
         global_colors.bg_visual = colors["gnohj_color16"]
         global_colors.border = colors["gnohj_color13"]
         global_colors.fg = colors["gnohj_color14"]
-        global_colors.fg_dark = colors["gnohj_color13"]
+        global_colors.fg_dark = colors["gnohj_color09"]
         global_colors.fg_float = colors["gnohj_color14"]
         global_colors.fg_gutter = colors["gnohj_color13"]
         global_colors.fg_sidebar = colors["gnohj_color13"]
@@ -48,7 +48,7 @@ return {
         SpellRare = { sp = colors["gnohj_color04"], undercurl = true, bold = true, italic = true }
 
         -- Codeblocks for the render-markdown plugin
-        RenderMarkdownCode = { bg = colors["gnohj_color07"] }
+        -- RenderMarkdownCode = { bg = colors["gnohj_color07"] }
 
         -- This is the plugin that shows you where you are at the top
         -- TreesitterContext = { sp = colors["gnohj_color10"] }
