@@ -41,7 +41,7 @@ else
   fi
 fi
 
-generate_ghostty_config() {
+generate_ghostty_theme() {
   ghostty_conf_file="$HOME/.config/ghostty/ghostty-theme"
 
   cat >"$ghostty_conf_file" <<EOF
@@ -80,7 +80,7 @@ EOF
   echo "Ghostty configuration updated at '$ghostty_conf_file'."
 }
 
-generate_btop_config() {
+generate_btop_theme() {
   btop_conf_file="$HOME/.config/btop/themes/btop-theme.theme"
 
   cat >"$btop_conf_file" <<EOF
@@ -177,7 +177,7 @@ theme[process_mid]="$gnohj_color02"
 theme[process_end]="$gnohj_color06"
 EOF
 
-  echo "Btop configuration updated at '$btop_conf_file'."
+  echo "Btop theme updated at '$btop_conf_file'."
 }
 
 generate_starship_config() {
@@ -494,13 +494,12 @@ if [ "$UPDATED" = true ]; then
   # Generate lazygit config
   generate_lazygit_config
 
-  # Generate the ghostty config file, then reload
-  generate_ghostty_config
+  # Generate the ghostty theme file, then reload config
+  generate_ghostty_theme
   osascript "$HOME/.config/ghostty/reload-config.scpt"
 
   # Generate the btop theme
-  generate_btop_config
-
+  generate_btop_theme
   # Generate bat config
   generate_bat_config
 
@@ -518,6 +517,3 @@ if [ "$UPDATED" = true ]; then
       end repeat
   end tell'
 fi
-
-# Aerospace reload
-# aerospace reload-config
