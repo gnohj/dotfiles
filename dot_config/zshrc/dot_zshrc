@@ -352,8 +352,23 @@ export AIDER_SUBTREE_ONLY=1
 
 . "$HOME/.local/bin/env"
 
+# -----------------------------  rbw (Rust Bitwarden CLI)
+# INFO: native bitwarden cli is too slow w/o session persistence
+# this is a faster alternative that runs as a background daemon;
+# that holds keys in memory; similar to ssh-agents
+if ! command -v rbw &> /dev/null; then
+    echo "rbw not found. Installing rbw..."
+    if command -v brew &> /dev/null; then
+        brew install rbw
+        echo "rbw installed successfully!"
+        echo "Run 'rbw config set email your@email.com' and 'rbw login' to set up."
+    else
+        echo "Homebrew not found. Please install Homebrew first, then run: brew install rbw"
+    fi
+fi
+
 # -----------------------------  Bun completions - TODO: add bun check/download (brew)
-[ -s "/Users/gnohj/.bun/_bun" ] && source "/Users/gnohj/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 
 # -----------------------------  Delta (nicer git diff)
@@ -419,7 +434,6 @@ zle -N sesh-sessions
 # Bind Ctrl+X to the sesh-sessions widget
 bindkey -M vicmd '^x' sesh-sessions
 bindkey -M viins '^x' sesh-sessions
-
 
 #-------------------------------------------------------------------------------
 #                  Global Helpers
