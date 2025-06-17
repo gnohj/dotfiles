@@ -11,6 +11,7 @@
 -- This style is defined in colorscheme-vars.sh
 -- :lua print(vim.env.MD_HEADING_BG)
 vim.g.md_heading_bg = vim.env.MD_HEADING_BG
+vim.g.theme_transparent = vim.env.THEME_TRANSPARENT
 
 -- bootstrap lazy.nvim, LazyVim and your plugins
 require("config.lazy")
