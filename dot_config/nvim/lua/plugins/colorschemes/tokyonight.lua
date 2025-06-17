@@ -4,7 +4,9 @@ end
 
 local colors = require("config.colors")
 
-local transparent = true
+-- set in ~/.config/colorscheme/colorscheme-vars.sh
+-- set in ~/.config/nvim/init.lua
+local transparent = vim.g.theme_transparent == "transparent"
 
 return {
   "folke/tokyonight.nvim",
@@ -48,7 +50,7 @@ return {
         SpellRare = { sp = colors["gnohj_color04"], undercurl = true, bold = true, italic = true }
 
         -- Codeblocks for the render-markdown plugin
-        -- RenderMarkdownCode = { bg = colors["gnohj_color07"] }
+        -- RenderMarkdownCode = { bg = colors["gnohj_color02"] }
 
         -- This is the plugin that shows you where you are at the top
         -- TreesitterContext = { sp = colors["gnohj_color10"] }
@@ -79,51 +81,51 @@ return {
         DiagnosticWarn = { fg = colors["gnohj_color12"] }
         DiagnosticOk = { fg = colors["gnohj_color04"] }
         DiagnosticError = { fg = colors["gnohj_color11"] }
-        RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
+        -- RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
 
         -- Noice
         -- Default/generic elements
         hl.NoiceCmdlinePopupBorder = { fg = hl_colors.border }
-        hl.NoiceCmdlinePopupTitle = { fg = hl_colors.blue }
-        hl.NoiceCmdlineIcon = { fg = hl_colors.blue }
+        hl.NoiceCmdlinePopupTitle = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlineIcon = { fg = colors["gnohj_color04"] }
 
         -- Filter-specific elements
-        hl.NoiceCmdlinePopupBorderFilter = { fg = hl_colors.teal }
-        hl.NoiceCmdlineIconFilter = { fg = hl_colors.teal }
-        hl.NoiceCmdlinePopupTitleFilter = { fg = hl_colors.teal }
+        hl.NoiceCmdlinePopupBorderFilter = { fg = colors["gnohj_color02"] }
+        hl.NoiceCmdlineIconFilter = { fg = colors["gnohj_color02"] }
+        hl.NoiceCmdlinePopupTitleFilter = { fg = colors["gnohj_color02"] }
 
         -- Command line elements
-        hl.NoiceCmdlineIconCmdline = { fg = hl_colors.magenta }
-        hl.NoiceCmdlinePopupBorderCmdline = { fg = hl_colors.magenta }
-        hl.NoiceCmdlinePopupTitleCmdline = { fg = hl_colors.magenta }
+        hl.NoiceCmdlineIconCmdline = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupBorderCmdline = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupTitleCmdline = { fg = colors["gnohj_color04"] }
 
         -- Search elements
-        hl.NoiceCmdlineIconSearch = { fg = hl_colors.green }
-        hl.NoiceCmdlinePopupBorderSearch = { fg = hl_colors.green }
-        hl.NoiceCmdlinePopupTitleSearch = { fg = hl_colors.green }
+        hl.NoiceCmdlineIconSearch = { fg = colors["gnohj_color02"] }
+        hl.NoiceCmdlinePopupBorderSearch = { fg = colors["gnohj_color02"] }
+        hl.NoiceCmdlinePopupTitleSearch = { fg = colors["gnohj_color02"] }
 
         -- Lua elements
-        hl.NoiceCmdlineIconLua = { fg = hl_colors.yellow }
-        hl.NoiceCmdlinePopupBorderLua = { fg = hl_colors.yellow }
-        hl.NoiceCmdlinePopupTitleLua = { fg = hl_colors.yellow }
+        hl.NoiceCmdlineIconLua = { fg = colors["gnohj_color05"] }
+        hl.NoiceCmdlinePopupBorderLua = { fg = colors["gnohj_color05"] }
+        hl.NoiceCmdlinePopupTitleLua = { fg = colors["gnohj_color05"] }
 
         -- Help elements
-        hl.NoiceCmdlineIconHelp = { fg = hl_colors.orange }
-        hl.NoiceCmdlinePopupBorderHelp = { fg = hl_colors.orange }
-        hl.NoiceCmdlinePopupTitleHelp = { fg = hl_colors.orange }
+        hl.NoiceCmdlineIconHelp = { fg = colors["gnohj_color06"] }
+        hl.NoiceCmdlinePopupBorderHelp = { fg = colors["gnohj_color06"] }
+        hl.NoiceCmdlinePopupTitleHelp = { fg = colors["gnohj_color06"] }
 
         -- Input elements
-        hl.NoiceCmdlineIconInput = { fg = hl_colors.blue }
-        hl.NoiceCmdlinePopupBorderInput = { fg = hl_colors.blue }
-        hl.NoiceCmdlinePopupTitleInput = { fg = hl_colors.blue }
+        hl.NoiceCmdlineIconInput = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupBorderInput = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupTitleInput = { fg = colors["gnohj_color04"] }
 
         -- Calculator elements
-        hl.NoiceCmdlineIconCalculator = { fg = hl_colors.purple }
-        hl.NoiceCmdlinePopupBorderCalculator = { fg = hl_colors.purple }
-        hl.NoiceCmdlinePopupTitleCalculator = { fg = hl_colors.purple }
+        hl.NoiceCmdlineIconCalculator = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupBorderCalculator = { fg = colors["gnohj_color04"] }
+        hl.NoiceCmdlinePopupTitleCalculator = { fg = colors["gnohj_color04"] }
 
         -- Completion and mini elements
-        hl.NoiceCompletionItemKindDefault = { fg = hl_colors.blue }
+        hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
         hl.NoiceMini = { bg = hl_colors.bg_highlight, fg = hl_colors.fg }
       end,
     })
