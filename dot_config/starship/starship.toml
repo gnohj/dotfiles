@@ -10,7 +10,7 @@
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-$directory$rust$git_branch$git_status$cmd_duration
+$directory$git_branch$git_status$cmd_duration${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -38,3 +38,9 @@ format = '[$duration](bold italic #37f499)'
 default = ''
 variable = "RADIO_CTL"
 format = "[$symbol($env_value)](yellow dimmed)"
+[custom.bitwarden]
+description = "Output the current Bitwarden vault status."
+command = 'echo $(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
+format = "[$symbol( $output)]($style)"
+when = 'command -v rbw'
+

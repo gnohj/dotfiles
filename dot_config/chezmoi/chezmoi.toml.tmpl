@@ -7,6 +7,15 @@
 #
 #  Manage your dotfiles across multiple diverse machines, securely
 #  https://chezmoi.io/
+#  https://www.chezmoi.io/reference/configuration-file/variables/
+
+[edit]
+apply = true
+command = "nvim"
+watch = true
 
 [diff]
 pager = "delta"
+
+[bitwarden]
+command = "rbw"
