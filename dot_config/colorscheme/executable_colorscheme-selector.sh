@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1091,SC2154
+
+source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 # Path to the directory containing color scheme scripts
 COLORSCHEME_DIR=~/.config/colorscheme/list
@@ -21,8 +24,13 @@ if [ ${#schemes[@]} -eq 0 ]; then
   exit 1
 fi
 
-# Use fzf to select a scheme
-selected_scheme=$(printf "%s\n" "${schemes[@]}" | fzf --height=40% --reverse --header="Select a Color Scheme" --prompt="Theme > ")
+# Use fzf to select a scheme with matching colors
+selected_scheme=$(printf "%s\n" "${schemes[@]}" | fzf \
+  --height=40% \
+  --reverse \
+  --header="Select a Color Scheme" \
+  --prompt="Theme > " \
+  --color "bg+:$gnohj_color16,fg+:$gnohj_color14,hl+:$gnohj_color04,fg:$gnohj_color02,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09")
 
 # Check if a selection was made
 if [ -z "$selected_scheme" ]; then
