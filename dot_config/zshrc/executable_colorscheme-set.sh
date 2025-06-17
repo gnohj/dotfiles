@@ -199,7 +199,7 @@ generate_starship_config() {
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-\$directory\$rust\$git_branch\$git_status\$cmd_duration
+\$directory\$git_branch\$git_status\$cmd_duration\${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -227,6 +227,12 @@ format = '[\$duration](bold italic ${gnohj_color02})'
 default = ''
 variable = "RADIO_CTL"
 format = "[\$symbol(\$env_value)](yellow dimmed)"
+[custom.bitwarden]
+description = "Output the current Bitwarden vault status."
+command = 'echo \$(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
+format = "[\$symbol( \$output)](\$style)"
+when = 'command -v rbw'
+
 EOF
 
   # Generate the radio control Starship configuration file
@@ -244,7 +250,7 @@ EOF
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
 (\${env_var.RADIO_CTL})
-\$directory\$rust\$git_branch\$git_status\$cmd_duration
+\$directory\$git_branch\$git_status\$cmd_duration\${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -272,6 +278,11 @@ format = '[\$duration](bold italic ${gnohj_color02})'
 default = ''
 variable = "RADIO_CTL"
 format = "[\$symbol(\$env_value)](yellow dimmed)"
+[custom.bitwarden]
+description = "Output the current Bitwarden vault status."
+command = 'echo \$(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
+format = "[\$symbol( \$output)](\$style)"
+when = 'command -v rbw'
 EOF
 
   echo "Starship configuration updated at '$starship_conf_file'."
@@ -451,21 +462,21 @@ EOF
   chmod +x "$borders_script"
   echo "Borders configuration updated at '$borders_script'."
 
-  echo "Stopping borders..."
+  echo "Stopping borders... auto restarting with new colors."
   pkill -f "/opt/homebrew/opt/borders/bin/borders" 2>/dev/null || true
-  sleep 1
+  # sleep 1
 
-  # Force kill if still running
-  if pgrep -f "/opt/homebrew/opt/borders/bin/borders" >/dev/null; then
-    echo "Force killing borders..."
-    pkill -9 -f "/opt/homebrew/opt/borders/bin/borders" 2>/dev/null || true
-    sleep 1
-  fi
+  # # Force kill if still running
+  # if pgrep -f "/opt/homebrew/opt/borders/bin/borders" >/dev/null; then
+  #   echo "Force killing borders..."
+  #   pkill -9 -f "/opt/homebrew/opt/borders/bin/borders" 2>/dev/null || true
+  #   sleep 1
+  # fi
 
   # Restart borders with new configuration
-  echo "Starting borders with new colors..."
-  "$borders_script" &
-  echo "Borders restarted with new colors."
+  # echo "Starting borders with new colors..."
+  # "$borders_script" &
+  # echo "Borders restarted with new colors."
 }
 
 # If there's an update, replace the active colorscheme and perform necessary actions
