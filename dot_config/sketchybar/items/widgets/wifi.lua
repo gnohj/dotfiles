@@ -46,7 +46,7 @@ local wifiDown = sbar.add("item", constants.items.WIFI .. ".down", {
 			style = settings.fonts.styles.bold,
 			size = 10,
 		},
-		color = settings.colors.blue,
+		color = settings.colors.light_blue,
 		string = "??? Bps",
 	},
 	y_offset = -4,
@@ -152,7 +152,7 @@ sbar.add("item", { position = "right", width = settings.dimens.padding.item })
 
 wifiUp:subscribe("network_update", function(env)
 	local upColor = (env.upload == "000 Bps") and settings.colors.grey or settings.colors.light_green
-	local downColor = (env.download == "000 Bps") and settings.colors.grey or settings.colors.blue
+	local downColor = (env.download == "000 Bps") and settings.colors.grey or settings.colors.light_blue
 
 	wifiUp:set({
 		icon = { color = upColor },
