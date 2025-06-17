@@ -82,6 +82,7 @@ return {
         DiagnosticOk = { fg = colors["gnohj_color04"] }
         DiagnosticError = { fg = colors["gnohj_color11"] }
         -- RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
+        -- hl.RenderMarkdownLink = { fg = hl_colors.blue, sp = "NONE", undercurl = false }
 
         -- Noice
         -- Default/generic elements

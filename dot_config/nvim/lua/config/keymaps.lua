@@ -279,12 +279,33 @@ end, { desc = "[P]Terminal on tmux pane" })
 keymap("n", "<leader>oo", ":cd /Users/gnohj/Obsidian/second-brain/<cr>", { desc = "[P]Obsidian: Navigate to vault" })
 --
 -- convert note to template and remove leading white space
-keymap(
-  "n",
-  "<leader>on",
-  ":ObsidianTemplate note<cr> :lua vim.cmd([[1,/^\\S/s/^\\n\\{1,}//]])<cr>",
-  { desc = "[P]Obsidian: New note template" }
-)
+keymap("n", "<leader>on", function()
+  local template_path = vim.fn.expand("~/Obsidian/second-brain/Templates/note.md")
+
+  if vim.fn.filereadable(template_path) == 0 then
+    vim.notify("Template not found: " .. template_path, vim.log.levels.ERROR)
+    return
+  end
+
+  -- Extract and format title from filename
+  local filename = vim.fn.expand("%:t:r")
+  local title = filename:gsub("^%d%d%d%d%-%d%d%-%d%d_", ""):gsub("-", " "):gsub("(%a)([%w_']*)", function(first, rest)
+    return first:upper() .. rest:lower()
+  end)
+
+  local date = os.date("%Y-%m-%d")
+
+  -- Read and insert template
+  vim.cmd("0r " .. template_path)
+
+  -- Replace variables
+  vim.cmd("silent! %s/{ { date } }/" .. date .. "/g")
+  vim.cmd("silent! %s/{{title}}/" .. title .. "/g")
+
+  -- Remove leading whitespace (make this silent too)
+  vim.cmd([[silent! 1,/^\S/s/^\n\{1,}//]])
+end, { desc = "New note template" })
+
 -- strip date from note title and replace dashes with spaces
 -- must have cursor on title
 keymap("n", "<leader>of", ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>", { desc = "[P]Obsidian: Format note title" })
