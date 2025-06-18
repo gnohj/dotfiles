@@ -12,6 +12,15 @@ See `:help lua-guide-autocommands`
 -- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.lua
 -- Add any additional autocmds here
 
+-- Wrap for markdown files
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "*.md",
+  callback = function()
+    vim.opt_local.wrap = true
+    vim.opt_local.linebreak = true -- Also good for markdown
+  end,
+})
+
 -- Mini.files key bindings
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "minifiles",
@@ -31,7 +40,10 @@ vim.api.nvim_create_autocmd("FileType", {
       if curr_entry then
         local path = curr_entry.path
         -- Build the osascript command to copy the file or directory to the clipboard
-        local cmd = string.format([[osascript -e 'set the clipboard to POSIX file "%s"' ]], path)
+        local cmd = string.format(
+          [[osascript -e 'set the clipboard to POSIX file "%s"' ]],
+          path
+        )
         local result = vim.fn.system(cmd)
         if vim.v.shell_error ~= 0 then
           vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
@@ -86,7 +98,10 @@ vim.api.nvim_create_autocmd("BufEnter", {
 -- Disable built-in spellchecking for Markdown - https://github.com/LazyVim/LazyVim/discussions/392
 vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
 vim.api.nvim_create_autocmd("FileType", {
-  group = vim.api.nvim_create_augroup("lazyvim_user_markdown", { clear = true }),
+  group = vim.api.nvim_create_augroup(
+    "lazyvim_user_markdown",
+    { clear = true }
+  ),
   pattern = { "gitcommit", "markdown" },
   callback = function()
     vim.opt_local.wrap = true
@@ -122,7 +137,10 @@ vim.api.nvim_create_autocmd("BufRead", {
     -- Use `vim.defer_fn` to add a slight delay before executing `zk`
     vim.defer_fn(function()
       -- Double-check we're still in the same buffer and it's valid
-      if vim.api.nvim_get_current_buf() == bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+      if
+        vim.api.nvim_get_current_buf() == bufnr
+        and vim.api.nvim_buf_is_valid(bufnr)
+      then
         vim.cmd("normal zk")
 
         -- Only try to write if it's a normal buffer
@@ -143,7 +161,8 @@ vim.api.nvim_create_autocmd("BufRead", {
 vim.api.nvim_create_user_command("OpenPRChanges", function(opts)
   local base_branch = opts.args ~= "" and opts.args or "origin/master"
 
-  local changed_files = vim.fn.systemlist("git diff --name-only " .. base_branch .. "...HEAD")
+  local changed_files =
+    vim.fn.systemlist("git diff --name-only " .. base_branch .. "...HEAD")
 
   for _, file in ipairs(changed_files) do
     vim.cmd("edit " .. file)
@@ -171,7 +190,9 @@ vim.api.nvim_create_user_command("ReviewPRChanges", function(opts)
   local ai_tool = args[1] or "avante"
   local base_branch = args[2] or "origin/master"
 
-  local diff_cmd = "git diff " .. base_branch .. "...HEAD > /tmp/pr_changes.diff"
+  local diff_cmd = "git diff "
+    .. base_branch
+    .. "...HEAD > /tmp/pr_changes.diff"
   vim.fn.system(diff_cmd)
 
   vim.cmd("split /tmp/pr_changes.diff")
@@ -184,7 +205,11 @@ vim.api.nvim_create_user_command("ReviewPRChanges", function(opts)
   elseif ai_tool:lower() == "copilot" then
     vim.cmd(":CopilotChat " .. prompt)
   else
-    print("Unknown AI tool: " .. ai_tool .. ". Supported tools are 'avante' and 'copilot'.")
+    print(
+      "Unknown AI tool: "
+        .. ai_tool
+        .. ". Supported tools are 'avante' and 'copilot'."
+    )
   end
 end, {
   nargs = "*",
@@ -288,7 +313,9 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
     -- Check if this is a diff buffer inside Diffview
     if vim.bo[event.buf].filetype == "diff" or vim.wo.diff then
       -- Check if we're in a Diffview session
-      if vim.fn.exists("*DiffviewExists") == 1 and vim.fn.DiffviewExists() == 1 then
+      if
+        vim.fn.exists("*DiffviewExists") == 1 and vim.fn.DiffviewExists() == 1
+      then
         vim.keymap.set("n", "<esc>", function()
           vim.cmd("DiffviewClose")
         end, {

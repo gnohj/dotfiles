@@ -22,6 +22,7 @@ vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.o.swapfile = false
 vim.opt.linebreak = true
+vim.opt.wrap = false
 
 -- enable neovim scrolling when in tmux
 vim.opt.mouse = "a"
