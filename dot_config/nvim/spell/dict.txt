@@ -1,0 +1,5 @@
+PNPM
+neovim
+newrelic
+sourcemaps
+which
