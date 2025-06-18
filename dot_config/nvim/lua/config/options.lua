@@ -18,10 +18,10 @@ opt.timeoutlen = 1000
 
 vim.g.snacks_animate = false
 
-vim.opt.linebreak = false
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.o.swapfile = false
+vim.opt.linebreak = true
 
 -- enable neovim scrolling when in tmux
 vim.opt.mouse = "a"
