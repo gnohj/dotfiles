@@ -112,7 +112,7 @@ zinit load starship/starship
 #-------------------------------------------------------------------------------
 
 # zinit light zsh-users/zsh-completions - changes text green/red depending on valid command
-zinit light zsh-users/zsh-syntax-highlighting
+zinit light zdharma-continuum/fast-syntax-highlighting
 
 # loads extra completion definitions that aren't officially part of zsh
 zinit load zsh-users/zsh-completions
@@ -237,7 +237,6 @@ zinit cdreplay -q
 #-------------------------------------------------------------------------------
 #                  Auto Suggestion / Completion Styling
 #-------------------------------------------------------------------------------
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=$gnohj_color09"
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
