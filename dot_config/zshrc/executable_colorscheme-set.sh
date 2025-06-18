@@ -312,7 +312,7 @@ gui:
       - "${gnohj_color12}"
   border: rounded
   nerdFontsVersion: "3"
-  customCommands:
+customCommands:
   - key: "x"
     description: "Commit and bypass hooks"
     prompts:
