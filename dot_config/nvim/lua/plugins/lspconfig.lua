@@ -13,9 +13,11 @@ return {
           filetypes = { "markdown", "md", "mdx" },
           settings = {
             ["harper-ls"] = {
-              userDictPath = "~/.config/nvim/spell/en.utf-8.add",
+              userDictPath = "~/.config/nvim/spell/dict.txt", -- only adds global words here
+              fileDictPath = "", -- only store these in memory
               linters = {
                 ToDoHyphen = false,
+                SentenceCapitalization = false,
               },
               isolateEnglish = true,
               markdown = {
@@ -141,13 +143,15 @@ return {
           formatter.format = function(buf)
             local client = get_client(buf)
             if client then
-              local pull_diagnostics =
-                vim.diagnostic.get(buf, { namespace = vim.lsp.diagnostic.get_namespace(client.id, false) })
+              local pull_diagnostics = vim.diagnostic.get(buf, {
+                namespace = vim.lsp.diagnostic.get_namespace(client.id, false),
+              })
               -- Older versions of the ESLint language server send push
               -- diagnostics rather than using pull. We support both for
               -- backwards compatibility.
-              local push_diagnostics =
-                vim.diagnostic.get(buf, { namespace = vim.lsp.diagnostic.get_namespace(client.id, true) })
+              local push_diagnostics = vim.diagnostic.get(buf, {
+                namespace = vim.lsp.diagnostic.get_namespace(client.id, true),
+              })
               if (#pull_diagnostics + #push_diagnostics) > 0 then
                 vim.cmd("EslintFixAll")
               end
