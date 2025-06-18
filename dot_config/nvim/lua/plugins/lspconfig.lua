@@ -18,6 +18,7 @@ return {
               linters = {
                 ToDoHyphen = false,
                 SentenceCapitalization = false,
+                CommaFixes = false,
               },
               isolateEnglish = true,
               markdown = {
