@@ -1,5 +1,15 @@
+Aptivada
+Callouts
 PNPM
+WAF
+api
+cli
+fastly
+iHeartRadio
+iheart
+loginToken
 neovim
 newrelic
+pid
 sourcemaps
 which
