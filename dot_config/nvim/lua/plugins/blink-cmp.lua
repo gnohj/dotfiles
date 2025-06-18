@@ -94,7 +94,9 @@ return {
               -- -- The dictionary by default now uses fzf, make sure to have it
               -- -- installed
               -- -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
-              dictionary_directories = { vim.fn.expand("~/.config/nvim/dictionaries") },
+              dictionary_directories = {
+                vim.fn.expand("~/.config/nvim/dictionaries"),
+              },
               dictionary_files = {
                 vim.fn.expand("~/.config/nvim/spell/en.utf-8.add"),
               },
@@ -166,7 +168,9 @@ return {
               local line = vim.api.nvim_get_current_line()
               local col = vim.api.nvim_win_get_cursor(0)[2]
               local before_cursor = line:sub(1, col)
-              local start_pos, end_pos = before_cursor:find(trigger_text .. "[^" .. trigger_text .. "]*$")
+              local start_pos, end_pos = before_cursor:find(
+                trigger_text .. "[^" .. trigger_text .. "]*$"
+              )
               if start_pos then
                 for _, item in ipairs(items) do
                   if not item.trigger_text_modified then
@@ -175,8 +179,14 @@ return {
                     item.textEdit = {
                       newText = item.insertText or item.label,
                       range = {
-                        start = { line = vim.fn.line(".") - 1, character = start_pos - 1 },
-                        ["end"] = { line = vim.fn.line(".") - 1, character = end_pos },
+                        start = {
+                          line = vim.fn.line(".") - 1,
+                          character = start_pos - 1,
+                        },
+                        ["end"] = {
+                          line = vim.fn.line(".") - 1,
+                          character = end_pos,
+                        },
                       },
                     }
                   end
@@ -244,6 +254,8 @@ return {
       -- https://cmp.saghen.dev/configuration/keymap.html#default
       opts.keymap = {
         preset = "default",
+        ["<CR>"] = { "accept", "fallback" }, -- Add this line!
+        ["<C-y>"] = { "accept" }, -- Keep your working keybind
         ["<Tab>"] = { "snippet_forward", "fallback" },
         ["<S-Tab>"] = { "snippet_backward", "fallback" },
 
