@@ -58,8 +58,12 @@ gnohj_color11=#f16c75
 
 # Terminal white / Text
 gnohj_color14=#c0caf5
-# gnohj_color14=#ebfafa
-# foreground = #CBE0F0
+
+# Nvim Green
+gnohj_color40=#9ece6a
+
+# Nvim yellow
+gnohj_color41=#e0af68
 
 #-------------------------------------------------------------------------------
 #--                  Nvim
