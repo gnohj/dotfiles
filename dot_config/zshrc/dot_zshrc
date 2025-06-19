@@ -237,6 +237,7 @@ zinit cdreplay -q
 #-------------------------------------------------------------------------------
 #                  Auto Suggestion / Completion Styling
 #-------------------------------------------------------------------------------
+
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
@@ -341,6 +342,11 @@ esac
 # add second-brain executables to path - og,on
 export PATH="$HOME/_bin:$PATH"
 
+# flameshot
+if [[ ":$PATH:" != *":/Applications/flameshot.app/Contents/MacOS:"* ]]; then
+  export PATH="/Applications/flameshot.app/Contents/MacOS:$PATH"
+fi
+
 
 #-------------------------------------------------------------------------------
 #                  Script Integrations
@@ -363,6 +369,18 @@ if ! command -v rbw &> /dev/null; then
         echo "Run 'rbw config set email your@email.com' and 'rbw login' to set up."
     else
         echo "Homebrew not found. Please install Homebrew first, then run: brew install rbw"
+    fi
+fi
+
+
+# -----------------------------  Flameshot (screenshot tool)
+if ! command -v flameshot &> /dev/null; then
+    echo "flameshot not found. Installing flameshot..."
+    if command -v brew &> /dev/null; then
+        brew install --cask flameshot
+        echo "flameshot installed successfully!"
+    else
+      echo "Homebrew not found. Please install Homebrew first, then run: brew install --cask flameshot"
     fi
 fi
 
