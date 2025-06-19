@@ -107,13 +107,36 @@ return {
         -- Codeblocks for the render-markdown plugin
         -- RenderMarkdownCode = { bg = colors["gnohj_color02"] }
 
-        hl.Type = { fg = colors["gnohj_color06"] }
-        hl["@variable"] = { fg = colors["gnohj_color14"] }
-        hl["@type"] = { fg = colors["gnohj_color02"] }
-        hl.Function = { fg = colors["gnohj_color06"] }
+        -- Core syntax elements
+        hl["@variable"] = { fg = colors["gnohj_color14"] } -- normal text color for variables
+        hl.Function = { fg = colors["gnohj_color04"] } -- blue for functions
+        hl.Type = { fg = colors["gnohj_color02"] } -- green for types (keep consistent with @type)
+        hl["@function.method.call"] = { fg = colors["gnohj_color04"] } -- method calls
+        hl["@keyword"] = { fg = colors["gnohj_color04"] } -- keywords like const, let, if
+        hl["@keyword.function"] = { fg = colors["gnohj_color04"] } -- function keyword
+        hl["@keyword.return"] = { fg = colors["gnohj_color04"] } -- return keyword
+        hl["@constant"] = { fg = colors["gnohj_color06"] } -- constants
+        hl["@constant.builtin"] = { fg = colors["gnohj_color06"] } -- true, false, null
+        hl["@string"] = { fg = colors["gnohj_color05"] } -- string literals
+        hl["@number"] = { fg = colors["gnohj_color06"] } -- numbers
+        hl["@operator"] = { fg = colors["gnohj_color04"] } -- +, -, =, etc.
+        hl["@module.builtin"] = { fg = colors["gnohj_color06"] } -- built-in modules like 'react', 'node:fs'
+        hl["@module"] = { fg = colors["gnohj_color04"] } -- regular modules
+
+        -- Object members and properties
+        hl["@variable.member"] = { fg = colors["gnohj_color03"] } -- cyan for object members
+        hl["@property"] = { fg = colors["gnohj_color03"] } -- cyan for properties (consistent)
+
+        -- Types and constructors
+        hl["@type"] = { fg = colors["gnohj_color02"] } -- green for types
+        hl["@constructor"] = { fg = colors["gnohj_color02"] } -- green for constructors (consistent with types)
+
+        -- Special/built-in elements
+        hl["@type.builtin"] = { fg = colors["gnohj_color06"] } -- orange for built-in types (distinct)
+        hl.Special = { fg = colors["gnohj_color06"] } -- orange for special/built-in methods
 
         hl.MiniFilesNormal = { bg = colors["gnohj_color10"] }
-        hl.MiniFilesBorder = { fg = colors["gnohj_color13"] }
+        hl.MiniFilesBorder = { fg = colors["gnohj_color04"] }
         hl.MiniFilesTitle = { fg = colors["gnohj_color04"] }
         hl.MiniFilesTitleFocused = { fg = colors["gnohj_color02"], bold = true }
 
@@ -147,11 +170,19 @@ return {
         hl.diffChanged = { fg = colors["gnohj_color37"], bold = true }
         hl.diffRemoved = { fg = colors["gnohj_color38"], bold = true }
 
-        DiagnosticInfo = { fg = colors["gnohj_color03"] }
-        DiagnosticHint = { fg = colors["gnohj_color02"] }
-        DiagnosticWarn = { fg = colors["gnohj_color12"] }
+        hl.DiagnosticError = { fg = colors["gnohj_color11"] }
+        hl.DiagnosticWarn = { fg = colors["gnohj_color06"] } -- use orange instead of gnohj_color12
+        hl.DiagnosticInfo = { fg = colors["gnohj_color04"] } -- use blue instead of cyan
+        hl.DiagnosticHint = { fg = colors["gnohj_color09"] } -- use comment color
+        DiagnosticInfo = { fg = colors["gnohj_color04"] }
+        DiagnosticHint = { fg = colors["gnohj_color09"] }
+        DiagnosticWarn = { fg = colors["gnohj_color06"] }
         DiagnosticOk = { fg = colors["gnohj_color04"] }
         DiagnosticError = { fg = colors["gnohj_color11"] }
+
+        hl.GitSignsAdd = { fg = colors["gnohj_color02"] }
+        hl.GitSignsChange = { fg = colors["gnohj_color03"] }
+        hl.GitSignsDelete = { fg = colors["gnohj_color11"] }
         -- RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
         -- hl.RenderMarkdownLink = { fg = hl_colors.blue, sp = "NONE", undercurl = false }
 
