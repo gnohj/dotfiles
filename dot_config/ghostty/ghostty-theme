@@ -1,30 +1,30 @@
 # Auto-generated ghostty configuration
 background = #021c31
-foreground = #c0caf5
+foreground = #f8f9e8
 
-cursor-color = #47FF9C
+cursor-color = #b3e3ca
 
 # black
 palette = 0=#021c31
-palette = 8=#5fa9f4
+palette = 8=#4a585c
 # red
-palette = 1=#f16c75
-palette = 9=#f16c75
+palette = 1=#f57f82
+palette = 9=#f57f82
 # green
-palette = 2=#37f499
-palette = 10=#37f499
+palette = 2=#cbe3b3
+palette = 10=#cbe3b3
 # yellow
-palette = 3=#19dfcf
-palette = 11=#19dfcf
+palette = 3=#f5d098
+palette = 11=#f5d098
 # blue
-palette = 4=#987afb
-palette = 12=#987afb
+palette = 4=#b2caed
+palette = 12=#b2caed
 # purple
-palette = 5=#949ae5
-palette = 13=#949ae5
+palette = 5=#d2bdf3
+palette = 13=#d2bdf3
 # aqua
-palette = 6=#04d1f9
-palette = 14=#04d1f9
+palette = 6=#b3e6db
+palette = 14=#b3e6db
 # white
-palette = 7=#c0caf5
-palette = 15=#c0caf5
+palette = 7=#f8f9e8
+palette = 15=#f8f9e8
