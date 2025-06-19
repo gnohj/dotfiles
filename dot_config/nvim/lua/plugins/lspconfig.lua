@@ -6,6 +6,11 @@ return {
   {
     "neovim/nvim-lspconfig",
     opts = function(_, opts)
+      local keys = require("lazyvim.plugins.lsp.keymaps").get()
+      -- Remove the code action keymap
+      keys[#keys + 1] = { "<leader>ca", false }
+      keys[#keys + 1] = { "<leader>cA", false }
+
       -- Existing configurations
       opts.servers = {
         harper_ls = {
