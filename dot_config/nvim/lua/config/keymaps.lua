@@ -22,22 +22,52 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
 
 -- delete without yanking
-keymap({ "n", "v" }, "<leader>dd", [["_d]], { desc = "[P]Delete without yanking" })
+keymap(
+  { "n", "v" },
+  "<leader>dd",
+  [["_d]],
+  { desc = "[P]Delete without yanking" }
+)
 
 -- move text up and down
 -- keymap("v", "j", ":m .+1<cr>==", { desc = "[p]move line down in visual mode" })
 -- keymap("v", "k", ":m .-2<cr>==", { desc = "[p]move line up in visual mode" })
-keymap("v", "J", ":m '>+1<CR>gv=gv", { desc = "[P]Move line down in visual mode" })
-keymap("v", "K", ":m '<-2<CR>gv=gv", { desc = "[P]Move line up in visual mode" })
+keymap(
+  "v",
+  "J",
+  ":m '>+1<CR>gv=gv",
+  { desc = "[P]Move line down in visual mode" }
+)
+keymap(
+  "v",
+  "K",
+  ":m '<-2<CR>gv=gv",
+  { desc = "[P]Move line up in visual mode" }
+)
 
 -- yank to system clipboard
-keymap({ "n", "v" }, "<leader>y", '"+y', { noremap = true, silent = true, desc = "[P]Yank to system clipboard" })
+keymap(
+  { "n", "v" },
+  "<leader>y",
+  '"+y',
+  { noremap = true, silent = true, desc = "[P]Yank to system clipboard" }
+)
 
 -- paste from system clipboard
-keymap({ "n", "v" }, "<leader>p", '"+p', { noremap = true, silent = true, desc = "[P]Paste from system clipboard" })
+keymap(
+  { "n", "v" },
+  "<leader>p",
+  '"+p',
+  { noremap = true, silent = true, desc = "[P]Paste from system clipboard" }
+)
 
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
-keymap("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "[P]Clear search highlight" })
+keymap(
+  "n",
+  "<Esc>",
+  "<cmd>nohlsearch<CR>",
+  { desc = "[P]Clear search highlight" }
+)
 
 -- increment/decrement numbers
 keymap("n", "<leader>+", "<C-a>", { desc = "[P]Increment number" })
@@ -50,14 +80,24 @@ local function insertFullPath()
   vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
 end
 
-keymap("n", "<leader>fy", insertFullPath, { silent = true, noremap = true, desc = "[P]Copy full path" })
+keymap(
+  "n",
+  "<leader>fy",
+  insertFullPath,
+  { silent = true, noremap = true, desc = "[P]Copy full path" }
+)
 
 -- Quit or exit neovim, easier than to do <leader>qq
 keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 -- Quit or exit neovim, easier than to do <leader>qq
 keymap({ "n", "v", "i" }, "<M-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 
-keymap({ "n", "v", "i" }, "<M-r>", "<Nop>", { desc = "[P] Disabled No operation for <M-r>" })
+keymap(
+  { "n", "v", "i" },
+  "<M-r>",
+  "<Nop>",
+  { desc = "[P] Disabled No operation for <M-r>" }
+)
 
 -- Write current file
 keymap("n", "<M-w>", function()
@@ -140,13 +180,22 @@ keymap(
   "n",
   "<leader>cpc",
   "<cmd>lua require('package-info').change_version()<cr>",
-  { silent = true, noremap = true, desc = "[P]Package Info Change package version" }
+  {
+    silent = true,
+    noremap = true,
+    desc = "[P]Package Info Change package version",
+  }
 )
 
 -------------------------------------------------------------------------------
 --                           Logsitter
 -------------------------------------------------------------------------------
-keymap("n", "<leader>tc", "<cmd> lua require('logsitter').log()<cr>", { desc = "[P]Turbo Console Log" })
+keymap(
+  "n",
+  "<leader>tc",
+  "<cmd> lua require('logsitter').log()<cr>",
+  { desc = "[P]Turbo Console Log" }
+)
 
 -------------------------------------------------------------------------------
 --                           DiffView
@@ -176,7 +225,11 @@ keymap(
   "n",
   "<leader>as",
   ":lua require('copilot.suggestion').toggle_auto_trigger()<CR>",
-  { silent = true, noremap = true, desc = "[P]Copilot: toggle virtual text suggestions" }
+  {
+    silent = true,
+    noremap = true,
+    desc = "[P]Copilot: toggle virtual text suggestions",
+  }
 )
 
 -------------------------------------------------------------------------------
@@ -199,9 +252,12 @@ local function tmux_pane_function(dir)
   -- if no dir is passed, use the current file's directory
   local file_dir = dir or vim.fn.expand("%:p:h")
   -- Simplified this, was checking if a pane existed
-  local has_panes = vim.fn.system("tmux list-panes | wc -l"):gsub("%s+", "") ~= "1"
+  local has_panes = vim.fn.system("tmux list-panes | wc -l"):gsub("%s+", "")
+    ~= "1"
   -- Check if the current pane is zoomed (maximized)
-  local is_zoomed = vim.fn.system("tmux display-message -p '#{window_zoomed_flag}'"):gsub("%s+", "") == "1"
+  local is_zoomed = vim.fn
+    .system("tmux display-message -p '#{window_zoomed_flag}'")
+    :gsub("%s+", "") == "1"
   -- Escape the directory path for shell
   local escaped_dir = file_dir:gsub("'", "'\\''")
   -- If any additional pane exists
@@ -210,7 +266,9 @@ local function tmux_pane_function(dir)
       -- Compare the stored pane directory with the current file directory
       if auto_cd_to_new_dir and vim.g.tmux_pane_dir ~= escaped_dir then
         -- If different, cd into the new dir
-        vim.fn.system("tmux send-keys -t :.+ 'cd \"" .. escaped_dir .. "\"' Enter")
+        vim.fn.system(
+          "tmux send-keys -t :.+ 'cd \"" .. escaped_dir .. "\"' Enter"
+        )
         -- Update the stored directory to the new one
         vim.g.tmux_pane_dir = escaped_dir
       end
@@ -276,11 +334,17 @@ end, { desc = "[P]Terminal on tmux pane" })
 -- >>> ou # sync local with Notion
 
 -- navigate to vault
-keymap("n", "<leader>oo", ":cd /Users/gnohj/Obsidian/second-brain/<cr>", { desc = "[P]Obsidian: Navigate to vault" })
+keymap(
+  "n",
+  "<leader>oo",
+  ":cd /Users/gnohj/Obsidian/second-brain/<cr>",
+  { desc = "[P]Obsidian: Navigate to vault" }
+)
 --
 -- convert note to template and remove leading white space
 keymap("n", "<leader>on", function()
-  local template_path = vim.fn.expand("~/Obsidian/second-brain/Templates/note.md")
+  local template_path =
+    vim.fn.expand("~/Obsidian/second-brain/Templates/note.md")
 
   if vim.fn.filereadable(template_path) == 0 then
     vim.notify("Template not found: " .. template_path, vim.log.levels.ERROR)
@@ -289,9 +353,12 @@ keymap("n", "<leader>on", function()
 
   -- Extract and format title from filename
   local filename = vim.fn.expand("%:t:r")
-  local title = filename:gsub("^%d%d%d%d%-%d%d%-%d%d_", ""):gsub("-", " "):gsub("(%a)([%w_']*)", function(first, rest)
-    return first:upper() .. rest:lower()
-  end)
+  local title = filename
+    :gsub("^%d%d%d%d%-%d%d%-%d%d_", "")
+    :gsub("-", " ")
+    :gsub("(%a)([%w_']*)", function(first, rest)
+      return first:upper() .. rest:lower()
+    end)
 
   local date = os.date("%Y-%m-%d")
 
@@ -308,7 +375,12 @@ end, { desc = "New note template" })
 
 -- strip date from note title and replace dashes with spaces
 -- must have cursor on title
-keymap("n", "<leader>of", ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>", { desc = "[P]Obsidian: Format note title" })
+keymap(
+  "n",
+  "<leader>of",
+  ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>",
+  { desc = "[P]Obsidian: Format note title" }
+)
 --
 -- for review workflow
 -- move file in current buffer to zettelkasten folder
@@ -319,7 +391,12 @@ keymap(
   { desc = "[P]Obsidian: Move file to Zettelkasten" }
 )
 -- delete file in current buffer
-keymap("n", "<leader>odd", ":!rm '%:p'<cr>:bd<cr>", { desc = "[P]Obsidian: Delete file in current buffer" })
+keymap(
+  "n",
+  "<leader>odd",
+  ":!rm '%:p'<cr>:bd<cr>",
+  { desc = "[P]Obsidian: Delete file in current buffer" }
+)
 
 keymap("n", "gf", function()
   if require("obsidian").util.cursor_on_markdown_link() then
@@ -327,7 +404,21 @@ keymap("n", "gf", function()
   else
     return "gf"
   end
-end, { noremap = false, expr = true, desc = "[P]Obsidian: Follow link under cursor" })
+end, {
+  noremap = false,
+  expr = true,
+  desc = "[P]Obsidian: Follow link under cursor",
+})
+
+-------------------------------------------------------------------------------
+--                           Fastaction
+-------------------------------------------------------------------------------
+keymap(
+  { "n", "x" },
+  "<leader>ca",
+  '<cmd>lua require("fastaction").code_action()<CR>',
+  { desc = "Display code actions" }
+)
 
 -------------------------------------------------------------------------------
 --                           Harpoon
@@ -470,7 +561,10 @@ keymap("n", "<leader>aA", function()
       -- Only process buffers that are actual files
       if filepath and filepath ~= "" then
         -- Get the terminal buffer job id
-        local term_bufs = vim.fn.filter(vim.api.nvim_list_bufs(), 'getbufvar(v:val, "&buftype") == "terminal"')
+        local term_bufs = vim.fn.filter(
+          vim.api.nvim_list_bufs(),
+          'getbufvar(v:val, "&buftype") == "terminal"'
+        )
         for _, term_buf in ipairs(term_bufs) do
           local chan = vim.api.nvim_buf_get_var(term_buf, "terminal_job_id")
           if chan then
