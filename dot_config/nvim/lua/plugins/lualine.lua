@@ -4,7 +4,11 @@ end
 
 local colors = require("config.colors")
 
-vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"], bg = colors["gnohj_color05"] })
+vim.api.nvim_set_hl(
+  0,
+  "CustomTeal",
+  { fg = colors["gnohj_color11"], bg = colors["gnohj_color05"] }
+)
 
 -- Custom component to display buffer count
 local function buffer_count()
@@ -16,7 +20,10 @@ local function buffer_count_with_unsaved()
   -- Count only unsaved buffers
   local unsaved_count = 0
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(buf) and vim.api.nvim_buf_get_option(buf, "modified") then
+    if
+      vim.api.nvim_buf_is_loaded(buf)
+      and vim.api.nvim_buf_get_option(buf, "modified")
+    then
       unsaved_count = unsaved_count + 1
     end
   end
@@ -40,7 +47,7 @@ end
 -- Custom component to display the file path, with `~` for the home directory
 local function file_path()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
-  return full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
+  return full_path:gsub(vim.fn.expand("$HOME"), "  ~") -- Replace $HOME with ~
 end
 
 return {
@@ -67,22 +74,46 @@ return {
         },
         theme = {
           normal = {
-            a = { bg = colors["gnohj_color03"], fg = colors["gnohj_color10"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color03"],
+              fg = colors["gnohj_color10"],
+              gui = "bold",
+            },
           },
           insert = {
-            a = { bg = colors["gnohj_color02"], fg = colors["gnohj_color10"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color02"],
+              fg = colors["gnohj_color10"],
+              gui = "bold",
+            },
           },
           visual = {
-            a = { bg = colors["gnohj_color04"], fg = colors["gnohj_color10"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color04"],
+              fg = colors["gnohj_color10"],
+              gui = "bold",
+            },
           },
           command = {
-            a = { bg = colors["gnohj_color05"], fg = colors["gnohj_color10"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color05"],
+              fg = colors["gnohj_color10"],
+              gui = "bold",
+            },
           },
           replace = {
-            a = { bg = colors["gnohj_color11"], fg = colors["gnohj_color10"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color11"],
+              fg = colors["gnohj_color10"],
+              gui = "bold",
+            },
           },
           inactive = {
-            a = { bg = colors["gnohj_color07"], fg = colors["gnohj_color13"], gui = "bold" },
+            a = {
+              bg = colors["gnohj_color07"],
+              fg = colors["gnohj_color13"],
+              gui = "bold",
+            },
           },
         },
       },
@@ -90,8 +121,10 @@ return {
         lualine_a = { "mode" },
         lualine_b = { "branch" },
         lualine_c = {
-          { current_buffer_unsaved_dot, color = { fg = colors["gnohj_color11"] } },
-          { buffer_count_with_unsaved, color = { fg = colors["gnohj_color11"] } },
+          {
+            buffer_count,
+            color = { fg = colors["gnohj_color02"], gui = "bold" },
+          },
           {
             "diagnostics",
             symbols = {
@@ -100,6 +133,14 @@ return {
               info = icons.diagnostics.Info,
               hint = icons.diagnostics.Hint,
             },
+          },
+          {
+            current_buffer_unsaved_dot,
+            color = { fg = colors["gnohj_color11"] },
+          },
+          {
+            buffer_count_with_unsaved,
+            color = { fg = colors["gnohj_color11"] },
           },
           {
             require("package-info").get_status,
@@ -113,8 +154,8 @@ return {
             cond = lazy_status.has_updates,
             color = { fg = colors["gnohj_color11"] },
           },
-          { "encoding" },
-          { "filetype" },
+          { "encoding", color = { fg = colors["gnohj_color02"] } },
+          { "filetype", color = { fg = colors["gnohj_color03"] } },
           {
             "diff",
             symbols = {
@@ -140,10 +181,14 @@ return {
         -- lualine_a = {
         --   { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
         -- },
+        -- lualine_x = {
+        --   {
+        --     buffer_count,
+        --     color = { fg = colors["gnohj_color02"], gui = "bold" },
+        --   },
+
+        -- },
         lualine_b = {
-          { buffer_count, color = { fg = colors["gnohj_color02"], gui = "bold" } },
-        },
-        lualine_c = {
           { file_path, color = { fg = colors["gnohj_color03"], gui = "bold" } },
         },
       },
@@ -151,11 +196,17 @@ return {
         -- lualine_a = {
         --   { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
         -- },
+        -- lualine_x = {
+        --   {
+        --     buffer_count,
+        --     color = { fg = colors["gnohj_color09"], gui = "italic" },
+        --   },
+        -- },
         lualine_b = {
-          { buffer_count, color = { fg = colors["gnohj_color09"], gui = "italic" } },
-        },
-        lualine_c = {
-          { file_path, color = { fg = colors["gnohj_color09"], gui = "italic" } },
+          {
+            file_path,
+            color = { fg = colors["gnohj_color09"], gui = "italic" },
+          },
         },
       },
     }
