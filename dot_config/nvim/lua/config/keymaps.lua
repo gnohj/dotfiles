@@ -548,31 +548,3 @@ keymap("n", "z;", function()
   vim.opt.foldlevel = 3 -- Fold level 4 and above
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 4 or above" })
-
--------------------------------------------------------------------------------
---                           Aider
--------------------------------------------------------------------------------
-keymap("n", "<leader>aA", function()
-  local buffers = vim.api.nvim_list_bufs()
-
-  for _, buf in ipairs(buffers) do
-    if vim.api.nvim_buf_is_loaded(buf) then
-      local filepath = vim.api.nvim_buf_get_name(buf)
-      -- Only process buffers that are actual files
-      if filepath and filepath ~= "" then
-        -- Get the terminal buffer job id
-        local term_bufs = vim.fn.filter(
-          vim.api.nvim_list_bufs(),
-          'getbufvar(v:val, "&buftype") == "terminal"'
-        )
-        for _, term_buf in ipairs(term_bufs) do
-          local chan = vim.api.nvim_buf_get_var(term_buf, "terminal_job_id")
-          if chan then
-            -- Send the add command directly to terminal
-            vim.api.nvim_chan_send(chan, "/add " .. filepath .. "\n")
-          end
-        end
-      end
-    end
-  end
-end, { desc = "[P]Add All Buffer Files To Aider" })
