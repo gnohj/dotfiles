@@ -26,14 +26,14 @@ truncation_length = 10
 truncate_to_repo = true    # truncates directory to root folder if in github repo
 style = "bold italic blue"
 [git_branch]
-style = "bold #b3e6db"
+style = "bold #a7cfbd"
 [package]
 display_private = true
 [cmd_duration]
 min_time = 4
 show_milliseconds = false
 disabled = false
-format = '[$duration](bold italic #cbe3b3)'
+format = '[$duration](bold italic #b7ce97)'
 [env_var.RADIO_CTL]
 default = ''
 variable = "RADIO_CTL"

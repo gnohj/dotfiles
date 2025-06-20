@@ -23,7 +23,11 @@ return {
           "qf",
           function(win)
             -- Floating windows from bqf.
-            if vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)):match("BqfPreview") then
+            if
+              vim.api
+                .nvim_buf_get_name(vim.api.nvim_win_get_buf(win))
+                :match("BqfPreview")
+            then
               return true
             end
             -- Non-focusable windows.
@@ -43,21 +47,17 @@ return {
     },
     config = function(_, opts)
       require("flash").setup(opts)
-
-      -- Set Tokyo Night themed highlights for flash
       vim.api.nvim_set_hl(0, "FlashLabel", {
-        bg = colors["gnohj_color08"], -- Tokyo Night blue (more visible than pink)
-        fg = colors["gnohj_color10"], -- Very dark for contrast
+        bg = colors["gnohj_color04"],
+        fg = colors["gnohj_color10"],
         bold = true,
       })
-
       vim.api.nvim_set_hl(0, "FlashBackdrop", {
-        fg = colors["gnohj_color09"], -- Tokyo Night comment color for dimmed text
+        fg = colors["gnohj_color09"],
       })
-
       vim.api.nvim_set_hl(0, "FlashMatch", {
-        bg = colors["gnohj_color16"], -- Tokyo Night selection blue
-        fg = colors["gnohj_color14"], -- Tokyo Night foreground
+        bg = colors["gnohj_color11"],
+        fg = colors["gnohj_color24"],
       })
     end,
     keys = {

@@ -20,62 +20,147 @@ return {
         floats = transparent and "transparent" or "dark",
       },
       on_colors = function(global_colors)
+        -- Core background and foreground
         global_colors.bg = colors["gnohj_color10"]
-        -- global_colors.bg_dark = colors["gnohj_color13"]
-        global_colors.bg_float = transparent and global_colors.none
-          or global_colors.bg_float
+        global_colors.bg_dark = colors["gnohj_color07"]
+          or colors["gnohj_color10"]
+        global_colors.bg_dark1 = colors["gnohj_color28"]
+          or colors["gnohj_color07"]
+          or colors["gnohj_color10"]
         global_colors.bg_highlight = transparent and global_colors.none
           or colors["gnohj_color17"]
-        -- global_colors.bg_popup = bg_dark
-        -- global_colors.bg_search = bg_search
+        global_colors.bg_float = transparent and global_colors.none
+          or colors["gnohj_color07"]
+          or global_colors.bg_float
+        global_colors.bg_popup = colors["gnohj_color07"]
+          or colors["gnohj_color17"]
+        global_colors.bg_search = colors["gnohj_color39"]
+          or colors["gnohj_color04"]
         global_colors.bg_sidebar = transparent and global_colors.none
+          or colors["gnohj_color07"]
           or global_colors.bg_sidebar
         global_colors.bg_statusline = transparent and global_colors.none
           or colors["gnohj_color10"]
         global_colors.bg_visual = colors["gnohj_color16"]
-        global_colors.border = colors["gnohj_color13"]
         global_colors.fg = colors["gnohj_color14"]
         global_colors.fg_dark = colors["gnohj_color09"]
         global_colors.fg_float = colors["gnohj_color14"]
         global_colors.fg_gutter = colors["gnohj_color13"]
-        global_colors.fg_sidebar = colors["gnohj_color13"]
+        global_colors.fg_sidebar = colors["gnohj_color09"]
+          or colors["gnohj_color13"]
+
+        -- Border colors
+        global_colors.border = colors["gnohj_color13"]
+        global_colors.border_highlight = colors["gnohj_color42"]
+          or colors["gnohj_color03"]
+        global_colors.black = colors["gnohj_color10"]
+
+        -- Blue variants (using new evergarden blue structure with fallbacks)
+        global_colors.blue = colors["gnohj_color04"]
+        global_colors.blue0 = colors["gnohj_color39"] or colors["gnohj_color04"] -- darker blue
+        global_colors.blue1 = colors["gnohj_color42"] or colors["gnohj_color03"] -- bright blue
+        global_colors.blue2 = colors["gnohj_color43"] or colors["gnohj_color03"] -- cyan-blue
+        global_colors.blue5 = colors["gnohj_color44"] or colors["gnohj_color04"] -- light blue
+        global_colors.blue6 = colors["gnohj_color45"] or colors["gnohj_color03"] -- very light blue
+        global_colors.blue7 = colors["gnohj_color46"] or colors["gnohj_color13"] -- dark blue-gray
+
+        -- Grays and darks
+        global_colors.comment = colors["gnohj_color09"]
+        global_colors.dark3 = colors["gnohj_color47"] or colors["gnohj_color13"] -- medium gray
+        global_colors.dark5 = colors["gnohj_color48"] or colors["gnohj_color09"] -- lighter gray
+        global_colors.terminal_black = colors["gnohj_color53"]
+          or colors["gnohj_color13"]
+
+        -- Core colors
         global_colors.red = colors["gnohj_color11"]
+        global_colors.red1 = colors["gnohj_color31"] or colors["gnohj_color11"] -- darker red
         global_colors.orange = colors["gnohj_color06"]
         global_colors.yellow = colors["gnohj_color41"]
           or colors["gnohj_color05"]
         global_colors.green = colors["gnohj_color40"] or colors["gnohj_color02"]
-        global_colors.purple = colors["gnohj_color04"]
+        global_colors.green1 = colors["gnohj_color50"]
+          or colors["gnohj_color02"] -- lime variant
+        global_colors.green2 = colors["gnohj_color51"]
+          or colors["gnohj_color03"] -- aqua variant
         global_colors.cyan = colors["gnohj_color03"]
-        global_colors.dark_cyan = colors["gnohj_color12"]
-        global_colors.terminal_black = colors["gnohj_color13"]
-        global_colors.dark3 = colors["gnohj_color13"]
-        global_colors.dark5 = colors["gnohj_color13"]
+        global_colors.purple = colors["gnohj_color04"]
         global_colors.magenta = colors["gnohj_color01"]
-        global_colors.magenta2 = colors["gnohj_color01"]
-        global_colors.magenta3 = colors["gnohj_color01"]
-        global_colors.dark_yellow = colors["gnohj_color05"]
-        global_colors.dark_green = colors["gnohj_color02"]
-        global_colors.pink = colors["gnohj_color01"]
-        global_colors.bright_red = colors["gnohj_color08"]
-        global_colors.bright_green = colors["gnohj_color02"]
-        global_colors.bright_yellow = colors["gnohj_color05"]
-        global_colors.bright_blue = colors["gnohj_color04"]
-        global_colors.bright_magenta = colors["gnohj_color01"]
-        global_colors.bright_cyan = colors["gnohj_color03"]
-        global_colors.bright_white = colors["gnohj_color14"]
-        global_colors.menu = colors["gnohj_color10"]
-        global_colors.visual = colors["gnohj_color16"]
-        global_colors.gutter_fg = colors["gnohj_color16"]
-        global_colors.nontext = colors["gnohj_color16"]
-        global_colors.white = colors["gnohj_color14"]
-        global_colors.black = colors["gnohj_color10"]
-        global_colors.selection = colors["gnohj_color16"]
-        global_colors.comment = colors["gnohj_color09"]
+        global_colors.magenta2 = colors["gnohj_color52"]
+          or colors["gnohj_color01"] -- purple variant
+        global_colors.teal = colors["gnohj_color49"] or colors["gnohj_color03"] -- darker snow
+
+        -- Status colors
+        global_colors.error = colors["gnohj_color11"]
+        global_colors.warning = colors["gnohj_color06"]
+        global_colors.info = colors["gnohj_color43"] or colors["gnohj_color04"]
+        global_colors.hint = colors["gnohj_color49"] or colors["gnohj_color03"]
+        global_colors.todo = colors["gnohj_color04"]
+
+        -- Diff colors
+        global_colors.diff = {
+          add = colors["gnohj_color30"] or "#334330",
+          change = colors["gnohj_color28"] or "#202325",
+          delete = colors["gnohj_color32"] or "#433030",
+          text = colors["gnohj_color46"] or colors["gnohj_color13"],
+        }
+
+        -- Terminal colors
+        global_colors.terminal = {
+          black = colors["gnohj_color10"],
+          black_bright = colors["gnohj_color53"] or colors["gnohj_color13"],
+          blue = colors["gnohj_color04"],
+          blue_bright = colors["gnohj_color44"] or colors["gnohj_color04"],
+          cyan = colors["gnohj_color03"],
+          cyan_bright = colors["gnohj_color45"] or colors["gnohj_color03"],
+          green = colors["gnohj_color02"],
+          green_bright = colors["gnohj_color50"] or colors["gnohj_color02"],
+          magenta = colors["gnohj_color01"],
+          magenta_bright = colors["gnohj_color52"] or colors["gnohj_color01"],
+          red = colors["gnohj_color11"],
+          red_bright = colors["gnohj_color31"] or colors["gnohj_color11"],
+          white = colors["gnohj_color09"],
+          white_bright = colors["gnohj_color14"],
+          yellow = colors["gnohj_color05"],
+          yellow_bright = colors["gnohj_color41"] or colors["gnohj_color05"],
+        }
+
+        -- Rainbow colors for various plugins
+        global_colors.rainbow = {
+          colors["gnohj_color04"], -- blue
+          colors["gnohj_color41"] or colors["gnohj_color05"], -- yellow
+          colors["gnohj_color40"] or colors["gnohj_color02"], -- green
+          colors["gnohj_color49"] or colors["gnohj_color03"], -- teal
+          colors["gnohj_color01"], -- magenta
+          colors["gnohj_color52"] or colors["gnohj_color01"], -- purple
+          colors["gnohj_color06"], -- orange
+          colors["gnohj_color11"], -- red
+        }
+
+        -- Git colors
+        global_colors.git = {
+          add = colors["gnohj_color02"],
+          change = colors["gnohj_color03"],
+          delete = colors["gnohj_color11"],
+          ignore = colors["gnohj_color47"] or colors["gnohj_color13"],
+        }
         global_colors.gitSigns = {
           change = colors["gnohj_color03"],
           add = colors["gnohj_color02"],
           delete = colors["gnohj_color11"],
         }
+
+        -- Additional functional colors (keeping existing)
+        global_colors.dark_cyan = colors["gnohj_color12"]
+        global_colors.dark_yellow = colors["gnohj_color05"]
+        global_colors.dark_green = colors["gnohj_color02"]
+        global_colors.pink = colors["gnohj_color01"]
+        global_colors.menu = colors["gnohj_color10"]
+        global_colors.visual = colors["gnohj_color16"]
+        global_colors.gutter_fg = colors["gnohj_color16"]
+        global_colors.nontext = colors["gnohj_color16"]
+        global_colors.white = colors["gnohj_color14"]
+        global_colors.selection = colors["gnohj_color16"]
+        global_colors.none = "NONE"
       end,
       on_highlights = function(hl, hl_colors)
         -- Change the spell underline color

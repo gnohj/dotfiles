@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #shellcheck disable=SC2034,SC2154
 
-# Evergarden Winter Muted with Evergarden - 25% less saturated
+# Tokyo Night colorscheme adaptation - https://github.com/folke/tokyonight.nvim
 # Needs to conform to - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_night.lua
 
 # Hex colors should be lowercase for compatibility
@@ -10,7 +10,7 @@
 # Applicable tmux file:
 # ~/.config/tmux/set_tmux_colors.sh
 # Applicable neovim plugins:
-# - colorscheme - evergarden.lua, etc.
+# - colorscheme - tokyonight.lua, etc.
 # - highlights.lua
 # - lualine.lua
 # - render-markdown.lua
@@ -29,120 +29,117 @@ wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
 # color08 - ghostty secondary black
 # color06 - nvim orange
 #-------------------------------------------------------------------------------
-gnohj_color04=#a3b8c6
-gnohj_color02=#b7ce97
-gnohj_color03=#a7cfbd
-gnohj_color01=#c0aed2
-gnohj_color05=#dab183
-gnohj_color08=#505e62
-gnohj_color06=#dc988e
+gnohj_color04=#7aa2f7
+gnohj_color02=#9ece6a
+gnohj_color03=#7dcfff
+gnohj_color01=#bb9af7
+gnohj_color05=#e0af68
+gnohj_color08=#565f89
+gnohj_color06=#ff9e64
 #-------------------------------------------------------------------------------
 #--           Terminal / Tmux / Nvim
 #-------------------------------------------------------------------------------
 # Background
-# Darker black
-# gnohj_color10=#00040b
-
-# Subtle -blue gray
-gnohj_color10=#0f1419
-
-# warmer dark gray
-# gnohj_color10=#161318
-
-# lighter / neutral
-# gnohj_color10=#1a1b26
-
-# evergarden winter original
-# gnohj_color10=#1e2528
-
+gnohj_color10=#1a1b26
 # Terminal - Cursor color
-gnohj_color24=#a7cfaf
+gnohj_color24=#73daca
 # Terminal red
-gnohj_color11=#da858e
+gnohj_color11=#f7768e
 # Terminal white / Text
-gnohj_color14=#e9e9e2
-# Nvim green (fallback)
-gnohj_color40=#b7ce97
+gnohj_color14=#c0caf5
+# Nvim Green (fallback)
+gnohj_color40=#9ece6a
 # Nvim yellow (fallback)
-gnohj_color41=#dab183
+gnohj_color41=#e0af68
 #-------------------------------------------------------------------------------
 #--                  Nvim
 #-------------------------------------------------------------------------------
 # Nvim - Lualine across
-gnohj_color17=#40474b
+gnohj_color17=#292e42
 # Nvim - Markdown codeblock
-gnohj_color07=#222427
+gnohj_color07=#16161e
 # Nvim - line across cursor
-gnohj_color13=#536571
+gnohj_color13=#3b4261
 # Nvim - Comments / Nvim Ghost Text
-gnohj_color09=#9fb7a4
+gnohj_color09=#565f89
 # Nvim - Underline spellcap
-gnohj_color12=#ccd19d
+gnohj_color12=#e0af68
 # Nvim - Selected text (bg visual)
-gnohj_color16=#40474b
+gnohj_color16=#283457
 # Nvim - Diffview colors
-gnohj_color27=#e9e9e2
-gnohj_color28=#202325
-gnohj_color29=#b7ce97
-gnohj_color30=#334330
-gnohj_color31=#da858e
-gnohj_color32=#433030
-gnohj_color33=#dc988e
-gnohj_color34=#222427
-gnohj_color35=#b8c7cb
-gnohj_color36=#a7cfaf
-gnohj_color37=#dab183
-gnohj_color38=#d9b8ca
+gnohj_color27=#c0caf5
+gnohj_color28=#16161e
+gnohj_color29=#9ece6a
+gnohj_color30=#20303b
+gnohj_color31=#f7768e
+gnohj_color32=#37222c
+gnohj_color33=#ff9e64
+gnohj_color34=#16161e
+gnohj_color35=#7dcfff
+gnohj_color36=#73daca
+gnohj_color37=#e0af68
+gnohj_color38=#bb9af7
 #-------------------------------------------------------------------------------
-#--               Evergarden Blue Structure Variants (muted)
-#-- Based on original evergarden blue (#B2CAED) and snow (#AFD9E6)
+#--               Tokyo Night Blue Structure Variants
+#-- Based on original tokyo night blue variants and functional colors
 #-------------------------------------------------------------------------------
-# Blue variants (from evergarden blue #B2CAED muted)
-# darker blue variant
-gnohj_color39=#8fa6b9
-# lighter blue variant
-gnohj_color42=#b8c9d3
-# medium blue variant
-gnohj_color43=#9cb4c1
-# very light blue
-gnohj_color44=#c5d1db
-# ultra light blue
-gnohj_color45=#d0dbe3
-# dark blue-gray
-gnohj_color46=#7a90a0
-# Snow/skye variants (from evergarden snow #AFD9E6 and skye #B3E6DB muted)
-# snow variant
-gnohj_color47=#9bc4ce
-# skye variant
-gnohj_color48=#a6d1c8
-# darker snow
-gnohj_color49=#88b8c2
-# Additional evergarden functional colors (muted)
-# lime variant (from #DBE6AF muted)
-gnohj_color50=#c4d2a3
-# aqua variant (from #B3E3CA muted)
-gnohj_color51=#9bc7af
-# purple variant (from #D2BDF3 muted)
-gnohj_color52=#bfa8c8
-# darker surface (from surface colors)
-gnohj_color53=#3d4a4e
+# Blue variants (from tokyo night blue structure)
+# blue0 - darker blue
+gnohj_color39=#3d59a1
+# blue1 - bright blue
+gnohj_color42=#2ac3de
+# blue2 - cyan-blue / info
+gnohj_color43=#0db9d7
+# blue5 - light blue
+gnohj_color44=#89ddff
+# blue6 - very light blue
+gnohj_color45=#b4f9f8
+# blue7 - dark blue-gray
+gnohj_color46=#394b70
+# Additional tokyo night functional colors
+# dark3 - medium gray
+gnohj_color47=#545c7e
+# dark5 - lighter gray
+gnohj_color48=#737aa2
+# fg_dark - darker foreground
+gnohj_color49=#a9b1d6
+# green2 - teal-green
+gnohj_color50=#41a6b5
+# teal/hint - teal color
+gnohj_color51=#1abc9c
+# magenta2 - bright magenta
+gnohj_color52=#ff007c
+# terminal_black - terminal black
+gnohj_color53=#414868
+# Status and additional colors
+# red1/error - darker red
+gnohj_color54=#db4b4b
+# purple - different purple shade
+gnohj_color55=#9d7cd8
+# black/border - true black
+gnohj_color56=#15161e
+# border_highlight - highlight border
+gnohj_color57=#27a1b9
+# bg_dark1 - darkest background
+gnohj_color58=#0c0e14
 #-------------------------------------------------------------------------------
 #--               Nvim Lighter markdown headings
 #-- # This is based off of Terminal Palette
 #-- 4 colors to the right for these ligher headings
-#-- https://www.color-hex.com/color/a3b8c6
+#-- https://www.color-hex.com/color/7aa2f7
 #-------------------------------------------------------------------------------
 # Nvim - Markdown heading 1 - color04
-gnohj_color18=#88a1b2
+gnohj_color18=#5a7fc7
 # Nvim - Markdown heading 2 - color02
-gnohj_color19=#aabc90
+gnohj_color19=#7dae50
 # Nvim - Markdown heading 3 - color03
-gnohj_color20=#93b4a6
+gnohj_color20=#5dadcf
 # Nvim - Markdown heading 4 - color01
-gnohj_color21=#b99ac2
+gnohj_color21=#9b7ac7
 # Nvim - Markdown heading 5 - color05
-gnohj_color22=#bc9f7a
+gnohj_color22=#c09050
 # Nvim - Markdown heading 6 - color08
-gnohj_color23=#424b50
+gnohj_color23=#454c6b
 # Nvim - Markdown heading foreground
-gnohj_color26=#1e2528
+# usually set to color10 which is the terminal background
+gnohj_color26=#1a1b26
