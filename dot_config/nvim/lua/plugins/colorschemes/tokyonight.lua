@@ -55,7 +55,7 @@ return {
           or colors["gnohj_color03"]
         global_colors.black = colors["gnohj_color10"]
 
-        -- Blue variants (using new evergarden blue structure with fallbacks)
+        -- blue variants (using new evergarden blue structure with fallbacks)
         global_colors.blue = colors["gnohj_color04"]
         global_colors.blue0 = colors["gnohj_color39"] or colors["gnohj_color04"] -- darker blue
         global_colors.blue1 = colors["gnohj_color42"] or colors["gnohj_color03"] -- bright blue

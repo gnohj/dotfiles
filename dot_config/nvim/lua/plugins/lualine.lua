@@ -154,8 +154,8 @@ return {
             cond = lazy_status.has_updates,
             color = { fg = colors["gnohj_color11"] },
           },
-          { "encoding", color = { fg = colors["gnohj_color02"] } },
-          { "filetype", color = { fg = colors["gnohj_color03"] } },
+          { "encoding" },
+          { "filetype" },
           {
             "diff",
             symbols = {

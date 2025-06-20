@@ -11,7 +11,7 @@ return {
       folding = { enabled = false },
       -- Don't numerate the result list.
       resultLocation = { showNumberLabel = false },
-      showCompactInputs = true,
+      -- showCompactInputs = true,
     },
   },
 }
