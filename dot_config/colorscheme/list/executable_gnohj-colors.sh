@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 #shellcheck disable=SC2034,SC2154
 
+# Original gnohj colorscheme - Vibrant neon theme
+# Needs to conform to - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_night.lua
+
+# Hex colors should be lowercase for compatibility
 # Applicable terminal file:
 # ~/.config/ghostty/ghostty-theme
-
 # Applicable tmux file:
 # ~/.config/tmux/set_tmux_colors.sh
-
 # Applicable neovim plugins:
 # - colorscheme - tokyonight.lua, etc.
 # - highlights.lua
 # - lualine.lua
 # - render-markdown.lua
 # - package-info.lua
-
 #-------------------------------------------------------------------------------
 #--                  Wallpaper
 #-------------------------------------------------------------------------------
 wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
-
 #-------------------------------------------------------------------------------
 #--           Terminal Palette Colors
 # color04 - ghostty blue / nvim purple
@@ -29,77 +29,99 @@ wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
 # color08 - ghostty secondary black
 # color06 - nvim orange
 #-------------------------------------------------------------------------------
-
 gnohj_color04=#987afb
-
 gnohj_color02=#37f499
-
 gnohj_color03=#04d1f9
-
 gnohj_color01=#949ae5
-
 gnohj_color05=#19dfcf
-
 gnohj_color08=#5fa9f4
-
 gnohj_color06=#04d1f9
-
 #-------------------------------------------------------------------------------
 #--           Terminal / Tmux / Nvim
 #-------------------------------------------------------------------------------
 # Background
 gnohj_color10=#021c31
-
 # Terminal - Cursor color
-gnohj_color24=#47FF9C
-
+gnohj_color24=#47ff9c
 # Terminal red
 gnohj_color11=#f16c75
-
 # Terminal white / Text
 gnohj_color14=#c0caf5
-
 # Nvim Green
 gnohj_color40=#9ece6a
-
 # Nvim yellow
 gnohj_color41=#e0af68
-
 #-------------------------------------------------------------------------------
 #--                  Nvim
 #-------------------------------------------------------------------------------
 # Nvim - Lualine across
-gnohj_color17=#2C3A54
-
+gnohj_color17=#2c3a54
 # Nvim - Markdown codeblock
 gnohj_color07=#1c242f
-
 # Nvim - line across cursor
-gnohj_color13=#4A5F7A
-
+gnohj_color13=#4a5f7a
 # Nvim - Comments / Nvim Ghost Text
-gnohj_color09=#6272A4
-
+gnohj_color09=#6272a4
 # Nvim - Underline spellcap
 gnohj_color12=#f1fc79
-
 # Nvim - Selected text (bg visual)
 gnohj_color16=#275378
-
 # Nvim - Diffview colors
-gnohj_color27=#F6F6F5
+gnohj_color27=#f6f6f5
 gnohj_color28=#202624
-gnohj_color29=#87E58E
-gnohj_color30=#22372C
-gnohj_color31=#E95678
+gnohj_color29=#87e58e
+gnohj_color30=#22372c
+gnohj_color31=#e95678
 gnohj_color32=#342231
-gnohj_color33=#FFBFA9
+gnohj_color33=#ffbfa9
 gnohj_color34=#202624
-gnohj_color35=#A7DFEF
-gnohj_color36=#97EDA2
-gnohj_color37=#F6F6B6
-gnohj_color38=#EC6A88
-
+gnohj_color35=#a7dfef
+gnohj_color36=#97eda2
+gnohj_color37=#f6f6b6
+gnohj_color38=#ec6a88
+#-------------------------------------------------------------------------------
+#--               Neon Structure Variants
+#-- Based on original neon/vibrant color philosophy
+#-------------------------------------------------------------------------------
+# Neon blue variants
+# electric purple
+gnohj_color39=#8a6fff
+# bright electric blue
+gnohj_color42=#00bfff
+# cyan electric
+gnohj_color43=#00ffff
+# light neon blue
+gnohj_color44=#87ceeb
+# ultra bright blue
+gnohj_color45=#40e0d0
+# dark electric blue
+gnohj_color46=#4169e1
+# Neon accent variants
+# electric green
+gnohj_color47=#00ff7f
+# neon lime
+gnohj_color48=#32cd32
+# electric pink
+gnohj_color49=#ff1493
+# bright magenta
+gnohj_color50=#ff00ff
+# electric orange
+gnohj_color51=#ff4500
+# neon yellow
+gnohj_color52=#ffff00
+# Additional functional colors
+# deep dark blue
+gnohj_color53=#191970
+# medium electric blue
+gnohj_color54=#0066cc
+# bright violet
+gnohj_color55=#9370db
+# dark slate
+gnohj_color56=#2f4f4f
+# steel blue
+gnohj_color57=#4682b4
+# light cyan
+gnohj_color58=#e0ffff
 #-------------------------------------------------------------------------------
 #--               Nvim Lighter markdown headings
 #-- # This is based off of Terminal Palette
@@ -110,14 +132,14 @@ gnohj_color38=#EC6A88
 gnohj_color18=#5b4996
 # Nvim - Markdown heading 2 - color02
 gnohj_color19=#21925b
-# Nvim -Markdown heading 3 - color03
+# Nvim - Markdown heading 3 - color03
 gnohj_color20=#027d95
-# Nvim -Markdown heading 4 - color01
+# Nvim - Markdown heading 4 - color01
 gnohj_color21=#585c89
-# Nvim -Markdown heading 5 - color05
+# Nvim - Markdown heading 5 - color05
 gnohj_color22=#0f857c
 # Nvim - Markdown heading 6 - color08
 gnohj_color23=#396592
 # Nvim - Markdown heading foreground
 # usually set to color10 which is the terminal background
-gnohj_color26=#0D1116
+gnohj_color26=#0d1116
