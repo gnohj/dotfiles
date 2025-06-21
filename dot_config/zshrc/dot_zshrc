@@ -356,6 +356,112 @@ fi
 export AIDER_SUBTREE_ONLY=1
 
 . "$HOME/.local/bin/env"
+GITHUB_AUTO_PUSH_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.auto.push.github.plist"
+GITHUB_AUTO_PUSH_SCRIPT_PATH="$HOME/.config/zshrc/github-auto-push.sh"
+
+# -----------------------------  Github Auto Push Service
+if [ ! -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ]; then
+  echo "Creating $GITHUB_AUTO_PUSH_PLIST_PATH..."
+  cat <<EOF >"$GITHUB_AUTO_PUSH_PLIST_PATH"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gnohj.auto.push.github</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$GITHUB_AUTO_PUSH_SCRIPT_PATH</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>180</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/github-auto-push.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/github-auto-push.err</string>
+</dict>
+</plist>
+EOF
+  echo "Created $PLIST_PATH."
+fi
+
+# Check if the plist file is loaded, and load it if not
+# If you want to verify manually if running, run
+# launchctl list | grep -i autopush
+# First column (-) means the job is NOT currently running. Normal as our script runs every X seconds
+# Second Column (0) means the job ran successfully the last execution, other values mean error
+if ! launchctl list | grep -q "com.gnohj.auto.push.github"; then
+  echo "Loading $GITHUB_AUTO_PUSH_PLIST_PATH..."
+  
+  # Unload first in case it's in a weird state
+  launchctl unload "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null
+  
+  # Load fresh
+  if launchctl load "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null; then
+    echo "$GITHUB_AUTO_PUSH_PLIST_PATH loaded successfully."
+  else
+    echo "Failed to load $GITHUB_AUTO_PUSH_PLIST_PATH"
+  fi
+  
+  # Verify it actually loaded
+  if launchctl list | grep -q "com.gnohj.auto.push.github"; then
+    echo "GitHub AutoPush Service is now running."
+  else
+    echo "GitHub AutoPush Service failed to start."
+  fi
+fi
+
+# -----------------------------  SKHD (Hotkey Daemon)
+setup_skhd_launch_agent() {
+    local plist_file="$HOME/Library/LaunchAgents/com.gnohj.skhd.plist"
+    local skhd_path="/opt/homebrew/bin/skhd"
+    # Check if skhd is installed
+    if [[ ! -f "$skhd_path" ]]; then
+        echo "Warning: skhd not found at $skhd_path - install with 'brew install koekeishiya/formulae/skhd'"
+        return 1
+    fi
+    # Create the plist file if it doesn't exist or if skhd path has changed
+    if [[ ! -f "$plist_file" ]] || ! grep -q "$skhd_path" "$plist_file" 2>/dev/null; then
+        echo "Setting up skhd launch agent..."
+        # Create the plist content
+        cat > "$plist_file" << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.skhd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/skhd</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>Nice</key>
+    <integer>-5</integer>
+</dict>
+</plist>
+EOF
+        # Load the launch agent
+        if launchctl load "$plist_file" 2>/dev/null; then
+            echo "✅ skhd launch agent loaded successfully"
+        else
+            # If load fails, try unloading first then loading
+            launchctl unload "$plist_file" 2>/dev/null
+            if launchctl load "$plist_file" 2>/dev/null; then
+                echo "✅ skhd launch agent reloaded successfully"
+            else
+                echo "❌ Failed to load skhd launch agent"
+                return 1
+            fi
+        fi
+    fi
+}
+setup_skhd_launch_agent
 
 # ----------------------------- Attempt to get terminfo for xterm-kitty
 # -- ( this is needed for wezterm to render kitty images properly in tmux)
@@ -511,13 +617,6 @@ reload_prompt() {
   # check for outdated brew packages
   outdated
 }
-
-#-------------------------------------------------------------------------------
-#                  Power Level 10k Configuration (disabled for starship)
-#-------------------------------------------------------------------------------
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-# [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 
 
 #-------------------------------------------------------------------------------
