@@ -52,6 +52,7 @@ end
 
 return {
   "nvim-lualine/lualine.nvim",
+  event = "VeryLazy",
   opts = function(_, opts)
     table.remove(opts.sections.lualine_c, 1)
     table.remove(opts.sections.lualine_c, 2)
@@ -67,7 +68,7 @@ return {
     return {
 
       options = {
-        section_separators = { left = " ", right = " " }, -- Remove arrows
+        section_separators = { left = " " }, -- Remove arrows
         disabled_filetypes = {
           statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
           winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
@@ -122,10 +123,6 @@ return {
         lualine_b = { "branch" },
         lualine_c = {
           {
-            buffer_count,
-            color = { fg = colors["gnohj_color02"], gui = "bold" },
-          },
-          {
             "diagnostics",
             symbols = {
               error = icons.diagnostics.Error,
@@ -153,6 +150,10 @@ return {
             lazy_status.updates,
             cond = lazy_status.has_updates,
             color = { fg = colors["gnohj_color11"] },
+          },
+          {
+            buffer_count,
+            color = { fg = colors["gnohj_color02"], gui = "bold" },
           },
           { "encoding" },
           { "filetype" },
