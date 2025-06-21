@@ -18,18 +18,9 @@ local config = wezterm.config_builder()
 -- Then you'll be able to set your terminal to `xterm-kitty` as seen below
 config.term = "xterm-kitty"
 
--- Colors - load from external theme file like Ghostty
-config.colors = {
-	foreground = "#CBE0F0",
-	background = "#021c31",
-	cursor_bg = "#47FF9C",
-	cursor_border = "#47FF9C",
-	cursor_fg = "#011423",
-	selection_bg = "#033259",
-	selection_fg = "#CBE0F0",
-	ansi = { "#214969", "#E52E2E", "#44FFB1", "#FFE073", "#0FC5ED", "#a277ff", "#24EAF7", "#24EAF7" },
-	brights = { "#214969", "#E52E2E", "#44FFB1", "#FFE073", "#A277FF", "#a277ff", "#24EAF7", "#24EAF7" },
-}
+-- Colors - load from external theme file
+local theme = require("colors")
+config.colors = theme.colors
 
 -- Performance
 config.max_fps = 120
@@ -37,21 +28,17 @@ config.enable_kitty_graphics = true
 
 -- Font - match Ghostty exactly
 config.font = wezterm.font("RobotoMono Nerd Font")
-config.font_size = 15.5
+config.font_size = 15
 
 -- Cursor - match Ghostty style
 config.default_cursor_style = "BlinkingBlock"
 config.cursor_blink_rate = 0 -- false = no blinking
 
--- Background - match Ghostty
-config.window_background_opacity = 0.965
-config.macos_window_background_blur = 80
-
 -- Window - match Ghostty settings
 config.window_padding = {
 	left = 4,
 	right = 2,
-	top = 6,
+	top = 8,
 	bottom = 0,
 }
 config.enable_tab_bar = false
@@ -107,4 +94,9 @@ config.keys = {
 -- Quit behavior (match Ghostty)
 config.quit_when_all_windows_are_closed = true
 
+-- Background - match Ghostty
+-- config.macos_window_background_blur = 80
+
+config.window_background_opacity = 0.875
+-- config.window_background_opacity = 1.0
 return config
