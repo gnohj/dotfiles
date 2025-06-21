@@ -40,6 +40,10 @@ path = "~/Developer"
 startup_command = "ls"
 
 [[session]]
+name = "launch_agents 📥"
+path = "~/Library/LaunchAgents"
+
+[[session]]
 name = "downloads_folder 📥"
 path = "~/Downloads"
 startup_command = "ls"
