@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #shellcheck disable=SC2034,SC2154
 
-# Evergarden Winter Muted with Evergarden - 25% less saturated
-# Needs to conform to - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_night.lua
+# Evergarden Winter colorscheme adaptation (Muted - 25% less saturated)- https://github.com/everviolet/nvim/blob/mega/lua/evergarden/colors.lua
+# Needs to conform to nvim - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_storm.lua
+# Needs to conform to ghostty - https://github.com/folke/tokyonight.nvim/blob/main/extras/ghostty/tokyonight_storm
+# Do not get rid of existing background colors that are commented out - gnohj_color10
 
 # Hex colors should be lowercase for compatibility
 # Applicable terminal file:
@@ -18,7 +20,7 @@
 #-------------------------------------------------------------------------------
 #--                  Wallpaper
 #-------------------------------------------------------------------------------
-wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
+wallpaper="$HOME/Pictures/wallpapers/space-roygbiv.jpg"
 #-------------------------------------------------------------------------------
 #--           Terminal Palette Colors
 # color04 - ghostty blue / nvim purple
@@ -94,10 +96,10 @@ gnohj_color36=#a7cfaf
 gnohj_color37=#dab183
 gnohj_color38=#d9b8ca
 #-------------------------------------------------------------------------------
-#--               Evergarden Blue Structure Variants (muted)
+#--               Evergarden blue Structure Variants (muted)
 #-- Based on original evergarden blue (#B2CAED) and snow (#AFD9E6)
 #-------------------------------------------------------------------------------
-# Blue variants (from evergarden blue #B2CAED muted)
+# blue variants (from evergarden blue #B2CAED muted)
 # darker blue variant
 gnohj_color39=#8fa6b9
 # lighter blue variant
@@ -110,7 +112,7 @@ gnohj_color44=#c5d1db
 gnohj_color45=#d0dbe3
 # dark blue-gray
 gnohj_color46=#7a90a0
-# Snow/skye variants (from evergarden snow #AFD9E6 and skye #B3E6DB muted)
+# snow/skye variants (from evergarden snow #AFD9E6 and skye #B3E6DB muted)
 # snow variant
 gnohj_color47=#9bc4ce
 # skye variant

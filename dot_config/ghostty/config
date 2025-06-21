@@ -87,5 +87,5 @@ keybind = shift+enter=text:\n
 # background-blur-radius = 40
 # background-blur = true
 
-background-opacity = 0.72
+background-opacity = 0.875
 # background-opacity = 1.0
