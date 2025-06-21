@@ -2,7 +2,8 @@
 #shellcheck disable=SC2034,SC2154
 
 # Evergarden Winter colorscheme adaptation - https://github.com/everviolet/nvim/blob/mega/lua/evergarden/colors.lua
-# Needs to conform to - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_night.lua
+# Needs to conform to nvim - https://github.com/folke/tokyonight.nvim/blob/main/extras/lua/tokyonight_storm.lua
+# Needs to conform to ghostty - https://github.com/folke/tokyonight.nvim/blob/main/extras/ghostty/tokyonight_storm
 # Do not get rid of existing background colors that are commented out - gnohj_color10
 
 # Hex colors should be lowercase for compatibility
@@ -19,7 +20,7 @@
 #-------------------------------------------------------------------------------
 #--                  Wallpaper
 #-------------------------------------------------------------------------------
-wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
+wallpaper="$HOME/Pictures/wallpapers/space-roygbiv.jpg"
 #-------------------------------------------------------------------------------
 #--           Terminal Palette Colors
 # color04 - ghostty blue / nvim purple
