@@ -43,9 +43,13 @@ return {
         local unsaved_buffers = {}
         local buffer_map = {}
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-          if vim.api.nvim_buf_is_loaded(buf) and vim.api.nvim_buf_get_option(buf, "modified") then
+          if
+            vim.api.nvim_buf_is_loaded(buf)
+            and vim.api.nvim_buf_get_option(buf, "modified")
+          then
             local name = vim.api.nvim_buf_get_name(buf)
-            local display_name = name == "" and "[No Name]" or vim.fn.fnamemodify(name, ":~:.")
+            local display_name = name == "" and "[No Name]"
+              or vim.fn.fnamemodify(name, ":~:.")
             local display_text = "● " .. display_name
             table.insert(unsaved_buffers, display_text)
             buffer_map[display_text] = buf
@@ -71,7 +75,42 @@ return {
       end,
       desc = "[P]Unsaved buffers",
     },
-    -- Navigate my buffers
+    -- Picker
+    {
+      "<leader>ff",
+      function()
+        require("snacks").picker.smart({
+          -- Place "recent" first so it has the highest priority
+          multi = { "files" },
+          sources = {
+            files = { hidden = true },
+          },
+          matcher = {
+            cwd_bonus = false, -- do not favor items in the current directory
+            fuzzy = true,
+            smartcase = true,
+          },
+          sort = function(a, b)
+            -- Try to pull recency information if available; if not, rely on the internal score.
+            local a_time = a.last_used or 0
+            local b_time = b.last_used or 0
+            if a_time ~= b_time then
+              return a_time > b_time
+            else
+              return (a.score or 0) > (b.score or 0)
+            end
+          end,
+          win = {
+            preview = {
+              wo = { number = false, relativenumber = false },
+            },
+          },
+        })
+      end,
+      desc = "[P]Snacks picker files",
+    },
+
+    -- Navigate buffers
     {
       "<S-h>",
       function()
@@ -140,7 +179,12 @@ return {
             {
               box = "horizontal",
               { win = "list", border = "none" },
-              { win = "preview", title = "{preview}", width = 0.5, border = "left" },
+              {
+                win = "preview",
+                title = "{preview}",
+                width = 0.5,
+                border = "left",
+              },
             },
           },
         },
@@ -157,7 +201,12 @@ return {
             title_pos = "center",
             { win = "input", height = 1, border = "bottom" },
             { win = "list", border = "none" },
-            { win = "preview", title = "{preview}", height = 0.4, border = "top" },
+            {
+              win = "preview",
+              title = "{preview}",
+              height = 0.4,
+              border = "top",
+            },
           },
         },
       },
@@ -189,9 +238,20 @@ return {
           --   desc = "Config",
           --   action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
           -- },
-          { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+          {
+            icon = " ",
+            key = "s",
+            desc = "Restore Session",
+            section = "session",
+          },
           -- { icon = "󰒲 ", key = "l", desc = "Lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
-          { icon = " ", key = "<Esc>", hidden = true, desc = "Quit", action = ":qa" },
+          {
+            icon = " ",
+            key = "<Esc>",
+            hidden = true,
+            desc = "Quit",
+            action = ":qa",
+          },
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
         },
         header = [[
@@ -239,7 +299,10 @@ return {
     lazygit = {
       -- configure lazygit to not use nvim color scheme and load the global config file
       configure = false,
-      args = { "--use-config-file", vim.fn.expand("~/.config/lazygit/config.yml") },
+      args = {
+        "--use-config-file",
+        vim.fn.expand("~/.config/lazygit/config.yml"),
+      },
       win = {
         width = 0.99,
         height = 0.99,
