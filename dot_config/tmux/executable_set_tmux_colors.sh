@@ -30,11 +30,6 @@ tmux set -g @catppuccin_window_default_fill "number"
 tmux set -g @catppuccin_window_default_text "#[fg=$gnohj_color14]#W"
 tmux set -g @catppuccin_window_current_fill "number"
 tmux set -g @catppuccin_window_current_text "#[fg=$gnohj_color14]#W"
-
-# Put this option below the '@catppuccin_window_current_text' option for it to
-# override it, otherwise it won't work
-# I got the 'window_zoomed_flag' tip from 'DevOps Toolbox' youtuber
-# https://youtu.be/GH3kpsbbERo?si=4ZoV090qVbble7np
 #
 # Second option shows a message when panes are syncronized
 tmux set -g @catppuccin_window_current_text "#W#{?window_zoomed_flag,#[fg=$gnohj_color04] (    ),}#{?pane_synchronized,#[fg=$gnohj_color04] SYNCHRONIZED-PANES,}"
