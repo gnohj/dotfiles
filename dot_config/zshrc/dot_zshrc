@@ -143,14 +143,14 @@ ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
 
 # INFO: vicmd is short for normal mode
 # INFO: viins is short for insert mode
-function zvm_after_lazy_keybindings() {
-  # zvm_bindkey vicmd 'gh' beginning-of-line
-  # zvm_bindkey vicmd 'gl' end-of-line
-
-  # Restore autosuggestions bindings
-  bindkey '^F' autosuggest-accept
-  bindkey '^E' autosuggest-forward-word
-}
+# function zvm_after_lazy_keybindings() {
+#   # zvm_bindkey vicmd 'gh' beginning-of-line
+#   # zvm_bindkey vicmd 'gl' end-of-line
+#
+#   # Restore autosuggestions bindings
+#   bindkey '^F' autosuggest-accept
+#   bindkey '^E' autosuggest-forward-word
+# }
 
 function zvm_after_init() {
   # Source .fzf.zsh so that ctrl+r works
@@ -298,7 +298,7 @@ alias gcod="g checkout develop"
 alias gg="lazygit"
 
 # reload zshell - Updated to reflect new location
-alias reload="source $ZDOTDIR/.zshrc"
+# alias reload="source $ZDOTDIR/.zshrc"
 
 # speedtest - TODO: add speedtest-cli check/download (brew)
 alias speed="speedtest"
