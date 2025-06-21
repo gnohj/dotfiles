@@ -10,6 +10,14 @@
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
+-- NOTE: When inside neovim, run a `checkhealth` and under `tmux` you will see that
+-- the term is set to `xterm-kitty`. If the term is set to something else:
+-- - Reload your tmux configuration,
+-- - Then close all your tmux sessions, one at a time and quit wezterm
+-- - re-open wezterm
+-- Then you'll be able to set your terminal to `xterm-kitty` as seen below
+config.term = "xterm-kitty"
+
 -- Colors - load from external theme file like Ghostty
 config.colors = {
 	foreground = "#CBE0F0",
