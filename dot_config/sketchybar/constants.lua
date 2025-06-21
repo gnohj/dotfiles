@@ -18,6 +18,7 @@ local items <const> = {
 	VOLUME = "widgets.volume",
 	WIFI = "widgets.wifi",
 	GITHUB_NOTIFICATION = "widgets.github_notification",
+	BREW_NOTIFICATION = "widgets.brew_notification",
 	BATTERY = "widgets.battery",
 	CALENDAR = "widgets.calendar",
 }

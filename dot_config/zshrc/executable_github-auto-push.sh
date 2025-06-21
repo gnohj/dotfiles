@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# ensures at least 3 minutes have elapsed since the last file modification before it will
+# ensures at least 3 minutes have elapsed since the last file modification before it will push changes
 
 export PATH="/opt/homebrew/bin:$PATH"
 
