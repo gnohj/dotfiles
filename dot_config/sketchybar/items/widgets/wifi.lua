@@ -46,7 +46,7 @@ local wifiDown = sbar.add("item", constants.items.WIFI .. ".down", {
 			style = settings.fonts.styles.bold,
 			size = 10,
 		},
-		color = settings.colors.light_blue,
+		color = settings.colors.blue,
 		string = "??? Bps",
 	},
 	y_offset = -4,
@@ -148,11 +148,9 @@ local router = sbar.add("item", {
 	},
 })
 
-sbar.add("item", { position = "right", width = settings.dimens.padding.item })
-
 wifiUp:subscribe("network_update", function(env)
 	local upColor = (env.upload == "000 Bps") and settings.colors.grey or settings.colors.light_green
-	local downColor = (env.download == "000 Bps") and settings.colors.grey or settings.colors.light_blue
+	local downColor = (env.download == "000 Bps") and settings.colors.grey or settings.colors.blue
 
 	wifiUp:set({
 		icon = { color = upColor },
@@ -186,7 +184,7 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function(env)
 
 		if ipConnected then
 			wifiIcon = settings.icons.text.wifi.connected
-			wifiColor = settings.colors.green
+			wifiColor = settings.colors.light_blue
 		end
 
 		wifi:set({

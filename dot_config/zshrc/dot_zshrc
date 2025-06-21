@@ -16,16 +16,6 @@
 
 
 #-------------------------------------------------------------------------------
-#--         Powerlevel10k Instant Prompt (disabled for fastfetch)
-#-------------------------------------------------------------------------------
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
-# if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-#   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-# fi
-
-#-------------------------------------------------------------------------------
 #--                      Zsh Configuration
 #-------------------------------------------------------------------------------
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
@@ -74,11 +64,6 @@ source "${ZINIT_HOME}/zinit.zsh"
 #-------------------------------------------------------------------------------
 #--                 Zinit - Prompt
 #-------------------------------------------------------------------------------
-
-
-# Load Powerlevel10k (disabled for starship)
-# export PROMPT_NAME="powerlevel10k"
-# zinit ice depth=1; zinit light romkatv/powerlevel10k
 
 # Load Custom Segments for starship prompt before starship get's evaled
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -298,11 +283,10 @@ alias gcod="g checkout develop"
 alias gg="lazygit"
 
 # reload zshell - Updated to reflect new location
-# alias reload="source $ZDOTDIR/.zshrc"
+alias reload="source $ZDOTDIR/.zshrc"
 
 # speedtest - TODO: add speedtest-cli check/download (brew)
 alias speed="speedtest"
-
 
 # Yarn clean
 alias yarc='yarn cache clean && rm -rf node_modules dist && yarn install'
@@ -352,14 +336,9 @@ fi
 #                  Script Integrations
 #-------------------------------------------------------------------------------
 
-# -----------------------------  Aider - TODO: add Aider check/download (brew)
-export AIDER_SUBTREE_ONLY=1
-
-. "$HOME/.local/bin/env"
+# -----------------------------  Github Auto Push Service / Sketchybar Notification
 GITHUB_AUTO_PUSH_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.auto.push.github.plist"
 GITHUB_AUTO_PUSH_SCRIPT_PATH="$HOME/.config/zshrc/github-auto-push.sh"
-
-# -----------------------------  Github Auto Push Service
 if [ ! -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ]; then
   echo "Creating $GITHUB_AUTO_PUSH_PLIST_PATH..."
   cat <<EOF >"$GITHUB_AUTO_PUSH_PLIST_PATH"
@@ -411,7 +390,7 @@ if ! launchctl list | grep -q "com.gnohj.auto.push.github"; then
   fi
 fi
 
-# -----------------------------  SKHD (Hotkey Daemon)
+# -----------------------------  SKHD (Hotkey Daemon) -> Aerospace
 setup_skhd_launch_agent() {
     local plist_file="$HOME/Library/LaunchAgents/com.gnohj.skhd.plist"
     local skhd_path="/opt/homebrew/bin/skhd"
@@ -463,8 +442,22 @@ EOF
 }
 setup_skhd_launch_agent
 
-# ----------------------------- Attempt to get terminfo for xterm-kitty
-# -- ( this is needed for wezterm to render kitty images properly in tmux)
+# -----------------------------  Sketchybar Brew Notification
+# Setup sketchybar brew notification
+if command -v sketchybar &>/dev/null; then
+    sketchybar --add event brew_update 2>/dev/null
+    sketchybar --subscribe widgets.brew_notification brew_update 2>/dev/null
+    function brew() {
+        command brew "$@"
+        if [[ $* =~ "upgrade" ]] || [[ $* =~ "update" ]] || [[ $* =~ "outdated" ]] || [[ $* =~ "list" ]] || [[ $* =~ "install" ]] || [[ $* =~ "uninstall" ]] || [[ $* =~ "bundle" ]] || [[ $* =~ "doctor" ]] || [[ $* =~ "info" ]] || [[ $* =~ "cleanup" ]]; then
+            sketchybar --trigger brew_update
+        fi
+    }
+fi
+
+# ----------------------------- Wezterm - Attempt to get terminfo for xterm-kitty
+# -- ( this is needed for wezterm to render kitty images properly in tmux
+# -- still janky though with snacks image, but works great outside of tmux)
   if ! infocmp xterm-kitty &>/dev/null; then
     echo "xterm-kitty terminfo not found. Installing..."
     # Create a temp file
@@ -588,6 +581,9 @@ bindkey -M viins '^x' sesh-sessions
 # Disable Console Do Not Track (specification)
 export DO_NOT_TRACK=1
 export DISABLE_TELEMETRY=1
+
+# Disable Brew auto update
+export HOMEBREW_NO_AUTO_UPDATE="1"
 
 # Force ghostty detection for snacks image - https://github.com/folke/snacks.nvim/blob/main/docs/image.md
 export SNACKS_GHOSTTY=true
