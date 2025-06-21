@@ -4,6 +4,7 @@ PNPM
 WAF
 api
 cli
+envs
 fastly
 iHeartRadio
 iheart
@@ -12,4 +13,5 @@ neovim
 newrelic
 pid
 sourcemaps
+vcl
 which
