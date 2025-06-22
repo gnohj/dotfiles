@@ -147,15 +147,44 @@ return {
         },
         lualine_x = {
           {
+            function()
+              return require("noice").api.status.command.get()
+            end,
+            cond = function()
+              return package.loaded["noice"]
+                and require("noice").api.status.command.has()
+            end,
+            color = { fg = colors["gnohj_color04"] },
+          },
+          {
             lazy_status.updates,
             cond = lazy_status.has_updates,
             color = { fg = colors["gnohj_color11"] },
           },
           {
             buffer_count,
-            color = { fg = colors["gnohj_color02"], gui = "bold" },
+            color = { fg = colors["gnohj_color04"], gui = "bold" },
           },
-          { "encoding" },
+          {
+            function()
+              local cwd = vim.uv.cwd()
+              local home = vim.env.HOME
+              if cwd:find(home, 1, true) then
+                cwd = "~" .. cwd:sub(#home + 1)
+              end
+
+              local parts = vim.split(cwd, "/")
+              -- For monorepo: always show repo name + current context
+              if #parts <= 3 then
+                return parts[#parts]
+              else
+                return parts[3] .. "/.../" .. parts[#parts]
+              end
+            end,
+            icon = "📁",
+            color = { fg = colors["gnohj_color06"] },
+          },
+          { "encoding", color = { fg = colors["gnohj_color12"] } },
           { "filetype" },
           {
             "diff",
