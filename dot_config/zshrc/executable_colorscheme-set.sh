@@ -522,6 +522,47 @@ EOF
   # echo "Borders restarted with new colors."
 }
 
+generate_delta_config() {
+  delta_themes_file="$HOME/.config/delta/themes/themes.gitconfig"
+
+  # Create the directory if it doesn't exist
+  mkdir -p "$(dirname "$delta_themes_file")"
+
+  cat >"$delta_themes_file" <<EOF
+# Auto-generated delta themes configuration
+
+[delta "gnohj-theme"]
+	blame-palette = "$gnohj_color10 $gnohj_color07 $gnohj_color13 $gnohj_color16 $gnohj_color08"
+	commit-decoration-style = box ul
+	dark = true
+	file-decoration-style = "$gnohj_color14"
+	file-style = "$gnohj_color14"
+	hunk-header-decoration-style = box ul
+	hunk-header-file-style = bold
+	hunk-header-line-number-style = bold "$gnohj_color09"
+	hunk-header-style = file line-number syntax
+	line-numbers-left-style = "$gnohj_color09"
+	line-numbers-minus-style = bold "$gnohj_color11"
+	line-numbers-plus-style = bold "$gnohj_color02"
+	line-numbers-right-style = "$gnohj_color09"
+	line-numbers-zero-style = "$gnohj_color09"
+	# Much more visible red for deletions
+	minus-emph-style = bold syntax "#4a1f2a"
+	minus-style = syntax "#2a1319"
+	# Much more visible green for additions
+	plus-emph-style = bold syntax "#1f4a2a"
+	plus-style = syntax "#132a19"
+	map-styles = \\
+		bold purple => syntax "$gnohj_color16", \\
+		bold blue => syntax "$gnohj_color17", \\
+		bold cyan => syntax "$gnohj_color13", \\
+		bold yellow => syntax "$gnohj_color07"
+	# Should match the name of the bat theme
+	syntax-theme = gnohj-theme
+EOF
+  echo "Delta themes configuration updated at '$delta_themes_file'."
+}
+
 # If there's an update, replace the active colorscheme and perform necessary actions
 if [ "$UPDATED" = true ]; then
   echo "Updating active colorscheme to '$colorscheme_profile'."
@@ -557,8 +598,12 @@ if [ "$UPDATED" = true ]; then
 
   # Generate the btop theme
   generate_btop_theme
+
   # Generate bat config
   generate_bat_config
+
+  # Generate delta config
+  generate_delta_config
 
   # Generate borders config
   generate_borders_config
