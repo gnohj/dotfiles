@@ -49,9 +49,11 @@ lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
 lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
+# toggle back and forth between workspaces
+
 # Fullscreen and navigation
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
-lalt - tab : /opt/homebrew/bin/aerospace workspace-back-and-forth
+lalt - l : /opt/homebrew/bin/aerospace workspace-back-and-forth
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
 
 # Service mode
