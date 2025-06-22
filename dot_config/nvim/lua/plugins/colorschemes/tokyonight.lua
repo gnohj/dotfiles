@@ -234,7 +234,10 @@ return {
         -- Copilot ghost text
         hl.CopilotSuggestion = { fg = colors["gnohj_color09"], italic = true }
         hl.CopilotAnnotation = { fg = colors["gnohj_color09"], italic = true }
-        hl.Comment = { fg = colors["gnohj_color09"], italic = true }
+        hl.Comment = {
+          fg = colors["gnohj_color54"] or colors["gnohj_color09"],
+          italic = true,
+        }
 
         -- Diffview
         hl.DiffChange =

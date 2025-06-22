@@ -128,6 +128,8 @@ gnohj_color51=#9bc7af
 gnohj_color52=#bfa8c8
 # darker surface (from surface colors)
 gnohj_color53=#3d4a4e
+# darker comment
+gnohj_color54=#556570
 #-------------------------------------------------------------------------------
 #--               Nvim Lighter markdown headings
 #-- # This is based off of Terminal Palette
