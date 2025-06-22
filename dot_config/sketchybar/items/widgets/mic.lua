@@ -6,8 +6,8 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	update_freq = 10,
 	label = {
 		drawing = true,
-		padding_left = 0, -- Minimal space between icon and text
-		padding_right = 10, -- More space after text
+		padding_left = -8, -- Minimal space between icon and text
+		padding_right = 12, -- More space after text
 		font = "MesloLGM Nerd Font:Regular:12.0",
 	},
 	padding_right = 4, -- Keep this for overall item spacing

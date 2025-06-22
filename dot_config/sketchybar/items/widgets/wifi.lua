@@ -55,7 +55,7 @@ local wifiDown = sbar.add("item", constants.items.WIFI .. ".down", {
 local wifi = sbar.add("item", constants.items.WIFI .. ".padding", {
 	position = "right",
 	label = { drawing = false },
-	padding_right = 0,
+	padding_right = -8,
 })
 
 local wifiBracket = sbar.add("bracket", constants.items.WIFI .. ".bracket", {

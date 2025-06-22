@@ -7,7 +7,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	position = "right",
 	label = {
 		string = "??%",
-		padding_left = 0,
+		padding_left = -8,
 		color = settings.colors.light_green,
 	},
 })
