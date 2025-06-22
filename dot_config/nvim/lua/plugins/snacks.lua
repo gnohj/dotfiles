@@ -80,18 +80,19 @@ return {
       "<leader>ff",
       function()
         require("snacks").picker.smart({
+          title = "Files", -- Custom title instead of "Smart"
           -- Place "recent" first so it has the highest priority
           multi = { "files" },
           sources = {
             files = { hidden = true },
           },
           matcher = {
-            cwd_bonus = false, -- do not favor items in the current directory
+            cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
             fuzzy = true,
             smartcase = true,
           },
-          sort = function(a, b)
-            -- Try to pull recency information if available; if not, rely on the internal score.
+          sort = function(a, b) -- gets called after the internal matcher score
+            -- Try to pull recency information if available; if not, rely on the internal matcher score.
             local a_time = a.last_used or 0
             local b_time = b.last_used or 0
             if a_time ~= b_time then
@@ -142,9 +143,7 @@ return {
   },
   opts = {
     picker = {
-      sources = {
-        files = { hidden = true },
-      },
+      hidden = true, -- shows hidden files for file picker, grep picker, and explorer
       formatters = { file = { filename_first = true, truncate = 80 } },
       transform = function(item)
         if not item.file then
@@ -216,6 +215,7 @@ return {
       win = {
         input = {
           keys = {
+            ["<M-z>"] = { "toggle_hidden", mode = { "i", "n" } },
             -- to close the picker on ESC instead of going to normal mode,
             -- add the following keymap to your config
             ["<Esc>"] = { "close", mode = { "n", "i" } },
@@ -268,9 +268,6 @@ return {
 ]],
       },
     },
-    -- This keeps the image on the top right corner, basically leaving your
-    -- text area free, suggestion found in reddit by user `Redox_ahmii`
-    -- https://www.reddit.com/r/neovim/comments/1irk9mg/comment/mdfvk8b/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
     scratch = {
       ft = "markdown",
       cmd = "Scratch",
@@ -310,9 +307,6 @@ return {
         col = 0.025,
       },
     },
-
-    -- Ensure the LazyGit theme and config are applied
-
     bigfile = {},
     bufdelete = {},
     input = {},
