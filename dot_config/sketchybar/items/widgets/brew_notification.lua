@@ -7,14 +7,18 @@ os.execute("sketchybar --add event brew_update")
 -- Configure the brew item
 sbar.add("item", constants.items.BREW_NOTIFICATION, {
 	position = "right",
-	width = settings.dimens.padding.item,
 	padding_right = 8, -- Add some spacing
-	icon = " ",
+	icon = {
+		string = "􀐛",
+		padding_left = 0,
+		padding_right = 1, -- Minimal spacing
+	},
+	label = {
+		padding_left = 1,
+		padding_right = 0, -- Minimal spacing
+	},
 	-- Set freq to update every 1hr
 	update_freq = 1800 * 2,
-	label = {
-		padding_left = 2,
-	},
 	script = "~/.config/sketchybar/items/widgets/brew_notification.sh",
 	drawing = true, -- Changed from false since you want it visible
 })

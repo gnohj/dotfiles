@@ -18,13 +18,7 @@ export BG0O50=0x80${gnohj_color10#\#}
 export BG0O60=0x99${gnohj_color10#\#}
 export BG0O70=0xb2${gnohj_color10#\#}
 export BG0O80=0xcc${gnohj_color10#\#}
-# export BG0O85=0xD91e1e2e
-# export BG0O85=0xD9212337
-# This sets the color of the bar
-# Eldritch dark
 export BG0O85=0x55${gnohj_color10#\#}
-# Eldritch light
-# export BG0O85=0xCF212337
 export BG1=0x60${gnohj_color13#\#}
 export BG2=0x60${gnohj_color07#\#}
 

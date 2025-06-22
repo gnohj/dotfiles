@@ -40,9 +40,9 @@ case "$COUNT" in
   ;;
 0)
   COLOR=$GREEN
-  COUNT=0
+  COUNT=􀆅
   ;;
 esac
 
 # echo "Setting: sketchybar --set $NAME label=$COUNT icon.color=$COLOR" >>/tmp/brew_debug.log
-sketchybar --set $NAME label=$COUNT label.color=$COLOR icon.color=$BLUE
+sketchybar --set $NAME label=$COUNT label.color=$COLOR icon.color=$MAGENTA
