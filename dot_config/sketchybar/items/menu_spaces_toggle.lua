@@ -18,7 +18,7 @@ local function addToggle()
 	local menuToggle = sbar.add("item", constants.items.MENU_TOGGLE, {
 		icon = {
 			string = settings.icons.text.switch.on,
-			color = settings.colors.light_blue,
+			color = settings.colors.light_green,
 		},
 		label = {
 			width = 0,

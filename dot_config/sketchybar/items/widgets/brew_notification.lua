@@ -7,7 +7,7 @@ os.execute("sketchybar --add event brew_update")
 -- Configure the brew item
 sbar.add("item", constants.items.BREW_NOTIFICATION, {
 	position = "right",
-	padding_right = 8, -- Add some spacing
+	padding_right = 4, -- Add some spacing
 	icon = {
 		string = "􀐛",
 		padding_left = 0,
