@@ -336,6 +336,18 @@ fi
 #                  Script Integrations
 #-------------------------------------------------------------------------------
 
+# -----------------------------  SwitchAudioSource
+if ! command -v SwitchAudioSource &> /dev/null; then
+  echo "SwitchAudioSource not found. Installing SwitchAudioSource..."
+    brew install switchaudio-osx
+fi
+
+# -----------------------------  Sketchybar - Install SF Symbols
+if command -v brew &>/dev/null && [[ ! -d "/Applications/SF Symbols.app" ]]; then
+    echo "Installing SF Symbols..."
+    brew install --cask sf-symbols font-sf-pro
+fi
+
 # -----------------------------  Github Auto Push Service / Sketchybar Notification
 GITHUB_AUTO_PUSH_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.auto.push.github.plist"
 GITHUB_AUTO_PUSH_SCRIPT_PATH="$HOME/.config/zshrc/github-auto-push.sh"
