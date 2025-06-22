@@ -8,26 +8,47 @@
   b = branch
   pr = "!f() { git fetch -fu ${2:-upstream} refs/pull/$1/head:pr/$1 && git checkout pr/$1; }; f"
   pr-clean = "!git checkout master ; git for-each-ref refs/heads/pr/* --format=\"%(refname)\" | while read ref ; do branch=${ref#refs/heads/} ; git branch -D $branch ; done"
-  [url "https://"]
-  insteadOf = git://
   dt = "! args=$@; shift $#; nvim -c \"DiffviewOpen $args\"" # diff view tool
+
+[url "https://"]
+  insteadOf = git://
 
 [pull]
 	ff = only
+
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 	required = true
+
 [gpg]
 	program = gpg2
+
 [core]
 	pager = delta
   excludesfile = ~/.gitignore_global
+
 [interactive]
 	diffFilter = delta --color-only
+
+[merge]
+	conflictstyle = diff3
+	tool = nvimdiff
+
+[mergetool "nvimdiff"]
+	layout = LOCAL,BASE,REMOTE
+
+[pager]
+	diff = delta
+	log = delta
+	reflog = delta
+	show = delta
+
+[include]
+	path = ~/.config/delta/themes/themes.gitconfig
 [delta]
-	navigate = true
-	light = false
-	side-by-side = true
+  features = gnohj-theme
+  navigate = true
 	line-numbers = true
+	side-by-side = true

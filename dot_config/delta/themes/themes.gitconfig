@@ -1,0 +1,30 @@
+# Auto-generated delta themes configuration
+
+[delta "gnohj-theme"]
+	blame-palette = "#0f1419 #222427 #536571 #40474b #505e62"
+	commit-decoration-style = box ul
+	dark = true
+	file-decoration-style = "#e9e9e2"
+	file-style = "#e9e9e2"
+	hunk-header-decoration-style = box ul
+	hunk-header-file-style = bold
+	hunk-header-line-number-style = bold "#9fb7a4"
+	hunk-header-style = file line-number syntax
+	line-numbers-left-style = "#9fb7a4"
+	line-numbers-minus-style = bold "#da858e"
+	line-numbers-plus-style = bold "#b7ce97"
+	line-numbers-right-style = "#9fb7a4"
+	line-numbers-zero-style = "#9fb7a4"
+	# Much more visible red for deletions
+	minus-emph-style = bold syntax "#4a1f2a"
+	minus-style = syntax "#2a1319"
+	# Much more visible green for additions
+	plus-emph-style = bold syntax "#1f4a2a"
+	plus-style = syntax "#132a19"
+	map-styles = \
+		bold purple => syntax "#40474b", \
+		bold blue => syntax "#40474b", \
+		bold cyan => syntax "#536571", \
+		bold yellow => syntax "#222427"
+	# Should match the name of the bat theme
+	syntax-theme = gnohj-theme

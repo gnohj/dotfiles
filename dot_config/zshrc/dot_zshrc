@@ -267,6 +267,9 @@ alias cz='chezmoi'
 # Fzf Shortcuts
 alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
 
+# Trigger Spotify Sketchybar Update
+alias spot='sketchybar --trigger spotify'
+
 # NeoVim Shorcuts
 ESLINT_USE_FLAT_CONFIG=false
 alias n="ESLINT_USE_FLAT_CONFIG=false nvim"
@@ -308,6 +311,10 @@ alias leaves="brew leaves"
 
 # brew outdated list (installed packages by me)
 alias outdated="comm -12 <(brew leaves | sort) <(brew outdated --formula | awk '{print \$1}' | sort) | awk '{print \"outdated brew package: \" \$1}'"
+
+# Set an alias for viewing git diffs with delta
+alias gdelta='git diff | delta'
+
 
 #-------------------------------------------------------------------------------
 #                  Paths
@@ -533,23 +540,6 @@ if ! command -v delta &> /dev/null; then
         echo "Homebrew not found. Please install Homebrew first, then run: brew install git-delta"
     fi
 fi
-
-# Configure git to use delta if it's installed
-if command -v delta &> /dev/null; then
-    # Configure delta as git pager if not already configured
-    if ! git config --get core.pager | grep -q "delta"; then
-        git config --global core.pager "delta"
-        git config --global interactive.diffFilter "delta --color-only"
-        git config --global delta.navigate true
-        git config --global delta.light false
-        git config --global delta.side-by-side true
-        git config --global delta.line-numbers true
-        echo "Git configured to use delta as pager"
-    fi
-    # Set an alias for viewing git diffs with delta
-    alias gdelta='git diff | delta'
-fi
-
 
 #
 # -----------------------------  Fastfetch - TODO: add fastfetch check/download (brew)

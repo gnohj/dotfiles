@@ -90,6 +90,12 @@ startup_command = "nvim aerospace.toml"
 preview_command = "bat --language=toml --style=snip --color=always ~/.config/aerospace/aerospace.toml"
 
 [[session]]
+name = "delta_theme \ue615 "
+path = "~/.config/delta/themes"
+startup_command = "nvim themes.gitconfig"
+preview_command = "bat --language=toml --style=snip --color=always ~/.config/delta/themes/themes.gitconfig"
+
+[[session]]
 name = "autocmds_nvim \ue615 "
 path = "~/.config/nvim/lua/config"
 startup_command = "nvim autocmds.lua"
