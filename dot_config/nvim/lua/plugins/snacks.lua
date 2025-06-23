@@ -75,7 +75,23 @@ return {
       end,
       desc = "[P]Unsaved buffers",
     },
-    -- Picker
+
+    -- Find Nvim Config File (Chezmoi)
+    {
+      "<leader>fc",
+      function()
+        local chezmoi_source =
+          vim.fn.system("chezmoi source-path"):gsub("\n", "")
+        local nvim_config_path = chezmoi_source .. "/dot_config/nvim"
+        require("snacks").picker.files({
+          hidden = true,
+          title = "Nvim Chezmoi Config Source Files",
+          cwd = nvim_config_path,
+        })
+      end,
+      desc = "Find Config File",
+    },
+    -- Find Files
     {
       "<leader>ff",
       function()
