@@ -182,7 +182,7 @@ return {
               end
             end,
             icon = "📁",
-            color = { fg = colors["gnohj_color06"] },
+            color = { fg = colors["gnohj_color03"] },
           },
           { "encoding", color = { fg = colors["gnohj_color12"] } },
           { "filetype" },
