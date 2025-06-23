@@ -7,16 +7,27 @@
 #
 #  Manage your dotfiles across multiple diverse machines, securely
 #  https://chezmoi.io/
-#  https://www.chezmoi.io/reference/configuration-file/variables/.
+#  https://www.chezmoi.io/reference/configuration-file/variables/.lajskfjaslkfjsdklfjaslf
+
+[bitwarden]
+command = "rbw"
+
+[data]
+user = "gnohj"
+yes = "gnohj"
+github_user_name = "gnohj"
+github_user_email= "gnohj@users.noreply.github.com"
+
+[diff]
+pager = "delta"
+exclude = ["scripts"]
 
 [edit]
 apply = true
 command = "nvim"
 watch = true
 
-[diff]
-pager = "delta"
-exclude = ["scripts"]
-
-[bitwarden]
-command = "rbw"
+[scriptEnv]
+USER = "gnohj"
+GITHUB_USER_NAME = "gnohj"
+GITHUB_USER_EMAIL = "gnohj@users.noreply.github.com"
