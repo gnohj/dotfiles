@@ -138,6 +138,19 @@ vim.keymap.del("n", "<leader>gg")
 vim.keymap.del("n", "<leader>gG")
 
 -------------------------------------------------------------------------------
+--                           Chezmoi
+-------------------------------------------------------------------------------
+-- Fixed version - items are just strings, not objects with .path
+vim.keymap.set("n", "<leader>cz", function()
+  local chezmoi_source = vim.fn.system("chezmoi source-path"):gsub("\n", "")
+  Snacks.picker.files({
+    cwd = chezmoi_source,
+    title = "Chezmoi Source Files",
+    hidden = true,
+  })
+end, { desc = "Edit chezmoi source files" })
+
+-------------------------------------------------------------------------------
 --                           Grugfar
 -------------------------------------------------------------------------------
 keymap(
