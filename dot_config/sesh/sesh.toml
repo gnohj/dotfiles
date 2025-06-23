@@ -81,6 +81,11 @@ name = "web_repo \uf113 "
 startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh dev ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
+[[session]]
+name = "provision_repo \uf113 "
+path = "~/Developer/provision"
+preview_command = "bat --color=always ~/Developer/provision/README.md"
+
 # configs
 [[session]]
 name = "aerospace_config \ue615 "
