@@ -83,28 +83,25 @@ local function hideVolumeDetails()
 end
 
 local function toggleVolumeDetails(env)
-	if env.BUTTON == "right" then
-		sbar.exec("open /System/Library/PreferencePanes/Sound.prefpane")
-		return
-	end
+	-- Remove the right-click sound settings behavior
+	-- if env.BUTTON == "right" then
+	-- 	sbar.exec("open /System/Library/PreferencePanes/Sound.prefpane")
+	-- 	return
+	-- end
 
 	local shouldDraw = volumeBracket:query().popup.drawing == "off"
 	if shouldDraw then
 		volumeBracket:set({ popup = { drawing = true } })
-
 		sbar.exec("SwitchAudioSource -t output -c", function(result)
 			currentAudioDevice = result:sub(1, -2)
-
 			sbar.exec("SwitchAudioSource -a -t output", function(available)
 				local current = currentAudioDevice
 				local counter = 0
-
 				for device in string.gmatch(available, "[^\r\n]+") do
-					local color = settings.colors.light_green
+					local color = settings.colors.green -- Default color for non-current
 					if current == device then
-						color = settings.colors.light_green
+						color = settings.colors.light_green -- Highlighted color for current
 					end
-
 					sbar.add("item", constants.items.VOLUME .. ".device." .. counter, {
 						position = "popup." .. volumeBracket.name,
 						align = "center",
