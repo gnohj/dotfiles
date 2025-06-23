@@ -3,6 +3,7 @@ Callouts
 PNPM
 WAF
 api
+bashrc
 cli
 envs
 fastly
@@ -11,6 +12,7 @@ iheart
 loginToken
 neovim
 newrelic
+onchange
 pid
 sourcemaps
 vcl
