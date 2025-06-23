@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 
 # Directory containing markdown files
 VAULT_DIR="$HOME/Obsidian/second-brain/"
