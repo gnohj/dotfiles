@@ -44,6 +44,15 @@ local function current_buffer_unsaved_dot()
   end
 end
 
+-- File permissions component
+local function get_file_permissions()
+  if vim.bo.filetype ~= "sh" then
+    return ""
+  end
+  local file_path = vim.fn.expand("%:p")
+  return file_path and vim.fn.getfperm(file_path) or ""
+end
+
 -- Custom component to display the file path, with `~` for the home directory
 local function file_path()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
@@ -147,6 +156,11 @@ return {
         },
         lualine_x = {
           {
+            lazy_status.updates,
+            cond = lazy_status.has_updates,
+            color = { fg = colors["gnohj_color11"] },
+          },
+          {
             function()
               return require("noice").api.status.command.get()
             end,
@@ -155,11 +169,6 @@ return {
                 and require("noice").api.status.command.has()
             end,
             color = { fg = colors["gnohj_color04"] },
-          },
-          {
-            lazy_status.updates,
-            cond = lazy_status.has_updates,
-            color = { fg = colors["gnohj_color11"] },
           },
           {
             buffer_count,
@@ -184,6 +193,22 @@ return {
             icon = "📁",
             color = { fg = colors["gnohj_color03"] },
           },
+          {
+            get_file_permissions,
+            cond = function()
+              return vim.bo.filetype == "sh" and vim.fn.expand("%:p") ~= ""
+            end,
+            color = function()
+              local file_path = vim.fn.expand("%:p")
+              local permissions = file_path and vim.fn.getfperm(file_path) or ""
+              local owner_permissions = permissions:sub(1, 3)
+              local fg_color = (owner_permissions == "rwx")
+                  and colors["gnohj_color02"]
+                or colors["gnohj_color11"]
+              return { fg = fg_color, gui = "bold" }
+            end,
+          },
+
           { "encoding", color = { fg = colors["gnohj_color12"] } },
           { "filetype" },
           {
