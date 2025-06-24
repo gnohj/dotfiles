@@ -53,7 +53,7 @@ lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
 # Fullscreen and navigation
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
-lalt - l : /opt/homebrew/bin/aerospace workspace-back-and-forth
+lalt - o : /opt/homebrew/bin/aerospace workspace-back-and-forth
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
 
 # Service mode
