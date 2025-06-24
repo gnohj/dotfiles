@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 GHOSTTY_CONFIG="$HOME/.config/ghostty/config"
 

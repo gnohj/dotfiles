@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 WEZTERM_CONFIG="$HOME/.config/wezterm/wezterm.lua"
 

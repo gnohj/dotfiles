@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Source the colorscheme file
 source "$HOME/.config/colorscheme/active/active-colorscheme.sh"

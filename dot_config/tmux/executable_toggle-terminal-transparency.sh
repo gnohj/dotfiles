@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ~/.config/tmux/toggle-ghostty-transparency.sh
 ~/.config/tmux/toggle-wezterm-transparency.sh
