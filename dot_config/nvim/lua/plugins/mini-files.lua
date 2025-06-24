@@ -33,6 +33,24 @@ return {
       width_preview = 80,
     })
 
+    -- Add content filter to hide claude filesz
+    opts.content = vim.tbl_deep_extend("force", opts.content or {}, {
+      filter = function(entry)
+        local name = entry.name:lower() -- Convert to lowercase for case-insensitive matching
+
+        -- Hide claude-related files and directories
+        if
+          name == "claude.md"
+          or name == ".claude.json"
+          or name == ".claude"
+        then
+          return false
+        end
+
+        return true
+      end,
+    })
+
     opts.options = vim.tbl_deep_extend("force", opts.options or {}, {
       -- Whether to use for editing directories
       -- Disabled by default in LazyVim because neo-tree is used for that

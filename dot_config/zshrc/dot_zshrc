@@ -257,6 +257,9 @@ alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
+# Trigger Spicetify Sketchybar Update
+alias spice='spicetify auto'
+
 # NeoVim Shorcuts
 ESLINT_USE_FLAT_CONFIG=false
 alias n="ESLINT_USE_FLAT_CONFIG=false nvim"

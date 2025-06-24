@@ -3,4 +3,5 @@ README.md
 # Only apply to macOS
 {{- if ne .chezmoi.os "darwin" }}
 private_Library/
+dot_config/private_spicetify/
 {{- end }}
