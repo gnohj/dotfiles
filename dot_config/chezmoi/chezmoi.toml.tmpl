@@ -8,8 +8,16 @@
 #  Manage your dotfiles across multiple diverse machines, securely
 #  https://chezmoi.io/
 
+[apply]
+auto = true
+
 [bitwarden]
 command = "rbw"
+
+[edit]
+apply = true
+command = "nvim"
+watch = true
 
 [git]
 autoAdd = true
@@ -19,22 +27,16 @@ installPackages = false
 newMachine = false
 user = "gnohj"
 yes = "gnohj"
-github_user_email= "gnohj@users.noreply.github.com"
+github_user_email = "gnohj@users.noreply.github.com"
 github_user_name = "gnohj"
 
 [diff]
 exclude = ["scripts"]
 pager = "delta"
 
-[apply]
-auto = true
-
-[edit]
-apply = true
-command = "nvim"
-watch = true
 
 [scriptEnv]
 GITHUB_USER_EMAIL = "gnohj@users.noreply.github.com"
 GITHUB_USER_NAME = "gnohj"
 USER = "gnohj"
+
