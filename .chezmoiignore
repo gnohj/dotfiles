@@ -4,4 +4,5 @@ README.md
 {{- if ne .chezmoi.os "darwin" }}
 private_Library/
 dot_config/private_spicetify/
+dot_config/vimium-c
 {{- end }}
