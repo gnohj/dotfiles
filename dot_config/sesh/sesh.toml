@@ -29,6 +29,14 @@ path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
+name = "config_folder 📥"
+path = "~/.config"
+
+[[session]]
+name = "logs_folder 📥"
+path = "~/.logs"
+
+[[session]]
 name = "chezmoi_repo \uf113 "
 path = "~/.local/share/chezmoi"
 startup_command = "gg"
@@ -222,5 +230,5 @@ preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_
 [[session]]
 name = "zshrc_config \ue615 "
 path = "~/.local/share/chezmoi/dot_config/zshrc"
-startup_command = "nvim .zshrc"
-preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/zshrc/.zshrc"
+startup_command = "nvim dot_zshrc"
+preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/zshrc/dot_zshrc"
