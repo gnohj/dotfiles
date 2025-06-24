@@ -2,6 +2,7 @@ Ansible
 Aptivada
 Bitwarden
 Callouts
+Lazygit
 MacOS
 PNPM
 WAF
