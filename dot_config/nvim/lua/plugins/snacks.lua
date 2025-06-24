@@ -98,9 +98,6 @@ return {
         require("snacks").picker.smart({
           title = "Files", -- Custom title instead of "Smart"
           multi = { "files" },
-          sources = {
-            files = { hidden = false, ignored = true },
-          },
           matcher = {
             cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
             fuzzy = true,
@@ -158,7 +155,7 @@ return {
   },
   opts = {
     picker = {
-      hidden = true, -- shows hidden files for file picker, grep picker, and explorer
+      hidden = false,
       ignored = true,
       matcher = {
         frecency = true,
@@ -232,15 +229,14 @@ return {
       win = {
         input = {
           keys = {
-            ["<M-z>"] = { "toggle_hidden", mode = { "i", "n" } },
             -- to close the picker on ESC instead of going to normal mode,
             -- add the following keymap to your config
-            ["<Esc>"] = { "close", mode = { "n", "i" } },
+            ["<Es>"] = { "close", mode = { "n", "i" } },
             -- I'm used to scrolling like this in LazyGit
             ["J"] = { "preview_scroll_down", mode = { "i", "n" } },
             ["K"] = { "preview_scroll_up", mode = { "i", "n" } },
-            -- ["H"] = { "preview_scroll_left", mode = { "i", "n" } },
-            -- ["L"] = { "preview_scroll_right", mode = { "i", "n" } },
+            ["Z"] = { "preview_scroll_left", mode = { "i", "n" } },
+            ["X"] = { "preview_scroll_right", mode = { "i", "n" } },
           },
         },
       },
