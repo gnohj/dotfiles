@@ -91,16 +91,15 @@ return {
       end,
       desc = "Find Config File",
     },
-    -- Find Files
+    -- Find Files - default snacks <leader>ff doesn't work well with frecency and sorting, so overriding here
     {
       "<leader>ff",
       function()
         require("snacks").picker.smart({
           title = "Files", -- Custom title instead of "Smart"
-          -- Place "recent" first so it has the highest priority
           multi = { "files" },
           sources = {
-            files = { hidden = true },
+            files = { hidden = false, ignored = true },
           },
           matcher = {
             cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
@@ -138,7 +137,7 @@ return {
           end,
           finder = "buffers",
           format = "buffer",
-          hidden = false,
+          hidden = true,
           unloaded = true,
           current = true,
           sort_lastused = true,
@@ -160,6 +159,11 @@ return {
   opts = {
     picker = {
       hidden = true, -- shows hidden files for file picker, grep picker, and explorer
+      ignored = true,
+      matcher = {
+        frecency = true,
+        cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
+      },
       formatters = { file = { filename_first = true, truncate = 80 } },
       transform = function(item)
         if not item.file then
@@ -224,9 +228,6 @@ return {
             },
           },
         },
-      },
-      matcher = {
-        frecency = true,
       },
       win = {
         input = {
