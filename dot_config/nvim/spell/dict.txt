@@ -1,7 +1,11 @@
+Ansible
 Aptivada
+Bitwarden
 Callouts
+MacOS
 PNPM
 WAF
+Zsh
 api
 bashrc
 cli
