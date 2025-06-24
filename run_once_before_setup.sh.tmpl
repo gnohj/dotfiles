@@ -49,8 +49,8 @@ echo "Homebrew is installed."
 echo "Checking and installing required brew taps..."
 taps=(
   "FelixKratz/formulae"
-  "oven-sh/bun"
   "nikitabobko/tap"
+  "oven-sh/bun"
 )
 for tap in "${taps[@]}"; do
   if ! $BREW_CMD tap | grep -q "^${tap}$"; then
@@ -64,27 +64,28 @@ done
 # --- Packages ---
 echo "Checking and installing required brew packages.."
 packages=(
-  "FelixKratz/formulae/sketchybar"
-  "neovim"
-  "starship"
-  "switchaudio-osx"
-  "koekeishiya/formulae/skhd"
-  "rbw"
+  "bat"
   "borders"
-  "git-delta"
-  "fastfetch"
-  "kitty"
-  "sesh"
-  "thefuck"
   "direnv"
-  "tmux"
-  "lua"
+  "eza"
+  "fastfetch"
+  "FelixKratz/formulae/sketchybar"
   "fnm"
   "fzf"
-  "zoxide"
-  "bat"
-  "eza"
+  "git-delta"
+  "kitty"
+  "koekeishiya/formulae/skhd"
+  "lua"
+  "neovim"
+  "rbw"
+  "sesh"
   "speedtest-cli"
+  "spicetify-cli"
+  "starship"
+  "switchaudio-osx"
+  "thefuck"
+  "tmux"
+  "zoxide"
 )
 for pkg in "${packages[@]}"; do
   # Use our architecture-aware command to check for installed packages
@@ -99,12 +100,13 @@ done
 # --- Cask Packages (Gui/Fonts) ---
 echo "Checking and installing required brew casks.."
 cask_packages=(
-  "sf-symbols"
-  "font-sf-pro"
   "flameshot"
+  "font-sf-pro"
+  "font-space-mono-nerd-font"
+  "karabiner-elements"
   "kitty"
   "nikitabobko/tap/aerospace"
-  "karabiner-elements"
+  "sf-symbols"
 )
 for pkg in "${cask_packages[@]}"; do
   # Extract just the cask name (everything after the last /)
