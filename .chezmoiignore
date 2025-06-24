@@ -2,7 +2,7 @@ README.md
 
 # Only apply to macOS
 {{- if ne .chezmoi.os "darwin" }}
-private_Library/
+private_Library/LaunchAgents/
 dot_config/private_spicetify/
 dot_config/vimium-c
 {{- end }}
