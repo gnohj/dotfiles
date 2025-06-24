@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Notify Sketchybar of github repo update notification
 
 # Gentle fade-in effect (5 blinks)

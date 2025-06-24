@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 MIC_NAME_FILE="/tmp/${USER}_mic_name"
