@@ -37,6 +37,13 @@ echo "  - System Preferences > Desktop & Dock > Displays have separate Spaces (e
 echo "  - System Preferences > Accessibility > Display > Reduce motion (enable)"
 echo "  - System Preferences > Keyboard > Keyboard Shortcuts > Disable additional shortcuts that might conflict"
 echo "  - Note: You may need to disable more keyboard shortcuts as conflicts are discovered "
+echo "  - Add global git ignore file to home directory - ~/.gitignore_global "
+
+#-------------------------------------------------------------------------------
+#--                      Spicetify Theme
+#-------------------------------------------------------------------------------
+spicetify config current_theme Dribbblish color_scheme catppuccin-mocha
+spicetify backup apply
 
 #-------------------------------------------------------------------------------
 #--                      GitHub Auto Push Service / Sketchybar Notification
