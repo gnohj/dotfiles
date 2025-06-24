@@ -3,9 +3,23 @@
 echo "🔧 Run Once [Before] Setup Starting..."
 
 echo "--- CHEZMOI DEBUG ---"
+echo "Username:     {{ .chezmoi.username }}"
+echo "Host Name:    {{ .chezmoi.hostname }}"
+echo "Home Directory: {{ .chezmoi.homeDir }}"
+echo "Source Directory: {{ .chezmoi.sourceDir }}"
 echo "OS Detected:   {{ .chezmoi.os }}"
 echo "Arch Detected: {{ .chezmoi.arch }}"
 echo "-----------------------"
+
+{{- if not .newMachine }}
+echo "Skipping package installation (newMachine=false)"
+exit 0
+{{- end }}
+
+{{- if ne .chezmoi.os "darwin" }}
+echo "Skipping package installation (not macOS)"
+exit 0
+{{- end }}
 
 #--- Architecture Detection for Homebrew on Apple Silicon ---
 # The variables CHEZMOI_OS and CHEZMOI_ARCH are populated by `chezmoi apply`
@@ -73,6 +87,7 @@ packages=(
   "fnm"
   "fzf"
   "git-delta"
+  "jq"
   "kitty"
   "koekeishiya/formulae/skhd"
   "lua"
