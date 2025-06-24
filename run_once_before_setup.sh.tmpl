@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+echo "🔧 Run Once [Before] Setup Starting..."
+
+echo "--- CHEZMOI DEBUG ---"
+echo "OS Detected:   {{ .chezmoi.os }}"
+echo "Arch Detected: {{ .chezmoi.arch }}"
+echo "-----------------------"
+
+#--- Architecture Detection for Homebrew on Apple Silicon ---
+# The variables CHEZMOI_OS and CHEZMOI_ARCH are populated by `chezmoi apply`
+# before this script is executed.
+CHEZMOI_OS="{{ .chezmoi.os }}"
+CHEZMOI_ARCH="{{ .chezmoi.arch }}"
+
+BREW_CMD="brew"
+
+# We only need special handling on macOS ("darwin").
+if [[ "$CHEZMOI_OS" == "darwin" ]]; then
+  if [[ "$CHEZMOI_ARCH" == "amd64" ]]; then
+    if [[ "$(sysctl -n hw.optional.arm64)" == "1" ]]; then
+      echo "Rosetta detected on Apple Silicon hardware. Forcing Homebrew to run natively."
+      BREW_CMD="arch -arm64 brew"
+    fi
+  fi
+fi
+
+echo "helllo"
+echo $CHEZMOI_OS
+
+# Function to check if a command exists
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+#-------------------------------------------------------------------------------
+#--                      Homebrew Package Manager Setup
+#-------------------------------------------------------------------------------
+
+# --- Install Homebrew if not installed ---
+# The official installer handles architecture detection correctly on its own.
+if ! command_exists brew; then
+  echo "Homebrew not found. Installing..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+echo "Homebrew is installed."
+
+# --- Taps (3rd Party - repos)---
+echo "Checking and installing required brew taps..."
+taps=(
+  "FelixKratz/formulae"
+  "oven-sh/bun"
+  "nikitabobko/tap"
+)
+for tap in "${taps[@]}"; do
+  if ! $BREW_CMD tap | grep -q "^${tap}$"; then
+    echo "Tapping ${tap}..."
+    $BREW_CMD tap "${tap}"
+  else
+    echo "Tap ${tap} is already added."
+  fi
+done
+
+# --- Packages ---
+echo "Checking and installing required brew packages.."
+packages=(
+  "FelixKratz/formulae/sketchybar"
+  "neovim"
+  "starship"
+  "switchaudio-osx"
+  "koekeishiya/formulae/skhd"
+  "rbw"
+  "borders"
+  "git-delta"
+  "fastfetch"
+  "kitty"
+  "sesh"
+  "thefuck"
+  "direnv"
+  "tmux"
+  "lua"
+  "fnm"
+  "fzf"
+  "zoxide"
+  "bat"
+  "eza"
+  "speedtest-cli"
+)
+for pkg in "${packages[@]}"; do
+  # Use our architecture-aware command to check for installed packages
+  if ! $BREW_CMD list --formula | grep -q "^${pkg%%/*}$"; then
+    echo "Installing ${pkg}..."
+    $BREW_CMD install "${pkg}"
+  else
+    echo "${pkg} is already installed."
+  fi
+done
+
+# --- Cask Packages (Gui/Fonts) ---
+echo "Checking and installing required brew casks.."
+cask_packages=(
+  "sf-symbols"
+  "font-sf-pro"
+  "flameshot"
+  "kitty"
+  "nikitabobko/tap/aerospace"
+  "karabiner-elements"
+)
+for pkg in "${cask_packages[@]}"; do
+  # Extract just the cask name (everything after the last /)
+  cask_name="${pkg##*/}"
+  if ! $BREW_CMD list --cask | grep -q "^${cask_name}$"; then
+    echo "Installing cask ${pkg}..."
+    $BREW_CMD install --cask "${pkg}"
+  else
+    echo "Cask ${cask_name} is already installed."
+  fi
+done
+
+#-------------------------------------------------------------------------------
+#--                      Zinit
+#-------------------------------------------------------------------------------
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+if [ ! -d "$ZINIT_HOME" ]; then
+  echo "Installing Zinit..."
+  mkdir -p "$(dirname "$ZINIT_HOME")"
+  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+else
+  echo "Zinit is already installed."
+fi
+
+#-------------------------------------------------------------------------------
+#--                      WezTerm Terminfo for xterm-kitty (preview images)
+#-------------------------------------------------------------------------------
+if ! infocmp xterm-kitty &>/dev/null; then
+  echo "xterm-kitty terminfo not found. Installing..."
+  tempfile=$(mktemp)
+  if curl -o "$tempfile" https://raw.githubusercontent.com/kovidgoyal/kitty/master/terminfo/kitty.terminfo; then
+    echo "Downloaded kitty.terminfo successfully."
+    tic -x -o ~/.terminfo "$tempfile"
+    echo "xterm-kitty terminfo installed successfully."
+  else
+    echo "Failed to download kitty.terminfo."
+  fi
+  rm "$tempfile"
+fi
+
+echo "All package installations and one-time setups are complete...."

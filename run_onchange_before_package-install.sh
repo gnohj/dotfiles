@@ -1,4 +1,128 @@
 #!/usr/bin/env bash
-
 echo "🔧 Run OnChange [Before] Package Install Starting..."
-echo "🎉 Run OnChange [Before] Package InstallSetup Complete!"
+
+#-------------------------------------------------------------------------------
+#--                      macOS System Configuration
+#-------------------------------------------------------------------------------
+
+echo "Configuring macOS system preferences..."
+
+# Auto-hide Dock and menu bar
+echo "Setting up Dock auto-hide..."
+defaults write com.apple.dock autohide -bool true
+
+# Make Dock appear only after 10-second hover (you can adjust this value)
+echo "Setting Dock auto-hide delay..."
+defaults write com.apple.dock autohide-delay -float 10.0
+
+# Disable Dock app bouncing
+echo "Disabling Dock app bouncing..."
+defaults write com.apple.dock no-bouncing -bool true
+
+# Apply Dock changes
+killall Dock
+
+# Disable window animations
+echo "Disabling window animations..."
+defaults write -g NSAutomaticWindowAnimationsEnabled -bool false
+
+# Move windows by dragging any part of the window (by holding ctrl+cmd)
+echo "Enabling window dragging from anywhere with Ctrl+Cmd..."
+defaults write -g NSWindowShouldDragOnGesture -bool true
+
+echo "📝 Manual setup required:"
+echo "  - System Preferences > Desktop & Dock > Automatically hide and show the menu bar"
+echo "  - System Preferences > Desktop & Dock > Show items on desktop (disable)"
+echo "  - System Preferences > Desktop & Dock > Displays have separate Spaces (enable for Sketchybar)"
+echo "  - System Preferences > Accessibility > Display > Reduce motion (enable)"
+echo "  - System Preferences > Keyboard > Keyboard Shortcuts > Disable additional shortcuts that might conflict"
+echo "  - Note: You may need to disable more keyboard shortcuts as conflicts are discovered "
+
+#-------------------------------------------------------------------------------
+#--                      GitHub Auto Push Service / Sketchybar Notification
+#-------------------------------------------------------------------------------
+GITHUB_AUTO_PUSH_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.auto.push.github.plist"
+GITHUB_AUTO_PUSH_SCRIPT_PATH="$HOME/.config/zshrc/github-auto-push.sh"
+echo "Setting up GitHub Auto Push launch agent..."
+
+cat <<EOF >"$GITHUB_AUTO_PUSH_PLIST_PATH"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gnohj.auto.push.github</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${GITHUB_AUTO_PUSH_SCRIPT_PATH}</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>180</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/github-auto-push.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/github-auto-push.err</string>
+</dict>
+</plist>
+EOF
+
+# Reload the service to apply changes
+launchctl unload "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null
+if launchctl load "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null; then
+  echo "GitHub Auto Push service loaded/reloaded successfully."
+else
+  echo "Failed to load GitHub Auto Push service."
+fi
+
+#-------------------------------------------------------------------------------
+#--                      SKHD (Hotkey Daemon) Configuration -> Aerospace
+#-------------------------------------------------------------------------------
+SKHD_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.skhd.plist"
+SKHD_BREW_PATH="/opt/homebrew/bin/skhd"
+
+# First, check if the skhd command actually exists
+if [[ -f "$SKHD_BREW_PATH" ]]; then
+  #
+  # NEW LOGIC: Only create/update the plist if it doesn't exist OR if the path inside it is wrong..
+  #
+  if [ ! -f "$SKHD_PLIST_PATH" ] || ! grep -q "<string>${SKHD_BREW_PATH}</string>" "$SKHD_PLIST_PATH"; then
+    echo "skhd launch agent is missing or outdated. Creating/Updating..."
+    # Create the plist file
+    cat >"$SKHD_PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.skhd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${SKHD_BREW_PATH}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>Nice</key>
+    <integer>-5</integer>
+</dict>
+</plist>
+EOF
+    # Reload the service to apply any changes
+    launchctl unload "$SKHD_PLIST_PATH" 2>/dev/null
+    if launchctl load "$SKHD_PLIST_PATH" 2>/dev/null; then
+      echo "skhd launch agent loaded/reloaded successfully."
+    else
+      echo "Failed to load skhd launch agent."
+    fi
+  else
+    # If the file exists and the path is correct, do nothing.
+    echo "skhd launch agent is already up-to-date."
+  fi
+else
+  echo "Warning: skhd not found at ${SKHD_BREW_PATH}. Please install it."
+fi
+
+echo "🎉 Run OnChange [Before] Package Install Setup Complete!"
