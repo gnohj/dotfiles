@@ -7,6 +7,20 @@ source "$HOME/.config/sketchybar/config/colors.sh"
 # echo "Script triggered with NAME: $NAME" >>/tmp/brew_debug.log
 # echo "Sender: $SENDER" >>/tmp/brew_debug.log
 
+LOG_DIR="$HOME/.logs/sketchybar"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/brew_$(date '+%Y%m').log"
+
+log_message() {
+  local level="$1"
+  local message="$2"
+  local timestamp
+  timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+  echo "[$timestamp] [$level] [BREW] $message" >>"$LOG_FILE"
+}
+
+log_message "INFO" "Starting brew update check (Sender: $SENDER)"
+
 # Force brew to use full path and update first if triggered by event
 if [[ "$SENDER" == "brew_update" ]]; then
   # echo "Event trigger detected - running brew update first" >>/tmp/brew_debug.log
@@ -46,3 +60,5 @@ esac
 
 # echo "Setting: sketchybar --set $NAME label=$COUNT icon.color=$COLOR" >>/tmp/brew_debug.log
 sketchybar --set $NAME label=$COUNT label.color=$COLOR icon.color=$MAGENTA
+
+log_message "INFO" "Brew check completed - Count: $COUNT"
