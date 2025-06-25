@@ -77,7 +77,7 @@ return {
     return {
 
       options = {
-        section_separators = { left = " " }, -- Remove arrows
+        -- section_separators = { left = " " }, -- Remove arrows
         disabled_filetypes = {
           statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
           winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
@@ -132,85 +132,9 @@ return {
         lualine_b = { "branch" },
         lualine_c = {
           {
-            "diagnostics",
-            symbols = {
-              error = icons.diagnostics.Error,
-              warn = icons.diagnostics.Warn,
-              info = icons.diagnostics.Info,
-              hint = icons.diagnostics.Hint,
-            },
-          },
-          {
-            current_buffer_unsaved_dot,
-            color = { fg = colors["gnohj_color11"] },
-          },
-          {
-            buffer_count_with_unsaved,
-            color = { fg = colors["gnohj_color11"] },
-          },
-          {
-            require("package-info").get_status,
-            color = { fg = colors["gnohj_color11"] },
-            -- color = Snacks.util.color("Statement"),
-          },
-        },
-        lualine_x = {
-          {
-            lazy_status.updates,
-            cond = lazy_status.has_updates,
-            color = { fg = colors["gnohj_color11"] },
-          },
-          {
-            function()
-              return require("noice").api.status.command.get()
-            end,
-            cond = function()
-              return package.loaded["noice"]
-                and require("noice").api.status.command.has()
-            end,
-            color = { fg = colors["gnohj_color04"] },
-          },
-          {
             buffer_count,
             color = { fg = colors["gnohj_color04"], gui = "bold" },
           },
-          {
-            function()
-              local cwd = vim.uv.cwd()
-              local home = vim.env.HOME
-              if cwd:find(home, 1, true) then
-                cwd = "~" .. cwd:sub(#home + 1)
-              end
-
-              local parts = vim.split(cwd, "/")
-              -- For monorepo: always show repo name + current context
-              if #parts <= 3 then
-                return parts[#parts]
-              else
-                return parts[3] .. "/.../" .. parts[#parts]
-              end
-            end,
-            icon = "📁",
-            color = { fg = colors["gnohj_color03"] },
-          },
-          {
-            get_file_permissions,
-            cond = function()
-              return vim.bo.filetype == "sh" and vim.fn.expand("%:p") ~= ""
-            end,
-            color = function()
-              local file_path = vim.fn.expand("%:p")
-              local permissions = file_path and vim.fn.getfperm(file_path) or ""
-              local owner_permissions = permissions:sub(1, 3)
-              local fg_color = (owner_permissions == "rwx")
-                  and colors["gnohj_color02"]
-                or colors["gnohj_color11"]
-              return { fg = fg_color, gui = "bold" }
-            end,
-          },
-
-          { "encoding", color = { fg = colors["gnohj_color12"] } },
-          { "filetype" },
           {
             "diff",
             symbols = {
@@ -230,6 +154,62 @@ return {
               end
             end,
           },
+          {
+            "diagnostics",
+            symbols = {
+              error = icons.diagnostics.Error,
+              warn = icons.diagnostics.Warn,
+              info = icons.diagnostics.Info,
+              hint = icons.diagnostics.Hint,
+            },
+          },
+          {
+            current_buffer_unsaved_dot,
+            color = { fg = colors["gnohj_color11"] },
+          },
+          {
+            buffer_count_with_unsaved,
+            color = { fg = colors["gnohj_color11"] },
+          },
+          {
+            require("package-info").get_status,
+            color = { fg = colors["gnohj_color11"] },
+          },
+        },
+        lualine_x = {
+          {
+            lazy_status.updates,
+            cond = lazy_status.has_updates,
+            color = { fg = colors["gnohj_color11"] },
+          },
+          {
+            function()
+              return require("noice").api.status.command.get()
+            end,
+            cond = function()
+              return package.loaded["noice"]
+                and require("noice").api.status.command.has()
+            end,
+            color = { fg = colors["gnohj_color04"] },
+          },
+          {
+            get_file_permissions,
+            cond = function()
+              return vim.bo.filetype == "sh" and vim.fn.expand("%:p") ~= ""
+            end,
+            color = function()
+              local file_path = vim.fn.expand("%:p")
+              local permissions = file_path and vim.fn.getfperm(file_path) or ""
+              local owner_permissions = permissions:sub(1, 3)
+              local fg_color = (owner_permissions == "rwx")
+                  and colors["gnohj_color02"]
+                or colors["gnohj_color11"]
+              return { fg = fg_color, gui = "bold" }
+            end,
+          },
+
+          { "encoding", color = { fg = colors["gnohj_color12"] } },
+          { "filetype" },
         },
       },
       winbar = {

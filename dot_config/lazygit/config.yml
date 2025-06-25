@@ -10,11 +10,14 @@ gui:
   showBottomLine: false
   theme:
     activeBorderColor:
-      - "#a7cfbd"
+      - "#b7ce97"
+      - bold
+    inactiveBorderColor:
+      - "#a3b8c6"
     selectedLineBgColor:
       - "#40474b"
     unstagedChangesColor:
-      - "#ccd19d"
+      - "#dc988e"
   border: rounded
   nerdFontsVersion: "3"
 customCommands:
