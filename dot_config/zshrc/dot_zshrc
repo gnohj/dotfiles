@@ -340,7 +340,7 @@ if command -v sketchybar &>/dev/null; then
     sketchybar --add event brew_update 2>/dev/null
     sketchybar --subscribe widgets.brew_notification brew_update 2>/dev/null
     function brew() {
-        command brew "$@"
+        command arch -arm64 brew "$@"
         # Only trigger on specific commands that actually change state
         case "$1" in
             install|uninstall|upgrade|update)
