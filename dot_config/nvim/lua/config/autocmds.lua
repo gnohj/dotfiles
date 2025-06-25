@@ -277,6 +277,45 @@ vim.api.nvim_create_autocmd("User", {
     map_split(buf_id, "<C-v>", "vertical")
   end,
 })
+-- Clean up neovim's directory tracking when exiting vim
+-- This removes the NVIM_CWD_<pane_id> environment variable so tmux falls back to shell's working directory
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  callback = function()
+    local pane_id = vim.env.TMUX_PANE
+    if pane_id then
+      vim.fn.system(
+        'tmux set-environment -u -t "'
+          .. pane_id
+          .. '" NVIM_CWD_'
+          .. pane_id
+          .. " 2>/dev/null"
+      )
+    end
+  end,
+})
+
+-- Track current buffer's directory for tmux lazygit integration
+-- Updates NVIM_CWD_<pane_id> whenever you switch to a different file/buffer
+vim.api.nvim_create_autocmd({ "BufEnter" }, {
+  callback = function()
+    local current_file = vim.fn.expand("%:p")
+    if current_file ~= "" then
+      local dir = vim.fn.fnamemodify(current_file, ":h")
+      local pane_id = vim.env.TMUX_PANE
+      if pane_id then
+        vim.fn.system(
+          'tmux set-environment -t "'
+            .. pane_id
+            .. '" NVIM_CWD_'
+            .. pane_id
+            .. ' "'
+            .. dir
+            .. '" 2>/dev/null'
+        )
+      end
+    end
+  end,
+})
 
 local function augroup(name)
   return vim.api.nvim_create_augroup("lazyvim_" .. name, { clear = true })

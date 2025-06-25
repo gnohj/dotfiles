@@ -250,6 +250,7 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 
 # Chezmoi - TODO: add chezmoi check/download (brew)
 alias cz='chezmoi'
+alias czc='cz add ~/.config/colorscheme/active/active-colorscheme.sh && cz add ~/.config/colorscheme/list/evergarden-winter-colors.sh && cz add ~/.config/colorscheme/list/evergarden-winter-mute-colors.sh && cz add ~/.config/colorscheme/list/gnohj-colors.sh && cz add ~/.config/colorscheme/list/tokyo-night-colors.sh && cz add ~/.config/ghostty/config && cz add ~/.config/nvim/lua/config/active-colorscheme.sh && cz add ~/.config/lazygit/config.yml && cz add ~/.config/nvim/lazy-lock.json'
 
 # Fzf Shortcuts
 alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
@@ -361,7 +362,28 @@ if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
     fastfetch
 fi
 
+# -----------------------------  Tmux - Update Pane Path -so that lazygit (cmd+k) can work anywhere (buffer, tmux pane, etc.)
+if [[ -n "$TMUX" ]]; then
+  function update_tmux_pwd() {
+    if [[ -n "$TMUX_PANE" ]]; then
+      tmux set-environment -t "$TMUX_PANE" PANE_CWD_${TMUX_PANE} "$PWD" 2>/dev/null
+    fi
+  }
 
+  function cleanup_tmux_pane() {
+    if [[ -n "$TMUX_PANE" ]]; then
+      tmux set-environment -u -t "$TMUX_PANE" PANE_CWD_${TMUX_PANE} 2>/dev/null
+    fi
+  }
+  trap cleanup_tmux_pane EXIT
+
+  chpwd_functions+=(update_tmux_pwd)
+  function z() {
+    __zoxide_z "$@" && update_tmux_pwd
+  }
+fi
+
+# -----------------------------  Sesh
 function sesh-sessions() {
   {
     exec </dev/tty
