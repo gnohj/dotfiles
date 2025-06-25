@@ -348,11 +348,14 @@ gui:
   showBottomLine: false
   theme:
     activeBorderColor:
-      - "${gnohj_color03}"
+      - "${gnohj_color02}"
+      - bold
+    inactiveBorderColor:
+      - "${gnohj_color04}"
     selectedLineBgColor:
       - "${gnohj_color16}"
     unstagedChangesColor:
-      - "${gnohj_color12}"
+      - "${gnohj_color06}"
   border: rounded
   nerdFontsVersion: "3"
 customCommands:
