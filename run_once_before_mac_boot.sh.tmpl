@@ -42,9 +42,6 @@ if [[ "$CHEZMOI_OS" == "darwin" ]]; then
   fi
 fi
 
-echo "helllo"
-echo $CHEZMOI_OS
-
 # Function to check if a command exists
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -94,6 +91,7 @@ packages=(
   "jq"
   "kitty"
   "koekeishiya/formulae/skhd"
+  "lazygit"
   "lua"
   "neovim"
   "node"
@@ -109,26 +107,50 @@ packages=(
   "zoxide"
 )
 for pkg in "${packages[@]}"; do
-  # Use our architecture-aware command to check for installed packages
-  if ! $BREW_CMD list --formula | grep -q "^${pkg%%/*}$"; then
+  pkg_name="${pkg##*/}"
+  if ! $BREW_CMD list --formula | grep -q "^${pkg_name}$"; then
     echo "Installing ${pkg}..."
     $BREW_CMD install "${pkg}"
   else
-    echo "${pkg} is already installed."
+    echo "${pkg_name} is already installed."
   fi
 done
 
 # --- Cask Packages (Gui/Fonts) ---
 echo "Checking and installing required brew casks.."
 cask_packages=(
-  brave-browser
+  "appcleaner"
+  "betterdisplay"
+  "bitwarden"
+  "brave-browser"
+  "docker"
+  "firefox"
   "flameshot"
   "font-sf-pro"
   "font-space-mono-nerd-font"
+  "ghostty"
+  "google-chrome"
+  "homerow"
+  "istat-menus"
   "karabiner-elements"
   "kitty"
+  "latest"
+  "logi-options+"
+  "microsoft-edge"
+  "microsoft-outlook"
+  "microsoft-teams"
   "nikitabobko/tap/aerospace"
+  "obsidian"
+  "raycast"
   "sf-symbols"
+  "slack"
+  "spotify"
+  "visual-studio-code"
+  "vlc"
+  "wezterm"
+  "whimsical"
+  "zen"
+  "zoom"
 )
 for pkg in "${cask_packages[@]}"; do
   # Extract just the cask name (everything after the last /)
@@ -169,4 +191,9 @@ if ! infocmp xterm-kitty &>/dev/null; then
   rm "$tempfile"
 fi
 
-echo "All package installations and one-time setups are complete...."
+echo "📋 Boot Summary:"
+echo "✅ Homebrew: $(brew --version | head -n1)"
+echo "✅ Packages installed: ${#packages[@]} formulae, ${#cask_packages[@]} casks"
+echo "✅ Zinit: Installed"
+echo "✅ xterm-kitty terminfo: Available"
+echo "🎉 All package installations and one-time setups are complete!"
