@@ -30,9 +30,17 @@ exit 0
 
 echo "Configuring macOS system preferences..."
 
+osascript -e 'tell application "System Preferences" to quit' 2>/dev/null
+osascript -e 'tell application "System Settings" to quit' 2>/dev/null
+
+# Create Developer directory
+echo "Creating ~/Developer directory..."
+mkdir -p "$HOME/Developer"
+
 # Auto-hide Dock and menu bar
-echo "Setting up Dock auto-hide..."
+echo "Setting up Dock & MenuBar to auto-hide..."
 defaults write com.apple.dock autohide -bool true
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
 
 # Make Dock appear only after 10-second hover (you can adjust this value)
 echo "Setting Dock auto-hide delay..."
@@ -53,29 +61,68 @@ defaults write -g NSAutomaticWindowAnimationsEnabled -bool false
 echo "Enabling window dragging from anywhere with Ctrl+Cmd..."
 defaults write -g NSWindowShouldDragOnGesture -bool true
 
-echo "📝 Manual setup required:"
-echo "  - System Preferences > Desktop & Dock > Automatically hide and show the menu bar"
-echo "  - System Preferences > Desktop & Dock > Show items on desktop (disable)"
-echo "  - System Preferences > Desktop & Dock > Displays have separate Spaces (enable for Sketchybar)"
-echo "  - System Preferences > Accessibility > Display > Reduce motion (enable)"
+# Faster keyboard repeats
+echo "Setting faster keyboard repeat rates..."
+defaults write -g InitialKeyRepeat -int 15
+defaults write -g KeyRepeat -int 1
+
+echo "Configuring Finder settings..."
+# Show hidden files in Finder
+defaults write com.apple.finder AppleShowAllFiles YES
+# Hide Desktop items on desktop
+defaults write com.apple.finder CreateDesktop -bool false
+killall Finder
+
+# Displays have seperate spaces (for Sketchybar)
+defaults write com.apple.spaces "spans-displays" -bool false && killall SystemUIServer
+
+# Reduce motion (enable):
+defaults write com.apple.universalaccess reduceMotion -bool true
+
+echo "Set 'Open at login' applications"
+# List of applications to add to login items
+loginItems=(
+  "BetterDisplay"
+  "Bitwarden"
+  "Flameshot"
+  "Ghostty"
+  "Google Calendar"
+  "Mail"
+  "Raycast"
+  "Whimsical"
+  "Zen"
+)
+
+for app in "${loginItems[@]}"; do
+  if [ -d "/Applications/$app.app" ]; then
+    osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$app\", path: \"/Applications/$app.app\", hidden:true}"
+    echo "✅  $app added to login items"
+  else
+    echo "❌  $app not found in /Applications"
+  fi
+done
+
+echo "  📝 Manual setup required:"
 echo "  - System Preferences > Keyboard > Keyboard Shortcuts > Disable additional shortcuts that might conflict"
-echo "  - Note: You may need to disable more keyboard shortcuts as conflicts are discovered "
-echo "  - Add global git ignore file to home directory - ~/.gitignore_global "
+echo "  - Add global git ignore file to home directory - ~/.gitignore_global"
 echo "  - Install apps from App Store"
-echo "  - System Settings → General → Login Items → Add the following items: BetterDisplay.app, Bitwarden.app, Flameshot.app, Ghostty.app, Google Calendar.app, Mail.app, Raycast.app, Whimsical.app, Zen.app"
+echo "  - Clone personal/private repos"
 echo "  - System Settings → General → Login Items → Allow in the background: AeroSpace, Bjango Pty Ltd, Borders, Caddy, github-auto-push, Homerow.app, iStats Menus, iStats Menus.app, Karabiner Elements Non Privileged App, Karabiner Elements Priviledged Daemon, Logi Options+, Logitech.inc, sketchybar, skhd"
 echo "  - Applications to add to Accessibility permissions: AeroSpace, AEServer, BetterDisplay, borders, Ghostty, Homerow, Logi Options+, Raycast, sketchybar, skhd, Visual Studio Code, WezTerm"
 echo "  - Applications to add to Automation permissions: AeroSpace, Ghostty, Only Switch, osascript, Raycast, sketchybar, Sublime Text, Visual Studio Code, VLC, WezTerm"
 echo "  - Applications to add to Input Monitoring permissions: AeroSpace, Discord, karabiner_grabber, karabiner_observer, Karabiner-EventViewer, Logi Options+"
 echo "  - Applications to add to App Management permissions: Raycast"
 echo "  - Applications to add to Full Disk Access permissions: Ghostty"
-echo "  - Docker Desktop for Mac / Silicon - https://docs.docker.com/desktop/setup/install/mac-install/"
 
 #-------------------------------------------------------------------------------
 #--                      Spicetify Theme
 #-------------------------------------------------------------------------------
-spicetify config current_theme Dribbblish color_scheme catppuccin-mocha
-spicetify backup apply
+if ! command -v spicetify &>/dev/null; then
+  echo "❌  spicetify not found"
+else
+  spicetify config current_theme Dribbblish color_scheme catppuccin-mocha
+  spicetify backup apply
+fi
 
 #-------------------------------------------------------------------------------
 #--                      GitHub Auto Push Service / Sketchybar Notification
@@ -121,12 +168,8 @@ SKHD_BREW_PATH="/opt/homebrew/bin/skhd"
 
 # First, check if the skhd command actually exists
 if [[ -f "$SKHD_BREW_PATH" ]]; then
-  #
-  # NEW LOGIC: Only create/update the plist if it doesn't exist OR if the path inside it is wrong..
-  #
   if [ ! -f "$SKHD_PLIST_PATH" ] || ! grep -q "<string>${SKHD_BREW_PATH}</string>" "$SKHD_PLIST_PATH"; then
     echo "skhd launch agent is missing or outdated. Creating/Updating..."
-    # Create the plist file
     cat >"$SKHD_PLIST_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -164,4 +207,18 @@ else
   echo "Warning: skhd not found at ${SKHD_BREW_PATH}. Please install it."
 fi
 
+echo "📋 System Summary:"
+echo "✅ Services Configured:"
+echo "  • GitHub Auto Push service: $([ -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Failed")"
+echo "  • SKHD hotkey daemon: $([ -f "$SKHD_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
+echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
+echo ""
+echo "📝 Manual Steps Remaining:"
+echo "  • TCC Permissions (Accessibility, Automation, etc.)"
+echo "  • Background app permissions"
+echo "  • Keyboard shortcut conflicts"
+echo "  • Git global ignore file setup"
+echo "  • App Store installations"
+echo "  • Clone personal repositories"
+echo ""
 echo "🎉 Run OnChange [Before] Package Install Setup Complete!"
