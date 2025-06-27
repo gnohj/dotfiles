@@ -2,95 +2,93 @@ if vim.g.vscode then
   return {}
 end
 
--- return {}
-
--- enable with LazyExtras
 return {
-  "yetone/avante.nvim",
-  event = "VeryLazy",
-  version = false,
-  pin = true,
-  opts = {
-    mode = "legacy", -- "agentic" always uses tools
-    -- provider = "openai",
-    provider = "copilot",
-    -- provider = "claude",
-    providers = {
-      -- openai = {
-      --   model = "gpt-4o-mini",
-      -- },
-      openai = {
-        endpoint = "https://api.openai.com/v1",
-        model = "gpt-4o",
-        timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
-        disable_tools = true,
-        extra_request_body = {
-          temperature = 0.75,
-          max_completion_tokens = 16384, -- Increase this to include reasoning tokens (for reasoning models)
-          reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
+  {
+    "yetone/avante.nvim",
+    event = "VeryLazy",
+    version = false,
+    opts = {
+      hints = { enabled = false },
+      provider = "copilot",
+      providers = {
+        openai = {
+          endpoint = "https://api.openai.com/v1",
+          model = "gpt-4o",
+          timeout = 30000,
+          disable_tools = true,
+          extra_request_body = {
+            temperature = 0.75,
+            max_completion_tokens = 16384,
+            reasoning_effort = "medium",
+          },
         },
-      },
-      ["openai-gpt-4o-mini"] = {
-        __inherited_from = "openai",
-        model = "gpt-4o-mini",
-      },
-      copilot = {
-        endpoint = "https://api.githubcopilot.com",
-        model = "gpt-4o-2024-11-20",
-        proxy = nil, -- [protocol://]host[:port] Use this proxy
-        allow_insecure = false, -- Allow insecure server connections
-        disable_tools = true,
-        timeout = 30000, -- Timeout in milliseconds
-        extra_request_body = {
-          temperature = 0.75,
-          max_tokens = 20480,
+        ["openai-gpt-4o-mini"] = {
+          __inherited_from = "openai",
+          model = "gpt-4o-mini",
         },
-      },
-      claude = {
-        endpoint = "https://api.anthropic.com",
-        model = "claude-3-5-sonnet-20241022",
-        disable_tools = true,
-        extra_request_body = {
-          temperature = 0,
-          max_tokens = 4096,
+        copilot = {
+          endpoint = "https://api.githubcopilot.com",
+          model = "gpt-4o-2024-11-20",
+          proxy = nil,
+          disable_tools = true,
+          allow_insecure = false,
+          timeout = 10 * 60 * 1000,
+          extra_request_body = { temperature = 0 },
+          max_completion_tokens = 1000000,
+          reasoning_effort = "high",
         },
-      },
-    },
-    hints = { enabled = false },
-    windows = {
-      ask = {
-        start_insert = false,
-      },
-    },
-  },
-  -- cd into ~/.local/share/nvim/lazy/avante.nvim and run make BUILD_FROM_SOURCE=true
-  build = "make BUILD_FROM_SOURCE=true",
-  dependencies = {
-    "nvim-treesitter/nvim-treesitter",
-    "stevearc/dressing.nvim",
-    "nvim-lua/plenary.nvim",
-    "MunifTanjim/nui.nvim",
-    "nvim-tree/nvim-web-devicons",
-    "zbirenbaum/copilot.lua",
-    {
-      "HakonHarnes/img-clip.nvim",
-      event = "VeryLazy",
-      opts = {
-        default = {
-          embed_image_as_base64 = false,
-          prompt_for_file_name = false,
-          drag_and_drop = {
-            insert_mode = true,
+        claude = {
+          endpoint = "https://api.anthropic.com",
+          model = "claude-3-5-sonnet-20241022",
+          disable_tools = true,
+          extra_request_body = {
+            temperature = 0,
+            max_tokens = 4096,
           },
         },
       },
-    },
-    {
-      "MeanderingProgrammer/render-markdown.nvim",
-      opts = {
-        file_types = { "markdown", "Avante" },
+      auto_suggestions_provider = nil,
+      behaviour = {
+        auto_suggestions = false,
       },
-      ft = { "markdown", "Avante" },
+      file_selector = {
+        provider = "snacks",
+        provider_opts = {},
+      },
+      selector = { provider = "snacks" },
+      system_prompt = function()
+        local hub = require("mcphub").get_hub_instance()
+        return hub and hub:get_active_servers_prompt() or ""
+      end,
+      custom_tools = function()
+        return {
+          require("mcphub.extensions.avante").mcp_tool(),
+        }
+      end,
+      extensions = {
+        avante = {
+          make_slash_commands = true,
+        },
+      },
+      input = { provider = "snacks" },
     },
+    dependencies = {
+      {
+        "ravitemer/mcphub.nvim",
+        cmd = "MCPHub",
+        build = "pnpm install -g mcp-hub@latest",
+        opts = {},
+        keys = {
+          { "<leader>am", "<cmd>MCPHub<cr>", mode = { "n" }, desc = "MCP Hub" },
+        },
+      },
+    },
+    build = function()
+      if vim.fn.has("win32") == 1 then
+        return "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false"
+      else
+        return "make"
+      end
+    end,
   },
 }
