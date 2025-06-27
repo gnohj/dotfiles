@@ -15,6 +15,7 @@ local currentWorkspaceWatcher = sbar.add("item", {
 
 local spaceConfigs <const> = {
 	["Q"] = { name = "Work", app = "Zen" },
+	-- ["Q"] = { name = "Work", app = "Twilight" },
 	["W"] = { name = "Slack", app = "Slack" },
 	["E"] = { name = "Teams", app = "Microsoft Teams" },
 	["B"] = { name = "Browser", app = "Google Chrome" },
