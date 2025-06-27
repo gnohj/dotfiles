@@ -20,8 +20,17 @@
 term = xterm-ghostty
 
 # color
-custom-shader = shaders/bloom025.glsl
 config-file = ghostty-theme
+# custom-shader = ./shaders/bloom025.glsl
+# custom-shader = ./shaders/cursor_blaze.gsl
+custom-shader = ./shaders/cursor_smear_fade.glsl
+# custom-shader = ./shaders/cursor_smear.gsl
+# custom-shader = ./shaders/cineShader-Lava.glsl
+# custom-shader = ./shaders/retro-terminal.glsl
+# custom-shader = ./shaders/bettercrt.glsl
+# custom-shader = ./shaders/drunkard.glsl
+# custom-shader = ./shaders/tft.glsl
+# custom-shader = ./shaders/inside-the-matrix.glsl
 
 # fonts
 font-family = "Hasklug Nerd Font Mono Med"
