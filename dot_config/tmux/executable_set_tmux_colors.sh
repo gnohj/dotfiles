@@ -26,7 +26,7 @@ tmux set -g @catppuccin_status_background "default"
 
 # default for catppuccin_session_color is #{?client_prefix,$thm_red,$thm_green}
 # https://github.com/catppuccin/tmux/issues/140#issuecomment-1956204278
-tmux set -g @catppuccin_session_color "#{?client_prefix,$gnohj_color04,$gnohj_color02}"
+tmux set -g @catppuccin_session_color "#{?client_prefix,$gnohj_color06,$gnohj_color02}"
 
 # This sets the color of the window text, #W shows the application name
 tmux set -g @catppuccin_window_default_fill "number"
