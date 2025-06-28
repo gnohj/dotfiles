@@ -1,11 +1,14 @@
 Ansible
 Aptivada
 Bitwarden
+CDN
 Callouts
 Lazygit
 MacOS
 PNPM
+SSR
 WAF
+WiFi
 Zsh
 api
 bashrc
