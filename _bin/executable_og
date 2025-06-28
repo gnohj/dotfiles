@@ -5,7 +5,6 @@ VAULT_DIR="$HOME/Obsidian/second-brain/"
 SOURCE_DIR="Zettelkasten"
 DEST_DIR="Notes"
 
-
 # Iterate through all markdown files in the source directory (zettelkasten to notes folder)
 find "$VAULT_DIR/$SOURCE_DIR" -type f -name "*.md" | while read -r file; do
   echo "Processing $file"
@@ -16,7 +15,7 @@ find "$VAULT_DIR/$SOURCE_DIR" -type f -name "*.md" | while read -r file; do
   echo "Found tag $tag"
 
   # If a tag is found, proceed with moving the file
-  if [ ! -z "$tag" ]; then
+  if [ -n "$tag" ]; then
     # Create the target directory if it doesn't exist
     TARGET_DIR="$VAULT_DIR/$DEST_DIR/$tag"
     mkdir -p "$TARGET_DIR"

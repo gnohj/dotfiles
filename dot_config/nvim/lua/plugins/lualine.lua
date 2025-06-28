@@ -77,7 +77,7 @@ return {
     return {
 
       options = {
-        -- section_separators = { left = " " }, -- Remove arrows
+        section_separators = { left = " " }, -- Remove arrows
         disabled_filetypes = {
           statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
           winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
@@ -198,8 +198,8 @@ return {
               return vim.bo.filetype == "sh" and vim.fn.expand("%:p") ~= ""
             end,
             color = function()
-              local file_path = vim.fn.expand("%:p")
-              local permissions = file_path and vim.fn.getfperm(file_path) or ""
+              local f_path = vim.fn.expand("%:p")
+              local permissions = f_path and vim.fn.getfperm(f_path) or ""
               local owner_permissions = permissions:sub(1, 3)
               local fg_color = (owner_permissions == "rwx")
                   and colors["gnohj_color02"]
