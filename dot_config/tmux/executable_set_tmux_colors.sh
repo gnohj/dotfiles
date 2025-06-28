@@ -14,8 +14,8 @@ tmux set -g @catppuccin_window_default_color "$gnohj_color23"
 tmux set -g @catppuccin_window_default_background "$gnohj_color10"
 
 # The following 2 colors are for the lines that separate tmux splits
-tmux set -g @catppuccin_pane_active_border_style "fg=$gnohj_color03"
-tmux set -g @catppuccin_pane_border_style "fg=$gnohj_color03"
+tmux set -g @catppuccin_pane_active_border_style "fg=$gnohj_color24"
+tmux set -g @catppuccin_pane_border_style "fg=$gnohj_color24"
 
 # This is the classic colored tmux bar that goes across the entire screen
 # set -g @catppuccin_status_background "theme"
