@@ -115,6 +115,18 @@ echo "  - Applications to add to App Management permissions: Raycast"
 echo "  - Applications to add to Full Disk Access permissions: Ghostty"
 
 #-------------------------------------------------------------------------------
+#--                      Marta File Manager Configuration
+#-------------------------------------------------------------------------------
+echo "Setting up Marta file manager configuration..."
+
+MARTA_CONFIG_DIR="$HOME/Library/Application Support/org.yanex.marta"
+MARTA_CONFIG_FILE="$MARTA_CONFIG_DIR/conf.marco"
+DOTFILES_MARTA_CONFIG="$HOME/.config/marta/conf.marco"
+
+mkdir -p "$MARTA_CONFIG_DIR"
+ln -s "$DOTFILES_MARTA_CONFIG" "$MARTA_CONFIG_FILE"
+
+#-------------------------------------------------------------------------------
 #--                      Spicetify Theme
 #-------------------------------------------------------------------------------
 if ! command -v spicetify &>/dev/null; then
@@ -211,6 +223,7 @@ echo "📋 System Summary:"
 echo "✅ Services Configured:"
 echo "  • GitHub Auto Push service: $([ -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Failed")"
 echo "  • SKHD hotkey daemon: $([ -f "$SKHD_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
+echo "  • Marta config symlink: $([ -L "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && [ -e "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && echo "✅ Active" || echo "❌ Failed")"
 echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
 echo ""
 echo "📝 Manual Steps Remaining:"
