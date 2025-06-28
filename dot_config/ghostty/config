@@ -83,6 +83,8 @@ keybind = super+g=text:\x01\x67
 keybind = super+l=text:\x01\x4c
 # command + Z to tmux - quit session
 keybind = super+shift+z=text:\x01\x5a
+# command + j to tmux - new terminal
+keybind = super+j=text:\x01\x6a
 
 
 # available command keybinds (letters - j , h, m, but it needs to be available
