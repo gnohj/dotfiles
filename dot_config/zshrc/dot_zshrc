@@ -178,7 +178,7 @@ zinit cdreplay -q
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
-zstyle ':fzf-tab:*' fzf-flags --color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02
+zstyle ':fzf-tab:*' fzf-flags --color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6
 zstyle ':fzf-tab:complete:*' fzf-preview 'eza -1 --color=always $realpath'
 
 #-------------------------------------------------------------------------------
