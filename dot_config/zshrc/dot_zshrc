@@ -19,7 +19,6 @@ fpath=("$ZDOTDIR/functions" $fpath)
 # Redirect zsh_sessions to the new location - used by Terminal.app on macOS
 export SHELL_SESSIONS_DIR="$ZDOTDIR/zsh_sessions"
 
-
 #-------------------------------------------------------------------------------
 #--                      User Settings
 #-------------------------------------------------------------------------------
@@ -52,7 +51,6 @@ fi
 # Source/Load zinit
 source "${ZINIT_HOME}/zinit.zsh"
 
-
 #-------------------------------------------------------------------------------
 #--                 Zinit - Prompt
 #-------------------------------------------------------------------------------
@@ -82,7 +80,6 @@ zinit ice as"command" from"gh-r" \
           atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
           atpull"%atclone" src"init.zsh"
 zinit load starship/starship
-
 
 #-------------------------------------------------------------------------------
 #--                 Zinit - Plugins
@@ -118,22 +115,10 @@ ZVM_VI_OPPEND_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
 ZVM_VI_HIGHLIGHT_BACKGROUND=#275378
 ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
 
-# INFO: vicmd is short for normal mode
-# INFO: viins is short for insert mode
-# function zvm_after_lazy_keybindings() {
-#   # zvm_bindkey vicmd 'gh' beginning-of-line
-#   # zvm_bindkey vicmd 'gl' end-of-line
-#
-#   # Restore autosuggestions bindings
-#   bindkey '^F' autosuggest-accept
-#   bindkey '^E' autosuggest-forward-word
-# }
-
 function zvm_after_init() {
   # Source .fzf.zsh so that ctrl+r works
-  [ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh
+  # [ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh
 }
-
 
 #-------------------------------------------------------------------------------
 #--                 Zinit -  Snippets
@@ -175,40 +160,15 @@ function _history_substring_search_config() {
 zinit ice wait lucid atload'_history_substring_search_config'
 zinit load zsh-users/zsh-history-substring-search
 
-
 #-------------------------------------------------------------------------------
 #--        Zinit -  Replay all Cached Completions
 #-------------------------------------------------------------------------------
 
 zinit cdreplay -q
 
-
 #-------------------------------------------------------------------------------
 #                  Keybindings
 #-------------------------------------------------------------------------------
-
-# ELIF Bindings
-# accept single auto suggestion (gray text); use right arrow to accept
-# history substring search - ctrl + p/n; use right arrow to accept
-# autocomplete menu - tab; use arrows to nav; use tab/enter to accept
-
-# When IN menu, up/down navigate menu items for autocomplete; otherwise always use history substring search
-# bindkey -M menuselect '^[[A' up-line-or-history    # Up arrow
-# bindkey -M menuselect '^[[B' down-line-or-history  # Down arrow
-
-# Press tab to enter menu in auto-complete dropdown, then use arrows to navigate,press enter or tab to select
-# bindkey '^I' menu-select
-
-
-# Fix key bindings for zsh-autocomplete to prevent conflicts
-# bindkey -M menuselect "^[[A" up-line-or-history    # Up arrow
-# bindkey -M menuselect "^[[B" down-line-or-history  # Down arrow
-# bindkey -M menuselect "^[OA" up-line-or-history    # Up arrow (alternate code)
-# bindkey -M menuselect "^[OB" down-line-or-history  # Down arrow (alternate code)
-# bindkey -M menuselect "^[[D" backward-char         # Left arrow
-# bindkey -M menuselect "^[[C" forward-char          # Right arrow
-# bindkey -M menuselect "^[OD" backward-char         # Left arrow (alternate code)
-# bindkey -M menuselect "^[OC" forward-char          # Right arrow (alternate code)
 
 
 #-------------------------------------------------------------------------------
@@ -435,6 +395,7 @@ reload_prompt() {
   outdated
 }
 
+export _ZO_DATA_DIR="$ZDOTDIR"
 
 #-------------------------------------------------------------------------------
 #                  Eval Integrations
@@ -446,5 +407,23 @@ eval "$(fastly --completion-script-zsh)"
 eval "$(fnm env --use-on-cd --shell zsh)"
 eval "$(fzf --zsh)"
 
-export _ZO_DATA_DIR="$ZDOTDIR"
 eval "$(zoxide init zsh)"
+eval "$(atuin init zsh --disable-up-arrow)"
+
+##  Hack: Get Autin global search (ctrl+r) working; while keeping up/down arrow history search and history substring search
+bindkey '^R' _atuin_search_widget
+function ensure_atuin_ctrl_r() {
+  local current_binding=$(bindkey | grep '\^R' | awk '{print $2}')
+  if [[ "$current_binding" != "_atuin_search_widget" ]]; then
+    bindkey '^R' _atuin_search_widget
+  fi
+}
+
+# Add hook to check and restore Atuin binding before each prompt
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd ensure_atuin_ctrl_r
+
+bindkey -M viins '^R' _atuin_search_widget  # Insert mode
+bindkey -M vicmd '^R' _atuin_search_widget  # Normal mode
+bindkey -M emacs '^R' _atuin_search_widget  # Emacs mode (fallback)
+
