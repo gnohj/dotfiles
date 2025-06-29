@@ -108,6 +108,12 @@ startup_command = "nvim themes.gitconfig"
 preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/delta/themes/themes.gitconfig"
 
 [[session]]
+name = "atuin \ue615 "
+path = "~/.local/share/chezmoi/dot_config/atuin"
+startup_command = "nvim config.toml"
+preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/atuin/config.toml"
+
+[[session]]
 name = "autocmds_nvim \ue615 "
 path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
 startup_command = "nvim autocmds.lua"
@@ -137,6 +143,12 @@ startup_command = "nvim config.jsonc"
 preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/fastfetch/config.jsonc"
 
 [[session]]
+name = "flameshot \ue615 "
+path = "~/.local/share/chezmoi/dot_config/flameshot"
+startup_command = "nvim flameshot.ini"
+preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/flameshot/flameshot.ini"
+
+[[session]]
 name = "git_config \uf113 "
 path = "~/.local/share/chezmoi/dot_config/git"
 startup_command = "nvim config"
@@ -160,12 +172,17 @@ path = "~/.local/share/chezmoi/dot_config/lazygit"
 startup_command = "nvim config.yml"
 preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/lazygit/config.yml"
 
-
 [[session]]
 name = "lazy_nvim \ue615 "
 path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
 startup_command = "nvim lazy.lua"
 preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/nvim/lua/config/lazy.lua"
+
+[[session]]
+name = "marta \ue615 "
+path = "~/.local/share/chezmoi/dot_config/marta"
+startup_command = "nvim conf.marco"
+preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/marta/conf.marco"
 
 [[session]]
 name = "options_nvim \ue615 "
