@@ -3,6 +3,7 @@ Aptivada
 Bitwarden
 CDN
 Callouts
+Grugfar
 Lazygit
 MacOS
 PNPM
