@@ -353,7 +353,7 @@ gui:
     inactiveBorderColor:
       - "${gnohj_color04}"
     selectedLineBgColor:
-      - "${gnohj_color16}"
+      - "${gnohj_color13}"
     unstagedChangesColor:
       - "${gnohj_color06}"
   border: rounded
