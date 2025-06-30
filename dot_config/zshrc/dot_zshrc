@@ -208,7 +208,7 @@ alias oo='cd $HOME/Obsidian/second-brain'
 # Obsidian review
 alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 
-# Chezmoi - TODO: add chezmoi check/download (brew)
+# Chezmoi
 alias cz='chezmoi'
 alias czc='cz add ~/.config/colorscheme/active/active-colorscheme.sh && cz add ~/.config/colorscheme/list/evergarden-winter-colors.sh && cz add ~/.config/colorscheme/list/evergarden-winter-mute-colors.sh && cz add ~/.config/colorscheme/list/gnohj-colors.sh && cz add ~/.config/colorscheme/list/tokyo-night-colors.sh && cz add ~/.config/ghostty/config && cz add ~/.config/nvim/lua/config/active-colorscheme.sh && cz add ~/.config/lazygit/config.yml && cz add ~/.config/nvim/lazy-lock.json'
 
@@ -235,11 +235,15 @@ alias gcom="g checkout master"
 alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
 alias gg="lazygit"
+alias lg="lazygit"
+
+# Lazydocker
+alias ld="lazydocker"
 
 # reload zshell - Updated to reflect new location
 alias reload="source $ZDOTDIR/.zshrc"
 
-# speedtest - TODO: add speedtest-cli check/download (brew)
+# speedtes
 alias speed="speedtest"
 
 # Yarn clean
@@ -251,10 +255,10 @@ alias pn="pnpm"
 # clr
 alias c='clear'
 
-# bat - TODO: add bat check/download (brew)
+# bat
 alias cat="bat"
 
-# eza for modern ls view - TODO: add eza check/download (brew)
+# eza for modern ls view
 alias ls="eza --icons=always --long --all"
 
 # brew leaves list (installed packages by me)
@@ -310,7 +314,7 @@ if command -v sketchybar &>/dev/null; then
     }
 fi
 
-# -----------------------------  Bun completions - TODO: add bun check/download (brew)
+# -----------------------------  Bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 
