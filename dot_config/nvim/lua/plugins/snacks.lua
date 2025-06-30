@@ -136,6 +136,14 @@ return {
           format = "buffer",
           unloaded = true,
           current = true,
+          win = {
+            input = {
+              keys = {
+                ["d"] = "bufdelete",
+              },
+            },
+            list = { keys = { ["d"] = "bufdelete" } },
+          },
         })
       end,
       desc = "[P]Snacks picker buffers",
