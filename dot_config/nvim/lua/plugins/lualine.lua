@@ -4,12 +4,6 @@ end
 
 local colors = require("config.colors")
 
-vim.api.nvim_set_hl(
-  0,
-  "CustomTeal",
-  { fg = colors["gnohj_color11"], bg = colors["gnohj_color05"] }
-)
-
 -- Custom component to display buffer count
 local function buffer_count()
   local buffers = vim.fn.getbufinfo({ buflisted = 1 }) -- Only count listed buffers
@@ -77,7 +71,7 @@ return {
     return {
 
       options = {
-        section_separators = { left = " " }, -- Remove arrows
+        -- section_separators = { left = " " }, -- Remove arrows
         disabled_filetypes = {
           statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
           winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
@@ -136,6 +130,15 @@ return {
             color = { fg = colors["gnohj_color04"], gui = "bold" },
           },
           {
+            "diagnostics",
+            symbols = {
+              error = icons.diagnostics.Error,
+              warn = icons.diagnostics.Warn,
+              info = icons.diagnostics.Info,
+              hint = icons.diagnostics.Hint,
+            },
+          },
+          {
             "diff",
             symbols = {
               added = icons.git.added,
@@ -153,15 +156,6 @@ return {
                 }
               end
             end,
-          },
-          {
-            "diagnostics",
-            symbols = {
-              error = icons.diagnostics.Error,
-              warn = icons.diagnostics.Warn,
-              info = icons.diagnostics.Info,
-              hint = icons.diagnostics.Hint,
-            },
           },
           {
             current_buffer_unsaved_dot,
