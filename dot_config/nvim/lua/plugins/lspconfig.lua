@@ -52,6 +52,10 @@ return {
               suggest = {
                 completeFunctionCalls = true,
               },
+              diagnostics = {
+                -- Disable TypeScript's unused variable checks since ESLint handles them
+                ignoredCodes = { 6133, 6196 }, -- 6133: declared but never read, 6196: declared but never used
+              },
               tsserver = {
                 maxTsServerMemory = 8192,
                 useSeparateSyntaxServer = true,
@@ -107,19 +111,20 @@ return {
         exclude = {},
       }
 
+      -- Commented out to let tiny-inline-diagnostic handle all diagnostics
       opts.diagnostics = {
-        -- virtual_text = false,
-        virtual_text = {
-          -- Enable virtual text but filter by source
-          source = "if_many",
-          format = function(diagnostic)
-            -- Only show virtual text for harper-ls in markdown files
-            if diagnostic.source == "Harper" then
-              return diagnostic.message
-            end
-            return nil
-          end,
-        },
+        virtual_text = false,
+        -- virtual_text = {
+        --   -- Enable virtual text but filter by source
+        --   source = "if_many",
+        --   format = function(diagnostic)
+        --     -- Only show virtual text for harper-ls in markdown files
+        --     if diagnostic.source == "Harper" then
+        --       return diagnostic.message
+        --     end
+        --     return nil
+        --   end,
+        -- },
       }
 
       -- Add the eslint setup configuration - this is from https://github.com/iainlane/dotfiles/commit/1abe290bfe071b92a806eea62abadbab18ee63c3
