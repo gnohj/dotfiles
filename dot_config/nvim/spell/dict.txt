@@ -1,11 +1,13 @@
 Ansible
 Aptivada
 Bitwarden
+CD
 CDN
 Callouts
 Grugfar
 Lazygit
 MacOS
+OS
 PNPM
 SSR
 WAF
@@ -16,6 +18,7 @@ bashrc
 cli
 envs
 fastly
+github
 iHeartRadio
 iheart
 loginToken
@@ -25,4 +28,5 @@ onchange
 pid
 sourcemaps
 vcl
+vitest
 which
