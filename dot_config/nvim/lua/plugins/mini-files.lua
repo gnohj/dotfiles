@@ -33,17 +33,31 @@ return {
       width_preview = 80,
     })
 
-    -- Add content filter to hide claude filesz
+    vim.g.mini_files_show_c = vim.g.mini_files_show_c or false
+
     opts.content = vim.tbl_deep_extend("force", opts.content or {}, {
       filter = function(entry)
-        local name = entry.name:lower() -- Convert to lowercase for case-insensitive matching
+        local name = entry.name
+        local name_lower = name:lower()
 
-        -- Hide claude-related files and directories
+        if entry.fs_type == "directory" and name == ".git" then
+          return false
+        end
+
+        if vim.g.mini_files_show_c then
+          return true
+        end
+
         if
-          name == "claude.md"
-          or name == ".claude.json"
+          name_lower == "claude.md"
+          or name_lower == ".claude.json"
           or name == ".claude"
+          or name_lower == ".claude.json.backup"
         then
+          return false
+        end
+
+        if entry.fs_type == "directory" and name_lower == "tasks" then
           return false
         end
 
@@ -92,6 +106,50 @@ return {
         require("mini.files").open(vim.uv.cwd(), true)
       end,
       desc = "Open mini.files (cwd)",
+    },
+    {
+      "<leader>mc",
+      function()
+        vim.g.mini_files_show_c = not vim.g.mini_files_show_c
+        local status = vim.g.mini_files_show_c and "shown" or "hidden"
+        vim.notify("C is now " .. status, vim.log.levels.INFO)
+
+        local MiniFiles = require("mini.files")
+        if MiniFiles.get_explorer_state() ~= nil then
+          MiniFiles.refresh({
+            content = {
+              filter = function(entry)
+                local name = entry.name
+                local name_lower = name:lower()
+
+                if entry.fs_type == "directory" and name == ".git" then
+                  return false
+                end
+
+                if vim.g.mini_files_show_c then
+                  return true
+                end
+
+                if
+                  name_lower == "claude.md"
+                  or name_lower == ".claude.json"
+                  or name == ".claude"
+                  or name_lower == ".claude.json.backup"
+                then
+                  return false
+                end
+
+                if entry.fs_type == "directory" and name_lower == "tasks" then
+                  return false
+                end
+
+                return true
+              end,
+            },
+          })
+        end
+      end,
+      desc = "Toggle c files and tasks folders",
     },
   },
 }
