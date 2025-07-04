@@ -135,13 +135,13 @@ local function addWorkspaceItem(workspaceName, isCurrentWorkspace)
 
 	spaces[spaceName] = sbar.add("item", spaceName, itemConfig)
 
-	spaces[spaceName]:subscribe("mouse.entered", function(env)
+	spaces[spaceName]:subscribe("mouse.entered", function()
 		sbar.animate("tanh", 30, function()
 			spaces[spaceName]:set({ label = { width = "dynamic" } })
 		end)
 	end)
 
-	spaces[spaceName]:subscribe("mouse.exited", function(env)
+	spaces[spaceName]:subscribe("mouse.exited", function()
 		sbar.animate("tanh", 30, function()
 			spaces[spaceName]:set({ label = { width = 0 } })
 		end)

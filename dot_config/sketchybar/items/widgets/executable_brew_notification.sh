@@ -59,6 +59,6 @@ case "$COUNT" in
 esac
 
 # echo "Setting: sketchybar --set $NAME label=$COUNT icon.color=$COLOR" >>/tmp/brew_debug.log
-sketchybar --set $NAME label=$COUNT label.color=$COLOR icon.color=$MAGENTA
+sketchybar --set "$NAME" label="$COUNT" label.color="$COLOR" icon.color="$MAGENTA"
 
 log_message "INFO" "Brew check completed - Count: $COUNT"

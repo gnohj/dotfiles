@@ -34,23 +34,23 @@ MIC_LABEL="$MIC_NAME-$MIC_VOLUME"
 
 # Check if MIC_NAME is not meaningful
 if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
-  # If the mic name is not valid or empty
-  sketchybar -m --set mic label="" icon= icon.color=$YELLOW label.color=$YELLOW
+  sketchybar -m --set mic label="" icon= icon.color="$YELLOW" label.color="$YELLOW"
+  # If the mic name is not valid or empty""
 else
   # Update SketchyBar with the microphone's name and volume
   if [[ $MIC_VOLUME -eq 0 ]]; then
-    sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color=$RED label.color=$RED
+    sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$RED"
   elif [[ $MIC_VOLUME -gt 0 && $MIC_VOLUME -lt 90 ]]; then
     if [[ "$MIC_NAME" == TONOR* ]]; then
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color=$ORANGE label.color=$BLUE
+      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
     else
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color=$RED label.color=$ORANGE
+      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
     fi
   elif [[ $MIC_VOLUME -eq 90 ]]; then
     if [[ "$MIC_NAME" == TONOR* ]]; then
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color=$ORANGE label.color=$BLUE
+      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
     else
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color=$RED label.color=$ORANGE
+      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
     fi
   fi
 fi

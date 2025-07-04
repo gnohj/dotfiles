@@ -5,10 +5,12 @@ local currentAudioDevice = "None"
 
 local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	position = "right",
+	padding_left = -10,
+	padding_right = -4,
 	label = {
 		string = "??%",
-		padding_left = -8,
-		color = settings.colors.light_green,
+		padding_left = -6,
+		polor = settings.colors.light_green,
 	},
 })
 
@@ -59,7 +61,7 @@ volumeValue:subscribe("volume_change", function(env)
 		volumeValue:set({
 			icon = {
 				string = icon,
-				color = settings.colors.blue,
+				color = settings.colors.yellow,
 			},
 			label = {
 				string = hasVolume and lead .. volume .. "%" or "",
@@ -78,7 +80,7 @@ local function hideVolumeDetails()
 	sbar.remove("/" .. constants.items.VOLUME .. ".device\\.*/")
 end
 
-local function toggleVolumeDetails(env)
+local function toggleVolumeDetails()
 	-- Remove the right-click sound settings behavior
 	-- if env.BUTTON == "right" then
 	-- 	sbar.exec("open /System/Library/PreferencePanes/Sound.prefpane")

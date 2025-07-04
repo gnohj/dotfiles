@@ -29,7 +29,7 @@ if [ "$BUTTON" = "left" ]; then
   # Attempt to get the current input device name
   MIC_NAME=$(SwitchAudioSource -t input -c)
   # I just want the first word, in case it's too long
-  MIC_NAME=$(echo $MIC_NAME | awk '{print $1}')
+  MIC_NAME=$(echo "$MIC_NAME" | awk '{print $1}')
 
   # When no microphone is connected, SwitchAudioSource gives me back random
   # characters and sketchybar shows "Warning: Malformed UTF-8 string"
@@ -47,10 +47,10 @@ if [ "$BUTTON" = "left" ]; then
     # Update SketchyBar with the microphone's name and volume
     if [[ $MIC_VOLUME -lt 60 ]]; then
       osascript -e 'set volume input volume 60'
-      sketchybar -m --set mic label="$MIC_NAME 60" icon= icon.color=$WHITE label.color=$WHITE
+      sketchybar -m --set mic label="$MIC_NAME 60" icon= icon.color="$WHITE" label.color="$WHITE"
     elif [[ $MIC_VOLUME -gt 0 ]]; then
       osascript -e 'set volume input volume 0'
-      sketchybar -m --set mic label="$MIC_NAME 0" icon= icon.color=$RED label.color=$RED
+      sketchybar -m --set mic label="$MIC_NAME 0" icon= icon.color="$RED" label.color="$RED"
     fi
   fi
 # Check for right-click or shift modifier to show the microphone selection popup

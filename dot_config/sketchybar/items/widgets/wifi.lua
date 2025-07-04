@@ -168,7 +168,7 @@ wifiUp:subscribe("network_update", function(env)
 	})
 end)
 
-wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function(env)
+wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 	wifi:set({
 		icon = {
 			string = settings.icons.text.wifi.disconnected,
