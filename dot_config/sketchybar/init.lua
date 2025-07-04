@@ -1,5 +1,6 @@
 require("install.sbar")
 
+---@diagnostic disable-next-line: lowercase-global
 sbar = require("sketchybar")
 
 sbar.begin_config()

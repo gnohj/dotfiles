@@ -79,8 +79,8 @@ local function updateSpotifyInfo()
 			end tell
 		]]
 
-		sbar.exec("osascript -e '" .. spotifyScript .. "'", function(result)
-			local status = result:match("^[^\n]*") -- Get first line, remove newlines
+		sbar.exec("osascript -e '" .. spotifyScript .. "'", function(_result)
+			local status = _result:match("^[^\n]*") -- Get first line, remove newlines
 
 			if status == "not_running" or status == "stopped" or status == "" then
 				if isSpotifyRunning then -- Only update if state changed
@@ -169,7 +169,7 @@ local function updateSpotifyInfo()
 					local artworkPath = "/tmp/spotify_" .. urlHash .. ".jpg"
 
 					-- Download the artwork
-					sbar.exec("curl -s -L -o '" .. artworkPath .. "' '" .. artworkUrl .. "'", function(result)
+					sbar.exec("curl -s -L -o '" .. artworkPath .. "' '" .. artworkUrl .. "'", function()
 						-- Check if file exists and has content
 						sbar.exec("ls -la '" .. artworkPath .. "'", function(lsResult)
 							if lsResult ~= "" and not lsResult:match("No such file") then

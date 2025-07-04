@@ -28,14 +28,13 @@ local function addToggle()
 		background = {
 			color = settings.colors.with_alpha(settings.colors.dirty_white, 0.0),
 		},
-		orange,
 	})
 
 	sbar.add("item", constants.items.MENU_TOGGLE .. ".padding", {
 		width = settings.dimens.padding.label,
 	})
 
-	menuToggle:subscribe("mouse.entered", function(env)
+	menuToggle:subscribe("mouse.entered", function()
 		sbar.animate("tanh", 30, function()
 			menuToggle:set({
 				background = {
@@ -48,7 +47,7 @@ local function addToggle()
 		end)
 	end)
 
-	menuToggle:subscribe("mouse.exited", function(env)
+	menuToggle:subscribe("mouse.exited", function()
 		sbar.animate("tanh", 30, function()
 			menuToggle:set({
 				background = {
@@ -61,11 +60,11 @@ local function addToggle()
 		end)
 	end)
 
-	menuToggle:subscribe("mouse.clicked", function(env)
+	menuToggle:subscribe("mouse.clicked", function()
 		switchToggle(menuToggle)
 	end)
 
-	menuToggle:subscribe(constants.events.AEROSPACE_SWITCH, function(env)
+	menuToggle:subscribe(constants.events.AEROSPACE_SWITCH, function()
 		switchToggle(menuToggle)
 	end)
 end
