@@ -22,6 +22,7 @@ github
 iHeartRadio
 iheart
 loginToken
+md
 neovim
 newrelic
 onchange
