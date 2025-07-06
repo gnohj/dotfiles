@@ -152,7 +152,7 @@ return {
             "branch",
             color = {
               bg = colors["gnohj_color08"],
-              fg = colors["gnohj_color03"],
+              fg = colors["gnohj_color24"],
               gui = "bold",
             },
           },
@@ -235,7 +235,7 @@ return {
             end,
           },
 
-          { "encoding", color = { fg = colors["gnohj_color12"] } },
+          { "encoding", color = { fg = colors["gnohj_color03"] } },
           { "filetype" },
         },
       },
