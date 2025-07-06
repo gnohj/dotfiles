@@ -132,9 +132,26 @@ ln -s "$DOTFILES_MARTA_CONFIG" "$MARTA_CONFIG_FILE"
 if ! command -v spicetify &>/dev/null; then
   echo "❌  spicetify not found"
 else
-  spicetify config current_theme Dribbblish color_scheme catppuccin-mocha
+  echo "Installing spicetify themes..."
+
+  # Clone themes repository
+  if [ ! -d "/tmp/spicetify-themes" ]; then
+    git clone --depth=1 https://github.com/spicetify/spicetify-themes.git /tmp/spicetify-themes
+  fi
+
+  # Create themes directory and copy themes
+  mkdir -p ~/.config/spicetify/Themes
+  cp -r /tmp/spicetify-themes/* ~/.config/spicetify/Themes/
+
+  # Clean up temporary directory
+  rm -rf /tmp/spicetify-themes
+
+  # Configure theme
+  spicetify config current_theme Dribbblish
+  spicetify config color_scheme gruvbox-material-dark
   spicetify backup apply
-fi
+
+  echo "✅  Spicetify theme configured: Dribbblish (gruvbox-material-dark)"
 
 #-------------------------------------------------------------------------------
 #--                      GitHub Auto Push Service / Sketchybar Notification
