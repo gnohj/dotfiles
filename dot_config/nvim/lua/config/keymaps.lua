@@ -29,6 +29,14 @@ keymap(
   { desc = "[P]Delete without yanking" }
 )
 
+keymap("x", "<leader>dd", '"_d', { desc = "[P]Delete without yanking" })
+keymap(
+  "n",
+  "<leader>d",
+  '"_d',
+  { desc = "[P]Delete without yanking (operator)" }
+)
+
 -- move text up and down
 -- keymap("v", "j", ":m .+1<cr>==", { desc = "[p]move line down in visual mode" })
 -- keymap("v", "k", ":m .-2<cr>==", { desc = "[p]move line up in visual mode" })
