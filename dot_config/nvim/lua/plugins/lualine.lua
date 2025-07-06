@@ -32,7 +32,7 @@ end
 
 local function current_buffer_unsaved_dot()
   if vim.api.nvim_buf_get_option(0, "modified") then
-    return "●"
+    return "🚨"
   else
     return ""
   end
@@ -83,12 +83,20 @@ return {
               fg = colors["gnohj_color10"],
               gui = "bold",
             },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
+            },
           },
           insert = {
             a = {
               bg = colors["gnohj_color02"],
               fg = colors["gnohj_color10"],
               gui = "bold",
+            },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
             },
           },
           visual = {
@@ -97,12 +105,20 @@ return {
               fg = colors["gnohj_color10"],
               gui = "bold",
             },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
+            },
           },
           command = {
             a = {
               bg = colors["gnohj_color05"],
               fg = colors["gnohj_color10"],
               gui = "bold",
+            },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
             },
           },
           replace = {
@@ -111,6 +127,10 @@ return {
               fg = colors["gnohj_color10"],
               gui = "bold",
             },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
+            },
           },
           inactive = {
             a = {
@@ -118,12 +138,25 @@ return {
               fg = colors["gnohj_color13"],
               gui = "bold",
             },
+            b = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color09"],
+            },
           },
         },
       },
       sections = {
         lualine_a = { "mode" },
-        lualine_b = { "branch" },
+        lualine_b = {
+          {
+            "branch",
+            color = {
+              bg = colors["gnohj_color08"],
+              fg = colors["gnohj_color03"],
+              gui = "bold",
+            },
+          },
+        },
         lualine_c = {
           {
             buffer_count,
@@ -218,7 +251,10 @@ return {
 
         -- },
         lualine_b = {
-          { file_path, color = { fg = colors["gnohj_color03"], gui = "bold" } },
+          {
+            file_path,
+            color = { fg = colors["gnohj_color03"], bg = "NONE", gui = "bold" },
+          },
         },
       },
       inactive_winbar = {
@@ -234,7 +270,11 @@ return {
         lualine_b = {
           {
             file_path,
-            color = { fg = colors["gnohj_color09"], gui = "italic" },
+            color = {
+              fg = colors["gnohj_color09"],
+              bg = "NONE",
+              gui = "italic",
+            },
           },
         },
       },
