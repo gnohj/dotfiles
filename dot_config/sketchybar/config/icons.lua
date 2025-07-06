@@ -60,6 +60,7 @@ local apps <const> = {
 	["钉钉"] = ":dingtalk:",
 	["阿里钉"] = ":dingtalk:",
 	["Discord"] = "",
+	["Vesktop"] = "",
 	["Discord Canary"] = ":discord:",
 	["Discord PTB"] = ":discord:",
 	["Docker"] = "",
