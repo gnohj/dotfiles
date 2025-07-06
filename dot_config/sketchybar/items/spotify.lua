@@ -28,13 +28,22 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	},
 })
 
--- Main text widget with play/pause icon (appears on right)
+-- Main text widget (without play/pause icon)
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	position = "center",
 	update_freq = 15,
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
+})
+
+-- Separate play/pause icon widget (can be positioned independently)
+local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
+	position = "center",
+	y_offset = -1.75,
+	padding_left = -18,
+	padding_right = 0,
+	drawing = false,
 })
 
 local function updateSpotifyInfo()
@@ -44,6 +53,7 @@ local function updateSpotifyInfo()
 			if isSpotifyRunning then -- Only update if state changed
 				spotify:set({ drawing = false })
 				spotifyIcon:set({ drawing = false })
+				playIcon:set({ drawing = false })
 				isSpotifyRunning = false
 				lastTrackInfo = "" -- Reset cache
 			end
@@ -86,6 +96,7 @@ local function updateSpotifyInfo()
 				if isSpotifyRunning then -- Only update if state changed
 					spotify:set({ drawing = false })
 					spotifyIcon:set({ drawing = false })
+					playIcon:set({ drawing = false })
 					isSpotifyRunning = false
 					lastTrackInfo = "" -- Reset cache
 				end
@@ -141,10 +152,9 @@ local function updateSpotifyInfo()
 							.. (artworkUrl ~= "" and "available" or "none")
 					)
 				end
-				local playIcon = isPlaying and "⏸" or "▶"
+				local playIconString = isPlaying and "⏸" or "▶"
 				local playIconSize = isPlaying and "20.0" or "18.0" -- Larger pause icon
 				local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
-				print("displayText: " .. displayText)
 
 				-- Always show Spotify icon first
 				spotifyIcon:set({
@@ -193,7 +203,7 @@ local function updateSpotifyInfo()
 					end)
 				end
 
-				-- Update main widget (now shows text and play/pause icon on right)
+				-- Update main widget (now shows only text)
 				spotify:set({
 					drawing = true,
 					icon = {
@@ -204,11 +214,19 @@ local function updateSpotifyInfo()
 						max_chars = 20,
 					},
 					label = {
-						string = playIcon,
+						string = "", -- No label on main widget
+					},
+				})
+
+				-- Update separate play icon widget
+				playIcon:set({
+					drawing = true,
+					icon = {
+						string = playIconString,
 						color = color,
+						font = "SF Pro:Regular:" .. playIconSize,
 						padding_left = 8,
 						padding_right = 0,
-						font = "SF Pro:Regular:" .. playIconSize,
 					},
 				})
 			end
@@ -232,6 +250,19 @@ spotify:subscribe("mouse.clicked", function()
 end)
 
 spotifyIcon:subscribe("mouse.clicked", function()
+	local currentTime = os.time()
+	if currentTime - lastClickTime < 1 then
+		return
+	end
+	lastClickTime = currentTime
+
+	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
+		lastTrackInfo = ""
+		updateSpotifyInfo()
+	end)
+end)
+
+playIcon:subscribe("mouse.clicked", function()
 	local currentTime = os.time()
 	if currentTime - lastClickTime < 1 then
 		return
