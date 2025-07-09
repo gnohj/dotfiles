@@ -32,7 +32,9 @@ end
 
 local function current_buffer_unsaved_dot()
   if vim.api.nvim_buf_get_option(0, "modified") then
-    return "🚨"
+    local count = buffer_count_with_unsaved()
+
+    return "🚨 " .. count
   else
     return ""
   end
@@ -71,7 +73,8 @@ return {
     return {
 
       options = {
-        -- section_separators = { left = " " }, -- Remove arrows
+        -- component_separators = { left = ")", right = "(" },
+        section_separators = { left = "", right = "" },
         disabled_filetypes = {
           statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
           winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
@@ -84,8 +87,9 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
           insert = {
@@ -95,8 +99,9 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
           visual = {
@@ -106,8 +111,9 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
           command = {
@@ -117,8 +123,9 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
           replace = {
@@ -128,8 +135,9 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
           inactive = {
@@ -139,22 +147,24 @@ return {
               gui = "bold",
             },
             b = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color09"],
+              separator = { left = "", right = "" },
             },
           },
         },
       },
       sections = {
-        lualine_a = { "mode" },
+        lualine_a = { { "mode", separator = { left = "", right = "" } } },
         lualine_b = {
           {
             "branch",
             color = {
-              bg = colors["gnohj_color08"],
+              -- bg = colors["gnohj_color08"],
               fg = colors["gnohj_color24"],
               gui = "bold",
             },
+            separator = { left = "", right = "" },
           },
         },
         lualine_c = {
@@ -192,10 +202,6 @@ return {
           },
           {
             current_buffer_unsaved_dot,
-            color = { fg = colors["gnohj_color11"] },
-          },
-          {
-            buffer_count_with_unsaved,
             color = { fg = colors["gnohj_color11"] },
           },
           {
@@ -238,18 +244,30 @@ return {
           { "encoding", color = { fg = colors["gnohj_color03"] } },
           { "filetype" },
         },
+        lualine_y = {
+          -- {
+          --   "progress",
+          --   color = {
+          --     fg = colors["gnohj_color04"],
+          --     bg = "NONE",
+          --   },
+          --   separator = { left = "", right = "" },
+          --   padding = { left = 0, right = 1 },
+          -- },
+        },
+        lualine_z = {
+          {
+            "location",
+            -- padding = { left = 1, right = 0 },
+            color = {
+              fg = colors["gnohj_color10"],
+              bg = colors["gnohj_color04"],
+            },
+            separator = { left = "", right = "" },
+          },
+        },
       },
       winbar = {
-        -- lualine_a = {
-        --   { current_buffer_unsaved, color = { fg = "", bg = "", gui = "bold" } },
-        -- },
-        -- lualine_x = {
-        --   {
-        --     buffer_count,
-        --     color = { fg = colors["gnohj_color02"], gui = "bold" },
-        --   },
-
-        -- },
         lualine_b = {
           {
             file_path,
@@ -258,15 +276,6 @@ return {
         },
       },
       inactive_winbar = {
-        -- lualine_a = {
-        --   { current_buffer_unsaved, color = { fg = "", gui = "italic" } },
-        -- },
-        -- lualine_x = {
-        --   {
-        --     buffer_count,
-        --     color = { fg = colors["gnohj_color09"], gui = "italic" },
-        --   },
-        -- },
         lualine_b = {
           {
             file_path,
