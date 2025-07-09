@@ -1,7 +1,8 @@
 {
     "runtime.version": "Lua 5.4",
     "diagnostics.disable": [
-        "undefined-field"
+        "undefined-field",
+        "deprecated"
     ],
     "diagnostics.globals": [
         "require"
