@@ -8,14 +8,12 @@ return {
     "mfussenegger/nvim-lint",
     opts = {
       linters_by_ft = {
-        yaml = { "actionlint" },
+        yaml = { "actionlint" }, -- only does workflow files
       },
       linters = {
         actionlint = {
           condition = function(ctx)
-            -- Match both workflows and actions directories
             return ctx.filename:match("%.github/workflows/.*%.ya?ml$")
-              or ctx.filename:match("%.github/actions/.*/action%.ya?ml$")
           end,
         },
       },
