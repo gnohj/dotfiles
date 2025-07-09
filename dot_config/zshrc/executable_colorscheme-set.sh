@@ -338,10 +338,15 @@ generate_lazygit_config() {
   cat >"$lazygit_conf_file" <<EOF
 # LazyGit configuration with custom colors
 # Auto-generated lazygit config
+# https://github.com/aidancz/lazygit/blob/master/docs/Config.md
+showRandomTip: false
 notARepository: "quit"
 quitOnTopLevelReturn: true
 git:
   overrideGpg: true
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
 os:
   editPreset: nvim
 gui:
