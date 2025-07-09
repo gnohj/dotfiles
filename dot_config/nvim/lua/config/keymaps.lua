@@ -36,10 +36,13 @@ keymap(
   '"_d',
   { desc = "[P]Delete without yanking (operator)" }
 )
+keymap(
+  "n",
+  "<leader>D",
+  '"_D',
+  { desc = "[P]Delete to end of line without yanking" }
+)
 
--- move text up and down
--- keymap("v", "j", ":m .+1<cr>==", { desc = "[p]move line down in visual mode" })
--- keymap("v", "k", ":m .-2<cr>==", { desc = "[p]move line up in visual mode" })
 keymap(
   "v",
   "J",
