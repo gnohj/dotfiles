@@ -3,7 +3,6 @@ Aptivada
 BMI
 Bitwarden
 CD
-CDN
 Callouts
 Grugfar
 JW
@@ -11,13 +10,17 @@ Lazygit
 MacOS
 OS
 PNPM
+S3
 SSR
+Turborepo
 WAF
 WiFi
 Zsh
 api
 bashrc
+cdn
 cli
+dont
 envs
 fastly
 github
@@ -29,6 +32,7 @@ neovim
 newrelic
 onchange
 pid
+sdk
 sourcemaps
 v1
 v2
