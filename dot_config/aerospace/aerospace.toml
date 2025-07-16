@@ -269,7 +269,7 @@ run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'app.zen-browser.zen'
-run = "move-node-to-workspace Q"
+run = "move-node-to-workspace Z"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
@@ -326,7 +326,7 @@ run = "move-node-to-workspace F"
 
 [[on-window-detected]]
 if.app-id = 'com.brave.Browser'
-run = "move-node-to-workspace Z"
+run = "move-node-to-workspace Q"
 
 
 [workspace-to-monitor-force-assignment]
