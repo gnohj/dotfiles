@@ -434,13 +434,44 @@ end, {
 })
 
 -------------------------------------------------------------------------------
---                           Fastaction
+--                  Tiny Code Action / Fastaction
 -------------------------------------------------------------------------------
 keymap(
-  { "n", "x" },
+  "n",
   "<leader>ca",
-  '<cmd>lua require("fastaction").code_action()<CR>',
-  { desc = "Display code actions" }
+  function()
+    local group =
+      vim.api.nvim_create_augroup("TinyCodeActionEscape", { clear = true })
+
+    vim.api.nvim_create_autocmd("BufNew", {
+      group = group,
+      once = true,
+      callback = function(event)
+        vim.schedule(function()
+          if vim.api.nvim_buf_is_valid(event.buf) then
+            vim.keymap.set("n", "<esc>", function()
+              -- Close all floating windows
+              for _, win in ipairs(vim.api.nvim_list_wins()) do
+                if vim.api.nvim_win_is_valid(win) then
+                  local config = vim.api.nvim_win_get_config(win)
+                  if config.relative ~= "" then -- It's a floating window
+                    pcall(vim.api.nvim_win_close, win, true)
+                  end
+                end
+              end
+            end, {
+              buffer = event.buf,
+              silent = true,
+              desc = "Close all floating windows",
+            })
+          end
+        end)
+      end,
+    })
+
+    require("tiny-code-action").code_action()
+  end,
+  { noremap = true, silent = true, desc = "Code action with escape support" }
 )
 
 -------------------------------------------------------------------------------

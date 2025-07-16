@@ -5,6 +5,8 @@ end
 -- https://github.com/Chaitanyabsprip/fastaction.nvim
 return {
   "Chaitanyabsprip/fastaction.nvim",
+  enabled = false,
+  event = "LspAttach",
   opts = {
     dismiss_keys = { "j", "k", "<c-c>", "<esc>", "q" },
     priority = {
