@@ -14,7 +14,7 @@ local currentWorkspaceWatcher = sbar.add("item", {
 })
 
 local spaceConfigs <const> = {
-	["Q"] = { name = "Work", app = "Zen" },
+	["Q"] = { name = "Work", app = "Brave Browser" },
 	-- ["Q"] = { name = "Work", app = "Twilight" },
 	["W"] = { name = "Slack", app = "Slack" },
 	["E"] = { name = "Teams", app = "Microsoft Teams" },
@@ -22,8 +22,8 @@ local spaceConfigs <const> = {
 	["G"] = { name = "Browser", app = "Zen" },
 	-- ["F"] = { name = "System", app = "System Settings" },
 	["F"] = { name = "System", app = "Marta" },
-	-- ["D"] = { name = "Discord", app = "Discord" },
-	["D"] = { name = "Vesktop", app = "Vesktop" },
+	["D"] = { name = "Discord", app = "Discord" },
+	-- ["D"] = { name = "Vesktop", app = "Vesktop" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["M"] = { name = "Mail", app = "Mail" },
 	["P"] = { name = "Passwords", app = "Bitwarden" },
@@ -31,7 +31,7 @@ local spaceConfigs <const> = {
 	["T"] = { name = "Terminal", app = "Ghostty" },
 	["U"] = { name = "Excalidraw", icon = "󰽉" }, -- Using icon instead of app
 	["Y"] = { name = "Whimsical", icon = "󱁉" }, -- Using icon instead of app
-	["Z"] = { name = "Brave", app = "Brave Browser" },
+	["Z"] = { name = "Brave", app = "Zen" },
 	-- ["T"] = { name = "Terminal", app = "WezTerm" },
 }
 
