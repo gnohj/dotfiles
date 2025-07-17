@@ -1,18 +1,21 @@
 {
 	"name": "Vimium C",
-	"@time": "1/16/2025, 1:57:32 PM",
-	"time": 1737057452955,
+	"@time": "7/16/2025, 7:00:09 PM",
+	"time": 1752710409482,
 	"environment": {
-		"extension": "2.11.3",
+		"extension": "2.12.2",
 		"platform": "mac",
-		"chromium": 132
+		"chromium": 138
 	},
 	"keyLayout": 2,
 	"keyMappings": [
 		"#!no-check",
 		"unmap o",
 		"map <c-p> togglePinTab",
+		"map <c-d> duplicateTab",
+		"map <c-c> copyCurrentUrl",
 		""
 	],
 	"vimSync": true
 }
+
