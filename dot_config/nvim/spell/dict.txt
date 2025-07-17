@@ -6,12 +6,14 @@ CD
 CMS
 Callouts
 Grugfar
+IHRWEB
+IaC
 JW
 Lazygit
 MacOS
 OS
 OneTrust
-PNPM
+PR
 S3
 SSR
 TBD
@@ -38,6 +40,8 @@ neovim
 newrelic
 onchange
 pid
+pnpm
+pulumi
 sdk
 sourcemaps
 v1
