@@ -65,6 +65,7 @@ taps=(
   "FelixKratz/formulae"
   "nikitabobko/tap"
   "oven-sh/bun"
+  "pulumi/tap/pulumi"
 )
 for tap in "${taps[@]}"; do
   if ! $BREW_CMD tap | grep -q "^${tap}$"; then
