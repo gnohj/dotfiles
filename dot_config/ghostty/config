@@ -97,7 +97,7 @@ clipboard-write = "allow"
 
 # misc
 confirm-close-surface = false
-auto-update = check
+auto-update = off
 quit-after-last-window-closed = true
 
 keybind = shift+enter=text:\n
