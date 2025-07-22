@@ -39,7 +39,6 @@ font-family = "Hasklug Nerd Font Mono Med"
 font-family-italic = "Cartograph CF Italic"
 adjust-cell-width = -5%
 adjust-cell-height = 10%
-adjust-underline-position = 6
 adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
 font-size = 15
