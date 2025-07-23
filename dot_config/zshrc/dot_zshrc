@@ -401,6 +401,9 @@ reload_prompt() {
 
 export _ZO_DATA_DIR="$ZDOTDIR"
 
+# Set AWS Profile
+export AWS_PROFILE=ihr-prod
+
 #-------------------------------------------------------------------------------
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
@@ -410,6 +413,7 @@ eval "$(direnv hook $SHELL)"
 eval "$(fastly --completion-script-zsh)"
 eval "$(fnm env --use-on-cd --shell zsh)"
 eval "$(fzf --zsh)"
+eval "$(saml2aws --completion-script-zsh)"
 
 eval "$(zoxide init zsh)"
 eval "$(atuin init zsh --disable-up-arrow)"
