@@ -23,6 +23,7 @@ return {
       "Kaiser-Yang/blink-cmp-dictionary",
       "giuxtaposition/blink-cmp-copilot",
       "Kaiser-Yang/blink-cmp-avante",
+      "marcoSven/blink-cmp-yanky",
     },
     opts = function(_, opts)
       opts.enabled = function()
@@ -45,6 +46,7 @@ return {
           "buffer",
           "emoji",
           "dictionary",
+          "yank",
           -- "dadbod",
           -- "copilot",
           -- "avante_commands",
@@ -52,6 +54,16 @@ return {
           -- "avante_files",
         },
         providers = {
+          yank = {
+            name = "yank",
+            module = "blink-yanky",
+            opts = {
+              minLength = 5,
+              onlyCurrentFiletype = true,
+              trigger_characters = { '"' },
+              kind_icon = "󰅍",
+            },
+          },
           -- avante_commands = {
           --   name = "avante_commands",
           --   module = "blink.compat.source",

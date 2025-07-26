@@ -56,22 +56,6 @@ keymap(
   { desc = "[P]Move line up in visual mode" }
 )
 
--- yank to system clipboard
-keymap(
-  { "n", "v" },
-  "<leader>y",
-  '"+y',
-  { noremap = true, silent = true, desc = "[P]Yank to system clipboard" }
-)
-
--- paste from system clipboard
-keymap(
-  { "n", "v" },
-  "<leader>p",
-  '"+p',
-  { noremap = true, silent = true, desc = "[P]Paste from system clipboard" }
-)
-
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
 keymap(
   "n",
