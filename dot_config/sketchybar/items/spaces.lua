@@ -23,7 +23,6 @@ local spaceConfigs <const> = {
 	-- ["F"] = { name = "System", app = "System Settings" },
 	["F"] = { name = "System", app = "Marta" },
 	["D"] = { name = "Discord", app = "Discord" },
-	-- ["D"] = { name = "Vesktop", app = "Vesktop" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["M"] = { name = "Mail", app = "Mail" },
 	["P"] = { name = "Passwords", app = "Bitwarden" },
