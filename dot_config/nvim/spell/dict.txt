@@ -5,6 +5,7 @@ Bitwarden
 CD
 CMS
 Callouts
+GH
 Grugfar
 IHRWEB
 IaC
@@ -12,8 +13,10 @@ JW
 Lazygit
 MacOS
 OS
+OTP
 OneTrust
 PR
+RadioEdit
 S3
 SSR
 TBD
