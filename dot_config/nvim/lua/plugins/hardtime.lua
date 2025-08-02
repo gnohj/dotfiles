@@ -15,8 +15,7 @@ return {
       ["kj"] = false, -- Allow kj combination (if you use this too)
       ["j"] = false, -- Allow j key
       ["k"] = false, -- Allow k key
-    },
-    disabled_keys = {
+      disabled_keys = {},
       ["<Up>"] = {},
       ["<Down>"] = {},
       ["<Left>"] = {},

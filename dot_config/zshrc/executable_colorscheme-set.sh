@@ -242,7 +242,7 @@ generate_starship_config() {
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-\$directory\$git_branch\$git_status\$cmd_duration\${custom.bitwarden}
+\$directory\$cmd_duration\${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -275,7 +275,12 @@ description = "Output the current Bitwarden vault status."
 command = 'echo \$(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
 format = "[\$symbol( \$output)](\$style)"
 when = 'command -v rbw'
-
+[aws]
+disabled = true
+[git_status]
+disabled = true
+[git_commit]
+disabled = true
 EOF
 
   # Generate the radio control Starship configuration file
@@ -293,7 +298,7 @@ EOF
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
 (\${env_var.RADIO_CTL})
-\$directory\$git_branch\$git_status\$cmd_duration\${custom.bitwarden}
+\$directory\$cmd_duration\${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -326,6 +331,12 @@ description = "Output the current Bitwarden vault status."
 command = 'echo \$(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
 format = "[\$symbol( \$output)](\$style)"
 when = 'command -v rbw'
+[aws]
+disabled = true
+[git_status]
+disabled = true
+[git_commit]
+disabled = true
 EOF
 
   echo "Starship configuration updated at '$starship_conf_file'."
@@ -571,6 +582,59 @@ EOF
   echo "Delta themes configuration updated at '$delta_themes_file'."
 }
 
+generate_gitmux_config() {
+  gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
+
+  # Create directory if it doesn't exist
+  mkdir -p "$(dirname "$gitmux_conf_file")"
+
+  cat >"$gitmux_conf_file" <<EOF
+#
+#  ██████╗ ██╗████████╗███╗   ███╗██╗   ██╗██╗  ██╗
+# ██╔════╝ ██║╚══██╔══╝████╗ ████║██║   ██║╚██╗██╔╝
+# ██║  ███╗██║   ██║   ██╔████╔██║██║   ██║ ╚███╔╝
+# ██║   ██║██║   ██║   ██║╚██╔╝██║██║   ██║ ██╔██╗
+# ╚██████╔╝██║   ██║   ██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗
+#  ╚═════╝ ╚═╝   ╚═╝   ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝
+#
+# Git in your tmux status bar
+# Auto-generated gitmux config
+# https://github.com/arl/gitmux
+tmux:
+  symbols:
+
+    ahead: "👆"
+    behind: "👇"
+    clean: ""
+    branch: " "
+    hashprefix: ":"
+    staged: "● "
+    conflict: "✖ "
+    modified: "✚ "
+    untracked: "… "
+    stashed: " "
+    insertions: " "
+    deletions: " "
+  styles:
+    state: "#[fg=${gnohj_color11},nobold]"
+    branch: "#[fg=${gnohj_color03},nobold]"
+    staged: "#[fg=${gnohj_color02},nobold]"
+    conflict: "#[fg=${gnohj_color11},nobold]"
+    modified: "#[fg=${gnohj_color04},nobold]"
+    untracked: "#[fg=${gnohj_color01},nobold]"
+    stashed: "#[fg=${gnohj_color08},nobold]"
+    clean: "#[fg=${gnohj_color02},nobold]"
+    divergence: "#[fg=${gnohj_color05},nobold]"
+  layout: [branch, divergence, flags, stats]
+  # layout: [stats, flags, divergence, branch]
+  options:
+    branch_max_len: 0
+    hide_clean: false
+EOF
+
+  echo "Gitmux configuration updated at '$gitmux_conf_file'."
+}
+
 # If there's an update, replace the active colorscheme and perform necessary actions
 if [ "$UPDATED" = true ]; then
   echo "Updating active colorscheme to '$colorscheme_profile'."
@@ -615,6 +679,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate borders config
   generate_borders_config
+
+  # Generate gitmux config
+  generate_gitmux_config
 
   # Set the wallpaper
   if [ -z "$wallpaper" ]; then
