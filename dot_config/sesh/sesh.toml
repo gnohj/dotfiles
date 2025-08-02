@@ -173,6 +173,12 @@ startup_command = "nvim config.yml"
 preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/lazygit/config.yml"
 
 [[session]]
+name = "gitmux \ue615 "
+path = "~/.local/share/chezmoi/dot_config/gitmux"
+startup_command = "nvim gitmux.yml"
+preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/gitmux/gitmux.yml"
+
+[[session]]
 name = "lazy_nvim \ue615 "
 path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
 startup_command = "nvim lazy.lua"

@@ -157,15 +157,15 @@ return {
       sections = {
         lualine_a = { { "mode", separator = { left = "", right = "" } } },
         lualine_b = {
-          {
-            "branch",
-            color = {
-              -- bg = colors["gnohj_color08"],
-              fg = colors["gnohj_color24"],
-              gui = "bold",
-            },
-            separator = { left = "", right = "" },
-          },
+          -- {
+          --   "branch",
+          --   color = {
+          --     -- bg = colors["gnohj_color08"],
+          --     fg = colors["gnohj_color24"],
+          --     gui = "bold",
+          --   },
+          --   separator = { left = "", right = "" },
+          -- },
         },
         lualine_c = {
           {
@@ -181,25 +181,25 @@ return {
               hint = icons.diagnostics.Hint,
             },
           },
-          {
-            "diff",
-            symbols = {
-              added = icons.git.added,
-              modified = icons.git.modified,
-              removed = icons.git.removed,
-            },
-            source = function()
-              local gitsigns = vim.b.gitsigns_status_dict
-              if gitsigns then
-                return {
-                  added = gitsigns.added,
-
-                  modified = gitsigns.changed,
-                  removed = gitsigns.removed,
-                }
-              end
-            end,
-          },
+          -- {
+          --   "diff",
+          --   symbols = {
+          --     added = icons.git.added,
+          --     modified = icons.git.modified,
+          --     removed = icons.git.removed,
+          --   },
+          --   source = function()
+          --     local gitsigns = vim.b.gitsigns_status_dict
+          --     if gitsigns then
+          --       return {
+          --         added = gitsigns.added,
+          --
+          --         modified = gitsigns.changed,
+          --         removed = gitsigns.removed,
+          --       }
+          --     end
+          --   end,
+          -- },
           {
             current_buffer_unsaved_dot,
             color = { fg = colors["gnohj_color11"] },

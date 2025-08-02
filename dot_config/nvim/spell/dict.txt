@@ -5,6 +5,7 @@ Bitwarden
 CD
 CMS
 Callouts
+Fastly's
 GH
 Grugfar
 IHRWEB
@@ -17,7 +18,6 @@ OTP
 OneTrust
 PR
 RadioEdit
-S3
 SSR
 TBD
 Turborepo
@@ -28,6 +28,7 @@ api
 bashrc
 cdn
 cli
+cmd
 dont
 env
 envs
@@ -49,7 +50,9 @@ pid
 pnpm
 prNumber
 pulumi
+s3
 sdk
+serviceId
 sourcemaps
 v1
 v2

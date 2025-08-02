@@ -403,6 +403,7 @@ export _ZO_DATA_DIR="$ZDOTDIR"
 
 # Set AWS Profile
 export AWS_PROFILE=ihr-prod
+export SHOW_AWS_PROMPT=false
 
 #-------------------------------------------------------------------------------
 #                  Eval Integrations
