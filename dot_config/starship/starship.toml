@@ -10,7 +10,7 @@
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-$directory$git_branch$git_status$cmd_duration${custom.bitwarden}
+$directory$cmd_duration${custom.bitwarden}
 [﬌](bold green) 
 '''
 # [username]
@@ -43,4 +43,9 @@ description = "Output the current Bitwarden vault status."
 command = 'echo $(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
 format = "[$symbol( $output)]($style)"
 when = 'command -v rbw'
-
+[aws]
+disabled = true
+[git_status]
+disabled = true
+[git_commit]
+disabled = true
