@@ -7,10 +7,11 @@
 #  ╚═════╝ ╚═╝   ╚═╝   ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝
 #
 # Git in your tmux status bar
+# Auto-generated gitmux config
 # https://github.com/arl/gitmux
-
 tmux:
   symbols:
+
     ahead: "👆"
     behind: "👇"
     clean: ""
@@ -24,15 +25,15 @@ tmux:
     insertions: " "
     deletions: " "
   styles:
-    state: "#[fg=red,nobold]"
-    branch: "#[fg=cyan,nobold]"
-    staged: "#[fg=green,nobold]"
-    conflict: "#[fg=red,nobold]"
-    modified: "#[fg=blue,nobold]"
-    untracked: "#[fg=magenta,nobold]"
-    stashed: "#[fg=gray,nobold]"
-    clean: "#[fg=green,nobold]"
-    divergence: "#[fg=yellow,nobold]"
+    state: "#[fg=#da858e,nobold]"
+    branch: "#[fg=#a7cfbd,nobold]"
+    staged: "#[fg=#b7ce97,nobold]"
+    conflict: "#[fg=#da858e,nobold]"
+    modified: "#[fg=#a3b8c6,nobold]"
+    untracked: "#[fg=#c0aed2,nobold]"
+    stashed: "#[fg=#505e62,nobold]"
+    clean: "#[fg=#b7ce97,nobold]"
+    divergence: "#[fg=#dab183,nobold]"
   layout: [branch, divergence, flags, stats]
   # layout: [stats, flags, divergence, branch]
   options:
