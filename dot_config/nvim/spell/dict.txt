@@ -17,9 +17,11 @@ OS
 OTP
 OneTrust
 PR
+Pulumi's
 RadioEdit
 SSR
 TBD
+Terraform's
 Turborepo
 WAF
 WiFi
@@ -36,6 +38,7 @@ fastly
 geo
 getConfigs
 github
+gitignore
 href
 iHeartRadio
 iheart
@@ -53,6 +56,7 @@ pulumi
 s3
 sdk
 serviceId
+serviceIds
 sourcemaps
 v1
 v2
