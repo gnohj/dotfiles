@@ -73,22 +73,6 @@ keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 keybind = super+k=clear_screen
 
-# tmux specific keybinds only
-# command + k to tmux - sesh
-keybind = super+k=text:\x01\x4b
-# command + g  to tmu x- lazygit
-keybind = super+g=text:\x01\x67
-# command + l to tmux - last session
-keybind = super+l=text:\x01\x4c
-# command + Z to tmux - quit session
-keybind = super+shift+z=text:\x01\x5a
-# command + j to tmux - new terminal
-keybind = super+j=text:\x01\x6a
-
-
-# available command keybinds (letters - j , h, m, but it needs to be available
-# in all 4 layers (ghosty, aerospace, tmux, nvim)
-
 # clipboard
 clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true

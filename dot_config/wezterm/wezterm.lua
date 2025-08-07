@@ -97,6 +97,6 @@ config.quit_when_all_windows_are_closed = true
 -- Background - match Ghostty
 -- config.macos_window_background_blur = 80
 
-config.window_background_opacity = 0.875
--- config.window_background_opacity = 1.0
+config.window_background_opacity = 1.0
+-- config.window_background_opacity = 0.875
 return config
