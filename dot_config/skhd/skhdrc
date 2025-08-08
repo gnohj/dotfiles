@@ -2,10 +2,11 @@
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
 # Tmux commands
-ralt - a : /opt/homebrew/bin/tmux switch-client -l # alternate session
+ralt - d : /opt/homebrew/bin/tmux switch-client -l # alternate session
 ralt - s : ~/.config/skhd/sesh-switcher.sh
-ralt - d : /opt/homebrew/bin/tmux next-window
+ralt - a : /opt/homebrew/bin/tmux next-window
 ralt - c : /opt/homebrew/bin/tmux copy-mode
+ralt - x : /opt/homebrew/bin/tmux kill-pane
 ralt - g : ~/.config/skhd/lazygit.sh
 # TODO: move tmux colorscheme selector and transparency toggle here
 
