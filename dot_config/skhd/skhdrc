@@ -8,6 +8,8 @@ ralt - a : /opt/homebrew/bin/tmux next-window
 ralt - c : /opt/homebrew/bin/tmux copy-mode
 ralt - x : /opt/homebrew/bin/tmux kill-pane
 ralt - g : ~/.config/skhd/lazygit.sh
+ralt - v : /opt/homebrew/bin/tmux resize-pane -L 5
+ralt - b : /opt/homebrew/bin/tmux resize-pane -R 5
 # TODO: move tmux colorscheme selector and transparency toggle here
 
 # Aerospace - Focus commands
