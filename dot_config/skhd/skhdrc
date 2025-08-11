@@ -2,8 +2,9 @@
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
 ralt - a : /opt/homebrew/bin/tmux next-window
-ralt - s : /opt/homebrew/bin/tmux switch-client -l # alternate session
-ralt - d : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}" # new window in current directory
+ralt - e : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory
+ralt - r : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}" # new window in current directory
+ralt - 0x29 : /opt/homebrew/bin/tmux switch-client -l # alternate session
 # ralt - f - reserved for nvim shortcut to open tmux pane
 ralt - g : ~/.config/skhd/lazygit.sh
 ralt - t : ~/.config/skhd/sesh-switcher.sh
@@ -37,11 +38,10 @@ lalt - d : /opt/homebrew/bin/aerospace workspace D
 lalt - e : /opt/homebrew/bin/aerospace workspace E
 lalt - f : /opt/homebrew/bin/aerospace workspace F
 lalt - g : /opt/homebrew/bin/aerospace workspace G
-lalt - m : /opt/homebrew/bin/aerospace workspace M
-lalt - p : /opt/homebrew/bin/aerospace workspace P
 lalt - q : /opt/homebrew/bin/aerospace workspace Q
 lalt - s : /opt/homebrew/bin/aerospace workspace S
 lalt - t : /opt/homebrew/bin/aerospace workspace T
+lalt - v : /opt/homebrew/bin/aerospace workspace V
 lalt - w : /opt/homebrew/bin/aerospace workspace W
 lalt - x : /opt/homebrew/bin/aerospace workspace X
 lalt - z : /opt/homebrew/bin/aerospace workspace Z
@@ -53,20 +53,22 @@ lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
 lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
 lalt + shift - f : /opt/homebrew/bin/aerospace move-node-to-workspace F
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
-lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
-lalt + shift - p : /opt/homebrew/bin/aerospace move-node-to-workspace P
 lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
 lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
 lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
+lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V
 lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
 lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
-# toggle back and forth between workspaces
 
 # Aerospace - Fullscreen and navigation
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
-lalt - o : /opt/homebrew/bin/aerospace workspace-back-and-forth
+
+# toggle back and forth between workspaces
+lalt - a : /opt/homebrew/bin/aerospace workspace-back-and-forth
+
+# wrap around
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
 
 # Aerospace - Service mode

@@ -93,13 +93,20 @@ keymap(
   "<Nop>",
   { desc = "[P] Disabled No operation for <M-r>" }
 )
+-- Page scrolling with Alt+d and Alt+u
+keymap("n", "<M-d>", "<C-d>", { desc = "Page down" })
+keymap("n", "<M-u>", "<C-u>", { desc = "Page up" })
+
+-- If you also want these to work in visual mode
+keymap("v", "<M-d>", "<C-d>", { desc = "Page down" })
+keymap("v", "<M-u>", "<C-u>", { desc = "Page up" })
 
 -- Write current file
 keymap("n", "<M-w>", function()
   vim.cmd("write")
 end, { desc = "[P]Write current file" })
 
-keymap({ "n", "v", "i" }, "<M-h>", function()
+keymap({ "n", "v", "i" }, "<M-y>", function()
   -- require("noice").cmd("history")
   require("noice").cmd("all")
 end, { desc = "[P]Noice History" })

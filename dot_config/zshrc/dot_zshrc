@@ -385,7 +385,8 @@ export FORCE_COLOR=1
 export FNM_COREPACK_ENABLED=true
 
 # Adds color to fzf- for commands not tab, ex: ctrl + r
-export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6"
+# export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6"
+export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6 --bind 'J:preview-down,K:preview-up,alt-j:down,alt-k:up,alt-d:delete-char'"
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {
