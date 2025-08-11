@@ -18,7 +18,7 @@ return {
           -- cycles to opposite pane while navigating into the border (neovim panes only)
           cycle_navigation = true,
           -- enables default keybindings (C-hjkl) for normal mode
-          enable_default_keybindings = true,
+          enable_default_keybindings = false,
           -- prevents unzoom tmux when navigating beyond vim border
           persist_zoom = false,
         },
@@ -31,7 +31,7 @@ return {
           -- cycles to opposite pane while navigating into the border
           cycle_navigation = true,
           -- enables default keybindings (C-A-hjkl) for normal mode
-          enable_default_keybindings = true,
+          enable_default_keybindings = false,
         },
       })
     end,
@@ -47,11 +47,10 @@ return {
       "TmuxNavigatePrevious",
     },
     keys = {
-      { "<c-h>", "<cmd><C-U>TmuxNavigateLeft<cr>" },
-      { "<c-j>", "<cmd><C-U>TmuxNavigateDown<cr>" },
-      { "<c-k>", "<cmd><C-U>TmuxNavigateUp<cr>" },
-      { "<c-l>", "<cmd><C-U>TmuxNavigateRight<cr>" },
-      { "<c-\\>", "<cmd><C-U>TmuxNavigatePrevious<cr>" },
+      { "<M-h>", "<cmd>TmuxNavigateLeft<cr>" },
+      { "<M-j>", "<cmd>TmuxNavigateDown<cr>" },
+      { "<M-k>", "<cmd>TmuxNavigateUp<cr>" },
+      { "<M-l>", "<cmd>TmuxNavigateRight<cr>" },
     },
   },
 }
