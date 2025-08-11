@@ -26,6 +26,7 @@ Turborepo
 WAF
 WiFi
 Zsh
+a.
 api
 bashrc
 cdn
