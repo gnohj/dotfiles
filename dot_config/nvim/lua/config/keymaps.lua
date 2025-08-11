@@ -104,15 +104,10 @@ keymap({ "n", "v", "i" }, "<M-h>", function()
   require("noice").cmd("all")
 end, { desc = "[P]Noice History" })
 
--- Dismiss noice notifications
-keymap({ "n", "v", "i" }, "<M-d>", function()
-  require("noice").cmd("dismiss")
-end, { desc = "[P]Dismiss All" })
-
 -- HACK: View and paste images in Neovim like in Obsidian
 -- Paste images
 -- I tried using <C-v> but duh, that's used for visual block mode
-keymap({ "n", "i" }, "<M-a>", function()
+keymap({ "n", "i" }, "<M-p>", function()
   local pasted_image = require("img-clip").paste_image()
   if pasted_image then
     -- "Update" saves only if the buffer has been modified since the last save
