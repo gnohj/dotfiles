@@ -21,8 +21,7 @@ return {
       -- Default @
       reveal_cwd = ".",
       show_help = "g?",
-      -- Default =
-      synchronize = "s",
+      -- Default = synchronize = "s",
       trim_left = "<",
       trim_right = ">",
     })

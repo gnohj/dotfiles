@@ -11,8 +11,8 @@ ralt - t : ~/.config/skhd/sesh-switcher.sh
 ralt - c : /opt/homebrew/bin/tmux copy-mode
 # ralt - q - reserved for nvim shortcut to quit nvim instance
 ralt - z : /opt/homebrew/bin/tmux kill-pane
-ralt - v : /opt/homebrew/bin/tmux resize-pane -L 5
-ralt - b : /opt/homebrew/bin/tmux resize-pane -R 5
+ralt - n : /opt/homebrew/bin/tmux resize-pane -L 5
+ralt - m : /opt/homebrew/bin/tmux resize-pane -R 5
 # TODO: move tmux colorscheme selector (ralt - x) and transparency toggle (ralt - w) here
 
 # Aerospace - Focus commands
