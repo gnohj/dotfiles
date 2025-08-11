@@ -101,10 +101,14 @@ keymap("n", "<M-u>", "<C-u>", { desc = "Page up" })
 keymap("v", "<M-d>", "<C-d>", { desc = "Page down" })
 keymap("v", "<M-u>", "<C-u>", { desc = "Page up" })
 
--- Write current file
+-- Window navigation with Alt+w prefix
 keymap("n", "<M-w>", function()
-  vim.cmd("write")
-end, { desc = "[P]Write current file" })
+  vim.api.nvim_feedkeys(
+    vim.api.nvim_replace_termcodes("<C-w>", true, false, true),
+    "n",
+    false
+  )
+end, { desc = "Window commands prefix" })
 
 keymap({ "n", "v", "i" }, "<M-y>", function()
   -- require("noice").cmd("history")
