@@ -1,16 +1,18 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# Tmux commands
-ralt - d : /opt/homebrew/bin/tmux switch-client -l # alternate session
-ralt - s : ~/.config/skhd/sesh-switcher.sh
 ralt - a : /opt/homebrew/bin/tmux next-window
-ralt - c : /opt/homebrew/bin/tmux copy-mode
-ralt - x : /opt/homebrew/bin/tmux kill-pane
+ralt - s : /opt/homebrew/bin/tmux switch-client -l # alternate session
+ralt - d : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}" # new window in current directory
+# ralt - f - reserved for nvim shortcut to open tmux pane
 ralt - g : ~/.config/skhd/lazygit.sh
+ralt - t : ~/.config/skhd/sesh-switcher.sh
+ralt - c : /opt/homebrew/bin/tmux copy-mode
+# ralt - q - reserved for nvim shortcut to quit nvim instance
+ralt - z : /opt/homebrew/bin/tmux kill-pane
 ralt - v : /opt/homebrew/bin/tmux resize-pane -L 5
 ralt - b : /opt/homebrew/bin/tmux resize-pane -R 5
-# TODO: move tmux colorscheme selector and transparency toggle here
+# TODO: move tmux colorscheme selector (ralt - x) and transparency toggle (ralt - w) here
 
 # Aerospace - Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
