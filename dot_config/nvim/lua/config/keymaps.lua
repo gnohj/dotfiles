@@ -21,6 +21,9 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
 
+keymap("n", "<M-o>", "<C-o>", { desc = "[P]Jump backward in jump list" })
+keymap("n", "<M-i>", "<C-i>", { desc = "[P]Jump forward in jump list" })
+
 -- delete without yanking
 keymap(
   { "n", "v" },
