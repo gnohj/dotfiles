@@ -249,7 +249,7 @@ run = "move-node-to-workspace B"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.mail'
-run = "move-node-to-workspace M"
+run = "move-node-to-workspace G"
 
 [[on-window-detected]]
 if.app-id = 'com.hnc.Discord'
@@ -258,10 +258,6 @@ run = "move-node-to-workspace D"
 [[on-window-detected]]
 if.app-id = 'com.spotify.client'
 run = "move-node-to-workspace S"
-
-[[on-window-detected]]
-if.app-id = 'md.obsidian'
-run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'app.zen-browser.zen'
@@ -302,7 +298,7 @@ run = "move-node-to-workspace W"
 
 [[on-window-detected]]
 if.app-id = 'com.bitwarden.desktop'
-run = "move-node-to-workspace P"
+run = "move-node-to-workspace V"
 
 
 [[on-window-detected]]
@@ -339,8 +335,7 @@ X = 1
 U = 1
 B = 2
 C = 1
-F = 2
+F = 1
 V = 1
-N = 2
 T = 2
 Z = 2
