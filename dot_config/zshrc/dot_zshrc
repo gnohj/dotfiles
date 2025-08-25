@@ -293,6 +293,7 @@ if [[ ":$PATH:" != *":/Applications/flameshot.app/Contents/MacOS:"* ]]; then
   export PATH="/Applications/flameshot.app/Contents/MacOS:$PATH"
 fi
 
+export PATH="~/.local/bin:$PATH"
 
 #-------------------------------------------------------------------------------
 #                  Script Integrations
@@ -326,7 +327,7 @@ if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
     fastfetch
 fi
 
-# -----------------------------  Tmux - Update Pane Path -so that lazygit (cmd+k) can work anywhere (buffer, tmux pane, etc.)
+# -----------------------------  Tmux - Update Pane Path -so that lazygit (rctrl+g) can work anywhere (buffer, tmux pane, etc.)
 if [[ -n "$TMUX" ]]; then
   function update_tmux_pwd() {
     if [[ -n "$TMUX_PANE" ]]; then
@@ -385,8 +386,8 @@ export FORCE_COLOR=1
 export FNM_COREPACK_ENABLED=true
 
 # Adds color to fzf- for commands not tab, ex: ctrl + r
-# export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6"
-export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6 --bind 'J:preview-down,K:preview-up,alt-j:down,alt-k:up,alt-d:delete-char'"
+export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6"
+# export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6 --bind 'J:preview-down,K:preview-up,alt-j:down,alt-k:up,alt-d:delete-char'"
 
 # Global Reload Prompt Fn (updated to use the helper function)
 reload_prompt() {
@@ -436,4 +437,3 @@ add-zsh-hook precmd ensure_atuin_ctrl_r
 bindkey -M viins '^R' _atuin_search_widget  # Insert mode
 bindkey -M vicmd '^R' _atuin_search_widget  # Normal mode
 bindkey -M emacs '^R' _atuin_search_widget  # Emacs mode (fallback)
-

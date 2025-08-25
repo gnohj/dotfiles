@@ -1,19 +1,29 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-ralt - a : /opt/homebrew/bin/tmux next-window
-ralt - e : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory
-ralt - r : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}" # new window in current directory
-ralt - 0x29 : /opt/homebrew/bin/tmux switch-client -l # alternate session
-# ralt - f - reserved for nvim shortcut to open tmux pane
-ralt - g : ~/.config/skhd/lazygit.sh
-ralt - t : ~/.config/skhd/sesh-switcher.sh
-ralt - c : /opt/homebrew/bin/tmux copy-mode
-# ralt - q - reserved for nvim shortcut to quit nvim instance
-ralt - z : /opt/homebrew/bin/tmux kill-pane
-ralt - n : /opt/homebrew/bin/tmux resize-pane -L 5
-ralt - m : /opt/homebrew/bin/tmux resize-pane -R 5
-# TODO: move tmux colorscheme selector (ralt - x) and transparency toggle (ralt - w) here
+# available - rctrl + f, s, x, e
+rctrl - a : /opt/homebrew/bin/tmux switch-client -l # alternate session via semicolon
+rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
+rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
+# rctrl - r - reserved for atuin
+rctrl - 0x29 : /opt/homebrew/bin/tmux next-window
+# rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
+# rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
+# rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
+# rctrl - i - reserved for nvim shortcut (remapped <C-i> to <rctrl - i>) to jump forward in nvim
+# rctrl - w - reserved for nvim shortcut (remapped <C-w> to <rctrl - w>) to do window management in nvim
+# rctrl - y - reserved for nvim - open noice history
+# rctrl - p - reserved for nvim - reserved for going to next history
+# rctrl - n - reserved for nvim - reserved for going to previous history
+# rctrl - h/j/k/l - reserved for nvim - navigation
+rctrl - g : ~/.config/skhd/lazygit.sh
+rctrl - t : ~/.config/skhd/sesh-switcher.sh
+rctrl - c : /opt/homebrew/bin/tmux copy-mode
+# rctrl - q - reserved for nvim shortcut to quit nvim instance
+rctrl - z : /opt/homebrew/bin/tmux kill-pane
+rctrl - m : /opt/homebrew/bin/tmux resize-pane -L 5
+rctrl - 0x2B : /opt/homebrew/bin/tmux resize-pane -R 5 # comma
+# TODO: move tmux colorscheme selector (rctrl - ,) and transparency toggle (rctrl - .) here
 
 # Aerospace - Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
