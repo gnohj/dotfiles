@@ -25,6 +25,7 @@ history_filter = [
   "^reload",
   "^reload_prompt",
   "^z",
+  "^claude",
   "^cd",
   "^clear$",
   "^exit$",

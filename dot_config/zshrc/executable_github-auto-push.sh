@@ -37,6 +37,7 @@ log_message() {
 # List of repositories to push to
 REPO_LIST=(
   "$HOME/Obsidian/second-brain"
+  "$HOME/.claude"
 )
 
 # Define the push interval in seconds
