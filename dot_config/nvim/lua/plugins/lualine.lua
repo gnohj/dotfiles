@@ -267,26 +267,26 @@ return {
           },
         },
       },
-      winbar = {
-        lualine_b = {
-          {
-            file_path,
-            color = { fg = colors["gnohj_color03"], bg = "NONE", gui = "bold" },
-          },
-        },
-      },
-      inactive_winbar = {
-        lualine_b = {
-          {
-            file_path,
-            color = {
-              fg = colors["gnohj_color09"],
-              bg = "NONE",
-              gui = "italic",
-            },
-          },
-        },
-      },
+      -- winbar = {
+      --   lualine_b = {
+      --     {
+      --       file_path,
+      --       color = { fg = colors["gnohj_color03"], bg = "NONE", gui = "bold" },
+      --     },
+      --   },
+      -- },
+      -- inactive_winbar = {
+      --   lualine_b = {
+      --     {
+      --       file_path,
+      --       color = {
+      --         fg = colors["gnohj_color09"],
+      --         bg = "NONE",
+      --         gui = "italic",
+      --       },
+      --     },
+      --   },
+      -- },
     }
   end,
 }
