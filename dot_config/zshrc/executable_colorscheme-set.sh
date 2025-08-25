@@ -616,16 +616,18 @@ tmux:
     insertions: " "
     deletions: " "
   styles:
-    state: "#[fg=${gnohj_color11},nobold]"
-    branch: "#[fg=${gnohj_color03},nobold]"
-    staged: "#[fg=${gnohj_color02},nobold]"
-    conflict: "#[fg=${gnohj_color11},nobold]"
-    modified: "#[fg=${gnohj_color04},nobold]"
-    untracked: "#[fg=${gnohj_color01},nobold]"
-    stashed: "#[fg=${gnohj_color08},nobold]"
-    clean: "#[fg=${gnohj_color02},nobold]"
-    divergence: "#[fg=${gnohj_color05},nobold]"
-  layout: [branch, divergence, flags, stats]
+    state: "#[fg=${gnohj_color59},nobold]"
+    branch: "#[fg=${gnohj_color10},nobold]"
+    staged: "#[fg=${gnohj_color60},nobold]"
+    conflict: "#[fg=${gnohj_color59},nobold]"
+    modified: "#[fg=${gnohj_color61},nobold]"
+    untracked: "#[fg=${gnohj_color62},nobold]"
+    stashed: "#[fg=${gnohj_color59},nobold]"
+    clean: "#[fg=${gnohj_color60},nobold]"
+    divergence: "#[fg=${gnohj_color63},nobold]"
+    insertions: "#[fg=${gnohj_color60},nobold]"
+    deletions: "#[fg=${gnohj_color62},nobold]"
+  layout: [branch, divergence, stats, flags]
   # layout: [stats, flags, divergence, branch]
   options:
     branch_max_len: 0
