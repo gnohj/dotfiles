@@ -2,12 +2,14 @@ Ansible
 Aptivada
 BMI
 Bitwarden
+CCPlugins
 CD
 CMS
 Callouts
 Fastly's
 GH
 Grugfar
+Hotfixes
 IHRWEB
 IaC
 JW
@@ -21,6 +23,7 @@ Pulumi's
 RadioEdit
 SSR
 TBD
+TODO
 Terraform's
 Turborepo
 WAF
@@ -28,8 +31,10 @@ WiFi
 Zsh
 a.
 api
+backmerge
 bashrc
 cdn
+changesets
 cli
 cmd
 dont
@@ -40,6 +45,7 @@ geo
 getConfigs
 github
 gitignore
+hotfix
 href
 iHeartRadio
 iheart
@@ -56,6 +62,7 @@ prNumber
 pulumi
 s3
 sdk
+semver
 serviceId
 serviceIds
 sourcemaps
