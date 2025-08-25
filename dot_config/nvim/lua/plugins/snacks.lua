@@ -231,11 +231,6 @@ return {
             ["K"] = { "preview_scroll_up", mode = { "i", "n" } },
             ["Z"] = { "preview_scroll_left", mode = { "i", "n" } },
             ["X"] = { "preview_scroll_right", mode = { "i", "n" } },
-            -- Disable default Ctrl bindings and add Alt bindings
-            ["<c-v>"] = false,
-            ["<c-s>"] = false,
-            ["<M-v>"] = { "vsplit", mode = { "i", "n" } },
-            ["<M-s>"] = { "split", mode = { "i", "n" } },
           },
         },
       },
