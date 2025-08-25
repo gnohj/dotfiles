@@ -25,16 +25,18 @@ tmux:
     insertions: " "
     deletions: " "
   styles:
-    state: "#[fg=#da858e,nobold]"
-    branch: "#[fg=#a7cfbd,nobold]"
-    staged: "#[fg=#b7ce97,nobold]"
-    conflict: "#[fg=#da858e,nobold]"
-    modified: "#[fg=#a3b8c6,nobold]"
-    untracked: "#[fg=#c0aed2,nobold]"
-    stashed: "#[fg=#505e62,nobold]"
-    clean: "#[fg=#b7ce97,nobold]"
-    divergence: "#[fg=#dab183,nobold]"
-  layout: [branch, divergence, flags, stats]
+    state: "#[fg=#2a3d42,nobold]"
+    branch: "#[fg=#0f1419,nobold]"
+    staged: "#[fg=#3d5530,nobold]"
+    conflict: "#[fg=#2a3d42,nobold]"
+    modified: "#[fg=#2d3844,nobold]"
+    untracked: "#[fg=#4a3d52,nobold]"
+    stashed: "#[fg=#2a3d42,nobold]"
+    clean: "#[fg=#3d5530,nobold]"
+    divergence: "#[fg=#4d4330,nobold]"
+    insertions: "#[fg=#3d5530,nobold]"
+    deletions: "#[fg=#4a3d52,nobold]"
+  layout: [branch, divergence, stats, flags]
   # layout: [stats, flags, divergence, branch]
   options:
     branch_max_len: 0
