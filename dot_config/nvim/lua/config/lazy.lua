@@ -44,10 +44,12 @@ else
       { import = "lazyvim.plugins.extras.coding.blink" },
       { import = "lazyvim.plugins.extras.coding.luasnip" },
       { import = "lazyvim.plugins.extras.coding.mini-surround" },
-      { import = "lazyvim.plugins.extras.editor.harpoon2" },
       { import = "lazyvim.plugins.extras.editor.mini-diff" },
       { import = "lazyvim.plugins.extras.editor.overseer" },
       { import = "lazyvim.plugins.extras.editor.snacks_picker" },
+      -- Disable harpoon from snacks_picker extra
+      { "ThePrimeagen/harpoon", enabled = false },
+      { "ThePrimeagen/harpoon", branch = "harpoon2", enabled = false },
       { import = "lazyvim.plugins.extras.formatting.prettier" },
       { import = "lazyvim.plugins.extras.lang.docker" },
       { import = "lazyvim.plugins.extras.lang.helm" },

@@ -14,8 +14,6 @@
 -- Add any additional keymaps here
 
 local keymap = vim.keymap.set
-local harpoon = require("harpoon")
-harpoon:setup()
 
 keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
@@ -457,22 +455,6 @@ keymap(
   end,
   { noremap = true, silent = true, desc = "Code action with escape support" }
 )
-
--------------------------------------------------------------------------------
---                           Harpoon
--------------------------------------------------------------------------------
-keymap("n", "<leader>ha", function()
-  harpoon:list():add()
-end, { desc = "[P]Add file to Harpoon" })
-
-keymap("n", "<C-e>", function()
-  harpoon.ui:toggle_quick_menu(harpoon:list())
-end, { desc = "[P]Toggle Harpoon menu" })
-
--- Toggle previous & next buffers stored within Harpoon list
-keymap("n", "<C-P>", function()
-  harpoon:list():prev()
-end, { desc = "[P]Harpoon: Previous file in list" })
 
 -------------------------------------------------------------------------------
 --                           Folding section
