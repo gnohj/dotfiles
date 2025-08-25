@@ -139,6 +139,17 @@ gnohj_color56=#4a585c
 gnohj_color57=#58686d
 # text variant - lightest
 gnohj_color58=#f8f9e8
+
+#-------------------------------------------------------------------------------
+#--               Gitmux High Contrast Colors
+#-------------------------------------------------------------------------------
+# Much darker versions for better contrast against dark backgrounds
+gnohj_color59=#2a3d42
+gnohj_color60=#3d5530
+gnohj_color61=#2d3844
+gnohj_color62=#4a3d52
+gnohj_color63=#4d4330
+
 #-------------------------------------------------------------------------------
 #--               Nvim Lighter markdown headings
 #-- # This is based off of Terminal Palette
