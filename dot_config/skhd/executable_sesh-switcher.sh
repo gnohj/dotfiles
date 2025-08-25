@@ -13,7 +13,7 @@ color_string="list-border:6,input-border:3,preview-border:4,header-bg:-1,header-
     --ansi \
     --list-border \
     --no-sort --prompt '⚡  ' \
-    --header '^a all ^t tmux ^g configs ^x zoxide ^d tmux kill ^f find' \
+    --header '(^a all) (^t tmux) (^g configs) (^x zoxide) (^d tmux kill) (^f find)' \
     --color '${color_string}' \
     --input-border \
     --header-border \

@@ -273,8 +273,8 @@ vim.api.nvim_create_autocmd("User", {
   callback = function(args)
     local buf_id = args.data.buf_id
     -- You can customize these key mappings
-    map_split(buf_id, "<M-s>", "horizontal")
-    map_split(buf_id, "<M-v>", "vertical")
+    map_split(buf_id, "<C-s>", "horizontal")
+    map_split(buf_id, "<C-v>", "vertical")
   end,
 })
 -- Clean up neovim's directory tracking when exiting vim
