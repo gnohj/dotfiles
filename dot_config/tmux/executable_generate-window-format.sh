@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154
+# shellcheck disable=SC1090
+# shellcheck disable=SC1091
 
 # This script generates the automatic-rename-format string from emoji definitions
 # It reads emoji mappings and builds the complex conditional format string dynamically
@@ -45,4 +48,3 @@ done
 
 # Set the tmux option
 tmux set-option -g automatic-rename-format "$format"
-

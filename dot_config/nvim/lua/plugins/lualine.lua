@@ -33,7 +33,7 @@ local function current_buffer_unsaved_dot()
   if vim.api.nvim_buf_get_option(0, "modified") then
     local count = buffer_count_with_unsaved()
 
-    return "🚨 " .. count
+    return "🚨" .. count
   else
     return ""
   end
@@ -57,8 +57,53 @@ end
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
-  enabled = false,
+  enabled = true, -- Always enable lualine
   opts = function(_, opts)
+    local lazy_status = require("lazy.status") -- to configure lazy pending updates count
+    local icons = require("lazyvim.config").icons
+
+    -- If in tmux, show minimal statusline with unsaved buffer indicator and lazy updates on the right
+    if vim.env.TMUX then
+      return {
+        options = {
+          component_separators = "",
+          section_separators = "",
+          disabled_filetypes = {
+            statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
+            winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
+          },
+          theme = "auto",
+        },
+        sections = {
+          lualine_a = {},
+          lualine_b = {},
+          lualine_c = {},
+          lualine_x = {
+            {
+              current_buffer_unsaved_dot,
+              color = { fg = colors["gnohj_color11"] },
+            },
+            {
+              lazy_status.updates,
+              cond = lazy_status.has_updates,
+              color = { fg = colors["gnohj_color06"] },
+            },
+          },
+          lualine_y = {},
+          lualine_z = {},
+        },
+        inactive_sections = {
+          lualine_a = {},
+          lualine_b = {},
+          lualine_c = {},
+          lualine_x = {},
+          lualine_y = {},
+          lualine_z = {},
+        },
+      }
+    end
+
+    -- Full lualine configuration when not in tmux
     table.remove(opts.sections.lualine_c, 1)
     table.remove(opts.sections.lualine_c, 2)
     table.remove(opts.sections.lualine_c, 3)
@@ -67,8 +112,6 @@ return {
       "filename",
       path = 3,
     })
-    local lazy_status = require("lazy.status") -- to configure lazy pending updates count
-    local icons = require("lazyvim.config").icons
 
     return {
 
