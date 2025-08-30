@@ -2,9 +2,9 @@ if vim.g.vscode then
   return {}
 end
 
--- TODO: find solution that can properly fetch per split
-local function get_gitsigns_stats()
-  local gitsigns = vim.b.gitsigns_status_dict
+local function get_gitsigns_stats(buf)
+  local buffer = buf or vim.api.nvim_get_current_buf()
+  local gitsigns = vim.b[buffer].gitsigns_status_dict
   if gitsigns then
     return {
       added = gitsigns.added,
@@ -23,8 +23,8 @@ return {
     local bar = require("dropbar.bar")
 
     local gitsigns_stats = {
-      get_symbols = function(_, _, _)
-        local gitsigns_stats = get_gitsigns_stats()
+      get_symbols = function(buf, win, _)
+        local gitsigns_stats = get_gitsigns_stats(buf)
         if not gitsigns_stats then
           return {}
         end
@@ -74,12 +74,177 @@ return {
     ---@class dropbar_source_t
     require("dropbar").setup({
       bar = {
-        sources = function()
+        hover = false,  -- Disable highlighting symbol under cursor
+        padding = { left = 0, right = 1 }, -- Remove left padding to align with left edge
+        truncate = true,
+        sources = function(buf, _)
           local sources = require("dropbar.sources")
+          local utils = require("dropbar.utils")
 
-          return { sources.path, gitsigns_stats }
+          -- Custom path source that shows only parent folder + filename with icon
+          local custom_path = {
+            get_symbols = function(buff, win, cursor)
+              -- Get the full file path
+              local file_path = vim.api.nvim_buf_get_name(buff)
+              if file_path == "" then
+                return {}
+              end
+
+              -- Get home directory
+              local home = vim.fn.expand("~")
+
+              -- Expand file_path if it starts with ~
+              if file_path:sub(1, 1) == "~" then
+                file_path = home .. file_path:sub(2)
+              end
+
+              -- Check if path is in home directory
+              local is_home_path = file_path:find("^" .. vim.pesc(home))
+
+              -- Build symbols
+              local bar = require("dropbar.bar")
+              local symbols = {}
+
+              -- Get the default path symbols for file icon
+              local default_path_symbols =
+                sources.path.get_symbols(buff, win, cursor)
+              local file_symbol = default_path_symbols
+                  and default_path_symbols[#default_path_symbols]
+                or nil
+
+              if is_home_path then
+                -- For home paths: show single folder with full path from ~
+                local relative_path = file_path:gsub("^" .. vim.pesc(home), "")
+                local components = {}
+
+                for component in relative_path:gmatch("[^/]+") do
+                  table.insert(components, component)
+                end
+
+                if #components > 0 then
+                  -- Build the full folder path string from home
+                  local folder_path = "~"
+                  if #components > 1 then
+                    -- Add all folders except the filename
+                    for i = 1, #components - 1 do
+                      folder_path = folder_path .. "/" .. components[i]
+                    end
+                  end
+
+                  -- Single folder icon with full path
+                  table.insert(
+                    symbols,
+                    bar.dropbar_symbol_t:new({
+                      icon = "󰉋 ",
+                      icon_hl = "DropBarIconKindFolder",
+                      name = folder_path,
+                      name_hl = "DropBarKindFolder",
+                    })
+                  )
+
+                  -- Filename with appropriate icon
+                  if file_symbol then
+                    table.insert(symbols, file_symbol)
+                  else
+                    -- Fallback if no symbol available
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = components[#components],
+                        name_hl = "DropBarKindFile",
+                      })
+                    )
+                  end
+                end
+              else
+                -- For paths outside home: show full path in single folder icon
+                local components = {}
+                for component in file_path:gmatch("[^/]+") do
+                  table.insert(components, component)
+                end
+
+                if #components > 0 then
+                  -- Build full path except filename
+                  local folder_path = ""
+                  if file_path:sub(1, 1) == "/" then
+                    folder_path = "/"
+                  end
+
+                  for i = 1, #components - 1 do
+                    if i > 1 or folder_path ~= "/" then
+                      folder_path = folder_path .. "/"
+                    end
+                    folder_path = folder_path .. components[i]
+                  end
+
+                  -- Single folder icon with full path
+                  if folder_path ~= "" then
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "󰉋 ",
+                        icon_hl = "DropBarIconKindFolder",
+                        name = folder_path,
+                        name_hl = "DropBarKindFolder",
+                      })
+                    )
+                  end
+
+                  -- Filename with appropriate icon
+                  if file_symbol then
+                    table.insert(symbols, file_symbol)
+                  else
+                    -- Fallback if no symbol available
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = components[#components],
+                        name_hl = "DropBarKindFile",
+                      })
+                    )
+                  end
+                end
+              end
+
+              return symbols
+            end,
+          }
+
+          return { custom_path, gitsigns_stats }
+        end,
+        -- Enable dropbar for all file types
+        enable = function(buf, win, _)
+          if
+            not vim.api.nvim_buf_is_valid(buf)
+            or not vim.api.nvim_win_is_valid(win)
+            or vim.fn.win_gettype(win) ~= ""
+            or vim.wo[win].winbar ~= ""
+            or vim.bo[buf].ft == "help"
+          then
+            return false
+          end
+          -- Check file size to avoid enabling for very large files
+          local stat = vim.uv.fs_stat(vim.api.nvim_buf_get_name(buf))
+          if stat and stat.size > 1024 * 1024 then
+            return false
+          end
+          -- Enable for all other files
+          return true
         end,
       },
+      sources = {
+        path = {
+          max_depth = 3, -- Show only last 3 path components
+          relative_to = "cwd", -- Show relative to current working directory
+        },
+      },
     })
+
+    -- Don't override fillchars here, let options.lua handle it
+    vim.opt.scrolloff = 3 -- Minimum lines to keep above/below cursor
   end,
 }

@@ -21,6 +21,9 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
+
+
+
 -- Mini.files key bindings
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "minifiles",

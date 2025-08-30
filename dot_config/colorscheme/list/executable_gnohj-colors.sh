@@ -128,12 +128,12 @@ gnohj_color58=#e0ffff
 #-------------------------------------------------------------------------------
 #--               Gitmux High Contrast Colors
 #-------------------------------------------------------------------------------
-# Much darker versions for better contrast against dark backgrounds
-gnohj_color59=#1a3d42
-gnohj_color60=#1e5530
-gnohj_color61=#3d2d84
-gnohj_color62=#3a3d52
-gnohj_color63=#134d4a
+# Brighter/more vibrant versions for better visibility
+gnohj_color59=#4a8091
+gnohj_color60=#6fa856
+gnohj_color61=#7a6dff
+gnohj_color62=#8a6d9e
+gnohj_color63=#3e9e99
 
 #-------------------------------------------------------------------------------
 #--               Nvim Lighter markdown headings

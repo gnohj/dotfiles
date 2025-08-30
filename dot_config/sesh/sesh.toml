@@ -1,257 +1,83 @@
-#  ███████╗███████╗███████╗██╗  ██╗     ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗ 
-#  ██╔════╝██╔════╝██╔════╝██║  ██║    ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝ 
-#  ███████╗█████╗  ███████╗███████║    ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
-#  ╚════██║██╔══╝  ╚════██║██╔══██║    ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
-#  ███████║███████╗███████║██║  ██║    ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
-#  ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝     ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝ 
-#
-#  Smart session manager for the terminal
-#  https://github.com/joshmedeski/sesh
-
-# default
-[default_session]
-startup_command = "nvim -c ':lua Snacks.picker.files()'"
-preview_command = "eza --all --git --icons --color=always {}"
-
-# folders
 [[session]]
-name = "home 🏠"
+name = "home_session "
 path = "~/"
 startup_command = "c"
 
 [[session]]
-name = "bat_config_folder \ue615"
-path = "~/.local/share/chezmoi/dot_config/bat"
-
-[[session]]
-name = "bin_folder 📥"
+name = "bin_session "
 path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
-name = "config_folder 📥"
+name = "config_session "
 path = "~/.config"
 
 [[session]]
-name = "logs_folder 📥"
+name = "logs_session "
 path = "~/.logs"
 
 [[session]]
-name = "chezmoi_repo \uf113 "
+name = "chezmoi_session "
 path = "~/.local/share/chezmoi"
 startup_command = "gg"
 
 [[session]]
-name = "developer_Folder 📥"
+name = "developer_session "
 path = "~/Developer"
 startup_command = "ls"
 
 [[session]]
-name = "launch_agents 📥"
-path = "~/.local/share/chezmoi/private_Library/LaunchAgents"
-
-[[session]]
-name = "downloads_folder 📥"
+name = "downloads_session "
 path = "~/Downloads"
 startup_command = "ls"
 
 [[session]]
-name = "desktop_folder 📥"
+name = "desktop_session "
 path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "inferno_repo \uf113 "
+name = "inferno_session "
 path = "~/Developer/inferno-monorepo"
-startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh dev ~/Developer/inferno-monorepo"
+startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh '' ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
-name = "colorscheme folder \ue615 "
-path = "~/.local/share/chezmoi/dot_config/colorscheme/"
-
-
-[[session]]
-name = "plugins_nvim_folder \ue615 "
-path = "~/.local/share/chezmoi/dot_config/nvim/"
-
-[[session]]
-name = "second_brain_repo \uf113 "
+name = "second_brain_session "
 path = "~/Obsidian/second-brain"
 
 [[session]]
-name = "sketchybar_folder \ue615 "
-path = "~/.local/share/chezmoi/dot_config/sketchybar"
-startup_command = "nvim -c ':lua require(\"mini.files\").open()'"
-
-[[session]]
-name = "web_repo \uf113 "
-startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh dev ~/Developer/web"
+name = "web_session "
+startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 [[session]]
-name = "provision_repo \uf113 "
+name = "provision_session "
 path = "~/Developer/provision"
 preview_command = "bat --color=always ~/Developer/provision/README.md"
 
 # configs
-[[session]]
-name = "aerospace_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/aerospace"
-startup_command = "nvim aerospace.toml"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/aerospace/aerospace.toml"
 
 [[session]]
-name = "delta_theme \ue615 "
-path = "~/.local/share/chezmoi/dot_config/delta/themes"
-startup_command = "nvim themes.gitconfig"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/delta/themes/themes.gitconfig"
-
-[[session]]
-name = "atuin \ue615 "
-path = "~/.local/share/chezmoi/dot_config/atuin"
-startup_command = "nvim config.toml"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/atuin/config.toml"
-
-[[session]]
-name = "autocmds_nvim \ue615 "
-path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
-startup_command = "nvim autocmds.lua"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/nvim/lua/config/autocmds.lua"
-
-[[session]]
-name = "borders_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/borders"
-startup_command = "nvim bordersrc"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/aerospace/bordersrc"
-
-[[session]]
-name = "chezmoi_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/chezmoi"
-startup_command = "nvim chezmoi.toml.tmpl"
-preview_command = "bat --style=snip --color=always ~/.local/share/chezmoi/dot_config/chezmoi.toml.tmpl"
-
-[[session]]
-name = "etc_hosts  📥"
+name = "etc_hosts_session "
 path = "/etc/hosts"
 startup_command = "cat /etc/hosts"
 
 [[session]]
-name = "fastfetch_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/fastfetch"
-startup_command = "nvim config.jsonc"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/fastfetch/config.jsonc"
-
-[[session]]
-name = "flameshot \ue615 "
-path = "~/.local/share/chezmoi/dot_config/flameshot"
-startup_command = "nvim flameshot.ini"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/flameshot/flameshot.ini"
-
-[[session]]
-name = "git_config \uf113 "
-path = "~/.local/share/chezmoi/dot_config/git"
-startup_command = "nvim config"
-preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/git"
-
-[[session]]
-name = "ghostty_config 👻"
-path = "~/.local/share/chezmoi/dot_config/ghostty"
-startup_command = "nvim config"
-preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/ghostty/config"
-
-[[session]]
-name = "keymaps_nvim 🗝️"
-path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
-startup_command = "nvim keymaps.lua"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/nvim/lua/config/keymaps.lua"
-
-[[session]]
-name = "lazygit_config \uf113 "
-path = "~/.local/share/chezmoi/dot_config/lazygit"
-startup_command = "nvim config.yml"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/lazygit/config.yml"
-
-[[session]]
-name = "gitmux \ue615 "
-path = "~/.local/share/chezmoi/dot_config/gitmux"
-startup_command = "nvim gitmux.yml"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/gitmux/gitmux.yml"
-
-[[session]]
-name = "lazy_nvim \ue615 "
-path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
-startup_command = "nvim lazy.lua"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/nvim/lua/config/lazy.lua"
-
-[[session]]
-name = "marta \ue615 "
-path = "~/.local/share/chezmoi/dot_config/marta"
-startup_command = "nvim conf.marco"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/marta/conf.marco"
-
-[[session]]
-name = "options_nvim \ue615 "
-path = "~/.local/share/chezmoi/dot_config/nvim/lua/config"
-startup_command = "nvim options.lua"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/nvim/lua/config/options.lua"
-
-[[session]]
-name = "npmrc_config \ue615 "
-path = "~/.npmrc"
-startup_command = "nvim .npmrc"
-preview_command = "bat --language=bash --style=snip --color=always ~/.npmrc"
-
-[[session]]
-name = "radioctl_session 📻"
+name = "radioctl_session "
 path = "~/."
 startup_command = "nvim .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
-name = "radioctl_cmd_config \ue615 "
+name = "radioctl_cmd_session "
 path = "~/.zsh_radioctl_cmds"
 startup_command = "nvim .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
-[[session]]
-name = "sesh_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/sesh"
-startup_command = "nvim sesh.toml"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/sesh/sesh.toml"
 
 [[session]]
-name = "skhd_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/skhd"
-startup_command = "nvim skhdrc"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/skhd/skhdrc"
-
-[[session]]
-name = "starship_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/starship"
-startup_command = "nvim starship.toml"
-preview_command = "bat --language=toml --style=snip --color=always ~/.local/share/chezmoi/dot_config/starship/starship.toml"
-
-[[session]]
-name = "tmux_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/tmux"
-startup_command = "nvim tmux.conf"
-preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/tmux/tmux.conf"
-
-[[session]]
-name = "wezterm_config 💻"
-path = "~/.local/share/chezmoi/dot_config/wezterm"
-startup_command = "nvim wezterm.lua"
-preview_command = "bat --color=always ~/.local/share/chezmoi/dot_config/wezterm/wezterm.lua"
-
-[[session]]
-name = "zsh_gnohj_env \ue615 "
+name = "zsh_gnohj_env_session "
 path = "~/.zsh_gnohj_env"
 startup_command = "nvim .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
-
-[[session]]
-name = "zshrc_config \ue615 "
-path = "~/.local/share/chezmoi/dot_config/zshrc"
-startup_command = "nvim dot_zshrc"
-preview_command = "bat --language=bash --style=snip --color=always ~/.local/share/chezmoi/dot_config/zshrc/dot_zshrc"
