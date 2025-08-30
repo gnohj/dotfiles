@@ -21,12 +21,14 @@ if [ "$current_opacity" = "1.0" ] || [ "$current_opacity" = "1" ]; then
   # Going from opaque to transparent - use the previous value or default
   new_opacity="$previous_opacity"
   comment_opacity="1.0"
-  tmux display-message "Ghostty: Transparency ON ($new_opacity)"
+  MSG="Ghostty: Transparency ON ($new_opacity) - Press Cmd+Shift+, to reload"
+  tmux display-message "$MSG" 2>/dev/null || echo "$MSG"
 else
   # Going from transparent to opaque
   new_opacity="1.0"
   comment_opacity="$current_opacity"
-  tmux display-message "Ghostty: Transparency OFF"
+  MSG="Ghostty: Transparency OFF - Press Cmd+Shift+, to reload"
+  tmux display-message "$MSG" 2>/dev/null || echo "$MSG"
 fi
 
 # Remove any existing background-opacity lines (both active and commented)
@@ -39,5 +41,6 @@ fi
 echo "background-opacity = $new_opacity" >>"$GHOSTTY_CONFIG"
 echo "# background-opacity = $comment_opacity" >>"$GHOSTTY_CONFIG"
 
-# Reload Ghostty config
-osascript "$HOME/.config/ghostty/reload-config.scpt" 2>/dev/null || true
+# Note: Ghostty requires manual reload with cmd+shift+, or restart
+# Try to send the reload keystroke via AppleScript (may not work depending on Ghostty version)
+osascript -e 'tell application "System Events" to keystroke "," using {command down, shift down}' 2>/dev/null || true

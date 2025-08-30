@@ -1,83 +1,87 @@
+# default
+[default_session]
+preview_command = "eza --all --git --icons --color=always {}"
+
 [[session]]
-name = "home_session "
+name = "home_session"
 path = "~/"
 startup_command = "c"
 
 [[session]]
-name = "bin_session "
+name = "bin_session"
 path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
-name = "config_session "
+name = "config_session"
 path = "~/.config"
 
 [[session]]
-name = "logs_session "
+name = "logs_session"
 path = "~/.logs"
 
 [[session]]
-name = "chezmoi_session "
+name = "chezmoi_session"
 path = "~/.local/share/chezmoi"
 startup_command = "gg"
 
 [[session]]
-name = "developer_session "
+name = "developer_session"
 path = "~/Developer"
 startup_command = "ls"
 
 [[session]]
-name = "downloads_session "
+name = "downloads_session"
 path = "~/Downloads"
 startup_command = "ls"
 
 [[session]]
-name = "desktop_session "
+name = "desktop_session"
 path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "inferno_session "
+name = "inferno_session"
 path = "~/Developer/inferno-monorepo"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
-name = "second_brain_session "
+name = "second_brain_session"
 path = "~/Obsidian/second-brain"
 
 [[session]]
-name = "web_session "
+name = "web_session"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 [[session]]
-name = "provision_session "
+name = "provision_session"
 path = "~/Developer/provision"
 preview_command = "bat --color=always ~/Developer/provision/README.md"
 
 # configs
 
 [[session]]
-name = "etc_hosts_session "
+name = "etc_hosts_session"
 path = "/etc/hosts"
 startup_command = "cat /etc/hosts"
 
 [[session]]
-name = "radioctl_session "
+name = "radioctl_session"
 path = "~/."
 startup_command = "nvim .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
-name = "radioctl_cmd_session "
+name = "radioctl_cmd_session"
 path = "~/.zsh_radioctl_cmds"
 startup_command = "nvim .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 
 [[session]]
-name = "zsh_gnohj_env_session "
+name = "zsh_gnohj_env_session"
 path = "~/.zsh_gnohj_env"
 startup_command = "nvim .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
