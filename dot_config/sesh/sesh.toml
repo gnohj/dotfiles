@@ -39,7 +39,7 @@ startup_command = "ls"
 [[session]]
 name = "inferno_session "
 path = "~/Developer/inferno-monorepo"
-startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh '' ~/Developer/inferno-monorepo"
+startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
@@ -48,7 +48,7 @@ path = "~/Obsidian/second-brain"
 
 [[session]]
 name = "web_session "
-startup_command = "~/.local/share/chezmoi/dot_config/sesh/executable_dev.sh '' ~/Developer/web"
+startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 [[session]]
