@@ -75,21 +75,77 @@ return {
       end,
       desc = "[P]Unsaved buffers",
     },
+    -- Also map Alt+h for unsaved buffers
+    {
+      "<M-h>",
+      function()
+        -- Create the highlight group
+        vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"] })
 
-    -- Find Nvim Config File (Chezmoi)
+        -- Get all unsaved buffers
+        local unsaved_buffers = {}
+        local buffer_map = {}
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+          if
+            vim.api.nvim_buf_is_loaded(buf)
+            and vim.api.nvim_buf_get_option(buf, "modified")
+          then
+            local name = vim.api.nvim_buf_get_name(buf)
+            local display_name = name == "" and "[No Name]"
+              or vim.fn.fnamemodify(name, ":~:.")
+            local display_text = "● " .. display_name
+            table.insert(unsaved_buffers, display_text)
+            buffer_map[display_text] = buf
+          end
+        end
+        if #unsaved_buffers == 0 then
+          vim.notify("No unsaved buffers", vim.log.levels.INFO)
+          return
+        end
+        vim.ui.select(unsaved_buffers, {
+          prompt = "Select unsaved buffer:",
+          format_item = function(item)
+            return item
+          end,
+        }, function(choice)
+          if choice then
+            local buf = buffer_map[choice]
+            if buf then
+              vim.api.nvim_set_current_buf(buf)
+            end
+          end
+        end)
+      end,
+      desc = "[P]Unsaved buffers (Alt)",
+    },
+
+    -- Find Config Files (Chezmoi)
     {
       "<leader>fc",
       function()
         local chezmoi_source =
           vim.fn.system("chezmoi source-path"):gsub("\n", "")
-        local nvim_config_path = chezmoi_source .. "/dot_config/nvim"
+        local config_path = chezmoi_source .. "/dot_config"
         require("snacks").picker.files({
           hidden = true,
-          title = "Nvim Chezmoi Config Source Files",
-          cwd = nvim_config_path,
+          title = "Find Config Files (Chezmoi)",
+          cwd = config_path,
         })
       end,
-      desc = "Find Config File",
+      desc = "Find Config Files (Chezmoi)",
+    },
+    -- Find Config Files (~/.config)
+    {
+      "<leader>fC",
+      function()
+        local config_path = vim.fn.expand("~/.config")
+        require("snacks").picker.files({
+          hidden = true,
+          title = "Find Config Files (~/.config)",
+          cwd = config_path,
+        })
+      end,
+      desc = "Find Config Files (~/.config)",
     },
     -- Find Files - default snacks <leader>ff doesn't work well with frecency and sorting, so overriding here
     {

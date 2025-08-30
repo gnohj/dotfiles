@@ -611,22 +611,31 @@ tmux:
     staged: "● "
     conflict: "✖ "
     modified: "✚ "
-    untracked: "… "
+    untracked: "󱀶 "
     stashed: " "
     insertions: " "
     deletions: " "
   styles:
-    state: "#[fg=${gnohj_color59},nobold]"
-    branch: "#[fg=${gnohj_color10},nobold]"
-    staged: "#[fg=${gnohj_color60},nobold]"
-    conflict: "#[fg=${gnohj_color59},nobold]"
-    modified: "#[fg=${gnohj_color61},nobold]"
-    untracked: "#[fg=${gnohj_color62},nobold]"
-    stashed: "#[fg=${gnohj_color59},nobold]"
-    clean: "#[fg=${gnohj_color60},nobold]"
-    divergence: "#[fg=${gnohj_color63},nobold]"
-    insertions: "#[fg=${gnohj_color60},nobold]"
-    deletions: "#[fg=${gnohj_color62},nobold]"
+    state: "#[fg=${gnohj_color11},nobold]"
+    branch: "#[fg=${gnohj_color06},nobold]"
+    staged: "#[fg=${gnohj_color02},nobold]"
+    conflict: "#[fg=${gnohj_color11},nobold]"
+    modified: "#[fg=${gnohj_color04},nobold]"
+    untracked: "#[fg=${gnohj_color08},nobold]"
+    stashed: "#[fg=${gnohj_color08},nobold]"
+    clean: "#[fg=${gnohj_color02},nobold]"
+    divergence: "#[fg=${gnohj_color05},nobold]"
+    # state: "#[fg=\${gnohj_color59},nobold]"
+    # branch: "#[fg=\${gnohj_color04},nobold]"
+    # staged: "#[fg=\${gnohj_color60},nobold]"
+    # conflict: "#[fg=\${gnohj_color59},nobold]"
+    # modified: "#[fg=\${gnohj_color61},nobold]"
+    # untracked: "#[fg=\${gnohj_color62},nobold]"
+    # stashed: "#[fg=\${gnohj_color59},nobold]"
+    # clean: "#[fg=\${gnohj_color60},nobold]"
+    # divergence: "#[fg=\${gnohj_color63},nobold]"
+    # insertions: "#[fg=\${gnohj_color60},nobold]"
+    # deletions: "#[fg=\${gnohj_color62},nobold]"
   layout: [branch, divergence, stats, flags]
   # layout: [stats, flags, divergence, branch]
   options:
@@ -648,11 +657,6 @@ if [ "$UPDATED" = true ]; then
 
   # Source the active colorscheme to load variables
   source "$active_file"
-
-  # Set the tmux colors
-  "$HOME/.config/tmux/set_tmux_colors.sh"
-  tmux source-file ~/.config/tmux/tmux.conf
-  echo "Tmux colors set and tmux configuration reloaded."
 
   # Reload sketchybar - reads active-colorscheme.sh on load
   sketchybar --reload
@@ -684,6 +688,11 @@ if [ "$UPDATED" = true ]; then
 
   # Generate gitmux config
   generate_gitmux_config
+
+  # Generate tmux colors and reload if tmux is running
+  if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then
+    "$HOME/.config/tmux/generate-tmux-colors.sh"
+  fi
 
   # Set the wallpaper
   if [ -z "$wallpaper" ]; then

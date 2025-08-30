@@ -271,6 +271,16 @@ return {
         hl.GitSignsAdd = { fg = colors["gnohj_color02"] }
         hl.GitSignsChange = { fg = colors["gnohj_color03"] }
         hl.GitSignsDelete = { fg = colors["gnohj_color11"] }
+
+        -- Dropbar git signs colors
+        hl.Added = { fg = colors["gnohj_color02"] }
+        hl.Changed = { fg = colors["gnohj_color03"] }
+        hl.Removed = { fg = colors["gnohj_color11"] }
+
+        -- Dropbar path colors
+        hl.DropBarIconKindFolder = { fg = colors["gnohj_color09"] }
+        hl.DropBarKindFolder = { fg = colors["gnohj_color04"] }
+        hl.DropBarKindFile = { fg = colors["gnohj_color06"] }
         -- RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
         -- hl.RenderMarkdownLink = { fg = hl_colors.blue, sp = "NONE", undercurl = false }
 

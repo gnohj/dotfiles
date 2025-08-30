@@ -19,6 +19,19 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
 
+-- Toggle relative line numbers (both number and relativenumber)
+keymap("n", "<leader>tn", function()
+  local current = vim.opt.number:get()
+  vim.opt.number = not current
+  vim.opt.relativenumber = not current
+end, { desc = "[P]Toggle relative line numbers" })
+
+-- Toggle absolute line numbers only (no relative)
+keymap("n", "<leader>tN", function()
+  vim.opt.number = not vim.opt.number:get()
+  vim.opt.relativenumber = false
+end, { desc = "[P]Toggle absolute line numbers" })
+
 keymap("n", "<M-o>", "<C-o>", { desc = "[P]Jump backward in jump list" })
 keymap("n", "<M-i>", "<C-i>", { desc = "[P]Jump forward in jump list" })
 
