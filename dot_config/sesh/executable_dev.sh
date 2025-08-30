@@ -1,19 +1,5 @@
 #!/bin/bash
 
-# Source emoji configuration to get consistent emojis
-# Extract emoji values from the tmux config file
-EMOJI_CONFIG="$HOME/.config/tmux/window-emojis.conf"
-
-# Get emojis from config file, with fallbacks
-if [[ -f "$EMOJI_CONFIG" ]]; then
-  EMOJI_DEFAULT=$(grep '@emoji_default' "$EMOJI_CONFIG" | cut -d'"' -f2)
-  EMOJI_NVIM=$(grep '@emoji_nvim' "$EMOJI_CONFIG" | cut -d'"' -f2)
-else
-  # Fallback emojis if config not found
-  EMOJI_DEFAULT="💻"
-  EMOJI_NVIM="✏️"
-fi
-
 # First parameter is empty string '', second is the actual working directory
 WORKING_DIR="${2:-$HOME}"
 

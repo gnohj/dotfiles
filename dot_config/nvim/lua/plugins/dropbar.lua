@@ -22,6 +22,75 @@ return {
   config = function()
     local bar = require("dropbar.bar")
 
+    -- Diagnostics source
+    local diagnostics_source = {
+      get_symbols = function(buf, win, _)
+        local diagnostics = vim.diagnostic.get(buf)
+        if not diagnostics or #diagnostics == 0 then
+          return {}
+        end
+
+        local counts = { 0, 0, 0, 0 } -- Error, Warn, Info, Hint
+        for _, diagnostic in ipairs(diagnostics) do
+          counts[diagnostic.severity] = counts[diagnostic.severity] + 1
+        end
+
+        local symbols = {}
+        local icons = require("lazyvim.config").icons.diagnostics
+
+        -- Add diagnostics counts with proper colors
+        if counts[1] > 0 then -- Error
+          table.insert(
+            symbols,
+            bar.dropbar_symbol_t:new({
+              icon = icons.Error,
+              icon_hl = "DiagnosticError",
+              name = tostring(counts[1]),
+              name_hl = "DiagnosticError",
+            })
+          )
+        end
+
+        if counts[2] > 0 then -- Warning
+          table.insert(
+            symbols,
+            bar.dropbar_symbol_t:new({
+              icon = icons.Warn,
+              icon_hl = "DiagnosticWarn",
+              name = tostring(counts[2]),
+              name_hl = "DiagnosticWarn",
+            })
+          )
+        end
+
+        if counts[3] > 0 then -- Info
+          table.insert(
+            symbols,
+            bar.dropbar_symbol_t:new({
+              icon = icons.Info,
+              icon_hl = "DiagnosticInfo",
+              name = tostring(counts[3]),
+              name_hl = "DiagnosticInfo",
+            })
+          )
+        end
+
+        if counts[4] > 0 then -- Hint
+          table.insert(
+            symbols,
+            bar.dropbar_symbol_t:new({
+              icon = icons.Hint,
+              icon_hl = "DiagnosticHint",
+              name = tostring(counts[4]),
+              name_hl = "DiagnosticHint",
+            })
+          )
+        end
+
+        return symbols
+      end,
+    }
+
     local gitsigns_stats = {
       get_symbols = function(buf, win, _)
         local gitsigns_stats = get_gitsigns_stats(buf)
@@ -74,7 +143,7 @@ return {
     ---@class dropbar_source_t
     require("dropbar").setup({
       bar = {
-        hover = false,  -- Disable highlighting symbol under cursor
+        hover = false, -- Disable highlighting symbol under cursor
         padding = { left = 0, right = 1 }, -- Remove left padding to align with left edge
         truncate = true,
         sources = function(buf, _)
@@ -214,7 +283,7 @@ return {
             end,
           }
 
-          return { custom_path, gitsigns_stats }
+          return { custom_path, diagnostics_source, gitsigns_stats }
         end,
         -- Enable dropbar for all file types
         enable = function(buf, win, _)
