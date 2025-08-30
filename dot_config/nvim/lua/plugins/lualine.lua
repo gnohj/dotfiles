@@ -9,7 +9,6 @@ local function buffer_count()
   local buffers = vim.fn.getbufinfo({ buflisted = 1 }) -- Only count listed buffers
   return "(" .. tostring(#buffers) .. ")"
 end
-
 local function buffer_count_with_unsaved()
   -- Count only unsaved buffers
   local unsaved_count = 0
@@ -58,6 +57,7 @@ end
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
+  enabled = false,
   opts = function(_, opts)
     table.remove(opts.sections.lualine_c, 1)
     table.remove(opts.sections.lualine_c, 2)

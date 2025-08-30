@@ -30,6 +30,8 @@ vim.opt.mousescroll = "ver:3,hor:0"
 
 -- Global statusline — one statusline across the entire Neovim window, not per split
 vim.opt.laststatus = 3
+-- Hide statusline text but keep the bar itself
+vim.opt.statusline = " "
 
 vim.g.snacks_animate = false
 
@@ -58,3 +60,9 @@ opt.smartcase = true -- if you include mixed case in your search, assumes you wa
 -- split windows
 opt.splitright = true -- split vertical window to the right
 opt.splitbelow = true -- split horizontal window to the bottom
+
+-- Minimal left side setup (like Josh Medeski)
+opt.number = false -- Disable line numbers by default
+opt.relativenumber = false -- Disable relative numbers
+opt.signcolumn = "yes:1" -- Keep minimal sign column for git/diagnostics
+
