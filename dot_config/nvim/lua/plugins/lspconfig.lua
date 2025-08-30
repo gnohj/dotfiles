@@ -13,6 +13,50 @@ return {
 
       -- Existing configurations
       opts.servers = {
+        lua_ls = {
+          -- Only start for .lua files to avoid scanning issues
+          filetypes = { "lua" },
+          single_file_support = true,
+          settings = {
+            Lua = {
+              runtime = {
+                version = "LuaJIT",
+              },
+              workspace = {
+                -- Limit workspace loading but don't disable it completely
+                library = {},
+                checkThirdParty = false,
+                maxPreload = 500,  -- Reasonable limit for Neovim config files
+                preloadFileSize = 50,  -- KB - only preload small files
+                ignoreDir = { ".git", "node_modules", "lazy" },  -- Ignore these directories
+                ignoreSubmodules = true,
+              },
+              diagnostics = {
+                -- Get the language server to recognize the `vim` global
+                globals = { "vim", "require" },
+                disable = { "lowercase-global" },
+              },
+              completion = {
+                workspaceWord = false,  -- Don't scan workspace for completions
+                showWord = "Disable",
+              },
+              -- Disable telemetry
+              telemetry = { enable = false },
+            },
+          },
+          -- Smart root detection - use nvim config for nvim files, otherwise current file dir
+          root_dir = function(fname)
+            local util = require("lspconfig.util")
+            -- For Neovim config files, use the nvim config dir as root
+            if fname:match("%.config/nvim/") then
+              return vim.fn.expand("~/.config/nvim")
+            end
+            -- For other lua files, look for .luarc.json or .git
+            return util.root_pattern(".luarc.json", ".luarc.jsonc", ".git")(fname)
+              or util.find_git_ancestor(fname)
+              or vim.fn.fnamemodify(fname, ":h")  -- Use file's directory as root
+          end,
+        },
         harper_ls = {
           enabled = true,
           filetypes = { "markdown", "md", "mdx" },

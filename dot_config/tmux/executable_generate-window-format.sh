@@ -29,6 +29,11 @@ for cmd in vim nvim; do
   fi
 done
 
+# Special handling for colorscheme selector (matches the script name)
+if [[ -n "${emojis[colorscheme]}" ]]; then
+  format="${format}#{?#{m:*colorscheme*,#{pane_current_command}},${emojis[colorscheme]},"
+fi
+
 # Add exact matches for other commands
 for cmd in zsh bash fish node npm yarn pnpm python docker git lazygit btop htop yazi ssh cargo go ruby java mysql psql redis mongo curl wget; do
   if [[ -n "${emojis[$cmd]}" ]]; then

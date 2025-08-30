@@ -1,8 +1,16 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# available - rctrl + f, s, x, e
+# available - rctrl + x
+
+# Tmux smart dual split switching (remembers Neovim buffers)
+rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
+# Tmux smart dual split creation (70/30 split on first pane)
+rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
+
 rctrl - a : /opt/homebrew/bin/tmux switch-client -l
+rctrl - e : /opt/homebrew/bin/tmux new-window 'nvim'
+rctrl - s : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}"
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
@@ -18,7 +26,9 @@ rctrl - 0x29 : /opt/homebrew/bin/tmux next-window # semicolon
 # rctrl - h/j/k/l - reserved for nvim - navigation
 rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
+rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
+rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
 # rctrl - q - reserved for nvim shortcut to quit nvim instance
 rctrl - z : /opt/homebrew/bin/tmux kill-pane
 rctrl - m : /opt/homebrew/bin/tmux resize-pane -L 5
@@ -70,6 +80,7 @@ lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V
 lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
 lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
+
 
 
 # Aerospace - Fullscreen and navigation

@@ -21,12 +21,18 @@ if [ "$current_opacity" = "1.0" ] || [ "$current_opacity" = "1" ]; then
   # Going from opaque to transparent - use the previous value or default
   new_opacity="$previous_opacity"
   comment_opacity="1.0"
-  tmux display-message "WezTerm: Transparency ON ($new_opacity)"
+  # Only show message if we're actually in WezTerm
+  if [[ "$TERM_PROGRAM" == "WezTerm" ]]; then
+    tmux display-message "WezTerm: Transparency ON ($new_opacity)" 2>/dev/null || true
+  fi
 else
   # Going from transparent to opaque
   new_opacity="1.0"
   comment_opacity="$current_opacity"
-  tmux display-message "WezTerm: Transparency OFF"
+  # Only show message if we're actually in WezTerm
+  if [[ "$TERM_PROGRAM" == "WezTerm" ]]; then
+    tmux display-message "WezTerm: Transparency OFF" 2>/dev/null || true
+  fi
 fi
 
 # Remove any existing window_background_opacity lines (both active and commented)
