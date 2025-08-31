@@ -21,9 +21,6 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
-
-
-
 -- Mini.files key bindings
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "minifiles",
@@ -184,65 +181,6 @@ end, {
   end,
 })
 
--- :ReviewPRChanges (uses Avante and origin/master)
--- :ReviewPRChanges avante (uses Avante with origin/master)
--- :ReviewPRChanges avante origin/develop (uses Avante with origin/develop)
--- :ReviewPRChanges copilot origin/develop (uses CopilotChat with origin/develop)
-vim.api.nvim_create_user_command("ReviewPRChanges", function(opts)
-  local args = vim.split(opts.args, " ", { trimempty = true })
-  local ai_tool = args[1] or "avante"
-  local base_branch = args[2] or "origin/master"
-
-  local diff_cmd = "git diff "
-    .. base_branch
-    .. "...HEAD > /tmp/pr_changes.diff"
-  vim.fn.system(diff_cmd)
-
-  vim.cmd("split /tmp/pr_changes.diff")
-
-  local prompt =
-    "Review these PR changes and provide specific feedback on potential issues, improvements, and best practices. Focus only on the changed lines shown with + and - prefixes."
-
-  if ai_tool:lower() == "avante" then
-    vim.cmd(":AvanteAsk " .. prompt)
-  elseif ai_tool:lower() == "copilot" then
-    vim.cmd(":CopilotChat " .. prompt)
-  else
-    print(
-      "Unknown AI tool: "
-        .. ai_tool
-        .. ". Supported tools are 'avante' and 'copilot'."
-    )
-  end
-end, {
-  nargs = "*",
-  complete = function(ArgLead, CmdLine, CursorPos)
-    local args = vim.split(CmdLine, " ", { trimempty = true })
-
-    if #args <= 2 then
-      local tools = { "avante", "copilot" }
-      local matches = {}
-      for _, tool in ipairs(tools) do
-        if tool:match("^" .. ArgLead) then
-          table.insert(matches, tool)
-        end
-      end
-      return matches
-    elseif #args <= 3 then
-      local branches = vim.fn.systemlist("git branch -a | cut -c 3-")
-      local matches = {}
-      for _, branch in ipairs(branches) do
-        if branch:match("^" .. ArgLead) then
-          table.insert(matches, branch)
-        end
-      end
-      return matches
-    end
-
-    return {}
-  end,
-})
-
 -- Mini Files Explorer - Open file in split
 local map_split = function(buf_id, lhs, direction)
   local MiniFiles = require("mini.files")
@@ -392,8 +330,6 @@ vim.api.nvim_create_autocmd("FileType", {
     "neotest-output-panel",
     "dbout",
     "gitsigns-blame",
-    "Avante",
-    "AvanteInput",
     "OverseerList",
     "Lazy",
     "noice",

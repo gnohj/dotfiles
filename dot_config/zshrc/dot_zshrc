@@ -222,10 +222,10 @@ alias spot='sketchybar --trigger spotify'
 alias spice='spicetify auto'
 
 # NeoVim Shorcuts
-alias n="nvim"
-alias vi=nvim
-alias vim=nvim
-export EDITOR="nvim"
+alias ESLINT_USE_FLAT_CONFIG=false n="nvim"
+alias ESLINT_USE_FLAT_CONFIG=false vi=nvim
+alias ESLINT_USE_FLAT_CONFIG=false vim=nvim
+export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
 
 # Atuin Script Shortcuts
 alias iheart-token="atuin scripts run iheart-token"

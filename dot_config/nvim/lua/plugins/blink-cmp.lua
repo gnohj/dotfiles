@@ -22,7 +22,6 @@ return {
       "moyiz/blink-emoji.nvim",
       "Kaiser-Yang/blink-cmp-dictionary",
       "giuxtaposition/blink-cmp-copilot",
-      "Kaiser-Yang/blink-cmp-avante",
       "marcoSven/blink-cmp-yanky",
     },
     opts = function(_, opts)
@@ -39,7 +38,6 @@ return {
       -- NOTE: by default lazyvim already includes the lazydev source, so not adding it here again
       opts.sources = vim.tbl_deep_extend("force", opts.sources or {}, {
         default = {
-          "avante",
           "lsp",
           "path",
           "snippets",
@@ -49,9 +47,6 @@ return {
           "yank",
           -- "dadbod",
           -- "copilot",
-          -- "avante_commands",
-          -- "avante_mentions",
-          -- "avante_files",
         },
         providers = {
           yank = {
@@ -62,31 +57,6 @@ return {
               onlyCurrentFiletype = true,
               trigger_characters = { '"' },
               kind_icon = "󰅍",
-            },
-          },
-          -- avante_commands = {
-          --   name = "avante_commands",
-          --   module = "blink.compat.source",
-          --   score_offset = 95, -- show at a higher priority than lsp
-          --   opts = {},
-          -- },
-          -- avante_files = {
-          --   name = "avante_commands",
-          --   module = "blink.compat.source",
-          --   score_offset = 100, -- show at a higher priority than lsp
-          --   opts = {},
-          -- },
-          -- avante_mentions = {
-          --   name = "avante_mentions",
-          --   module = "blink.compat.source",
-          --   score_offset = 1000, -- show at a higher priority than lsp
-          --   opts = {},
-          -- },
-          avante = {
-            module = "blink-cmp-avante",
-            name = "Avante",
-            opts = {
-              -- options for blink-cmp-avante
             },
           },
 

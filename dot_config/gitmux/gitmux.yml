@@ -31,7 +31,7 @@ tmux:
     conflict: "#[fg=#da858e,nobold]"
     modified: "#[fg=#a3b8c6,nobold]"
     untracked: "#[fg=#505e62,nobold]"
-    stashed: "#[fg=#505e62,nobold]"
+    stashed: "#[fg=#c0aed2,nobold]"
     clean: "#[fg=#b7ce97,nobold]"
     divergence: "#[fg=#dab183,nobold]"
     # state: "#[fg=${gnohj_color59},nobold]"
