@@ -24,7 +24,7 @@ return {
 
     -- Diagnostics source
     local diagnostics_source = {
-      get_symbols = function(buf, win, _)
+      get_symbols = function(buf, win, cursor)
         local diagnostics = vim.diagnostic.get(buf)
         if not diagnostics or #diagnostics == 0 then
           return {}
@@ -92,7 +92,7 @@ return {
     }
 
     local gitsigns_stats = {
-      get_symbols = function(buf, win, _)
+      get_symbols = function(buf, win, cursor)
         local gitsigns_stats = get_gitsigns_stats(buf)
         if not gitsigns_stats then
           return {}

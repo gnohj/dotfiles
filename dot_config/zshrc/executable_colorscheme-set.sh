@@ -622,7 +622,7 @@ tmux:
     conflict: "#[fg=${gnohj_color11},nobold]"
     modified: "#[fg=${gnohj_color04},nobold]"
     untracked: "#[fg=${gnohj_color08},nobold]"
-    stashed: "#[fg=${gnohj_color08},nobold]"
+    stashed: "#[fg=${gnohj_color01},nobold]"
     clean: "#[fg=${gnohj_color02},nobold]"
     divergence: "#[fg=${gnohj_color05},nobold]"
     # state: "#[fg=\${gnohj_color59},nobold]"

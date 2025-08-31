@@ -48,12 +48,6 @@ local function get_file_permissions()
   return file_path and vim.fn.getfperm(file_path) or ""
 end
 
--- Custom component to display the file path, with `~` for the home directory
-local function file_path()
-  local full_path = vim.fn.expand("%:p") -- Get the full file path
-  return full_path:gsub(vim.fn.expand("$HOME"), "  ~") -- Replace $HOME with ~
-end
-
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
@@ -68,10 +62,6 @@ return {
         options = {
           component_separators = "",
           section_separators = "",
-          disabled_filetypes = {
-            statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
-            winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
-          },
           theme = "auto",
         },
         sections = {
@@ -118,10 +108,6 @@ return {
       options = {
         -- component_separators = { left = ")", right = "(" },
         section_separators = { left = "", right = "" },
-        disabled_filetypes = {
-          statusline = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
-          winbar = { "Avante", "AvanteInput", "AvanteSelectedFiles" },
-        },
         theme = {
           normal = {
             a = {
