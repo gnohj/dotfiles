@@ -23,7 +23,7 @@ path = "~/.logs"
 [[session]]
 name = "chezmoi_session"
 path = "~/.local/share/chezmoi"
-startup_command = "gg"
+startup_command = "gst"
 
 [[session]]
 name = "developer_session"

@@ -86,7 +86,9 @@ keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
-  vim.fn.setreg("+", full_path:gsub(vim.fn.expand("$HOME"), "~")) -- Replace $HOME with ~
+  local display_path = full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
+  vim.fn.setreg("+", display_path)
+  vim.notify("Copied to clipboard: " .. display_path, vim.log.levels.INFO)
 end
 
 keymap(
@@ -122,38 +124,13 @@ end, { desc = "[P]Noice History" })
 
 -- HACK: View and paste images in Neovim like in Obsidian
 -- Paste images
--- I tried using <C-v> but duh, that's used for visual block mode
-keymap({ "n", "i" }, "<M-p>", function()
-  local pasted_image = require("img-clip").paste_image()
-  if pasted_image then
-    -- "Update" saves only if the buffer has been modified since the last save
-    vim.cmd("silent! update")
-    -- Get the current line
-    local line = vim.api.nvim_get_current_line()
-    -- Move cursor to end of line
-    vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], #line })
-    -- I reload the file, otherwise I cannot view the image after pasted
-    vim.cmd("edit!")
-  end
-end, { desc = "[P]Paste image from system clipboard" })
+-- The <M-j> keymap is defined in plugins/img-clip.lua to ensure proper loading
 
 -- Disable lazygit which is enabled default by LazyVim
 -- map("n", "<leader>gg", function() Snacks.lazygit( { cwd = LazyVim.root.git() }) end, { desc = "Lazygit (Root Dir)" })
 -- map("n", "<leader>gG", function() Snacks.lazygit() end, { desc = "Lazygit (cwd)" })
 vim.keymap.del("n", "<leader>gg")
 vim.keymap.del("n", "<leader>gG")
-
--------------------------------------------------------------------------------
---                           Chezmoi
--------------------------------------------------------------------------------
-vim.keymap.set("n", "<leader>cz", function()
-  local chezmoi_source = vim.fn.system("chezmoi source-path"):gsub("\n", "")
-  Snacks.picker.files({
-    cwd = chezmoi_source,
-    title = "Chezmoi Source Files",
-    hidden = true,
-  })
-end, { desc = "Edit chezmoi source files" })
 
 -------------------------------------------------------------------------------
 --                           Grugfar
@@ -251,114 +228,8 @@ keymap(
 )
 
 -------------------------------------------------------------------------------
---                           TMUX New Pane Peek
--------------------------------------------------------------------------------
--- local function tmux_pane_function(dir)
---   -- NOTE: variable that controls the auto-cd behavior
---   local auto_cd_to_new_dir = true
---   -- NOTE: Variable to control pane direction: 'right' or 'bottom'
---   -- If you modify this, make sure to also modify TMUX_PANE_DIRECTION in the
---   -- zsh-vi-mode section on the .zshrc file
---   -- Also modify this in your tmux.conf file if you want it to work when in tmux
---   -- copy-mode
---   local pane_direction = vim.g.tmux_pane_direction or "right"
---   -- NOTE: Below, the first number is the size of the pane if split horizontally,
---   -- the 2nd number is the size of the pane if split vertically
---   local pane_size = (pane_direction == "right") and 90 or 15
---   local move_key = (pane_direction == "right") and "C-l" or "C-k"
---   local split_cmd = (pane_direction == "right") and "-h" or "-v"
---   -- if no dir is passed, use the current file's directory
---   local file_dir = dir or vim.fn.expand("%:p:h")
---   -- Simplified this, was checking if a pane existed
---   local has_panes = vim.fn.system("tmux list-panes | wc -l"):gsub("%s+", "")
---     ~= "1"
---   -- Check if the current pane is zoomed (maximized)
---   local is_zoomed = vim.fn
---     .system("tmux display-message -p '#{window_zoomed_flag}'")
---     :gsub("%s+", "") == "1"
---   -- Escape the directory path for shell
---   local escaped_dir = file_dir:gsub("'", "'\\''")
---   -- If any additional pane exists
---   if has_panes then
---     if is_zoomed then
---       -- Compare the stored pane directory with the current file directory
---       if auto_cd_to_new_dir and vim.g.tmux_pane_dir ~= escaped_dir then
---         -- If different, cd into the new dir
---         vim.fn.system(
---           "tmux send-keys -t :.+ 'cd \"" .. escaped_dir .. "\"' Enter"
---         )
---         -- Update the stored directory to the new one
---         vim.g.tmux_pane_dir = escaped_dir
---       end
---       -- If zoomed, unzoom and switch to the correct pane
---       vim.fn.system("tmux resize-pane -Z")
---       vim.fn.system("tmux send-keys " .. move_key)
---     else
---       -- If not zoomed, zoom current pane
---       vim.fn.system("tmux resize-pane -Z")
---     end
---   else
---     -- Store the initial directory in a Neovim variable
---     if vim.g.tmux_pane_dir == nil then
---       vim.g.tmux_pane_dir = escaped_dir
---     end
---     -- If no pane exists, open it with zsh and DISABLE_PULL variable
---     vim.fn.system(
---       "tmux split-window "
---         .. split_cmd
---         .. " -l "
---         .. pane_size
---         .. " 'cd \""
---         .. escaped_dir
---         .. "\" && DISABLE_PULL=1 zsh'"
---     )
---     vim.fn.system("tmux send-keys " .. move_key)
---     -- Resolve zsh-vi-mode issue for first-time pane
---     vim.fn.system("tmux send-keys Escape i")
---   end
--- end
-
--------------------------------------------------------------------------------
 --                           Obsidian
 -------------------------------------------------------------------------------
-
--- If I execute the function without an argument, it will open the dir where the current file lives
--- keymap({ "n", "v", "i" }, "<M-f>", function()
---   tmux_pane_function("/Users/gnohj/Obsidian/second-brain")
--- end, { desc = "[P]Terminal on tmux pane" })
-
--- If I execute the function without an argument, it will open the dir where the current file lives
--- vim.keymap.set({ "n", "v", "i" }, "<M-o", function()
---   tmux_pane_function("/Users/gnohj/Obsidian/second-brain")
--- end, { desc = "[P]Terminal Notes on tmux pane" })
-
--- >>> oo # from shell, navigate to vault (optional)
---
--- # NEW NOTE
--- >>> on "Note Name" # call my "obsidian new note" shell script (~/bin/on)
--- >>>
--- >>> ))) <leader>on # inside vim now, format note as template
--- >>> ))) # add tag, e.g. fact / blog / video / etc..
--- >>> ))) # add hubs, e.g. [[python]], [[machine-learning]], etc...
--- >>> ))) <leader>of # format title
---
--- # END OF DAY/WEEK REVIEW
--- >>> or # review notes in inbox
--- >>>
--- >>> ))) <leader>ok # inside vim now, move to zettelkasten
--- >>> ))) <leader>odd # or delete
--- >>>
--- >>> og # organize saved notes from zettelkasten into notes/[tag] folders
--- >>> ou # sync local with Notion
-
--- navigate to vault
-keymap(
-  "n",
-  "<leader>oo",
-  ":cd /Users/gnohj/Obsidian/second-brain/<cr>",
-  { desc = "[P]Obsidian: Navigate to vault" }
-)
---
 -- convert note to template and remove leading white space
 keymap("n", "<leader>on", function()
   local template_path =
@@ -415,18 +286,6 @@ keymap(
   ":!rm '%:p'<cr>:bd<cr>",
   { desc = "[P]Obsidian: Delete file in current buffer" }
 )
-
-keymap("n", "gf", function()
-  if require("obsidian").util.cursor_on_markdown_link() then
-    return "<cmd>ObsidianFollowLink<CR>"
-  else
-    return "gf"
-  end
-end, {
-  noremap = false,
-  expr = true,
-  desc = "[P]Obsidian: Follow link under cursor",
-})
 
 -------------------------------------------------------------------------------
 --                  Tiny Code Action / Fastaction
