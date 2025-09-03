@@ -376,7 +376,6 @@ bindkey -M viins '^x' sesh-sessions
 export DO_NOT_TRACK=1
 export DISABLE_TELEMETRY=1
 
-# Disable Brew auto update
 export HOMEBREW_NO_AUTO_UPDATE="1"
 
 # Force ghostty detection for snacks image - https://github.com/folke/snacks.nvim/blob/main/docs/image.md
