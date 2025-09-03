@@ -29,6 +29,7 @@ end, { desc = "[P]Toggle relative line numbers" })
 -- Toggle absolute line numbers only (no relative)
 keymap("n", "<leader>tN", function()
   vim.opt.number = not vim.opt.number:get()
+
   vim.opt.relativenumber = false
 end, { desc = "[P]Toggle absolute line numbers" })
 
@@ -231,7 +232,7 @@ keymap(
 --                           Obsidian
 -------------------------------------------------------------------------------
 -- convert note to template and remove leading white space
-keymap("n", "<leader>on", function()
+keymap("n", "<leader>zn", function()
   local template_path =
     vim.fn.expand("~/Obsidian/second-brain/Templates/note.md")
 
@@ -266,7 +267,7 @@ end, { desc = "New note template" })
 -- must have cursor on title
 keymap(
   "n",
-  "<leader>of",
+  "<leader>zf",
   ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>",
   { desc = "[P]Obsidian: Format note title" }
 )
@@ -275,14 +276,14 @@ keymap(
 -- move file in current buffer to zettelkasten folder
 keymap(
   "n",
-  "<leader>ok",
+  "<leader>zk",
   ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>",
   { desc = "[P]Obsidian: Move file to Zettelkasten" }
 )
 -- delete file in current buffer
 keymap(
   "n",
-  "<leader>odd",
+  "<leader>zdd",
   ":!rm '%:p'<cr>:bd<cr>",
   { desc = "[P]Obsidian: Delete file in current buffer" }
 )
