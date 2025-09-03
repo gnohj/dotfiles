@@ -41,7 +41,7 @@ return {
           or global_colors.bg_sidebar
         global_colors.bg_statusline = transparent and global_colors.none
           or colors["gnohj_color10"]
-        global_colors.bg_visual = colors["gnohj_color16"]
+        global_colors.bg_visual = colors["gnohj_color13"]
         global_colors.fg = colors["gnohj_color14"]
         global_colors.fg_dark = colors["gnohj_color09"]
         global_colors.fg_float = colors["gnohj_color14"]
