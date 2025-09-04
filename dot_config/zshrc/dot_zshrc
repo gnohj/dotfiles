@@ -211,6 +211,7 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 # Chezmoi
 alias cz='chezmoi'
 alias czc='cz add ~/.config/colorscheme/active/active-colorscheme.sh && cz add ~/.config/colorscheme/list/evergarden-winter-colors.sh && cz add ~/.config/colorscheme/list/evergarden-winter-mute-colors.sh && cz add ~/.config/colorscheme/list/gnohj-colors.sh && cz add ~/.config/colorscheme/list/tokyo-night-colors.sh && cz add ~/.config/ghostty/config && cz add ~/.config/nvim/lua/config/active-colorscheme.sh && cz add ~/.config/lazygit/config.yml && cz add ~/.config/nvim/lazy-lock.json'
+alias czd='chezmoi diff'
 
 # Fzf Shortcuts
 alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
