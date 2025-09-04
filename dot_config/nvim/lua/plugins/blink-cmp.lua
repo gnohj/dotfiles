@@ -236,7 +236,7 @@ return {
       -- https://cmp.saghen.dev/configuration/keymap.html#default
       opts.keymap = {
         preset = "default",
-        ["<CR>"] = { "accept", "fallback" }, -- Add this line!
+        ["<CR>"] = { "fallback" }, -- Only fallback, don't accept completion
         ["<C-y>"] = { "accept" }, -- Keep your working keybind
         ["<Tab>"] = { "snippet_forward", "fallback" },
         ["<S-Tab>"] = { "snippet_backward", "fallback" },
