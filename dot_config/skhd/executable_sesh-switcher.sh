@@ -8,7 +8,7 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 # Build the color string properly (no variable expansion inside the tmux command)
 color_string="list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color16},fg+:${gnohj_color14},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
 
-/opt/homebrew/bin/tmux run-shell "sesh connect \"\$(
+/opt/homebrew/bin/tmux run-shell "SHELL='/bin/zsh -f' sesh connect \"\$(
   /opt/homebrew/bin/sesh list --icons | /opt/homebrew/bin/fzf-tmux -p 80%,70% --no-border \
     --ansi \
     --list-border \
