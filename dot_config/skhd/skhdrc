@@ -1,25 +1,27 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# available - rctrl + x
+# Available keys - rctrl - a
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
-rctrl - a : /opt/homebrew/bin/tmux switch-client -l
-rctrl - e : /opt/homebrew/bin/tmux new-window 'nvim'
-rctrl - s : /opt/homebrew/bin/tmux new-window -c "#{pane_current_path}"
+# rctrl - a : /opt/homebrew/bin/tmux switch-client -l
+rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
+rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-rctrl - 0x29 : /opt/homebrew/bin/tmux next-window # semicolon
+# rctrl - 0x29 : /opt/homebrew/bin/tmux next-window # semicolon
+rctrl - 0x29 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
 # rctrl - i - reserved for nvim shortcut (remapped <C-i> to <rctrl - i>) to jump forward in nvim
 # rctrl - w - reserved for nvim shortcut (remapped <C-w> to <rctrl - w>) to do window management in nvim
+# rctrl - s - reserved for nvim shortcuts - open buffers in split - horizontal / vertical ; in normal mode it'll save the file
 # rctrl - y - reserved for nvim - open noice history
 # rctrl - p - reserved for nvim - reserved for going to next history
 # rctrl - n - reserved for nvim - reserved for going to previous history
@@ -64,6 +66,7 @@ lalt - t : /opt/homebrew/bin/aerospace workspace T
 lalt - v : /opt/homebrew/bin/aerospace workspace V
 lalt - w : /opt/homebrew/bin/aerospace workspace W
 lalt - x : /opt/homebrew/bin/aerospace workspace X
+lalt - y : /opt/homebrew/bin/aerospace workspace Y
 lalt - z : /opt/homebrew/bin/aerospace workspace Z
 
 # Aerospace - Move to workspace
@@ -79,6 +82,7 @@ lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
 lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V
 lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
 lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
+lalt + shift - y : /opt/homebrew/bin/aerospace move-node-to-workspace Y
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
 

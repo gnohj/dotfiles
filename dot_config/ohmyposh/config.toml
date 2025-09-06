@@ -1,0 +1,62 @@
+#
+#  ██████╗ ██╗  ██╗    ███╗   ███╗██╗   ██╗    ██████╗  ██████╗ ███████╗██╗  ██╗
+# ██╔═══██╗██║  ██║    ████╗ ████║╚██╗ ██╔╝    ██╔══██╗██╔═══██╗██╔════╗██║  ██║
+# ██║   ██║███████║    ██╔████╔██║ ╚████╔╝     ██████╔╝██║   ██║███████╗███████║
+# ██║   ██║██╔══██║    ██║╚██╔╝██║  ╚██╔╝      ██╔═══╝ ██║   ██║╚════██║██╔══██║
+# ╚██████╔╝██║  ██║    ██║ ╚═╝ ██║   ██║       ██║     ╚██████╔╝███████║██║  ██║
+#  ╚═════╝ ╚═╝  ╚═╝    ╚═╝     ╚═╝   ╚═╝       ╚═╝      ╚═════╝ ╚══════╝╚═╝  ╚═╝
+# The prompt theme engine for any shell
+# Auto-generated Oh My Posh configuration
+# https://ohmyposh.dev/
+
+"$schema" = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json"
+version = 3
+final_space = true
+console_title_template = "{{ .Shell }} in {{ .Folder }}"
+
+[[blocks]]
+type = "prompt"
+alignment = "left"
+newline = true
+
+  [[blocks.segments]]
+  type = "path"
+  style = "plain"
+  foreground = "#a3b8c6"
+  template = "{{ .Path }} "
+  
+    [blocks.segments.properties]
+    style = "full"
+
+  [[blocks.segments]]
+  type = "executiontime"
+  style = "plain"
+  foreground = "#b7ce97"
+  template = "{{ if gt .Ms 4000 }}{{ .FormattedMs }} {{ end }}"
+  
+    [blocks.segments.properties]
+    threshold = 4000
+    style = "austin"
+
+[[blocks]]
+type = "prompt"
+alignment = "left"
+newline = true
+
+  [[blocks.segments]]
+  type = "text"
+  style = "plain"
+  foreground = "#b7ce97"
+  foreground_templates = [
+    "{{if gt .Code 0}}#da858e{{end}}",
+    "{{if eq .Code 0}}#a7cfaf{{end}}"
+  ]
+  template = "﬌"
+
+[transient_prompt]
+foreground_templates = [
+  "{{if gt .Code 0}}#da858e{{end}}",
+  "{{if eq .Code 0}}#a7cfaf{{end}}"
+]
+background = "transparent"
+template = "﬌ "

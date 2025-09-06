@@ -17,10 +17,103 @@ end
 return {
   "Bekaboo/dropbar.nvim",
   enabled = true,
+
   event = "BufEnter",
   name = "dropbar",
   config = function()
     local bar = require("dropbar.bar")
+    local colors = require("config.colors")
+
+    -- Create custom highlight groups for mode indicator with fg color only
+    vim.api.nvim_set_hl(0, "DropbarModeNormal", {
+      fg = colors["gnohj_color03"],
+      bold = true,
+    })
+    vim.api.nvim_set_hl(0, "DropbarModeInsert", {
+      fg = colors["gnohj_color02"],
+      bold = true,
+    })
+    vim.api.nvim_set_hl(0, "DropbarModeVisual", {
+      fg = colors["gnohj_color04"],
+      bold = true,
+    })
+    vim.api.nvim_set_hl(0, "DropbarModeCommand", {
+      fg = colors["gnohj_color05"],
+      bold = true,
+    })
+    vim.api.nvim_set_hl(0, "DropbarModeReplace", {
+      fg = colors["gnohj_color11"],
+      bold = true,
+    })
+
+    -- Mode indicator source
+    local mode_source = {
+      get_symbols = function(buf, win, cursor)
+        local mode_map = {
+          ["n"] = "N",
+          ["no"] = "N",
+          ["nov"] = "N",
+          ["noV"] = "N",
+          ["no\22"] = "N",
+          ["niI"] = "N",
+          ["niR"] = "N",
+          ["niV"] = "N",
+          ["nt"] = "N",
+          ["ntT"] = "N",
+          ["v"] = "V",
+          ["vs"] = "V",
+          ["V"] = "V",
+          ["Vs"] = "V",
+          ["\22"] = "V",
+          ["\22s"] = "V",
+          ["s"] = "S",
+          ["S"] = "S",
+          ["\19"] = "S",
+          ["i"] = "I",
+          ["ic"] = "I",
+          ["ix"] = "I",
+          ["R"] = "R",
+          ["Rc"] = "R",
+          ["Rx"] = "R",
+          ["Rv"] = "R",
+          ["Rvc"] = "R",
+          ["Rvx"] = "R",
+          ["c"] = "C",
+          ["cv"] = "C",
+          ["ce"] = "C",
+          ["r"] = "R",
+          ["rm"] = "R",
+          ["r?"] = "R",
+          ["!"] = "!",
+          ["t"] = "T",
+        }
+
+        local mode = vim.api.nvim_get_mode().mode
+        local mode_text = mode_map[mode] or mode:upper():sub(1, 1)
+        local mode_char = mode:sub(1, 1):lower()
+
+        -- Determine highlight group based on mode (matching lualine colors)
+        local hl_group = "DropbarModeNormal"
+        if mode_char == "i" then
+          hl_group = "DropbarModeInsert"
+        elseif mode_char == "v" then
+          hl_group = "DropbarModeVisual"
+        elseif mode_char == "c" then
+          hl_group = "DropbarModeCommand"
+        elseif mode_char == "r" then
+          hl_group = "DropbarModeReplace"
+        end
+
+        return {
+          bar.dropbar_symbol_t:new({
+            icon = "",
+            icon_hl = "",
+            name = "[" .. mode_text .. "]",
+            name_hl = hl_group,
+          }),
+        }
+      end,
+    }
 
     -- Diagnostics source
     local diagnostics_source = {
@@ -142,6 +235,11 @@ return {
 
     ---@class dropbar_source_t
     require("dropbar").setup({
+      ui = {
+        bar = {
+          separator = " ", -- Use space instead of > as separator
+        },
+      },
       bar = {
         hover = false, -- Disable highlighting symbol under cursor
         padding = { left = 0, right = 1 }, -- Remove left padding to align with left edge
@@ -283,7 +381,7 @@ return {
             end,
           }
 
-          return { custom_path, diagnostics_source, gitsigns_stats }
+          return { mode_source, custom_path, diagnostics_source, gitsigns_stats }
         end,
         -- Enable dropbar for all file types
         enable = function(buf, win, _)

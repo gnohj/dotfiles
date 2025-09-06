@@ -5,14 +5,14 @@
 # ╚════██║   ██║   ██╔══██║██╔══██╗╚════██║██╔══██║██║██╔═══╝
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
-# The minimal, blazing-fast, and infinitely customizable prompt
+# The minimal, blazing-fast, and infinitely customizable prompt - RadioCtl variant
 # Auto-generated starship config for radio control
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
 (${env_var.RADIO_CTL})
-$directory$cmd_duration${custom.bitwarden}
-[﬌](bold green) 
+$directory$cmd_duration
+[﬌](bold #b7ce97) 
 '''
 # [username]
 # style_user = "green bold"
@@ -25,9 +25,9 @@ $directory$cmd_duration${custom.bitwarden}
 read_only = " "
 truncation_length = 10
 truncate_to_repo = true    # truncates directory to root folder if in github repo
-style = "bold italic blue"
+style = "bold italic #a3b8c6"
 [git_branch]
-style = "bold #a7cfbd"
+style = "bold #dc988e"
 [package]
 display_private = true
 [cmd_duration]
@@ -38,12 +38,7 @@ format = '[$duration](bold italic #b7ce97)'
 [env_var.RADIO_CTL]
 default = ''
 variable = "RADIO_CTL"
-format = "[$symbol($env_value)](yellow dimmed)"
-[custom.bitwarden]
-description = "Output the current Bitwarden vault status."
-command = 'echo $(rbw unlocked >/dev/null 2>&1 && echo "" || echo "🔒")'
-format = "[$symbol( $output)]($style)"
-when = 'command -v rbw'
+format = "[$symbol($env_value)](bold #dab183)"
 [aws]
 disabled = true
 [git_status]
