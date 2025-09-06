@@ -15,6 +15,7 @@ startup_command = "ls"
 [[session]]
 name = "config_session"
 path = "~/.config"
+startup_command = "n"
 
 [[session]]
 name = "logs_session"
@@ -70,18 +71,18 @@ startup_command = "cat /etc/hosts"
 [[session]]
 name = "radioctl_session"
 path = "~/."
-startup_command = "nvim .radioctl2"
+startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
 name = "radioctl_cmd_session"
 path = "~/.zsh_radioctl_cmds"
-startup_command = "nvim .zsh_radioctl_cmds"
+startup_command = "n .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 
 [[session]]
 name = "zsh_gnohj_env_session"
 path = "~/.zsh_gnohj_env"
-startup_command = "nvim .zsh_gnohj_env"
+startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
