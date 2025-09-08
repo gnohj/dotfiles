@@ -16,18 +16,29 @@ return {
             vim.cmd("DiffviewClose")
           end
         end,
-        { desc = "File history" },
+        desc = "File history",
       },
       {
         "<leader>gd",
         function()
           if next(require("diffview.lib").views) == nil then
-            vim.cmd("DiffviewOpen")
+            vim.cmd("DiffviewOpen") -- Shows working dir changes
           else
             vim.cmd("DiffviewClose")
           end
         end,
-        { desc = "Diff view" },
+        desc = "Diff view",
+      },
+      {
+        "<leader>gD",
+        function()
+          if next(require("diffview.lib").views) == nil then
+            vim.cmd("DiffviewOpen HEAD~1") -- Shows last commit changes
+          else
+            vim.cmd("DiffviewClose")
+          end
+        end,
+        desc = "Diff last commit",
       },
     },
     opts = function()
