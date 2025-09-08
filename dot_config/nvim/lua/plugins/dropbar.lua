@@ -46,6 +46,12 @@ return {
       bold = true,
     })
 
+    -- Custom highlight for dimmed path
+    vim.api.nvim_set_hl(0, "DropbarPathDim", {
+      fg = colors["gnohj_color08"],
+      italic = true,
+    })
+
     -- Mode indicator source
     local mode_source = {
       get_symbols = function(buf, win, cursor)
@@ -235,9 +241,12 @@ return {
 
     ---@class dropbar_source_t
     require("dropbar").setup({
-      ui = {
-        bar = {
-          separator = " ", -- Use space instead of > as separator
+      icons = {
+        ui = {
+          bar = {
+            separator = " ", -- Keep space separator between sources
+            extends = "…",
+          },
         },
       },
       bar = {
@@ -248,7 +257,7 @@ return {
           local sources = require("dropbar.sources")
           local utils = require("dropbar.utils")
 
-          -- Custom path source that shows only parent folder + filename with icon
+          -- Custom path source that shows filename first, then path (dimmed, no icons)
           local custom_path = {
             get_symbols = function(buff, win, cursor)
               -- Get the full file path
@@ -280,7 +289,7 @@ return {
                 or nil
 
               if is_home_path then
-                -- For home paths: show single folder with full path from ~
+                -- For home paths: show filename first, then path from ~
                 local relative_path = file_path:gsub("^" .. vim.pesc(home), "")
                 local components = {}
 
@@ -289,27 +298,7 @@ return {
                 end
 
                 if #components > 0 then
-                  -- Build the full folder path string from home
-                  local folder_path = "~"
-                  if #components > 1 then
-                    -- Add all folders except the filename
-                    for i = 1, #components - 1 do
-                      folder_path = folder_path .. "/" .. components[i]
-                    end
-                  end
-
-                  -- Single folder icon with full path
-                  table.insert(
-                    symbols,
-                    bar.dropbar_symbol_t:new({
-                      icon = "󰉋 ",
-                      icon_hl = "DropBarIconKindFolder",
-                      name = folder_path,
-                      name_hl = "DropBarKindFolder",
-                    })
-                  )
-
-                  -- Filename with appropriate icon
+                  -- Filename with appropriate icon (first)
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
@@ -324,42 +313,36 @@ return {
                       })
                     )
                   end
+
+                  -- Build the folder path string from home (dimmed, no icon)
+                  if #components > 1 then
+                    local folder_path = "~"
+                    -- Add all folders except the filename
+                    for i = 1, #components - 1 do
+                      folder_path = folder_path .. "/" .. components[i]
+                    end
+
+                    -- Path without icon, dimmed
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = folder_path,
+                        name_hl = "DropbarPathDim",
+                      })
+                    )
+                  end
                 end
               else
-                -- For paths outside home: show full path in single folder icon
+                -- For paths outside home: show filename first, then full path
                 local components = {}
                 for component in file_path:gmatch("[^/]+") do
                   table.insert(components, component)
                 end
 
                 if #components > 0 then
-                  -- Build full path except filename
-                  local folder_path = ""
-                  if file_path:sub(1, 1) == "/" then
-                    folder_path = "/"
-                  end
-
-                  for i = 1, #components - 1 do
-                    if i > 1 or folder_path ~= "/" then
-                      folder_path = folder_path .. "/"
-                    end
-                    folder_path = folder_path .. components[i]
-                  end
-
-                  -- Single folder icon with full path
-                  if folder_path ~= "" then
-                    table.insert(
-                      symbols,
-                      bar.dropbar_symbol_t:new({
-                        icon = "󰉋 ",
-                        icon_hl = "DropBarIconKindFolder",
-                        name = folder_path,
-                        name_hl = "DropBarKindFolder",
-                      })
-                    )
-                  end
-
-                  -- Filename with appropriate icon
+                  -- Filename with appropriate icon (first)
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
@@ -373,6 +356,34 @@ return {
                         name_hl = "DropBarKindFile",
                       })
                     )
+                  end
+
+                  -- Build full path except filename (dimmed, no icon)
+                  if #components > 1 then
+                    local folder_path = ""
+                    if file_path:sub(1, 1) == "/" then
+                      folder_path = "/"
+                    end
+
+                    for i = 1, #components - 1 do
+                      if i > 1 or folder_path ~= "/" then
+                        folder_path = folder_path .. "/"
+                      end
+                      folder_path = folder_path .. components[i]
+                    end
+
+                    -- Path without icon, dimmed
+                    if folder_path ~= "" then
+                      table.insert(
+                        symbols,
+                        bar.dropbar_symbol_t:new({
+                          icon = "",
+                          icon_hl = "",
+                          name = folder_path,
+                          name_hl = "DropbarPathDim",
+                        })
+                      )
+                    end
                   end
                 end
               end

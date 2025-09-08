@@ -21,9 +21,9 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Status left: Session name with space + rbw lock status + repo name + gitmux (reactive to current pane)
+# Status left: rbw lock status + Session name + AWS profile (with aws_ prefix) + repo name + gitmux (reactive to current pane)
 # Session name turns red when prefix is pressed
-set -g status-left "#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]}#[nobold]#S #[fg=${gnohj_color03},nobold]#(rbw unlocked >/dev/null 2>&1 || echo '🔒 ')#[fg=${gnohj_color14},nobold]#(PANE_ID='#{pane_id}'; PANE_NVIM_CWD=\\\$(tmux show-environment -t \"\\\$PANE_ID\" \"NVIM_CWD_\\\$PANE_ID\" 2>/dev/null | cut -d= -f2); DIR=\"\\\${PANE_NVIM_CWD:-#{pane_current_path}}\"; cd \"\\\$DIR\" 2>/dev/null && REPO_NAME=\\\$(basename \"\\\$(git rev-parse --show-toplevel 2>/dev/null)\" 2>/dev/null); OUTPUT=\\\$(gitmux -cfg \\\$HOME/.config/gitmux/gitmux.yml | sed 's/^ //'); [ -n \"\\\$REPO_NAME\" ] && echo \"#[fg=${gnohj_color06}]\\\$REPO_NAME#[fg=${gnohj_color14}]\\\$OUTPUT \" || echo \"\\\$OUTPUT \")"
+set -g status-left "#[fg=${gnohj_color03},nobold]#(rbw unlocked >/dev/null 2>&1 || echo '🔒')#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]}#[nobold]#S #[fg=${gnohj_color14},nobold]#(PANE_ID='#{pane_id}'; PANE_NVIM_CWD=\\\$(tmux show-environment -t \"\\\$PANE_ID\" \"NVIM_CWD_\\\$PANE_ID\" 2>/dev/null | cut -d= -f2); DIR=\"\\\${PANE_NVIM_CWD:-#{pane_current_path}}\"; cd \"\\\$DIR\" 2>/dev/null && FULL_REPO_NAME=\\\$(basename \"\\\$(git rev-parse --show-toplevel 2>/dev/null)\" 2>/dev/null) && REPO_NAME=\\\$(echo \"\\\$FULL_REPO_NAME\" | sed 's/[-_].*//'); OUTPUT=\\\$(gitmux -cfg \\\$HOME/.config/gitmux/gitmux.yml | sed 's/^ //'); [ -n \"\\\$REPO_NAME\" ] && echo \"#[fg=${gnohj_color06}]\\\$REPO_NAME#[fg=${gnohj_color14}]\\\$OUTPUT \" || echo \"\\\$OUTPUT \")"
 set -g status-left-length 100
 
 # Status right: Empty (minimalist)

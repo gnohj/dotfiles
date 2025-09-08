@@ -1,3 +1,4 @@
+
 #
 # ███████╗████████╗ █████╗ ██████╗ ███████╗██╗  ██╗██╗██████╗
 # ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║  ██║██║██╔══██╗
@@ -10,9 +11,9 @@
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-$directory$cmd_duration
-[﬌](bold #b7ce97) 
+$directory$cmd_duration[❯ ](bold #b7ce97) 
 '''
+right_format = ""
 # [username]
 # style_user = "green bold"
 # style_root = "red bold"
@@ -23,19 +24,17 @@ $directory$cmd_duration
 [directory]
 read_only = " "
 truncation_length = 10
-truncate_to_repo = true    # truncates directory to root folder if in github repo
+truncate_to_repo = true       # truncates directory to root folder if in github repo
 style = "bold italic #a3b8c6"
 [git_branch]
 style = "bold #dc988e"
 [package]
 display_private = true
 [cmd_duration]
-min_time = 4
+min_time = 4000
 show_milliseconds = false
 disabled = false
-format = '[$duration](bold italic #b7ce97)'
-[aws]
-disabled = true
+format = '[$duration ](bold italic #b7ce97)'
 [git_status]
 disabled = true
 [git_commit]
