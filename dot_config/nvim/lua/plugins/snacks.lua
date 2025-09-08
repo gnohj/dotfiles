@@ -121,7 +121,7 @@ return {
 
     -- Find Config Files (Chezmoi)
     {
-      "<leader>fc",
+      "<leader>fC",
       function()
         local chezmoi_source =
           vim.fn.system("chezmoi source-path"):gsub("\n", "")
@@ -136,7 +136,7 @@ return {
     },
     -- Find Config Files (~/.config)
     {
-      "<leader>fC",
+      "<leader>fc",
       function()
         local config_path = vim.fn.expand("~/.config")
         require("snacks").picker.files({
@@ -146,6 +146,40 @@ return {
         })
       end,
       desc = "Find Config Files (~/.config)",
+    },
+    -- Git status with preview, respects .gitignore
+    {
+      "<leader>gs",
+      function()
+        -- Custom git status that respects .gitignore
+        require("snacks").picker({
+          title = "Git Status",
+          layout = "ivy",
+          hidden = true, -- show hidden files (like .env, .gitignore, etc)
+          finder = "proc",
+          cmd = "git",
+          args = { "status", "--porcelain", "-unormal" },
+          format = "git_status",
+          preview = "git_status",
+          transform = function(item)
+            local status, file = item.text:match("^(..) (.+)$")
+            if status then
+              item.status = status
+              item.file = file
+              item.text = file
+            end
+            return item
+          end,
+          win = {
+            input = {
+              keys = {
+                ["<Tab>"] = { "git_stage", mode = { "n", "i" } },
+              },
+            },
+          },
+        })
+      end,
+      desc = "Git Status (with preview)",
     },
     -- Find Files - default snacks <leader>ff doesn't work well with frecency and sorting, so overriding here
     {
