@@ -1,17 +1,17 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# Available keys - rctrl - a
+# Available keys - rctrl - esc, rctrl - '
 
 # Tmux window navigation
-rctrl - 0x27 : /opt/homebrew/bin/tmux next-window # apostrophe key
+rctrl - tab : /opt/homebrew/bin/tmux next-window # tab key
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
-# rctrl - a : /opt/homebrew/bin/tmux switch-client -l
+rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)

@@ -243,7 +243,7 @@ generate_starship_config() {
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-\$directory\$cmd_duration[❯ ](bold ${gnohj_color02}) 
+\$directory\$cmd_duration[❯](bold ${gnohj_color02}) 
 '''
 right_format = ""
 # [username]
@@ -610,7 +610,7 @@ tmux:
     staged: "#[fg=${gnohj_color02},nobold]"
     conflict: "#[fg=${gnohj_color11},nobold]"
     modified: "#[fg=${gnohj_color04},nobold]"
-    untracked: "#[fg=${gnohj_color08},nobold]"
+    untracked: "#[fg=${gnohj_color05},nobold]"
     stashed: "#[fg=${gnohj_color01},nobold]"
     clean: "#[fg=${gnohj_color02},nobold]"
     divergence: "#[fg=${gnohj_color05},nobold]"
