@@ -223,165 +223,14 @@ EOF
   echo "Btop theme updated at '$btop_conf_file'."
 }
 
-generate_ohmyposh_config() {
-  # Define the paths
-  ohmyposh_conf_file="$HOME/.config/ohmyposh/config.toml"
-  ohmyposh_radioctl_conf_file="$HOME/.config/ohmyposh/config-radioctl.toml"
-
-  # Generate the main Oh My Posh configuration file in TOML format
-  cat >"$ohmyposh_conf_file" <<EOF
-#
-#  ██████╗ ██╗  ██╗    ███╗   ███╗██╗   ██╗    ██████╗  ██████╗ ███████╗██╗  ██╗
-# ██╔═══██╗██║  ██║    ████╗ ████║╚██╗ ██╔╝    ██╔══██╗██╔═══██╗██╔════╗██║  ██║
-# ██║   ██║███████║    ██╔████╔██║ ╚████╔╝     ██████╔╝██║   ██║███████╗███████║
-# ██║   ██║██╔══██║    ██║╚██╔╝██║  ╚██╔╝      ██╔═══╝ ██║   ██║╚════██║██╔══██║
-# ╚██████╔╝██║  ██║    ██║ ╚═╝ ██║   ██║       ██║     ╚██████╔╝███████║██║  ██║
-#  ╚═════╝ ╚═╝  ╚═╝    ╚═╝     ╚═╝   ╚═╝       ╚═╝      ╚═════╝ ╚══════╝╚═╝  ╚═╝
-# The prompt theme engine for any shell
-# Auto-generated Oh My Posh configuration
-# https://ohmyposh.dev/
-
-"\$schema" = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json"
-version = 3
-final_space = true
-console_title_template = "{{ .Shell }} in {{ .Folder }}"
-
-[[blocks]]
-type = "prompt"
-alignment = "left"
-newline = true
-
-  [[blocks.segments]]
-  type = "path"
-  style = "plain"
-  foreground = "${gnohj_color04}"
-  template = "{{ .Path }} "
-  
-    [blocks.segments.properties]
-    style = "full"
-
-  [[blocks.segments]]
-  type = "executiontime"
-  style = "plain"
-  foreground = "${gnohj_color02}"
-  template = "{{ if gt .Ms 4000 }}{{ .FormattedMs }} {{ end }}"
-  
-    [blocks.segments.properties]
-    threshold = 4000
-    style = "austin"
-
-[[blocks]]
-type = "prompt"
-alignment = "left"
-newline = true
-
-  [[blocks.segments]]
-  type = "text"
-  style = "plain"
-  foreground = "${gnohj_color02}"
-  foreground_templates = [
-    "{{if gt .Code 0}}${gnohj_color11}{{end}}",
-    "{{if eq .Code 0}}${gnohj_color24}{{end}}"
-  ]
-  template = "﬌"
-
-[transient_prompt]
-foreground_templates = [
-  "{{if gt .Code 0}}${gnohj_color11}{{end}}",
-  "{{if eq .Code 0}}${gnohj_color24}{{end}}"
-]
-background = "transparent"
-template = "﬌ "
-EOF
-
-  # Generate the radio control Oh My Posh configuration file in TOML format
-  cat >"$ohmyposh_radioctl_conf_file" <<EOF
-#
-#  ██████╗ ██╗  ██╗    ███╗   ███╗██╗   ██╗    ██████╗  ██████╗ ███████╗██╗  ██╗
-# ██╔═══██╗██║  ██║    ████╗ ████║╚██╗ ██╔╝    ██╔══██╗██╔═══██╗██╔════╗██║  ██║
-# ██║   ██║███████║    ██╔████╔██║ ╚████╔╝     ██████╔╝██║   ██║███████╗███████║
-# ██║   ██║██╔══██║    ██║╚██╔╝██║  ╚██╔╝      ██╔═══╝ ██║   ██║╚════██║██╔══██║
-# ╚██████╔╝██║  ██║    ██║ ╚═╝ ██║   ██║       ██║     ╚██████╔╝███████║██║  ██║
-#  ╚═════╝ ╚═╝  ╚═╝    ╚═╝     ╚═╝   ╚═╝       ╚═╝      ╚═════╝ ╚══════╝╚═╝  ╚═╝
-# The prompt theme engine for any shell - RadioCtl variant
-# Auto-generated Oh My Posh configuration for radio control
-# https://ohmyposh.dev/
-
-"\$schema" = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json"
-version = 3
-final_space = true
-console_title_template = "{{ .Shell }} in {{ .Folder }}"
-
-[[blocks]]
-type = "prompt"
-alignment = "left"
-newline = true
-
-  [[blocks.segments]]
-  type = "text"
-  style = "plain"
-  foreground = "${gnohj_color05}"
-  template = "{{ if .Env.RADIO_CTL }}{{ .Env.RADIO_CTL }}{{ end }}"
-
-[[blocks]]
-type = "prompt"
-alignment = "left"
-newline = true
-
-  [[blocks.segments]]
-  type = "path"
-  style = "plain"
-  foreground = "${gnohj_color04}"
-  template = "{{ .Path }} "
-  
-    [blocks.segments.properties]
-    style = "full"
-
-  [[blocks.segments]]
-  type = "executiontime"
-  style = "plain"
-  foreground = "${gnohj_color02}"
-  template = "{{ if gt .Ms 4000 }}{{ .FormattedMs }} {{ end }}"
-  
-    [blocks.segments.properties]
-    threshold = 4000
-    style = "austin"
-
-[[blocks]]
-type = "prompt"
-alignment = "left"
-newline = true
-
-  [[blocks.segments]]
-  type = "text"
-  style = "plain"
-  foreground = "${gnohj_color02}"
-  foreground_templates = [
-    "{{if gt .Code 0}}${gnohj_color11}{{end}}",
-    "{{if eq .Code 0}}${gnohj_color24}{{end}}"
-  ]
-  template = "﬌"
-
-[transient_prompt]
-foreground_templates = [
-  "{{if gt .Code 0}}${gnohj_color11}{{end}}",
-  "{{if eq .Code 0}}${gnohj_color24}{{end}}"
-]
-background = "transparent"
-template = "﬌ "
-EOF
-
-  echo "Oh My Posh configuration updated at '$ohmyposh_conf_file'."
-  echo "Oh My Posh radio control configuration updated at '$ohmyposh_radioctl_conf_file'."
-}
-
 generate_starship_config() {
   # Define the paths
   starship_conf_file="$HOME/.config/starship/starship.toml"
-  starship_radioctl_conf_file="$HOME/.config/starship/starship-radioctl.toml"
+  starship_infra_conf_file="$HOME/.config/starship/starship-infra.toml"
 
   # Generate the main Starship configuration file
   cat >"$starship_conf_file" <<EOF
+
 #
 # ███████╗████████╗ █████╗ ██████╗ ███████╗██╗  ██╗██╗██████╗
 # ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║  ██║██║██╔══██╗
@@ -394,9 +243,9 @@ generate_starship_config() {
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-\$directory\$cmd_duration
-[﬌](bold ${gnohj_color02}) 
+\$directory\$cmd_duration[❯ ](bold ${gnohj_color02}) 
 '''
+right_format = ""
 # [username]
 # style_user = "green bold"
 # style_root = "red bold"
@@ -407,27 +256,26 @@ format = '''
 [directory]
 read_only = " "
 truncation_length = 10
-truncate_to_repo = true    # truncates directory to root folder if in github repo
+truncate_to_repo = true       # truncates directory to root folder if in github repo
 style = "bold italic ${gnohj_color04}"
 [git_branch]
 style = "bold ${gnohj_color06}"
 [package]
 display_private = true
 [cmd_duration]
-min_time = 4
+min_time = 4000
 show_milliseconds = false
 disabled = false
-format = '[\$duration](bold italic ${gnohj_color02})'
-[aws]
-disabled = true
+format = '[\$duration ](bold italic ${gnohj_color02})'
 [git_status]
 disabled = true
 [git_commit]
 disabled = true
 EOF
 
-  # Generate the radio control Starship configuration file
-  cat >"$starship_radioctl_conf_file" <<EOF
+  # Generate the infrastructure Starship configuration file
+  cat >"$starship_infra_conf_file" <<EOF
+
 #
 # ███████╗████████╗ █████╗ ██████╗ ███████╗██╗  ██╗██╗██████╗
 # ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║  ██║██║██╔══██╗
@@ -435,14 +283,14 @@ EOF
 # ╚════██║   ██║   ██╔══██║██╔══██╗╚════██║██╔══██║██║██╔═══╝
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
-# The minimal, blazing-fast, and infinitely customizable prompt - RadioCtl variant
-# Auto-generated starship config for radio control
+# The minimal, blazing-fast, and infinitely customizable prompt - Infrastructure variant
+# Auto-generated starship config for infrastructure repos
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-(\${env_var.RADIO_CTL})
-\$directory\$cmd_duration
-[﬌](bold ${gnohj_color02}) 
+\${env_var.RADIO_CTL}
+\${env_var.AWS_PROFILE}
+\$directory\$cmd_duration[❯ ](bold ${gnohj_color02})
 '''
 # [username]
 # style_user = "green bold"
@@ -454,23 +302,26 @@ format = '''
 [directory]
 read_only = " "
 truncation_length = 10
-truncate_to_repo = true    # truncates directory to root folder if in github repo
+truncate_to_repo = true       # truncates directory to root folder if in github repo
 style = "bold italic ${gnohj_color04}"
 [git_branch]
 style = "bold ${gnohj_color06}"
 [package]
 display_private = true
 [cmd_duration]
-min_time = 4
+min_time = 4000
 show_milliseconds = false
 disabled = false
-format = '[\$duration](bold italic ${gnohj_color02})'
+format = '[\$duration ](bold italic ${gnohj_color02})'
+[env_var.AWS_PROFILE]
+default = ''
+variable = "AWS_PROFILE"
+format = '[\\[aws:\$env_value\\] ](\$style)'
+style = 'bold ${gnohj_color03}'
 [env_var.RADIO_CTL]
 default = ''
 variable = "RADIO_CTL"
 format = "[\$symbol(\$env_value)](bold ${gnohj_color05})"
-[aws]
-disabled = true
 [git_status]
 disabled = true
 [git_commit]
@@ -478,7 +329,7 @@ disabled = true
 EOF
 
   echo "Starship configuration updated at '$starship_conf_file'."
-  echo "Starship radio control configuration updated at '$starship_radioctl_conf_file'."
+  echo "Starship infrastructure configuration updated at '$starship_infra_conf_file'."
 }
 
 generate_lazygit_config() {
@@ -798,9 +649,6 @@ if [ "$UPDATED" = true ]; then
 
   # Reload sketchybar - reads active-colorscheme.sh on load
   sketchybar --reload
-
-  # Generate Oh My Posh config files
-  generate_ohmyposh_config
 
   # Generate Starship config files (kept for easy switching)
   generate_starship_config

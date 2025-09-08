@@ -1,3 +1,4 @@
+
 #
 # ███████╗████████╗ █████╗ ██████╗ ███████╗██╗  ██╗██╗██████╗
 # ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║  ██║██║██╔══██╗
@@ -5,14 +6,14 @@
 # ╚════██║   ██║   ██╔══██║██╔══██╗╚════██║██╔══██║██║██╔═══╝
 # ███████║   ██║   ██║  ██║██║  ██║███████║██║  ██║██║██║
 # ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝
-# The minimal, blazing-fast, and infinitely customizable prompt - RadioCtl variant
-# Auto-generated starship config for radio control
+# The minimal, blazing-fast, and infinitely customizable prompt - Infrastructure variant
+# Auto-generated starship config for infrastructure repos
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-(${env_var.RADIO_CTL})
-$directory$cmd_duration
-[﬌](bold #b7ce97) 
+${env_var.RADIO_CTL}
+${env_var.AWS_PROFILE}
+$directory$cmd_duration[❯ ](bold #b7ce97)
 '''
 # [username]
 # style_user = "green bold"
@@ -24,23 +25,26 @@ $directory$cmd_duration
 [directory]
 read_only = " "
 truncation_length = 10
-truncate_to_repo = true    # truncates directory to root folder if in github repo
+truncate_to_repo = true       # truncates directory to root folder if in github repo
 style = "bold italic #a3b8c6"
 [git_branch]
 style = "bold #dc988e"
 [package]
 display_private = true
 [cmd_duration]
-min_time = 4
+min_time = 4000
 show_milliseconds = false
 disabled = false
-format = '[$duration](bold italic #b7ce97)'
+format = '[$duration ](bold italic #b7ce97)'
+[env_var.AWS_PROFILE]
+default = ''
+variable = "AWS_PROFILE"
+format = '[\[aws:$env_value\] ]($style)'
+style = 'bold #a7cfbd'
 [env_var.RADIO_CTL]
 default = ''
 variable = "RADIO_CTL"
 format = "[$symbol($env_value)](bold #dab183)"
-[aws]
-disabled = true
 [git_status]
 disabled = true
 [git_commit]

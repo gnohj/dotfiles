@@ -327,7 +327,7 @@ return {
 
         -- Completion and mini elements
         hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
-        hl.NoiceMini = { bg = hl_colors.bg_highlight, fg = hl_colors.fg }
+        hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg }  -- Make background transparent
       end,
     })
   end,

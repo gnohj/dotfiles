@@ -3,6 +3,9 @@
 
 # Available keys - rctrl - a
 
+# Tmux window navigation
+rctrl - 0x27 : /opt/homebrew/bin/tmux next-window # apostrophe key
+
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
@@ -14,7 +17,6 @@ rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-# rctrl - 0x29 : /opt/homebrew/bin/tmux next-window # semicolon
 rctrl - 0x29 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
