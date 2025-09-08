@@ -274,8 +274,32 @@ return {
                 file_path = home .. file_path:sub(2)
               end
 
-              -- Check if path is in home directory
-              local is_home_path = file_path:find("^" .. vim.pesc(home))
+              -- Check if we're in a git repository
+              local git_root = vim.fn.system(
+                "cd "
+                  .. vim.fn.shellescape(vim.fn.fnamemodify(file_path, ":h"))
+                  .. " && git rev-parse --show-toplevel 2>/dev/null"
+              )
+              git_root = git_root:gsub("\n", "")
+              local is_git_repo = git_root ~= "" and vim.v.shell_error == 0
+
+              -- If in git repo, use git root as base path
+              local base_path = ""
+              local relative_path = ""
+
+              if is_git_repo then
+                base_path = git_root
+                relative_path = file_path:gsub("^" .. vim.pesc(git_root), "")
+              else
+                -- Check if path is in home directory
+                local is_home_path = file_path:find("^" .. vim.pesc(home))
+                if is_home_path then
+                  base_path = home
+                  relative_path = file_path:gsub("^" .. vim.pesc(home), "")
+                else
+                  relative_path = file_path
+                end
+              end
 
               -- Build symbols
               local bar = require("dropbar.bar")
@@ -288,7 +312,68 @@ return {
                   and default_path_symbols[#default_path_symbols]
                 or nil
 
-              if is_home_path then
+              if is_git_repo then
+                -- For git repos: show from repo root
+                local repo_name = vim.fn.fnamemodify(git_root, ":t")
+                -- Truncate repo name at first hyphen (e.g., inferno-monorepo -> inferno)
+                repo_name = repo_name:match("^([^-]+)") or repo_name
+                local components = {}
+
+                for component in relative_path:gmatch("[^/]+") do
+                  table.insert(components, component)
+                end
+
+                if #components > 0 then
+                  -- Build path starting from repo name
+                  local folder_path = repo_name
+
+                  -- Add subdirectories if any
+                  if #components > 1 then
+                    for i = 1, #components - 1 do
+                      folder_path = folder_path .. "/" .. components[i]
+                    end
+                  end
+
+                  -- Only show path if not just repo root
+                  if #components > 1 or folder_path ~= repo_name then
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = folder_path,
+                        name_hl = "DropbarPathDim",
+                      })
+                    )
+                  elseif #components == 1 then
+                    -- Just show repo name if file is at root
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = repo_name,
+                        name_hl = "DropbarPathDim",
+                      })
+                    )
+                  end
+
+                  -- Add filename with icon
+                  if file_symbol then
+                    table.insert(symbols, file_symbol)
+                  else
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = components[#components],
+                        name_hl = "DropBarKindFile",
+                      })
+                    )
+                  end
+                end
+              elseif base_path == home then
                 -- For home paths: show path first, then filename
                 local relative_path = file_path:gsub("^" .. vim.pesc(home), "")
                 local components = {}
