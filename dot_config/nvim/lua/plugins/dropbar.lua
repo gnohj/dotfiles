@@ -257,7 +257,7 @@ return {
           local sources = require("dropbar.sources")
           local utils = require("dropbar.utils")
 
-          -- Custom path source that shows filename first, then path (dimmed, no icons)
+          -- Custom path source that shows path first, then filename
           local custom_path = {
             get_symbols = function(buff, win, cursor)
               -- Get the full file path
@@ -289,7 +289,7 @@ return {
                 or nil
 
               if is_home_path then
-                -- For home paths: show filename first, then path from ~
+                -- For home paths: show path first, then filename
                 local relative_path = file_path:gsub("^" .. vim.pesc(home), "")
                 local components = {}
 
@@ -298,23 +298,7 @@ return {
                 end
 
                 if #components > 0 then
-                  -- Filename with appropriate icon (first)
-                  if file_symbol then
-                    table.insert(symbols, file_symbol)
-                  else
-                    -- Fallback if no symbol available
-                    table.insert(
-                      symbols,
-                      bar.dropbar_symbol_t:new({
-                        icon = "",
-                        icon_hl = "",
-                        name = components[#components],
-                        name_hl = "DropBarKindFile",
-                      })
-                    )
-                  end
-
-                  -- Build the folder path string from home (dimmed, no icon)
+                  -- Build the folder path string from home (dimmed, no icon) - FIRST
                   if #components > 1 then
                     local folder_path = "~"
                     -- Add all folders except the filename
@@ -333,16 +317,8 @@ return {
                       })
                     )
                   end
-                end
-              else
-                -- For paths outside home: show filename first, then full path
-                local components = {}
-                for component in file_path:gmatch("[^/]+") do
-                  table.insert(components, component)
-                end
 
-                if #components > 0 then
-                  -- Filename with appropriate icon (first)
+                  -- Filename with appropriate icon (second)
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
@@ -357,8 +333,16 @@ return {
                       })
                     )
                   end
+                end
+              else
+                -- For paths outside home: show path first, then filename
+                local components = {}
+                for component in file_path:gmatch("[^/]+") do
+                  table.insert(components, component)
+                end
 
-                  -- Build full path except filename (dimmed, no icon)
+                if #components > 0 then
+                  -- Build full path except filename (dimmed, no icon) - FIRST
                   if #components > 1 then
                     local folder_path = ""
                     if file_path:sub(1, 1) == "/" then
@@ -384,6 +368,22 @@ return {
                         })
                       )
                     end
+                  end
+
+                  -- Filename with appropriate icon (second)
+                  if file_symbol then
+                    table.insert(symbols, file_symbol)
+                  else
+                    -- Fallback if no symbol available
+                    table.insert(
+                      symbols,
+                      bar.dropbar_symbol_t:new({
+                        icon = "",
+                        icon_hl = "",
+                        name = components[#components],
+                        name_hl = "DropBarKindFile",
+                      })
+                    )
                   end
                 end
               end

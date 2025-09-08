@@ -11,7 +11,7 @@
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
 format = '''
-$directory$cmd_duration[❯ ](bold #b7ce97) 
+$directory$cmd_duration[❯](bold #b7ce97) 
 '''
 right_format = ""
 # [username]
