@@ -1,88 +1,88 @@
 # default
-[default_session]
+[default]
 preview_command = "eza --all --git --icons --color=always {}"
 
 [[session]]
-name = "home_session"
+name = "tmux_home"
 path = "~/"
 startup_command = "c"
 
 [[session]]
-name = "bin_session"
+name = "tmux_bin"
 path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
-name = "config_session"
+name = "tmux_config"
 path = "~/.config"
 startup_command = "n"
 
 [[session]]
-name = "logs_session"
+name = "tmux_logs"
 path = "~/.logs"
 
 [[session]]
-name = "chezmoi_session"
+name = "tmux_chezmoi"
 path = "~/.local/share/chezmoi"
 startup_command = "gst"
 
 [[session]]
-name = "developer_session"
+name = "tmux_developer"
 path = "~/Developer"
 startup_command = "ls"
 
 [[session]]
-name = "downloads_session"
+name = "tmux_downloads"
 path = "~/Downloads"
 startup_command = "ls"
 
 [[session]]
-name = "desktop_session"
+name = "tmux_desktop"
 path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "inferno_session"
+name = "tmux_inferno"
 path = "~/Developer/inferno-monorepo"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno-monorepo"
 preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
 
 [[session]]
-name = "second_brain_session"
+name = "tmux_second_brain"
 path = "~/Obsidian/second-brain"
 
 [[session]]
-name = "web_session"
+name = "tmux_web"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
 [[session]]
-name = "provision_session"
+name = "tmux_provision"
 path = "~/Developer/provision"
 preview_command = "bat --color=always ~/Developer/provision/README.md"
 
 # configs
 
 [[session]]
-name = "etc_hosts_session"
+name = "tmux_etc_hosts"
 path = "/etc/hosts"
 startup_command = "cat /etc/hosts"
 
 [[session]]
-name = "radioctl_session"
+name = "tmux_radioctl"
 path = "~/."
 startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
-name = "radioctl_cmd_session"
+name = "tmux_radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
 startup_command = "n .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 
 [[session]]
-name = "zsh_gnohj_env_session"
+name = "tmux_zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
