@@ -19,7 +19,8 @@ return {
       desc = "Keymaps",
     },
     { "<leader><space>", false },
-    -- Open git log in vertical view
+    { "<leader>gd", false }, -- Disable snacks git diff to keep diffview mapping
+    -- Open git log in ivy view
     {
       "<leader>gl",
       function()
@@ -28,7 +29,7 @@ return {
           format = "git_log",
           preview = "git_show",
           confirm = "git_checkout",
-          layout = "vertical",
+          layout = "ivy",
         })
       end,
       desc = "Git Log",
