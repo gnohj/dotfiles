@@ -313,46 +313,34 @@ return {
                 or nil
 
               if is_git_repo then
-                -- For git repos: show from repo root
-                local repo_name = vim.fn.fnamemodify(git_root, ":t")
-                -- Truncate repo name at first hyphen (e.g., inferno-monorepo -> inferno)
-                repo_name = repo_name:match("^([^-]+)") or repo_name
+                -- For git repos: show path without repo name
                 local components = {}
 
-                for component in relative_path:gmatch("[^/]+") do
+                -- Remove leading slash from relative_path
+                local clean_path = relative_path:gsub("^/", "")
+
+                for component in clean_path:gmatch("[^/]+") do
                   table.insert(components, component)
                 end
 
                 if #components > 0 then
-                  -- Build path starting from repo name
-                  local folder_path = repo_name
-
-                  -- Add subdirectories if any
+                  -- Build path without repo name, starting from first subdirectory
                   if #components > 1 then
+                    local folder_path = ""
+                    -- Build path from all components except the filename
                     for i = 1, #components - 1 do
-                      folder_path = folder_path .. "/" .. components[i]
+                      if i > 1 then
+                        folder_path = folder_path .. "/"
+                      end
+                      folder_path = folder_path .. components[i]
                     end
-                  end
 
-                  -- Only show path if not just repo root
-                  if #components > 1 or folder_path ~= repo_name then
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
                         icon = "󰉋 ",
                         icon_hl = "DropBarIconKindFolder",
                         name = folder_path,
-                        name_hl = "DropBarKindFolder",
-                      })
-                    )
-                  elseif #components == 1 then
-                    -- Just show repo name if file is at root
-                    table.insert(
-                      symbols,
-                      bar.dropbar_symbol_t:new({
-                        icon = "󰉋 ",
-                        icon_hl = "DropBarIconKindFolder",
-                        name = repo_name,
                         name_hl = "DropBarKindFolder",
                       })
                     )
