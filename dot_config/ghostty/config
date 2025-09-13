@@ -72,6 +72,7 @@ macos-option-as-alt = right
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
 keybind = super+k=clear_screen
+keybind = super+shift+s=toggle_secure_input
 
 # clipboard
 clipboard-read = "allow"
@@ -82,6 +83,11 @@ clipboard-write = "allow"
 confirm-close-surface = false
 auto-update = off
 quit-after-last-window-closed = true
+
+# Disable automatic secure keyboard entry for password prompts
+# This prevents conflicts with skhd
+shell-integration = detect
+shell-integration-features = no-sudo
 
 keybind = shift+enter=text:\n
 
