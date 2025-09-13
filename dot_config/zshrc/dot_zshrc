@@ -284,8 +284,7 @@ alias gpom="g pull origin master"
 alias gcom="g checkout master"
 alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
-alias gg="LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit"
-alias lg="LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit"
+alias lg="HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit"
 
 # Lazydocker
 alias ld="lazydocker"
