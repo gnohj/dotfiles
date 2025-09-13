@@ -62,7 +62,6 @@ opt.splitright = true -- split vertical window to the right
 opt.splitbelow = true -- split horizontal window to the bottom
 
 -- Minimal left side setup (like Josh Medeski)
-opt.number = false -- Disable line numbers by default
-opt.relativenumber = false -- Disable relative numbers
+-- opt.number = false -- Disable line numbers by default
+opt.relativenumber = true -- Disable relative numbers
 opt.signcolumn = "yes:1" -- Keep minimal sign column for git/diagnostics
-
