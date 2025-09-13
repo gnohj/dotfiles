@@ -6,6 +6,9 @@
     <string>com.gnohj.skhd</string>
     <key>ProgramArguments</key>
     <array>
+        <string>/bin/zsh</string>
+        <string>-l</string>
+        <string>-c</string>
         <string>/opt/homebrew/bin/skhd</string>
     </array>
     <key>RunAtLoad</key>
