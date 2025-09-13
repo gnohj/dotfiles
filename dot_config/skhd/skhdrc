@@ -29,6 +29,7 @@ rctrl - 0x29 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - n - reserved for nvim - reserved for going to previous history
 # rctrl - h/j/k/l - reserved for nvim - navigation
 rctrl - g : ~/.config/skhd/lazygit.sh
+rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml /opt/homebrew/bin/lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
