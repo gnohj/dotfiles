@@ -48,7 +48,7 @@ return {
 
     -- Custom highlight for dimmed path
     vim.api.nvim_set_hl(0, "DropbarPathDim", {
-      fg = colors["gnohj_color08"],
+      fg = colors["gnohj_color04"],
       italic = true,
     })
 
@@ -339,10 +339,10 @@ return {
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
-                        icon = "",
-                        icon_hl = "",
+                        icon = "󰉋 ",
+                        icon_hl = "DropBarIconKindFolder",
                         name = folder_path,
-                        name_hl = "DropbarPathDim",
+                        name_hl = "DropBarKindFolder",
                       })
                     )
                   elseif #components == 1 then
@@ -350,10 +350,10 @@ return {
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
-                        icon = "",
-                        icon_hl = "",
+                        icon = "󰉋 ",
+                        icon_hl = "DropBarIconKindFolder",
                         name = repo_name,
-                        name_hl = "DropbarPathDim",
+                        name_hl = "DropBarKindFolder",
                       })
                     )
                   end
@@ -391,14 +391,14 @@ return {
                       folder_path = folder_path .. "/" .. components[i]
                     end
 
-                    -- Path without icon, dimmed
+                    -- Path with folder icon, dimmed
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
-                        icon = "",
-                        icon_hl = "",
+                        icon = "󰉋 ",
+                        icon_hl = "DropBarIconKindFolder",
                         name = folder_path,
-                        name_hl = "DropbarPathDim",
+                        name_hl = "DropBarKindFolder",
                       })
                     )
                   end
@@ -441,15 +441,15 @@ return {
                       folder_path = folder_path .. components[i]
                     end
 
-                    -- Path without icon, dimmed
+                    -- Path with folder icon, dimmed
                     if folder_path ~= "" then
                       table.insert(
                         symbols,
                         bar.dropbar_symbol_t:new({
-                          icon = "",
-                          icon_hl = "",
+                          icon = " ",
+                          icon_hl = "Directory",
                           name = folder_path,
-                          name_hl = "DropbarPathDim",
+                          name_hl = "DropBarKindFolder",
                         })
                       )
                     end
@@ -477,7 +477,7 @@ return {
             end,
           }
 
-          return { mode_source, custom_path, diagnostics_source, gitsigns_stats }
+          return { custom_path, diagnostics_source, gitsigns_stats }
         end,
         -- Enable dropbar for all file types
         enable = function(buf, win, _)
