@@ -47,6 +47,10 @@ return {
           -- Smart root detection - use nvim config for nvim files, otherwise current file dir
           root_dir = function(fname)
             local util = require("lspconfig.util")
+            -- Ensure fname is a string (handle both old and new API)
+            if type(fname) == "number" then
+              fname = vim.api.nvim_buf_get_name(fname)
+            end
             -- For Neovim config files, use the nvim config dir as root
             if fname:match("%.config/nvim/") then
               return vim.fn.expand("~/.config/nvim")
