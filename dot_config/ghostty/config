@@ -49,9 +49,11 @@ cursor-style = block
 cursor-style-blink = false
 
 # quick terminal
-# keybind = global:cmd+s=toggle_quick_terminal
-# keybind = cmd+s=toggle_quick_terminal
-# quick-terminal-animation-duration = 0.08
+keybind = global:cmd+s=toggle_quick_terminal
+keybind = cmd+s=toggle_quick_terminal
+quick-terminal-animation-duration = 0.08
+quick-terminal-size = 25%
+quick-terminal-position = top
 
 # tmux - auto login
 # command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
