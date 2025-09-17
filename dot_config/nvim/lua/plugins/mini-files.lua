@@ -3,7 +3,7 @@ if vim.g.vscode then
 end
 
 return {
-  "echasnovski/mini.files",
+  "nvim-mini/mini.files",
   opts = function(_, opts)
     opts.mappings = vim.tbl_deep_extend("force", opts.mappings or {}, {
       close = "<esc>",

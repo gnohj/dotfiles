@@ -4,6 +4,7 @@ end
 
 return {
   "gaelph/logsitter.nvim",
+  enabled = false,
   dependencies = { "nvim-treesitter/nvim-treesitter" },
   config = function()
     require("logsitter").setup({
