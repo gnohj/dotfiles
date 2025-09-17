@@ -48,6 +48,9 @@ return {
           -- "dadbod",
           -- "copilot",
         },
+        per_filetype = {
+          lua = { inherit_defaults = true, "lazydev" },
+        },
         providers = {
           yank = {
             name = "yank",
