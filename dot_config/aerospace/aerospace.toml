@@ -268,6 +268,10 @@ if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml' # Google Yo
 run = "move-node-to-workspace Y"
 
 [[on-window-detected]]
+if.app-id = 'com.google.Chrome.app.lodlkdfmihgonocnmddehnfgiljnadcf' # Twitter X App (PWA)
+run = "move-node-to-workspace Y"
+
+[[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
 run = "move-node-to-workspace C"
 
