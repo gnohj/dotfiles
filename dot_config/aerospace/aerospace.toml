@@ -265,11 +265,11 @@ run = "move-node-to-workspace Z"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml' # Google YouTube App ()
-run = "move-node-to-workspace Y"
+run = "move-node-to-workspace A"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.lodlkdfmihgonocnmddehnfgiljnadcf' # Twitter X App (PWA)
-run = "move-node-to-workspace Y"
+run = "move-node-to-workspace A"
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
@@ -328,6 +328,7 @@ run = "move-node-to-workspace Q"
 [workspace-to-monitor-force-assignment]
 # 1 Monitor - Left Side
 # 2 Monitor - Center
+A = 1
 D = 1
 E = 1
 G = 1
@@ -342,5 +343,4 @@ C = 1
 F = 1
 V = 1
 T = 2
-Y = 1
 Z = 2
