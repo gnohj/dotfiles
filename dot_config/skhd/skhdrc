@@ -1,10 +1,10 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# Available keys - rctrl - esc, rctrl - '
+# Available keys - rctrl - 0x29 (semi), space, single quote
 
 # Tmux window navigation
-rctrl - tab : /opt/homebrew/bin/tmux next-window # tab key
+rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
@@ -17,7 +17,7 @@ rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-rctrl - 0x29 : /opt/homebrew/bin/tmux switch-client -l
+rctrl - tab : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
@@ -53,8 +53,8 @@ lalt + shift - h : /opt/homebrew/bin/aerospace move left
 lalt + shift - l : /opt/homebrew/bin/aerospace move right
 
 # Aerospace - Resize commands
-lalt + shift - 0x1B : /opt/homebrew/bin/aerospace resize smart -50
-lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50
+lalt + shift - 0x1B : /opt/homebrew/bin/aerospace resize smart -50 # minus
+lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50 # equal
 
 # Aerospace - Workspace navigation
 lalt - b : /opt/homebrew/bin/aerospace workspace B
@@ -69,7 +69,7 @@ lalt - t : /opt/homebrew/bin/aerospace workspace T
 lalt - v : /opt/homebrew/bin/aerospace workspace V
 lalt - w : /opt/homebrew/bin/aerospace workspace W
 lalt - x : /opt/homebrew/bin/aerospace workspace X
-lalt - y : /opt/homebrew/bin/aerospace workspace Y
+lalt - a : /opt/homebrew/bin/aerospace workspace A
 lalt - z : /opt/homebrew/bin/aerospace workspace Z
 
 # Aerospace - Move to workspace
@@ -85,7 +85,7 @@ lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
 lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V
 lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
 lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
-lalt + shift - y : /opt/homebrew/bin/aerospace move-node-to-workspace Y
+lalt + shift - a : /opt/homebrew/bin/aerospace move-node-to-workspace A
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
 
@@ -94,7 +94,7 @@ lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
 
 # toggle back and forth between workspaces
-lalt - a : /opt/homebrew/bin/aerospace workspace-back-and-forth
+lalt - tab : /opt/homebrew/bin/aerospace workspace-back-and-forth
 
 # wrap around
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
