@@ -1,9 +1,11 @@
-if vim.g.vscode then
-  return {}
-end
-
-return {
-  "dmtrKovalenko/fold-imports.nvim",
-  opts = {},
-  event = "BufRead",
-}
+-- if vim.g.vscode then
+return {}
+-- end
+--
+-- return {
+--   "dmtrKovalenko/fold-imports.nvim",
+--   -- enabled = false, -- https://www.reddit.com/r/neovim/comments/1m3fyz0/foldimportsnvim_fold_imports_via_treesitter/?sort=new; maybe look ingo nvim-ufo if this doesnt get fixed
+--   enabled = false,
+--   opts = {},
+--   event = "BufRead",
+-- }
