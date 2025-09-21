@@ -102,3 +102,26 @@ lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wra
 # Aerospace - Service mode
 lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
+# Block unused lalt keys
+lalt - i : :
+lalt - j : :
+lalt - k : :
+lalt - m : :
+lalt - n : :
+lalt - o : :
+lalt - p : :
+lalt - r : :
+lalt - u : :
+lalt - y : :
+
+# Block unused lalt + shift letter combinations
+lalt + shift - i : :
+lalt + shift - j : :
+lalt + shift - k : :
+lalt + shift - m : :
+lalt + shift - n : :
+lalt + shift - o : :
+lalt + shift - p : :
+lalt + shift - r : :
+lalt + shift - u : :
+lalt + shift - y : :
