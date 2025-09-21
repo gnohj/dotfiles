@@ -306,6 +306,7 @@ alias c='clear'
 
 # claude resume
 alias cr='claude --dangerously-skip-permissions --resume'
+alias cs='claude --dangerously-skip-permissions'
 
 # bat
 alias cat="bat"
