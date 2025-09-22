@@ -237,10 +237,87 @@ else
   echo "Warning: skhd not found at ${SKHD_BREW_PATH}. Please install it."
 fi
 
+#-------------------------------------------------------------------------------
+#--                           Kanata Daemon Setup
+#-------------------------------------------------------------------------------
+
+echo "🎹 Configuring Kanata keyboard daemon..."
+
+KANATA_BREW_PATH="/opt/homebrew/bin/kanata"
+KANATA_DAEMON_PLIST_PATH="/Library/LaunchDaemons/com.kanata.daemon.plist"
+KANATA_CONFIG_PATH="$HOME/.config/kanata/macos.kbd"
+
+if [ -f "$KANATA_BREW_PATH" ]; then
+  # Create the expected plist content
+  EXPECTED_KANATA_PLIST=$(cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kanata.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${KANATA_BREW_PATH}</string>
+        <string>-c</string>
+        <string>${KANATA_CONFIG_PATH}</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>Crashed</key>
+        <true/>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/kanata.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/kanata.err.log</string>
+
+    <key>UserName</key>
+    <string>root</string>
+</dict>
+</plist>
+EOF
+)
+
+  # Check if the plist needs to be created or updated
+  if [ ! -f "$KANATA_DAEMON_PLIST_PATH" ] || [ "$(sudo cat "$KANATA_DAEMON_PLIST_PATH" 2>/dev/null)" != "$EXPECTED_KANATA_PLIST" ]; then
+    echo "Installing/updating Kanata daemon..."
+
+    # Stop existing service if running
+    sudo launchctl bootout system/com.kanata.daemon 2>/dev/null
+
+    # Write the plist to system location
+    echo "$EXPECTED_KANATA_PLIST" | sudo tee "$KANATA_DAEMON_PLIST_PATH" > /dev/null
+    sudo chown root:wheel "$KANATA_DAEMON_PLIST_PATH"
+    sudo chmod 644 "$KANATA_DAEMON_PLIST_PATH"
+
+    # Load the service
+    if sudo launchctl bootstrap system "$KANATA_DAEMON_PLIST_PATH" 2>/dev/null; then
+      echo "Kanata daemon loaded successfully."
+    else
+      echo "Note: Kanata daemon may already be loaded or requires a restart."
+    fi
+  else
+    echo "Kanata daemon is already up-to-date."
+  fi
+else
+  echo "Warning: Kanata not found at ${KANATA_BREW_PATH}. Please install it with: brew install kanata"
+fi
+
 echo "📋 System Summary:"
 echo "✅ Services Configured:"
 echo "  • GitHub Auto Push service: $([ -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Failed")"
 echo "  • SKHD hotkey daemon: $([ -f "$SKHD_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
+echo "  • Kanata keyboard daemon: $([ -f "$KANATA_DAEMON_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
 echo "  • Marta config symlink: $([ -L "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && [ -e "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && echo "✅ Active" || echo "❌ Failed")"
 echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
 echo ""
