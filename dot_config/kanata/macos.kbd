@@ -1,0 +1,109 @@
+;; Emergency Kanata config for MacBook keyboard
+;; Replacing Glove80 ZMK config
+
+(defcfg
+  process-unmapped-keys yes
+  danger-enable-cmd yes
+  macos-dev-names-include ("Apple Internal Keyboard / Trackpad")
+)
+
+(defsrc
+  esc  f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps a    s    d    f    g    h    j    k    l    ;    '    ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  fn   lctl lalt lmet           spc                     rmet ralt left down up   rght
+)
+
+;; Chord definitions (key combos)
+(defchords base 50
+  (c v) bspc   ;; C+V together = backspace
+  (m ,) bspc   ;; M+comma together = backspace
+  (c) c        ;; C alone = c
+  (v) v        ;; V alone = v
+  (m) m        ;; M alone = m
+  (,) ,        ;; Comma alone = comma
+)
+(defalias
+  ;; Base layer mod-taps (39 keys only)
+  tb-esc  (tap-hold 200 200 esc ralt)      ;; Tab position: tap=esc, hold=ralt
+  cp-tab  (tap-hold 200 200 tab lctl)      ;; Caps position: tap=tab, hold=lctl
+  ls-stk  (one-shot 1500 lsft)             ;; Left shift as sticky
+  br-bksp (tap-hold 200 200 bspc lalt)     ;; Bracket position: tap=backspace, hold=lalt
+  sc-rctl (tap-hold 200 200 ; rctl)        ;; Semicolon: tap=;, hold=rctl
+  qu-lgui (tap-hold 200 200 ' lmet)        ;; Quote: tap=', hold=lgui
+  sl-hypr (tap-hold 200 200 ret (multi lmet lsft lalt lctl)) ;; Slash: tap=enter, hold=hyper
+  rs-stk  (one-shot 1500 rsft)             ;; Right shift as sticky
+
+  ;; Layer switching
+  ly1 (layer-while-held layer1)            ;; Hold for layer 1
+  ly2 (layer-toggle layer2)                ;; Toggle layer 2
+
+  ;; Browser navigation
+  br-prevtab (multi lmet lalt left)   ;; Browser previous tab
+  br-nexttab (multi lmet lalt right)  ;; Browser next tab
+  br-prevpage (multi lmet left)       ;; Browser previous page
+  br-nextpage (multi lmet right)      ;; Browser next page
+
+  ;; Aerospace resize bindings (send key combos for skhd to handle)
+  ae-resize-minus (multi lalt lsft -)  ;; Aerospace resize minus
+  ae-resize-equal (multi lalt lsft =)  ;; Aerospace resize equal
+
+  ;; Browser zoom
+  zoom-out (multi lmet -)  ;; Zoom out (Cmd+Minus)
+  zoom-in (multi lmet =)   ;; Zoom in (Cmd+Equal)
+
+  ;; Media controls
+  c-mute mute        ;; Mute
+  c-vol-dn voldwn    ;; Volume down
+  c-vol-up volu      ;; Volume up
+  c-pp pp            ;; Play/pause
+
+  ;; Custom shortcuts
+  lalt-q (multi lalt q)  ;; Alt+Q
+  lalt-a (multi lalt a)  ;; Alt+A
+  lalt-z (multi lalt z)  ;; Alt+Z
+  lalt-w (multi lalt w)  ;; Alt+W
+  lalt-s (multi lalt s)  ;; Alt+S
+  lalt-x (multi lalt x)  ;; Alt+X
+  lalt-e (multi lalt e)  ;; Alt+E
+  lalt-d (multi lalt d)  ;; Alt+D
+  lalt-c (multi lalt c)  ;; Alt+C
+  lalt-r (multi lalt r)  ;; Alt+R
+  lalt-f (multi lalt f)  ;; Alt+F
+  lalt-v (multi lalt v)  ;; Alt+V
+  lalt-t (multi lalt t)  ;; Alt+T
+  lalt-g (multi lalt g)  ;; Alt+G
+  lalt-b (multi lalt b)  ;; Alt+B
+)
+
+(deflayer base
+  XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
+  @tb-esc  q        w        e        r        t        y        u        i        o        p        @br-bksp @br-bksp       XX
+  @cp-tab  a        s        d        f        g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
+  @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @sl-hypr @rs-stk @rs-stk 
+  XX       XX       XX       @ly1     XX       XX       spc      @ly2     XX       XX       XX       XX
+  XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
+)
+
+;; Layer 1 - Navigation and symbols (from ZMK config)
+(deflayer layer1
+  XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
+  /        S-1      S-2      S-3      S-4      S-5      S-6      S-7      S-8      S-9      S-0      \        XX       XX
+  grv      1        2        3        4        5        S--      =        -        S-[      S-]      S-grv    XX       XX
+  S-,      6        7        8        9        0        S-\      S-/      S-=      [        ]        S-.      XX
+  XX       XX       XX       XX       XX       XX       spc      XX      XX       XX       XX       XX
+  XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
+)
+
+;; Layer 2 - Browser and media controls
+(deflayer layer2
+  XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
+  _        @lalt-q   @lalt-w  @lalt-e  @lalt-r  @lalt-t  @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
+  _        @lalt-a  @lalt-s  @lalt-d  @lalt-f  @lalt-g  left     down     up       right    @zoom-out @zoom-in XX       XX
+  _        @lalt-z  @lalt-x  @lalt-c  @lalt-v  @lalt-b  _        @c-mute  @c-vol-dn @c-vol-up _        @c-pp    _ 
+  XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
+  XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
+)
+
