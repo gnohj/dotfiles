@@ -21,7 +21,7 @@ return {
     dependencies = {
       "moyiz/blink-emoji.nvim",
       "Kaiser-Yang/blink-cmp-dictionary",
-      "giuxtaposition/blink-cmp-copilot",
+      "fang2hou/blink-copilot",
       "marcoSven/blink-cmp-yanky",
     },
     opts = function(_, opts)
@@ -195,14 +195,14 @@ return {
             min_keyword_length = 2,
             opts = { insert = true }, -- Insert emoji (default) or complete its name
           },
-          -- copilot = {
-          --   name = "copilot",
-          --   enabled = true,
-          --   module = "blink-cmp-copilot",
-          --   min_keyword_length = 6,
-          --   score_offset = -100, -- the higher the number, the higher the priority
-          --   async = true,
-          -- },
+          copilot = {
+            name = "copilot",
+            enabled = true,
+            module = "blink-copilot",
+            min_keyword_length = 6,
+            score_offset = -100, -- the higher the number, the higher the priority
+            async = true,
+          },
         },
       })
 
