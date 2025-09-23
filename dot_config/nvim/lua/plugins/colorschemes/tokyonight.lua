@@ -41,7 +41,7 @@ return {
           or global_colors.bg_sidebar
         global_colors.bg_statusline = transparent and global_colors.none
           or colors["gnohj_color10"]
-        global_colors.bg_visual = colors["gnohj_color13"]
+        global_colors.bg_visual = colors["gnohj_color46"]
         global_colors.fg = colors["gnohj_color14"]
         global_colors.fg_dark = colors["gnohj_color09"]
         global_colors.fg_float = colors["gnohj_color14"]
@@ -163,6 +163,16 @@ return {
         global_colors.none = "NONE"
       end,
       on_highlights = function(hl, hl_colors)
+        -- Visual mode highlight matching tmux copy-mode colors
+        hl.Visual = {
+          bg = colors["gnohj_color13"],  -- Match tmux background (#536571)
+          fg = colors["gnohj_color02"],  -- Match tmux foreground (#b7ce97)
+        }
+        hl.VisualNOS = {
+          bg = colors["gnohj_color13"],
+          fg = colors["gnohj_color02"],
+        }
+
         -- Change the spell underline color
         SpellBad = {
           sp = colors["gnohj_color11"],
@@ -327,7 +337,7 @@ return {
 
         -- Completion and mini elements
         hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
-        hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg }  -- Make background transparent
+        hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg } -- Make background transparent
       end,
     })
   end,
