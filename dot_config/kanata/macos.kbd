@@ -27,14 +27,16 @@
 )
 (defalias
   ;; Base layer mod-taps (39 keys only)
-  tb-esc  (tap-hold 200 200 esc ralt)      ;; Tab position: tap=esc, hold=ralt
-  cp-tab  (tap-hold 200 200 tab lctl)      ;; Caps position: tap=tab, hold=lctl
+  tab-ralt (tap-hold 200 200 tab ralt)     ;; Tab position: tap=tab, hold=ralt
+  grv-lctl (tap-hold 200 200 grv lctl)     ;; Caps position: tap=grave, hold=lctl
   ls-stk  (one-shot 1500 lsft)             ;; Left shift as sticky
-  br-bksp (tap-hold 200 200 bspc lalt)     ;; Bracket position: tap=backspace, hold=lalt
+  esc-lalt (tap-hold 200 200 esc lalt)     ;; Bracket position: tap=esc, hold=lalt
   sc-rctl (tap-hold 200 200 ; rctl)        ;; Semicolon: tap=;, hold=rctl
   qu-lgui (tap-hold 200 200 ' lmet)        ;; Quote: tap=', hold=lgui
-  sl-hypr (tap-hold 200 200 ret (multi lmet lsft lalt lctl)) ;; Slash: tap=enter, hold=hyper
+  slash-hypr (tap-hold 200 200 / (multi lmet lsft lalt lctl)) ;; Slash: tap=/, hold=hyper
   rs-stk  (one-shot 1500 rsft)             ;; Right shift as sticky
+  ent-lalt (tap-hold 200 200 ret lalt)     ;; Enter: tap=enter, hold=lalt
+  bksp-rctl (tap-hold 200 200 bspc rctl)   ;; Backspace: tap=backspace, hold=rctl
 
   ;; Layer switching
   ly1 (layer-while-held layer1)            ;; Hold for layer 1
@@ -80,19 +82,19 @@
 
 (deflayer base
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  @tb-esc  q        w        e        r        t        y        u        i        o        p        @br-bksp @br-bksp       XX
-  @cp-tab  a        s        d        f        g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
-  @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @sl-hypr @rs-stk @rs-stk 
-  XX       XX       XX       @ly1     XX       XX       spc      @ly2     XX       XX       XX       XX
+  @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt @esc-lalt      XX
+  @grv-lctl a        s        d        f        g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
+  @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
+  XX       lmet     @ly1     @ent-lalt XX       XX       @bksp-rctl spc      @ly2     XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
 
 ;; Layer 1 - Navigation and symbols (from ZMK config)
 (deflayer layer1
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  /        S-1      S-2      S-3      S-4      S-5      S-6      S-7      S-8      S-9      S-0      \        XX       XX
-  grv      1        2        3        4        5        S--      =        -        S-[      S-]      S-grv    XX       XX
-  S-,      6        7        8        9        0        S-\      S-/      S-=      [        ]        S-.      XX
+  ret      S-1      S-2      S-3      S-4      S-5      S-6      S-7      S-8      S-9      S-0      S-/      XX       XX
+  .        1        2        3        4        5        S--      =        -        S-[      S-]      S-,      XX       XX
+  ,        6        7        8        9        0        S-\      \        S-=      [        ]        S-.      XX
   XX       XX       XX       XX       XX       XX       spc      XX      XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
