@@ -366,6 +366,9 @@ return {
 ]],
       },
     },
+    zen = {
+      toggles = { dim = false },
+    },
     scratch = {
       ft = "markdown",
       cmd = "Scratch",
@@ -414,5 +417,6 @@ return {
     scroll = { enabled = false },
     indent = { enabled = false },
     animate = { enabled = false },
+    words = { enabled = false }, -- Disable automatic word highlighting under cursor
   },
 }
