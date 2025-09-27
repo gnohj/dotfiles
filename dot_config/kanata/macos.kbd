@@ -16,6 +16,11 @@
   fn   lctl lalt lmet           spc                     rmet ralt left down up   rght
 )
 
+;; Override Ctrl+Space to send Ctrl+C
+(defoverrides
+  (lctl spc) (lctl c)
+)
+
 ;; Chord definitions (key combos)
 (defchords base 50
   (c v) bspc   ;; C+V together = backspace
