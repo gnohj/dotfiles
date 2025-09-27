@@ -85,7 +85,7 @@
   @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt @esc-lalt      XX
   @grv-lctl a        s        d        f        g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
   @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
-  XX       lmet     @ly1     @ent-lalt XX       XX       @bksp-rctl spc      @ly2     XX       XX       XX
+  XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
 
