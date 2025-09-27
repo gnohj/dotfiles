@@ -356,7 +356,7 @@ local function set_foldmethod_expr()
   -- doesn't have them set
   if vim.fn.has("nvim-0.10") == 1 then
     vim.opt.foldmethod = "expr"
-    vim.opt.foldexpr = "v:lua.require'lazyvim.util'.ui.foldexpr()"
+    vim.opt.foldexpr = "v:lua.require'lazyvim.util'.treesitter.foldexpr()"
     vim.opt.foldtext = ""
   else
     vim.opt.foldmethod = "indent"
