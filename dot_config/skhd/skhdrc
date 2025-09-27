@@ -6,6 +6,10 @@
 # Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
 lctrl - space : skhd -k "ctrl - c"
 
+# Disable Cmd+Q to prevent accidental quits
+cmd - q : :
+cmd + shift - q : :
+
 # Tmux window navigation
 rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
 

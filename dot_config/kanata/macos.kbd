@@ -16,9 +16,11 @@
   fn   lctl lalt lmet           spc                     rmet ralt left down up   rght
 )
 
-;; Override Ctrl+Space to send Ctrl+C
+;; Override Ctrl+Space to send Ctrl+C and disable Cmd+Q variations
 (defoverrides
   (lctl spc) (lctl c)
+  (lmet q) XX  ;; Disable Cmd+Q (accidental quit)
+  (lmet lsft q) XX  ;; Disable Cmd+Shift+Q (quit and close all windows)
 )
 
 ;; Chord definitions (key combos)
