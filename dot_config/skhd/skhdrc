@@ -3,6 +3,9 @@
 
 # Available keys - rctrl - 0x29 (semi), space, single quote
 
+# Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
+lctrl - space : skhd -k "ctrl - c"
+
 # Tmux window navigation
 rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
 
