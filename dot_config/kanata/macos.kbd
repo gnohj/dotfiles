@@ -16,11 +16,14 @@
   fn   lctl lalt lmet           spc                     rmet ralt left down up   rght
 )
 
-;; Override Ctrl+Space to send Ctrl+C and disable Cmd+Q variations
+;; Override Ctrl+Space to send Ctrl+C, remap Cmd+Shift+Q, and disable minimize/hide
 (defoverrides
   (lctl spc) (lctl c)
   (lmet q) XX  ;; Disable Cmd+Q (accidental quit)
-  (lmet lsft q) XX  ;; Disable Cmd+Shift+Q (quit and close all windows)
+  (lmet lsft q) (lmet q)  ;; Cmd+Shift+Q → Cmd+Q (quit current app)
+  (lmet m) XX  ;; Disable Cmd+M (minimize window)
+  (lmet h) XX  ;; Disable Cmd+H (hide app)
+  (lalt r) (multi lalt lmet r)  ;; Option+R → Option+Cmd+R (disable ® symbol)
 )
 
 ;; Chord definitions (key combos)

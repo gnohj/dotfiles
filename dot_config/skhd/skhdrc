@@ -6,9 +6,14 @@
 # Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
 lctrl - space : skhd -k "ctrl - c"
 
-# Disable Cmd+Q to prevent accidental quits
+# Remap Cmd+Shift+Q to quit and disable minimize/hide
+cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true' -e 'tell application frontApp to quit'
 cmd - q : :
-cmd + shift - q : :
+cmd - m : :
+cmd - h : :
+
+# Remap Option+R to Option+Cmd+R (disable ® trademark symbol)
+lalt - r : skhd -k "alt + cmd - r"
 
 # Tmux window navigation
 rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
