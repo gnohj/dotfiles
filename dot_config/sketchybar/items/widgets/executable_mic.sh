@@ -46,7 +46,7 @@ else
     else
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
     fi
-  elif [[ $MIC_VOLUME -eq 90 ]]; then
+  elif [[ $MIC_VOLUME -ge 90 ]]; then
     if [[ "$MIC_NAME" == TONOR* ]]; then
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
     else
