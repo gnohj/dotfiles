@@ -334,6 +334,7 @@ vim.api.nvim_create_autocmd("FileType", {
     "Lazy",
     "noice",
     "MCPHub",
+    "fyler",
   },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
