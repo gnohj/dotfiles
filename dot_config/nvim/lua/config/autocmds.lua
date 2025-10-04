@@ -355,3 +355,98 @@ vim.api.nvim_create_autocmd("FileType", {
     end)
   end,
 })
+
+-- Auto Zen Mode: Enable on single window, disable on splits
+local zen_group = vim.api.nvim_create_augroup("AutoZenMode", { clear = true })
+
+local function update_zen_mode()
+  -- Skip if user manually disabled auto zen mode
+  if vim.g.zen_manual_control then
+    return
+  end
+
+  -- Don't enable zen in special buffers or if Snacks isn't loaded
+  if not package.loaded["snacks"] then
+    return
+  end
+
+  local buftype = vim.bo.buftype
+  if buftype ~= "" then
+    return
+  end
+
+  -- Count normal windows (exclude floating windows)
+  local normal_windows = 0
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    local config = vim.api.nvim_win_get_config(win)
+    if config.relative == "" then
+      normal_windows = normal_windows + 1
+    end
+  end
+
+  -- Get current zen state
+  local zen_enabled = vim.g.zen_enabled or false
+
+  -- Enable zen if only one window, disable if multiple
+  if normal_windows == 1 then
+    if not zen_enabled then
+      require("snacks").zen()
+      vim.g.zen_enabled = true
+    end
+  else
+    if zen_enabled then
+      require("snacks").zen() -- Toggle to disable
+      vim.g.zen_enabled = false
+    end
+  end
+end
+
+-- Enable on startup (delay to ensure Snacks is loaded)
+vim.api.nvim_create_autocmd("User", {
+  pattern = "LazyVimStarted",
+  group = zen_group,
+  callback = function()
+    vim.defer_fn(function()
+      update_zen_mode()
+    end, 100)
+  end,
+  desc = "Enable zen mode on startup",
+})
+
+-- Try to enable automatically after session restore
+vim.api.nvim_create_autocmd("BufReadPost", {
+  group = zen_group,
+  callback = function()
+    -- Only trigger if we're in a normal file buffer (not dashboard)
+    if vim.bo.buftype == "" and vim.bo.filetype ~= "snacks_dashboard" then
+      vim.defer_fn(function()
+        update_zen_mode()
+      end, 200)
+    end
+  end,
+  desc = "Enable zen mode after loading files",
+})
+
+-- Enable after cursor movement (backup for session restore)
+vim.api.nvim_create_autocmd("CursorMoved", {
+  group = zen_group,
+  once = true,
+  callback = function()
+    -- Only trigger if we're in a normal file buffer
+    if vim.bo.buftype == "" then
+      vim.defer_fn(function()
+        update_zen_mode()
+      end, 100)
+    end
+  end,
+  desc = "Enable zen mode after first cursor movement",
+})
+
+-- Update when windows change
+vim.api.nvim_create_autocmd({ "WinNew", "WinClosed", "WinEnter", "FocusGained" }, {
+  group = zen_group,
+  callback = function()
+    vim.schedule(update_zen_mode)
+  end,
+  desc = "Auto toggle zen mode based on window count",
+})
