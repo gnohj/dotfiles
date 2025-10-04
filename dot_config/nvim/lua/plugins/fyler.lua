@@ -8,6 +8,13 @@ return {
   branch = "stable",
   lazy = false,
   opts = {
+    win = {
+      kind_presets = {
+        split_left = {
+          width = "0.2rel", -- Reduce from default 0.3rel to 0.2rel (20% of screen)
+        },
+      },
+    },
     close_on_select = false,
     default_explorer = true,
     confirm_simple = true, -- Auto-confirm simple operations like copy
