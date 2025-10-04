@@ -233,7 +233,7 @@ return {
       }
 
       opts.snippets = {
-        preset = "luasnip", -- Choose LuaSnip as the snippet engine
+        preset = "default", -- Use Blink's built-in snippet engine
       }
 
       -- https://cmp.saghen.dev/configuration/keymap.html#default
