@@ -46,6 +46,7 @@ else
       { "L3MON4D3/LuaSnip", enabled = false },
       { "rafamadriz/friendly-snippets", enabled = false },
       { import = "lazyvim.plugins.extras.coding.mini-surround" },
+      { import = "lazyvim.plugins.extras.editor.aerial" },
       -- { import = "lazyvim.plugins.extras.editor.overseer" },
       { import = "lazyvim.plugins.extras.editor.snacks_picker" },
       -- Disable harpoon from snacks_picker extra

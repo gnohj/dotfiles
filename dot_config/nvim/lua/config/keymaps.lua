@@ -119,22 +119,12 @@ keymap(
   { silent = true, noremap = true, desc = "[P]Copy full path" }
 )
 
--- Quit or exit neovim, easier than to do <leader>qq
-keymap({ "n", "v", "i" }, "<C-space>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
-
 keymap(
   { "n", "v", "i" },
   "<M-r>",
   "<Nop>",
   { desc = "[P] Disabled No operation for <M-r>" }
 )
--- Page scrolling with Alt+d and Alt+u
-keymap("n", "<M-d>", "<C-d>", { desc = "Page down" })
-keymap("n", "<M-u>", "<C-u>", { desc = "Page up" })
-
--- If you also want these to work in visual mode
-keymap("v", "<M-d>", "<C-d>", { desc = "Page down" })
-keymap("v", "<M-u>", "<C-u>", { desc = "Page up" })
 
 keymap({ "n", "v", "i" }, "<M-y>", function()
   -- require("noice").cmd("history")
