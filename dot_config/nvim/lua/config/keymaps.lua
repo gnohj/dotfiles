@@ -15,6 +15,10 @@
 
 local keymap = vim.keymap.set
 
+-- Disable LazyVim's ; and , bindings (restore native vim f/t repeat behavior)
+keymap({ "n", "x", "o" }, ";", ";", { desc = "Next f/t/F/T" })
+keymap({ "n", "x", "o" }, ",", ",", { desc = "Prev f/t/F/T" })
+
 keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
@@ -85,6 +89,22 @@ keymap("n", "<leader>=", "<C-x>", { desc = "[P]Decrement number" })
 
 keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
+-- Toggle zen mode manually (overrides auto zen)
+keymap("n", "<leader>uz", function()
+  -- Toggle manual control flag
+  vim.g.zen_manual_control = not vim.g.zen_manual_control
+
+  -- Toggle zen mode
+  require("snacks").zen()
+
+  -- Notify user of state
+  if vim.g.zen_manual_control then
+    vim.notify("Zen: Manual control enabled", vim.log.levels.INFO)
+  else
+    vim.notify("Zen: Auto mode re-enabled", vim.log.levels.INFO)
+  end
+end, { desc = "[P]Toggle Zen Mode (manual)" })
+
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
   local display_path = full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
@@ -100,9 +120,7 @@ keymap(
 )
 
 -- Quit or exit neovim, easier than to do <leader>qq
-keymap({ "n", "v", "i" }, "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
--- Quit or exit neovim, easier than to do <leader>qq
-keymap({ "n", "v", "i" }, "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
+keymap({ "n", "v", "i" }, "<C-space>", "<cmd>wqa<cr>", { desc = "[P]Quit All" })
 
 keymap(
   { "n", "v", "i" },
@@ -181,16 +199,6 @@ keymap(
     noremap = true,
     desc = "[P]Package Info Change package version",
   }
-)
-
--------------------------------------------------------------------------------
---                           Logsitter
--------------------------------------------------------------------------------
-keymap(
-  "n",
-  "<leader>tc",
-  "<cmd> lua require('logsitter').log()<cr>",
-  { desc = "[P]Turbo Console Log" }
 )
 
 -------------------------------------------------------------------------------
