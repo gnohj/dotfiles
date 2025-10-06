@@ -16,7 +16,7 @@ return {
       },
     },
     close_on_select = false,
-    default_explorer = true,
+    default_explorer = false,
     confirm_simple = true, -- Auto-confirm simple operations like copy
     ["<esc>"] = "CloseView",
     -- Mappings:
