@@ -10,12 +10,12 @@ return {
       log_marker = "🚀",
       log_templates = {
         default = {
-          javascript = [[console.log("🚀 -> %log_target", %log_target)]],
-          typescript = [[console.log("🚀 -> %log_target", %log_target)]],
-          javascriptreact = [[console.log("🚀 -> %log_target", %log_target)]],
-          typescriptreact = [[console.log("🚀 -> %log_target", %log_target)]],
-          jsx = [[console.log("🚀 -> %log_target", %log_target)]],
-          tsx = [[console.log("🚀 -> %log_target", %log_target)]],
+          javascript = [[console.log('🚀 -> %log_target', %log_target);]],
+          typescript = [[console.log('🚀 -> %log_target', %log_target);]],
+          javascriptreact = [[console.log('🚀 -> %log_target', %log_target);]],
+          typescriptreact = [[console.log('🚀 -> %log_target', %log_target);]],
+          jsx = [[console.log('🚀 -> %log_target', %log_target);]],
+          tsx = [[console.log('🚀 -> %log_target', %log_target);]],
           lua = [[print("🚀 -> %log_target", %log_target)]],
           go = [[log.Printf("🚀 -> %log_target: %v\n", %log_target)]],
           python = [[print(f"🚀 -> {%log_target=}")]],

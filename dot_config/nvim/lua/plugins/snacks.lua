@@ -19,8 +19,14 @@ return {
       desc = "Keymaps",
     },
     { "<leader><space>", false },
-    { "<leader>gd", false }, -- Disable snacks git diff to keep diffview mapping
-    -- Open git log in ivy view
+    { "<leader>gd", false },
+    {
+      "<leader>gh",
+      function()
+        Snacks.picker.git_diff()
+      end,
+      desc = "Git Diff Hunks",
+    },
     {
       "<leader>gl",
       function()
@@ -374,6 +380,7 @@ return {
         mini_diff_signs = true,
         diagnostics = true,
         inlay_hints = false,
+        todo = true,
       },
       show = {
         statusline = true, -- Show lualine in zen mode
@@ -387,7 +394,9 @@ return {
         vim.api.nvim_create_autocmd("BufWinEnter", {
           group = vim.api.nvim_create_augroup("ZenDropbar", { clear = true }),
           callback = function(ev)
-            if vim.g.zen_enabled and vim.api.nvim_get_current_win() == win.win then
+            if
+              vim.g.zen_enabled and vim.api.nvim_get_current_win() == win.win
+            then
               vim.schedule(function()
                 local dropbar_ok, dropbar_api = pcall(require, "dropbar.api")
                 if dropbar_ok and dropbar_api.get_dropbar then

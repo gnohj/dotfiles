@@ -136,8 +136,6 @@ end, { desc = "[P]Noice History" })
 -- The <M-j> keymap is defined in plugins/img-clip.lua to ensure proper loading
 
 -- Disable lazygit which is enabled default by LazyVim
--- map("n", "<leader>gg", function() Snacks.lazygit( { cwd = LazyVim.root.git() }) end, { desc = "Lazygit (Root Dir)" })
--- map("n", "<leader>gG", function() Snacks.lazygit() end, { desc = "Lazygit (cwd)" })
 vim.keymap.del("n", "<leader>gg")
 vim.keymap.del("n", "<leader>gG")
 
