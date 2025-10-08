@@ -20,6 +20,7 @@ lalt - r : skhd -k "alt + cmd - r"
 
 # Tmux window navigation
 rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
+rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
