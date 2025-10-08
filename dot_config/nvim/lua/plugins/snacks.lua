@@ -9,15 +9,6 @@ return {
   lazy = false,
   priority = 1000,
   keys = {
-    {
-      "<M-k>",
-      function()
-        Snacks.picker.keymaps({
-          layout = "vertical",
-        })
-      end,
-      desc = "Keymaps",
-    },
     { "<leader><space>", false },
     { "<leader>gd", false },
     {
@@ -187,6 +178,42 @@ return {
         })
       end,
       desc = "Git Status (with preview)",
+    },
+    -- Environment variables picker
+    {
+      "<leader>se",
+      function()
+        local env_items = {}
+        for key, value in pairs(vim.fn.environ()) do
+          table.insert(env_items, {
+            text = key .. "=" .. value,
+            key = key,
+            value = value,
+            preview = {
+              text = "Key: " .. key .. "\n\nValue:\n" .. value,
+            },
+          })
+        end
+        table.sort(env_items, function(a, b)
+          return a.key < b.key
+        end)
+
+        require("snacks").picker({
+          title = "Environment Variables",
+          layout = "ivy",
+          preview = "preview", -- Use the preview field from items
+          finder = function()
+            return env_items
+          end,
+          confirm = function(picker, item)
+            vim.fn.setreg("+", item.value)
+            vim.notify("Copied to clipboard: " .. item.key, vim.log.levels.INFO)
+            picker:close()
+            return true -- Prevent default action
+          end,
+        })
+      end,
+      desc = "Environment Variables",
     },
     -- Find Files - default snacks <leader>ff doesn't work well with frecency and sorting, so overriding here
     {
