@@ -83,10 +83,6 @@ keymap(
   { desc = "[P]Clear search highlight" }
 )
 
--- increment/decrement numbers
-keymap("n", "<leader>+", "<C-a>", { desc = "[P]Increment number" })
-keymap("n", "<leader>=", "<C-x>", { desc = "[P]Decrement number" })
-
 keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 -- Toggle zen mode manually (overrides auto zen)
