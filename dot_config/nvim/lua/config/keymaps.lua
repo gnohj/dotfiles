@@ -322,6 +322,53 @@ keymap(
 )
 
 -------------------------------------------------------------------------------
+--                           OpenCode AI Assistant
+-------------------------------------------------------------------------------
+
+-- Visual mode: Quick prompts with selection
+keymap("v", "<leader>ot", function()
+  vim.cmd('normal! "vy')
+  local selection = vim.fn.getreg("v")
+  require("opencode.api").run(
+    "Add tests for this code:\n\n```\n" .. selection .. "\n```"
+  )
+end, { desc = "[P]OpenCode: Add tests for selection" })
+
+keymap("v", "<leader>of", function()
+  vim.cmd('normal! "vy')
+  local selection = vim.fn.getreg("v")
+  require("opencode.api").run("Fix this code:\n\n```\n" .. selection .. "\n```")
+end, { desc = "[P]OpenCode: Fix selected code" })
+
+keymap("v", "<leader>oO", function()
+  vim.cmd('normal! "vy')
+  local selection = vim.fn.getreg("v")
+  require("opencode.api").run(
+    "Optimize this code for performance and readability:\n\n```\n"
+      .. selection
+      .. "\n```"
+  )
+end, { desc = "[P]OpenCode: Optimize selection" })
+
+-- Normal mode: Context-aware prompts
+keymap("n", "<leader>oe", function()
+  require("opencode.context").load()
+  require("opencode.api").run("Explain the code at cursor and its context")
+end, { desc = "[P]OpenCode: Explain code at cursor" })
+
+keymap("n", "<leader>or", function()
+  require("opencode.context").load()
+  require("opencode.api").run(
+    "Review the current file for correctness and readability"
+  )
+end, { desc = "[P]OpenCode: Review file" })
+
+-- Mode switching
+keymap("n", "<leader>om", function()
+  require("opencode.api").switch_mode()
+end, { desc = "[P]OpenCode: Switch mode (build/plan)" })
+
+-------------------------------------------------------------------------------
 --                           Folding section
 -------------------------------------------------------------------------------
 
