@@ -38,6 +38,17 @@ return {
       modes = {
         -- Enable flash when searching with ? or /
         -- search = { enabled = true },
+        char = {
+          enabled = true,
+          jump_labels = true,
+          keys = { "f", "F", "t", "T", ";", "," },
+          char_actions = function(motion)
+            return {
+              [";"] = "next",
+              [","] = "prev",
+            }
+          end,
+        },
       },
       highlight = {
         backdrop = true,
