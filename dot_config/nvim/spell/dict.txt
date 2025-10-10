@@ -65,6 +65,9 @@ pid
 pnpm
 prNumber
 pulumi
+px
+refetch
+refetches
 s3
 sdk
 semver
@@ -72,6 +75,7 @@ serviceId
 serviceIds
 sourcemaps
 talkback
+url
 v1
 v2
 vcl
