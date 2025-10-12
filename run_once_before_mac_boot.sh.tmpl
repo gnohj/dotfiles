@@ -67,6 +67,7 @@ taps=(
   "oven-sh/bun"
   "pulumi/tap/pulumi"
   "sst/tap/opencode"
+  "tlrc"
 )
 for tap in "${taps[@]}"; do
   if ! $BREW_CMD tap | grep -q "^${tap}$"; then
@@ -85,9 +86,11 @@ packages=(
   "bat"
   "borders"
   "direnv"
+  "duf"
   "eza"
   "fastfetch"
   "FelixKratz/formulae/sketchybar"
+  "fd"
   "fnm"
   "fzf"
   "gh"
@@ -117,6 +120,7 @@ packages=(
   "thefuck"
   "tmux"
   "tree-sitter-cli"
+  "xh"
   "zoxide"
 )
 for pkg in "${packages[@]}"; do
