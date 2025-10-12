@@ -280,6 +280,7 @@ return {
       matcher = {
         frecency = true,
         cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
+        smartcase = true, -- Case-insensitive unless uppercase letters are used
       },
       formatters = { file = { filename_first = true, truncate = 80 } },
       transform = function(item)
@@ -435,7 +436,7 @@ return {
           end,
         })
       end,
-      on_close = function(win)
+      on_close = function(_)
         -- Reset zen_enabled flag when zen closes
         vim.g.zen_enabled = false
       end,
