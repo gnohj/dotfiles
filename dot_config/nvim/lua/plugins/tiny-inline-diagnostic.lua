@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- https://github.com/rachartier/tiny-inline-diagnostic.nvim
 return {
   "rachartier/tiny-inline-diagnostic.nvim",

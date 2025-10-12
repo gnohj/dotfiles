@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- NOTE: Specify the trigger character(s) used for luasnip
 local trigger_text = ";"
 

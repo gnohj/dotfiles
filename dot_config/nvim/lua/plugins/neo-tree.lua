@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "nvim-neo-tree/neo-tree.nvim",
   enabled = false,
@@ -26,7 +22,10 @@ return {
           return false
         end
         -- Check if the current file exists
-        if vim.fn.filereadable(buf_name) == 1 or vim.fn.isdirectory(vim.fn.fnamemodify(buf_name, ":p:h")) == 1 then
+        if
+          vim.fn.filereadable(buf_name) == 1
+          or vim.fn.isdirectory(vim.fn.fnamemodify(buf_name, ":p:h")) == 1
+        then
           if is_neo_tree_open() then
             -- Close NeoTree if it's open
             vim.cmd("Neotree close")
@@ -36,7 +35,10 @@ return {
           end
         else
           -- If the file doesn't exist, execute the logic for <leader>R
-          require("neo-tree.command").execute({ toggle = true, dir = vim.uv.cwd() })
+          require("neo-tree.command").execute({
+            toggle = true,
+            dir = vim.uv.cwd(),
+          })
         end
       end,
       desc = "[P]Toggle current file in NeoTree or open cwd if file doesn't exist",
@@ -44,7 +46,10 @@ return {
     {
       "<leader>R",
       function()
-        require("neo-tree.command").execute({ toggle = true, dir = vim.uv.cwd() })
+        require("neo-tree.command").execute({
+          toggle = true,
+          dir = vim.uv.cwd(),
+        })
       end,
       desc = "Explorer NeoTree (cwd)",
     },

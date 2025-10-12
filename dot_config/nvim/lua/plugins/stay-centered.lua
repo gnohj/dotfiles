@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- https://github.com/arnamak/stay-centered.nvim
 return {
   {
