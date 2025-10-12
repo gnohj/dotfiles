@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- https://github.com/Chaitanyabsprip/fastaction.nvim
 return {
   "Chaitanyabsprip/fastaction.nvim",

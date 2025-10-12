@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "iamcco/markdown-preview.nvim",
   build = "cd app && yarn install",

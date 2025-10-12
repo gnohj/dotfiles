@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "A7Lavinraj/fyler.nvim",
   dependencies = { "nvim-mini/mini.icons" },

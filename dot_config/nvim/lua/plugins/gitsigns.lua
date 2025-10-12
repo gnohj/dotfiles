@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "lewis6991/gitsigns.nvim",
   event = "LazyFile",
@@ -68,7 +64,12 @@ return {
       end, "Diff This ~")
 
       -- Text object
-      map({ "o", "x" }, "ih", ":<C-U>Gitsigns select_hunk<CR>", "GitSigns Select Hunk")
+      map(
+        { "o", "x" },
+        "ih",
+        ":<C-U>Gitsigns select_hunk<CR>",
+        "GitSigns Select Hunk"
+      )
     end,
   },
 }

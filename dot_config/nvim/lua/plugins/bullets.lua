@@ -1,7 +1,4 @@
 -- https://github.com/bullets-vim/bullets.vim
-if vim.g.vscode then
-  return {}
-end
 
 return {
   "bullets-vim/bullets.vim",

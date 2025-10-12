@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "rmagatti/goto-preview",
   event = "BufEnter",

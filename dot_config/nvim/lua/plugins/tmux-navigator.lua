@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   -- this plugin is only within neovim and adds tmux like keybindings
   {
