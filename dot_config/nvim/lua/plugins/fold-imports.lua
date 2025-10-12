@@ -1,13 +1,10 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   {
     "dmtrKovalenko/fold-imports.nvim",
     build = function()
       -- Patch the file after installation/update (backwards-compatible fix)
-      local file_path = vim.fn.stdpath("data") .. "/lazy/fold-imports.nvim/lua/fold_imports.lua"
+      local file_path = vim.fn.stdpath("data")
+        .. "/lazy/fold-imports.nvim/lua/fold_imports.lua"
       local file = io.open(file_path, "r")
       if file then
         local content = file:read("*all")

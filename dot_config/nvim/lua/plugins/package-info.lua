@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 local colors = require("config.colors")
 
 return {
@@ -34,6 +30,8 @@ return {
     end
 
     -- vim.cmd([[highlight PackageInfoUpToDateVersion guifg=]] .. opts.colors.up_to_date)
-    vim.cmd([[highlight PackageInfoOutdatedVersion guifg=]] .. colors["gnohj_color11"])
+    vim.cmd(
+      [[highlight PackageInfoOutdatedVersion guifg=]] .. colors["gnohj_color11"]
+    )
   end,
 }

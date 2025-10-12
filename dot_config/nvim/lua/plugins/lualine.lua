@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 local colors = require("config.colors")
 
 -- Custom component to display buffer count

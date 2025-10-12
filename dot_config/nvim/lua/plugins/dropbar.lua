@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 local function get_gitsigns_stats(buf)
   local buffer = buf or vim.api.nvim_get_current_buf()
   local gitsigns = vim.b[buffer].gitsigns_status_dict

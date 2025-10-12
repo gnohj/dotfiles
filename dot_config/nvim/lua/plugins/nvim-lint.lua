@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- Lazyvim will call this plugin via autocmd: on readpost, insertleave, writepost
 return {
   {

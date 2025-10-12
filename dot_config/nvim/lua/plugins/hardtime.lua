@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 return {
   "m4xshen/hardtime.nvim",
   enabled = true,

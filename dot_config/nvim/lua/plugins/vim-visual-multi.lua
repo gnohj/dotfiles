@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- https://github.com/mg979/vim-visual-multi
 
 -- In macos disable Settings - Keyboard - Keyboard Shortcuts

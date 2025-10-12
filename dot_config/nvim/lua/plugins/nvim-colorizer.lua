@@ -1,7 +1,3 @@
-if vim.g.vscode then
-  return {}
-end
-
 -- https://github.com/norcalli/nvim-colorizer.lua
 -- This plugin allows me to see the colors of hex code inside files
 
