@@ -23,6 +23,9 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
 
+-- Quit Neovim instance with save and quit all
+keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
+
 -- Toggle relative line numbers (both number and relativenumber)
 keymap("n", "<leader>tn", function()
   local current = vim.opt.number:get()

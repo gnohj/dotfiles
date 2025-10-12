@@ -7,7 +7,7 @@
 lctrl - space : skhd -k "ctrl - c"
 
 # Hyper+Q to quit nvim (sends Escape + :qa! + Enter)
-hyper - q : skhd -k "escape" && skhd -t ":wqa!" && skhd -k "return"
+# hyper - q : skhd -k "escape" && skhd -t ":wqa!" && skhd -k "return"
 
 # Remap Cmd+Shift+Q to quit and disable minimize/hide
 cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true' -e 'tell application frontApp to quit'
