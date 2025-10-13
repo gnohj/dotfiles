@@ -68,6 +68,7 @@ taps=(
   "pulumi/tap/pulumi"
   "sst/tap/opencode"
   "tlrc"
+  "wordnet"
 )
 for tap in "${taps[@]}"; do
   if ! $BREW_CMD tap | grep -q "^${tap}$"; then
