@@ -1,16 +1,4 @@
--- NOTE: Specify the trigger character(s) used for luasnip
-local trigger_text = ";"
-
 return {
-  -- {
-  --   "saghen/blink.compat",
-  --   -- use the latest release, via version = '*', if you also use the latest release for blink.cmp
-  --   version = "*",
-  --   -- lazy.nvim will automatically load the plugin when it's required by blink.cmp
-  --   lazy = true,
-  --   -- make sure to set opts so that lazy.nvim calls blink.compat's setup
-  --   opts = {},
-  -- },
   {
     "saghen/blink.cmp",
     enabled = true,
@@ -90,11 +78,7 @@ return {
             module = "blink.cmp.sources.lsp",
             kind = "LSP",
             min_keyword_length = 2,
-            -- When linking markdown notes, I would get snippets and text in the
-            -- suggestions, I want those to show only if there are no LSP
-            -- suggestions
-            -- Disabling fallbacks as my snippets woudlnt show up
-            score_offset = 90, -- the higher the number, the higher the priority
+            score_offset = 100, -- Trust your LSP, it knows your codebase
           },
           path = {
             name = "Path",
@@ -128,53 +112,7 @@ return {
             max_items = 15,
             min_keyword_length = 2,
             module = "blink.cmp.sources.snippets",
-            score_offset = 85, -- the higher the number, the higher the priority
-            -- Only show snippets if I type the trigger_text characters, so
-            -- to expand the "bash" snippet, if the trigger_text is ";" I have to
-            should_show_items = function()
-              local col = vim.api.nvim_win_get_cursor(0)[2]
-              local before_cursor = vim.api.nvim_get_current_line():sub(1, col)
-              -- NOTE: remember that `trigger_text` is modified at the top of the file
-              return before_cursor:match(trigger_text .. "%w*$") ~= nil
-            end,
-            -- After accepting the completion, delete the trigger_text characters
-            -- from the final inserted text
-            -- Modified transform_items function based on suggestion by `synic` so
-            -- that the luasnip source is not reloaded after each transformation
-            -- NOTE: I also tried to add the ";" prefix to all of the snippets loaded from
-            -- friendly-snippets in the luasnip.lua file, but I was unable to do
-            -- so, so I still have to use the transform_items here
-            -- This removes the ";" only for the friendly-snippets snippets
-            transform_items = function(_, items)
-              local line = vim.api.nvim_get_current_line()
-              local col = vim.api.nvim_win_get_cursor(0)[2]
-              local before_cursor = line:sub(1, col)
-              local start_pos, end_pos = before_cursor:find(
-                trigger_text .. "[^" .. trigger_text .. "]*$"
-              )
-              if start_pos then
-                for _, item in ipairs(items) do
-                  if not item.trigger_text_modified then
-                    ---@diagnostic disable-next-line: inject-field
-                    item.trigger_text_modified = true
-                    item.textEdit = {
-                      newText = item.insertText or item.label,
-                      range = {
-                        start = {
-                          line = vim.fn.line(".") - 1,
-                          character = start_pos - 1,
-                        },
-                        ["end"] = {
-                          line = vim.fn.line(".") - 1,
-                          character = end_pos,
-                        },
-                      },
-                    }
-                  end
-                end
-              end
-              return items
-            end,
+            score_offset = 95, -- Very high, but not forcing - let fuzzy matching work
           },
           -- https://github.com/kristijanhusak/vim-dadbod-completion
           -- dadbod = {
@@ -229,7 +167,7 @@ return {
       }
 
       opts.snippets = {
-        preset = "default", -- Use Blink's built-in snippet engine
+        preset = "luasnip", -- Use LuaSnip as the snippet engine
       }
 
       -- https://cmp.saghen.dev/configuration/keymap.html#default
