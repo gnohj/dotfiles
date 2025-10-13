@@ -189,6 +189,105 @@ keymap(
 )
 
 -------------------------------------------------------------------------------
+--                           GitHub Browse (Upstream Branch)
+-------------------------------------------------------------------------------
+
+-- Helper function to get upstream/origin default branch with fallbacks
+local function get_default_branch()
+  local repo = require("snacks").git.get_root()
+  if not repo then
+    return nil
+  end
+
+  -- Tcy upstream default branch first
+  local branch = vim.fn
+    .system(
+      "cd "
+        .. vim.fn.shellescape(repo)
+        .. " && git symbolic-ref refs/remotes/upstream/HEAD 2>/dev/null | sed 's@^refs/remotes/upstream/@@'"
+    )
+    :gsub("\n", "")
+
+  -- Fallback to origin default branch
+  if branch == "" then
+    branch = vim.fn
+      .system(
+        "cd "
+          .. vim.fn.shellescape(repo)
+          .. " && git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'"
+      )
+      :gsub("\n", "")
+  end
+
+  -- Fallback to current checked out branch
+  if branch == "" then
+    branch = vim.fn
+      .system(
+        "cd "
+          .. vim.fn.shellescape(repo)
+          .. " && git rev-parse --abbrev-ref HEAD"
+      )
+      :gsub("\n", "")
+  end
+
+  -- Fallback chain: develop -> main -> master
+  if branch == "" or branch == "HEAD" then
+    local fallbacks = { "develop", "main", "master" }
+    for _, fb in ipairs(fallbacks) do
+      local exists = vim.fn.system(
+        "cd "
+          .. vim.fn.shellescape(repo)
+          .. " && git rev-parse --verify "
+          .. fb
+          .. " 2>/dev/null"
+      )
+      if vim.v.shell_error == 0 then
+        branch = fb
+        break
+      end
+    end
+  end
+
+  -- Final fallback
+  if branch == "" then
+    branch = "master"
+  end
+
+  return branch
+end
+
+-- Custom GitHub browse that always uses upstream/origin default branch
+keymap({ "n", "v" }, "<leader>gb", function()
+  local branch = get_default_branch()
+  if not branch then
+    vim.notify("Not in a git repository", vim.log.levels.ERROR)
+    return
+  end
+
+  require("snacks").gitbrowse.open({
+    branch = branch,
+  })
+end, { desc = "[P]Git Browse (upstream branch)" })
+
+-- Custom GitHub URL copy that always uses upstream/origin default branch
+keymap({ "n", "v" }, "<leader>gy", function()
+  local branch = get_default_branch()
+  if not branch then
+    vim.notify("Not in a git repository", vim.log.levels.ERROR)
+    return
+  end
+
+  require("snacks").gitbrowse({
+    branch = branch,
+    notify = false,
+    open = function(url)
+      vim.fn.setreg("+", url)
+      vim.notify("Copied to clipboard: " .. url, vim.log.levels.INFO)
+    end,
+  })
+end, { desc = "[P]Copy Git URL (upstream branch)" })
+
+-------------------------------------------------------------------------------
 --                           DiffView
 -------------------------------------------------------------------------------
 
