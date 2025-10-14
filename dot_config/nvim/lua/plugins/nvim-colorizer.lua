@@ -3,6 +3,7 @@
 
 return {
   "norcalli/nvim-colorizer.lua",
+  event = "BufReadPost", -- Defer loading until file is read
   config = function()
     require("colorizer").setup()
   end,

@@ -2,6 +2,7 @@
 return {
   {
     "arnamak/stay-centered.nvim",
+    event = "VeryLazy", -- Defer until after startup
     opts = function()
       require("stay-centered").setup({
         -- Add any configurations here, like skip_filetypes if needed
