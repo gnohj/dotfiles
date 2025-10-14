@@ -1,6 +1,7 @@
 return {
   {
     "dmtrKovalenko/fold-imports.nvim",
+    event = "BufReadPost", -- Load after file is read (later than LazyFile)
     build = function()
       -- Patch the file after installation/update (backwards-compatible fix)
       local file_path = vim.fn.stdpath("data")

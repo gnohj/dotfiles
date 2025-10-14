@@ -11,8 +11,8 @@ return {
       ["j"] = false, -- Allow j key
       ["k"] = false, -- Allow k key
       disabled_keys = {},
-      ["<Up>"] = {},
-      ["<Down>"] = {},
+      -- ["<Up>"] = {}, -- needed for blink
+      -- ["<Down>"] = {}, -- needed for blink
       ["<Left>"] = {},
       ["<Right>"] = {},
     },
