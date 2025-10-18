@@ -1,0 +1,38 @@
+# mise global configuration
+# https://mise.jdx.dev/configuration.html
+
+[tools]
+# Core tools
+chezmoi = 'latest'
+
+# Development tools
+neovim = '0.11.4'
+node = { version = 'lts', postinstall = 'corepack enable' }
+lua = '5.4'
+stylua = 'latest'
+
+# CLI utilities
+atuin = 'latest'
+awscli = 'latest'
+bat = 'latest'
+delta = 'latest'
+direnv = 'latest'
+duf = 'latest'
+eza = 'latest'
+fastfetch = 'latest'
+fd = 'latest'
+fzf = 'latest'
+gh = 'latest'
+jq = 'latest'
+lazydocker = 'latest'
+lazygit = 'latest'
+ripgrep = 'latest'
+saml2aws = 'latest'
+starship = 'latest'
+tmux = 'latest'
+xh = 'latest'
+zoxide = 'latest'
+
+[settings]
+auto_install = true
+experimental = true

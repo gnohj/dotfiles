@@ -19,8 +19,8 @@ cmd - h : :
 lalt - r : skhd -k "alt + cmd - r"
 
 # Tmux window navigation
-rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
-rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
+rctrl - 0x32 : eval "$(~/.local/bin/mise activate bash)" && tmux next-window # grave/backtick key (0x32)
+rctrl - space : eval "$(~/.local/bin/mise activate bash)" && tmux last-window # toggle between last two windows
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
@@ -30,10 +30,10 @@ rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
-rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
-rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
+rctrl - 0x2F : eval "$(~/.local/bin/mise activate bash)" && tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
+rctrl - 0x2C : eval "$(~/.local/bin/mise activate bash)" && tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-rctrl - tab : /opt/homebrew/bin/tmux switch-client -l
+rctrl - tab : eval "$(~/.local/bin/mise activate bash)" && tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
@@ -45,15 +45,15 @@ rctrl - tab : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - n - reserved for nvim - reserved for going to previous history
 # rctrl - h/j/k/l - reserved for nvim - navigation
 rctrl - g : ~/.config/skhd/lazygit.sh
-rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml /opt/homebrew/bin/lazygit" true
+rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
-rctrl - c : /opt/homebrew/bin/tmux copy-mode
-rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
+rctrl - c : eval "$(~/.local/bin/mise activate bash)" && tmux copy-mode
+rctrl + shift - c : eval "$(~/.local/bin/mise activate bash)" && tmux neww ~/.config/colorscheme/colorscheme-selector.sh
 # rctrl - q - reserved for nvim shortcut to quit nvim instance
-rctrl - z : /opt/homebrew/bin/tmux kill-pane
-rctrl - m : /opt/homebrew/bin/tmux resize-pane -L 5
-rctrl - 0x2B : /opt/homebrew/bin/tmux resize-pane -R 5 # comma
+rctrl - z : eval "$(~/.local/bin/mise activate bash)" && tmux kill-pane
+rctrl - m : eval "$(~/.local/bin/mise activate bash)" && tmux resize-pane -L 5
+rctrl - 0x2B : eval "$(~/.local/bin/mise activate bash)" && tmux resize-pane -R 5 # comma
 # TODO: move tmux colorscheme selector (rctrl - ,) and transparency toggle (rctrl - .) here
 
 # Aerospace - Focus commands

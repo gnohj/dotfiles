@@ -52,7 +52,7 @@ command_exists() {
 #-------------------------------------------------------------------------------
 
 # --- Install Homebrew if not installed ---
-# The official installer handles architecture detection correctly on its own.
+# The official installer handles architecture detection correctly on its own...
 if ! command_exists brew; then
   echo "Homebrew not found. Installing..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -65,10 +65,8 @@ taps=(
   "FelixKratz/formulae"
   "nikitabobko/tap"
   "oven-sh/bun"
-  "pulumi/tap/pulumi"
-  "sst/tap/opencode"
-  "tlrc"
-  "wordnet"
+  "pulumi/tap"
+  "sst/tap"
 )
 for tap in "${taps[@]}"; do
   if ! $BREW_CMD tap | grep -q "^${tap}$"; then
@@ -82,47 +80,22 @@ done
 # --- Packages ---
 echo "Checking and installing required brew packages.."
 packages=(
-  "awscli"
-  "atuin"
-  "bat"
   "borders"
-  "direnv"
-  "duf"
-  "eza"
-  "fastfetch"
   "FelixKratz/formulae/sketchybar"
-  "fd"
-  "fnm"
-  "fzf"
-  "gh"
-  "git-delta"
   "gitmux"
-  "jq"
   "morantron/tmux-fingers/tmux-fingers"
   "kanata"
   "kitty"
   "koekeishiya/formulae/skhd"
-  "lazydocker"
-  "lazygit"
-  "lua"
   "mailsy"
-  "neovim"
-  "node"
   "pngpaste"
-  "ripgrep"
   "rbw"
-  "saml2aws"
   "sesh"
   "speedtest-cli"
   "spicetify-cli"
-  "starship"
-  "stylua"
   "switchaudio-osx"
   "thefuck"
-  "tmux"
   "tree-sitter-cli"
-  "xh"
-  "zoxide"
 )
 for pkg in "${packages[@]}"; do
   pkg_name="${pkg##*/}"
@@ -168,7 +141,6 @@ cask_packages=(
   "sf-symbols"
   "slack"
   "spotify"
-  "visual-studio-code"
   "vlc"
   "wezterm"
   "whimsical"
@@ -178,45 +150,11 @@ cask_packages=(
 for pkg in "${cask_packages[@]}"; do
   # Extract just the cask name (everything after the last /)
   cask_name="${pkg##*/}"
-  if ! $BREW_CMD list --cask | grep -q "^${cask_name}$"; then
+  # Use brew info to check if cask is installed (more reliable than brew list)
+  if $BREW_CMD info --cask "${pkg}" 2>/dev/null | grep -q "Not installed"; then
     echo "Installing cask ${pkg}..."
-    $BREW_CMD install --cask "${pkg}"
+    $BREW_CMD install --cask "${pkg}" || echo "Warning: Failed to install ${pkg}, skipping..."
   else
     echo "Cask ${cask_name} is already installed."
   fi
 done
-
-#-------------------------------------------------------------------------------
-#--                      Zinit
-#-------------------------------------------------------------------------------
-ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-if [ ! -d "$ZINIT_HOME" ]; then
-  echo "Installing Zinit..."
-  mkdir -p "$(dirname "$ZINIT_HOME")"
-  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-else
-  echo "Zinit is already installed."
-fi
-
-#-------------------------------------------------------------------------------
-#--                      WezTerm Terminfo for xterm-kitty (preview images)
-#-------------------------------------------------------------------------------
-if ! infocmp xterm-kitty &>/dev/null; then
-  echo "xterm-kitty terminfo not found. Installing..."
-  tempfile=$(mktemp)
-  if curl -o "$tempfile" https://raw.githubusercontent.com/kovidgoyal/kitty/master/terminfo/kitty.terminfo; then
-    echo "Downloaded kitty.terminfo successfully."
-    tic -x -o ~/.terminfo "$tempfile"
-    echo "xterm-kitty terminfo installed successfully."
-  else
-    echo "Failed to download kitty.terminfo."
-  fi
-  rm "$tempfile"
-fi
-
-echo "📋 Boot Summary:"
-echo "✅ Homebrew: $(brew --version | head -n1)"
-echo "✅ Packages installed: ${#packages[@]} formulae, ${#cask_packages[@]} casks"
-echo "✅ Zinit: Installed"
-echo "✅ xterm-kitty terminfo: Available"
-echo "🎉 All package installations and one-time setups are complete!"
