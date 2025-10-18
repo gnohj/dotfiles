@@ -8,20 +8,28 @@
 See `:help lua-guide-autocommands`
 --]]
 
--- Autocmds are automatically loaded on the VeryLazy event
--- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.lua
+-- Autocmds are automatically loaded on the VeryLazy event ( after startup and runs in the background )
+-- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.luaa
 -- Add any additional autocmds here
 
+local function augroup(name)
+  return vim.api.nvim_create_augroup("lazyvim_" .. name, { clear = true })
+end
+
+-- ============================================================================
 -- Wrap for markdown files
+-- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "*.md",
   callback = function()
     vim.opt_local.wrap = true
-    vim.opt_local.linebreak = true -- Also good for markdown
+    vim.opt_local.linebreak = true
   end,
 })
 
+-- ============================================================================
 -- Mini.files key bindings
+-- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "minifiles",
   callback = function(args)
@@ -88,99 +96,6 @@ vim.api.nvim_create_autocmd("FileType", {
   desc = "Set up mini.files keymaps",
 })
 
-vim.api.nvim_create_autocmd("BufEnter", {
-  callback = function()
-    vim.opt.formatoptions:remove({ "c", "r", "o" })
-  end,
-  desc = "Disable New Line Comment",
-})
-
--- Disable built-in spellchecking for Markdown - https://github.com/LazyVim/LazyVim/discussions/392
-vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
-vim.api.nvim_create_autocmd("FileType", {
-  group = vim.api.nvim_create_augroup(
-    "lazyvim_user_markdown",
-    { clear = true }
-  ),
-  pattern = { "gitcommit", "markdown" },
-  callback = function()
-    vim.opt_local.wrap = true
-  end,
-})
-
--- Fold keymaps in markdown files
-vim.api.nvim_create_autocmd("BufRead", {
-  pattern = "*.md",
-  callback = function()
-    -- Get the current buffer and its name
-    local bufnr = vim.api.nvim_get_current_buf()
-    local bufname = vim.api.nvim_buf_get_name(bufnr)
-
-    -- Skip completely if we're in diffview
-    if bufname:match("^diffview://") then
-      return
-    end
-
-    -- Skip if the filetype is related to diffview
-    local filetype = vim.bo.filetype
-    if filetype:match("^diffview") then
-      return
-    end
-
-    -- Avoid running zk multiple times for the same buffer
-    if vim.b.zk_executed then
-      return
-    end
-
-    vim.b.zk_executed = true -- Mark as executed
-
-    -- Use `vim.defer_fn` to add a slight delay before executing `zk`
-    vim.defer_fn(function()
-      -- Double-check we're still in the same buffer and it's valid
-      if
-        vim.api.nvim_get_current_buf() == bufnr
-        and vim.api.nvim_buf_is_valid(bufnr)
-      then
-        vim.cmd("normal zk")
-
-        -- Only try to write if it's a normal buffer
-        if vim.bo.buftype == "" then
-          pcall(function()
-            vim.cmd("silent write")
-          end)
-          vim.notify("Folded keymaps", vim.log.levels.INFO)
-        end
-      end
-    end, 100)
-  end,
-})
-
--- :OpenPRChanges - Uses the default origin/master
--- :OpenPRChanges origin/develop - Uses origin/develop instead
--- :OpenPRChanges + Tab - Shows completion options for branches
-vim.api.nvim_create_user_command("OpenPRChanges", function(opts)
-  local base_branch = opts.args ~= "" and opts.args or "origin/master"
-
-  local changed_files =
-    vim.fn.systemlist("git diff --name-only " .. base_branch .. "...HEAD")
-
-  for _, file in ipairs(changed_files) do
-    vim.cmd("edit " .. file)
-  end
-end, {
-  nargs = "?",
-  complete = function(ArgLead, CmdLine, CursorPos)
-    local branches = vim.fn.systemlist("git branch -a | cut -c 3-")
-    local matches = {}
-    for _, branch in ipairs(branches) do
-      if branch:match("^" .. ArgLead) then
-        table.insert(matches, branch)
-      end
-    end
-    return matches
-  end,
-})
-
 -- Mini Files Explorer - Open file in split
 local map_split = function(buf_id, lhs, direction)
   local MiniFiles = require("mini.files")
@@ -218,6 +133,61 @@ vim.api.nvim_create_autocmd("User", {
     map_split(buf_id, "<C-v>", "vertical")
   end,
 })
+
+vim.api.nvim_create_autocmd("BufEnter", {
+  callback = function()
+    vim.opt.formatoptions:remove({ "c", "r", "o" })
+  end,
+  desc = "Disable New Line Comment",
+})
+
+-- ============================================================================
+-- Disable built-in spellchecking for Markdown - https://github.com/LazyVim/LazyVim/discussions/392
+-- ============================================================================
+vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup(
+    "lazyvim_user_markdown",
+    { clear = true }
+  ),
+  pattern = { "gitcommit", "markdown" },
+  callback = function()
+    vim.opt_local.wrap = true
+  end,
+})
+
+-- ============================================================================
+-- Open all files changed in the current PR (compared to a base branch)
+-- ============================================================================
+-- :OpenPRChanges - Uses the default origin/master
+-- :OpenPRChanges origin/develop - Uses origin/develop instead
+-- :OpenPRChanges + Tab - Shows completion options for branches
+vim.api.nvim_create_user_command("OpenPRChanges", function(opts)
+  local base_branch = opts.args ~= "" and opts.args or "origin/master"
+
+  local changed_files =
+    vim.fn.systemlist("git diff --name-only " .. base_branch .. "...HEAD")
+
+  for _, file in ipairs(changed_files) do
+    vim.cmd("edit " .. file)
+  end
+end, {
+  nargs = "?",
+  complete = function(ArgLead, CmdLine, CursorPos)
+    local branches = vim.fn.systemlist("git branch -a | cut -c 3-")
+    local matches = {}
+    for _, branch in ipairs(branches) do
+      if branch:match("^" .. ArgLead) then
+        table.insert(matches, branch)
+      end
+    end
+    return matches
+  end,
+})
+
+-- ============================================================================
+-- NVIM_CWD_<pane_id> integration for TMUX
+-- ============================================================================
 -- Clean up neovim's directory tracking when exiting vim
 -- This removes the NVIM_CWD_<pane_id> environment variable so tmux falls back to shell's working directory
 vim.api.nvim_create_autocmd("VimLeavePre", {
@@ -240,28 +210,41 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 vim.api.nvim_create_autocmd({ "BufEnter" }, {
   callback = function()
     local current_file = vim.fn.expand("%:p")
+    local buftype = vim.bo.buftype
+    local filetype = vim.bo.filetype
+
+    -- Skip special buffers (pickers, terminals, help, etc.)
+    if
+      buftype ~= ""
+      or filetype == "snacks_picker"
+      or filetype == "snacks_picker_input"
+    then
+      return
+    end
+
     if current_file ~= "" then
       local dir = vim.fn.fnamemodify(current_file, ":h")
       local pane_id = vim.env.TMUX_PANE
       if pane_id then
+        -- Escape the directory path to handle special characters like $
+        local escaped_dir = vim.fn.shellescape(dir)
         vim.fn.system(
           'tmux set-environment -t "'
             .. pane_id
             .. '" NVIM_CWD_'
             .. pane_id
-            .. ' "'
-            .. dir
-            .. '" 2>/dev/null'
+            .. " "
+            .. escaped_dir
+            .. " 2>/dev/null"
         )
       end
     end
   end,
 })
 
-local function augroup(name)
-  return vim.api.nvim_create_augroup("lazyvim_" .. name, { clear = true })
-end
-
+-- ============================================================================
+-- Diffview keymaps
+-- ============================================================================
 -- Setup Diffview-specific keymaps
 vim.api.nvim_create_autocmd({ "FileType" }, {
   group = augroup("diffview_escape"),
@@ -308,7 +291,9 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
   end,
 })
 
--- close some filetypes with <esc>
+-- ============================================================================
+-- Close filetypes with <esc>
+-- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   group = augroup("close_with_q"),
   pattern = {
@@ -330,6 +315,7 @@ vim.api.nvim_create_autocmd("FileType", {
     "neotest-output-panel",
     "dbout",
     "gitsigns-blame",
+    "gitsigns://*",
     "OverseerList",
     "Lazy",
     "noice",
@@ -357,97 +343,34 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
+-- ============================================================================
 -- Auto Zen Mode: Enable on single window, disable on splits
-local zen_group = vim.api.nvim_create_augroup("AutoZenMode", { clear = true })
+-- ============================================================================
+-- All zen logic is now in config/auto-zen.lua module
+require("config.auto-zen").setup()
 
-local function update_zen_mode()
-  -- Skip if user manually disabled auto zen mode
-  if vim.g.zen_manual_control then
-    return
-  end
+-- ============================================================================
+-- Auto-reload files changed externally
+-- ============================================================================
 
-  -- Don't enable zen in special buffers or if Snacks isn't loaded
-  if not package.loaded["snacks"] then
-    return
-  end
-
-  local buftype = vim.bo.buftype
-  if buftype ~= "" then
-    return
-  end
-
-  -- Count normal windows (exclude floating windows)
-  local normal_windows = 0
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    local config = vim.api.nvim_win_get_config(win)
-    if config.relative == "" then
-      normal_windows = normal_windows + 1
-    end
-  end
-
-  -- Get current zen state
-  local zen_enabled = vim.g.zen_enabled or false
-
-  -- Enable zen if only one window, disable if multiple
-  if normal_windows == 1 then
-    if not zen_enabled then
-      require("snacks").zen()
-      vim.g.zen_enabled = true
-    end
-  else
-    if zen_enabled then
-      require("snacks").zen() -- Toggle to disable
-      vim.g.zen_enabled = false
-    end
-  end
-end
-
--- Enable on startup (delay to ensure Snacks is loaded)
-vim.api.nvim_create_autocmd("User", {
-  pattern = "LazyVimStarted",
-  group = zen_group,
+-- Check for external changes when switching buffers or gaining focus
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
   callback = function()
-    vim.defer_fn(function()
-      update_zen_mode()
-    end, 100)
+    if vim.fn.mode() ~= "c" then
+      vim.cmd("checktime")
+    end
   end,
-  desc = "Enable zen mode on startup",
+  desc = "Check for external file changes on focus/buffer switch",
 })
 
--- Try to enable automatically after session restore
-vim.api.nvim_create_autocmd("BufReadPost", {
-  group = zen_group,
-  callback = function()
-    -- Only trigger if we're in a normal file buffer (not dashboard)
-    if vim.bo.buftype == "" and vim.bo.filetype ~= "snacks_dashboard" then
-      vim.defer_fn(function()
-        update_zen_mode()
-      end, 200)
-    end
-  end,
-  desc = "Enable zen mode after loading files",
-})
+-- Event-based filesystem watcher for instant change detection
+require("config.auto-filewatcher").setup()
 
--- Enable after cursor movement (backup for session restore)
-vim.api.nvim_create_autocmd("CursorMoved", {
-  group = zen_group,
-  once = true,
-  callback = function()
-    -- Only trigger if we're in a normal file buffer
-    if vim.bo.buftype == "" then
-      vim.defer_fn(function()
-        update_zen_mode()
-      end, 100)
-    end
-  end,
-  desc = "Enable zen mode after first cursor movement",
-})
-
--- Update when windows change
-vim.api.nvim_create_autocmd({ "WinNew", "WinClosed", "WinEnter", "FocusGained" }, {
-  group = zen_group,
-  callback = function()
-    vim.schedule(update_zen_mode)
-  end,
-  desc = "Auto toggle zen mode based on window count",
+-- ============================================================================
+-- Filetype detection for HTTP files (kulala.nvim)
+-- ============================================================================
+vim.filetype.add({
+  extension = {
+    ["http"] = "http",
+  },
 })

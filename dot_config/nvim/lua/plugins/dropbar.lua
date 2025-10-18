@@ -465,12 +465,9 @@ return {
         end,
         -- Enable dropbar for all file types
         enable = function(buf, win, _)
-          -- Check if this is a zen mode window
-          local is_zen_win = false
-          if vim.g.zen_enabled then
-            local snacks_zen = require("snacks.zen")
-            is_zen_win = snacks_zen.win and snacks_zen.win.win == win
-          end
+          -- Check if this is a zen mode window (via auto-zen module)
+          local auto_zen = require("config.auto-zen")
+          local is_zen_win = auto_zen.is_zen_window(win)
 
           if
             not vim.api.nvim_buf_is_valid(buf)
