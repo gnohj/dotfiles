@@ -15,8 +15,6 @@ return {
     },
     panel = { enabled = false },
     filetypes = { markdown = true, help = true, yaml = true },
-    copilot_node_command = vim.fn.expand(
-      "~/.local/share/fnm/node-versions/v22.15.1/installation/bin/node"
-    ),
+    copilot_node_command = vim.fn.exepath("node"), -- Uses node from PATH (mise-managed)
   },
 }
