@@ -1,3 +1,14 @@
-#!/usr/bin/env lua
+#!/bin/bash
+# Wrapper to ensure mise is activated before running lua
+
+# Activate mise to get the correct lua in PATH
+eval "$($HOME/.local/bin/mise activate bash)"
+
+# Execute the lua script
+exec lua - <<'LUA_SCRIPT'
+-- Change to sketchybar config directory so modules can be found
+local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
+package.path = package.path .. ";" .. config_dir .. "/?.lua"
 
 require("init")
+LUA_SCRIPT

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure mise is activated and tools are in PATH
+eval "$(~/.local/bin/mise activate bash)"
+
 # Get the number of panes in the current window
 PANE_COUNT=$(tmux list-panes | wc -l | tr -d ' ')
 

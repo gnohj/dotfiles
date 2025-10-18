@@ -5,6 +5,12 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Ensure Homebrew and mise are in PATH
+export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+
+# Activate mise to get access to mise-managed tools like bat
+eval "$($HOME/.local/bin/mise activate bash)"
+
 # Function to display error messages
 error() {
   echo "Error: $1" >&2
@@ -677,6 +683,12 @@ if [ "$UPDATED" = true ]; then
 
   # Generate gitmux config
   generate_gitmux_config
+
+  # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
+  if typeset -f generate_ls_colors >/dev/null 2>&1; then
+    generate_ls_colors
+    echo "LS_COLORS updated for fd, ls, and eza."
+  fi
 
   # Generate tmux colors and reload if tmux is running
   if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then

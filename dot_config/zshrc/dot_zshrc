@@ -219,7 +219,7 @@ zinit cdreplay -q
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # INFO: cd desktop versus cd Desktop
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
-zstyle ':fzf-tab:*' fzf-flags --color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6
+zstyle ':fzf-tab:*' fzf-flags --gutter=' ' --color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color02,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:-1,header-bg:-1,header-border:6
 zstyle ':fzf-tab:complete:*' fzf-preview 'eza -1 --color=always $realpath 2>/dev/null || echo $word'
 # Special preview for AWS commands
 zstyle ':fzf-tab:complete:aws:*' fzf-preview 'aws $word help 2>/dev/null | head -20 || echo $word'
@@ -253,7 +253,6 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 
 # Chezmoi
 alias cz='chezmoi'
-alias czc='cz add ~/.config/colorscheme/active/active-colorscheme.sh && cz add ~/.config/colorscheme/list/evergarden-winter-colors.sh && cz add ~/.config/colorscheme/list/evergarden-winter-mute-colors.sh && cz add ~/.config/colorscheme/list/gnohj-colors.sh && cz add ~/.config/colorscheme/list/tokyo-night-colors.sh && cz add ~/.config/ghostty/config && cz add ~/.config/nvim/lua/config/active-colorscheme.sh && cz add ~/.config/lazygit/config.yml && cz add ~/.config/nvim/lazy-lock.json'
 alias czd='chezmoi diff'
 
 # Fzf Shortcuts
@@ -269,10 +268,10 @@ alias spice='spicetify auto'
 alias mail='mailsy'
 
 # NeoVim Shorcuts
-alias ESLINT_USE_FLAT_CONFIG=false n="nvim"
-alias ESLINT_USE_FLAT_CONFIG=false vi=nvim
-alias ESLINT_USE_FLAT_CONFIG=false vim=nvim
-export EDITOR="ESLINT_USE_FLAT_CONFIG=false nvim"
+alias n="nvim"
+alias vi="nvim"
+alias vim="nvim"
+export EDITOR="nvim"
 
 # Atuin Script Shortcuts
 alias iheart-token="atuin scripts run iheart-token"
@@ -317,8 +316,8 @@ alias ls="eza --icons=always --long --all"
 # brew leaves list (installed packages by me)
 alias leaves="brew leaves"
 
-# brew outdated list (installed packages by me)
-alias outdated="comm -12 <(brew leaves | sort) <(brew outdated --formula | awk '{print \$1}' | sort) | awk '{print \"outdated brew package: \" \$1}'"
+# brew outdated list (all outdated packages - formulas and casks)
+alias outdated="brew outdated | awk '{print \"outdated brew package: \" \$1}' && mise outdated"
 
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
@@ -361,7 +360,7 @@ if command -v sketchybar &>/dev/null; then
         command arch -arm64 brew "$@"
         # Only trigger on specific commands that actually change state
         case "$1" in
-            install|uninstall|upgrade|update)
+            install|uninstall|upgrade|update|list)
                 sketchybar --trigger brew_update 2>/dev/null &
                 ;;
         esac
@@ -372,13 +371,6 @@ fi
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 
-
-# -----------------------------  Fastfetch
-# INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
-# Add a flag to control fastfetch execution
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
-    fastfetch
-fi
 
 # -----------------------------  Tmux - Update Pane Path -so that lazygit (rctrl+g) can work anywhere (buffer, tmux pane, etc.)
 if [[ -n "$TMUX" ]]; then
@@ -437,11 +429,64 @@ export SHOW_AWS_PROMPT=false
 # Force color for cli apps
 export FORCE_COLOR=1
 
-# Enable corepack support for each new installation. FNM will call `corepack enable` on every node.js installation
-export FNM_COREPACK_ENABLED=true
+# Configure fzf to use fd for file searching (respects .gitignore by default)
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+
+# Generate LS_COLORS from active colorscheme (called after colorscheme is loaded)
+generate_ls_colors() {
+  # Convert hex to RGB
+  hex_to_rgb() {
+    local hex="${1#\#}"
+    printf "38;2;%d;%d;%d" "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+  }
+
+  # Use active colorscheme variables
+  local dir_color="1;$(hex_to_rgb "$gnohj_color04")"  # Bold directories
+  local link_color="$(hex_to_rgb "$gnohj_color03")"   # Symlinks
+  local exec_color="1;$(hex_to_rgb "$gnohj_color02")" # Bold executables
+  local archive_color="$(hex_to_rgb "$gnohj_color11")" # Archives
+  local media_color="$(hex_to_rgb "$gnohj_color01")"  # Images/videos
+  local audio_color="$(hex_to_rgb "$gnohj_color05")"  # Audio
+
+  export LS_COLORS="di=${dir_color}:ln=${link_color}:ex=${exec_color}:*.tar=${archive_color}:*.tgz=${archive_color}:*.zip=${archive_color}:*.gz=${archive_color}:*.bz2=${archive_color}:*.jpg=${media_color}:*.jpeg=${media_color}:*.png=${media_color}:*.gif=${media_color}:*.svg=${media_color}:*.mp4=${media_color}:*.mkv=${media_color}:*.webm=${media_color}:*.mp3=${audio_color}:*.flac=${audio_color}:*.wav=${audio_color}:*.ogg=${audio_color}"
+}
+
+# Call it after colorscheme loads
+generate_ls_colors
+
+# Generate EZA_COLORS from active colorscheme for eza file listing
+generate_eza_colors() {
+  # Use active colorscheme variables
+  # Format: eza uses simplified color codes (di=directories, ln=symlinks, etc.)
+  # We'll use the ANSI color codes that match our theme
+  export EZA_COLORS="\
+di=$gnohj_color04:\
+ln=$gnohj_color03:\
+ex=$gnohj_color02:\
+*.tar=$gnohj_color11:\
+*.tgz=$gnohj_color11:\
+*.zip=$gnohj_color11:\
+*.gz=$gnohj_color11:\
+*.bz2=$gnohj_color11:\
+*.jpg=$gnohj_color01:\
+*.jpeg=$gnohj_color01:\
+*.png=$gnohj_color01:\
+*.gif=$gnohj_color01:\
+*.svg=$gnohj_color01:\
+*.mp4=$gnohj_color01:\
+*.mkv=$gnohj_color01:\
+*.webm=$gnohj_color01:\
+*.mp3=$gnohj_color05:\
+*.flac=$gnohj_color05:\
+*.wav=$gnohj_color05:\
+*.ogg=$gnohj_color05"
+}
+
+# Call it after colorscheme loads
+generate_eza_colors
 
 # Adds color to fzf- for commands not tab, ex: ctrl + r
-export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6"
+export FZF_DEFAULT_OPTS="--gutter=' ' --color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color02,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:-1,header-bg:-1,header-border:6"
 # export FZF_DEFAULT_OPTS="--color=bg+:$gnohj_color16,gutter:-1,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color14,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6 --bind 'J:preview-down,K:preview-up,alt-j:down,alt-k:up,alt-d:delete-char'"
 
 # Eslint flat config
@@ -463,13 +508,43 @@ export _ZO_DATA_DIR="$ZDOTDIR"
 
 
 #-------------------------------------------------------------------------------
+#                  Mise Activation (must be before tool integrations)
+#-------------------------------------------------------------------------------
+
+eval "$(/Users/gnohj/.local/bin/mise activate zsh)"
+
+# -----------------------------  Sketchybar Mise Notification
+# Setup sketchybar mise notification (must be AFTER mise activate to override mise's function)
+if command -v sketchybar &>/dev/null; then
+    sketchybar --add event mise_update 2>/dev/null
+    sketchybar --subscribe widgets.mise_notification mise_update 2>/dev/null
+    function mise() {
+        command mise "$@"
+        local exit_code=$?
+        # Only trigger on specific commands that actually change state
+        case "$1" in
+            install|uninstall|upgrade|use|list)
+                sketchybar --trigger mise_update 2>/dev/null &
+                ;;
+        esac
+        return $exit_code
+    }
+fi
+
+# -----------------------------  Fastfetch
+# INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
+# Add a flag to control fastfetch execution
+if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
+    fastfetch
+fi
+
+#-------------------------------------------------------------------------------
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
 
 eval $(thefuck --alias fk)
 eval "$(direnv hook $SHELL)"
 eval "$(fastly --completion-script-zsh)"
-eval "$(fnm env --use-on-cd --shell zsh)"
 eval "$(fzf --zsh)"
 eval "$(saml2aws --completion-script-zsh)"
 
@@ -493,11 +568,10 @@ bindkey -M viins '^R' _atuin_search_widget  # Insert mode
 bindkey -M vicmd '^R' _atuin_search_widget  # Normal mode
 bindkey -M emacs '^R' _atuin_search_widget  # Emacs mode (fallback)
 
-# AWS CLI v2 Completions 
+# AWS CLI v2 Completions
 # The OMZP::aws plugin only provides utilities, not completions
 # Using the official AWS completer with bash compatibility layer
 if [[ -x /usr/local/bin/aws_completer ]]; then
   autoload -Uz bashcompinit && bashcompinit
   complete -C /usr/local/bin/aws_completer aws
 fi
-
