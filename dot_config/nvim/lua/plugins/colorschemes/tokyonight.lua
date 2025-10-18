@@ -165,8 +165,8 @@ return {
       on_highlights = function(hl, hl_colors)
         -- Visual mode highlight matching tmux copy-mode colors
         hl.Visual = {
-          bg = colors["gnohj_color13"],  -- Match tmux background (#536571)
-          fg = colors["gnohj_color02"],  -- Match tmux foreground (#b7ce97)
+          bg = colors["gnohj_color13"], -- Match tmux background (#536571)
+          fg = colors["gnohj_color02"], -- Match tmux foreground (#b7ce97)
         }
         hl.VisualNOS = {
           bg = colors["gnohj_color13"],
@@ -281,6 +281,14 @@ return {
         hl.GitSignsAdd = { fg = colors["gnohj_color02"] }
         hl.GitSignsChange = { fg = colors["gnohj_color03"] }
         hl.GitSignsDelete = { fg = colors["gnohj_color11"] }
+
+        -- Mini.diff overlay highlights
+        hl.MiniDiffOverAdd =
+          { fg = colors["gnohj_color29"], bg = colors["gnohj_color30"] }
+        hl.MiniDiffOverDelete =
+          { fg = colors["gnohj_color31"], bg = colors["gnohj_color32"] }
+        hl.MiniDiffOverChange =
+          { fg = colors["gnohj_color27"], bg = colors["gnohj_color28"] }
 
         -- Dropbar git signs colors
         hl.Added = { fg = colors["gnohj_color02"] }
