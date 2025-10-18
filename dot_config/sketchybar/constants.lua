@@ -21,6 +21,7 @@ local items <const> = {
 	CPU = "widgets.cpu",
 	GITHUB_NOTIFICATION = "widgets.github_notification",
 	BREW_NOTIFICATION = "widgets.brew_notification",
+	MISE_NOTIFICATION = "widgets.mise_notification",
 	BATTERY = "widgets.battery",
 	CALENDAR = "widgets.calendar",
 }

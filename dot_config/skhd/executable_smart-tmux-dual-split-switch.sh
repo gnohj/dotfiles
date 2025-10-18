@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure mise is activated and tools are in PATH
+eval "$(~/.local/bin/mise activate bash)"
+
 # Get current pane info
 CURRENT_PANE=$(tmux display-message -p '#{pane_id}')
 CURRENT_CMD=$(tmux display-message -p '#{pane_current_command}')
@@ -35,4 +38,3 @@ else
     tmux select-pane -t :.+
   fi
 fi
-

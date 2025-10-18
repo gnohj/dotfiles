@@ -25,6 +25,42 @@ exit 0
 {{- end }}
 
 #-------------------------------------------------------------------------------
+#--                      Zinit
+#-------------------------------------------------------------------------------
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+if [ ! -d "$ZINIT_HOME" ]; then
+  echo "Installing Zinit..."
+  mkdir -p "$(dirname "$ZINIT_HOME")"
+  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+else
+  echo "Zinit is already installed."
+fi
+
+#-------------------------------------------------------------------------------
+#--                      WezTerm Terminfo for xterm-kitty (preview images)
+#-------------------------------------------------------------------------------
+if ! infocmp xterm-kitty &>/dev/null; then
+  echo "xterm-kitty terminfo not found. Installing..."
+  tempfile=$(mktemp)
+  if curl -o "$tempfile" https://raw.githubusercontent.com/kovidgoyal/kitty/master/terminfo/kitty.terminfo; then
+    echo "Downloaded kitty.terminfo successfully."
+    tic -x -o ~/.terminfo "$tempfile"
+    echo "xterm-kitty terminfo installed successfully."
+  else
+    echo "Failed to download kitty.terminfo."
+  fi
+  rm "$tempfile"
+fi
+
+echo "📋 Boot Summary:"
+echo "✅ Homebrew: $(brew --version | head -n1)"
+echo "✅ Packages installed: ${#packages[@]} formulae, ${#cask_packages[@]} casks"
+echo "✅ Zinit: Installed"
+echo "✅ xterm-kitty terminfo: Available"
+echo "🎉 All package installations and one-time setups are complete!"
+
+
+#-------------------------------------------------------------------------------
 #--                      macOS System Configuration
 #-------------------------------------------------------------------------------
 
@@ -113,7 +149,6 @@ echo "  - Applications to add to Automation permissions: AeroSpace, Ghostty, Onl
 echo "  - Applications to add to Input Monitoring permissions: AeroSpace, Discord, karabiner_grabber, karabiner_observer, Karabiner-EventViewer, Logi Options+"
 echo "  - Applications to add to App Management permissions: Raycast"
 echo "  - Applications to add to Full Disk Access permissions: Ghostty"
-echo "  - Configure KindaVim"
 
 #-------------------------------------------------------------------------------
 #--                      Marta File Manager Configuration
