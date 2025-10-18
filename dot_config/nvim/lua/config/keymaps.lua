@@ -90,18 +90,7 @@ keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 -- Toggle zen mode manually (overrides auto zen)
 keymap("n", "<leader>uz", function()
-  -- Toggle manual control flag
-  vim.g.zen_manual_control = not vim.g.zen_manual_control
-
-  -- Toggle zen mode
-  require("snacks").zen()
-
-  -- Notify user of state
-  if vim.g.zen_manual_control then
-    vim.notify("Zen: Manual control enabled", vim.log.levels.INFO)
-  else
-    vim.notify("Zen: Auto mode re-enabled", vim.log.levels.INFO)
-  end
+  require("config.auto-zen").toggle_manual()
 end, { desc = "[P]Toggle Zen Mode (manual)" })
 
 local function insertFullPath()
