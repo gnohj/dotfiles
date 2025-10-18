@@ -20,6 +20,8 @@ vim.g.snacks_animate = false
 
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
+vim.opt.autoread = true
+
 vim.o.swapfile = false
 vim.opt.linebreak = true
 vim.opt.wrap = false
@@ -61,7 +63,7 @@ opt.smartcase = true -- if you include mixed case in your search, assumes you wa
 opt.splitright = true -- split vertical window to the right
 opt.splitbelow = true -- split horizontal window to the bottom
 
--- Minimal left side setup (like Josh Medeski)
+-- Minimal left side setup
 opt.number = false -- Disable line numbers by default
 opt.relativenumber = false -- Disable relative numbers
 opt.signcolumn = "yes:1" -- Keep minimal sign column for git/diagnostics

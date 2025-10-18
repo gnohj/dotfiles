@@ -396,47 +396,8 @@ return {
 ]],
       },
     },
-    zen = {
-      enabled = true,
-      toggles = {
-        dim = false,
-        git_signs = true,
-        mini_diff_signs = true,
-        diagnostics = true,
-        inlay_hints = false,
-        todo = true,
-      },
-      show = {
-        statusline = true, -- Show lualine in zen mode
-        tabline = false,
-      },
-      on_open = function(win)
-        -- Mark zen as enabled when window opens
-        vim.g.zen_enabled = true
-
-        -- Watch for buffer changes in zen window and attach dropbar
-        vim.api.nvim_create_autocmd("BufWinEnter", {
-          group = vim.api.nvim_create_augroup("ZenDropbar", { clear = true }),
-          callback = function(ev)
-            if
-              vim.g.zen_enabled and vim.api.nvim_get_current_win() == win.win
-            then
-              vim.schedule(function()
-                local dropbar_ok, dropbar_api = pcall(require, "dropbar.api")
-                if dropbar_ok and dropbar_api.get_dropbar then
-                  -- Force dropbar to attach to this buffer in this window
-                  pcall(dropbar_api.get_dropbar, ev.buf, win.win)
-                end
-              end)
-            end
-          end,
-        })
-      end,
-      on_close = function(_)
-        -- Reset zen_enabled flag when zen closes
-        vim.g.zen_enabled = false
-      end,
-    },
+    -- Zen mode configuration delegated to auto-zen module
+    zen = require("config.auto-zen").get_zen_config(),
     scratch = {
       ft = "markdown",
       cmd = "Scratch",
