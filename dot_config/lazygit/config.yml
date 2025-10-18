@@ -34,16 +34,11 @@ customCommands:
         initialValue: ""
     command: HUSKY=0 git commit -m "{{index .PromptResponses 0}}" --no-verify
     context: "global"
-    subprocess: yes
-
   - key: "X"
     description: "Amend last commit and bypass hooks"
     command: "HUSKY=0 git commit --amend --date=now --no-edit"
     context: "global"
-    subprocess: yes
-
   - key: "z"
     description: "Stash commit and bypass hooks"
     command: "HUSKY=0 git stash --no-verify"
     context: "global"
-    subprocess: yes
