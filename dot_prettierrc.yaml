@@ -1,0 +1,9 @@
+# Global prettier configuration
+# This will be used as a fallback when no local .prettierrc is found
+
+overrides:
+  # Markdown files
+  - files: "*.md"
+    options:
+      proseWrap: "always"
+      printWidth: 80
