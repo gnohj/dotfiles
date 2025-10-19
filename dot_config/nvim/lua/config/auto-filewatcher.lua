@@ -35,6 +35,10 @@ local function get_buf_dir(buf)
   if path == "" or vim.bo[buf].buftype ~= "" then
     return nil
   end
+  -- Skip virtual schemes (gitsigns://, diffview://, etc)
+  if path:match("^%w+://") then
+    return nil
+  end
   return vim.fn.fnamemodify(path, ":h")
 end
 
