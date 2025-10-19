@@ -98,9 +98,9 @@ return {
 
         -- Diff colors
         global_colors.diff = {
-          add = colors["gnohj_color30"] or "#334330",
-          change = colors["gnohj_color28"] or "#202325",
-          delete = colors["gnohj_color32"] or "#433030",
+          add = colors["gnohj_color29"] or "#334330",
+          change = colors["gnohj_color35"] or "#202325",
+          delete = colors["gnohj_color31"] or "#433030",
           text = colors["gnohj_color46"] or colors["gnohj_color13"],
         }
 
@@ -144,7 +144,7 @@ return {
           ignore = colors["gnohj_color47"] or colors["gnohj_color13"],
         }
         global_colors.gitSigns = {
-          change = colors["gnohj_color03"],
+          change = colors["gnohj_color05"],
           add = colors["gnohj_color02"],
           delete = colors["gnohj_color11"],
         }
@@ -249,19 +249,6 @@ return {
           italic = true,
         }
 
-        -- Diffview
-        hl.DiffChange =
-          { fg = colors["gnohj_color27"], bg = colors["gnohj_color28"] }
-        hl.DiffAdd =
-          { fg = colors["gnohj_color29"], bg = colors["gnohj_color30"] }
-        hl.DiffDelete =
-          { fg = colors["gnohj_color31"], bg = colors["gnohj_color32"] }
-        hl.DiffText = {
-          fg = colors["gnohj_color33"],
-          bg = colors["gnohj_color34"],
-          bold = true,
-        }
-
         hl.DiffviewFolderSign = { fg = colors["gnohj_color35"] }
         hl.DiffviewNonText = { fg = hl_colors.comment }
         hl.diffAdded = { fg = colors["gnohj_color36"], bold = true }
@@ -279,20 +266,39 @@ return {
         DiagnosticError = { fg = colors["gnohj_color11"] }
 
         hl.GitSignsAdd = { fg = colors["gnohj_color02"] }
-        hl.GitSignsChange = { fg = colors["gnohj_color03"] }
+        hl.GitSignsChange = { fg = colors["gnohj_color05"] }
         hl.GitSignsDelete = { fg = colors["gnohj_color11"] }
+
+        -- global diff
+        hl.DiffChange =
+          { fg = colors["gnohj_color27"], bg = colors["gnohj_color28"] }
+        -- Diffview
+        hl.DiffAdd =
+          { fg = colors["gnohj_color29"], bg = colors["gnohj_color30"] }
+        hl.DiffDelete =
+          { fg = colors["gnohj_color31"], bg = colors["gnohj_color32"] }
+        hl.DiffText = {
+          fg = colors["gnohj_color33"],
+          bg = colors["gnohj_color34"],
+          bold = true,
+        }
 
         -- Mini.diff overlay highlights
         hl.MiniDiffOverAdd =
-          { fg = colors["gnohj_color29"], bg = colors["gnohj_color30"] }
+          { fg = colors["gnohj_color07"], bg = colors["gnohj_color09"] }
         hl.MiniDiffOverDelete =
-          { fg = colors["gnohj_color31"], bg = colors["gnohj_color32"] }
+          { fg = colors["gnohj_color32"], bg = colors["gnohj_color33"] }
         hl.MiniDiffOverChange =
-          { fg = colors["gnohj_color27"], bg = colors["gnohj_color28"] }
+          { fg = colors["gnohj_color07"], bg = colors["gnohj_color37"] }
+
+        -- Mini.diff sign column highlights
+        hl.MiniDiffSignAdd = { fg = colors["gnohj_color02"], bg = "NONE" }
+        hl.MiniDiffSignChange = { fg = colors["gnohj_color05"], bg = "NONE" }
+        hl.MiniDiffSignDelete = { fg = colors["gnohj_color11"], bg = "NONE" }
 
         -- Dropbar git signs colors
         hl.Added = { fg = colors["gnohj_color02"] }
-        hl.Changed = { fg = colors["gnohj_color03"] }
+        hl.Changed = { fg = colors["gnohj_color05"] }
         hl.Removed = { fg = colors["gnohj_color11"] }
 
         -- Dropbar path colors
