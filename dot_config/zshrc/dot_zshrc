@@ -34,10 +34,32 @@ if [ -f "$HOME/.zsh_aws_cmds" ]; then
   source "$HOME/.zsh_aws_cmds"
 fi
 
+# Source colorscheme configuration and active colorscheme
 if [ -f "$HOME/.config/colorscheme/colorscheme-vars.sh" ]; then
   source "$HOME/.config/colorscheme/colorscheme-vars.sh"
 fi
 
+# Source active colorscheme to get color variables (gnohj_color01, etc.)
+if [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ]; then
+  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+fi
+
+#-------------------------------------------------------------------------------
+#--                      Nix Package Manager
+#-------------------------------------------------------------------------------
+# Source nix-daemon if installed (added by nix-darwin/Nix installer)
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  source '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
+
+#-------------------------------------------------------------------------------
+#--                      Homebrew Package Manager
+#-------------------------------------------------------------------------------
+# Add Homebrew to PATH (for packages managed by nix-darwin)
+# Examples: thefuck, skhd, gitmux, sesh, borders, etc.
+if [ -d '/opt/homebrew/bin' ]; then
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+fi
 
 #-------------------------------------------------------------------------------
 #--                           Zinit
@@ -266,6 +288,9 @@ alias spice='spicetify auto'
 
 # Mailsy ( Anon email generation )
 alias mail='mailsy'
+
+# Disk Usage
+alias disk='duf --sort usage'
 
 # NeoVim Shorcuts
 alias n="nvim"
@@ -544,7 +569,7 @@ fi
 
 eval $(thefuck --alias fk)
 eval "$(direnv hook $SHELL)"
-eval "$(fastly --completion-script-zsh)"
+# eval "$(fastly --completion-script-zsh)"  # fastly CLI not installed
 eval "$(fzf --zsh)"
 eval "$(saml2aws --completion-script-zsh)"
 

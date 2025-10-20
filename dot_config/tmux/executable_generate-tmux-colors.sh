@@ -3,12 +3,8 @@
 # shellcheck disable=SC1090
 # shellcheck disable=SC1091
 
-# This script generates tmux color configuration from the active colorscheme
-
-# Source the active colorscheme
 source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
-# Output file for tmux colors
 OUTPUT_FILE="$HOME/.config/tmux/tmux-colors.conf"
 
 # Generate tmux color configuration
@@ -21,18 +17,16 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Status left: rbw lock status + Session name + AWS profile (with aws_ prefix) + repo name + gitmux (reactive to current pane)
-# Session name turns red when prefix is pressed
-# Branch names with >3 hyphens get truncated (remove last segment after hyphen)
-set -g status-left "#[fg=${gnohj_color03},nobold]#(rbw unlocked >/dev/null 2>&1 || echo '🔒')#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]}#[nobold]#S #[fg=${gnohj_color14},nobold]#(PANE_ID='#{pane_id}'; PANE_NVIM_CWD=\\\$(tmux show-environment -t \"\\\$PANE_ID\" \"NVIM_CWD_\\\$PANE_ID\" 2>/dev/null | cut -d= -f2); DIR=\"\\\${PANE_NVIM_CWD:-#{pane_current_path}}\"; cd \"\\\$DIR\" 2>/dev/null && FULL_REPO_NAME=\\\$(basename \"\\\$(git rev-parse --show-toplevel 2>/dev/null)\" 2>/dev/null) && REPO_NAME=\\\$(echo \"\\\$FULL_REPO_NAME\" | sed 's/[-_].*//'); OUTPUT=\\\$(gitmux -cfg \\\$HOME/.config/gitmux/gitmux.yml | sed 's/^ //' | \\\$HOME/.config/tmux/truncate-branch.sh); [ -n \"\\\$REPO_NAME\" ] && echo \"#[fg=${gnohj_color06}]\\\$REPO_NAME#[fg=${gnohj_color14}]\\\$OUTPUT \" || echo \"\\\$OUTPUT \")"
-set -g status-left-length 100
+# Use status-format for complete control - everything centered as one unit
+set -g status-format[0] "#[align=centre]#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')"
 
-# Status right: Empty (minimalist)
+# Empty status-left and status-right since we're using status-format
+set -g status-left ""
 set -g status-right ""
 
-# Window status colors
-set -g window-status-current-format '#[fg=${gnohj_color24}]*#[fg=${gnohj_color04}]#W'
-set -g window-status-format ' #[fg=${gnohj_color08}]#W'
+# Empty window status formats to prevent duplication
+set -g window-status-current-format ''
+set -g window-status-format ''
 
 # Pane border colors
 set -g pane-border-style "fg=${gnohj_color24}"

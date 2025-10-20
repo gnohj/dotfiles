@@ -5,11 +5,10 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Ensure Homebrew and mise are in PATH
-export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+# Ensure Homebrew is in PATH
+export PATH="/opt/homebrew/bin:$PATH"
 
-# Activate mise to get access to mise-managed tools like bat
-eval "$($HOME/.local/bin/mise activate bash)"
+# Nix packages (bat) are in PATH via nix-daemon.sh
 
 # Function to display error messages
 error() {

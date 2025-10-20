@@ -12,6 +12,7 @@ return {
       "go",
       "json5",
       "css",
+      "nix",
       "regex",
       "toml",
       "sql",

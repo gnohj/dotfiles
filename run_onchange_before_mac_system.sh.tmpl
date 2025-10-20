@@ -53,15 +53,25 @@ if ! infocmp xterm-kitty &>/dev/null; then
 fi
 
 echo "📋 Boot Summary:"
-echo "✅ Homebrew: $(brew --version | head -n1)"
-echo "✅ Packages installed: ${#packages[@]} formulae, ${#cask_packages[@]} casks"
 echo "✅ Zinit: Installed"
 echo "✅ xterm-kitty terminfo: Available"
-echo "🎉 All package installations and one-time setups are complete!"
+echo "🎉 System environment setup complete!"
 
 
 #-------------------------------------------------------------------------------
 #--                      macOS System Configuration
+#-------------------------------------------------------------------------------
+# NOTE: Most system settings have been migrated to nix-darwin (system-settings.nix)
+# Settings managed by nix-darwin:
+#   - Dock (autohide, autohide-delay, show-recents)
+#   - Finder (AppleShowAllFiles, CreateDesktop)
+#   - NSGlobalDomain (_HIHideMenuBar, NSAutomaticWindowAnimationsEnabled, NSWindowShouldDragOnGesture)
+#   - Keyboard (InitialKeyRepeat, KeyRepeat)
+#
+# Settings that MUST remain here (no nix-darwin support):
+#   - Login items (no nix-darwin support - use osascript)
+#   - Displays have separate spaces (com.apple.spaces "spans-displays")
+#   - Reduce motion (com.apple.universalaccess reduceMotion)
 #-------------------------------------------------------------------------------
 
 echo "Configuring macOS system preferences..."
@@ -73,61 +83,29 @@ osascript -e 'tell application "System Settings" to quit' 2>/dev/null
 echo "Creating ~/Developer directory..."
 mkdir -p "$HOME/Developer"
 
-# Auto-hide Dock and menu bar
-echo "Setting up Dock & MenuBar to auto-hide..."
-defaults write com.apple.dock autohide -bool true
-defaults write NSGlobalDomain _HIHideMenuBar -bool true
-
-# Make Dock appear only after 10-second hover (you can adjust this value)
-echo "Setting Dock auto-hide delay..."
-defaults write com.apple.dock autohide-delay -float 10.0
-
-# Disable Dock app bouncing
-echo "Disabling Dock app bouncing..."
-defaults write com.apple.dock no-bouncing -bool true
-
-# Apply Dock changes
-killall Dock
-
-# Disable window animations
-echo "Disabling window animations..."
-defaults write -g NSAutomaticWindowAnimationsEnabled -bool false
-
-# Move windows by dragging any part of the window (by holding ctrl+cmd)
-echo "Enabling window dragging from anywhere with Ctrl+Cmd..."
-defaults write -g NSWindowShouldDragOnGesture -bool true
-
-# Faster keyboard repeats
-echo "Setting faster keyboard repeat rates..."
-defaults write -g InitialKeyRepeat -int 15
-defaults write -g KeyRepeat -int 1
-
-echo "Configuring Finder settings..."
-# Show hidden files in Finder
-defaults write com.apple.finder AppleShowAllFiles YES
-# Hide Desktop items on desktop
-defaults write com.apple.finder CreateDesktop -bool false
-killall Finder
-
-# Displays have seperate spaces (for Sketchybar)
+# Displays have separate spaces (for Sketchybar)
+# NOTE: Cannot be managed by nix-darwin - must use defaults command
+echo "Configuring display spaces..."
 defaults write com.apple.spaces "spans-displays" -bool false && killall SystemUIServer
 
-# Reduce motion (enable):
+# Reduce motion (enable)
+# NOTE: Cannot be managed by nix-darwin - must use defaults command
+echo "Enabling reduce motion..."
 defaults write com.apple.universalaccess reduceMotion -bool true
 
 echo "Set 'Open at login' applications"
 # List of applications to add to login items
+# NOTE: Only apps that exist in /Applications (Homebrew casks or manually installed)
 loginItems=(
   "BetterDisplay"
   "Bitwarden"
-  "Flameshot"
+  "flameshot"      # Note: lowercase 'f'
   "Ghostty"
-  "Google Calendar"
-  "Mail"
   "Raycast"
   "Whimsical"
   "Zen"
 )
+# Removed: kindavim (deprecated), Google Calendar (web app), Mail (system app)
 
 for app in "${loginItems[@]}"; do
   if [ -d "/Applications/$app.app" ]; then
@@ -135,6 +113,21 @@ for app in "${loginItems[@]}"; do
     echo "✅  $app added to login items"
   else
     echo "❌  $app not found in /Applications"
+  fi
+done
+
+# System apps (in /System/Applications) - add separately
+systemLoginItems=(
+  "/System/Applications/Mail.app"
+)
+
+for appPath in "${systemLoginItems[@]}"; do
+  if [ -d "$appPath" ]; then
+    appName=$(basename "$appPath" .app)
+    osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$appName\", path: \"$appPath\", hidden:true}"
+    echo "✅  $appName (system app) added to login items"
+  else
+    echo "❌  $appPath not found"
   fi
 done
 

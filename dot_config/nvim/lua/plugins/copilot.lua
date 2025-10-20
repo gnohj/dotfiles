@@ -2,23 +2,9 @@ return {
   "zbirenbaum/copilot.lua",
   event = "InsertEnter",
   opts = function()
-    -- Find mise-managed Node.js dynamically
-    local mise_node = vim.fn.expand("$HOME/.local/share/mise/installs/node")
+    -- Node.js is managed by mise (language runtime)
+    -- mise shims are in PATH, so just use "node"
     local node_cmd = "node"
-
-    -- Try to find the latest mise-managed Node.js
-    if vim.fn.isdirectory(mise_node) == 1 then
-      local versions = vim.fn.globpath(mise_node, "*", false, true)
-      if #versions > 0 then
-        -- Sort versions and get the latest (last one)
-        table.sort(versions)
-        local latest = versions[#versions]
-        local node_bin = latest .. "/bin/node"
-        if vim.fn.executable(node_bin) == 1 then
-          node_cmd = node_bin
-        end
-      end
-    end
 
     return {
       suggestion = {

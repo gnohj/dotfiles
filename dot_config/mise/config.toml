@@ -1,37 +1,24 @@
-# mise global configuration
+# mise configuration - Language runtimes ONLY
 # https://mise.jdx.dev/configuration.html
+#
+# Migration Strategy (see ~/.local/share/chezmoi/dot_nix/README.md):
+# - Nix (common/packages.nix): System packages & ALL CLI tools
+# - Mise (this file): Language runtimes ONLY
+# - Homebrew (nix-darwin): macOS-specific apps & system services
+#
+# CLI tools migrated to Nix:
+#   bat, eza, fd, fzf, ripgrep, delta, zoxide, gh, lazygit, lazydocker,
+#   jq, tmux, starship, atuin, awscli2, saml2aws, direnv, duf, fastfetch,
+#   xh, stylua, neovim, chezmoi
 
 [tools]
-# Core tools
-chezmoi = 'latest'
-
-# Development tools
-neovim = '0.11.4'
+# Language runtimes (version managers)
 node = { version = 'lts', postinstall = 'corepack enable' }
 lua = '5.4'
-stylua = 'latest'
-
-# CLI utilities
-atuin = 'latest'
-awscli = 'latest'
-bat = 'latest'
-delta = 'latest'
-direnv = 'latest'
-duf = 'latest'
-eza = 'latest'
-fastfetch = 'latest'
-fd = 'latest'
-fzf = 'latest'
-gh = 'latest'
-jq = 'latest'
-lazydocker = 'latest'
-lazygit = 'latest'
-ripgrep = 'latest'
-saml2aws = 'latest'
-starship = 'latest'
-tmux = 'latest'
-xh = 'latest'
-zoxide = 'latest'
+python = 'latest'      # Python runtime
+go = 'latest'          # Go runtime
+rust = 'latest'        # Rust runtime
+bun = 'latest'         # Bun runtime
 
 [settings]
 auto_install = true
