@@ -55,8 +55,9 @@ quick-terminal-animation-duration = 0.08
 quick-terminal-size = 25%
 quick-terminal-position = top
 
-# tmux - auto login
-# command = zsh --login -c "if command -v tmux >/dev/null 2>&1; then tmux attach || tmux; else zsh; fi"
+# Ensure zsh runs as login shell to source Nix profile
+# This is especially important when Ghostty starts at login
+command = /bin/zsh --login
 
 # window
 gtk-titlebar = false
