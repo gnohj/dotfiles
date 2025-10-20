@@ -2,6 +2,9 @@
 
 My personal dotfiles for macOS (Apple Silicon), managed with Chezmoi.
 
+<img width="2535" height="1426" alt="ghostty-current" src="https://github.com/user-attachments/assets/2f28e408-a3bc-47bd-99b2-e45e53559dd5" />
+
+
 This setup prioritizes:
 
 - **Reproducibility**: Bootstrap a new Mac with two commands
