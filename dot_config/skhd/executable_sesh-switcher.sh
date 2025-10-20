@@ -5,11 +5,10 @@ exec 2>/tmp/sesh-switcher-debug.log
 set -x
 date >> /tmp/sesh-switcher-called.log
 
-# Ensure Homebrew is in PATH (for sesh and other brew-only tools)
+# Ensure Homebrew is in PATH (for sesh)
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Ensure mise is activated and tools are in PATH
-eval "$(~/.local/bin/mise activate bash)"
+# Nix packages (fzf, fd, tmux) are in PATH via nix-daemon.sh
 
 export TERM="xterm-256color"
 
@@ -23,7 +22,6 @@ echo "About to run tmux command" >> /tmp/sesh-switcher-called.log
 # Use tmux display-popup directly instead of run-shell (with no outer border)
 tmux display-popup -E -w 28% -h 40% -b none "
   export PATH=\"/opt/homebrew/bin:\$PATH\"
-  eval \"\$(~/.local/bin/mise activate bash)\"
 
   SELECTED=\$(sesh list --icons | fzf --no-border \
     --ansi \

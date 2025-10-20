@@ -1,5 +1,8 @@
 README.md
-setup.sh
+system-setup.sh
+system-utils.sh
+user-setup.sh
+BOOTSTRAP.md
 
 # Only apply to macOS
 {{- if ne .chezmoi.os "darwin" }}

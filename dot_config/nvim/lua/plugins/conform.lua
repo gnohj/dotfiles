@@ -8,6 +8,7 @@ return {
         ["javascriptreact"] = { "prettierd" },
         ["typescript"] = { "prettierd" },
         ["typescriptreact"] = { "prettierd" },
+        ["nix"] = { "nixfmt" },
         ["vue"] = { "prettierd" },
         ["css"] = { "prettierd" },
         ["scss"] = { "prettierd" },
