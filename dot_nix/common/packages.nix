@@ -45,6 +45,9 @@
 
     # Formatters
     stylua     # Lua formatter
+
+    # Image processing for terminal
+    imagemagick
   ];
 
   # Note: Migration strategy (see ~/.config/nix-darwin-migration-plan.md)
