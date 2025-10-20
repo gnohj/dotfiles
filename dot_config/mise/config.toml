@@ -13,6 +13,7 @@
 
 [tools]
 # Language runtimes (version managers)
+# Note: Node 22 is also installed for Neovim Copilot (see ~/.config/nvim/lua/plugins/copilot.lua)
 node = { version = 'lts', postinstall = 'corepack enable' }
 lua = '5.4'
 python = 'latest'      # Python runtime

@@ -3,8 +3,9 @@ return {
   event = "InsertEnter",
   opts = function()
     -- Node.js is managed by mise (language runtime)
-    -- mise shims are in PATH, so just use "node"
-    local node_cmd = "node"
+    -- Use global node (not project-local) for Copilot since it requires Node 22+
+    -- Project may use older versions via .mise.toml
+    local node_cmd = vim.fn.expand("~/.local/share/mise/installs/node/22/bin/node")
 
     return {
       suggestion = {
