@@ -1,0 +1,21 @@
+// markdownlint-cli2 configuration for dotfiles repo
+{
+  "config": {
+    "MD004": false,  // Unordered list style
+    "MD007": false,  // Unordered list indentation
+    "MD010": {
+      "code_blocks": false  // Allow tabs in code blocks
+    },
+    "MD012": {
+      "maximum": 2  // Allow up to 2 consecutive blank lines
+    },
+    "MD013": false,  // Disable line length limit
+    "MD025": false,  // Multiple top-level headings
+    "MD030": false,  // Spaces after list markers
+    "MD031": false,  // Fenced code blocks surrounded by blank lines
+    "MD033": false   // Allow inline HTML
+  },
+  "globs": [
+    "**/*.md"
+  ]
+}
