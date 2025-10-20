@@ -2,11 +2,24 @@ README.md
 system-setup.sh
 system-utils.sh
 user-setup.sh
-BOOTSTRAP.md
 
-# Only apply to macOS
+# macOS-specific files (skip on Linux/NixOS)
 {{- if ne .chezmoi.os "darwin" }}
-private_Library/LaunchAgents/
-dot_config/private_spicetify/
-dot_config/vimium-c
+# macOS system scripts
+run_onchange_before_mac_system.sh.tmpl
+
+# macOS LaunchAgents/Daemons
+private_Library/
+
+# macOS window management & system utilities
+dot_config/aerospace/
+dot_config/borders/
+dot_config/skhd/
+dot_config/sketchybar/
+
+# macOS-specific apps
+dot_config/marta/
+
+# Nix-Darwin configuration
+dot_nix/nix-darwin/
 {{- end }}
