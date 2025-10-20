@@ -1,9 +1,8 @@
 # Dotfiles
 
-My personal dotfiles for macOS (Apple Silicon), managed with Chezmoi.
+My personal dotfiles for macOS, managed with Chezmoi.
 
-<img width="2535" height="1426" alt="ghostty-current" src="https://github.com/user-attachments/assets/2f28e408-a3bc-47bd-99b2-e45e53559dd5" />
-
+<img width="2553" height="1435" alt="ghostty-currents" src="https://github.com/user-attachments/assets/8fd11a49-0cf2-4576-b688-b56bc428581c" />
 
 This setup prioritizes:
 
@@ -19,17 +18,18 @@ This setup prioritizes:
 ## Key Tools & Configurations
 
 - **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin)
+- **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
 - **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace)
   (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
   bar)
+- File Manager: [Marta](https://marta.sh/)
 - **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (with custom
   shaders)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient),
   [Atuin](https://github.com/atuinsh/atuin) (shell history)
-- **Editor**: [Neovim](https://neovim.io/) (LazyVim-based, heavily customized)
+- **Editor**: [Neovim](https://neovim.io/) (LazyVim)
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with
   [Sesh](https://github.com/joshmedeski/sesh) session management
 - **Version Control**: Git with [Delta](https://github.com/dandavison/delta)
