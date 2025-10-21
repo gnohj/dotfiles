@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# Test trigger - v1
 
 echo "
-🔧 Run OnChange [Before] Package Install Starting..."
+🔧 Run OnChange [Before] Package Target Deployment......"
 
 echo "--- CHEZMOI DEBUG ---"
 echo "Username:     {{ .chezmoi.username }}"
@@ -12,29 +13,11 @@ echo "OS Detected:   {{ .chezmoi.os }}"
 echo "Arch Detected: {{ .chezmoi.arch }}"
 echo "-------------------------"
 
-{{- if not .newMachine }}
-echo "🚧 Skipping package installation (newMachine=false)
-"
-exit 0
-{{- end }}
-
 {{- if ne .chezmoi.os "darwin" }}
 echo "🚧 Skipping package installation (not macOS)
 "
 exit 0
 {{- end }}
-
-#-------------------------------------------------------------------------------
-#--                      Zinit
-#-------------------------------------------------------------------------------
-ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-if [ ! -d "$ZINIT_HOME" ]; then
-  echo "Installing Zinit..."
-  mkdir -p "$(dirname "$ZINIT_HOME")"
-  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-else
-  echo "Zinit is already installed."
-fi
 
 #-------------------------------------------------------------------------------
 #--                      WezTerm Terminfo for xterm-kitty (preview images)
@@ -53,25 +36,15 @@ if ! infocmp xterm-kitty &>/dev/null; then
 fi
 
 echo "📋 Boot Summary:"
-echo "✅ Zinit: Installed"
 echo "✅ xterm-kitty terminfo: Available"
 echo "🎉 System environment setup complete!"
-
 
 #-------------------------------------------------------------------------------
 #--                      macOS System Configuration
 #-------------------------------------------------------------------------------
-# NOTE: Most system settings have been migrated to nix-darwin (system-settings.nix)
-# Settings managed by nix-darwin:
-#   - Dock (autohide, autohide-delay, show-recents)
-#   - Finder (AppleShowAllFiles, CreateDesktop)
-#   - NSGlobalDomain (_HIHideMenuBar, NSAutomaticWindowAnimationsEnabled, NSWindowShouldDragOnGesture)
-#   - Keyboard (InitialKeyRepeat, KeyRepeat)
-#
 # Settings that MUST remain here (no nix-darwin support):
-#   - Login items (no nix-darwin support - use osascript)
-#   - Displays have separate spaces (com.apple.spaces "spans-displays")
-#   - Reduce motion (com.apple.universalaccess reduceMotion)
+#   - Login items (no nix-darwin support - must use osascript)
+#     Note: launchd.user.agents only adds to "Allow in Background", not "Login Items"
 #-------------------------------------------------------------------------------
 
 echo "Configuring macOS system preferences..."
@@ -83,51 +56,28 @@ osascript -e 'tell application "System Settings" to quit' 2>/dev/null
 echo "Creating ~/Developer directory..."
 mkdir -p "$HOME/Developer"
 
-# Displays have separate spaces (for Sketchybar)
-# NOTE: Cannot be managed by nix-darwin - must use defaults command
-echo "Configuring display spaces..."
-defaults write com.apple.spaces "spans-displays" -bool false && killall SystemUIServer
-
-# Reduce motion (enable)
-# NOTE: Cannot be managed by nix-darwin - must use defaults command
-echo "Enabling reduce motion..."
-defaults write com.apple.universalaccess reduceMotion -bool true
-
-echo "Set 'Open at login' applications"
+echo "Configuring login items"
 # List of applications to add to login items
-# NOTE: Only apps that exist in /Applications (Homebrew casks or manually installed)
+# NOTE: Only apps that exist in /Applications (GUI apps only, not LaunchAgents)
 loginItems=(
+  "AeroSpace"
   "BetterDisplay"
-  "Bitwarden"
-  "flameshot"      # Note: lowercase 'f'
-  "Ghostty"
+  "Flameshot"
+  "Homerow"
+  "Mouseless"
   "Raycast"
-  "Whimsical"
-  "Zen"
 )
-# Removed: kindavim (deprecated), Google Calendar (web app), Mail (system app)
 
 for app in "${loginItems[@]}"; do
   if [ -d "/Applications/$app.app" ]; then
-    osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$app\", path: \"/Applications/$app.app\", hidden:true}"
-    echo "✅  $app added to login items"
+    if osascript -e "tell application \"System Events\" to get the name of every login item" | grep -q "$app"; then
+      echo "⏭️  $app already in login items"
+    else
+      osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$app\", path: \"/Applications/$app.app\", hidden:true}" 2>/dev/null
+      echo "✅  $app added to login items"
+    fi
   else
     echo "❌  $app not found in /Applications"
-  fi
-done
-
-# System apps (in /System/Applications) - add separately
-systemLoginItems=(
-  "/System/Applications/Mail.app"
-)
-
-for appPath in "${systemLoginItems[@]}"; do
-  if [ -d "$appPath" ]; then
-    appName=$(basename "$appPath" .app)
-    osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$appName\", path: \"$appPath\", hidden:true}"
-    echo "✅  $appName (system app) added to login items"
-  else
-    echo "❌  $appPath not found"
   fi
 done
 
@@ -144,210 +94,25 @@ echo "  - Applications to add to App Management permissions: Raycast"
 echo "  - Applications to add to Full Disk Access permissions: Ghostty"
 
 #-------------------------------------------------------------------------------
-#--                      Marta File Manager Configuration
+#--                      Gatekeeper Bypass for Specific Apps
 #-------------------------------------------------------------------------------
-echo "Setting up Marta file manager configuration..."
+# Some apps (like flameshot) are not properly signed/notarized for macOS
+# Remove quarantine attribute to bypass Gatekeeper warnings
 
-MARTA_CONFIG_DIR="$HOME/Library/Application Support/org.yanex.marta"
-MARTA_CONFIG_FILE="$MARTA_CONFIG_DIR/conf.marco"
-DOTFILES_MARTA_CONFIG="$HOME/.config/marta/conf.marco"
+echo "Applying Gatekeeper bypass for unsigned apps..."
 
-mkdir -p "$MARTA_CONFIG_DIR"
-ln -s "$DOTFILES_MARTA_CONFIG" "$MARTA_CONFIG_FILE"
-
-#-------------------------------------------------------------------------------
-#--                      Spicetify Theme
-#-------------------------------------------------------------------------------
-if ! command -v spicetify &>/dev/null; then
-  echo "❌  spicetify not found"
+# Flameshot - Screenshot tool (deprecated in Homebrew due to Gatekeeper issues)
+if [ -d "/Applications/flameshot.app" ]; then
+  sudo xattr -r -d com.apple.quarantine /Applications/flameshot.app 2>/dev/null || true
+  echo "✅ Flameshot Gatekeeper bypass applied"
 else
-  echo "Installing spicetify themes..."
-
-  # Clone themes repository
-  if [ ! -d "/tmp/spicetify-themes" ]; then
-    git clone --depth=1 https://github.com/spicetify/spicetify-themes.git /tmp/spicetify-themes
-  fi
-
-  # Create themes directory and copy themes
-  mkdir -p ~/.config/spicetify/Themes
-  cp -r /tmp/spicetify-themes/* ~/.config/spicetify/Themes/
-
-  # Clean up temporary directory
-  rm -rf /tmp/spicetify-themes
-
-  # Configure theme
-  spicetify config current_theme Dribbblish
-  spicetify config color_scheme gruvbox-material-dark
-  spicetify backup apply
-
-  echo "✅  Spicetify theme configured: Dribbblish (gruvbox-material-dark)"
-
-#-------------------------------------------------------------------------------
-#--                      GitHub Auto Push Service / Sketchybar Notification
-#-------------------------------------------------------------------------------
-GITHUB_AUTO_PUSH_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.auto.push.github.plist"
-GITHUB_AUTO_PUSH_SCRIPT_PATH="$HOME/.config/zshrc/github-auto-push.sh"
-echo "Setting up GitHub Auto Push launch agent..."
-
-cat <<EOF >"$GITHUB_AUTO_PUSH_PLIST_PATH"
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.gnohj.auto.push.github</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${GITHUB_AUTO_PUSH_SCRIPT_PATH}</string>
-    </array>
-    <key>StartInterval</key>
-    <integer>180</integer>
-    <key>StandardOutPath</key>
-    <string>/tmp/github-auto-push.out</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/github-auto-push.err</string>
-</dict>
-</plist>
-EOF
-
-# Reload the service to apply changes
-launchctl unload "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null
-if launchctl load "$GITHUB_AUTO_PUSH_PLIST_PATH" 2>/dev/null; then
-  echo "GitHub Auto Push service loaded/reloaded successfully."
-else
-  echo "Failed to load GitHub Auto Push service."
-fi
-
-#-------------------------------------------------------------------------------
-#--                      SKHD (Hotkey Daemon) Configuration -> Aerospace
-#-------------------------------------------------------------------------------
-SKHD_PLIST_PATH="$HOME/Library/LaunchAgents/com.gnohj.skhd.plist"
-SKHD_BREW_PATH="/opt/homebrew/bin/skhd"
-
-# First, check if the skhd command actually exists
-if [[ -f "$SKHD_BREW_PATH" ]]; then
-  if [ ! -f "$SKHD_PLIST_PATH" ] || ! grep -q "<string>${SKHD_BREW_PATH}</string>" "$SKHD_PLIST_PATH"; then
-    echo "skhd launch agent is missing or outdated. Creating/Updating..."
-    cat >"$SKHD_PLIST_PATH" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.user.skhd</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${SKHD_BREW_PATH}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>ProcessType</key>
-    <string>Interactive</string>
-    <key>Nice</key>
-    <integer>-5</integer>
-</dict>
-</plist>
-EOF
-    # Reload the service to apply any changes
-    launchctl unload "$SKHD_PLIST_PATH" 2>/dev/null
-    if launchctl load "$SKHD_PLIST_PATH" 2>/dev/null; then
-      echo "skhd launch agent loaded/reloaded successfully."
-    else
-      echo "Failed to load skhd launch agent."
-    fi
-  else
-    # If the file exists and the path is correct, do nothing.
-    echo "skhd launch agent is already up-to-date."
-  fi
-else
-  echo "Warning: skhd not found at ${SKHD_BREW_PATH}. Please install it."
-fi
-
-#-------------------------------------------------------------------------------
-#--                           Kanata Daemon Setup
-#-------------------------------------------------------------------------------
-
-echo "🎹 Configuring Kanata keyboard daemon..."
-
-KANATA_BREW_PATH="/opt/homebrew/bin/kanata"
-KANATA_DAEMON_PLIST_PATH="/Library/LaunchDaemons/com.kanata.daemon.plist"
-KANATA_CONFIG_PATH="$HOME/.config/kanata/macos.kbd"
-
-if [ -f "$KANATA_BREW_PATH" ]; then
-  # Create the expected plist content
-  EXPECTED_KANATA_PLIST=$(cat <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.kanata.daemon</string>
-
-    <key>ProgramArguments</key>
-    <array>
-        <string>${KANATA_BREW_PATH}</string>
-        <string>-c</string>
-        <string>${KANATA_CONFIG_PATH}</string>
-    </array>
-
-    <key>RunAtLoad</key>
-    <true/>
-
-    <key>KeepAlive</key>
-    <dict>
-        <key>Crashed</key>
-        <true/>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-
-    <key>StandardOutPath</key>
-    <string>/var/log/kanata.out.log</string>
-
-    <key>StandardErrorPath</key>
-    <string>/var/log/kanata.err.log</string>
-
-    <key>UserName</key>
-    <string>root</string>
-</dict>
-</plist>
-EOF
-)
-
-  # Check if the plist needs to be created or updated
-  if [ ! -f "$KANATA_DAEMON_PLIST_PATH" ] || [ "$(sudo cat "$KANATA_DAEMON_PLIST_PATH" 2>/dev/null)" != "$EXPECTED_KANATA_PLIST" ]; then
-    echo "Installing/updating Kanata daemon..."
-
-    # Stop existing service if running
-    sudo launchctl bootout system/com.kanata.daemon 2>/dev/null
-
-    # Write the plist to system location
-    echo "$EXPECTED_KANATA_PLIST" | sudo tee "$KANATA_DAEMON_PLIST_PATH" > /dev/null
-    sudo chown root:wheel "$KANATA_DAEMON_PLIST_PATH"
-    sudo chmod 644 "$KANATA_DAEMON_PLIST_PATH"
-
-    # Load the service
-    if sudo launchctl bootstrap system "$KANATA_DAEMON_PLIST_PATH" 2>/dev/null; then
-      echo "Kanata daemon loaded successfully."
-    else
-      echo "Note: Kanata daemon may already be loaded or requires a restart."
-    fi
-  else
-    echo "Kanata daemon is already up-to-date."
-  fi
-else
-  echo "Warning: Kanata not found at ${KANATA_BREW_PATH}. Please install it with: brew install kanata"
+  echo "⏭️  Flameshot not installed, skipping Gatekeeper bypass"
 fi
 
 echo "📋 System Summary:"
-echo "✅ Services Configured:"
-echo "  • GitHub Auto Push service: $([ -f "$GITHUB_AUTO_PUSH_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Failed")"
-echo "  • SKHD hotkey daemon: $([ -f "$SKHD_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
-echo "  • Kanata keyboard daemon: $([ -f "$KANATA_DAEMON_PLIST_PATH" ] && echo "✅ Active" || echo "❌ Not configured")"
-echo "  • Marta config symlink: $([ -L "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && [ -e "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && echo "✅ Active" || echo "❌ Failed")"
-echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
+echo "✅ Configured in this script:"
+echo "  • Login items: $(osascript -e 'tell application "System Events" to count login items' 2>/dev/null || echo '0') apps configured"
+echo "  • Gatekeeper bypass: Applied for unsigned apps"
 echo ""
 echo "📝 Manual Steps Remaining:"
 echo "  • TCC Permissions (Accessibility, Automation, etc.)"

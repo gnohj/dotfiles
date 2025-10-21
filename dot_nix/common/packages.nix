@@ -9,7 +9,7 @@
     # Core development tools
     neovim
     chezmoi
-    mise       # Language runtime manager
+    mise
 
     # CLI utilities (from mise migration)
     bat        # Better cat
@@ -38,7 +38,6 @@
     saml2aws   # AWS SAML auth
 
     # System utilities
-    direnv     # Directory-based env vars
     duf        # Better df
     fastfetch  # System info
     xh         # Better httpie

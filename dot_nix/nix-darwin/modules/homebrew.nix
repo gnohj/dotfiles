@@ -28,10 +28,13 @@
     # CLI packages (formulae)
     brews = [
       # System services & window management
-      "FelixKratz/formulae/borders"  # JankBorders (window borders)
+      "FelixKratz/formulae/borders"
       "FelixKratz/formulae/sketchybar"
       "kanata"
       "koekeishiya/formulae/skhd"
+
+      # Shell & plugin managers
+      "zinit"
 
       # Terminal & tmux utilities
       "gitmux"
@@ -54,7 +57,7 @@
       "tree-sitter-cli"
       "xcodegen"
 
-      # Additional tools from uninstall log
+      # Additional tools
       "btop"
       "caddy"
       "tlrc"
@@ -78,7 +81,6 @@
       "microsoft-teams"
       "slack"
       "zoom"
-      "vesktop"  # From uninstall log
 
       # Development
       "docker-desktop"  # Renamed from "docker"

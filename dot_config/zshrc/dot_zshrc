@@ -65,17 +65,7 @@ fi
 #--                           Zinit
 #-------------------------------------------------------------------------------
 
-# Set the directory we want to store zinit and plugins
-ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-
-# Download Zinit (optimized lady loading plugin manager), if it's not there yet
-if [ ! -d "$ZINIT_HOME" ]; then
-   mkdir -p "$(dirname $ZINIT_HOME)"
-   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-fi
-
-# Source/Load zinit
-source "${ZINIT_HOME}/zinit.zsh"
+source /opt/homebrew/opt/zinit/zinit.zsh
 
 #-------------------------------------------------------------------------------
 #--                 Zinit - Prompt (Starship)
@@ -568,7 +558,6 @@ fi
 #-------------------------------------------------------------------------------
 
 eval $(thefuck --alias fk)
-eval "$(direnv hook $SHELL)"
 # eval "$(fastly --completion-script-zsh)"  # fastly CLI not installed
 eval "$(fzf --zsh)"
 eval "$(saml2aws --completion-script-zsh)"
