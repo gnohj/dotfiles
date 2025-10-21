@@ -332,6 +332,26 @@ _fzf_zoxide_search() {
 }
 alias fzz='_fzf_zoxide_search'
 
+# Browse environment variables and copy to clipboard
+_fzf_env_vars() {
+    local selection
+    # Get all env vars, format as "NAME=value", select with fzf, copy value to clipboard
+    selection=$(env | sort | fzf \
+        --border-label="🔧 Environment Variables" \
+        --height=70% \
+        --border=rounded \
+        --preview='echo {} | cut -d= -f2-' \
+        --preview-window=up:3:wrap)
+
+    if [[ -n "$selection" ]]; then
+        # Extract just the value (everything after first =)
+        local value="${selection#*=}"
+        echo -n "$value" | pbcopy
+        echo "✅ Copied to clipboard: ${selection%%=*}"
+    fi
+}
+alias fze='_fzf_env_vars'
+
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
