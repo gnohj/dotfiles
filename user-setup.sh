@@ -55,22 +55,32 @@ if [ "$OS" = "Darwin" ]; then
   fi
 fi
 
-# --- PHASE 2: SSH KEY SETUP FROM BITWARDEN ---
-print_info "› Phase 2: Setting up SSH keys..."
+# --- PHASE 2: SSH KEY AND SECRETS SETUP FROM BITWARDEN ---
+print_info "› Phase 2: Setting up SSH keys and secrets from Bitwarden..."
 
-if [ -f "$HOME/.ssh/id_ed25519" ]; then
-  print_success "SSH key already exists. Skipping Bitwarden setup."
-else
+# Check if we need to unlock Bitwarden
+NEED_BITWARDEN_UNLOCK=false
+if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
+  NEED_BITWARDEN_UNLOCK=true
+fi
+
+if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
   if [ -z "$BW_EMAIL" ] || [ -z "$GIT_USERNAME" ]; then
-    print_warning "Skipping SSH key setup (no Bitwarden credentials provided)"
-    print_info "To set up SSH keys from Bitwarden, run:"
+    print_warning "Skipping Bitwarden setup (no credentials provided)"
+    print_info "To set up SSH keys and secrets from Bitwarden, run:"
     print_info "  ./user-setup.sh your_email@example.com your_github_username"
+    print_info ""
+    print_info "Without Bitwarden, environment secrets will be loaded from:"
+    print_info "  ~/.zsh_gnohj_env.local (create this file manually)"
   else
     if ! command -v rbw &>/dev/null; then
-      print_warning "rbw not available. Cannot fetch SSH key from Bitwarden."
+      print_warning "rbw not available. Cannot fetch secrets from Bitwarden."
       print_info "Install rbw via nix-darwin and try again."
+      print_info ""
+      print_info "Without Bitwarden, environment secrets will be loaded from:"
+      print_info "  ~/.zsh_gnohj_env.local (create this file manually)"
     else
-      print_info "Setting up SSH key from Bitwarden..."
+      print_info "Setting up Bitwarden access for SSH keys and environment secrets..."
 
       mkdir -p "$HOME/.config/rbw"
       if [ ! -f "$HOME/.config/rbw/config.ini" ]; then
@@ -81,14 +91,24 @@ else
       fi
 
       print_info "Please enter your Bitwarden master password to unlock the vault."
+      print_info "This will be used for:"
+      print_info "  • SSH private key (for git operations)"
+      print_info "  • Environment variable secrets (API keys, tokens)"
+      echo ""
+
       if ! eval "$(rbw unlock)"; then
-        print_error "Failed to unlock Bitwarden (incorrect password?). Continuing without SSH setup."
+        print_error "Failed to unlock Bitwarden (incorrect password?). Continuing without Bitwarden setup."
+        print_info ""
+        print_info "You can manually create ~/.zsh_gnohj_env.local with your secrets"
       else
         print_success "Vault unlocked successfully."
+        print_info "The vault will remain unlocked for this session."
+        print_info "Environment secrets will be auto-loaded from Bitwarden when you start new shells."
+        echo ""
 
         print_info "Syncing vault..."
         if ! rbw sync; then
-          print_error "Failed to sync Bitwarden vault. Continuing without SSH setup."
+          print_error "Failed to sync Bitwarden vault. Continuing without Bitwarden setup."
         else
           print_success "Vault synced successfully."
           print_info "Fetching SSH key..."
@@ -108,10 +128,20 @@ else
             print_info "Added github.com to known_hosts"
           fi
           print_success "SSH key configured successfully."
+          echo ""
+          print_success "Bitwarden is ready for environment secrets!"
+          print_info "Your shell will automatically load secrets from Bitwarden when unlocked."
         fi
       fi
     fi
   fi
+else
+  print_success "SSH key already exists. Bitwarden unlock not required."
+  print_info "If you need to load environment secrets from Bitwarden:"
+  print_info "  1. Run: eval \"\$(rbw unlock)\""
+  print_info "  2. Start a new shell to load secrets from Bitwarden"
+  print_info ""
+  print_info "Or create ~/.zsh_gnohj_env.local with your secrets manually"
 fi
 
 # --- PHASE 3: SWITCH TO ZSH ---
