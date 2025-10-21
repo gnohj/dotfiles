@@ -268,7 +268,12 @@ alias cz='chezmoi'
 alias czd='chezmoi diff'
 
 # Select a file with nvim in curr dir
-alias fzn='nvim $(fzf -m --border-label="📂 Current Directory" --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default --border=rounded)'
+_fzf_nvim_current() {
+    local file
+    file=$(fzf -m --border-label="📂 Current Directory" --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default --border=rounded)
+    [[ -n "$file" ]] && nvim $file
+}
+alias fzn='_fzf_nvim_current'
 
 # Nvim oldfiles with fzf - open recent files from Neovim history
 _fzf_nvim_oldfiles() {
