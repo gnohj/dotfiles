@@ -1,0 +1,99 @@
+#!/usr/bin/env zsh
+# Environment variables for gnohj's shell configuration
+# This file is managed by chezmoi - DO NOT EDIT DIRECTLY
+# Template: ~/.local/share/chezmoi/dot_zsh_gnohj_env.tmpl
+#
+# For secrets and machine-specific overrides, create:
+#   ~/.zsh_gnohj_env.local (gitignored, sourced at end of this file)
+
+#-------------------------------------------------------------------------------
+# User & Git Configuration
+#-------------------------------------------------------------------------------
+export GIT_AUTHOR_NAME="{{ .github_user_name }}"
+export GIT_AUTHOR_EMAIL="{{ .github_user_email }}"
+export GIT_COMMITTER_NAME="{{ .github_user_name }}"
+export GIT_COMMITTER_EMAIL="{{ .github_user_email }}"
+export USER_NAME="{{ .github_user_name }}"
+export USER_EMAIL="{{ .github_user_email }}"
+
+#-------------------------------------------------------------------------------
+# Platform-Specific Paths
+#-------------------------------------------------------------------------------
+{{- if eq .chezmoi.os "darwin" }}
+export HOMEBREW_PREFIX="/opt/homebrew"
+export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
+export HOMEBREW_REPOSITORY="/opt/homebrew"
+{{- else if eq .chezmoi.os "linux" }}
+export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar"
+export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
+{{- end }}
+
+#-------------------------------------------------------------------------------
+# XDG Base Directory Specification
+#-------------------------------------------------------------------------------
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_STATE_HOME="$HOME/.local/state"
+
+#-------------------------------------------------------------------------------
+# Editor & Pager
+#-------------------------------------------------------------------------------
+export EDITOR="nvim"
+export VISUAL="nvim"
+export PAGER="less"
+export LESS="-R"
+
+#-------------------------------------------------------------------------------
+# Tool-Specific Paths
+#-------------------------------------------------------------------------------
+export PNPM_HOME="$HOME/Library/pnpm"
+
+#-------------------------------------------------------------------------------
+# Environment URLs (Non-Sensitive)
+#-------------------------------------------------------------------------------
+export DEV="https://dev-radioedit.ihrint.com"
+export STAGE="https://radioedit.ihrint.com"
+export PROD="https://radioedit.iheart.com"
+
+#-------------------------------------------------------------------------------
+# Platform Info (useful for conditional logic in scripts)
+#-------------------------------------------------------------------------------
+export CHEZMOI_OS="{{ .chezmoi.os }}"
+export CHEZMOI_ARCH="{{ .chezmoi.arch }}"
+
+#-------------------------------------------------------------------------------
+# Secrets from Bitwarden (using rbw)
+#-------------------------------------------------------------------------------
+# Load secrets from bitwarden if rbw is available and unlocked
+if command -v rbw &> /dev/null; then
+  # Only attempt to fetch if vault is unlocked (check by trying to list)
+  if rbw list &> /dev/null; then
+    # API Keys and Tokens
+    export OPENAI_API_KEY="$(rbw get 'OPENAI_API_KEY' 2>/dev/null || echo '')"
+    export ANTHROPIC_API_KEY="$(rbw get 'ANTHROPIC_API_KEY' 2>/dev/null || echo '')"
+    export TRANSIFEX_API_TOKEN="$(rbw get 'TRANSIFEX_API_TOKEN' 2>/dev/null || echo '')"
+    export NPM_TOKEN="$(rbw get 'NPM_TOKEN' 2>/dev/null || echo '')"
+    export INFERNO_GPR_TOKEN="$(rbw get 'INFERNO_GPR_TOKEN' 2>/dev/null || echo '')"
+    export GPR_AUTH_TOKEN="$(rbw get 'GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
+    export OLD_GPR_AUTH_TOKEN="$(rbw get 'OLD_GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
+    export ADMIN_OLD_GPR_AUTH_TOKEN="$(rbw get 'ADMIN_OLD_GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
+    export FASTLY_API_TOKEN="$(rbw get 'FASTLY_API_TOKEN' 2>/dev/null || echo '')"
+    export INFERNO_FASTLY_API_TOKEN="$(rbw get 'INFERNO_FASTLY_API_TOKEN' 2>/dev/null || echo '')"
+    export CLOUDFLARE_ACCOUNT_ID="$(rbw get 'CLOUDFLARE_ACCOUNT_ID' 2>/dev/null || echo '')"
+    export CLOUDFLARE_ZONE_ID="$(rbw get 'CLOUDFLARE_ZONE_ID' 2>/dev/null || echo '')"
+    export CLOUDFLARE_API_TOKEN="$(rbw get 'CLOUDFLARE_API_TOKEN' 2>/dev/null || echo '')"
+    export JIRA_API_TOKEN="$(rbw get 'JIRA_API_TOKEN' 2>/dev/null || echo '')"
+    export TURBO_TOKEN="$(rbw get 'TURBO_TOKEN' 2>/dev/null || echo '')"
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# Machine-Specific Overrides (Optional)
+#-------------------------------------------------------------------------------
+# Source local overrides if they exist (for secrets not in bitwarden)
+# Create ~/.zsh_gnohj_env.local and add to .gitignore
+if [ -f "$HOME/.zsh_gnohj_env.local" ]; then
+  source "$HOME/.zsh_gnohj_env.local"
+fi
