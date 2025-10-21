@@ -271,7 +271,7 @@ alias czd='chezmoi diff'
 alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
 
 # Nvim oldfiles with fzf - open recent files from Neovim history
-nlof() {
+_fzf_nvim_oldfiles() {
     # Get the oldfiles list from Neovim
     local oldfiles=($(nvim -u NONE --headless +'lua io.write(table.concat(vim.v.oldfiles, "\n") .. "\n")' +qa))
 
@@ -294,6 +294,7 @@ nlof() {
     # Open selected files in Neovim
     [[ ${#files[@]} -gt 0 ]] && nvim "${files[@]}"
 }
+alias fzh='_fzf_nvim_oldfiles'
 
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
