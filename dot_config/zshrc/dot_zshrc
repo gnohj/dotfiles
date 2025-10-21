@@ -296,6 +296,35 @@ _fzf_nvim_oldfiles() {
 }
 alias fzh='_fzf_nvim_oldfiles'
 
+# Search files across zoxide-tracked directories with fzf
+_fzf_zoxide_search() {
+    if [ -z "$1" ]; then
+        # No args: search all files in zoxide-tracked directories
+        file="$(fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup | fzf --height=70% --preview='bat -n --color=always --line-range :500 {}')"
+        if [ -n "$file" ]; then
+            nvim "$file"
+        fi
+    else
+        # With args: search for pattern in zoxide directories
+        lines=$(zoxide query -l | xargs -I {} fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup -E .vscode "$1" {} | fzf --no-sort)
+        line_count="$(echo "$lines" | wc -l | xargs)"
+
+        if [ -n "$lines" ] && [ "$line_count" -eq 1 ]; then
+            # Single match: open directly
+            nvim "$lines"
+        elif [ -n "$lines" ]; then
+            # Multiple matches: fzf with preview
+            file=$(echo "$lines" | fzf --query="$1" --height=70% --preview='bat -n --color=always --line-range :500 {}')
+            if [ -n "$file" ]; then
+                nvim "$file"
+            fi
+        else
+            echo "No matches found." >&2
+        fi
+    fi
+}
+alias fzz='_fzf_zoxide_search'
+
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
