@@ -43,6 +43,7 @@
 
       # macOS utilities
       "mailsy"
+      "mas"
       "pngpaste"
       "rbw"
       "speedtest-cli"
