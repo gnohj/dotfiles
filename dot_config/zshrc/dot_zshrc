@@ -273,7 +273,7 @@ _fzf_nvim_current() {
     file=$(fzf -m --border-label="📂 Current Directory" --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default --border=rounded)
     [[ -n "$file" ]] && nvim $file
 }
-alias fzn='_fzf_nvim_current'
+alias fzc='_fzf_nvim_current'
 
 # Nvim oldfiles with fzf - open recent files from Neovim history
 _fzf_nvim_oldfiles() {
@@ -419,6 +419,7 @@ alias outdated="brew outdated | awk '{print \"outdated brew package: \" \$1}' &&
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
 
+alias fman="compgen -c | fzf | xargs man"
 
 #-------------------------------------------------------------------------------
 #                  Paths
