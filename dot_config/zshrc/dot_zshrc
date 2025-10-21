@@ -267,8 +267,8 @@ alias or='nvim $HOME/Obsidian/second-brain/0-Inbox/*.md'
 alias cz='chezmoi'
 alias czd='chezmoi diff'
 
-# Fzf Shortcuts
-alias fzn='nvim $(fzf -m --preview="bat --color=always {}")'
+# Select a file with nvim in curr dir
+alias fzn='nvim $(fzf -m --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default)'
 
 # Nvim oldfiles with fzf - open recent files from Neovim history
 _fzf_nvim_oldfiles() {
