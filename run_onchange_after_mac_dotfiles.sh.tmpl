@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+echo "
+🔧 Run OnChange [After] Dotfiles Applied Starting........"
+
+echo "--- CHEZMOI DEBUG ---"
+echo "Username:     {{ .chezmoi.username }}"
+echo "Host Name:    {{ .chezmoi.hostname }}"
+echo "Home Directory: {{ .chezmoi.homeDir }}"
+echo "Source Directory: {{ .chezmoi.sourceDir }}"
+echo "OS Detected:   {{ .chezmoi.os }}"
+echo "Arch Detected: {{ .chezmoi.arch }}"
+echo "-------------------------"
+
+{{- if ne .chezmoi.os "darwin" }}
+echo "🚧 Skipping post-dotfiles setup (not macOS)
+"
+exit 0
+{{- end }}
+
+#-------------------------------------------------------------------------------
+#--                      Marta File Manager Configuration
+#-------------------------------------------------------------------------------
+echo "Setting up Marta file manager configuration..."
+
+MARTA_CONFIG_DIR="$HOME/Library/Application Support/org.yanex.marta"
+MARTA_CONFIG_FILE="$MARTA_CONFIG_DIR/conf.marco"
+DOTFILES_MARTA_CONFIG="$HOME/.config/marta/conf.marco"
+
+if [ ! -f "$DOTFILES_MARTA_CONFIG" ]; then
+  echo "⚠️  Marta config not found at $DOTFILES_MARTA_CONFIG"
+  echo "    This should have been created by chezmoi. Skipping symlink creation."
+else
+  mkdir -p "$MARTA_CONFIG_DIR"
+
+  if [ ! -L "$MARTA_CONFIG_FILE" ] && [ ! -e "$MARTA_CONFIG_FILE" ]; then
+    ln -s "$DOTFILES_MARTA_CONFIG" "$MARTA_CONFIG_FILE"
+    echo "✅ Marta config symlink created"
+  elif [ -L "$MARTA_CONFIG_FILE" ]; then
+    echo "⏭️  Marta config symlink already exists"
+  else
+    echo "⚠️  Marta config file exists but is not a symlink - manual intervention needed"
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+#--                      Spicetify Theme
+#-------------------------------------------------------------------------------
+if ! command -v spicetify &>/dev/null; then
+  echo "❌  spicetify not found"
+else
+  echo "Installing spicetify themes..."
+
+  if [ ! -d "$HOME/.config/spicetify/Themes/Dribbblish" ]; then
+    if [ ! -d "/tmp/spicetify-themes" ]; then
+      git clone --depth=1 https://github.com/spicetify/spicetify-themes.git /tmp/spicetify-themes
+    fi
+
+    mkdir -p ~/.config/spicetify/Themes
+    cp -r /tmp/spicetify-themes/* ~/.config/spicetify/Themes/
+
+    rm -rf /tmp/spicetify-themes
+
+    echo "✅  Spicetify themes installed"
+  else
+    echo "⏭️  Spicetify themes already installed"
+  fi
+
+  spicetify config current_theme Dribbblish
+  spicetify config color_scheme gruvbox-material-dark
+  spicetify backup apply
+
+  echo "✅  Spicetify theme configured: Dribbblish (gruvbox-material-dark)"
+fi
+
+#-------------------------------------------------------------------------------
+#--                      Summary
+#-------------------------------------------------------------------------------
+echo ""
+echo "📋 Post-Dotfiles Configuration Summary:"
+echo "✅ Configured:"
+echo "  • Marta config symlink: $([ -L "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && [ -e "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && echo "✅ Active" || echo "❌ Failed")"
+echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
+echo ""
+echo "🎉 Run OnChange [After] Dotfiles Applied Complete!"

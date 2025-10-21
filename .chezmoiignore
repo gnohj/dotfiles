@@ -7,6 +7,7 @@ user-setup.sh
 {{- if ne .chezmoi.os "darwin" }}
 # macOS system scripts
 run_onchange_before_mac_system.sh.tmpl
+run_onchange_after_mac_dotfiles.sh.tmpl
 
 # macOS LaunchAgents/Daemons
 private_Library/
@@ -19,6 +20,9 @@ dot_config/sketchybar/
 
 # macOS-specific apps
 dot_config/marta/
+
+# Nix-Darwin installation
+dot_nix/nix-darwin
 
 # Nix-Darwin configuration
 dot_nix/nix-darwin/

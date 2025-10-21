@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# System setup script - Installs Nix and nix-darwin for system-wide configuration
+# System setup script - Installs Nix and system configuration
+#
+# Platform Support:
+#   - macOS: Uses nix-darwin for system configuration
+#   - Linux: TODO
+#
 # Usage: ./system-setup.sh [FLAKE_NAME]
 #   FLAKE_NAME: Optional flake configuration name (default: macbook_silicon)
 #   Examples:
@@ -12,7 +17,6 @@ FLAKE_NAME="${1:-macbook_silicon}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Auto-download system-utils.sh if not found (for curl | bash usage)
 if [ ! -f "${SCRIPT_DIR}/system-utils.sh" ]; then
   echo "📦 Downloading system-utils.sh..."
   if curl -fsSL -o "${SCRIPT_DIR}/system-utils.sh" \
@@ -93,11 +97,9 @@ CHEZMOI_SOURCE="$HOME/.local/share/chezmoi"
 NIX_CONFIG_DIR="$CHEZMOI_SOURCE/dot_nix"
 DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
-# Check if chezmoi source directory exists
 if [ ! -d "$CHEZMOI_SOURCE" ]; then
   print_info "Chezmoi source directory not found. Cloning dotfiles..."
 
-  # Clone dotfiles repository
   if git clone "$DOTFILES_REPO" "$CHEZMOI_SOURCE"; then
     print_success "Dotfiles cloned to $CHEZMOI_SOURCE"
   else
@@ -107,7 +109,6 @@ if [ ! -d "$CHEZMOI_SOURCE" ]; then
   fi
 fi
 
-# Verify nix config exists in chezmoi source
 if [ ! -d "$CHEZMOI_SOURCE/dot_nix" ]; then
   print_error "Nix configuration not found in dotfiles repository"
   print_info "Expected: $CHEZMOI_SOURCE/dot_nix/"

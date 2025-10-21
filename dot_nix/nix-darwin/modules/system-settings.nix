@@ -4,11 +4,6 @@
   # macOS System Settings
   # All settings are documented at:
   # https://daiderd.com/nix-darwin/manual/index.html
-  #
-  # NOTE: Settings that CANNOT be migrated to nix-darwin (must stay in run_onchange template):
-  # - Login items (no nix-darwin support - use osascript in template)
-  # - Displays have separate spaces (com.apple.spaces "spans-displays")
-  # - Reduce motion (com.apple.universalaccess reduceMotion)
 
   system.defaults = {
     # Dock settings

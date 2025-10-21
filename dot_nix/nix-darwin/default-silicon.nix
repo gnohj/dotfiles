@@ -9,6 +9,7 @@
     ./modules/system-settings.nix
     ./modules/homebrew.nix
     ./modules/packages.nix
+    ./modules/launchd-services.nix
   ];
 
   # Nix package manager settings

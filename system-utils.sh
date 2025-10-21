@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # System utils - Platform detection and utility functions
 
-# --- Print Functions ---
 print_info() {
   printf "\n\e[1;34m%s\e[0m\n" "$1"
 }
@@ -18,7 +17,6 @@ print_error() {
   printf "\e[1;31m✗ %s\e[0m\n" "$1" >&2
 }
 
-# --- Platform Detection ---
 detect_os() {
   OS="$(uname -s)"
   export OS
@@ -29,10 +27,9 @@ detect_os() {
     ;;
   Linux)
     export OS_TYPE="linux"
-    # Detect Linux distro
     if [ -f /etc/os-release ]; then
       . /etc/os-release
-      export LINUX_DISTRO="$ID" # ubuntu, arch, etc.
+      export LINUX_DISTRO="$ID"
     fi
     ;;
   *)
@@ -42,7 +39,6 @@ detect_os() {
   esac
 }
 
-# --- Architecture Detection ---
 detect_arch() {
   ARCH="$(uname -m)"
   export ARCH
@@ -76,7 +72,6 @@ detect_platform() {
   detect_os || return 1
   detect_arch || return 1
 
-  # Set platform-specific sudo requirement
   case "$OS_TYPE" in
   linux)
     export SUDO="sudo"
@@ -96,7 +91,6 @@ detect_platform() {
   fi
 }
 
-# --- macOS Only Guard ---
 require_macos() {
   detect_os
   if [ "$OS_TYPE" != "macos" ]; then
@@ -105,7 +99,6 @@ require_macos() {
   fi
 }
 
-# --- Linux Only Guard ---
 require_linux() {
   detect_os
   if [ "$OS_TYPE" != "linux" ]; then
@@ -114,7 +107,6 @@ require_linux() {
   fi
 }
 
-# --- Command Exists Check ---
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }

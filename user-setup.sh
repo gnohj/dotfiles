@@ -7,7 +7,6 @@
 
 set -euo pipefail
 
-# --- Load System Utilities ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -f "${SCRIPT_DIR}/system-utils.sh" ]; then
@@ -17,15 +16,12 @@ else
   exit 1
 fi
 
-# --- Configuration ---
 ZZH_ZEY_ZECRET_NAME="GITHUB_ZZH_PRIVATE_ZEY"
 BW_EMAIL="${1:-}"
 GIT_USERNAME="${2:-}"
 DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
-# --- Platform Detection ---
 detect_platform
-# $SUDO is now set by detect_platform()
 
 print_info "User Setup for $OS"
 echo "This script will configure:"
@@ -37,7 +33,6 @@ echo ""
 # --- PHASE 1: VERIFY PREREQUISITES ---
 print_info "› Phase 1: Verifying prerequisites..."
 
-# Check if Nix is installed
 if ! command -v nix &>/dev/null; then
   print_warning "Nix is not installed!"
   print_info "Please run system-setup.sh first:"
@@ -52,7 +47,6 @@ if [ "$OS" = "Darwin" ] && [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix
   . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
 fi
 
-# Check if nix-darwin is installed (macOS only)
 if [ "$OS" = "Darwin" ]; then
   if command -v darwin-rebuild &>/dev/null; then
     print_success "nix-darwin is installed"
@@ -78,9 +72,13 @@ else
     else
       print_info "Setting up SSH key from Bitwarden..."
 
-      # Configure rbw
       mkdir -p "$HOME/.config/rbw"
-      printf "[main]\nemail = %s\n" "$BW_EMAIL" >"$HOME/.config/rbw/config.ini"
+      if [ ! -f "$HOME/.config/rbw/config.ini" ]; then
+        printf "[main]\nemail = %s\n" "$BW_EMAIL" >"$HOME/.config/rbw/config.ini"
+        print_info "Created rbw config"
+      else
+        print_success "rbw config already exists"
+      fi
 
       print_info "Please enter your Bitwarden master password to unlock the vault."
       if ! eval "$(rbw unlock)"; then
@@ -104,8 +102,10 @@ else
           chmod 600 "$HOME/.ssh/id_ed25519"
 
           # Add GitHub to known_hosts only if not already present
+          touch "$HOME/.ssh/known_hosts" # Ensure file exists
           if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
             ssh-keyscan github.com >>"$HOME/.ssh/known_hosts" 2>/dev/null
+            print_info "Added github.com to known_hosts"
           fi
           print_success "SSH key configured successfully."
         fi
@@ -118,12 +118,13 @@ fi
 print_info "› Phase 3: Configuring shell..."
 
 if command -v zsh >/dev/null; then
-  if [ "$SHELL" != "$(command -v zsh)" ]; then
+  # Check if current shell is zsh (any zsh path)
+  if [[ "$SHELL" == *"zsh"* ]]; then
+    print_success "Default shell is already zsh ($SHELL)"
+  else
     print_info "Switching default shell to zsh..."
     $SUDO chsh -s "$(command -v zsh)" "$USER"
     print_success "Default shell changed to zsh (restart required)"
-  else
-    print_success "Default shell is already zsh"
   fi
 else
   print_warning "zsh not found. Please install via nix-darwin."
@@ -152,11 +153,9 @@ if [ ! -d "$CHEZMOI_SOURCE/.git" ]; then
   print_info "Initializing chezmoi with dotfiles repository..."
 
   if [ -d "$PWD/.git" ] && git -C "$PWD" config --get remote.origin.url | grep -q "dotfiles"; then
-    # We're running from within the dotfiles repo
     print_info "Running from dotfiles repository, using current directory..."
     chezmoi init --apply --source "$PWD"
   else
-    # Clone from GitHub
     print_info "Cloning dotfiles from $DOTFILES_REPO..."
     chezmoi init --apply "$DOTFILES_REPO"
   fi
@@ -165,7 +164,9 @@ if [ ! -d "$CHEZMOI_SOURCE/.git" ]; then
 else
   print_success "Chezmoi is already initialized"
   print_info "Applying latest dotfiles..."
-  chezmoi apply
+  # Use --force to auto-accept source version when files conflict
+  # This makes the script non-interactive
+  chezmoi apply --force
   print_success "Dotfiles applied"
 fi
 
@@ -201,7 +202,7 @@ if [ -n "$BW_EMAIL" ] && [ "$SHELL" != "$(command -v zsh)" ]; then
 fi
 
 echo "Configuration locations:"
-echo "  • System: ~/.config/nix-darwin/"
+echo "  • System: ~/nix/nix-darwin/"
 echo "  • Dotfiles: ~/.local/share/chezmoi/"
 echo "  • Languages: ~/.config/mise/config.toml"
 echo ""
