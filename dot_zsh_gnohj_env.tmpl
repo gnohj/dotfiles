@@ -67,9 +67,11 @@ export CHEZMOI_ARCH="{{ .chezmoi.arch }}"
 # Secrets from Bitwarden (using rbw)
 #-------------------------------------------------------------------------------
 # Load secrets from bitwarden if rbw is available and unlocked
+# Only attempts to fetch if vault is already unlocked (non-interactive check)
 if command -v rbw &> /dev/null; then
-  # Only attempt to fetch if vault is unlocked (check by trying to list)
-  if rbw list &> /dev/null; then
+  # Check if agent is running and vault is unlocked (doesn't prompt for password)
+  # rbw unlocked returns exit code 0 if unlocked, 1 if locked
+  if rbw unlocked &> /dev/null; then
     # API Keys and Tokens
     export OPENAI_API_KEY="$(rbw get 'OPENAI_API_KEY' 2>/dev/null || echo '')"
     export ANTHROPIC_API_KEY="$(rbw get 'ANTHROPIC_API_KEY' 2>/dev/null || echo '')"

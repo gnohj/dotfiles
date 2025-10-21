@@ -1,16 +1,16 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Homebrew configuration - Declarative package management
+  # Homebrew configuration
   # Run: darwin-rebuild switch --flake ~/.nix
 
   homebrew = {
-    enable = true;
+    enable = true; # nix installs Homebrew if not present
 
     # Auto-update Homebrew and packages
     onActivation = {
-      autoUpdate = false;  # Disabled for testing
-      upgrade = false;     # Disabled for testing
+      autoUpdate = true;   # Always get latest pkg definitions
+      upgrade = false;     # Disabled - don't auto upgrade to latest version
       cleanup = "zap";     # Uninstall packages not declared here
     };
 
