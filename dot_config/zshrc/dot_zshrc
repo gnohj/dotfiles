@@ -268,7 +268,7 @@ alias cz='chezmoi'
 alias czd='chezmoi diff'
 
 # Select a file with nvim in curr dir
-alias fzn='nvim $(fzf -m --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default)'
+alias fzn='nvim $(fzf -m --header="📂 Current Directory" --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default)'
 
 # Nvim oldfiles with fzf - open recent files from Neovim history
 _fzf_nvim_oldfiles() {
@@ -287,6 +287,7 @@ _fzf_nvim_oldfiles() {
     local files=($(printf "%s\n" "${valid_files[@]}" | \
         grep -v '\[.*' | \
         fzf --multi \
+        --header="📜 Neovim History" \
         --preview 'bat -n --color=always --line-range=:500 {} 2>/dev/null || echo "Error previewing file"' \
         --height=70% \
         --layout=default))
@@ -300,13 +301,13 @@ alias fzh='_fzf_nvim_oldfiles'
 _fzf_zoxide_search() {
     if [ -z "$1" ]; then
         # No args: search all files in zoxide-tracked directories
-        file="$(fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup | fzf --height=70% --preview='bat -n --color=always --line-range :500 {}')"
+        file="$(fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup | fzf --header="🚀 Zoxide Directories" --height=70% --preview='bat -n --color=always --line-range :500 {}')"
         if [ -n "$file" ]; then
             nvim "$file"
         fi
     else
         # With args: search for pattern in zoxide directories
-        lines=$(zoxide query -l | xargs -I {} fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup -E .vscode "$1" {} | fzf --no-sort)
+        lines=$(zoxide query -l | xargs -I {} fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup -E .vscode "$1" {} | fzf --no-sort --header="🚀 Zoxide Directories")
         line_count="$(echo "$lines" | wc -l | xargs)"
 
         if [ -n "$lines" ] && [ "$line_count" -eq 1 ]; then
@@ -314,7 +315,7 @@ _fzf_zoxide_search() {
             nvim "$lines"
         elif [ -n "$lines" ]; then
             # Multiple matches: fzf with preview
-            file=$(echo "$lines" | fzf --query="$1" --height=70% --preview='bat -n --color=always --line-range :500 {}')
+            file=$(echo "$lines" | fzf --query="$1" --header="🚀 Zoxide Directories" --height=70% --preview='bat -n --color=always --line-range :500 {}')
             if [ -n "$file" ]; then
                 nvim "$file"
             fi
