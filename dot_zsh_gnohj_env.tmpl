@@ -64,32 +64,28 @@ export CHEZMOI_OS="{{ .chezmoi.os }}"
 export CHEZMOI_ARCH="{{ .chezmoi.arch }}"
 
 #-------------------------------------------------------------------------------
-# Secrets from Bitwarden (using rbw)
+# Secrets from Bitwarden (interpolated via chezmoi)
 #-------------------------------------------------------------------------------
-# Load secrets from bitwarden if rbw is available and unlocked
-# Only attempts to fetch if vault is already unlocked (non-interactive check)
-if command -v rbw &> /dev/null; then
-  # Check if agent is running and vault is unlocked (doesn't prompt for password)
-  # rbw unlocked returns exit code 0 if unlocked, 1 if locked
-  if rbw unlocked &> /dev/null; then
-    # API Keys and Tokens
-    export OPENAI_API_KEY="$(rbw get 'OPENAI_API_KEY' 2>/dev/null || echo '')"
-    export ANTHROPIC_API_KEY="$(rbw get 'ANTHROPIC_API_KEY' 2>/dev/null || echo '')"
-    export TRANSIFEX_API_TOKEN="$(rbw get 'TRANSIFEX_API_TOKEN' 2>/dev/null || echo '')"
-    export NPM_TOKEN="$(rbw get 'NPM_TOKEN' 2>/dev/null || echo '')"
-    export INFERNO_GPR_TOKEN="$(rbw get 'INFERNO_GPR_TOKEN' 2>/dev/null || echo '')"
-    export GPR_AUTH_TOKEN="$(rbw get 'GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
-    export OLD_GPR_AUTH_TOKEN="$(rbw get 'OLD_GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
-    export ADMIN_OLD_GPR_AUTH_TOKEN="$(rbw get 'ADMIN_OLD_GPR_AUTH_TOKEN' 2>/dev/null || echo '')"
-    export FASTLY_API_TOKEN="$(rbw get 'FASTLY_API_TOKEN' 2>/dev/null || echo '')"
-    export INFERNO_FASTLY_API_TOKEN="$(rbw get 'INFERNO_FASTLY_API_TOKEN' 2>/dev/null || echo '')"
-    export CLOUDFLARE_ACCOUNT_ID="$(rbw get 'CLOUDFLARE_ACCOUNT_ID' 2>/dev/null || echo '')"
-    export CLOUDFLARE_ZONE_ID="$(rbw get 'CLOUDFLARE_ZONE_ID' 2>/dev/null || echo '')"
-    export CLOUDFLARE_API_TOKEN="$(rbw get 'CLOUDFLARE_API_TOKEN' 2>/dev/null || echo '')"
-    export JIRA_API_TOKEN="$(rbw get 'JIRA_API_TOKEN' 2>/dev/null || echo '')"
-    export TURBO_TOKEN="$(rbw get 'TURBO_TOKEN' 2>/dev/null || echo '')"
-  fi
-fi
+# Secrets are fetched from Bitwarden when you run: chezmoi apply
+# This happens at template-time, not at shell startup (faster!)
+# Run 'rbw unlock' before 'chezmoi apply' to ensure vault is unlocked
+#
+# How it works:
+# 1. All secrets are stored in Bitwarden under the "env-vars" folder
+# 2. The template dynamically loops through all items in that folder
+# 3. Each item's name becomes the environment variable name
+# 4. Each item's password field becomes the value
+#
+# To add a new secret:
+# 1. Add it to Bitwarden in the "env-vars" folder (use rbw add)
+# 2. Run: rbw sync && chezmoi apply
+# 3. The secret will automatically appear in this file
+
+{{- range (output "rbw" "list" "--fields" "folder,name" "--raw" | mustFromJson) }}
+{{- if eq .folder "env-vars" }}
+export {{ .name }}="{{ (rbw .name).data.password }}"
+{{- end }}
+{{- end }}
 
 #-------------------------------------------------------------------------------
 # Machine-Specific Overrides (Optional)

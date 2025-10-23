@@ -8,7 +8,10 @@
     # macOS-specific packages only
     # Most packages are in common/packages.nix for cross-platform use
 
-    # Add macOS-only tools here if needed:
+    # Security tools (macOS-specific)
+    pinentry_mac  # Password entry dialog for rbw/GPG on macOS
+
+    # Add other macOS-only tools here if needed:
     # - darwin-specific utilities
     # - macOS-only development tools
   ];
