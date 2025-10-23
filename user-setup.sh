@@ -90,6 +90,12 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
         print_success "rbw config already exists"
       fi
 
+      # Configure pinentry for macOS (rbw uses JSON config, not config.ini)
+      if [ "$OS" = "Darwin" ]; then
+        rbw config set pinentry pinentry-mac
+        print_info "Configured rbw to use pinentry-mac"
+      fi
+
       print_info "Please enter your Bitwarden master password to unlock the vault."
       print_info "This will be used for:"
       print_info "  • SSH private key (for git operations)"
