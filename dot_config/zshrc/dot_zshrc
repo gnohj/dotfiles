@@ -56,7 +56,7 @@ fi
 #--                      Homebrew Package Manager
 #-------------------------------------------------------------------------------
 # Add Homebrew to PATH (for packages managed by nix-darwin)
-# Examples: thefuck, skhd, gitmux, sesh, borders, etc.
+# Examples: pay-respects, skhd, gitmux, sesh, borders, etc.
 if [ -d '/opt/homebrew/bin' ]; then
   export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 fi
@@ -413,8 +413,8 @@ alias ls="eza --icons=always --long --all"
 # brew leaves list (installed packages by me)
 alias leaves="brew leaves"
 
-# brew outdated list (all outdated packages - formulas and casks)
-alias outdated="brew outdated | awk '{print \"outdated brew package: \" \$1}' && mise outdated"
+# brew + mise + mas outdated list
+alias outdated="brew outdated | awk '{print \"brew package: \" \$1}' && mise outdated && mas outdated | awk '{print \"mas package: \" \$1}'"
 
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
@@ -460,6 +460,22 @@ if command -v sketchybar &>/dev/null; then
         case "$1" in
             install|uninstall|upgrade|update|list)
                 sketchybar --trigger brew_update 2>/dev/null &
+                ;;
+        esac
+    }
+fi
+
+# -----------------------------  Sketchybar MAS Notification
+# Setup sketchybar mas notification
+if command -v sketchybar &>/dev/null && command -v mas &>/dev/null; then
+    sketchybar --add event mas_update 2>/dev/null
+    sketchybar --subscribe widgets.mas_notification mas_update 2>/dev/null
+    function mas() {
+        command mas "$@"
+        # Trigger on commands that change state
+        case "$1" in
+            install|uninstall|upgrade|list)
+                sketchybar --trigger mas_update 2>/dev/null &
                 ;;
         esac
     }
@@ -640,7 +656,9 @@ fi
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
 
-eval $(thefuck --alias fk)
+# Command corrector - pay-respects (replacement for thefuck)
+# Default alias is 'f', but you can customize it with --alias <name>
+eval "$(pay-respects zsh --alias)"
 # eval "$(fastly --completion-script-zsh)"  # fastly CLI not installed
 eval "$(fzf --zsh)"
 eval "$(saml2aws --completion-script-zsh)"

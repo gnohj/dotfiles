@@ -36,6 +36,13 @@
       #   osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true'
       AppleInterfaceStyle = "Dark";
 
+      # Appearance settings
+      AppleShowScrollBars = "Always";               # Always show scroll bars
+      NSTableViewDefaultSizeMode = 1;               # Sidebar icon size: 1 (small), 2 (medium), 3 (large)
+
+      # NOTE: Recent Items (NSRecentDocumentsLimit) is not supported by nix-darwin
+      # To set to "None", manually run: defaults write NSGlobalDomain NSRecentDocumentsLimit 0
+
       # Migrated from: run_onchange_before_mac_system.sh.tmpl
       _HIHideMenuBar = true;                         # Auto-hide menu bar
       NSAutomaticWindowAnimationsEnabled = false;    # Disable window animations
@@ -43,9 +50,18 @@
 
       # Keyboard settings
       # Migrated from: run_onchange_before_mac_system.sh.tmpl
-      InitialKeyRepeat = 15;                        # Faster initial key repeat
-      KeyRepeat = 1;                                # Faster key repeat
-      # ApplePressAndHoldEnabled = false;
+      InitialKeyRepeat = 15;                        # Faster initial key repeat (delay before repeat)
+      KeyRepeat = 1;                                # Faster key repeat (speed once repeating)
+      # ApplePressAndHoldEnabled = false;           # Enable press-and-hold for accented characters
+      # "com.apple.keyboard.fnState" = false;       # Use F1-F12 as standard function keys
+
+      # Trackpad & Mouse settings
+      # Based on System Settings → Trackpad and Mouse screenshots
+      "com.apple.swipescrolldirection" = true;      # Natural scrolling (enabled)
+      "com.apple.trackpad.scaling" = 3.0;           # Trackpad tracking speed: 0.0 (slow) to 3.0 (fast)
+      "com.apple.trackpad.enableSecondaryClick" = true;  # Enable right-click
+      "com.apple.trackpad.forceClick" = true;       # Enable Force Click and haptic feedback
+      "com.apple.mouse.tapBehavior" = 1;            # Enable tap to click
 
       # Expand save and print panels by default
       # NSNavPanelExpandedStateForSaveMode = true;
@@ -55,9 +71,27 @@
     };
 
     # Trackpad settings
+    # Based on System Settings → Trackpad screenshots
     trackpad = {
-      # Clicking = true; # Tap to click
-      # TrackpadRightClick = true;
+      # Point & Click tab
+      Clicking = true;                    # Enable tap to click
+      TrackpadRightClick = true;          # Enable secondary click (right-click)
+      TrackpadThreeFingerDrag = false;    # Disable three-finger drag
+
+      # Force Click and haptic feedback
+      FirstClickThreshold = 1;            # Click pressure: 0 (light), 1 (medium), 2 (firm)
+      SecondClickThreshold = 1;           # Force touch pressure: 0 (light), 1 (medium), 2 (firm)
+      ActuationStrength = 1;              # Silent clicking: 0 (enable), 1 (disable)
+
+      # NOTE: The following gesture settings from "More Gestures" tab CANNOT be automated:
+      # - Swipe between pages (Off in your config)
+      # - Swipe between full-screen apps (Three Fingers Left/Right in your config)
+      # - Notification Center (swipe left from right edge with two fingers - Enabled)
+      # - Mission Control (swipe up with three fingers - Enabled)
+      # - App Exposé (Off in your config)
+      # - Launchpad (pinch with thumb and three fingers - Enabled)
+      # - Show Desktop (spread with thumb and three fingers - Enabled)
+      # These must be configured manually in System Settings → Trackpad → More Gestures
     };
 
     # Screenshot settings
@@ -65,11 +99,13 @@
       # location = "~/Desktop";
       # type = "png";
     };
+
+    # Lock Screen settings
+    screensaver = {
+      askForPassword = true;              # Require password after screensaver/display off
+      askForPasswordDelay = 3600;         # Password delay: 3600 seconds = 1 hour
+    };
+
   };
 
-  # Keyboard settings (separate from defaults)
-  # system.keyboard = {
-  #   enableKeyMapping = true;
-  #   remapCapsLockToControl = true;
-  # };
 }

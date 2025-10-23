@@ -45,24 +45,15 @@
       "mailsy"
       "mas"
       "pngpaste"
-      "rbw"
-      "speedtest-cli"
       "spicetify-cli"
       "switchaudio-osx"
-      "thefuck"
       "usage"
 
       # Development tools
-      "mkcert"
       "pulumi/tap/pulumi"
-      "tree-sitter-cli"
       "xcodegen"
 
       # Additional tools
-      "btop"
-      "caddy"
-      "tlrc"
-      "w3m"
       "wordnet"
       "zx"
     ];
@@ -128,8 +119,8 @@
     ];
 
     # Mac App Store apps (requires mas-cli)
-    # masApps = {
-    #   "Xcode" = 497799835;
-    # };
+    masApps = {
+      "Xcode" = 497799835;
+    };
   };
 }

@@ -1,6 +1,6 @@
 local constants = require("constants")
 
-sbar.add("item", constants.items.BREW_NOTIFICATION, {
+sbar.add("item", constants.items.MAS_NOTIFICATION, {
 	position = "right",
 	padding_right = 8,
 	icon = {
@@ -13,6 +13,6 @@ sbar.add("item", constants.items.BREW_NOTIFICATION, {
 		padding_right = 0,
 	},
 	update_freq = 3600, -- Update every hour
-	script = "~/.config/sketchybar/items/widgets/brew_notification.sh",
+	script = "~/.config/sketchybar/items/widgets/mas_notification.sh",
 	drawing = true,
 })

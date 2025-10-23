@@ -18,6 +18,8 @@ opt.timeoutlen = 1000
 
 vim.g.snacks_animate = false
 
+vim.g.snacks_scroll = false
+
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.opt.autoread = true
@@ -34,8 +36,6 @@ vim.opt.mousescroll = "ver:3,hor:0"
 vim.opt.laststatus = 3
 -- Hide statusline text but keep the bar itself
 vim.opt.statusline = " "
-
-vim.g.snacks_animate = false
 
 -- Show LSP diagnostics (inlay hints) in a hover window / popup
 -- https://github.com/neovim/nvim-lspconfig/wiki/UI-Customization#show-line-diagnostics-automatically-in-hover-window
