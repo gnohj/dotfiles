@@ -2,7 +2,7 @@ local constants = require("constants")
 
 sbar.add("item", constants.items.BREW_NOTIFICATION, {
 	position = "right",
-	padding_right = 4,
+	padding_right = 8,
 	icon = {
 		string = "􀐛",
 		padding_left = 0,

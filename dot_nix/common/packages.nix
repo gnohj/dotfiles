@@ -41,12 +41,27 @@
     duf        # Better df
     fastfetch  # System info
     xh         # Better httpie
+    btop       # System monitor
 
     # Formatters
     stylua     # Lua formatter
 
     # Image processing for terminal
     imagemagick
+
+    # Security & Development
+    rbw        # Bitwarden CLI
+    mkcert     # Local certificate tool
+
+    # Networking & Web
+    caddy      # Web server
+    w3m        # Text web browser
+    speedtest-cli # Speed test
+
+    # CLI enhancements
+    pay-respects # Command corrector (replacement for thefuck)
+    tlrc       # tldr client
+    tree-sitter # Tree-sitter CLI
   ];
 
   # Note: Migration strategy (see ~/.config/nix-darwin-migration-plan.md)

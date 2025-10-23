@@ -12,7 +12,6 @@ end
 
 return {
   "Bekaboo/dropbar.nvim",
-  enabled = true,
 
   event = "BufEnter",
   name = "dropbar",
