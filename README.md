@@ -4,18 +4,6 @@ My personal dotfiles for macOS, managed with Chezmoi.
 
 <img width="2557" height="1440" alt="ghostty-current" src="https://github.com/user-attachments/assets/dbe927ed-fda1-4d92-958a-d92d1220b9ee" />
 
-
-This setup prioritizes:
-
-- **Reproducibility**: Bootstrap a new Mac with two commands
-  - Nix for system packages and macOS settings
-  - Chezmoi for dotfile management
-  - Mise for language runtimes
-- **Speed**: Optimized shell and terminal configs
-- **Aesthetic**: Unified colorscheme across all tools (dynamic theme switching)
-- **Productivity**: Heavily customized Neovim, Tmux, and keyboard-driven
-  workflow
-
 ## Key Tools & Configurations
 
 - **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin)
@@ -44,6 +32,9 @@ This setup prioritizes:
   & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
 
 ## Bootstrap New Mac (Apple Silicon)
+
+<details>
+<summary>Click to expand bootstrap instructions</summary>
 
 ### Step 1: System setup (Nix + nix-darwin)
 
@@ -80,7 +71,12 @@ This will:
 - Set up environment secrets from Bitwarden (API keys, tokens)
 - Set up shell configuration
 
+</details>
+
 ## Update Existing Mac (Apple Silicon)
+
+<details>
+<summary>Click to expand update instructions</summary>
 
 ### 1. Nix-Darwin (System Management)
 
@@ -182,3 +178,5 @@ mise self-update
 ```bash
 mise upgrade
 ```
+
+</details>
