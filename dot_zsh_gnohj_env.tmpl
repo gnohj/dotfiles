@@ -4,6 +4,7 @@
 # Template: ~/.local/share/chezmoi/dot_zsh_gnohj_env.tmpl
 #
 # For secrets and machine-specific overrides, create:
+#   ~/.zsh_gnohj_env.secrets (auto-generated from Chezmoi)
 #   ~/.zsh_gnohj_env.local (gitignored, sourced at end of this file)
 
 #-------------------------------------------------------------------------------
@@ -64,28 +65,28 @@ export CHEZMOI_OS="{{ .chezmoi.os }}"
 export CHEZMOI_ARCH="{{ .chezmoi.arch }}"
 
 #-------------------------------------------------------------------------------
-# Secrets from Bitwarden (interpolated via chezmoi)
+# Secrets from Bitwarden (loaded from cached file)
 #-------------------------------------------------------------------------------
-# Secrets are fetched from Bitwarden when you run: chezmoi apply
-# This happens at template-time, not at shell startup (faster!)
-# Run 'rbw unlock' before 'chezmoi apply' to ensure vault is unlocked
+# Secrets are fetched from Bitwarden only when the secret list changes
+# This is MUCH faster than fetching on every chezmoi apply
 #
 # How it works:
-# 1. All secrets are stored in Bitwarden under the "env-vars" folder
-# 2. The template dynamically loops through all items in that folder
-# 3. Each item's name becomes the environment variable name
-# 4. Each item's password field becomes the value
+# 1. Secret names are listed in ~/.local/share/chezmoi/dot_config/bitwarden/vars.txt
+# 2. run_onchange_after_bitwarden-secrets.sh hashes that file
+# 3. When the hash changes (secret added/removed), script fetches all secrets via rbw
+# 4. Secrets are written to ~/.zsh_gnohj_env.secrets
+# 5. This file sources that secrets file
 #
 # To add a new secret:
-# 1. Add it to Bitwarden in the "env-vars" folder (use rbw add)
-# 2. Run: rbw sync && chezmoi apply
-# 3. The secret will automatically appear in this file
+# 1. Add it to Bitwarden: rbw add SECRET_NAME --folder env-vars
+# 2. Add SECRET_NAME to ~/.local/share/chezmoi/dot_config/bitwarden/vars.txt
+# 3. Run: rbw sync && chezmoi apply
+# 4. The run_onchange script will auto-fetch the new secret
 
-{{- range (output "rbw" "list" "--fields" "folder,name" "--raw" | mustFromJson) }}
-{{- if eq .folder "env-vars" }}
-export {{ .name }}="{{ (rbw .name).data.password }}"
-{{- end }}
-{{- end }}
+# Source secrets file if it exists
+if [ -f "$HOME/.zsh_gnohj_env.secrets" ]; then
+  source "$HOME/.zsh_gnohj_env.secrets"
+fi
 
 #-------------------------------------------------------------------------------
 # Machine-Specific Overrides (Optional)
