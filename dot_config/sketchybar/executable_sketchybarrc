@@ -1,6 +1,9 @@
 #!/bin/bash
 # Wrapper to ensure mise is activated before running lua
 
+# Change to config directory first
+cd "$HOME/.config/sketchybar" || exit 1
+
 # Activate mise to get the correct lua in PATH
 eval "$($HOME/.local/bin/mise activate bash)"
 
