@@ -4,8 +4,11 @@
 # Change to config directory first
 cd "$HOME/.config/sketchybar" || exit 1
 
+# Add Nix to PATH (mise is installed via Nix)
+export PATH="/run/current-system/sw/bin:$PATH"
+
 # Activate mise to get the correct lua in PATH
-eval "$($HOME/.local/bin/mise activate bash)"
+eval "$(mise activate bash)"
 
 # Execute the lua script
 exec lua - <<'LUA_SCRIPT'

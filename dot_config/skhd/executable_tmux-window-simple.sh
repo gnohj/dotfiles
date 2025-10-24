@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ensure mise is activated and tools are in PATH
-eval "$(~/.local/bin/mise activate bash)"
+eval "$(mise activate bash)"
 
 EMOJI="$1"
 TYPE="$2"

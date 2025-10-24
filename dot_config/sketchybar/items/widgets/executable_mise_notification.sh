@@ -1,8 +1,8 @@
 #!/bin/bash
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # Activate mise to get full shell integration
-eval "$($HOME/.local/bin/mise activate bash)"
+eval "$(mise activate bash)"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
