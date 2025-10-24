@@ -31,9 +31,10 @@ in
     };
 
     # SKHD - Hotkey daemon for window management (used with AeroSpace)
+    # Uses wrapper script that waits for secure keyboard entry to clear
     skhd = {
       serviceConfig = {
-        ProgramArguments = [ "/opt/homebrew/bin/skhd" ];
+        ProgramArguments = [ "${homeDir}/.config/skhd/start-skhd.sh" ];
         KeepAlive = {
           SuccessfulExit = false;
           Crashed = true;
@@ -43,6 +44,22 @@ in
         Nice = -20;
         StandardOutPath = "/tmp/skhd_${config.system.primaryUser}.out.log";
         StandardErrorPath = "/tmp/skhd_${config.system.primaryUser}.err.log";
+      };
+    };
+
+    # Borders - Window border visualization
+    # Auto-restarts if crashed
+    borders = {
+      serviceConfig = {
+        ProgramArguments = [ "${homeDir}/.config/borders/bordersrc" ];
+        KeepAlive = {
+          SuccessfulExit = false;
+          Crashed = true;
+        };
+        RunAtLoad = true;
+        ProcessType = "Interactive";
+        StandardOutPath = "/tmp/borders_${config.system.primaryUser}.out.log";
+        StandardErrorPath = "/tmp/borders_${config.system.primaryUser}.err.log";
       };
     };
   };
