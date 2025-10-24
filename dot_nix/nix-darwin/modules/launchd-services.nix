@@ -31,9 +31,10 @@ in
     };
 
     # SKHD - Hotkey daemon for window management (used with AeroSpace)
+    # Uses wrapper script that waits for secure keyboard entry to clear
     skhd = {
       serviceConfig = {
-        ProgramArguments = [ "/opt/homebrew/bin/skhd" ];
+        ProgramArguments = [ "${homeDir}/.config/skhd/start-skhd.sh" ];
         KeepAlive = {
           SuccessfulExit = false;
           Crashed = true;
