@@ -98,6 +98,7 @@
       "mouseless"
 
       # System Utilities
+      "aldente"
       "appcleaner"
       "betterdisplay"
       "flameshot"
