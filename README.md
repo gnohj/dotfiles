@@ -169,6 +169,8 @@ mise install
 
 **Update mise itself:**
 
+Mise is currently self-managed (not via Nix), so update with:
+
 ```bash
 mise self-update
 ```
