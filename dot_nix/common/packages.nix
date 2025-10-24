@@ -59,7 +59,6 @@
     speedtest-cli # Speed test
 
     # CLI enhancements
-    pay-respects # Command corrector (replacement for thefuck)
     tlrc       # tldr client
     tree-sitter # Tree-sitter CLI
   ];

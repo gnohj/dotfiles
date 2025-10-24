@@ -656,9 +656,6 @@ fi
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
 
-# Command corrector - pay-respects (replacement for thefuck)
-# Default alias is 'f', but you can customize it with --alias <name>
-eval "$(pay-respects zsh --alias)"
 eval "$(fastly --completion-script-zsh)"
 eval "$(fzf --zsh)"
 eval "$(saml2aws --completion-script-zsh)"
