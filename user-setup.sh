@@ -18,7 +18,6 @@ fi
 
 ZZH_ZEY_ZECRET_NAME="GITHUB_ZZH_PRIVATE_ZEY"
 BW_EMAIL="${1:-}"
-GIT_USERNAME="${2:-}"
 DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
 detect_platform
@@ -65,32 +64,33 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
 fi
 
 if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
-  if [ -z "$BW_EMAIL" ] || [ -z "$GIT_USERNAME" ]; then
-    print_warning "Skipping Bitwarden setup (no credentials provided)"
+  if [ -z "$BW_EMAIL" ]; then
+    print_warning "Skipping Bitwarden setup (no email provided)"
     print_info "To set up SSH keys and secrets from Bitwarden, run:"
-    print_info "  ./user-setup.sh your_email@example.com your_github_username"
+    print_info "  ./user-setup.sh your_bitwarden_email@example.com"
     print_info ""
-    print_info "Without Bitwarden, environment secrets will be loaded from:"
-    print_info "  ~/.zsh_gnohj_env.local (create this file manually)"
+    print_info "Without Bitwarden, you can manually create secrets file:"
+    print_info "  ~/.zsh_gnohj_env.local (gitignored, sourced by ~/.zsh_gnohj_env)"
   else
     if ! command -v rbw &>/dev/null; then
       print_warning "rbw not available. Cannot fetch secrets from Bitwarden."
       print_info "Install rbw via nix-darwin and try again."
       print_info ""
-      print_info "Without Bitwarden, environment secrets will be loaded from:"
-      print_info "  ~/.zsh_gnohj_env.local (create this file manually)"
+      print_info "Without Bitwarden, you can manually create secrets file:"
+      print_info "  ~/.zsh_gnohj_env.local (gitignored, sourced by ~/.zsh_gnohj_env)"
     else
       print_info "Setting up Bitwarden access for SSH keys and environment secrets..."
 
-      mkdir -p "$HOME/.config/rbw"
-      if [ ! -f "$HOME/.config/rbw/config.ini" ]; then
-        printf "[main]\nemail = %s\n" "$BW_EMAIL" >"$HOME/.config/rbw/config.ini"
-        print_info "Created rbw config"
+      # Configure rbw email
+      CURRENT_EMAIL=$(rbw config show 2>/dev/null | grep '"email"' | cut -d'"' -f4)
+      if [ "$CURRENT_EMAIL" != "$BW_EMAIL" ]; then
+        rbw config set email "$BW_EMAIL"
+        print_info "Configured rbw email: $BW_EMAIL"
       else
-        print_success "rbw config already exists"
+        print_success "rbw email already configured: $BW_EMAIL"
       fi
 
-      # Configure pinentry for macOS (rbw uses JSON config, not config.ini)
+      # Configure pinentry for macOS
       if [ "$OS" = "Darwin" ]; then
         rbw config set pinentry pinentry-mac
         print_info "Configured rbw to use pinentry-mac"
@@ -109,7 +109,11 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
       else
         print_success "Vault unlocked successfully."
         print_info "The vault will remain unlocked for this session."
-        print_info "Environment secrets will be auto-loaded from Bitwarden when you start new shells."
+        print_info ""
+        print_info "Environment secrets will be fetched from Bitwarden via chezmoi:"
+        print_info "  • Secrets cached in ~/.zsh_gnohj_env.secrets (auto-generated)"
+        print_info "  • Only re-fetched when secret list changes (fast!)"
+        print_info "  • Run 'chezmoi apply' to trigger initial fetch"
         echo ""
 
         print_info "Syncing vault..."
@@ -143,11 +147,13 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
   fi
 else
   print_success "SSH key already exists. Bitwarden unlock not required."
-  print_info "If you need to load environment secrets from Bitwarden:"
-  print_info "  1. Run: eval \"\$(rbw unlock)\""
-  print_info "  2. Start a new shell to load secrets from Bitwarden"
   print_info ""
-  print_info "Or create ~/.zsh_gnohj_env.local with your secrets manually"
+  print_info "To load environment secrets from Bitwarden:"
+  print_info "  1. Run: eval \"\$(rbw unlock)\""
+  print_info "  2. Run: chezmoi apply"
+  print_info "  3. Secrets will be cached in ~/.zsh_gnohj_env.secrets"
+  print_info ""
+  print_info "Or manually create ~/.zsh_gnohj_env.local with your secrets"
 fi
 
 # --- PHASE 3: SWITCH TO ZSH ---

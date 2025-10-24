@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Secret list hash: {{ include "dot_config/bitwarden/vars.txt" | sha256sum }}
 #
-# This script runs on load, when this template changes, and when the secret list hash (vars.text) changes (detected by hash)
+# This script runs on load, when this template changes, or when the secret list hash (vars.text) changes (detected by hash)
 # It fetches all secrets from Bitwarden and writes them to a separate file, which then gets sourced by ~/.zsh_gnohj_env
 
 set -euo pipefail
