@@ -2,6 +2,21 @@
 
 This document covers macOS settings that **cannot be automated** through nix-darwin due to TCC (Transparency, Consent, and Control) security restrictions or lack of API support.
 
+## ⚠️ Prerequisites
+
+**This setup requires:**
+- ✅ **Administrator/sudo access** - Required for installing Nix, nix-darwin, and granting TCC permissions
+- ✅ **Personal macOS device** - You have full control over system settings
+- ✅ **SIP enabled** - No System Integrity Protection disabling needed (all apps work with SIP on)
+
+**NOT compatible with:**
+- ❌ Corporate/company-issued Macs with MDM (Mobile Device Management)
+- ❌ Restricted environments where you lack admin privileges
+- ❌ Macs where IT policies block third-party app installations
+- ❌ Environments where TCC permission granting is restricted
+
+**Note:** If you don't have admin access, you cannot install Nix, Homebrew, or grant the necessary security permissions. This setup is designed for personal devices only.
+
 ## Table of Contents
 
 - [Why These Cannot Be Automated](#why-these-cannot-be-automated)
