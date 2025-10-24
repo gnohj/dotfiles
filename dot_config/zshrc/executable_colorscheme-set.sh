@@ -652,8 +652,8 @@ if [ "$UPDATED" = true ]; then
   # Source the active colorscheme to load variables
   source "$active_file"
 
-  # Reload sketchybar - reads active-colorscheme.sh on load
-  sketchybar --reload
+  # Reload sketchybar to pick up new colors
+  sketchybar --reload &
 
   # Generate Starship config files (kept for easy switching)
   generate_starship_config
@@ -663,7 +663,7 @@ if [ "$UPDATED" = true ]; then
 
   # Generate the ghostty theme file, then reload config
   generate_ghostty_theme
-  osascript "$HOME/.config/ghostty/reload-config.scpt"
+  osascript "$HOME/.config/ghostty/reload-config.scpt" &
 
   # Generate the wezterm theme file
   generate_wezterm_config
