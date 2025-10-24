@@ -169,13 +169,14 @@ mise install
 
 **Update mise itself:**
 
-Mise is currently self-managed (not via Nix), so update with:
+Mise is managed by Nix, so update it with the rest of your Nix packages:
 
 ```bash
-mise self-update
+nix flake update ~/.nix
+darwin-rebuild switch --flake ~/.nix
 ```
 
-**Upgrade all tools to latest versions:**
+**Upgrade all language runtimes to latest versions:**
 
 ```bash
 mise upgrade
