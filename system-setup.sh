@@ -15,7 +15,14 @@ set -euo pipefail
 
 FLAKE_NAME="${1:-macbook_silicon}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Determine script directory (handles both direct execution and piped execution)
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+  # Script is being executed directly
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  # Script is being piped (curl | bash)
+  SCRIPT_DIR="$(pwd)"
+fi
 
 if [ ! -f "${SCRIPT_DIR}/system-utils.sh" ]; then
   echo "📦 Downloading system-utils.sh..."

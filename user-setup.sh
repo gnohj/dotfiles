@@ -7,7 +7,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Determine script directory (handles both direct execution and piped execution)
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+  # Script is being executed directly
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  # Script is being piped (curl | bash)
+  SCRIPT_DIR="$(pwd)"
+fi
 
 if [ -f "${SCRIPT_DIR}/system-utils.sh" ]; then
   source "${SCRIPT_DIR}/system-utils.sh"
