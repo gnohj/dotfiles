@@ -694,14 +694,13 @@ if [ "$UPDATED" = true ]; then
     "$HOME/.config/tmux/generate-tmux-colors.sh"
   fi
 
-  # Set the wallpaper
-  if [ -z "$wallpaper" ]; then
-    wallpaper="$HOME/Pictures/wallpapers/yes.png"
+  # Set the wallpaper (skip if file doesn't exist)
+  if [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
+    osascript -e '
+    tell application "System Events"
+        repeat with d in desktops
+            set picture of d to "'"$wallpaper"'"
+        end repeat
+    end tell' 2>/dev/null || true
   fi
-  osascript -e '
-  tell application "System Events"
-      repeat with d in desktops
-          set picture of d to "'"$wallpaper"'"
-      end repeat
-  end tell'
 fi
