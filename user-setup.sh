@@ -18,12 +18,18 @@ else
   echo "Running from pipe, using temp directory: $SCRIPT_DIR"
 fi
 
-if [ -f "${SCRIPT_DIR}/system-utils.sh" ]; then
-  source "${SCRIPT_DIR}/system-utils.sh"
-else
-  echo "Error: Cannot find system-utils.sh" >&2
-  exit 1
+if [ ! -f "${SCRIPT_DIR}/system-utils.sh" ]; then
+  echo "📦 Downloading system-utils.sh..."
+  if curl -fsSL -o "${SCRIPT_DIR}/system-utils.sh" \
+    "https://raw.githubusercontent.com/gnohj/dotfiles/main/system-utils.sh"; then
+    echo "✅ system-utils.sh downloaded"
+  else
+    echo "❌ Error: Failed to download system-utils.sh" >&2
+    exit 1
+  fi
 fi
+
+source "${SCRIPT_DIR}/system-utils.sh"
 
 ZZH_ZEY_ZECRET_NAME="GITHUB_ZZH_PRIVATE_ZEY"
 BW_EMAIL="${1:-}"
