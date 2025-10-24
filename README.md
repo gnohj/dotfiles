@@ -167,13 +167,11 @@ rbw sync && chezmoi apply --force
 mise install
 ```
 
-**Update mise itself:**
-
-Mise is managed by Nix, so update it with the rest of your Nix packages:
+**Upgrade a specific language runtime:**
 
 ```bash
-nix flake update ~/.nix
-darwin-rebuild switch --flake ~/.nix
+mise upgrade node
+mise upgrade python
 ```
 
 **Upgrade all language runtimes to latest versions:**
