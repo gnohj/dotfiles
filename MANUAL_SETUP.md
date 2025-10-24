@@ -298,6 +298,123 @@ defaults read NSGlobalDomain NSRecentDocumentsLimit
 
 ---
 
+### Clone Personal Repositories
+
+**Cannot be automated**: Requires SSH authentication and personal workflow decisions
+
+Clone your frequently-used repositories to your preferred locations. Example:
+
+```bash
+# Create projects directory
+mkdir -p ~/projects
+
+# Clone your dotfiles (if not already cloned via chezmoi)
+git clone git@github.com:gnohj/dotfiles.git ~/projects/dotfiles
+
+# Clone other personal repos as needed
+# git clone git@github.com:gnohj/repo-name.git ~/projects/repo-name
+```
+
+**Note**: This assumes your SSH key is already configured via `user-setup.sh` and Bitwarden.
+
+---
+
+### Migrate Wallpapers from iCloud
+
+**Cannot be automated**: Large binary files not suitable for git storage
+
+If you sync wallpapers via iCloud Drive, create a local copy:
+
+```bash
+# Copy wallpapers from iCloud to local Pictures folder
+# iCloud path: ~/Library/Mobile Documents/com~apple~CloudDocs/Documents/Pictures/wallpapers
+# Local path: ~/Pictures/wallpapers
+
+# If wallpapers exist in iCloud:
+if [ -d "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Documents/Pictures/wallpapers" ]; then
+  cp -r "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Documents/Pictures/wallpapers" \
+        "$HOME/Pictures/wallpapers"
+  echo "✓ Wallpapers copied from iCloud to ~/Pictures/wallpapers"
+else
+  echo "⚠ iCloud wallpapers not found. Ensure iCloud Drive is synced."
+fi
+```
+
+**Alternative**: If wallpapers are already in `~/Pictures/wallpapers`, no action needed.
+
+**Why manual?**:
+- Wallpapers are large binary files (several MB each)
+- Not suitable for git repository storage
+- Better synced via iCloud Drive or copied manually per machine
+
+---
+
+### Create Global Git Ignore File
+
+**Cannot be automated**: Personal preference for global ignore patterns
+
+Create a global gitignore file to exclude common files across all repositories:
+
+```bash
+# Create global gitignore file
+cat > ~/.gitignore_global << 'EOF'
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+*.local
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+EOF
+
+# Configure git to use the global gitignore
+git config --global core.excludesfile ~/.gitignore_global
+
+echo "✓ Global gitignore created at ~/.gitignore_global"
+```
+
+**Why manual?**:
+- Personal ignore patterns vary by developer workflow
+- Not all patterns may be desired for your use case
+- Easier to customize directly than templating
+
+**Verify**:
+```bash
+git config --global core.excludesfile
+# Should return: /Users/yourusername/.gitignore_global
+```
+
+---
+
 ## Verification Checklist
 
 After running through this guide, verify:
@@ -312,6 +429,9 @@ After running through this guide, verify:
 - [ ] Lock Screen UI options configured (4 settings)
 - [ ] Touch ID fingerprints added
 - [ ] Recent Items set to None
+- [ ] Personal repositories cloned
+- [ ] Wallpapers migrated from iCloud to `~/Pictures/wallpapers`
+- [ ] Global gitignore file created at `~/.gitignore_global`
 
 ---
 
