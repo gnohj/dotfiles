@@ -21,7 +21,7 @@ fi
 if [ ! -f "${SCRIPT_DIR}/system-utils.sh" ]; then
   echo "📦 Downloading system-utils.sh..."
   if curl -fsSL -o "${SCRIPT_DIR}/system-utils.sh" \
-    "https://raw.githubusercontent.com/gnohj/dotfiles/main/system-utils.sh"; then
+    "https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/system-utils.sh"; then
     echo "✅ system-utils.sh downloaded"
   else
     echo "❌ Error: Failed to download system-utils.sh" >&2
@@ -33,7 +33,7 @@ source "${SCRIPT_DIR}/system-utils.sh"
 
 ZZH_ZEY_ZECRET_NAME="GITHUB_ZZH_PRIVATE_ZEY"
 BW_EMAIL="${1:-}"
-DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
+DOTFILES_REPO="https://github.com/gnohj/dotfiles-v2.git"
 
 detect_platform
 
@@ -50,7 +50,7 @@ print_info "› Phase 1: Verifying prerequisites..."
 if ! command -v nix &>/dev/null; then
   print_warning "Nix is not installed!"
   print_info "Please run system-setup.sh first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/system-setup.sh | bash"
+  echo "  curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/system-setup.sh | bash"
   exit 1
 fi
 
