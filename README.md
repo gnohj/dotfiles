@@ -17,9 +17,10 @@ This setup prioritizes:
 
 ## Key Tools & Configurations
 
-- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin)
+- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin) (declarative macOS settings + packages)
 - **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
+- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
 - **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace)
   (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
@@ -65,13 +66,15 @@ access.
 Applies dotfiles and installs language runtimes via mise:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/user-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/user-setup.sh | bash -s -- your_bitwarden_email@example.com
 ```
 
 This will:
 
+- Fetch SSH keys from Bitwarden (requires master password)
 - Apply all dotfiles via Chezmoi (`~/.config/`, `~/.zshrc`, etc.)
 - Install language runtimes via mise (Node, Python, Go, Rust, etc.)
+- Set up environment secrets from Bitwarden (API keys, tokens)
 - Set up shell configuration
 
 ## Update Existing Mac (Apple Silicon)
@@ -146,6 +149,14 @@ chezmoi apply
 
 ```bash
 chezmoi update
+```
+
+**Refresh secrets from Bitwarden:**
+
+Secrets are automatically refreshed when the secret list changes. To force a refresh after changing a password value:
+
+```bash
+rbw sync && chezmoi apply --force
 ```
 
 ### 3. Mise (Language/Environment Management)
