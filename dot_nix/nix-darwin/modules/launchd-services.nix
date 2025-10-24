@@ -46,6 +46,22 @@ in
         StandardErrorPath = "/tmp/skhd_${config.system.primaryUser}.err.log";
       };
     };
+
+    # Borders - Window border visualization
+    # Auto-restarts if crashed
+    borders = {
+      serviceConfig = {
+        ProgramArguments = [ "${homeDir}/.config/borders/bordersrc" ];
+        KeepAlive = {
+          SuccessfulExit = false;
+          Crashed = true;
+        };
+        RunAtLoad = true;
+        ProcessType = "Interactive";
+        StandardOutPath = "/tmp/borders_${config.system.primaryUser}.out.log";
+        StandardErrorPath = "/tmp/borders_${config.system.primaryUser}.err.log";
+      };
+    };
   };
 
   # System LaunchDaemons (run as root)
