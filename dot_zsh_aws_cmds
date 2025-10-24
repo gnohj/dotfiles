@@ -1,0 +1,60 @@
+#!/usr/bin/env zsh
+# AWS Profile Management Functions
+
+# Function to get AWS profile with indicator
+get_aws() {
+  if [[ -n "$AWS_PROFILE" ]]; then
+    echo "$AWS_PROFILE"
+  else
+    echo "aws ✖"
+  fi
+}
+
+# Function to set AWS profile based on repository
+set_aws_for_repo() {
+  local repo_name="$1"
+  case "$repo_name" in
+    "inferno-monorepo")
+      export AWS_PROFILE="inferno"
+      ;;
+    "web")
+      export AWS_PROFILE="ihr-prod"
+      ;;
+  esac
+}
+
+# AWS Profile Switching Functions (per shell)
+asp() {
+  if [[ -z "$1" ]]; then
+    unset AWS_PROFILE
+    echo "AWS profile cleared"
+  else
+    export AWS_PROFILE="$1"
+    echo "AWS profile set to: $1"
+  fi
+}
+
+# Show current AWS profile
+agp() {
+  echo "${AWS_PROFILE:-no profile set}"
+}
+
+# List available AWS profiles
+apl() {
+  aws configure list-profiles 2>/dev/null || \
+  grep '\[profile' ~/.aws/config 2>/dev/null | sed 's/\[profile //g' | sed 's/\]//g'
+}
+
+# AWS SSO login for current profile
+asl() {
+  if [[ -n "$AWS_PROFILE" ]]; then
+    aws sso login --profile "$AWS_PROFILE"
+  else
+    echo "No AWS profile set. Use 'asp <profile>' first."
+  fi
+}
+
+# AWS SSO logout
+aso() {
+  aws sso logout
+}
