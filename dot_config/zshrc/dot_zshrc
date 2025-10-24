@@ -625,7 +625,7 @@ export _ZO_DATA_DIR="$ZDOTDIR"
 #                  Mise Activation (must be before tool integrations)
 #-------------------------------------------------------------------------------
 
-eval "$(/Users/gnohj/.local/bin/mise activate zsh)"
+eval "$(mise activate zsh)"
 
 # -----------------------------  Sketchybar Mise Notification
 # Setup sketchybar mise notification (must be AFTER mise activate to override mise's function)
