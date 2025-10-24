@@ -123,13 +123,19 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
           print_success "Vault synced successfully."
           print_info "Fetching SSH key..."
 
-          PRIVATE_ZEY=$(rbw get "$ZZH_ZEY_ZECRET_NAME")
+          PRIVATE_ZEY=$(rbw get "$ZZH_ZEY_ZECRET_NAME" --full)
 
           print_info "Configuring SSH..."
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-          printf "%s" "$PRIVATE_ZEY" >"$HOME/.ssh/id_ed25519"
+          # Remove any blank lines from the key (Bitwarden notes may add extra newlines)
+          printf "%s" "$PRIVATE_ZEY" | grep -v '^$' >"$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/id_ed25519"
+
+          # Generate public key from private key
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > "$HOME/.ssh/id_ed25519.pub"
+          chmod 644 "$HOME/.ssh/id_ed25519.pub"
+          print_info "Generated public key from private key"
 
           # Add GitHub to known_hosts only if not already present
           touch "$HOME/.ssh/known_hosts" # Ensure file exists
