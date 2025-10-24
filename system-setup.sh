@@ -29,7 +29,7 @@ fi
 if [ ! -f "${SCRIPT_DIR}/system-utils.sh" ]; then
   echo "📦 Downloading system-utils.sh..."
   if curl -fsSL -o "${SCRIPT_DIR}/system-utils.sh" \
-    "https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/system-utils.sh"; then
+    "https://raw.githubusercontent.com/gnohj/dotfiles/main/system-utils.sh"; then
     echo "✅ system-utils.sh downloaded"
   else
     echo "❌ Error: Failed to download system-utils.sh" >&2
@@ -104,7 +104,7 @@ print_info "› Phase 2: Checking Nix configuration..."
 
 CHEZMOI_SOURCE="$HOME/.local/share/chezmoi"
 NIX_CONFIG_DIR="$CHEZMOI_SOURCE/dot_nix"
-DOTFILES_REPO="https://github.com/gnohj/dotfiles-v2.git"
+DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
 if [ ! -d "$CHEZMOI_SOURCE" ]; then
   print_info "Chezmoi source directory not found. Cloning dotfiles..."
@@ -187,7 +187,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Open a new terminal to ensure Nix is in your PATH"
 echo "  2. Run user-setup.sh to configure dotfiles and dev tools:"
-echo "     curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/user-setup.sh | bash"
+echo "     curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/user-setup.sh | bash"
 echo ""
 echo "Configuration location: $NIX_CONFIG_DIR"
 echo "To update system packages: sudo darwin-rebuild switch --flake $NIX_CONFIG_DIR#$FLAKE_NAME"
