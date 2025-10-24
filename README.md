@@ -87,12 +87,10 @@ This setup uses a **hybrid approach** for reproducibility:
 - **Nix packages** (CLI dev tools): Pinned via `flake.lock`
   - ✅ Reproducible across machines and time
   - ✅ Same versions until you explicitly update
-  - Examples: nvim, tmux, fzf, bat, ripgrep
 
 - **Homebrew packages** (macOS apps + utilities): Floating versions
   - ⚠️ Gets latest from Homebrew on install/update
   - ⚠️ Not reproducible, but always up-to-date
-  - Examples: ghostty, brave-browser, borders, sketchybar
 
 #### Rebuild without updating packages
 
@@ -161,7 +159,13 @@ rbw sync && chezmoi apply --force
 
 ### 3. Mise (Language/Environment Management)
 
-**Install/update all tools from config:**
+**List outdated languages:**
+
+```bash
+mise outdated
+```
+
+**Install/update all languages from config:**
 
 ```bash
 mise install
@@ -170,7 +174,7 @@ mise install
 **Upgrade a specific language runtime:**
 
 ```bash
-mise upgrade node
+mise upgrade node@20.2.0
 mise upgrade python
 ```
 
@@ -178,6 +182,26 @@ mise upgrade python
 
 ```bash
 mise upgrade
+```
+
+### 4. Mac App Store (mas)
+
+**List outdated apps:**
+
+```bash
+mas outdated
+```
+
+**Upgrade all App Store apps:**
+
+```bash
+mas upgrade
+```
+
+**Upgrade a specific app:**
+
+```bash
+mas upgrade <app-id>
 ```
 
 </details>
