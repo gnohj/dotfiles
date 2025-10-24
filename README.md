@@ -2,7 +2,7 @@
 
 My personal dotfiles for macOS, managed with Chezmoi.
 
-<img width="2559" height="1440" alt="ghostty-latest" src="https://github.com/user-attachments/assets/4e70e4f7-03b8-41b7-a608-136898d143d7" />
+<img width="2557" height="1440" alt="ghostty-current" src="https://github.com/user-attachments/assets/dbe927ed-fda1-4d92-958a-d92d1220b9ee" />
 
 
 This setup prioritizes:
