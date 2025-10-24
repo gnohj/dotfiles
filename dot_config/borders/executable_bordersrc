@@ -7,4 +7,4 @@ options=(
   active_color=0xffa7cfbd
   inactive_color=0x339fb7a4
 )
-borders "${options[@]}"
+/opt/homebrew/bin/borders "${options[@]}"
