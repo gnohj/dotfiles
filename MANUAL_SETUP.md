@@ -459,6 +459,38 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
 
 ---
 
+### Configure Homerow
+
+**Cannot be automated**: Contains license key and requires manual setup
+
+Homerow is a keyboard navigation app that requires license activation and configuration.
+
+**On new machine:**
+1. Install Homerow (automated via Homebrew)
+2. Launch Homerow
+3. Enter license key when prompted
+   - Store license in Bitwarden for easy retrieval: `HOMEROW_LICENSE`
+4. Configure settings:
+   - **Shortcuts**:
+     - Non-search: `⌃⌥⇧⌘G`
+     - Scroll: `⌃⌥⇧⌘J`
+   - **Disabled apps**: Ghostty, WezTerm (terminals handle their own navigation)
+   - **Auto-switch keyboard layout**: US
+   - **Label font size**: 11
+   - **Launch at login**: Enabled
+   - **Map arrow keys to scroll**: Enabled
+
+**Where settings are stored**:
+- `~/Library/Preferences/com.superultra.Homerow.plist`
+- Contains license key, so not suitable for version control
+
+**Why manual?**:
+- Contains license key that shouldn't be in git
+- Requires TCC (Accessibility) permissions which can't be automated
+- Settings are app-specific and tied to license activation
+
+---
+
 ## Verification Checklist
 
 After running through this guide, verify:
@@ -477,6 +509,7 @@ After running through this guide, verify:
 - [ ] Wallpapers migrated from iCloud to `~/Pictures/wallpapers`
 - [ ] Global gitignore file created at `~/.gitignore_global`
 - [ ] Raycast settings imported from exported JSON file
+- [ ] Homerow license activated and settings configured
 
 ---
 
