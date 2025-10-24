@@ -433,10 +433,12 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
 3. Open Raycast Settings → Advanced
 4. Click "Import Settings"
 5. Select your JSON file
+6. Install extensions (if not auto-installed):
+   - Clipboard History (main extension used)
 
 **What's included in export**:
 - ✅ Extensions and their configurations
-- ✅ Hotkeys and keyboard shortcuts
+- ✅ Hotkeys and keyboard shortcuts (e.g., `⌘ + Space` for Raycast)
 - ✅ Snippets
 - ✅ Quicklinks
 - ✅ Appearance preferences
@@ -445,6 +447,10 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
 **What's NOT included**:
 - ❌ Sign-in credentials (must log in manually)
 - ❌ Extensions will need to re-download
+
+**Key settings**:
+- Global hotkey: `⌘ + Space` (Raycast launcher)
+- Extensions: Clipboard History
 
 **Why manual?**:
 - Raycast settings contain session tokens and shouldn't be in git
