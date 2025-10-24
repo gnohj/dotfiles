@@ -37,6 +37,7 @@ log_message() {
 # List of repositories to push to
 REPO_LIST=(
   "$HOME/Obsidian/second-brain"
+  "$HOME/Developer/gnohj-monorepo"
   "$HOME/.claude"
 )
 
