@@ -506,6 +506,34 @@ Homerow is a keyboard navigation app that requires license activation and config
 
 ---
 
+### Configure AlDente (Battery Management)
+
+**Cannot be automated**: Settings stored in application database, not config files
+
+AlDente allows you to set a charge limit to prolong battery lifespan.
+
+**On new machine:**
+1. Install AlDente (automated via Homebrew)
+2. Launch AlDente from Applications
+3. Click the menu bar icon
+4. Set charge limit:
+   - **80%**: Recommended for desk use (plugged in most of the time)
+   - **90%**: Good balance for mobile use (moderate unplugged usage)
+5. Enable "Launch at Login" in preferences
+
+**Where settings are stored**:
+- AlDente's internal database (not accessible as config files)
+- Settings persist per machine but cannot be exported/imported
+
+**Why manual?**:
+- Settings are stored in app's proprietary database format
+- No config file or export/import functionality
+- Must be configured on each machine individually
+
+**Recommended setting**: 80% for MacBooks primarily used at a desk
+
+---
+
 ## Verification Checklist
 
 After running through this guide, verify:
