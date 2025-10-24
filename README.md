@@ -48,7 +48,7 @@ Installs Nix package manager, nix-darwin system configuration, and Homebrew
 packages:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/system-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/system-setup.sh | bash
 ```
 
 This will:
@@ -66,7 +66,7 @@ access.
 Applies dotfiles and installs language runtimes via mise:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles-v2/main/user-setup.sh | bash -s -- your_bitwarden_email@example.com
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/user-setup.sh | bash -s -- your_bitwarden_email@example.com
 ```
 
 This will:
