@@ -28,6 +28,9 @@
     # Data tools
     jq         # JSON processor
 
+    # AI Tools
+    opencode
+
     # Terminal & Shell
     tmux       # Terminal multiplexer
     starship   # Shell prompt
