@@ -52,6 +52,13 @@
     # Image processing for terminal
     imagemagick
 
+    # Fonts (new nerd-fonts namespace)
+    nerd-fonts.hasklug       # Ghostty primary (Hasklig Nerd Font)
+    nerd-fonts.roboto-mono   # WezTerm, Ghostty alternate
+    nerd-fonts.space-mono    # Sketchybar
+    nerd-fonts.meslo-lg      # Sketchybar mic widget (MesloLGM)
+    nerd-fonts.jetbrains-mono # Ghostty alternate option
+
     # Security & Development
     rbw        # Bitwarden CLI
     mkcert     # Local certificate tool
@@ -66,8 +73,4 @@
     tree-sitter # Tree-sitter CLI
   ];
 
-  # Note: Migration strategy (see ~/.config/nix-darwin-migration-plan.md)
-  # 1. Nix → System packages, CLI tools, macOS settings
-  # 2. Chezmoi → Dotfiles only (~/.config/*)
-  # 3. Mise → Language runtimes ONLY (node, lua, python, go, rust, etc.)
 }
