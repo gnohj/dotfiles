@@ -2,13 +2,17 @@ return {
   {
     "neovim/nvim-lspconfig",
     opts = function(_, opts)
-      local keys = require("lazyvim.plugins.lsp.keymaps").get()
-      -- Remove the code action keymap
-      keys[#keys + 1] = { "<leader>ca", false }
-      keys[#keys + 1] = { "<leader>cA", false }
+      -- Disable code action keymaps using the new approach
+      opts.servers = opts.servers or {}
+      opts.servers["*"] = {
+        keys = {
+          { "<leader>ca", false },
+          { "<leader>cA", false },
+        },
+      }
 
       -- Existing configurations
-      opts.servers = {
+      opts.servers = vim.tbl_deep_extend("force", opts.servers, {
         lua_ls = {
           -- Only start for .lua files to avoid scanning issues
           filetypes = { "lua" },
@@ -163,7 +167,7 @@ return {
             client.server_capabilities.documentFormattingProvider = true
           end,
         },
-      }
+      })
 
       opts.inlay_hints = {
         enabled = false,
