@@ -17,15 +17,15 @@ log_message() {
 
 log_message "INFO" "Starting mas update check (Sender: $SENDER)"
 
-# Get outdated App Store apps
-OUTDATED_OUTPUT="$(/opt/homebrew/bin/mas outdated 2>&1)"
+# Get outdated App Store apps (suppress errors)
+OUTDATED_OUTPUT="$(/opt/homebrew/bin/mas outdated 2>/dev/null)"
 
-# Fix the COUNT calculation
+# Count only valid output lines (ignore errors)
 if [[ -z "$OUTDATED_OUTPUT" || "$OUTDATED_OUTPUT" == "" ]]; then
   COUNT=0
 else
-  # Count non-empty lines
-  COUNT=$(echo "$OUTDATED_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
+  # Count non-empty lines that don't contain "Error"
+  COUNT=$(echo "$OUTDATED_OUTPUT" | grep -v "Error" | grep -c '^[[:space:]]*[^[:space:]]')
 fi
 
 COLOR=$RED
