@@ -6,26 +6,9 @@ local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
 
--- Detect if we have ONLY the built-in display (no external monitors)
-local function isOnlyBuiltInDisplay()
-	-- Count total displays - if only 1, then no external monitor connected
-	local handle = io.popen("system_profiler SPDisplaysDataType 2>/dev/null | grep 'Display Type:' | wc -l")
-	local result = handle:read("*a")
-	handle:close()
-	local displayCount = tonumber(result) or 0
-	return displayCount == 1
-end
-
--- Determine position based on display configuration
--- If only built-in (no external): use "left" position to avoid camera notch
--- If external monitor connected: use "center" (original behavior)
-local isOnlyBuiltIn = isOnlyBuiltInDisplay()
-local position = isOnlyBuiltIn and "left" or "center"
-print("Spotify widget - Only built-in display: " .. tostring(isOnlyBuiltIn) .. ", position: " .. position)
-
 -- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
-	position = position,
+	position = "center",
 	padding_left = 1,
 	padding_right = 5,
 	drawing = false,
@@ -47,7 +30,7 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 
 -- Main text widget (without play/pause icon)
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
-	position = position,
+	position = "center",
 	update_freq = 15,
 	scroll_texts = true,
 	padding_right = 0,
@@ -56,7 +39,7 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 
 -- Separate play/pause icon widget (can be positioned independently)
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
-	position = position,
+	position = "center",
 	y_offset = -1.75,
 	padding_left = -18,
 	padding_right = 0,
