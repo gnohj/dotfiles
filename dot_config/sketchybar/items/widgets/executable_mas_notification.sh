@@ -15,13 +15,53 @@ log_message() {
   echo "[$timestamp] [$level] [MAS] $message" >>"$LOG_FILE"
 }
 
+# Timeout wrapper function (5 second timeout to prevent hanging)
+run_with_timeout() {
+  local timeout=5
+  local cmd="$1"
+  local tmpfile="/tmp/mas_notification_$$"
+
+  # Run command in background and capture output
+  (eval "$cmd" > "$tmpfile" 2>&1) &
+  local pid=$!
+
+  # Wait for command with timeout (0.1s intervals)
+  local elapsed=0
+  while kill -0 $pid 2>/dev/null; do
+    if [ $elapsed -ge $((timeout * 10)) ]; then
+      kill -9 $pid 2>/dev/null
+      wait $pid 2>/dev/null
+      rm -f "$tmpfile"
+      log_message "WARN" "Command timed out after ${timeout}s"
+      return 124  # timeout exit code
+    fi
+    sleep 0.1
+    elapsed=$((elapsed + 1))
+  done
+
+  # Get command exit code and output
+  wait $pid
+  local exit_code=$?
+  if [ -f "$tmpfile" ]; then
+    cat "$tmpfile"
+    rm -f "$tmpfile"
+  fi
+  return $exit_code
+}
+
 log_message "INFO" "Starting mas update check (Sender: $SENDER)"
 
-# Get outdated App Store apps (suppress errors)
-OUTDATED_OUTPUT="$(/opt/homebrew/bin/mas outdated 2>/dev/null)"
+# Get outdated App Store apps with timeout (suppress errors)
+OUTDATED_OUTPUT=$(run_with_timeout "/opt/homebrew/bin/mas outdated 2>/dev/null")
+MAS_EXIT_CODE=$?
 
-# Count only valid output lines (ignore errors)
-if [[ -z "$OUTDATED_OUTPUT" || "$OUTDATED_OUTPUT" == "" ]]; then
+# Handle timeout case - show last known state or unknown
+if [ $MAS_EXIT_CODE -eq 124 ]; then
+  # Timeout occurred - show "?" to indicate unknown state
+  COUNT="?"
+  log_message "WARN" "Using unknown state due to timeout"
+elif [[ -z "$OUTDATED_OUTPUT" || "$OUTDATED_OUTPUT" == "" ]]; then
+  # No output - no updates
   COUNT=0
 else
   # Count non-empty lines that don't contain "Error"
@@ -30,6 +70,10 @@ fi
 
 COLOR=$RED
 case "$COUNT" in
+"?")
+  # Timeout - show gray/dim color to indicate unknown state
+  COLOR=$GREY
+  ;;
 [3-5][0-9])
   COLOR=$RED
   ;;
