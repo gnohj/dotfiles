@@ -15,6 +15,17 @@
       show-recents = false;              # Don't show recent apps
       # orientation = "bottom";
       # tilesize = 48;
+
+      # Persistent apps in Dock
+      persistent-apps = [
+        "/System/Applications/Mail.app"
+        "/System/Applications/Calendar.app"
+        "/Users/${config.system.primaryUser}/Applications/Chrome Apps.localized/Google Calendar.app"
+        "/Applications/Marta.app"
+        "/Applications/Google Chrome.app"
+        "/Applications/Brave Browser.app"
+        "/Applications/Ghostty.app"
+      ];
     };
 
     # Finder settings
@@ -68,6 +79,9 @@
       # NSNavPanelExpandedStateForSaveMode2 = true;
       # PMPrintingExpandedStateForPrint = true;
       # PMPrintingExpandedStateForPrint2 = true;
+
+      # Time format - force 24-hour time
+      AppleICUForce24HourTime = true;
     };
 
     # Trackpad settings
@@ -104,6 +118,11 @@
     screensaver = {
       askForPassword = true;              # Require password after screensaver/display off
       askForPasswordDelay = 3600;         # Password delay: 3600 seconds = 1 hour
+    };
+
+    # Login Window settings
+    loginwindow = {
+      GuestEnabled = false;               # Disable guest user
     };
 
   };
