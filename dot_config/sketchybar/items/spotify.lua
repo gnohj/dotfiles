@@ -6,6 +6,17 @@ local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
 
+-- Setup logging
+local LOG_DIR = os.getenv("HOME") .. "/.logs/sketchybar"
+local LOG_FILE = LOG_DIR .. "/spotify_" .. os.date("%Y%m") .. ".log"
+
+local function log_message(level, message)
+	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s\n", timestamp, level, message)
+	os.execute("mkdir -p " .. LOG_DIR)
+	os.execute("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. LOG_FILE)
+end
+
 -- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	position = "center",
@@ -89,10 +100,24 @@ local function updateSpotifyInfo()
 			end tell
 		]]
 
-		sbar.exec("osascript -e '" .. spotifyScript .. "'", function(_result)
+		-- Wrap osascript in a timeout to prevent hanging (5 second timeout)
+		local timeoutCmd = [[
+			(
+				osascript -e ']] .. spotifyScript .. [[' &
+				pid=$!
+				( sleep 5; kill -9 $pid 2>/dev/null ) &
+				wait $pid 2>/dev/null
+			)
+		]]
+
+		sbar.exec(timeoutCmd, function(_result)
 			local status = _result:match("^[^\n]*") -- Get first line, remove newlines
 
-			if status == "not_running" or status == "stopped" or status == "" then
+			-- Handle timeout or errors gracefully
+			if status == "not_running" or status == "stopped" or status == "" or status == nil then
+				if status == nil or status == "" then
+					log_message("WARN", "AppleScript timed out or returned empty result")
+				end
 				if isSpotifyRunning then -- Only update if state changed
 					spotify:set({ drawing = false })
 					spotifyIcon:set({ drawing = false })
@@ -103,14 +128,22 @@ local function updateSpotifyInfo()
 				return
 			end
 
+			-- Split by | while preserving empty fields
 			local parts = {}
-			for part in status:gmatch("[^|]+") do
-				table.insert(parts, part)
+			local start = 1
+			while true do
+				local pipePos = status:find("|", start, true)
+				if not pipePos then
+					table.insert(parts, status:sub(start))
+					break
+				end
+				table.insert(parts, status:sub(start, pipePos - 1))
+				start = pipePos + 1
 			end
 
-			local playerState = parts[1]
+			local playerState = parts[1] or ""
 			local trackName = parts[2] or "Unknown Track"
-			local artistName = parts[3] or "Unknown Artist"
+			local artistName = parts[3] or ""  -- Empty for podcasts
 			local albumName = parts[4] or ""
 			local artworkUrl = parts[5] or ""
 
@@ -132,35 +165,35 @@ local function updateSpotifyInfo()
 				isPlaying = playerState == "playing"
 
 				-- Handle podcast vs music display logic
+				-- Podcasts have empty artist name
 				local displayText
-				if trackName == "0" and albumName ~= "" then
-					-- Podcast: show album (podcast title) - artist (episode title)
-					displayText = albumName .. " - " .. artistName
-					print(
-						"Podcast detected: "
-							.. displayText
-							.. " | Artwork: "
-							.. (artworkUrl ~= "" and "available" or "none")
-					)
+				local isPodcast = (artistName == "" or artistName == nil)
+
+				if isPodcast then
+					-- Podcast: show album (podcast title) - track (episode title)
+					displayText = albumName .. " - " .. trackName
+					local artworkStatus = (artworkUrl ~= "" and artworkUrl ~= "none" and "available" or "none")
+					log_message("INFO", "Podcast detected: " .. displayText .. " | Artwork: " .. artworkStatus)
+					print("Podcast detected: " .. displayText .. " | Artwork: " .. artworkStatus)
 				else
 					-- Music: show artist - track
 					displayText = artistName .. " - " .. trackName
-					print(
-						"Music detected: "
-							.. displayText
-							.. " | Artwork: "
-							.. (artworkUrl ~= "" and "available" or "none")
-					)
+					local artworkStatus = (artworkUrl ~= "" and artworkUrl ~= "none" and "available" or "none")
+					log_message("INFO", "Music detected: " .. displayText .. " | Artwork: " .. artworkStatus)
+					print("Music detected: " .. displayText .. " | Artwork: " .. artworkStatus)
 				end
 				local playIconString = isPlaying and "⏸" or "▶"
 				local playIconSize = isPlaying and "20.0" or "18.0" -- Larger pause icon
 				local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
 
-				-- Always show Spotify icon first
+				-- Show icon based on content type (podcast or music)
+				-- Will be updated with artwork if available, otherwise fallback icon
+				local hasArtwork = artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing")
+				local iconString = (isPodcast and not hasArtwork) and "🎙" or "􀑬"
 				spotifyIcon:set({
 					drawing = true,
 					icon = {
-						string = "􀑬",
+						string = iconString,
 						color = settings.colors.blue,
 						padding_right = 0,
 						drawing = true,
@@ -173,7 +206,8 @@ local function updateSpotifyInfo()
 				})
 
 				-- Update icon with album cover if available
-				if artworkUrl ~= "" then
+				-- Check for valid URL (not empty and not "none" or "missing value")
+				if artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing") then
 					-- Create a unique file path for the artwork based on URL hash
 					local urlHash = string.gsub(artworkUrl, "[^%w]", "")
 					local artworkPath = "/tmp/spotify_" .. urlHash .. ".jpg"
