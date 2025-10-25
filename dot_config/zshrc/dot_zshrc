@@ -354,6 +354,20 @@ _fzf_env_vars() {
 }
 alias fze='_fzf_env_vars'
 
+# Browse and open log files with fzf
+_fzf_logs() {
+    local log_file
+    log_file=$(fd --type f . ~/.logs | fzf \
+        --border-label="📋 Log Files" \
+        --height=70% \
+        --border=rounded \
+        --preview='bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}' \
+        --preview-window=up:70%)
+
+    [[ -n "$log_file" ]] && nvim "$log_file"
+}
+alias fzl='_fzf_logs'
+
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
