@@ -60,6 +60,9 @@
 
     # GUI applications (casks)
     casks = [
+      # AI Tools
+      "claude-code"
+
       # Browsers
       "brave-browser"
       "firefox"
