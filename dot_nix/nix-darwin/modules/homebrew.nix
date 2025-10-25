@@ -105,8 +105,6 @@
       "appcleaner"
       "betterdisplay"
       "flameshot"
-      "istat-menus"
-      "latest"
       "localsend"
 
       # Input Devices
@@ -115,6 +113,9 @@
       # Media
       "spotify"
       "vlc"
+
+      # VPN & Security
+      "private-internet-access"
 
       # Fonts
       "font-sf-pro"
