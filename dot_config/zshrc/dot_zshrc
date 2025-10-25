@@ -377,6 +377,9 @@ alias spice='spicetify auto'
 # Mailsy ( Anon email generation )
 alias mail='mailsy'
 
+# DNS lookup - check DNS server being used
+alias dns='nslookup google.com'
+
 # Disk Usage
 alias disk='duf --sort usage'
 
