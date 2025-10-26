@@ -2,6 +2,7 @@ local constants = require("constants")
 local settings = require("config.settings")
 
 local spaces = {}
+local currentWorkspace = nil -- Track current workspace to prevent stale focused_app updates
 
 local swapWatcher = sbar.add("item", {
 	drawing = false,
@@ -154,12 +155,44 @@ local function addWorkspaceItem(workspaceName, isCurrentWorkspace)
 	sbar.add("item", spaceName .. ".padding", {
 		width = 3, -- Using PADDINGS=3 from shell config
 	})
+
+	-- Add focused app display right after workspace
+	local function updateFocusedAppForWorkspace()
+		local workspaceForThisQuery = workspaceName -- Capture workspace name in closure
+		sbar.exec(constants.aerospace.GET_CURRENT_WINDOW, function(window_output)
+			-- Ignore this response if we've switched to a different workspace
+			if currentWorkspace ~= workspaceForThisQuery then
+				return
+			end
+
+			local app_name = window_output:match("[^\r\n]+")
+			local focused_app_item = spaceName .. ".focused_app"
+
+			-- Remove old focused_app if it exists
+			sbar.remove(focused_app_item)
+
+			if app_name and app_name ~= "" then
+				sbar.add("item", focused_app_item, {
+					position = "left",
+					icon = { drawing = false },
+					label = {
+						string = app_name .. " | " .. workspaceName,
+						padding_left = 5,
+						color = settings.colors.cyan,
+					},
+				})
+			end
+		end)
+	end
+
+	updateFocusedAppForWorkspace()
 end
 
 local function createWorkspaces()
 	-- First get the current workspace
 	sbar.exec(constants.aerospace.GET_CURRENT_WORKSPACE, function(currentWorkspaceOutput)
 		local currentWorkspaceName = currentWorkspaceOutput:match("[^\r\n]+")
+		currentWorkspace = currentWorkspaceName -- Initialize current workspace tracker
 
 		-- Then get all workspaces
 		sbar.exec(constants.aerospace.LIST_ALL_WORKSPACES, function(workspacesOutput)
@@ -184,19 +217,21 @@ swapWatcher:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 end)
 
 currentWorkspaceWatcher:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
-	-- Remove all existing workspace items
+	-- Update current workspace tracker
+	local newWorkspaceName = env.FOCUSED_WORKSPACE
+	currentWorkspace = newWorkspaceName
+
+	-- Remove all existing workspace items (including focused_app items)
 	sbar.remove("/" .. constants.items.SPACES .. "\\..*/")
 	spaces = {}
 
 	-- Add the new current workspace item
-	local newWorkspaceName = env.FOCUSED_WORKSPACE
 	if newWorkspaceName and spaceConfigs[newWorkspaceName] then
 		addWorkspaceItem(newWorkspaceName, true) -- true because it's the current workspace
 	end
 
 	-- Select the new workspace (this will style it as selected)
 	selectCurrentWorkspace(newWorkspaceName)
-	sbar.trigger(constants.events.UPDATE_WINDOWS)
 end)
 
 createWorkspaces()

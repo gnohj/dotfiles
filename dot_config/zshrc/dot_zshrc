@@ -433,7 +433,55 @@ alias ls="eza --icons=always --long --all"
 alias leaves="brew leaves"
 
 # brew + mise + mas outdated list
-alias outdated="brew outdated | awk '{print \"brew package: \" \$1}' && mise outdated && mas outdated | awk '{print \"mas package: \" \$1}'"
+unalias outdated 2>/dev/null
+outdated() {
+  # Source active colorscheme to get current colors
+  source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null
+
+  # Convert hex to RGB for terminal colors
+  local brew_color_hex="${gnohj_color01#\#}"  # Magenta/Purple (brew notification color)
+  local mise_color_hex="${gnohj_color03#\#}"  # Blue (mise notification color)
+  local mas_color_hex="${gnohj_color12#\#}"   # Yellow (greenish-yellow) (mas notification color)
+
+  # Convert hex to RGB
+  local brew_r=$((16#${brew_color_hex:0:2}))
+  local brew_g=$((16#${brew_color_hex:2:2}))
+  local brew_b=$((16#${brew_color_hex:4:2}))
+
+  local mise_r=$((16#${mise_color_hex:0:2}))
+  local mise_g=$((16#${mise_color_hex:2:2}))
+  local mise_b=$((16#${mise_color_hex:4:2}))
+
+  local mas_r=$((16#${mas_color_hex:0:2}))
+  local mas_g=$((16#${mas_color_hex:2:2}))
+  local mas_b=$((16#${mas_color_hex:4:2}))
+
+  local brew_outdated=$(brew outdated)
+  local mise_outdated=$(mise outdated 2>/dev/null)
+  local mas_outdated=$(mas outdated)
+
+  if [[ -n "$brew_outdated" ]]; then
+    echo "$brew_outdated" | awk -v r="$brew_r" -v g="$brew_g" -v b="$brew_b" '{print "\033[38;2;" r ";" g ";" b "mbrew\033[0m package: " $1}'
+  else
+    echo "\033[38;2;${brew_r};${brew_g};${brew_b}mbrew\033[0m All tools are up to date"
+  fi
+
+  echo ""
+
+  if [[ -n "$mise_outdated" ]]; then
+    echo "$mise_outdated" | awk -v r="$mise_r" -v g="$mise_g" -v b="$mise_b" '{print "\033[38;2;" r ";" g ";" b "mmise\033[0m package: " $1}'
+  else
+    echo "\033[38;2;${mise_r};${mise_g};${mise_b}mmise\033[0m All tools are up to date"
+  fi
+
+  echo ""
+
+  if [[ -n "$mas_outdated" ]]; then
+    echo "$mas_outdated" | awk -v r="$mas_r" -v g="$mas_g" -v b="$mas_b" '{print "\033[38;2;" r ";" g ";" b "mmas\033[0m package: " $1}'
+  else
+    echo "\033[38;2;${mas_r};${mas_g};${mas_b}mmas\033[0m All tools are up to date"
+  fi
+}
 
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
