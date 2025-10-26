@@ -60,7 +60,8 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 on-focus-changed = [
   'move-mouse window-lazy-center',
   'exec-and-forget /bin/bash -c /opt/homebrew/bin/sketchybar --trigger front_app_switched',
-  'exec-and-forget /opt/homebrew/bin/sketchybar --trigger update_windows',
+  # Disabled: causes sketchybar to freeze due to event flooding
+  # 'exec-and-forget /opt/homebrew/bin/sketchybar --trigger update_windows',
 ]
 
 
@@ -164,10 +165,6 @@ run = "move-node-to-workspace C"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.reminders' # Reminders App
-run = "move-node-to-workspace C"
-
-[[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
 run = "move-node-to-workspace C"
 
 [[on-window-detected]]
