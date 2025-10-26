@@ -17,6 +17,10 @@ local function log_message(level, message)
   end
 end
 
+-- Debouncing to prevent event flooding
+local update_pending = false
+local update_running = false
+
 sbar.add("bracket", constants.items.FRONT_APPS, {}, { position = "left" })
 local frontAppWatcher = sbar.add("item", {
   drawing = false,
@@ -92,8 +96,26 @@ local function updateWindows(windows)
 end
 
 local function getWindows()
+  if update_running then
+    log_message("WARN", "Update already running, marking pending")
+    update_pending = true
+    return
+  end
+
+  update_running = true
+  update_pending = false
   log_message("INFO", "getWindows called - executing LIST_WINDOWS query")
-  sbar.exec(constants.aerospace.LIST_WINDOWS, updateWindows)
+
+  sbar.exec(constants.aerospace.LIST_WINDOWS, function(windows)
+    updateWindows(windows)
+    update_running = false
+
+    -- If another update was requested while we were running, execute it now
+    if update_pending then
+      log_message("INFO", "Executing pending update")
+      getWindows()
+    end
+  end)
 end
 
 frontAppWatcher:subscribe(constants.events.UPDATE_WINDOWS, function()
