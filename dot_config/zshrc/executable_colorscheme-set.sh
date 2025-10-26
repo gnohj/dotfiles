@@ -518,33 +518,23 @@ EOF
   chmod +x "$borders_script"
   echo "Borders configuration updated at '$borders_script'."
 
-  # Set up logging
-  log_dir="$HOME/.local/state/colorscheme"
-  mkdir -p "$log_dir"
-  log_file="$log_dir/borders-restart.log"
-  timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-
   # Ensure file is flushed to disk before restarting
   sync
-  echo "[$timestamp] Bordersrc file synced to disk." | tee -a "$log_file"
 
-  echo "[$timestamp] Stopping borders... auto restarting with new colors." | tee -a "$log_file"
+  echo "Stopping borders... auto restarting with new colors."
   pkill -f "/opt/homebrew/bin/borders" 2>/dev/null || true
 
   # Wait for borders to restart via LaunchAgent (max 3 seconds)
-  echo "[$timestamp] Waiting for borders to restart..." | tee -a "$log_file"
   for i in {1..6}; do
     sleep 0.5
     if pgrep -f "/opt/homebrew/bin/borders" >/dev/null 2>&1; then
-      echo "[$timestamp] Borders restarted successfully after $((i * 500))ms." | tee -a "$log_file"
+      echo "Borders restarted successfully."
+      # Force borders to render by triggering window focus
+      # Get current focused window and refocus it to trigger borders redraw
+      /opt/homebrew/bin/aerospace list-windows --focused --format '%{window-id}' | head -1 | xargs -I {} /opt/homebrew/bin/aerospace focus --window-id {} 2>/dev/null || true
       break
     fi
   done
-
-  # Check if borders actually restarted
-  if ! pgrep -f "/opt/homebrew/bin/borders" >/dev/null 2>&1; then
-    echo "[$timestamp] Warning: Borders did not restart within 3 seconds." | tee -a "$log_file"
-  fi
 
   # Restart borders with new configuration
   # echo "Starting borders with new colors..."
