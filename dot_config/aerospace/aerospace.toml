@@ -159,6 +159,14 @@ if.app-id = 'com.google.Chrome.app.lgnggepjiihbfdbedefdhcffnmhcahbm' # Reddit Ap
 run = "move-node-to-workspace A"
 
 [[on-window-detected]]
+if.app-id = 'com.apple.iCal' # Calendar App
+run = "move-node-to-workspace C"
+
+[[on-window-detected]]
+if.app-id = 'com.apple.reminders' # Reminders App
+run = "move-node-to-workspace C"
+
+[[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar App (PWA)
 run = "move-node-to-workspace C"
 
