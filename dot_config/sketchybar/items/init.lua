@@ -2,10 +2,7 @@
 require("items.apple")
 require("items.menu_spaces_toggle")
 require("items.menus")
-require("items.spaces")
--- Disabled: causes sketchybar to freeze when querying certain apps (Calendar, Reminders, etc.)
--- require("items.front_apps")
--- Note: focused_app is now integrated into spaces.lua
+require("items.workspace")  -- Combined workspace indicator + window list (AeroSpaceLua socket only)
 
 -- Middle Items
 require("items.spotify")
