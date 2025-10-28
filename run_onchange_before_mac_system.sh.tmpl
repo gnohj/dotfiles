@@ -66,10 +66,10 @@ echo "Configuring login items"
 loginItems=(
   "AeroSpace"
   "BetterDisplay"
-  "Flameshot"
   "Homerow"
   "Mouseless"
   "Raycast"
+  "Shottr"
 )
 
 for app in "${loginItems[@]}"; do
@@ -100,18 +100,12 @@ echo "  - Applications to add to Full Disk Access permissions: Ghostty"
 #-------------------------------------------------------------------------------
 #--                      Gatekeeper Bypass for Specific Apps
 #-------------------------------------------------------------------------------
-# Some apps (like flameshot) are not properly signed/notarized for macOS
+# Some apps are not properly signed/notarized for macOS
 # Remove quarantine attribute to bypass Gatekeeper warnings
 
 echo "Applying Gatekeeper bypass for unsigned apps..."
 
-# Flameshot - Screenshot tool (deprecated in Homebrew due to Gatekeeper issues)
-if [ -d "/Applications/flameshot.app" ]; then
-  sudo xattr -r -d com.apple.quarantine /Applications/flameshot.app 2>/dev/null || true
-  echo "✅ Flameshot Gatekeeper bypass applied"
-else
-  echo "⏭️  Flameshot not installed, skipping Gatekeeper bypass"
-fi
+# Note: Shottr is properly signed, no Gatekeeper bypass needed
 
 echo "📋 System Summary:"
 echo "✅ Configured in this script:"

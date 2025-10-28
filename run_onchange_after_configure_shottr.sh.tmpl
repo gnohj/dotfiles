@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Shottr configuration script
+# Runs when this file changes to apply consistent Shottr settings
+
+echo "🔧 Configuring Shottr..."
+
+# Wait for Shottr to be installed
+if [ ! -d "/Applications/Shottr.app" ]; then
+  echo "⏭️  Shottr not installed yet, skipping configuration"
+  exit 0
+fi
+
+# Core capture behavior
+defaults write cc.ffitch.shottr afterGrabCopy -bool true          # Auto-copy to clipboard
+defaults write cc.ffitch.shottr afterGrabSave -bool true          # Auto-save screenshots
+defaults write cc.ffitch.shottr afterGrabShow -bool true          # Show editor after capture
+defaults write cc.ffitch.shottr copyOnEsc -bool true              # Copy when pressing Esc
+defaults write cc.ffitch.shottr saveOnEsc -bool false             # Don't save on Esc (only copy)
+
+# Save settings
+defaults write cc.ffitch.shottr defaultFolder "$HOME/Pictures"   # Save location
+defaults write cc.ffitch.shottr saveFormat "Auto"                 # Auto-detect PNG/JPG format
+defaults write cc.ffitch.shottr downscaleOnSave -bool false       # Keep original resolution
+
+# Privacy & telemetry
+defaults write cc.ffitch.shottr allowTelemetry -bool false        # Disable telemetry
+defaults write cc.ffitch.shottr allowDeeplinks -bool true         # Allow deeplinks
+
+# UI preferences
+defaults write cc.ffitch.shottr alwaysOnTop -bool false           # Don't force window on top
+defaults write cc.ffitch.shottr expandableCanvas -bool true       # Allow canvas expansion
+defaults write cc.ffitch.shottr preferLargeWindow -bool false     # Use compact window
+defaults write cc.ffitch.shottr thumbnailClosing "auto"           # Auto-close thumbnails
+
+# Color picker settings
+defaults write cc.ffitch.shottr colorFormat "HEX"                 # Use HEX format for colors
+defaults write cc.ffitch.shottr contrastType "wcag2"              # WCAG 2.0 contrast checks
+
+# OCR settings
+defaults write cc.ffitch.shottr ocrRemoveBreaks -bool false       # Keep line breaks in OCR
+defaults write cc.ffitch.shottr primaryOCRLang "en-US"            # Primary OCR language
+
+# Scrolling capture settings
+defaults write cc.ffitch.shottr scrollingManualEnabled -bool false # Auto-scrolling
+defaults write cc.ffitch.shottr scrollingSpeed -int 2             # Medium scroll speed
+defaults write cc.ffitch.shottr scrollingMax -int 20000           # Max scroll pixels
+defaults write cc.ffitch.shottr scrollingReverseAutoscroll -bool false
+
+# Window appearance
+defaults write cc.ffitch.shottr windowShadow "transparent"        # Transparent shadow style
+defaults write cc.ffitch.shottr areaCaptureMode "preview"         # Show preview mode
+
+# Notification preferences
+defaults write cc.ffitch.shottr notificationType "custom"         # Custom notifications
+
+# Other settings
+defaults write cc.ffitch.shottr realPixels -bool false            # Use logical pixels
+defaults write cc.ffitch.shottr altZoomDirection -int 0           # Default zoom direction
+
+echo "✅ Shottr configured successfully"
+echo "   • Telemetry: Disabled"
+echo "   • Auto-copy: Enabled"
+echo "   • Auto-save: Enabled"
+echo "   • Save folder: ~/Pictures"
+echo ""
+echo "📝 Note: Hotkeys are preserved from your current settings"
+echo "   You can change them in Shottr preferences if needed"

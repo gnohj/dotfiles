@@ -143,7 +143,7 @@ local function updateSpotifyInfo()
 
 			local playerState = parts[1] or ""
 			local trackName = parts[2] or "Unknown Track"
-			local artistName = parts[3] or ""  -- Empty for podcasts
+			local artistName = parts[3] or "" -- Empty for podcasts
 			local albumName = parts[4] or ""
 			local artworkUrl = parts[5] or ""
 
