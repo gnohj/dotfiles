@@ -106,8 +106,8 @@
       "aldente"
       "appcleaner"
       "betterdisplay"
-      "flameshot"
       "localsend"
+      "shottr"
 
       # Input Devices
       "logi-options+"

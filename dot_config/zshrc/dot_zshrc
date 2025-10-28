@@ -508,11 +508,6 @@ esac
 # add second-brain executables to path - og,on
 export PATH="$HOME/_bin:$PATH"
 
-# flameshot
-if [[ ":$PATH:" != *":/Applications/flameshot.app/Contents/MacOS:"* ]]; then
-  export PATH="/Applications/flameshot.app/Contents/MacOS:$PATH"
-fi
-
 export PATH="~/.local/bin:$PATH"
 
 #-------------------------------------------------------------------------------

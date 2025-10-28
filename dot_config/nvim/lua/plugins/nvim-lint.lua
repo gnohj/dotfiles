@@ -5,6 +5,7 @@ return {
     opts = {
       linters_by_ft = {
         yaml = { "actionlint" }, -- only does workflow files
+        markdown = {}, -- Disable markdownlint-cli2 from LazyVim markdown extra
       },
       linters = {
         actionlint = {
