@@ -383,6 +383,9 @@ alias dns='nslookup google.com'
 # Disk Usage
 alias disk='duf --sort usage'
 
+# Fix Bluetooth
+alias fixbluetooth='sudo killall -HUP bluetoothd && echo "Bluetooth daemon restarted."'
+
 # NeoVim Shorcuts
 alias n="nvim"
 alias vi="nvim"
