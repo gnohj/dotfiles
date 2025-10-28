@@ -33,6 +33,8 @@
       "kanata"
       "koekeishiya/formulae/skhd"
 
+      # Note: Lua packages (cjson, luaposix) now managed by Nix in packages.nix
+
       # Shell & plugin managers
       "zinit"
 
