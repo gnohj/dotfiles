@@ -18,5 +18,5 @@ calendar:subscribe({ "forced", "routine", "system_woke" }, function(env)
 end)
 
 calendar:subscribe("mouse.clicked", function(env)
-	sbar.exec("open -a 'Google Calendar'")
+	sbar.exec("open -a 'Calendar'")
 end)

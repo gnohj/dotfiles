@@ -17,6 +17,9 @@ local function log_message(level, message)
 	os.execute("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. LOG_FILE)
 end
 
+-- Register the Spotify playback state changed event
+sbar.exec("sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
+
 -- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	position = "center",
@@ -42,7 +45,6 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 -- Main text widget (without play/pause icon)
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	position = "center",
-	update_freq = 15,
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
@@ -268,7 +270,17 @@ local function updateSpotifyInfo()
 	end)
 end
 
-spotify:subscribe("routine", updateSpotifyInfo)
+-- Subscribe to Spotify playback state change event (event-driven, no polling)
+spotify:subscribe("spotify_change", function(env)
+	log_message("INFO", "Spotify playback state changed event received")
+	updateSpotifyInfo()
+end)
+
+-- Also subscribe to system wake event to refresh state
+spotify:subscribe("system_woke", function()
+	log_message("INFO", "System woke - refreshing Spotify state")
+	updateSpotifyInfo()
+end)
 
 spotify:subscribe("mouse.clicked", function()
 	local currentTime = os.time()
@@ -279,7 +291,7 @@ spotify:subscribe("mouse.clicked", function()
 
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
 		lastTrackInfo = ""
-		updateSpotifyInfo()
+		-- Event will trigger updateSpotifyInfo automatically
 	end)
 end)
 
@@ -292,7 +304,7 @@ spotifyIcon:subscribe("mouse.clicked", function()
 
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
 		lastTrackInfo = ""
-		updateSpotifyInfo()
+		-- Event will trigger updateSpotifyInfo automatically
 	end)
 end)
 
@@ -305,8 +317,9 @@ playIcon:subscribe("mouse.clicked", function()
 
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
 		lastTrackInfo = ""
-		updateSpotifyInfo()
+		-- Event will trigger updateSpotifyInfo automatically
 	end)
 end)
 
+-- Initial update on load
 updateSpotifyInfo()

@@ -1,8 +1,6 @@
--- Simplified workspace widget - workspace indicator only (NO AeroSpaceLua socket)
--- AeroSpaceLua socket API was causing freezes - commented out for stability
+-- Simplified workspace widget - single item with icon + text
 local constants = require("constants")
 local settings = require("config.settings")
--- local Aerospace = require("lib.aerospace")  -- DISABLED - causes freezes
 
 local isShowingSpaces = true
 
@@ -24,19 +22,26 @@ local spaceConfigs = {
   ["Z"] = { name = "Brave", app = "Zen" },
 }
 
--- Create workspace indicator item (icon-only)
+-- Single workspace item with both background image and label
 local workspaceItem = sbar.add("item", constants.items.SPACES, {
   icon = {
-    drawing = false,
+    drawing = true,
+    string = "",
+    padding_left = 30,  -- Push icon to make room for background image
+    padding_right = 0,
   },
   label = {
-    drawing = false,
+    drawing = true,
+    string = "",
+    color = settings.colors.cyan,
+    padding_left = 10,
+    padding_right = 8,
   },
   background = {
     height = 26,
     corner_radius = 9,
-    border_width = 2,
-    color = settings.colors.bg1,
+    border_width = 0,
+    color = settings.colors.transparent,
     image = "app.default",
   },
   padding_left = 3,
@@ -51,20 +56,29 @@ local function updateWorkspaceIndicator(env)
     local config = spaceConfigs[workspace]
     if config and config.app then
       workspaceItem:set({
-        background = { image = "app." .. config.app },
-        drawing = isShowingSpaces,
+        label = {
+          string = config.app,
+          color = settings.colors.cyan,
+        },
+        background = {
+          image = "app." .. config.app,
+        },
       })
     else
-      -- Unknown workspace - show default icon
       workspaceItem:set({
-        background = { image = "app.default" },
-        drawing = isShowingSpaces,
+        label = {
+          string = workspace,
+          color = settings.colors.grey,
+        },
+        background = {
+          image = "app.default",
+        },
       })
     end
   end
 end
 
--- Subscribe to workspace changes (using event data, not socket API)
+-- Subscribe to workspace changes
 workspaceItem:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
   updateWorkspaceIndicator(env)
 end)
@@ -75,9 +89,3 @@ workspaceItem:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
   isShowingSpaces = not showingMenu
   workspaceItem:set({ drawing = isShowingSpaces })
 end)
-
--- Initialize with default icon
-workspaceItem:set({
-  background = { image = "app.default" },
-  drawing = isShowingSpaces,
-})
