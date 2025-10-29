@@ -23,6 +23,9 @@ keymap("i", "jk", "<ESC>", { desc = "[P]Exit insert mode with jk" })
 
 keymap("v", "q", "+y", { desc = "[P]Yank selected text in visual mode" })
 
+-- Restore gd to LSP go to definition (overrides illuminate/search highlighting)
+keymap("n", "gd", vim.lsp.buf.definition, { desc = "Go to Definition" })
+
 -- Quit Neovim instance with save and quit all
 keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
 

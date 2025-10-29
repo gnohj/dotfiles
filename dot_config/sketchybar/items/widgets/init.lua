@@ -1,7 +1,6 @@
 require("items.widgets.calendar")
 require("items.widgets.battery")
--- Disabled: wifi widget causes freezes (likely due to underlying WiFi driver issues on system)
--- require("items.widgets.wifi")
+require("items.widgets.wifi_simple")  -- Simple event-driven WiFi (no speeds)
 require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.volume")

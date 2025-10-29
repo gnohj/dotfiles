@@ -15,9 +15,11 @@ GetDatasourceBySlug
 GetPageByQuery
 Grugfar
 Hotfixes
+HttpOnly
 IHRWEB
 IaC
 JW
+KB
 Lazygit
 MacOS
 OS
@@ -28,6 +30,7 @@ Pulumi's
 RadioEdit
 Redux
 SSR
+SameSite
 TBD
 TODO
 Terraform's
@@ -70,6 +73,7 @@ onchange
 pid
 pnpm
 prNumber
+profileId
 pulumi
 px
 refetch
@@ -81,6 +85,7 @@ sdk
 semver
 serviceId
 serviceIds
+sessionId
 sketchybar
 sourcemaps
 sudo
@@ -93,3 +98,4 @@ vcl
 vercel
 vitest
 which
+www
