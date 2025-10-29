@@ -2,6 +2,7 @@ Ansible
 AppsFlyer
 AppsFlyer's
 Aptivada
+Aptivada's
 BMI
 Bitwarden
 CCPlugins
@@ -41,6 +42,7 @@ Zsh
 a.
 api
 backmerge
+base64
 bashrc
 cdn
 changesets
@@ -61,6 +63,7 @@ hotfix
 href
 iHeartRadio
 iheart
+localStorage
 loginToken
 md
 mise
@@ -71,6 +74,7 @@ nvim
 oauth
 onchange
 pid
+pids
 pnpm
 prNumber
 profileId
