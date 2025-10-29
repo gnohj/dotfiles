@@ -3,6 +3,7 @@ local constants = require("constants")
 local settings = require("config.settings")
 
 local isShowingSpaces = true
+local currentWorkspace = nil  -- Cache current workspace to avoid unnecessary updates
 
 -- Workspace configurations
 local spaceConfigs = {
@@ -44,15 +45,18 @@ local workspaceItem = sbar.add("item", constants.items.SPACES, {
     color = settings.colors.transparent,
     image = "app.default",
   },
-  padding_left = 3,
-  padding_right = 3,
+  padding_left = 0,
+  padding_right = 0,
   drawing = isShowingSpaces,
 })
 
 local function updateWorkspaceIndicator(env)
   local workspace = env and env.FOCUSED_WORKSPACE
 
-  if workspace then
+  -- Skip update if workspace hasn't changed (avoid redundant redraws)
+  if workspace and workspace ~= currentWorkspace then
+    currentWorkspace = workspace
+
     local config = spaceConfigs[workspace]
     if config and config.app then
       workspaceItem:set({
