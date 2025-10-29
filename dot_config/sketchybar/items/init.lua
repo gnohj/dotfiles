@@ -1,5 +1,5 @@
 -- Left items
-require("items.apple")
+-- require("items.apple")  -- DISABLED
 require("items.workspace")
 
 -- Middle Items
