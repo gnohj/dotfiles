@@ -56,11 +56,6 @@ name = "tmux_web"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
-[[session]]
-name = "tmux_provision"
-path = "~/Developer/provision"
-preview_command = "bat --color=always ~/Developer/provision/README.md"
-
 # configs
 
 [[session]]
