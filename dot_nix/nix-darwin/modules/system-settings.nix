@@ -20,7 +20,7 @@
       persistent-apps = [
         "/System/Applications/Mail.app"
         "/System/Applications/Calendar.app"
-        "/Users/${config.system.primaryUser}/Applications/Chrome Apps.localized/Google Calendar.app"
+        "/System/Applications/Reminders.app"
         "/Applications/Marta.app"
         "/Applications/Google Chrome.app"
         "/Applications/Brave Browser.app"
