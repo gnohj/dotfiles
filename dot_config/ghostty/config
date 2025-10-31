@@ -21,6 +21,8 @@ term = xterm-ghostty
 
 # color
 config-file = ghostty-theme
+# custom-shader = ./shaders/tesla_coil.glsl
+# custom-shader = ./shaders/glow.glsl
 custom-shader = ./shaders/bloom025.glsl
 # custom-shader = ./shaders/cursor_blaze.gsl
 custom-shader = ./shaders/cursor_smear_fade.glsl
