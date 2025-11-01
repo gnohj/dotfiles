@@ -15,9 +15,6 @@ cmd - q : :
 cmd - m : :
 cmd - h : :
 
-# Remap Option+R to Option+Cmd+R (disable ® trademark symbol)
-lalt - r : skhd -k "alt + cmd - r"
-
 # Tmux window navigation
 rctrl - 0x32 : tmux next-window # grave/backtick key (0x32)
 rctrl - space : tmux last-window # toggle between last two windows
@@ -80,6 +77,7 @@ lalt - e : /opt/homebrew/bin/aerospace workspace E
 lalt - f : /opt/homebrew/bin/aerospace workspace F
 lalt - g : /opt/homebrew/bin/aerospace workspace G
 lalt - q : /opt/homebrew/bin/aerospace workspace Q
+lalt - r : /opt/homebrew/bin/aerospace workspace R
 lalt - s : /opt/homebrew/bin/aerospace workspace S
 lalt - t : /opt/homebrew/bin/aerospace workspace T
 lalt - v : /opt/homebrew/bin/aerospace workspace V
@@ -96,6 +94,7 @@ lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
 lalt + shift - f : /opt/homebrew/bin/aerospace move-node-to-workspace F
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
 lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
+lalt + shift - r : /opt/homebrew/bin/aerospace move-node-to-workspace R
 lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
 lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
 lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V

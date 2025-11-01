@@ -140,6 +140,14 @@ if.app-id = 'com.hnc.Discord'
 run = "move-node-to-workspace D"
 
 [[on-window-detected]]
+if.app-id = 'com.apple.Notes'
+run = "move-node-to-workspace R"
+
+[[on-window-detected]]
+if.app-id = 'md.obsidian'
+run = "move-node-to-workspace R"
+[[on-window-detected]]
+
 if.app-id = 'com.spotify.client'
 run = "move-node-to-workspace S"
 
@@ -160,11 +168,11 @@ if.app-id = 'com.google.Chrome.app.lgnggepjiihbfdbedefdhcffnmhcahbm' # Reddit Ap
 run = "move-node-to-workspace A"
 
 [[on-window-detected]]
-if.app-id = 'com.apple.iCal' # Calendar App
+if.app-id = 'com.apple.iCal'
 run = "move-node-to-workspace C"
 
 [[on-window-detected]]
-if.app-id = 'com.apple.reminders' # Reminders App
+if.app-id = 'com.apple.reminders'
 run = "move-node-to-workspace C"
 
 [[on-window-detected]]
@@ -227,6 +235,7 @@ E = 1
 G = 1
 L = 1
 Q = 1
+R = 1
 S = 1
 W = 1
 X = 1
