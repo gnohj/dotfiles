@@ -28,6 +28,7 @@ OTP
 OneTrust
 PR
 Pulumi's
+RRv7
 RadioEdit
 Redux
 SSR
@@ -36,6 +37,7 @@ TBD
 TODO
 Terraform's
 Turborepo
+UserCookie
 WAF
 WiFi
 Zsh
@@ -49,6 +51,7 @@ changesets
 cli
 cmd
 darwin
+deps
 dont
 env
 envs
@@ -63,6 +66,8 @@ hotfix
 href
 iHeartRadio
 iheart
+js
+json
 localStorage
 loginToken
 md
@@ -101,5 +106,7 @@ v2
 vcl
 vercel
 vitest
+webpack
 which
 www
+www's
