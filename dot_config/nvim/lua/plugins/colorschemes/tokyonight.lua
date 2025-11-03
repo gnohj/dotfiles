@@ -352,6 +352,19 @@ return {
         -- Completion and mini elements
         hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
         hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg } -- Make background transparent
+
+        -- Snacks GitHub eye badge fix (reviewed timeline badge)
+        hl.SnacksGhReviewCommented = {
+          fg = "#ffffff",
+          bg = colors["gnohj_color13"] or "#536571",
+          bold = true,
+        }
+        -- Snacks GitHub member badge fix
+        hl.SnacksGhAssocBadge = {
+          fg = "#ffffff",
+          bg = colors["gnohj_color13"] or "#536571",
+          bold = true,
+        }
       end,
     })
   end,

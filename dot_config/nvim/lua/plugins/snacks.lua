@@ -5,7 +5,149 @@ return {
   lazy = false,
   priority = 1000,
   keys = {
+    {
+      "<leader>gi",
+      function()
+        Snacks.picker.gh_issue()
+      end,
+      desc = "GitHub Issues (open)",
+    },
+    {
+      "<leader>gI",
+      function()
+        Snacks.picker.gh_issue({ state = "all" })
+      end,
+      desc = "GitHub Issues (all)",
+    },
+    {
+      "<leader>gp",
+      function()
+        Snacks.picker.gh_pr()
+      end,
+      desc = "GitHub Pull Requests (open)",
+    },
+    {
+      "<leader>gP",
+      function()
+        Snacks.picker.gh_pr({ state = "all" })
+      end,
+      desc = "GitHub Pull Requests (all)",
+    },
+    {
+      "<leader>gz",
+      function()
+        -- Get git root directory
+        local git_root = vim.fn
+          .system(
+            "git -C "
+              .. vim.fn.shellescape(vim.fn.expand("%:p:h"))
+              .. " rev-parse --show-toplevel 2>/dev/null"
+          )
+          :gsub("\n", "")
+
+        if git_root == "" or vim.v.shell_error ~= 0 then
+          vim.notify("Not in a git repository", vim.log.levels.WARN)
+          return
+        end
+
+        -- Get PR number for current branch from git root
+        local pr_number = vim.fn
+          .system(
+            "cd "
+              .. vim.fn.shellescape(git_root)
+              .. " && gh pr view --json number -q .number 2>/dev/null"
+          )
+          :gsub("\n", "")
+
+        if pr_number == "" or vim.v.shell_error ~= 0 then
+          vim.notify(
+            "Current branch is not associated with a PR",
+            vim.log.levels.WARN
+          )
+          return
+        end
+
+        -- Open PR diff
+        Snacks.picker.gh_diff({ pr = tonumber(pr_number) })
+      end,
+      desc = "GitHub PR Diff (current branch)",
+    },
+    {
+      "<leader>gZ",
+      function()
+        -- Get git root directory
+        local git_root = vim.fn
+          .system(
+            "git -C "
+              .. vim.fn.shellescape(vim.fn.expand("%:p:h"))
+              .. " rev-parse --show-toplevel 2>/dev/null"
+          )
+          :gsub("\n", "")
+
+        if git_root == "" or vim.v.shell_error ~= 0 then
+          vim.notify("Not in a git repository", vim.log.levels.WARN)
+          return
+        end
+
+        -- Get PR number for current branch from git root
+        local pr_number = vim.fn
+          .system(
+            "cd "
+              .. vim.fn.shellescape(git_root)
+              .. " && gh pr view --json number -q .number 2>/dev/null"
+          )
+          :gsub("\n", "")
+
+        if pr_number == "" or vim.v.shell_error ~= 0 then
+          vim.notify(
+            "Current branch is not associated with a PR",
+            vim.log.levels.WARN
+          )
+          return
+        end
+
+        -- Get repo from git remote (format: owner/repo)
+        local remote_url = vim.fn
+          .system(
+            "cd "
+              .. vim.fn.shellescape(git_root)
+              .. " && git config --get remote.origin.url 2>/dev/null"
+          )
+          :gsub("\n", "")
+
+        -- Extract owner/repo from git URL (handles both SSH and HTTPS)
+        local repo = remote_url:match("github%.com[:/](.+)%.git")
+          or remote_url:match("github%.com[:/](.+)$")
+
+        if not repo then
+          vim.notify(
+            "Failed to extract repository from git remote",
+            vim.log.levels.ERROR
+          )
+          return
+        end
+
+        pr_number = tonumber(pr_number)
+        if not pr_number then
+          vim.notify("Failed to parse PR number", vim.log.levels.ERROR)
+          return
+        end
+
+        -- Open PR in buffer directly
+        local buf_name = "gh://" .. repo .. "/pr/" .. pr_number
+        vim.cmd("edit " .. buf_name)
+      end,
+      desc = "Open GitHub PR (current branch)",
+    },
     { "<leader><space>", false },
+    {
+      "<leader>ga",
+      function()
+        -- Opens GitHub actions for current PR automatically
+        Snacks.picker.gh_actions()
+      end,
+      desc = "GitHub PR Actions (current branch)",
+    },
     { "<leader>gd", false },
     {
       "<leader>gh",
@@ -278,6 +420,64 @@ return {
         cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
         smartcase = true, -- Case-insensitive unless uppercase letters are used
       },
+      sources = {
+        gh_issue = {
+          layout = {
+            preset = "sidebar",
+            layout = {
+              box = "horizontal",
+              width = 0.9,
+              min_width = 120,
+              height = 0.9,
+              {
+                box = "vertical",
+                border = true,
+                title = "{title} {live} {flags}",
+                { win = "input", height = 1, border = "bottom" },
+                { win = "list", border = "none" },
+              },
+              {
+                win = "preview",
+                title = "{preview}",
+                border = true,
+                width = 0.5,
+              },
+            },
+            preview = "true",
+            cycle = false,
+          },
+          -- your gh_issue picker configuration comes here
+          -- or leave it empty to use the default settings
+        },
+        gh_pr = {
+          layout = {
+            preset = "sidebar",
+            layout = {
+              box = "horizontal",
+              width = 0.9,
+              min_width = 120,
+              height = 0.9,
+              {
+                box = "vertical",
+                border = true,
+                title = "{title} {live} {flags}",
+                { win = "input", height = 1, border = "bottom" },
+                { win = "list", border = "none" },
+              },
+              {
+                win = "preview",
+                title = "{preview}",
+                border = true,
+                width = 0.5,
+              },
+            },
+            preview = "true",
+            cycle = false,
+          },
+          -- your gh_pr picker configuration comes here
+          -- or leave it empty to use the default settings
+        },
+      },
       formatters = { file = { filename_first = true, truncate = 80 } },
       transform = function(item)
         if not item.file then
@@ -441,6 +641,7 @@ return {
     bufdelete = {},
     input = {},
     gitbrowse = {},
+    gh = {},
     dim = {},
     toggle = {},
     scroll = { enabled = false },
