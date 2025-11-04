@@ -1,6 +1,6 @@
 # Dotfiles
 
-My personal dotfiles for macOS, managed with Chezmoi.
+My personal dotfiles for macOS.
 
 <img width="2557" height="1440" alt="ghostty-current" src="https://github.com/user-attachments/assets/dbe927ed-fda1-4d92-958a-d92d1220b9ee" />
 
