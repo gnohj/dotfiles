@@ -53,6 +53,7 @@
 
       # Development tools
       "pulumi/tap/pulumi"
+      "nss"
       "xcodegen"
 
       # Additional tools
