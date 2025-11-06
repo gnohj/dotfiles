@@ -25,8 +25,8 @@ in
           "${homeDir}/.config/zshrc/github-auto-push.sh"
         ];
         StartInterval = 180;  # Run every 3 minutes
-        StandardOutPath = "/tmp/github-auto-push.out";
-        StandardErrorPath = "/tmp/github-auto-push.err";
+        StandardOutPath = "${homeDir}/.logs/git_autopush/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/git_autopush/launchagent.err.log";
       };
     };
 
@@ -60,6 +60,36 @@ in
         ProcessType = "Interactive";
         StandardOutPath = "/tmp/borders_${config.system.primaryUser}.out.log";
         StandardErrorPath = "/tmp/borders_${config.system.primaryUser}.err.log";
+      };
+    };
+
+    # SketchyBar - macOS menu bar replacement
+    # Auto-restarts if crashed or frozen
+    sketchybar = {
+      serviceConfig = {
+        ProgramArguments = [ "/opt/homebrew/bin/sketchybar" ];
+        KeepAlive = {
+          SuccessfulExit = false;
+          Crashed = true;
+        };
+        RunAtLoad = true;
+        ProcessType = "Interactive";
+        StandardOutPath = "/tmp/sketchybar_${config.system.primaryUser}.out.log";
+        StandardErrorPath = "/tmp/sketchybar_${config.system.primaryUser}.err.log";
+      };
+    };
+
+    # SketchyBar Watchdog
+    # Monitors sketchybar health and kills it if frozen (LaunchAgent will restart)
+    sketchybar-watchdog = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/.config/sketchybar/watchdog.sh"
+        ];
+        StartInterval = 300;  # Check every 5 minutes
+        StandardOutPath = "${homeDir}/.logs/sketchybar/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/sketchybar/launchagent.err.log";
       };
     };
   };
