@@ -17,7 +17,8 @@
 after-login-command = []
 
 after-startup-command = [
-  'exec-and-forget /opt/homebrew/bin/sketchybar',
+  # SketchyBar is now managed by nix-darwin LaunchAgent (with auto-restart on crash)
+  # Just reload it after aerospace starts to ensure it picks up workspace changes
   'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
 ]
 
