@@ -42,8 +42,8 @@ in
         RunAtLoad = true;
         ProcessType = "Interactive";
         Nice = -20;
-        StandardOutPath = "/tmp/skhd_${config.system.primaryUser}.out.log";
-        StandardErrorPath = "/tmp/skhd_${config.system.primaryUser}.err.log";
+        StandardOutPath = "${homeDir}/.logs/skhd/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/skhd/launchagent.err.log";
       };
     };
 
@@ -58,8 +58,8 @@ in
         };
         RunAtLoad = true;
         ProcessType = "Interactive";
-        StandardOutPath = "/tmp/borders_${config.system.primaryUser}.out.log";
-        StandardErrorPath = "/tmp/borders_${config.system.primaryUser}.err.log";
+        StandardOutPath = "${homeDir}/.logs/borders/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/borders/launchagent.err.log";
       };
     };
 
@@ -74,8 +74,11 @@ in
         };
         RunAtLoad = true;
         ProcessType = "Interactive";
-        StandardOutPath = "/tmp/sketchybar_${config.system.primaryUser}.out.log";
-        StandardErrorPath = "/tmp/sketchybar_${config.system.primaryUser}.err.log";
+        EnvironmentVariables = {
+          PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+        };
+        StandardOutPath = "${homeDir}/.logs/sketchybar/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/sketchybar/launchagent.err.log";
       };
     };
 
