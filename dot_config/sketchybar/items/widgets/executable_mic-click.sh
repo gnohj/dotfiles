@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export PATH="/opt/homebrew/bin:$PATH"
+
 source "$HOME/.config/sketchybar/config/colors.sh"
 
 # This is basically the same as the `toggle_devices()` function in
