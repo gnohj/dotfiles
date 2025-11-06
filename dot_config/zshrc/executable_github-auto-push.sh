@@ -2,7 +2,8 @@
 
 # ensures at least 3 minutes have elapsed since the last file modification before it will push changes
 
-export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$PATH"
+export HUSKY=0  # Disable Husky hooks for automated commits
 
 # Parse command line arguments
 # This allows me to directly call the script without having to wait the PUSH_INTERVAL:
@@ -122,9 +123,10 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
       git add .
 
       # Commit with a timestamp message and computer name
+      # Use --no-verify to skip Husky hooks that require interactive terminal
       COMPUTER_NAME=$(scutil --get ComputerName)
       TIMESTAMP=$(date '+%y%m%d-%H%M%S')
-      if ! git commit -m "$COMPUTER_NAME-$TIMESTAMP" 2>"$ERROR_LOG"; then
+      if ! git commit --no-verify -m "$COMPUTER_NAME-$TIMESTAMP" 2>"$ERROR_LOG"; then
         ERROR_MSG=$(cat "$ERROR_LOG")
         log_message "ERROR" "$REPO_NAME" "Commit failed: $ERROR_MSG"
         display_notification "Commit failed - check logs" "Git Commit Error" "$REPO_NAME"

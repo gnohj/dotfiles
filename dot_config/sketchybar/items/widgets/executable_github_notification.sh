@@ -1,4 +1,7 @@
 #!/bin/bash
+
+export PATH="/opt/homebrew/bin:$PATH"
+
 source "$HOME/.config/sketchybar/config/colors.sh"
 
 # Path to the notification flag file

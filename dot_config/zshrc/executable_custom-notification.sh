@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Notify Sketchybar of github repo update notification
 
+export PATH="/opt/homebrew/bin:$PATH"
+
 # Gentle fade-in effect (5 blinks)
 for i in {1..5}; do
   # Show notification
