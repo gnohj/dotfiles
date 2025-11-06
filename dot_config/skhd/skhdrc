@@ -142,4 +142,4 @@ lalt + shift - u : :
 lalt + shift - y : :
 
 # Hyper key bindings (Ctrl + Shift + Alt + Cmd)
-hyper - m : open -a "Launchpad"
+# hyper - m : open -a "Launchpad"
