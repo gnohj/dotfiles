@@ -48,6 +48,8 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
+	updates = true,
+	update_freq = 3,  -- Poll every 3 seconds
 })
 
 -- Separate play/pause icon widget (can be positioned independently)
@@ -276,6 +278,11 @@ spotify:subscribe("spotify_change", function(env)
 	updateSpotifyInfo()
 end)
 
+-- Subscribe to polling event
+spotify:subscribe("spotify_poll", function()
+	updateSpotifyInfo()
+end)
+
 -- Also subscribe to system wake event to refresh state
 spotify:subscribe("system_woke", function()
 	log_message("INFO", "System woke - refreshing Spotify state")
@@ -289,10 +296,10 @@ spotify:subscribe("mouse.clicked", function()
 	end
 	lastClickTime = currentTime
 
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
-		lastTrackInfo = ""
-		-- Event will trigger updateSpotifyInfo automatically
-	end)
+	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
+	lastTrackInfo = ""
+	-- Wait a bit for Spotify to update, then poll
+	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
 end)
 
 spotifyIcon:subscribe("mouse.clicked", function()
@@ -302,10 +309,10 @@ spotifyIcon:subscribe("mouse.clicked", function()
 	end
 	lastClickTime = currentTime
 
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
-		lastTrackInfo = ""
-		-- Event will trigger updateSpotifyInfo automatically
-	end)
+	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
+	lastTrackInfo = ""
+	-- Wait a bit for Spotify to update, then poll
+	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
 end)
 
 playIcon:subscribe("mouse.clicked", function()
@@ -315,11 +322,16 @@ playIcon:subscribe("mouse.clicked", function()
 	end
 	lastClickTime = currentTime
 
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'", function()
-		lastTrackInfo = ""
-		-- Event will trigger updateSpotifyInfo automatically
-	end)
+	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
+	lastTrackInfo = ""
+	-- Wait a bit for Spotify to update, then poll
+	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
 end)
 
 -- Initial update on load
 updateSpotifyInfo()
+
+-- Polling fallback: update on the regular update_freq interval
+spotify:subscribe("front_app_switched", function()
+	updateSpotifyInfo()
+end)
