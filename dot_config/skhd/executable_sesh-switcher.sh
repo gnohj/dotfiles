@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Debug logging
-exec 2>/tmp/sesh-switcher-debug.log
+LOG_DIR="$HOME/.logs/skhd"
+mkdir -p "$LOG_DIR"
+exec 2>"$LOG_DIR/sesh-switcher-debug.log"
 set -x
-date >> /tmp/sesh-switcher-called.log
+date >> "$LOG_DIR/sesh-switcher-called.log"
 
 # Ensure Homebrew is in PATH (for sesh)
 export PATH="/opt/homebrew/bin:$PATH"
@@ -17,7 +19,7 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 # Build the color string properly
 color_string="list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color13},fg+:${gnohj_color02},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
 
-echo "About to run tmux command" >> /tmp/sesh-switcher-called.log
+echo "About to run tmux command" >> "$LOG_DIR/sesh-switcher-called.log"
 
 # Use tmux display-popup directly instead of run-shell (with no outer border)
 tmux display-popup -E -w 28% -h 40% -b none "
@@ -45,4 +47,4 @@ tmux display-popup -E -w 28% -h 40% -b none "
   sesh connect \"\$SELECTED\"
 "
 
-echo "Finished running tmux command" >> /tmp/sesh-switcher-called.log
+echo "Finished running tmux command" >> "$LOG_DIR/sesh-switcher-called.log"

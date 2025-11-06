@@ -3,7 +3,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
-MIC_NAME_FILE="/tmp/${USER}_mic_name"
+MIC_NAME_FILE="$HOME/.logs/sketchybar/mic_name"
 
 CURRENT_MIC=$(SwitchAudioSource -t input -c)
 
