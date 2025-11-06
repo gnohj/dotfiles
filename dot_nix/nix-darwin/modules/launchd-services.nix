@@ -95,6 +95,21 @@ in
         StandardErrorPath = "${homeDir}/.logs/sketchybar/launchagent.err.log";
       };
     };
+
+    # Log Cleanup
+    # Cleans up old log files from ~/.logs every 72 hours
+    # Keeps logs from current month and previous month only
+    log-cleanup = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/Scripts/cleanup-logs.sh"
+        ];
+        StartInterval = 259200;  # Run every 72 hours (259200 seconds)
+        StandardOutPath = "${homeDir}/.logs/cleanup/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/cleanup/launchagent.err.log";
+      };
+    };
   };
 
   # System LaunchDaemons (run as root)
