@@ -24,13 +24,29 @@ if ! pgrep -x sketchybar >/dev/null; then
 fi
 
 # Try to query sketchybar to see if it's responsive
-# Timeout after 5 seconds if frozen
-if timeout 5 /opt/homebrew/bin/sketchybar --query bar &>/dev/null; then
-  log_message "$LOG_PREFIX sketchybar is healthy"
-  exit 0
-else
-  log_message "$LOG_PREFIX sketchybar is unresponsive, killing it"
-  pkill -9 sketchybar
-  log_message "$LOG_PREFIX Killed sketchybar, LaunchAgent will restart it"
-  exit 0
-fi
+# Run query in background and kill if it takes too long
+/opt/homebrew/bin/sketchybar --query bar &>/dev/null &
+QUERY_PID=$!
+
+# Wait up to 5 seconds for the query to complete
+for i in {1..50}; do
+  if ! kill -0 $QUERY_PID 2>/dev/null; then
+    # Process finished
+    wait $QUERY_PID
+    if [ $? -eq 0 ]; then
+      log_message "$LOG_PREFIX sketchybar is healthy"
+      exit 0
+    else
+      log_message "$LOG_PREFIX sketchybar query failed, but process is running"
+      exit 0
+    fi
+  fi
+  sleep 0.1
+done
+
+# Timeout - query is still running after 5 seconds
+log_message "$LOG_PREFIX sketchybar is unresponsive (timeout), killing it"
+kill -9 $QUERY_PID 2>/dev/null
+pkill -9 sketchybar
+log_message "$LOG_PREFIX Killed sketchybar, LaunchAgent will restart it"
+exit 0
