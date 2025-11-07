@@ -17,12 +17,15 @@ GetPageByQuery
 Grugfar
 Hotfixes
 HttpOnly
+IHRSessionBackend
 IHRWEB
 IaC
 JW
 KB
 Lazygit
+LocalStorage
 MacOS
+MobX
 OS
 OTP
 OneTrust
@@ -68,7 +71,6 @@ iHeartRadio
 iheart
 js
 json
-localStorage
 loginToken
 md
 mise
