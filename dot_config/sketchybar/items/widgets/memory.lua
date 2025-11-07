@@ -4,9 +4,8 @@ local settings = require("config.settings")
 local colors = require("config.colors")
 
 -- Function to get memory usage percentage (matching iStats calculation)
-local function get_memory_percentage()
-	local handle = io.popen([[
-    vm_stat | awk '
+local function get_memory_percentage(callback)
+	sbar.exec([[vm_stat | awk '
     /page size/ {pagesize=$8}
     /Pages free/ {free=$3}
     /Pages active/ {active=$3}
@@ -18,28 +17,25 @@ local function get_memory_percentage()
       # Remove trailing colons and convert to numbers
       gsub(/:/, "", free); gsub(/:/, "", active); gsub(/:/, "", inactive)
       gsub(/:/, "", spec); gsub(/:/, "", wired); gsub(/:/, "", compressed)
-      
+
       free = free + spec
       used = (active + inactive + wired + compressed)
       total = free + used
-      
+
       # Calculate percentage - this should match iStats better
       if (total > 0) {
         printf "%.0f", (used/total)*100
       } else {
         printf "0"
       }
-    }'
-  ]])
-	if handle then
-		local result = handle:read("*a")
-		handle:close()
+    }']], function(result)
 		local percentage = tonumber(result)
-		if percentage then
-			return percentage
+		if percentage and callback then
+			callback(percentage)
+		elseif callback then
+			callback(0)
 		end
-	end
-	return 0
+	end)
 end
 
 local memory = sbar.add("item", constants.items.MEMORY, {
@@ -59,12 +55,13 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 })
 
 local function update()
-	local percentage = get_memory_percentage()
-	memory:set({
-		label = {
-			string = percentage .. "%  ",
-		},
-	})
+	get_memory_percentage(function(percentage)
+		memory:set({
+			label = {
+				string = percentage .. "%  ",
+			},
+		})
+	end)
 end
 
 memory:subscribe({ "routine", "forced", "system_woke" }, update)
