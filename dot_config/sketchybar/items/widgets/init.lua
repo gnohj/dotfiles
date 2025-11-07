@@ -5,7 +5,5 @@ require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.volume")
 require("items.widgets.mic")
-require("items.widgets.brew_notification")
-require("items.widgets.mise_notification")
-require("items.widgets.mas_notification")
+require("items.widgets.package_notification")  -- Unified Brew + MAS + Mise
 require("items.widgets.github_notification")
