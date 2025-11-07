@@ -15,12 +15,12 @@ toggle_mics() {
   while IFS= read -r device; do
     COLOR=$GREY
     if [ "${device}" = "$CURRENT" ]; then
-      COLOR=$WHITE
+      COLOR=$MAGENTA
     fi
     args+=(--add item mic.device.$COUNTER popup."$NAME"
       --set mic.device.$COUNTER label="${device}"
       label.color="$COLOR"
-      click_script="SwitchAudioSource -t input -s \"${device}\" && sketchybar --set /mic.device\.*/ label.color=$GREY --set \$NAME label.color=$WHITE --set $NAME popup.drawing=off")
+      click_script="SwitchAudioSource -t input -s \"${device}\" && sketchybar --set /mic.device\.*/ label.color=$GREY --set \$NAME label.color=$MAGENTA --set $NAME popup.drawing=off")
     COUNTER=$((COUNTER + 1))
   done <<<"$(SwitchAudioSource -a -t input)"
 
