@@ -216,7 +216,14 @@ local function hideDetails()
 	wifiBracket:set({ popup = { drawing = false } })
 end
 
-local function toggleDetails()
+local function toggleDetails(env)
+	-- Right click (button2) opens WiFi settings
+	if env.BUTTON == "right" then
+		sbar.exec("open x-apple.systempreferences:com.apple.preference.network?Wi-Fi")
+		return
+	end
+
+	-- Left click (button1) toggles dropdown
 	local shouldDrawDetails = wifiBracket:query().popup.drawing == "off"
 
 	if shouldDrawDetails then

@@ -96,9 +96,9 @@ local function toggleVolumeDetails()
 				local current = currentAudioDevice
 				local counter = 0
 				for device in string.gmatch(available, "[^\r\n]+") do
-					local color = settings.colors.green -- Default color for non-current
+					local color = settings.colors.grey -- Default color for non-current (grey)
 					if current == device then
-						color = settings.colors.light_green -- Highlighted color for current
+						color = settings.colors.magenta -- Highlighted color for current (magenta)
 					end
 					sbar.add("item", constants.items.VOLUME .. ".device." .. counter, {
 						position = "popup." .. volumeBracket.name,
@@ -109,9 +109,9 @@ local function toggleVolumeDetails()
 							.. '" && sketchybar --set /'
 							.. constants.items.VOLUME
 							.. ".device\\.*/ label.color="
-							.. settings.colors.green
+							.. settings.colors.grey
 							.. " --set $NAME label.color="
-							.. settings.colors.light_green,
+							.. settings.colors.magenta,
 					})
 					counter = counter + 1
 				end
