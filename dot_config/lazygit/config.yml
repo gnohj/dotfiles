@@ -57,3 +57,13 @@ customCommands:
     command: git commit -m "{{.Form.Msg}}"
     context: "files"
     description: "Generate commit message with AI"
+
+  - key: "<c-a>"
+    prompts:
+      - type: "menuFromCommand"
+        title: "AI Commit (Gitmoji)"
+        key: "Msg"
+        command: "aic-gitmoji.sh"
+    command: git commit -m "{{.Form.Msg}}"
+    context: "files"
+    description: "Generate commit message with gitmoji"

@@ -508,6 +508,9 @@ esac
 # add second-brain executables to path - og,on
 export PATH="$HOME/_bin:$PATH"
 
+# add Scripts directory to PATH
+export PATH="$HOME/Scripts:$PATH"
+
 export PATH="~/.local/bin:$PATH"
 
 #-------------------------------------------------------------------------------
