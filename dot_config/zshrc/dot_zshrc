@@ -517,36 +517,48 @@ export PATH="~/.local/bin:$PATH"
 #                  Script Integrations
 #-------------------------------------------------------------------------------
 
-# -----------------------------  Sketchybar Brew Notification
-# Setup sketchybar brew notification
+# -----------------------------  Sketchybar Package Notification (Unified)
+# Setup unified package notification widget that monitors brew, mas, and mise
 if command -v sketchybar &>/dev/null; then
-    sketchybar --add event brew_update 2>/dev/null
-    sketchybar --subscribe widgets.brew_notification brew_update 2>/dev/null
+    sketchybar --add event package_update 2>/dev/null
+    sketchybar --subscribe widgets.package_notification package_update 2>/dev/null
+
+    # Brew wrapper function
     function brew() {
         command arch -arm64 brew "$@"
-        # Only trigger on specific commands that actually change state
-        case "$1" in
-            install|uninstall|upgrade|update|list)
-                sketchybar --trigger brew_update 2>/dev/null &
-                ;;
-        esac
-    }
-fi
-
-# -----------------------------  Sketchybar MAS Notification
-# Setup sketchybar mas notification
-if command -v sketchybar &>/dev/null && command -v mas &>/dev/null; then
-    sketchybar --add event mas_update 2>/dev/null
-    sketchybar --subscribe widgets.mas_notification mas_update 2>/dev/null
-    function mas() {
-        command mas "$@"
         # Trigger on commands that change state
         case "$1" in
-            install|uninstall|upgrade|list)
-                sketchybar --trigger mas_update 2>/dev/null &
+            install|uninstall|upgrade|update)
+                sketchybar --trigger package_update 2>/dev/null &
                 ;;
         esac
     }
+
+    # MAS wrapper function
+    if command -v mas &>/dev/null; then
+        function mas() {
+            command mas "$@"
+            # Trigger on commands that change state
+            case "$1" in
+                install|uninstall|upgrade)
+                    sketchybar --trigger package_update 2>/dev/null &
+                    ;;
+            esac
+        }
+    fi
+
+    # Mise wrapper function
+    if command -v mise &>/dev/null; then
+        function mise() {
+            command mise "$@"
+            # Trigger on commands that change state
+            case "$1" in
+                install|uninstall|upgrade|use)
+                    sketchybar --trigger package_update 2>/dev/null &
+                    ;;
+            esac
+        }
+    fi
 fi
 
 # -----------------------------  Bun completions
