@@ -21,6 +21,11 @@ go = 'latest'          # Go runtime
 rust = 'latest'        # Rust runtime
 bun = 'latest'         # Bun runtime
 
+[tasks]
+# Global CLI tools installed via bun
+install-aicommit = "bun add -g @kkidd/aicommit && aic config --provider anthropic --api-key ${ANTHROPIC_API_KEY} --model claude-3-5-sonnet-20241022"
+setup-global-tools = "mise run install-aicommit"
+
 [settings]
 auto_install = true
 experimental = true
