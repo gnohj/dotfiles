@@ -1,0 +1,8 @@
+{
+  "provider": "openai-compatible",
+  "apiKey": "{{ output "gh" "auth" "token" | trim }}",
+  "model": "gpt-4o",
+  "endpoint": "https://models.inference.ai.azure.com",
+  "maxTokens": 256,
+  "integration": "lazygit"
+}

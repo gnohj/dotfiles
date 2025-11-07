@@ -240,6 +240,10 @@ if command -v mise &>/dev/null; then
   print_info "Installing language runtimes from ~/.config/mise/config.toml..."
   mise install
   print_success "Language runtimes installed"
+
+  print_info "Installing global tools via mise tasks..."
+  mise run setup-global-tools
+  print_success "Global tools installed"
 else
   print_warning "mise not found. Skipping language runtime installation."
 fi

@@ -390,6 +390,16 @@ customCommands:
     command: "HUSKY=0 git stash --no-verify"
     context: "global"
     subprocess: yes
+
+  - key: "<c-g>"
+    prompts:
+      - type: "menuFromCommand"
+        title: "AI Commit"
+        key: "Msg"
+        command: "aic generate"
+    command: git commit -m "{{.Form.Msg}}"
+    context: "files"
+    description: "Generate commit message with AI"
 EOF
 }
 
