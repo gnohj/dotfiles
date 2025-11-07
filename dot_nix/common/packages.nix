@@ -27,6 +27,7 @@
 
     # Data tools
     jq         # JSON processor
+    yq         # Yaml processor
 
     # AI Tools
     opencode
