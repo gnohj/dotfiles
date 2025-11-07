@@ -3,26 +3,22 @@ local settings = require("config.settings")
 local colors = require("config.colors")
 
 -- Function to get CPU usage percentage (matching iStats calculation)
-local function get_cpu_percentage()
-	local handle = io.popen([[
-    top -l 2 -n 0 -s 0 | grep "CPU usage" | tail -1 | awk '{
+local function get_cpu_percentage(callback)
+	sbar.exec([[top -l 2 -n 0 -s 0 | grep "CPU usage" | tail -1 | awk '{
       user = $3
       sys = $5
       gsub(/%/, "", user)
       gsub(/%/, "", sys)
       total = user + sys
       printf "%.0f", total
-    }'
-  ]])
-	if handle then
-		local result = handle:read("*a")
-		handle:close()
+    }']], function(result)
 		local percentage = tonumber(result)
-		if percentage then
-			return percentage
+		if percentage and callback then
+			callback(percentage)
+		elseif callback then
+			callback(0)
 		end
-	end
-	return 0
+	end)
 end
 
 local cpu = sbar.add("item", constants.items.CPU, {
@@ -41,12 +37,13 @@ local cpu = sbar.add("item", constants.items.CPU, {
 })
 
 local function update()
-	local percentage = get_cpu_percentage()
-	cpu:set({
-		label = {
-			string = percentage .. "%  ",
-		},
-	})
+	get_cpu_percentage(function(percentage)
+		cpu:set({
+			label = {
+				string = percentage .. "%  ",
+			},
+		})
+	end)
 end
 
 cpu:subscribe({ "routine", "forced", "system_woke" }, update)

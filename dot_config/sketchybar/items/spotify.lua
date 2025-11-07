@@ -12,9 +12,10 @@ local LOG_FILE = LOG_DIR .. "/spotify_" .. os.date("%Y%m") .. ".log"
 
 local function log_message(level, message)
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
-	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s\n", timestamp, level, message)
-	os.execute("mkdir -p " .. LOG_DIR)
-	os.execute("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. LOG_FILE)
+	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s", timestamp, level, message)
+	-- Use async to avoid blocking the event loop
+	sbar.exec("mkdir -p " .. LOG_DIR)
+	sbar.exec("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. LOG_FILE)
 end
 
 -- Register the Spotify playback state changed event

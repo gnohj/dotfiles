@@ -11,16 +11,13 @@ local isShowingSpaces = true
 -- Logging setup
 local log_dir = os.getenv("HOME") .. "/.logs/sketchybar"
 local log_file = log_dir .. "/workspace_" .. os.date("%Y%m") .. ".log"
-os.execute("mkdir -p " .. log_dir)
+sbar.exec("mkdir -p " .. log_dir)
 
 local function log_message(level, message)
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
-	local log_entry = string.format("[%s] [%s] [WORKSPACE] %s\n", timestamp, level, message)
-	local f = io.open(log_file, "a")
-	if f then
-		f:write(log_entry)
-		f:close()
-	end
+	local log_entry = string.format("[%s] [%s] [WORKSPACE] %s", timestamp, level, message)
+	-- Use async logging to avoid blocking the event loop
+	sbar.exec("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. log_file)
 end
 
 -- Initialize AeroSpace socket connection
