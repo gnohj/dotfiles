@@ -110,8 +110,10 @@
 
     # Screenshot settings
     screencapture = {
-      # location = "~/Desktop";
-      # type = "png";
+      location = "~/Pictures";            # Save screenshots to Pictures folder
+      type = "png";                       # Save as PNG format
+      disable-shadow = false;             # Keep window shadows in screenshots
+      show-thumbnail = false;             # Disable thumbnail preview (no focus stealing)
     };
 
     # Lock Screen settings
