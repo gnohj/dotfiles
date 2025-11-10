@@ -410,6 +410,12 @@ customCommands:
     command: git commit -m "{{.Form.Msg}}"
     context: "files"
     description: "Generate commit message with gitmoji"
+
+  - key: "<c-p>"
+    command: gh pr create --draft --editor --assignee @me --reviewer web-engineers
+    loadingText: "Creating draft PR..."
+    context: "global"
+    description: "Create draft PR with editor (assigned to you, reviewer} web-engineers"
 EOF
 }
 
@@ -526,9 +532,8 @@ generate_borders_config() {
 #!/bin/bash
 # Auto-generated borders config
 options=(
-  style=round
-  width=2.5
-  hidpi=off
+  width=5
+  hidpi=on
   active_color=0xff${gnohj_color03#\#}
   inactive_color=0x33${gnohj_color09#\#}
 )
