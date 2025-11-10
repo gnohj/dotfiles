@@ -368,6 +368,19 @@ _fzf_logs() {
 }
 alias fzl='_fzf_logs'
 
+# Search and insert alias name into command line
+unalias fza 2>/dev/null  # Remove old alias if it exists
+fza() {
+    local selected
+    selected=$(alias | fzf --preview 'echo {}' --preview-window=up:3:wrap)
+    if [[ -n "$selected" ]]; then
+        # Extract just the alias name (before the '=')
+        local alias_name="${selected%%=*}"
+        # Use print -z to put it in the buffer (ready to execute with Enter)
+        print -z "$alias_name"
+    fi
+}
+
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
