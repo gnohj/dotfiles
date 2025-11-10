@@ -32,8 +32,8 @@ if [ -n "$input" ]; then
       # Count hyphens
       my $hyphen_count = ($branch =~ tr/-//);
 
-      # If 4 or more hyphens, remove last segment
-      if ($hyphen_count >= 4) {
+      # If 3 or more hyphens, remove last segment
+      if ($hyphen_count >= 3) {
         $branch =~ s/-[^-]*$//;
       }
 

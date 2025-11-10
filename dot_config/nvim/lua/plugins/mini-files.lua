@@ -39,6 +39,13 @@ return {
           return false
         end
 
+        local cwd = vim.fn.getcwd()
+        local is_second_brain = cwd:match("Obsidian/second%-brain") ~= nil
+
+        if is_second_brain then
+          return true
+        end
+
         if vim.g.mini_files_show_c then
           return true
         end
@@ -119,6 +126,14 @@ return {
 
                 if entry.fs_type == "directory" and name == ".git" then
                   return false
+                end
+
+                local cwd = vim.fn.getcwd()
+                local is_second_brain = cwd:match("Obsidian/second%-brain")
+                  ~= nil
+
+                if is_second_brain then
+                  return true
                 end
 
                 if vim.g.mini_files_show_c then
