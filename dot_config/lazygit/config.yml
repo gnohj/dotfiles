@@ -69,8 +69,8 @@ customCommands:
     description: "Generate commit message with gitmoji"
 
   - key: "<c-p>"
-    command: gh pr create --draft --editor --assignee @me --reviewer web-engineers
+    command: gh pr create --draft --editor --assignee @me --reviewer iheartradio/web-engineers
     loadingText: "Creating draft PR..."
     context: "global"
-    description: "Create draft PR with editor (assigned to you, reviewer: web-engineers)"
     subprocess: yes
+    description: "Create draft PR with editor (assigned to you, reviewer iheartradio/web-engineers)"
