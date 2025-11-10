@@ -5,7 +5,8 @@
 
 LOG_FILE="$HOME/.logs/tmux-get-pr-number.log"
 CACHE_DIR="$HOME/.cache/tmux-pr-numbers"
-CACHE_TTL=86400  # 24 hours
+CACHE_TTL_WITH_PR=86400  # 24 hours when PR exists
+CACHE_TTL_NO_PR=300      # 5 minutes when no PR exists
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
@@ -31,10 +32,19 @@ mkdir -p "$CACHE_DIR"
 
 # Check cache first
 if [ -f "$CACHE_FILE" ]; then
+  CACHED_VALUE=$(cat "$CACHE_FILE")
   CACHE_AGE=$(($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0)))
+
+  # Use different TTL based on whether we have a PR or not
+  if [ -n "$CACHED_VALUE" ]; then
+    CACHE_TTL=$CACHE_TTL_WITH_PR
+  else
+    CACHE_TTL=$CACHE_TTL_NO_PR
+  fi
+
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     # Cache is fresh, return it immediately
-    cat "$CACHE_FILE"
+    echo "$CACHED_VALUE"
     exit 0
   fi
 fi
