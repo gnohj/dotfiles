@@ -3,6 +3,7 @@ MANUAL_SETUP.md
 system-setup.sh
 system-utils.sh
 user-setup.sh
+tasks
 
 # macOS-specific files (skip on Linux/NixOS)
 {{- if ne .chezmoi.os "darwin" }}
