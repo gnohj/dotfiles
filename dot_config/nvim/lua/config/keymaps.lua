@@ -362,14 +362,14 @@ keymap(
 -- move file in current buffer to zettelkasten folder
 keymap(
   "n",
-  "<leader>zk",
+  "<M-k>",
   ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>",
   { desc = "[P]Obsidian: Move file to Zettelkasten" }
 )
 -- delete file in current buffer
 keymap(
   "n",
-  "<leader>zdd",
+  "<M-p>",
   ":!rm '%:p'<cr>:bd<cr>",
   { desc = "[P]Obsidian: Delete file in current buffer" }
 )
