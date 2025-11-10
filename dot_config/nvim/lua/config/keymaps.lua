@@ -463,6 +463,33 @@ keymap("n", "<leader>om", function()
 end, { desc = "[P]OpenCode: Switch mode (build/plan)" })
 
 -------------------------------------------------------------------------------
+--                           Tasks Folder Navigation
+-------------------------------------------------------------------------------
+
+-- Open local project tasks folder (if exists)
+keymap("n", "<leader>ft", function()
+  local cwd = vim.fn.getcwd()
+  local tasks_path = cwd .. "/tasks"
+
+  if vim.fn.isdirectory(tasks_path) == 1 then
+    require("snacks").picker.files({ cwd = tasks_path })
+  else
+    vim.notify("No tasks/ folder in current directory", vim.log.levels.WARN)
+  end
+end, { desc = "[P]Open local tasks folder" })
+
+-- Open global Obsidian Tasks folder
+keymap("n", "<leader>fT", function()
+  local obsidian_tasks = vim.fn.expand("~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks")
+
+  if vim.fn.isdirectory(obsidian_tasks) == 1 then
+    require("snacks").picker.files({ cwd = obsidian_tasks })
+  else
+    vim.notify("Obsidian Tasks folder not found", vim.log.levels.ERROR)
+  end
+end, { desc = "[P]Open Obsidian Tasks folder" })
+
+-------------------------------------------------------------------------------
 --                           Folding section
 -------------------------------------------------------------------------------
 
