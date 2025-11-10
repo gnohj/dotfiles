@@ -63,6 +63,7 @@ TraceId
 Turborepo
 UserCookie
 WAF
+WebRelease
 Webapi
 WiFi
 Zsh
