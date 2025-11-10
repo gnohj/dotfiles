@@ -412,6 +412,7 @@ alias fastly-debug="atuin scripts run fastly-debug"
 # Git Shorcuts
 alias gamend="g commit --amend --date=now --no-edit"
 alias gpom="g pull origin master"
+alias clpr="rm -f ~/.cache/tmux-pr-numbers/* && echo 'Cleared PR number cache'"
 alias gcom="g checkout master"
 alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
