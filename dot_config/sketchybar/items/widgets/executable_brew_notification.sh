@@ -75,8 +75,8 @@ elif [[ -z "$OUTDATED_OUTPUT" || "$OUTDATED_OUTPUT" == "" ]]; then
   # No output - no updates
   COUNT=0
 else
-  # Count non-empty lines
-  COUNT=$(echo "$OUTDATED_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
+  # Count non-empty lines, excluding bash trace output (lines starting with +++)
+  COUNT=$(echo "$OUTDATED_OUTPUT" | grep -v '^+++' | grep -c '^[[:space:]]*[^[:space:]]')
 fi
 
 # echo "COUNT: $COUNT" >>/tmp/brew_debug.log

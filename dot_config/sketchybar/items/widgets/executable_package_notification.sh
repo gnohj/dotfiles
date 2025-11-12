@@ -22,8 +22,8 @@ run_with_timeout() {
   local cmd="$1"
   local tmpfile="/tmp/package_notification_$$"
 
-  # Run command in background and capture output
-  (eval "$cmd" > "$tmpfile" 2>&1) &
+  # Run command in background and capture output (disable tracing)
+  (set +x; eval "$cmd" > "$tmpfile" 2>&1) &
   local pid=$!
 
   # Wait for command with timeout (0.1s intervals)
@@ -50,7 +50,7 @@ run_with_timeout() {
   return $exit_code
 }
 
-log_message "INFO" "Starting package update check (Sender: $SENDER)"
+# log_message "INFO" "Starting package update check (Sender: $SENDER)"
 
 BREW_COUNT=0
 MAS_COUNT=0
@@ -58,7 +58,7 @@ MISE_COUNT=0
 TIMEOUT_OCCURRED=0
 
 # Check Homebrew updates
-log_message "INFO" "Checking Homebrew..."
+# log_message "INFO" "Checking Homebrew..."
 if [[ "$SENDER" == "package_update" ]]; then
   run_with_timeout "/opt/homebrew/bin/brew update >/dev/null 2>&1"
 fi
@@ -68,27 +68,26 @@ BREW_EXIT_CODE=$?
 
 if [ $BREW_EXIT_CODE -eq 124 ]; then
   TIMEOUT_OCCURRED=1
-  log_message "WARN" "Brew check timed out"
 elif [[ -n "$BREW_OUTPUT" && "$BREW_OUTPUT" != "" ]]; then
-  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
+  # Filter out error messages and bash trace output
+  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -v '^+++' | grep -v -i '^Error:' | grep -v -i '^Please report' | grep -v '/' | grep -c '^[[:space:]]*[^[:space:]]')
 fi
-log_message "INFO" "Brew outdated: $BREW_COUNT"
 
 # Check Mac App Store updates
-log_message "INFO" "Checking Mac App Store..."
+# log_message "INFO" "Checking Mac App Store..."
 MAS_OUTPUT=$(run_with_timeout "/opt/homebrew/bin/mas outdated 2>/dev/null")
 MAS_EXIT_CODE=$?
 
 if [ $MAS_EXIT_CODE -eq 124 ]; then
   TIMEOUT_OCCURRED=1
-  log_message "WARN" "MAS check timed out"
+#  log_message "WARN" "MAS check timed out"
 elif [[ -n "$MAS_OUTPUT" && "$MAS_OUTPUT" != "" ]]; then
   MAS_COUNT=$(echo "$MAS_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
 fi
-log_message "INFO" "MAS outdated: $MAS_COUNT"
+# log_message "INFO" "MAS outdated: $MAS_COUNT"
 
 # Check mise updates
-log_message "INFO" "Checking mise..."
+# log_message "INFO" "Checking mise..."
 MISE_OUTDATED=""
 
 # Check global mise config
@@ -118,7 +117,7 @@ done
 if [[ -n "$MISE_OUTDATED" ]]; then
   MISE_COUNT=$(echo "$MISE_OUTDATED" | grep -c '^[[:space:]]*[^[:space:]]')
 fi
-log_message "INFO" "Mise outdated: $MISE_COUNT"
+# log_message "INFO" "Mise outdated: $MISE_COUNT"
 
 # Calculate total count
 TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT))
@@ -147,4 +146,4 @@ sketchybar --set "$NAME" \
   label.color="$COLOR" \
   icon.color="$MAGENTA"
 
-log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT)"
+# log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT)"
