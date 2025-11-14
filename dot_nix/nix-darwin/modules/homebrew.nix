@@ -19,6 +19,7 @@
       "FelixKratz/formulae"
       "nikitabobko/tap"
       "oven-sh/bun"
+      "fastly/tap"
       "pulumi/tap"
       "sst/tap"
       "koekeishiya/formulae"
