@@ -21,6 +21,8 @@ go = 'latest'          # Go runtime
 rust = 'latest'        # Rust runtime
 bun = 'latest'         # Bun runtime
 
+"npm:prettier" = "latest"
+
 [tasks]
 # Global CLI tools installed via bun
 # Note: aic is configured via chezmoi template at ~/.aicommitrc (see dot_aicommitrc.tmpl)
