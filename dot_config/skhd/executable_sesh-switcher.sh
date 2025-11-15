@@ -17,7 +17,7 @@ export TERM="xterm-256color"
 source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 # Build the color string properly
-color_string="list-border:6,input-border:3,preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color13},fg+:${gnohj_color02},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
+color_string="list-border:6,input-border:${gnohj_color04},preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color13},fg+:${gnohj_color02},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
 
 echo "About to run tmux command" >>"$LOG_DIR/sesh-switcher-called.log"
 
