@@ -24,9 +24,10 @@ rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
-rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode
+rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
+rctrl - y : ~/.config/skhd/tmux-window-simple.sh 📁 yazi yazi true
 rctrl - 0x2F : tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin

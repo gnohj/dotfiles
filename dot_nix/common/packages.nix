@@ -25,6 +25,9 @@
     lazygit    # Git TUI
     lazydocker # Docker TUI
 
+    # File management
+    yazi       # Terminal file manager
+
     # Data tools
     jq         # JSON processor
     yq         # Yaml processor
