@@ -44,6 +44,7 @@ adjust-cell-height = 10%
 adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
 font-size = 15
+# mac only
 font-thicken = true
 
 # cursor
@@ -67,6 +68,9 @@ gtk-titlebar = false
 mouse-hide-while-typing = true
 macos-titlebar-style = hidden
 window-decoration = true
+
+# mac only
+window-colorspace = display-p3
 
 window-padding-balance = true
 window-padding-x = 20,20
