@@ -44,6 +44,7 @@ adjust-cell-height = 10%
 adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
 font-size = 15
+font-thicken = true
 
 # cursor
 shell-integration-features = no-cursor
