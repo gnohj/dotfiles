@@ -45,7 +45,7 @@ adjust-underline-thickness = 40%
 adjust-cursor-thickness = 150%
 font-size = 15
 # mac only
-font-thicken = true
+# font-thicken = true
 
 # cursor
 shell-integration-features = no-cursor
