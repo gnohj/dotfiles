@@ -1,5 +1,5 @@
 [mgr]
-show_hidden = true
+# show_hidden = true
 
 [opener]
 # Override default edit opener to preserve original yazi cwd

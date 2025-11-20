@@ -4,7 +4,7 @@
 [mgr]
 prepend_keymap = [
   { on = ["<Esc>"], run = "quit", desc = "Exit yazi" },
-  { on = ["q"], run = "quit", desc = "Exit yazi" },
+  { on = "q", run = "escape", desc = "Exit visual mode, clear selection, or cancel search" },
   { on = "o", run = "create", desc = "Create a file (ends with / for directories)" },
   { on = "t", run = [ "select --state=none", "arrow 0" ], desc = "Toggle the current selection state" },
   { on = [ "d", "d" ], run = "remove", desc = "Trash selected files" },
@@ -12,6 +12,8 @@ prepend_keymap = [
 
   # System clipboard plugin - copy file paths to system clipboard
   { on = "<C-y>", run = "plugin system-clipboard", desc = "Copy file path to system clipboard" },
+
+  { on = "<S-a>",   run = "toggle_all --state=on",    desc = "Select all files" },
 
   # Quick navigation shortcuts
   { on = [ "g", "v" ], run = "cd /Volumes", desc = "Go to /Volumes (external drives)" },
