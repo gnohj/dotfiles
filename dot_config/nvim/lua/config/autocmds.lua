@@ -189,7 +189,7 @@ end, {
 -- NVIM_CWD_<pane_id> integration for TMUX
 -- ============================================================================
 -- Clean up neovim's directory tracking when exiting vim
--- This removes the NVIM_CWD_<pane_id> environment variable so tmux falls back to shell's working directory
+-- This removes the NVIM_CWD_<pane_id> and NVIM_FILE_<pane_id> environment variables so tmux falls back to shell's working directory
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
     local pane_id = vim.env.TMUX_PANE
@@ -198,6 +198,13 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
         'tmux set-environment -u -t "'
           .. pane_id
           .. '" NVIM_CWD_'
+          .. pane_id
+          .. " 2>/dev/null"
+      )
+      vim.fn.system(
+        'tmux set-environment -u -t "'
+          .. pane_id
+          .. '" NVIM_FILE_'
           .. pane_id
           .. " 2>/dev/null"
       )
@@ -226,8 +233,9 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
       local dir = vim.fn.fnamemodify(current_file, ":h")
       local pane_id = vim.env.TMUX_PANE
       if pane_id then
-        -- Escape the directory path to handle special characters like $
+        -- Escape the directory path and file path to handle special characters like $
         local escaped_dir = vim.fn.shellescape(dir)
+        local escaped_file = vim.fn.shellescape(current_file)
         vim.fn.system(
           'tmux set-environment -t "'
             .. pane_id
@@ -235,6 +243,15 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
             .. pane_id
             .. " "
             .. escaped_dir
+        )
+        -- Also track the full file path for yazi
+        vim.fn.system(
+          'tmux set-environment -t "'
+            .. pane_id
+            .. '" NVIM_FILE_'
+            .. pane_id
+            .. " "
+            .. escaped_file
             .. " 2>/dev/null"
         )
       end

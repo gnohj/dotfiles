@@ -56,12 +56,10 @@ name = "tmux_web"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
 
-# configs
-
 [[session]]
-name = "tmux_etc_hosts"
-path = "/etc/hosts"
-startup_command = "cat /etc/hosts"
+name = "tmux_yazi"
+path = "~/."
+startup_command = "y"
 
 [[session]]
 name = "tmux_radioctl"

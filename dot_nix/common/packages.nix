@@ -27,6 +27,8 @@
 
     # File management
     yazi       # Terminal file manager
+    p7zip      # 7zip for archive preview in yazi
+    clipboard-jh  # ClipBoard project for yazi system-clipboard plugin
 
     # Data tools
     jq         # JSON processor

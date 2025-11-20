@@ -255,6 +255,9 @@ setopt hist_ignore_dups
 # Blacklist for `you-should-use` plugin
 export YSU_IGNORED_ALIASES=("vi" "vim")
 
+# Wrap yazi to preserve cwd when opening files in nvim
+alias y='YAZI_START_DIR="$PWD" yazi'
+
 # Zinit Status
 alias zstatus='zinit status'
 
@@ -713,18 +716,6 @@ reload_prompt() {
 }
 
 export _ZO_DATA_DIR="$ZDOTDIR"
-
-#-------------------------------------------------------------------------------
-#                  Yazi CWD Shell Wrapper - changes to cwd after exiting yazi
-#-------------------------------------------------------------------------------
-function y() {
-	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-	yazi "$@" --cwd-file="$tmp"
-	IFS= read -r -d '' cwd < "$tmp"
-	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
-	rm -f -- "$tmp"
-}
-
 
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)

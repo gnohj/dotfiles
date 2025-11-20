@@ -609,6 +609,157 @@ EOF
   echo "Delta themes configuration updated at '$delta_themes_file'."
 }
 
+generate_yazi_theme() {
+  yazi_theme_file="$HOME/.local/share/chezmoi/dot_config/yazi/theme.toml"
+
+  cat >"$yazi_theme_file" <<EOF
+# Yazi theme configuration
+# Auto-generated yazi theme - Gnohj color scheme
+# Docs: https://yazi-rs.github.io/docs/configuration/theme
+"\$schema" = "https://yazi-rs.github.io/schemas/theme.json"
+
+[mgr]
+# current working dir
+cwd = { fg = "$gnohj_color02" }
+
+# Hovered
+hovered         = { reversed = true }
+preview_hovered = { underline = true }
+
+# find
+find_keyword = { fg = "$gnohj_color03", bold = true, italic = true, underline = true }
+find_position = { fg = "$gnohj_color03", bold = true, italic = true }
+
+# Symlink
+symlink_target = { italic = true }
+
+# marker
+marker_copied = { fg = "$gnohj_color10", bg = "$gnohj_color02" }
+marker_cut = { fg = "$gnohj_color10", bg = "$gnohj_color11" }
+marker_marked = { fg = "$gnohj_color10", bg = "$gnohj_color03" }
+marker_selected = { fg = "$gnohj_color10", bg = "$gnohj_color05" }
+
+# count
+count_copied = { fg = "$gnohj_color10", bg = "$gnohj_color02" }
+count_cut = { fg = "$gnohj_color09", bg = "$gnohj_color11" }
+count_selected = { fg = "$gnohj_color10", bg = "$gnohj_color05" }
+
+# border
+border_symbol = "│"
+
+[tabs]
+active   = { fg = "$gnohj_color10", bg = "$gnohj_color02", bold = true }
+inactive   = { fg = "$gnohj_color02", bg = "$gnohj_color10" }
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+[mode]
+normal_main = { fg = "$gnohj_color10", bg = "$gnohj_color02", bold = true }
+normal_alt = { fg = "$gnohj_color03", bg = "$gnohj_color17", bold = true }
+
+select_main = { fg = "$gnohj_color10", bg = "$gnohj_color03", bold = true }
+select_alt = { fg = "$gnohj_color10", bg = "$gnohj_color03", bold = true }
+
+unset_main = { fg = "$gnohj_color10", bg = "$gnohj_color11", bold = true }
+unset_alt = { fg = "$gnohj_color10", bg = "$gnohj_color11", bold = true }
+
+[status]
+overall   = {}
+sep_left  = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+# Progress
+progress_label = { fg = "$gnohj_color10", bold = true }
+progress_normal = { fg = "$gnohj_color02", bg = "$gnohj_color10" }
+progress_error = { fg = "$gnohj_color11", bg = "$gnohj_color10" }
+
+# permissions
+perm_type = { fg = "$gnohj_color14" }
+perm_write = { fg = "$gnohj_color11" }
+perm_exec = { fg = "$gnohj_color02" }
+perm_read = { fg = "$gnohj_color03" }
+perm_sep = { fg = "$gnohj_color09" }
+
+[select]
+border = { fg = "$gnohj_color02" }
+active = { fg = "$gnohj_color11", bold = true }
+inactive = { fg = "$gnohj_color09", bg = "$gnohj_color10" }
+
+[input]
+border = { fg = "$gnohj_color02" }
+value = { fg = "$gnohj_color09" }
+
+[completion]
+border = { fg = "$gnohj_color02", bg = "$gnohj_color10" }
+
+[tasks]
+border = { fg = "$gnohj_color02" }
+title = { fg = "$gnohj_color09" }
+hovered = { fg = "$gnohj_color02", underline = true }
+
+[which]
+cols = 3
+mask = { bg = "$gnohj_color10" }
+cand = { fg = "$gnohj_color02" }
+rest = { fg = "$gnohj_color10" }
+desc = { fg = "$gnohj_color09" }
+separator = " ⯈ "
+separator_style = { fg = "$gnohj_color09" }
+
+[help]
+on = { fg = "$gnohj_color02" }
+run = { fg = "$gnohj_color02" }
+footer = { fg = "$gnohj_color10", bg = "$gnohj_color09" }
+
+[notify]
+title_info = { fg = "$gnohj_color02" }
+title_warn = { fg = "$gnohj_color05" }
+title_error = { fg = "$gnohj_color11" }
+
+[filetype]
+rules = [
+    # directories
+    { name = "*/", fg = "$gnohj_color04" },
+
+    # executables
+    { name = "*", is = "exec", fg = "$gnohj_color02" },
+
+    # images
+    { mime = "image/*", fg = "$gnohj_color05" },
+
+    # media
+    { mime = "{audio,video}/*", fg = "$gnohj_color02" },
+
+    # archives
+    { mime = "application/{,g}zip", fg = "$gnohj_color11" },
+    { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", fg = "$gnohj_color11" },
+
+    # documents
+    { mime = "application/{pdf,doc,rtf,vnd.*}", fg = "$gnohj_color03" },
+
+    # scripts and code
+    { mime = "application/{x-shellscript,x-python,x-ruby,x-javascript}", fg = "$gnohj_color05" },
+    { mime = "text/x-{c,c++}", fg = "$gnohj_color04" },
+
+    # config files
+    { name = "*.json", fg = "$gnohj_color05" },
+    { name = "*.yml", fg = "$gnohj_color04" },
+    { name = "*.toml", fg = "$gnohj_color01" },
+
+    # special files
+    { name = "*", is = "orphan", bg = "$gnohj_color10" },
+
+    # dummy files
+    { name = "*", is = "dummy", bg = "$gnohj_color10" },
+
+    # fallback
+    { name = "*/", fg = "$gnohj_color04" },
+]
+EOF
+
+  echo "Yazi theme updated at '$yazi_theme_file'."
+}
+
 generate_gitmux_config() {
   gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
 
@@ -715,6 +866,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate gitmux config
   generate_gitmux_config
+
+  # Generate yazi theme
+  generate_yazi_theme
 
   # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
   if typeset -f generate_ls_colors >/dev/null 2>&1; then
