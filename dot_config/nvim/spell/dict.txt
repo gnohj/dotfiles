@@ -28,6 +28,7 @@ GH
 GetDatasourceBySlug
 GetPageByQuery
 Grugfar
+HAR
 Hotfixes
 HttpOnly
 IHRSessionBackend
@@ -60,6 +61,7 @@ TODO
 TTFB
 Terraform's
 TraceId
+TrackEnd
 Turborepo
 UserCookie
 WAF
@@ -69,6 +71,7 @@ WiFi
 Zsh
 a.
 api
+backgrounded
 backmerge
 base64
 bashrc
