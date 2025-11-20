@@ -241,6 +241,9 @@ return {
         -- Cursor and selection
         hl.MiniFilesCursorLine = { bg = colors["gnohj_color16"] } -- Current line highlight
 
+        -- Yazi.nvim
+        hl.YaziBorder = { fg = colors["gnohj_color04"] } -- Blue border for yazi floating window
+
         -- Copilot ghost text
         hl.CopilotSuggestion = { fg = colors["gnohj_color09"], italic = true }
         hl.CopilotAnnotation = { fg = colors["gnohj_color09"], italic = true }
