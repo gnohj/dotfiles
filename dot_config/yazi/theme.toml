@@ -1,0 +1,142 @@
+# Yazi theme configuration
+# Auto-generated yazi theme - Gnohj color scheme
+# Docs: https://yazi-rs.github.io/docs/configuration/theme
+"$schema" = "https://yazi-rs.github.io/schemas/theme.json"
+
+[mgr]
+# current working dir
+cwd = { fg = "#b7ce97" }
+
+# Hovered
+hovered         = { reversed = true }
+preview_hovered = { underline = true }
+
+# find
+find_keyword = { fg = "#a7cfbd", bold = true, italic = true, underline = true }
+find_position = { fg = "#a7cfbd", bold = true, italic = true }
+
+# Symlink
+symlink_target = { italic = true }
+
+# marker
+marker_copied = { fg = "#0f1419", bg = "#b7ce97" }
+marker_cut = { fg = "#0f1419", bg = "#da858e" }
+marker_marked = { fg = "#0f1419", bg = "#a7cfbd" }
+marker_selected = { fg = "#0f1419", bg = "#dab183" }
+
+# count
+count_copied = { fg = "#0f1419", bg = "#b7ce97" }
+count_cut = { fg = "#9fb7a4", bg = "#da858e" }
+count_selected = { fg = "#0f1419", bg = "#dab183" }
+
+# border
+border_symbol = "│"
+
+[tabs]
+active   = { fg = "#0f1419", bg = "#b7ce97", bold = true }
+inactive   = { fg = "#b7ce97", bg = "#0f1419" }
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+[mode]
+normal_main = { fg = "#0f1419", bg = "#b7ce97", bold = true }
+normal_alt = { fg = "#a7cfbd", bg = "#40474b", bold = true }
+
+select_main = { fg = "#0f1419", bg = "#a7cfbd", bold = true }
+select_alt = { fg = "#0f1419", bg = "#a7cfbd", bold = true }
+
+unset_main = { fg = "#0f1419", bg = "#da858e", bold = true }
+unset_alt = { fg = "#0f1419", bg = "#da858e", bold = true }
+
+[status]
+overall   = {}
+sep_left  = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+# Progress
+progress_label = { fg = "#0f1419", bold = true }
+progress_normal = { fg = "#b7ce97", bg = "#0f1419" }
+progress_error = { fg = "#da858e", bg = "#0f1419" }
+
+# permissions
+perm_type = { fg = "#e9e9e2" }
+perm_write = { fg = "#da858e" }
+perm_exec = { fg = "#b7ce97" }
+perm_read = { fg = "#a7cfbd" }
+perm_sep = { fg = "#9fb7a4" }
+
+[select]
+border = { fg = "#b7ce97" }
+active = { fg = "#da858e", bold = true }
+inactive = { fg = "#9fb7a4", bg = "#0f1419" }
+
+[input]
+border = { fg = "#b7ce97" }
+value = { fg = "#9fb7a4" }
+
+[completion]
+border = { fg = "#b7ce97", bg = "#0f1419" }
+
+[tasks]
+border = { fg = "#b7ce97" }
+title = { fg = "#9fb7a4" }
+hovered = { fg = "#b7ce97", underline = true }
+
+[which]
+cols = 3
+mask = { bg = "#0f1419" }
+cand = { fg = "#b7ce97" }
+rest = { fg = "#0f1419" }
+desc = { fg = "#9fb7a4" }
+separator = " ⯈ "
+separator_style = { fg = "#9fb7a4" }
+
+[help]
+on = { fg = "#b7ce97" }
+run = { fg = "#b7ce97" }
+footer = { fg = "#0f1419", bg = "#9fb7a4" }
+
+[notify]
+title_info = { fg = "#b7ce97" }
+title_warn = { fg = "#dab183" }
+title_error = { fg = "#da858e" }
+
+[filetype]
+rules = [
+    # directories
+    { name = "*/", fg = "#a3b8c6" },
+
+    # executables
+    { name = "*", is = "exec", fg = "#b7ce97" },
+
+    # images
+    { mime = "image/*", fg = "#dab183" },
+
+    # media
+    { mime = "{audio,video}/*", fg = "#b7ce97" },
+
+    # archives
+    { mime = "application/{,g}zip", fg = "#da858e" },
+    { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", fg = "#da858e" },
+
+    # documents
+    { mime = "application/{pdf,doc,rtf,vnd.*}", fg = "#a7cfbd" },
+
+    # scripts and code
+    { mime = "application/{x-shellscript,x-python,x-ruby,x-javascript}", fg = "#dab183" },
+    { mime = "text/x-{c,c++}", fg = "#a3b8c6" },
+
+    # config files
+    { name = "*.json", fg = "#dab183" },
+    { name = "*.yml", fg = "#a3b8c6" },
+    { name = "*.toml", fg = "#c0aed2" },
+
+    # special files
+    { name = "*", is = "orphan", bg = "#0f1419" },
+
+    # dummy files
+    { name = "*", is = "dummy", bg = "#0f1419" },
+
+    # fallback
+    { name = "*/", fg = "#a3b8c6" },
+]
