@@ -6,9 +6,6 @@
 # Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
 lctrl - space : skhd -k "ctrl - c"
 
-# Hyper+Q to quit nvim (sends Escape + :qa! + Enter)
-# hyper - q : skhd -k "escape" && skhd -t ":wqa!" && skhd -k "return"
-
 # Remap Cmd+Shift+Q to quit and disable minimize/hide
 cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true' -e 'tell application frontApp to quit'
 cmd - q : :
@@ -23,6 +20,9 @@ rctrl - space : tmux last-window # toggle between last two windows
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
+
+# Launcher - Omarchy-style popup launcher
+rctrl - y : tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
 
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
@@ -144,3 +144,4 @@ lalt + shift - y : :
 # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
 hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy to clipboard (no preview)
 hyper - c : ~/.config/skhd/copy-recent-screenshot.sh    # Copy recent screenshot filepath to clipboard from ~/Pictures
+
