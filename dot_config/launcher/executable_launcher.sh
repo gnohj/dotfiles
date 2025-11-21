@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color16,fg+:$gnohj_color14,hl+:$gnohj_color04,fg:
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🎨 Themes\n📜 Scripts\n⚙️ Utilities\n" |
+  choice=$(printf "🎨 Themes\n📜 Scripts\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
     fzf --height=40% \
       --reverse \
       --prompt="❯ " \
@@ -29,7 +29,9 @@ main_menu() {
   case "$choice" in
   "🎨 Themes") themes_menu ;;
   "📜 Scripts") scripts_menu ;;
-  "⚙️ Utilities") utilities_menu ;;
+  *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_env_vars" ;;
+  *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_logs" ;;
+  *"fza"*) aliases_menu ;;
   *) exit 0 ;;
   esac
 }
@@ -203,28 +205,6 @@ scripts_menu() {
   "📸 Copy Recent Screenshot")
     ~/.config/skhd/copy-recent-screenshot.sh
     ;;
-  "← Back") main_menu ;;
-  *) exit 0 ;;
-  esac
-}
-
-#-------------------------------------------------------------------------------
-# Utilities Menu (fz* commands)
-#-------------------------------------------------------------------------------
-utilities_menu() {
-  local choice
-  choice=$(printf "🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n← Back" |
-    fzf --height=40% \
-      --reverse \
-      --header="Utilities" \
-      --prompt="Util > " \
-      --ansi \
-      $FZF_COLORS)
-
-  case "$choice" in
-  *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_env_vars" ;;
-  *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_logs" ;;
-  *"fza"*) aliases_menu ;;
   "← Back") main_menu ;;
   *) exit 0 ;;
   esac
