@@ -646,7 +646,7 @@ count_selected = { fg = "$gnohj_color10", bg = "$gnohj_color05" }
 
 # border
 border_symbol = "│"
-border_style = { fg = "$gnohj_color04" }
+border_style = { fg = "$gnohj_color03" }
 
 [tabs]
 active   = { fg = "$gnohj_color10", bg = "$gnohj_color02", bold = true }
