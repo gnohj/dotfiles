@@ -16,7 +16,7 @@ My personal dotfiles for macOS.
 - **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace)
   (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
   bar)
-- File Manager: [Marta](https://marta.sh/)
+- File Manager: [Yazi](https://yazi-rs.github.io/)
 - **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (with custom
   shaders)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient),
