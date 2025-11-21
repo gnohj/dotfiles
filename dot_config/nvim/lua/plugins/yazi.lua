@@ -27,7 +27,6 @@ return {
     yazi_floating_window_winblend = 0,
     yazi_floating_window_border = "rounded",
     floating_window_scaling_factor = 0.9,
-    -- Use jk to exit yazi (like your nvim setup)
     open_file_in_vertical_split = "<c-v>",
     open_file_in_horizontal_split = "<c-x>",
     open_file_in_tab = "<c-t>",
