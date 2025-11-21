@@ -7,14 +7,14 @@ return {
   },
   keys = {
     {
-      "<leader>-",
+      "<leader>=",
       mode = { "n", "v" },
       "<cmd>Yazi<cr>",
       desc = "Open yazi at the current file",
     },
     {
       -- Open in the current working directory
-      "<leader>=",
+      "<leader>-",
       "<cmd>Yazi cwd<cr>",
       desc = "Open the file manager in nvim's working directory",
     },
@@ -27,5 +27,9 @@ return {
     yazi_floating_window_winblend = 0,
     yazi_floating_window_border = "rounded",
     floating_window_scaling_factor = 0.9,
+    -- Use jk to exit yazi (like your nvim setup)
+    open_file_in_vertical_split = "<c-v>",
+    open_file_in_horizontal_split = "<c-x>",
+    open_file_in_tab = "<c-t>",
   },
 }

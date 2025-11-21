@@ -24,3 +24,8 @@ prepend_keymap = [
   { on = [ "g", "l" ], run = "cd ~/.logs", desc = "Go to logs directory" },
   { on = [ "g", "r" ], run = "cd ~/Developer", desc = "Go to Developer repos" },
 ]
+
+[input]
+prepend_keymap = [
+  { on = [ "j", "k" ], run = "close", desc = "Cancel input (jk to exit)" },
+]

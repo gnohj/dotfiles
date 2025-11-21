@@ -610,7 +610,7 @@ EOF
 }
 
 generate_yazi_theme() {
-  yazi_theme_file="$HOME/.local/share/chezmoi/dot_config/yazi/theme.toml"
+  yazi_theme_file="$HOME/.config/yazi/theme.toml"
 
   cat >"$yazi_theme_file" <<EOF
 # Yazi theme configuration
