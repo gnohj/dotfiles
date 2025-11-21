@@ -21,7 +21,6 @@
         "/System/Applications/Mail.app"
         "/System/Applications/Calendar.app"
         "/System/Applications/Reminders.app"
-        "/Applications/Marta.app"
         "/Applications/Google Chrome.app"
         "/Applications/Brave Browser.app"
         "/Applications/Ghostty.app"

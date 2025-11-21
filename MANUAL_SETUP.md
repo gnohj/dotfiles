@@ -1,21 +1,29 @@
 # macOS Manual Setup Guide
 
-This document covers macOS settings that **cannot be automated** through nix-darwin due to TCC (Transparency, Consent, and Control) security restrictions or lack of API support.
+This document covers macOS settings that **cannot be automated** through
+nix-darwin due to TCC (Transparency, Consent, and Control) security restrictions
+or lack of API support.
 
 ## ⚠️ Prerequisites
 
 **This setup requires:**
-- ✅ **Administrator/sudo access** - Required for installing Nix, nix-darwin, and granting TCC permissions
+
+- ✅ **Administrator/sudo access** - Required for installing Nix, nix-darwin,
+  and granting TCC permissions
 - ✅ **Personal macOS device** - You have full control over system settings
-- ✅ **SIP enabled** - No System Integrity Protection disabling needed (all apps work with SIP on)
+- ✅ **SIP enabled** - No System Integrity Protection disabling needed (all apps
+  work with SIP on)
 
 **NOT compatible with:**
+
 - ❌ Corporate/company-issued Macs with MDM (Mobile Device Management)
 - ❌ Restricted environments where you lack admin privileges
 - ❌ Macs where IT policies block third-party app installations
 - ❌ Environments where TCC permission granting is restricted
 
-**Note:** If you don't have admin access, you cannot install Nix, Homebrew, or grant the necessary security permissions. This setup is designed for personal devices only.
+**Note:** If you don't have admin access, you cannot install Nix, Homebrew, or
+grant the necessary security permissions. This setup is designed for personal
+devices only.
 
 ## Table of Contents
 
@@ -39,16 +47,19 @@ This document covers macOS settings that **cannot be automated** through nix-dar
 ### TCC (Privacy & Security) Permissions
 
 **Cannot be scripted** because:
+
 - Apple's security design requires user consent
 - TCC database is protected by SIP (System Integrity Protection)
 - No supported macOS API for programmatic permission grants
 - `tccutil` only supports `reset` (removing), not granting permissions
 
-**The ONLY automation path**: MDM (Mobile Device Management) with PPPC profiles in enterprise environments
+**The ONLY automation path**: MDM (Mobile Device Management) with PPPC profiles
+in enterprise environments
 
 ### Gesture Settings
 
 **Cannot be scripted** because:
+
 - Not exposed through `defaults` API
 - No nix-darwin module support
 - Stored in complex preference domains
@@ -84,6 +95,7 @@ These apps need to control your computer:
 - ✅ WezTerm (terminal emulator)
 
 **How to grant**:
+
 1. Open System Settings → Privacy & Security → Accessibility
 2. Click the lock icon and authenticate
 3. Click the "+" button
@@ -104,6 +116,7 @@ Terminal emulators need this for shell integration and file system operations:
 - ✅ WezTerm
 
 **How to grant**:
+
 1. Open System Settings → Privacy & Security → Full Disk Access
 2. Click the lock icon and authenticate
 3. Click the "+" button
@@ -123,6 +136,7 @@ These apps need to capture screen content:
 - ✅ Raycast (screenshot and screen capture features)
 
 **How to grant**:
+
 1. Open System Settings → Privacy & Security → Screen Recording
 2. Click the lock icon and authenticate
 3. Click the "+" button
@@ -139,50 +153,63 @@ These apps need to capture screen content:
 Apps that need to control other applications:
 
 #### AeroSpace
+
 - ✅ Spotify (window management with music integration)
 
 #### Ghostty
+
 - ✅ Brave Browser
 - ✅ Google Chrome
 - ✅ Spotify
 - ✅ System Events
 
 #### kitty
+
 - ✅ System Events
 
 #### Only Switch
+
 - ✅ System Events
 
 #### osascript
+
 - ✅ Finder (for AppleScript automation)
 
 #### Raycast
+
 - ✅ Finder
 - ✅ Google Chrome
 - ✅ QuickTime Player
 - ✅ System Events
 
 #### sketchybar
+
 - ✅ Spotify (status bar music integration)
 
 #### skhd
+
 - ✅ System Events (hotkey system control)
 
 #### Sublime Text
+
 - ✅ Finder (file operations)
 
 #### VLC
+
 - ✅ Spotify (media player integration)
 
 #### WezTerm
+
 - ✅ System Events
 
 **How to grant**:
+
 1. Open System Settings → Privacy & Security → Automation
 2. Find the app in the list
 3. Expand it to see target applications
 4. Toggle each required target application
-5. If an app doesn't appear, trigger the automation action in the app (it will prompt for permission)
+5. If an app doesn't appear, trigger the automation action in the app (it will
+   prompt for permission)
 
 ---
 
@@ -193,12 +220,12 @@ Apps that need to control other applications:
 Apps that can update or delete other applications:
 
 - ✅ Latest (app updater)
-- ✅ Marta (file manager)
 - ✅ Raycast (app uninstall features)
 - ✅ System Events
 - ✅ WezTerm
 
 **How to grant**:
+
 1. Open System Settings → Privacy & Security → App Management
 2. Toggle the switch for each app
 
@@ -207,20 +234,6 @@ Apps that can update or delete other applications:
 ### Files and Folders
 
 **Path**: System Settings → Privacy & Security → Files and Folders
-
-#### Marta (File Manager)
-Needs access to:
-- ✅ Desktop Folder
-- ✅ Documents Folder
-- ✅ Downloads Folder
-- ✅ Google Drive
-- ✅ Photos (full access)
-
-**How to grant**:
-1. Open System Settings → Privacy & Security → Files and Folders
-2. Find "Marta" in the list
-3. Toggle each required folder/service
-4. For Photos, go to Privacy & Security → Photos and enable Marta
 
 ---
 
@@ -233,19 +246,23 @@ The following gestures from your screenshots **cannot be automated**:
 ### Your Current Configuration
 
 - ❌ **Swipe between pages**: Off
-- ❌ **Swipe between full-screen applications**: Swipe Left or Right with Three Fingers
-- ❌ **Notification Center**: Swipe left from the right edge with two fingers - **Enabled**
+- ❌ **Swipe between full-screen applications**: Swipe Left or Right with Three
+  Fingers
+- ❌ **Notification Center**: Swipe left from the right edge with two fingers -
+  **Enabled**
 - ❌ **Mission Control**: Swipe Up with Three Fingers - **Enabled**
 - ❌ **App Exposé**: Off
 - ❌ **Launchpad**: Pinch with thumb and three fingers - **Enabled**
 - ❌ **Show Desktop**: Spread with thumb and three fingers - **Enabled**
 
 **How to configure**:
+
 1. Open System Settings → Trackpad
 2. Click "More Gestures" tab
 3. Configure each gesture according to your preferences above
 
-**Note**: The "Point & Click" and "Scroll & Zoom" tabs are mostly automated via nix-darwin (see `system-settings.nix`).
+**Note**: The "Point & Click" and "Scroll & Zoom" tabs are mostly automated via
+nix-darwin (see `system-settings.nix`).
 
 ---
 
@@ -261,9 +278,11 @@ The following UI settings **cannot be automated**:
 - ❌ **Show Sleep, Restart, and Shut Down buttons**: Enabled (your setting)
 
 **Automated settings** (via nix-darwin):
+
 - ✅ **Require password after screensaver begins**: After 1 hour (automated)
 
 **How to configure**:
+
 1. Open System Settings → Lock Screen
 2. Configure "Show large clock" to "On Lock Screen"
 3. Keep "Show 24-hour time" disabled
@@ -278,11 +297,13 @@ The following UI settings **cannot be automated**:
 **Path**: System Settings → Touch ID & Password
 
 **Cannot be automated**:
+
 - ❌ Adding fingerprints
 - ❌ Configuring Touch ID settings
 - ❌ Touch ID unlock preferences
 
 **How to configure**:
+
 1. Open System Settings → Touch ID & Password
 2. Click "Add Fingerprint..."
 3. Follow the on-screen instructions to scan your fingerprint
@@ -296,16 +317,18 @@ The following UI settings **cannot be automated**:
 
 ### Recent Items
 
-**Path**: Apple menu  → Recent Items
+**Path**: Apple menu → Recent Items
 
 **Setting**: None (0 items)
 
 **Manual command** (nix-darwin doesn't support this):
+
 ```bash
 defaults write NSGlobalDomain NSRecentDocumentsLimit 0
 ```
 
 To verify:
+
 ```bash
 defaults read NSGlobalDomain NSRecentDocumentsLimit
 # Should return: 0
@@ -315,7 +338,8 @@ defaults read NSGlobalDomain NSRecentDocumentsLimit
 
 ### Clone Personal Repositories
 
-**Cannot be automated**: Requires SSH authentication and personal workflow decisions
+**Cannot be automated**: Requires SSH authentication and personal workflow
+decisions
 
 Clone your frequently-used repositories to your preferred locations. Example:
 
@@ -330,7 +354,8 @@ git clone git@github.com:gnohj/dotfiles.git ~/projects/dotfiles
 # git clone git@github.com:gnohj/repo-name.git ~/projects/repo-name
 ```
 
-**Note**: This assumes your SSH key is already configured via `user-setup.sh` and Bitwarden.
+**Note**: This assumes your SSH key is already configured via `user-setup.sh`
+and Bitwarden.
 
 ---
 
@@ -355,9 +380,11 @@ else
 fi
 ```
 
-**Alternative**: If wallpapers are already in `~/Pictures/wallpapers`, no action needed.
+**Alternative**: If wallpapers are already in `~/Pictures/wallpapers`, no action
+needed.
 
 **Why manual?**:
+
 - Wallpapers are large binary files (several MB each)
 - Not suitable for git repository storage
 - Better synced via iCloud Drive or copied manually per machine
@@ -418,11 +445,13 @@ echo "✓ Global gitignore created at ~/.gitignore_global"
 ```
 
 **Why manual?**:
+
 - Personal ignore patterns vary by developer workflow
 - Not all patterns may be desired for your use case
 - Easier to customize directly than templating
 
 **Verify**:
+
 ```bash
 git config --global core.excludesfile
 # Should return: /Users/yourusername/.gitignore_global
@@ -432,17 +461,22 @@ git config --global core.excludesfile
 
 ### Import Raycast Configuration
 
-**Cannot be automated**: Requires manual import (free alternative to Raycast Cloud Sync)
+**Cannot be automated**: Requires manual import (free alternative to Raycast
+Cloud Sync)
 
-Raycast Cloud Sync is a paid feature. Instead, use export/import to restore settings:
+Raycast Cloud Sync is a paid feature. Instead, use export/import to restore
+settings:
 
 **On current machine (export once)**:
+
 1. Open Raycast Settings → Advanced
 2. Click "Export Settings"
 3. Save the JSON file to your iCloud Drive or backup location
-   - Recommended: `~/Library/Mobile Documents/com~apple~CloudDocs/Documents/raycast-settings.json`
+   - Recommended:
+     `~/Library/Mobile Documents/com~apple~CloudDocs/Documents/raycast-settings.json`
 
 **On new machine (import)**:
+
 1. Install Raycast (automated via Homebrew)
 2. Copy your exported JSON file from iCloud/backup
 3. Open Raycast Settings → Advanced
@@ -452,6 +486,7 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
    - Clipboard History (main extension used)
 
 **What's included in export**:
+
 - ✅ Extensions and their configurations
 - ✅ Hotkeys and keyboard shortcuts (e.g., `⌘ + Space` for Raycast)
 - ✅ Snippets
@@ -460,14 +495,17 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
 - ✅ Window management settings
 
 **What's NOT included**:
+
 - ❌ Sign-in credentials (must log in manually)
 - ❌ Extensions will need to re-download
 
 **Key settings**:
+
 - Global hotkey: `⌘ + Space` (Raycast launcher)
 - Extensions: Clipboard History
 
 **Why manual?**:
+
 - Raycast settings contain session tokens and shouldn't be in git
 - Export file format may change between Raycast versions
 - Easier to store in iCloud and import on demand
@@ -478,9 +516,11 @@ Raycast Cloud Sync is a paid feature. Instead, use export/import to restore sett
 
 **Cannot be automated**: Contains license key and requires manual setup
 
-Homerow is a keyboard navigation app that requires license activation and configuration.
+Homerow is a keyboard navigation app that requires license activation and
+configuration.
 
 **On new machine:**
+
 1. Install Homerow (automated via Homebrew)
 2. Launch Homerow
 3. Enter license key when prompted
@@ -496,10 +536,12 @@ Homerow is a keyboard navigation app that requires license activation and config
    - **Map arrow keys to scroll**: Enabled
 
 **Where settings are stored**:
+
 - `~/Library/Preferences/com.superultra.Homerow.plist`
 - Contains license key, so not suitable for version control
 
 **Why manual?**:
+
 - Contains license key that shouldn't be in git
 - Requires TCC (Accessibility) permissions which can't be automated
 - Settings are app-specific and tied to license activation
@@ -508,11 +550,13 @@ Homerow is a keyboard navigation app that requires license activation and config
 
 ### Configure AlDente (Battery Management)
 
-**Cannot be automated**: Settings stored in application database, not config files
+**Cannot be automated**: Settings stored in application database, not config
+files
 
 AlDente allows you to set a charge limit to prolong battery lifespan.
 
 **On new machine:**
+
 1. Install AlDente (automated via Homebrew)
 2. Launch AlDente from Applications
 3. Click the menu bar icon
@@ -522,10 +566,12 @@ AlDente allows you to set a charge limit to prolong battery lifespan.
 5. Enable "Launch at Login" in preferences
 
 **Where settings are stored**:
+
 - AlDente's internal database (not accessible as config files)
 - Settings persist per machine but cannot be exported/imported
 
 **Why manual?**:
+
 - Settings are stored in app's proprietary database format
 - No config file or export/import functionality
 - Must be configured on each machine individually
@@ -543,7 +589,6 @@ After running through this guide, verify:
 - [ ] Screen Recording permissions granted (2 apps)
 - [ ] Automation permissions configured (11 apps with various targets)
 - [ ] App Management permissions granted (5 apps)
-- [ ] Marta has Files and Folders access (5 locations)
 - [ ] Trackpad gestures configured (7 settings)
 - [ ] Lock Screen UI options configured (4 settings)
 - [ ] Touch ID fingerprints added
@@ -561,6 +606,7 @@ After running through this guide, verify:
 ### App doesn't appear in Privacy & Security list
 
 **Solution**:
+
 1. Launch the app at least once
 2. Trigger the action that requires permission
 3. The system will prompt for permission
@@ -569,6 +615,7 @@ After running through this guide, verify:
 ### Permission toggle is grayed out
 
 **Solution**:
+
 1. Click the lock icon at the bottom left
 2. Enter your password to unlock
 3. The toggles should become clickable
@@ -576,6 +623,7 @@ After running through this guide, verify:
 ### Changes don't take effect
 
 **Solution**:
+
 1. Restart the affected application
 2. If still not working, log out and log back in
 3. For some settings, a full reboot may be required
@@ -583,6 +631,7 @@ After running through this guide, verify:
 ### Reset all permissions for an app
 
 **Command**:
+
 ```bash
 # Reset all TCC permissions for specific app
 tccutil reset All com.bundle.identifier
@@ -603,6 +652,5 @@ tccutil reset Accessibility com.bundle.identifier
 
 ---
 
-**Last Updated**: 2025-01-23
-**macOS Version**: Sequoia and later
-**nix-darwin Version**: See flake.lock
+**Last Updated**: 2025-01-23 **macOS Version**: Sequoia and later **nix-darwin
+Version**: See flake.lock

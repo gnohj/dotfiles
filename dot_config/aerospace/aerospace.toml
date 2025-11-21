@@ -212,11 +212,6 @@ run = "move-node-to-workspace F"
 # run = ['layout floating']
 
 [[on-window-detected]]
-if.app-id = 'org.yanex.marta'
-run = "move-node-to-workspace F"
-# run = ['layout floating']
-
-[[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
 run = "move-node-to-workspace F"
 # run = ['layout floating']

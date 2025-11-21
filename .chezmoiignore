@@ -20,9 +20,6 @@ dot_config/borders/
 dot_config/skhd/
 dot_config/sketchybar/
 
-# macOS-specific apps
-dot_config/marta/
-
 # Nix-Darwin installation
 dot_nix/nix-darwin
 
