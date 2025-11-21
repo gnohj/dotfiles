@@ -18,7 +18,8 @@ prepend_keymap = [
 
   # Quick navigation shortcuts
   { on = [ "g", "v" ], run = "cd /Volumes", desc = "Go to /Volumes (external drives)" },
-  { on = [ "g", "c" ], run = "cd ~/.local/share/chezmoi", desc = "Go to chezmoi source directory" },
+  { on = [ "g", "z" ], run = "cd ~/.local/share/chezmoi", desc = "Go to chezmoi source directory" },
+  { on = [ "g", "c" ], run = "cd ~/.config", desc = "Go to config directory" },
   { on = [ "g", "h" ], run = "cd ~", desc = "Go to home directory" },
   { on = [ "g", "d" ], run = "cd ~/Downloads", desc = "Go to Downloads" },
   { on = [ "g", "p" ], run = "cd ~/Pictures", desc = "Go to Pictures" },
