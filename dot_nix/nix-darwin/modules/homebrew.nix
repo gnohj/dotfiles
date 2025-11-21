@@ -95,9 +95,6 @@
       "raycast"
       "whimsical"
 
-      # File Management
-      "marta"
-
       # Window Management & Navigation
       "nikitabobko/tap/aerospace"
       "homerow"

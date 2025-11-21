@@ -19,31 +19,6 @@ exit 0
 {{- end }}
 
 #-------------------------------------------------------------------------------
-#--                      Marta File Manager Configuration
-#-------------------------------------------------------------------------------
-echo "Setting up Marta file manager configuration..."
-
-MARTA_CONFIG_DIR="$HOME/Library/Application Support/org.yanex.marta"
-MARTA_CONFIG_FILE="$MARTA_CONFIG_DIR/conf.marco"
-DOTFILES_MARTA_CONFIG="$HOME/.config/marta/conf.marco"
-
-if [ ! -f "$DOTFILES_MARTA_CONFIG" ]; then
-  echo "⚠️  Marta config not found at $DOTFILES_MARTA_CONFIG"
-  echo "    This should have been created by chezmoi. Skipping symlink creation."
-else
-  mkdir -p "$MARTA_CONFIG_DIR"
-
-  if [ ! -L "$MARTA_CONFIG_FILE" ] && [ ! -e "$MARTA_CONFIG_FILE" ]; then
-    ln -s "$DOTFILES_MARTA_CONFIG" "$MARTA_CONFIG_FILE"
-    echo "✅ Marta config symlink created"
-  elif [ -L "$MARTA_CONFIG_FILE" ]; then
-    echo "⏭️  Marta config symlink already exists"
-  else
-    echo "⚠️  Marta config file exists but is not a symlink - manual intervention needed"
-  fi
-fi
-
-#-------------------------------------------------------------------------------
 #--                      Spicetify Theme
 #-------------------------------------------------------------------------------
 if ! command -v spicetify &>/dev/null; then
@@ -79,7 +54,6 @@ fi
 echo ""
 echo "📋 Post-Dotfiles Configuration Summary:"
 echo "✅ Configured:"
-echo "  • Marta config symlink: $([ -L "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && [ -e "$HOME/Library/Application Support/org.yanex.marta/conf.marco" ] && echo "✅ Active" || echo "❌ Failed")"
 echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
 echo ""
 echo "🎉 Run OnChange [After] Dotfiles Applied Complete!"

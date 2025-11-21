@@ -53,7 +53,7 @@ local spaceConfigs = {
 	["B"] = { name = "Browser", app = "Google Chrome" },
 	["G"] = { name = "Mail", app = "Mail" },
 	["R"] = { name = "Notes", app = "Notes" },
-	["F"] = { name = "System", app = "Marta" },
+	["F"] = { name = "System", app = "Finder" },
 	["D"] = { name = "Discord", app = "Discord" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["V"] = { name = "Passwords", app = "Bitwarden" },
