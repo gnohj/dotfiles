@@ -1,8 +1,4 @@
 [mgr]
-# Show only 2 panes: current directory (left) and preview (right)
-# Default is [1, 4, 3] which shows parent, current, and preview
-# [0, 1, 1] hides parent pane and gives equal space to current and preview
-ratio = [0, 1, 1]
 # show_hidden = true
 
 [opener]
