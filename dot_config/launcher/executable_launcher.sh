@@ -19,8 +19,8 @@ FZF_COLORS="--color=bg+:$gnohj_color16,fg+:$gnohj_color14,hl+:$gnohj_color04,fg:
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🎨 Themes\n📜 Scripts\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
-    fzf --height=40% \
+  choice=$(printf "🎨 Themes\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
+    fzf --height=80% \
       --reverse \
       --prompt="❯ " \
       --ansi \
@@ -28,7 +28,53 @@ main_menu() {
 
   case "$choice" in
   "🎨 Themes") themes_menu ;;
-  "📜 Scripts") scripts_menu ;;
+  "🚀 Push to GitHub (now)")
+    ~/.config/zshrc/github-auto-push.sh --nowait
+    echo "GitHub auto-push completed"
+    sleep 1
+    ;;
+  "🔔 Test GitHub Notification")
+    ~/.config/zshrc/custom-notification.sh
+    echo "GitHub notification completed"
+    sleep 1
+    ;;
+  "📦 Check Outdated Packages")
+    zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"
+    ;;
+  "🧹 Cleanup Logs")
+    if [ -f "$HOME/Scripts/cleanup-logs.sh" ]; then
+      ~/Scripts/cleanup-logs.sh
+      echo "\nLogs cleaned up. Press any key to continue..."
+      read -k1
+    else
+      echo "cleanup-logs.sh not found"
+      sleep 2
+    fi
+    ;;
+  "🔧 Run System Setup")
+    if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
+      cd "$HOME/.local/share/chezmoi" && ./system-setup.sh
+    else
+      echo "system-setup.sh not found"
+      sleep 2
+    fi
+    ;;
+  "👤 Run User Setup")
+    if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
+      cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
+    else
+      echo "user-setup.sh not found"
+      sleep 2
+    fi
+    ;;
+  "👻 Toggle Transparency")
+    ~/.config/tmux/toggle-terminal-transparency.sh
+    echo "Transparency toggled"
+    sleep 1
+    ;;
+  "📸 Copy Recent Screenshot")
+    ~/.config/skhd/copy-recent-screenshot.sh
+    ;;
   *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_env_vars" ;;
   *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_logs" ;;
   *"fza"*) aliases_menu ;;
@@ -141,72 +187,6 @@ light_themes_menu() {
   *)
     "$HOME/.config/zshrc/colorscheme-set.sh" "$selected_scheme"
     ;;
-  esac
-}
-
-#-------------------------------------------------------------------------------
-# Scripts Menu
-#-------------------------------------------------------------------------------
-scripts_menu() {
-  local choice
-  choice=$(printf "🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n← Back" |
-    fzf --height=40% \
-      --reverse \
-      --header="Scripts" \
-      --prompt="Script > " \
-      --ansi \
-      $FZF_COLORS)
-
-  case "$choice" in
-  "🚀 Push to GitHub (now)")
-    ~/.config/zshrc/github-auto-push.sh --nowait
-    echo "GitHub auto-push completed"
-    sleep 1
-    ;;
-  "🔔 Test GitHub Notification")
-    ~/.config/zshrc/custom-notification.sh
-    echo "GitHub notification completed"
-    sleep 1
-    ;;
-  "📦 Check Outdated Packages")
-    zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"
-    ;;
-  "🧹 Cleanup Logs")
-    if [ -f "$HOME/Scripts/cleanup-logs.sh" ]; then
-      ~/Scripts/cleanup-logs.sh
-      echo "\nLogs cleaned up. Press any key to continue..."
-      read -k1
-    else
-      echo "cleanup-logs.sh not found"
-      sleep 2
-    fi
-    ;;
-  "🔧 Run System Setup")
-    if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
-      cd "$HOME/.local/share/chezmoi" && ./system-setup.sh
-    else
-      echo "system-setup.sh not found"
-      sleep 2
-    fi
-    ;;
-  "👤 Run User Setup")
-    if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
-      cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
-    else
-      echo "user-setup.sh not found"
-      sleep 2
-    fi
-    ;;
-  "👻 Toggle Transparency")
-    ~/.config/tmux/toggle-terminal-transparency.sh
-    echo "Transparency toggled"
-    sleep 1
-    ;;
-  "📸 Copy Recent Screenshot")
-    ~/.config/skhd/copy-recent-screenshot.sh
-    ;;
-  "← Back") main_menu ;;
-  *) exit 0 ;;
   esac
 }
 
