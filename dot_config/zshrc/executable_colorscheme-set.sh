@@ -46,49 +46,6 @@ else
   fi
 fi
 
-generate_wezterm_config() {
-  wezterm_theme_file="$HOME/.config/wezterm/colors.lua"
-
-  cat >"$wezterm_theme_file" <<EOF
--- Auto-generated WezTerm color theme
-local M = {}
-
-M.colors = {
-  foreground = "$gnohj_color14",
-  background = "$gnohj_color10",
-  cursor_bg = "$gnohj_color24",
-  cursor_border = "$gnohj_color24",
-  cursor_fg = "$gnohj_color10",
-  selection_bg = "$gnohj_color16",
-  selection_fg = "$gnohj_color14",
-  ansi = {
-    "$gnohj_color10", -- black
-    "$gnohj_color11", -- red
-    "$gnohj_color02", -- green
-    "$gnohj_color05", -- yellow
-    "$gnohj_color04", -- blue
-    "$gnohj_color01", -- purple
-    "$gnohj_color03", -- aqua
-    "$gnohj_color14", -- white
-  },
-  brights = {
-    "$gnohj_color08", -- bright black
-    "$gnohj_color11", -- bright red
-    "$gnohj_color02", -- bright green
-    "$gnohj_color05", -- bright yellow
-    "$gnohj_color04", -- bright blue
-    "$gnohj_color01", -- bright purple
-    "$gnohj_color03", -- bright aqua
-    "$gnohj_color14", -- bright white
-  },
-}
-
-return M
-EOF
-
-  echo "WezTerm theme updated at '$wezterm_theme_file'."
-}
-
 generate_ghostty_theme() {
   ghostty_conf_file="$HOME/.config/ghostty/ghostty-theme"
 
@@ -951,9 +908,6 @@ if [ "$UPDATED" = true ]; then
 
   # Generate the kitty theme file
   generate_kitty_theme
-
-  # Generate the wezterm theme file
-  generate_wezterm_config
 
   # Generate the btop theme
   generate_btop_theme
