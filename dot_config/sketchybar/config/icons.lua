@@ -270,7 +270,6 @@ local apps <const> = {
 	["WeChat"] = ":wechat:",
 	["企业微信"] = ":wecom:",
 	["WeCom"] = ":wecom:",
-	["WezTerm"] = "",
 	["WhatsApp"] = ":whats_app:",
 	["‎WhatsApp"] = ":whats_app:",
 	["Xcode"] = ":xcode:",

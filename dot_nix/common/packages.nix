@@ -60,7 +60,7 @@
 
     # Fonts (new nerd-fonts namespace)
     nerd-fonts.hasklug       # Ghostty primary (Hasklig Nerd Font)
-    nerd-fonts.roboto-mono   # WezTerm, Ghostty alternate
+    nerd-fonts.roboto-mono   # Ghostty alternate
     nerd-fonts.space-mono    # Sketchybar
     nerd-fonts.meslo-lg      # Sketchybar mic widget (MesloLGM)
     nerd-fonts.jetbrains-mono # Ghostty alternate option

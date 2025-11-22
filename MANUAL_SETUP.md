@@ -92,7 +92,6 @@ These apps need to control your computer:
 - ✅ Raycast (launcher/productivity)
 - ✅ sketchybar (status bar)
 - ✅ skhd (hotkey daemon)
-- ✅ WezTerm (terminal emulator)
 
 **How to grant**:
 
@@ -113,7 +112,6 @@ Terminal emulators need this for shell integration and file system operations:
 
 - ✅ Ghostty
 - ✅ kitty
-- ✅ WezTerm
 
 **How to grant**:
 
@@ -198,21 +196,6 @@ Apps that need to control other applications:
 
 - ✅ Spotify (media player integration)
 
-#### WezTerm
-
-- ✅ System Events
-
-**How to grant**:
-
-1. Open System Settings → Privacy & Security → Automation
-2. Find the app in the list
-3. Expand it to see target applications
-4. Toggle each required target application
-5. If an app doesn't appear, trigger the automation action in the app (it will
-   prompt for permission)
-
----
-
 ### App Management
 
 **Path**: System Settings → Privacy & Security → App Management
@@ -222,7 +205,6 @@ Apps that can update or delete other applications:
 - ✅ Latest (app updater)
 - ✅ Raycast (app uninstall features)
 - ✅ System Events
-- ✅ WezTerm
 
 **How to grant**:
 
@@ -529,7 +511,7 @@ configuration.
    - **Shortcuts**:
      - Non-search: `⌃⌥⇧⌘G`
      - Scroll: `⌃⌥⇧⌘J`
-   - **Disabled apps**: Ghostty, WezTerm (terminals handle their own navigation)
+   - **Disabled apps**: Ghostty, kitty (terminals handle their own navigation)
    - **Auto-switch keyboard layout**: US
    - **Label font size**: 11
    - **Launch at login**: Enabled

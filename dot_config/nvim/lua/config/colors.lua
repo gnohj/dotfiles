@@ -35,5 +35,5 @@ if _G.vim then
   end
 end
 
--- Return the colors table for external usage (like wezterm)
+-- Return the colors table for external usage
 return colors

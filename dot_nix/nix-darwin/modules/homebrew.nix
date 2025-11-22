@@ -87,7 +87,6 @@
       # Terminals
       "ghostty"
       "kitty"
-      "wezterm"
 
       # Productivity
       "bitwarden"
