@@ -11,8 +11,8 @@ if [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ]; then
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 fi
 
-# fzf colors using current colorscheme
-FZF_COLORS="--color=bg+:$gnohj_color16,fg+:$gnohj_color14,hl+:$gnohj_color04,fg:$gnohj_color02,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
+# fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
+FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color02,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
 
 #-------------------------------------------------------------------------------
 # Main Menu
