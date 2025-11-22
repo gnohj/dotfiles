@@ -128,6 +128,67 @@ EOF
   echo "Ghostty configuration updated at '$ghostty_conf_file'."
 }
 
+generate_kitty_theme() {
+  kitty_conf_file="$HOME/.config/kitty/kitty-theme.conf"
+  temp_file=$(mktemp)
+
+  cat >"$temp_file" <<EOF
+# Auto-generated kitty theme configuration
+background $gnohj_color10
+foreground $gnohj_color14
+
+cursor $gnohj_color24
+
+# black
+color0 $gnohj_color10
+color8 $gnohj_color08
+# red
+color1 $gnohj_color11
+color9 $gnohj_color11
+# green
+color2 $gnohj_color02
+color10 $gnohj_color02
+# yellow
+color3 $gnohj_color05
+color11 $gnohj_color05
+# blue
+color4 $gnohj_color04
+color12 $gnohj_color04
+# purple
+color5 $gnohj_color01
+color13 $gnohj_color01
+# aqua
+color6 $gnohj_color03
+color14 $gnohj_color03
+# white
+color7 $gnohj_color14
+color15 $gnohj_color14
+
+# Selection colors
+selection_foreground $gnohj_color10
+selection_background $gnohj_color04
+
+# Tab bar colors
+active_tab_foreground $gnohj_color10
+active_tab_background $gnohj_color02
+inactive_tab_foreground $gnohj_color14
+inactive_tab_background $gnohj_color08
+
+# Border colors
+active_border_color $gnohj_color04
+inactive_border_color $gnohj_color08
+EOF
+
+  # Move temp file to final location (atomically)
+  mv -f "$temp_file" "$kitty_conf_file"
+
+  # Remove macOS extended attributes that trigger file opening
+  xattr -c "$kitty_conf_file" 2>/dev/null || true
+
+  # Send SIGUSR1 to kitty to reload config
+  pkill -USR1 -x kitty 2>/dev/null || true
+}
+
 generate_btop_theme() {
   btop_conf_file="$HOME/.config/btop/themes/btop-theme.theme"
 
@@ -887,6 +948,9 @@ if [ "$UPDATED" = true ]; then
   # Generate the ghostty theme file, then reload config
   generate_ghostty_theme
   osascript "$HOME/.config/ghostty/reload-config.scpt" &
+
+  # Generate the kitty theme file
+  generate_kitty_theme
 
   # Generate the wezterm theme file
   generate_wezterm_config
