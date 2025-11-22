@@ -46,6 +46,7 @@ local function ensure_connection()
 end
 
 -- Workspace configurations
+-- Support multiple apps per workspace (array of apps or single app string)
 local spaceConfigs = {
 	["Q"] = { name = "Work", app = "Brave Browser" },
 	["W"] = { name = "Slack", app = "Slack" },
@@ -58,11 +59,33 @@ local spaceConfigs = {
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["V"] = { name = "Passwords", app = "Bitwarden" },
 	["S"] = { name = "Music", app = "Spotify" },
-	["T"] = { name = "Terminal", app = "Ghostty" },
+	["T"] = { name = "Terminal", apps = { "Ghostty", "kitty" } }, -- Multiple terminal apps
 	["X"] = { name = "Whimsical", app = "Whimsical" },
 	["A"] = { name = "YouTube", app = "YouTube" },
 	["Z"] = { name = "Brave", app = "Zen" },
 }
+
+-- Helper function to find which app to show for a workspace
+local function getAppForWorkspace(workspace, focusedApp)
+	local config = spaceConfigs[workspace]
+	if not config then
+		return nil
+	end
+
+	-- If workspace has multiple apps, find which one is focused
+	if config.apps then
+		for _, app in ipairs(config.apps) do
+			if focusedApp == app then
+				return app
+			end
+		end
+		-- Default to first app if none are focused
+		return config.apps[1]
+	end
+
+	-- Single app workspace
+	return config.app
+end
 
 -- Create workspace indicator item (icon-only)
 local workspaceItem = sbar.add("item", constants.items.SPACES, {
@@ -107,7 +130,7 @@ local function selectFocusedWindow(frontAppName)
 	end
 end
 
-local function updateWorkspaceIndicator(currentWorkspace, hasWindows)
+local function updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedApp)
 	if not ensure_connection() then
 		return
 	end
@@ -118,10 +141,12 @@ local function updateWorkspaceIndicator(currentWorkspace, hasWindows)
 	end
 
 	if currentWorkspace then
-		local config = spaceConfigs[currentWorkspace]
-		if config and config.app then
+		-- Get the appropriate app icon based on focused app
+		local appToShow = getAppForWorkspace(currentWorkspace, focusedApp)
+
+		if appToShow then
 			workspaceItem:set({
-				background = { image = "app." .. config.app },
+				background = { image = "app." .. appToShow },
 				drawing = isShowingSpaces,
 			})
 		else
@@ -182,8 +207,28 @@ local function updateWindows()
 	local hasWindows = windowCount > 0
 	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
 
-	-- Update workspace indicator image
-	updateWorkspaceIndicator(currentWorkspace, hasWindows)
+	-- Get focused window first to determine which app icon to show
+	local focusedAppName = nil
+	if hasWindows then
+		local ok3, focusedWindowJson = pcall(function()
+			return aerospace:focused_window()
+		end)
+
+		if ok3 and focusedWindowJson and focusedWindowJson ~= "" then
+			local cjson = require("cjson")
+			local ok4, focusedData = pcall(function()
+				return cjson.decode(focusedWindowJson)
+			end)
+
+			if ok4 and focusedData and #focusedData > 0 then
+				focusedAppName = focusedData[1]["app-name"]
+				log_message("INFO", "Focused window: " .. tostring(focusedAppName))
+			end
+		end
+	end
+
+	-- Update workspace indicator image with focused app
+	updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedAppName)
 
 	-- Parse windows and create items
 	for _, window in ipairs(windowsJson) do
@@ -206,28 +251,23 @@ local function updateWindows()
 
 			frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
 				selectFocusedWindow(env.INFO)
+				-- Update workspace indicator when focus changes
+				if not ensure_connection() then
+					return
+				end
+				local ok, currWorkspace = pcall(function()
+					return aerospace:list_current():match("[^\r\n]+")
+				end)
+				if ok then
+					updateWorkspaceIndicator(currWorkspace, true, env.INFO)
+				end
 			end)
 		end
 	end
 
-	-- Get focused window using socket (only if we have windows)
-	if hasWindows then
-		local ok3, focusedWindowJson = pcall(function()
-			return aerospace:focused_window()
-		end)
-
-		if ok3 and focusedWindowJson and focusedWindowJson ~= "" then
-			local cjson = require("cjson")
-			local ok4, focusedData = pcall(function()
-				return cjson.decode(focusedWindowJson)
-			end)
-
-			if ok4 and focusedData and #focusedData > 0 then
-				local focusedAppName = focusedData[1]["app-name"]
-				log_message("INFO", "Focused window: " .. tostring(focusedAppName))
-				selectFocusedWindow(focusedAppName)
-			end
-		end
+	-- Select the focused window
+	if focusedAppName then
+		selectFocusedWindow(focusedAppName)
 	end
 
 	log_message("INFO", "updateWindows completed successfully (windows: " .. windowCount .. ")")
