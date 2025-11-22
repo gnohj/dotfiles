@@ -5,6 +5,9 @@
   # All settings are documented at:
   # https://daiderd.com/nix-darwin/manual/index.html
 
+  # Security settings
+  security.pam.services.sudo_local.touchIdAuth = true;  # Enable Touch ID for sudo
+
   system.defaults = {
     # Dock settings
     # Migrated from: run_onchange_before_mac_system.sh.tmpl
@@ -31,10 +34,13 @@
     # Migrated from: run_onchange_before_mac_system.sh.tmpl
     finder = {
       AppleShowAllFiles = true;          # Show hidden files
+      AppleShowAllExtensions = true;     # Show all file extensions
       CreateDesktop = false;             # Hide Desktop items on desktop
+      ShowPathbar = true;                # Show path breadcrumb at bottom
+      ShowStatusBar = true;              # Show status bar at bottom (file count, disk space)
+      _FXShowPosixPathInTitle = true;    # Show full POSIX path in Finder title
+      FXEnableExtensionChangeWarning = false;  # Disable warning when changing file extensions
       # FXPreferredViewStyle = "Nlsv";   # List view
-      # ShowPathbar = true;
-      # ShowStatusBar = true;
     };
 
     # Global macOS settings
@@ -57,6 +63,11 @@
       _HIHideMenuBar = true;                         # Auto-hide menu bar
       NSAutomaticWindowAnimationsEnabled = false;    # Disable window animations
       NSWindowShouldDragOnGesture = true;           # Move windows by dragging anywhere (Ctrl+Cmd)
+
+      # Disable annoying auto-correct features
+      NSAutomaticCapitalizationEnabled = false;     # Disable automatic capitalization
+      NSAutomaticSpellingCorrectionEnabled = false; # Disable automatic spelling correction
+      NSAutomaticPeriodSubstitutionEnabled = false; # Disable automatic period substitution (double-space)
 
       # Keyboard settings
       # Migrated from: run_onchange_before_mac_system.sh.tmpl
