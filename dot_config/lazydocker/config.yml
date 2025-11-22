@@ -1,0 +1,25 @@
+# LazyDocker configuration with custom colors
+# Auto-generated lazydocker config
+# Docs: https://github.com/jesseduffield/lazydocker/blob/master/docs/Config.md
+gui:
+  scrollHeight: 2
+  language: 'en'
+  theme:
+    activeBorderColor:
+      - '#b7ce97'
+      - bold
+    inactiveBorderColor:
+      - '#a7cfbd'
+    selectedLineBgColor:
+      - '#88b8c2'
+    optionsTextColor:
+      - '#a7cfbd'
+  border: rounded
+  showAllContainers: false
+  returnImmediately: false
+  wrapMainPanel: true
+reporting: 'off'
+confirmOnQuit: false
+keybinding:
+  universal:
+    quit: '<esc>'

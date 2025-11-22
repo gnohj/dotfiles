@@ -420,6 +420,41 @@ customCommands:
 EOF
 }
 
+generate_lazydocker_config() {
+  lazydocker_conf_dir="$HOME/.config/lazydocker"
+  lazydocker_conf_file="$lazydocker_conf_dir/config.yml"
+
+  # Create directory if it doesn't exist
+  mkdir -p "$lazydocker_conf_dir"
+
+  cat >"$lazydocker_conf_file" <<EOF
+# LazyDocker configuration with custom colors
+# Auto-generated lazydocker config
+# Docs: https://github.com/jesseduffield/lazydocker/blob/master/docs/Config.md
+gui:
+  scrollHeight: 2
+  language: 'en'
+  theme:
+    activeBorderColor:
+      - '${gnohj_color02}'
+      - bold
+    inactiveBorderColor:
+      - '${gnohj_color03}'
+    selectedLineBgColor:
+      - '${gnohj_color49}'
+    optionsTextColor:
+      - '${gnohj_color03}'
+  border: rounded
+  showAllContainers: false
+  returnImmediately: false
+  wrapMainPanel: true
+reporting: 'off'
+confirmOnQuit: false
+keybindings:
+  quit: ["KeyEsc"]
+EOF
+}
+
 generate_bat_config() {
   bat_config_dir="$HOME/.config/bat"
   bat_themes_dir="$bat_config_dir/themes"
@@ -845,6 +880,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate lazygit config
   generate_lazygit_config
+
+  # Generate lazydocker config
+  generate_lazydocker_config
 
   # Generate the ghostty theme file, then reload config
   generate_ghostty_theme
