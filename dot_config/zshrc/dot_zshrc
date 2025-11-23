@@ -721,7 +721,10 @@ export _ZO_DATA_DIR="$ZDOTDIR"
 #                  Mise Activation (must be before tool integrations)
 #-------------------------------------------------------------------------------
 
-eval "$(mise activate zsh)"
+# Activate mise if available (resilient to early Ghostty startup)
+if command -v mise &>/dev/null; then
+  eval "$(mise activate zsh)"
+fi
 
 # -----------------------------  Sketchybar Mise Notification
 # Setup sketchybar mise notification (must be AFTER mise activate to override mise's function)
@@ -744,7 +747,7 @@ fi
 # -----------------------------  Fastfetch
 # INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
 # Add a flag to control fastfetch execution
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
+if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]] && command -v fastfetch &>/dev/null; then
     fastfetch
 fi
 
@@ -752,29 +755,33 @@ fi
 #                  Eval Integrations
 #-------------------------------------------------------------------------------
 
-eval "$(fastly --completion-script-zsh)"
-eval "$(fzf --zsh)"
-eval "$(saml2aws --completion-script-zsh)"
+# Load integrations only if commands are available (resilient to early startup)
+command -v fastly &>/dev/null && eval "$(fastly --completion-script-zsh)"
+command -v fzf &>/dev/null && eval "$(fzf --zsh)"
+command -v saml2aws &>/dev/null && eval "$(saml2aws --completion-script-zsh)"
 
-eval "$(zoxide init zsh)"
-eval "$(atuin init zsh --disable-up-arrow)"
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
 
 ##  Hack: Get Autin global search (ctrl+r) working; while keeping up/down arrow history search and history substring search
-bindkey '^R' _atuin_search_widget
-function ensure_atuin_ctrl_r() {
-  local current_binding=$(bindkey | grep '\^R' | awk '{print $2}')
-  if [[ "$current_binding" != "_atuin_search_widget" ]]; then
-    bindkey '^R' _atuin_search_widget
-  fi
-}
+# Only set up atuin keybindings if atuin was successfully loaded
+if command -v atuin &>/dev/null; then
+  bindkey '^R' _atuin_search_widget
+  function ensure_atuin_ctrl_r() {
+    local current_binding=$(bindkey | grep '\^R' | awk '{print $2}')
+    if [[ "$current_binding" != "_atuin_search_widget" ]]; then
+      bindkey '^R' _atuin_search_widget
+    fi
+  }
 
-# Add hook to check and restore Atuin binding before each prompt
-autoload -Uz add-zsh-hook
-add-zsh-hook precmd ensure_atuin_ctrl_r
+  # Add hook to check and restore Atuin binding before each prompt
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd ensure_atuin_ctrl_r
 
-bindkey -M viins '^R' _atuin_search_widget  # Insert mode
-bindkey -M vicmd '^R' _atuin_search_widget  # Normal mode
-bindkey -M emacs '^R' _atuin_search_widget  # Emacs mode (fallback)
+  bindkey -M viins '^R' _atuin_search_widget  # Insert mode
+  bindkey -M vicmd '^R' _atuin_search_widget  # Normal mode
+  bindkey -M emacs '^R' _atuin_search_widget  # Emacs mode (fallback)
+fi
 
 # AWS CLI v2 Completions
 # The OMZP::aws plugin only provides utilities, not completions
