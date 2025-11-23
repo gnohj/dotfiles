@@ -29,10 +29,13 @@
 (defchords base 50
   (c v) bspc   ;; C+V together = backspace
   (m ,) bspc   ;; M+comma together = backspace
+  (d f) ret    ;; D+F together = enter
   (c) c        ;; C alone = c
   (v) v        ;; V alone = v
   (m) m        ;; M alone = m
   (,) ,        ;; Comma alone = comma
+  (d) d        ;; D alone = d
+  (f) f        ;; F alone = f
 )
 (defalias
   ;; Base layer mod-taps (39 keys only)
@@ -66,9 +69,11 @@
   zoom-in (multi lmet =)   ;; Zoom in (Cmd+Equal)
 
   ;; Media controls
+  c-prev prev        ;; Previous track
   c-mute mute        ;; Mute
   c-vol-dn voldwn    ;; Volume down
   c-vol-up volu      ;; Volume up
+  c-next next        ;; Next track
   c-pp pp            ;; Play/pause
 
   ;; Custom shortcuts
@@ -92,7 +97,7 @@
 (deflayer base
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt @esc-lalt      XX
-  @grv-lctl a        s        d        f        g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
+  @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
   @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
   XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
@@ -111,9 +116,9 @@
 ;; Layer 2 - Browser and media controls
 (deflayer layer2
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  _        @lalt-q   @lalt-w  @lalt-e  @lalt-r  @lalt-t  @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
-  _        @lalt-a  @lalt-s  @lalt-d  @lalt-f  @lalt-g  left     down     up       right    @zoom-out @zoom-in XX       XX
-  _        @lalt-z  @lalt-x  @lalt-c  @lalt-v  @lalt-b  _        @c-mute  @c-vol-dn @c-vol-up _        @c-pp    _ 
+  _        XX       XX       XX       f11      f12      @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
+  _        brdown   brup     f3       f4       f5       left     down     up       right    @zoom-out @zoom-in XX       XX
+  _        f6       @c-prev  @c-pp    @c-next  @c-mute  @c-prev  @c-mute  @c-vol-dn @c-vol-up @c-next        @c-pp    _
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
