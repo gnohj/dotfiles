@@ -56,6 +56,10 @@ name = "tmux_glove80"
 path = "~/Developer/glove80"
 
 [[session]]
+name = "tmux_corne42"
+path = "~/Developer/corne42"
+
+[[session]]
 name = "tmux_web"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
 preview_command = "bat --color=always ~/Developer/web/README.md"
