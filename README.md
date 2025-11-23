@@ -27,9 +27,8 @@ My personal dotfiles for macOS.
 - **Version Control**: Git with [Delta](https://github.com/dandavison/delta)
   pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
 - **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (key remapping on
-  laptop), custom zmk layouts for
-  [Glove80](https://my.glove80.com/?ref=arslan.io#/layout/user/3fbe1c75-ac0e-4967-88d1-fe626c3ab3ff)
-  & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
+  laptop), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) &
+  [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
 
 ## Bootstrap New Mac (Apple Silicon)
 
