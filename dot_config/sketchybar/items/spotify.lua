@@ -5,6 +5,7 @@ local isPlaying = false
 local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
+local currentPosition = "center" -- Track current position to avoid redundant updates
 
 -- Setup logging
 local LOG_DIR = os.getenv("HOME") .. "/.logs/sketchybar"
@@ -12,18 +13,87 @@ local LOG_FILE = LOG_DIR .. "/spotify_" .. os.date("%Y%m") .. ".log"
 
 local function log_message(level, message)
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
-	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s", timestamp, level, message)
-	-- Use async to avoid blocking the event loop
-	sbar.exec("mkdir -p " .. LOG_DIR)
-	sbar.exec("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. LOG_FILE)
+	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s\n", timestamp, level, message)
+	-- Write directly to file
+	local file = io.open(LOG_FILE, "a")
+	if file then
+		file:write(log_entry)
+		file:close()
+	end
+end
+
+-- Function to detect external monitors
+-- Reads status file written by check-external-monitor.sh
+local function hasExternalMonitor()
+	-- Read status from file (sbar.exec doesn't work reliably)
+	local status_file = "/tmp/sketchybar_external_monitor"
+	local file = io.open(status_file, "r")
+
+	if not file then
+		-- File doesn't exist yet, run detection script
+		local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
+		os.execute("bash " .. config_dir .. "/check-external-monitor.sh &")
+		log_message("DEBUG", "Status file missing, running detection script")
+		return false
+	end
+
+	local result = file:read("*line")
+	file:close()
+
+	local hasExternal = tonumber(result) or 0
+	log_message("DEBUG", "External monitor detection from file: '" .. tostring(result) .. "' hasExternal: " .. tostring(hasExternal))
+
+	if hasExternal > 0 then
+		log_message("INFO", "External monitor detected")
+		return true
+	end
+
+	log_message("INFO", "No external monitor detected (built-in display only)")
+	return false
+end
+
+-- Function to update widget positions based on monitor setup
+local function updateWidgetPosition()
+	local hasExternal = hasExternalMonitor()
+	local newPosition = hasExternal and "center" or "left"
+
+	log_message("INFO", "updateWidgetPosition called - hasExternal: " .. tostring(hasExternal) .. ", newPosition: " .. newPosition .. ", currentPosition: " .. currentPosition)
+
+	-- Only update if position actually changed
+	if newPosition ~= currentPosition then
+		local oldPosition = currentPosition
+		currentPosition = newPosition
+		log_message("WARN", "Display configuration changed - moving Spotify from " .. oldPosition .. " to " .. newPosition)
+
+		-- Update individual item positions AND the bracket using sketchybar commands
+		-- (Lua API doesn't reliably update positions at runtime)
+		log_message("DEBUG", "Executing sketchybar CLI commands to update positions")
+		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".icon position=" .. newPosition)
+		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. " position=" .. newPosition)
+		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".play position=" .. newPosition)
+		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".bracket position=" .. newPosition)
+
+		log_message("INFO", "Successfully updated position to " .. newPosition)
+	else
+		log_message("DEBUG", "Position unchanged, staying at: " .. currentPosition)
+	end
 end
 
 -- Register the Spotify playback state changed event
 sbar.exec("sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
 
+-- Register display change event
+sbar.exec("sketchybar --add event display_change")
+
+-- Determine initial position based on current display setup
+log_message("INFO", "Initializing Spotify widget")
+local initialPosition = hasExternalMonitor() and "center" or "left"
+currentPosition = initialPosition
+log_message("INFO", "Initial position set to: " .. initialPosition)
+
 -- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
-	position = "center",
+	position = initialPosition,
 	padding_left = 1,
 	padding_right = 5,
 	drawing = false,
@@ -45,7 +115,7 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 
 -- Main text widget (without play/pause icon)
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
-	position = "center",
+	position = initialPosition,
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
@@ -55,7 +125,7 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 
 -- Separate play/pause icon widget (can be positioned independently)
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
-	position = "center",
+	position = initialPosition,
 	y_offset = -1.75,
 	padding_left = -18,
 	padding_right = 0,
@@ -275,28 +345,32 @@ end
 
 -- Subscribe to Spotify playback state change event (event-driven, no polling)
 spotify:subscribe("spotify_change", function(env)
-	log_message("INFO", "Spotify playback state changed event received")
+	log_message("INFO", "Event triggered: spotify_change - Spotify playback state changed")
 	updateSpotifyInfo()
 end)
 
 -- Subscribe to polling event
 spotify:subscribe("spotify_poll", function()
+	log_message("DEBUG", "Event triggered: spotify_poll - Manual poll requested")
 	updateSpotifyInfo()
 end)
 
--- Also subscribe to system wake event to refresh state
+-- Also subscribe to system wake event to refresh state and position
 spotify:subscribe("system_woke", function()
-	log_message("INFO", "System woke - refreshing Spotify state")
+	log_message("INFO", "Event triggered: system_woke - Refreshing state and position")
 	updateSpotifyInfo()
+	updateWidgetPosition()
 end)
 
 spotify:subscribe("mouse.clicked", function()
 	local currentTime = os.time()
 	if currentTime - lastClickTime < 1 then
+		log_message("DEBUG", "Event triggered: mouse.clicked on spotify (debounced)")
 		return
 	end
 	lastClickTime = currentTime
 
+	log_message("INFO", "Event triggered: mouse.clicked on spotify - toggling play/pause")
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
 	lastTrackInfo = ""
 	-- Wait a bit for Spotify to update, then poll
@@ -306,10 +380,12 @@ end)
 spotifyIcon:subscribe("mouse.clicked", function()
 	local currentTime = os.time()
 	if currentTime - lastClickTime < 1 then
+		log_message("DEBUG", "Event triggered: mouse.clicked on spotify.icon (debounced)")
 		return
 	end
 	lastClickTime = currentTime
 
+	log_message("INFO", "Event triggered: mouse.clicked on spotify.icon - toggling play/pause")
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
 	lastTrackInfo = ""
 	-- Wait a bit for Spotify to update, then poll
@@ -319,20 +395,46 @@ end)
 playIcon:subscribe("mouse.clicked", function()
 	local currentTime = os.time()
 	if currentTime - lastClickTime < 1 then
+		log_message("DEBUG", "Event triggered: mouse.clicked on spotify.play (debounced)")
 		return
 	end
 	lastClickTime = currentTime
 
+	log_message("INFO", "Event triggered: mouse.clicked on spotify.play - toggling play/pause")
 	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
 	lastTrackInfo = ""
 	-- Wait a bit for Spotify to update, then poll
 	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
 end)
 
+-- Group Spotify widgets together using a bracket
+sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
+	constants.items.SPOTIFY .. ".icon",
+	constants.items.SPOTIFY,
+	constants.items.SPOTIFY .. ".play",
+}, {
+	position = initialPosition,
+})
+
+-- Start display monitor in background
+local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
+log_message("INFO", "Starting display monitor background process")
+sbar.exec("pkill -f display-monitor.sh; " .. config_dir .. "/display-monitor.sh &")
+
 -- Initial update on load
+log_message("INFO", "Running initial widget updates")
 updateSpotifyInfo()
+updateWidgetPosition()
+log_message("INFO", "Spotify widget initialization complete")
+
+-- Subscribe to display change events
+spotify:subscribe("display_change", function()
+	log_message("WARN", "Event triggered: display_change - Display configuration changed")
+	updateWidgetPosition()
+end)
 
 -- Polling fallback: update on the regular update_freq interval
 spotify:subscribe("front_app_switched", function()
+	log_message("DEBUG", "Event triggered: front_app_switched - Updating Spotify info")
 	updateSpotifyInfo()
 end)

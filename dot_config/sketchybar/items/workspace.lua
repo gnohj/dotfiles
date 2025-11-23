@@ -89,6 +89,7 @@ end
 
 -- Create workspace indicator item (icon-only)
 local workspaceItem = sbar.add("item", constants.items.SPACES, {
+	position = "left",
 	icon = {
 		drawing = false,
 	},
@@ -241,6 +242,7 @@ local function updateWindows()
 			local labelString = windowName .. " | " .. workspace
 
 			frontApps[windowName] = sbar.add("item", constants.items.FRONT_APPS .. "." .. windowName, {
+				position = "left",
 				label = {
 					padding_left = -15,
 					string = labelString,
