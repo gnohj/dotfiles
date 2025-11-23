@@ -116,9 +116,9 @@
 ;; Layer 2 - Browser and media controls
 (deflayer layer2
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  _        XX       XX       XX       f11      f12      @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
-  _        brdown   brup     f3       f4       f5       left     down     up       right    @zoom-out @zoom-in XX       XX
-  _        f6       @c-prev  @c-pp    @c-next  @c-mute  @c-prev  @c-mute  @c-vol-dn @c-vol-up @c-next        @c-pp    _
+  XX       XX       XX       XX       XX       XX      @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
+  XX       brdown   brup     XX       XX       XX       left     down     up       right    @zoom-out @zoom-in XX       XX
+  XX       XX       XX       XX       XX       XX       @c-prev  @c-mute  @c-vol-dn @c-vol-up @c-next        @c-pp    _
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
