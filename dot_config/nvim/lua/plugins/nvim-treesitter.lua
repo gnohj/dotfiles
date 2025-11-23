@@ -29,7 +29,7 @@ return {
       "query",
       "vimdoc",
       "c",
-      "devicetree", -- For ZMK keymap files (.keymap)
+      "devicetree",
     },
     incremental_selection = {
       enable = true,
