@@ -41,18 +41,18 @@
   ;; Base layer mod-taps (39 keys only)
   tab-ralt (tap-hold 200 200 tab ralt)     ;; Tab position: tap=tab, hold=ralt
   grv-lctl (tap-hold 200 200 grv lctl)     ;; Caps position: tap=grave, hold=lctl
-  ls-stk  (one-shot 1500 lsft)             ;; Left shift as sticky
+  ls-stk  (one-shot 2000 lsft)             ;; Left shift as sticky
   esc-lalt (tap-hold 200 200 esc lalt)     ;; Bracket position: tap=esc, hold=lalt
   sc-rctl (tap-hold 200 200 ; rctl)        ;; Semicolon: tap=;, hold=rctl
   qu-lgui (tap-hold 200 200 ' lmet)        ;; Quote: tap=', hold=lgui
   slash-hypr (tap-hold 200 200 / (multi lmet lsft lalt lctl)) ;; Slash: tap=/, hold=hyper
-  rs-stk  (one-shot 1500 rsft)             ;; Right shift as sticky
+  rs-stk  (one-shot 2000 rsft)             ;; Right shift as sticky
   ent-lalt (tap-hold 200 200 ret lalt)     ;; Enter: tap=enter, hold=lalt
   bksp-rctl (tap-hold 200 200 bspc rctl)   ;; Backspace: tap=backspace, hold=rctl
 
   ;; Layer switching
   ly1 (layer-while-held layer1)            ;; Hold for layer 1
-  ly2 (layer-toggle layer2)                ;; Toggle layer 2
+  ly2 (layer-while-held layer2)            ;; Hold for layer 2
 
   ;; Browser navigation
   br-prevtab (multi lmet lalt left)   ;; Browser previous tab
@@ -96,7 +96,7 @@
 
 (deflayer base
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt @esc-lalt      XX
+  @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt XX            XX
   @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
   @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
   XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
@@ -117,7 +117,7 @@
 (deflayer layer2
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX       XX       XX      @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
-  XX       brdown   brup     XX       XX       XX       left     down     up       right    @zoom-out @zoom-in XX       XX
+  XX       brdown   brup     caps       XX       XX       left     down     up       right    @zoom-out @zoom-in XX       XX
   XX       XX       XX       XX       XX       XX       @c-prev  @c-mute  @c-vol-dn @c-vol-up @c-next        @c-pp    _
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
