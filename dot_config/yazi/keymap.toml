@@ -22,6 +22,7 @@ prepend_keymap = [
   { on = [ "g", "c" ], run = "cd ~/.config", desc = "Go to config directory" },
   { on = [ "g", "h" ], run = "cd ~", desc = "Go to home directory" },
   { on = [ "g", "d" ], run = "cd ~/Downloads", desc = "Go to Downloads" },
+  { on = [ "g", "i" ], run = "cd ~/Library/Mobile\\ Documents/com~apple~CloudDocs/Downloads", desc = "Go to iCloud Downloads" },
   { on = [ "g", "p" ], run = "cd ~/Pictures", desc = "Go to Pictures" },
   { on = [ "g", "l" ], run = "cd ~/.logs", desc = "Go to logs directory" },
   { on = [ "g", "r" ], run = "cd ~/Developer", desc = "Go to Developer repos" },
