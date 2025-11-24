@@ -30,12 +30,15 @@
   (c v) bspc   ;; C+V together = backspace
   (m ,) bspc   ;; M+comma together = backspace
   (d f) ret    ;; D+F together = enter
+  (q p) caps   ;; Q+P together = caps lock
   (c) c        ;; C alone = c
   (v) v        ;; V alone = v
   (m) m        ;; M alone = m
   (,) ,        ;; Comma alone = comma
   (d) d        ;; D alone = d
   (f) f        ;; F alone = f
+  (q) q        ;; Q alone = q
+  (p) p        ;; P alone = p
 )
 (defalias
   ;; Base layer mod-taps (39 keys only)
@@ -96,7 +99,7 @@
 
 (deflayer base
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  @tab-ralt q        w        e        r        t        y        u        i        o        p        @esc-lalt XX            XX
+  @tab-ralt (chord base q) w        e        r        t        y        u        i        o        (chord base p) @esc-lalt XX            XX
   @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
   @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
   XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
@@ -117,7 +120,7 @@
 (deflayer layer2
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX       XX       XX      @br-prevtab @br-prevpage @br-nextpage @br-nexttab @ae-resize-minus @ae-resize-equal XX       XX
-  XX       brdown   brup     caps       XX       XX       left     down     up       right    @zoom-out @zoom-in XX       XX
+  XX       brdown   brup     XX       XX       XX       left     down     up       right    @zoom-out @zoom-in XX       XX
   XX       XX       XX       XX       XX       XX       @c-prev  @c-mute  @c-vol-dn @c-vol-up @c-next        @c-pp    _
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
