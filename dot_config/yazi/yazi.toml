@@ -1,6 +1,11 @@
 [mgr]
 # show_hidden = true
 
+[[plugin.prepend_fetchers]]
+id   = "git"
+name = "*"
+run  = "git"
+
 [opener]
 # Override default edit opener to preserve original yazi cwd
 # YAZI_START_DIR is set by the `y` alias to capture the directory where yazi was launched

@@ -27,6 +27,9 @@
 
     # File management
     yazi       # Terminal file manager
+    yaziPlugins.restore  # Undo/recover trashed files
+    yaziPlugins.git      # Show git status in file list
+    trash-cli  # Required for restore plugin
     p7zip      # 7zip for archive preview in yazi
     clipboard-jh  # ClipBoard project for yazi system-clipboard plugin
 
