@@ -17,8 +17,7 @@ My personal dotfiles for macOS.
   (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
   bar)
 - File Manager: [Yazi](https://yazi-rs.github.io/)
-- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (with custom
-  shaders)
+- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient),
   [Atuin](https://github.com/atuinsh/atuin) (shell history)
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
