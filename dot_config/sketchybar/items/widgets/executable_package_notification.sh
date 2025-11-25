@@ -69,8 +69,8 @@ BREW_EXIT_CODE=$?
 if [ $BREW_EXIT_CODE -eq 124 ]; then
   TIMEOUT_OCCURRED=1
 elif [[ -n "$BREW_OUTPUT" && "$BREW_OUTPUT" != "" ]]; then
-  # Filter out error messages and bash trace output
-  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -v '^+++' | grep -v -i '^Error:' | grep -v -i '^Please report' | grep -v '/' | grep -c '^[[:space:]]*[^[:space:]]')
+  # Filter out error messages, status messages, and bash trace output
+  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -v '^+++' | grep -v -i '^Error:' | grep -v -i '^Please report' | grep -v '/' | grep -v '^✔︎' | grep -v 'JSON API' | grep -c '^[[:space:]]*[^[:space:]]')
 fi
 
 # Check Mac App Store updates
