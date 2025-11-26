@@ -31,6 +31,16 @@ if [ -n "$PANE_ID" ]; then
     REPO_NAME=$(echo "$FULL_REPO_NAME" | sed 's/[-_].*//')
     OUTPUT=$(cd "$DIR" 2>/dev/null && gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh")
 
+    # If no git info from current directory, fall back to initial git directory
+    if [ -z "$REPO_NAME" ] && [ -z "$OUTPUT" ]; then
+      INITIAL_GIT=$(tmux show-environment -t "$PANE_ID" "NVIM_INITIAL_GIT_$PANE_ID" 2>/dev/null | cut -d= -f2)
+      if [ -n "$INITIAL_GIT" ] && [ -d "$INITIAL_GIT" ]; then
+        FULL_REPO_NAME=$(basename "$(git -C "$INITIAL_GIT" rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
+        REPO_NAME=$(echo "$FULL_REPO_NAME" | sed 's/[-_].*//')
+        OUTPUT=$(cd "$INITIAL_GIT" 2>/dev/null && gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh")
+      fi
+    fi
+
     if [ -n "$REPO_NAME" ]; then
       GIT_INFO="#[fg=${gnohj_color06}]${REPO_NAME}#[fg=${gnohj_color14}]${OUTPUT} "
     else
