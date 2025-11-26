@@ -44,6 +44,11 @@ return {
 
       return {
         default_args = { DiffviewFileHistory = { "%" } },
+        file_history_panel = {
+          win_config = {
+            height = 8,
+          },
+        },
         icons = {
           folder_closed = "󰉋",
           folder_open = "󰝰",
@@ -102,8 +107,8 @@ return {
             { 'n', 'za',         actions.toggle_fold,                   { desc = 'Toggle fold' } },
             { 'n', 'zR',         actions.open_all_folds,                { desc = 'Expand all folds' } },
             { 'n', 'zM',         actions.close_all_folds,               { desc = 'Collapse all folds' } },
-            { 'n', '<c-b>',      actions.scroll_view(-0.25),            { desc = 'Scroll the view up' } },
-            { 'n', '<c-f>',      actions.scroll_view(0.25),             { desc = 'Scroll the view down' } },
+            { 'n', 'J',          actions.scroll_view(0.25),             { desc = 'Scroll the diff view down' } },
+            { 'n', 'K',          actions.scroll_view(-0.25),            { desc = 'Scroll the diff view up' } },
             { 'n', '<tab>',      actions.select_next_entry,             { desc = 'Open the diff for the next file' } },
             { 'n', '<s-tab>',    actions.select_prev_entry,             { desc = 'Open the diff for the previous file' } },
             { 'n', '[F',         actions.select_first_entry,            { desc = 'Open the diff for the first file' } },
@@ -129,9 +134,9 @@ return {
             { 'n', 'zM',        actions.close_all_folds,            { desc = 'Collapse all folds' } },
             { 'n', 'j',         actions.next_entry,                 { desc = 'Bring the cursor to the next file entry' } },
             { 'n', 'k',         actions.prev_entry,                 { desc = 'Bring the cursor to the previous file entry' } },
+            { 'n', 'J',         actions.scroll_view(0.25),          { desc = 'Scroll the diff view down' } },
+            { 'n', 'K',         actions.scroll_view(-0.25),         { desc = 'Scroll the diff view up' } },
             { 'n', '<cr>',      actions.select_entry,               { desc = 'Open the diff for the selected entry' } },
-            { 'n', '<c-b>',     actions.scroll_view(-0.25),         { desc = 'Scroll the view up' } },
-            { 'n', '<c-f>',     actions.scroll_view(0.25),          { desc = 'Scroll the view down' } },
             { 'n', '<tab>',     actions.select_next_entry,          { desc = 'Open the diff for the next file' } },
             { 'n', '<s-tab>',   actions.select_prev_entry,          { desc = 'Open the diff for the previous file' } },
             { 'n', '[F',        actions.select_first_entry,         { desc = 'Open the diff for the first file' } },
