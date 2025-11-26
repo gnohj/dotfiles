@@ -13,6 +13,17 @@
 #-------------------------------------------------------------------------------
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
+# Cache command output to speed up shell startup
+_evalcache() {
+  local name=$1 cache="$ZDOTDIR/.zsh_cache/$name.zsh"
+  shift
+  [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache"
+  if [[ ! -s "$cache" || "$(which $1)" -nt "$cache" ]]; then
+    "$@" > "$cache" 2>/dev/null
+  fi
+  [[ -s "$cache" ]] && source "$cache"
+}
+
 # Set up function path to include functions directory
 fpath=("$ZDOTDIR/functions" $fpath)
 
@@ -127,6 +138,7 @@ zinit load starship/starship
 #-------------------------------------------------------------------------------
 
 # zinit light zsh-users/zsh-completions - changes text green/red depending on valid command
+# Syntax highlighting must load synchronously (other plugins depend on ZLE widgets)
 zinit light zdharma-continuum/fast-syntax-highlighting
 
 # Configure transient prompt BEFORE loading the plugin
@@ -140,6 +152,8 @@ zinit ice wait lucid
 zinit light olets/zsh-transient-prompt
 
 # loads extra completion definitions that aren't officially part of zsh
+# Defer - completions aren't needed immediately
+zinit ice wait lucid
 zinit load zsh-users/zsh-completions
 
 # shows a single suggestions (gray text after your cursor) based on latest cmd history
@@ -148,6 +162,8 @@ zinit load zsh-users/zsh-completions
 zinit light zsh-users/zsh-autosuggestions
 
 # 📎 ZSH plugin that reminds you to use existing aliases for commands you just typed
+# Defer - not needed immediately
+zinit ice wait lucid
 zinit load MichaelAquilina/zsh-you-should-use
 
 # 🔖 Quickly navigate your work path!
@@ -176,15 +192,23 @@ function zvm_after_init() {
 #-------------------------------------------------------------------------------
 
 # adds git aliases, g=git, gst=git status, etc.
-zinit snippet OMZ::plugins/git/git.plugin.zsh 
+# Defer OMZ snippets - aliases/completions don't need to be immediate
+zinit ice wait lucid
+zinit snippet OMZ::plugins/git/git.plugin.zsh
+zinit ice wait lucid
 zinit snippet OMZL::git.zsh
 
 # mostly just cli completions
 export SHOW_AWS_PROMPT=false
+zinit ice wait lucid
 zinit snippet OMZP::aws  # Disabled - adds AWS to RPROMPT
+zinit ice wait lucid
 zinit snippet OMZP::chezmoi
+zinit ice wait lucid
 zinit snippet OMZP::command-not-found
+zinit ice wait lucid
 zinit snippet OMZP::docker
+zinit ice wait lucid
 zinit snippet OMZP::golang
 
 #-------------------------------------------------------------------------------
@@ -192,9 +216,13 @@ zinit snippet OMZP::golang
 #-------------------------------------------------------------------------------
 
 
-# Load completions whenever zshell starts
-# initializes entire zsh completion system, process all registered completion fns, builds completion cache
-autoload -Uz compinit && compinit -d $ZSH_COMPDUMP
+# Load completions - run full audit once per day, use cache otherwise
+autoload -Uz compinit
+if [[ -f "$ZSH_COMPDUMP" && $(date +'%j') == $(stat -f '%Sm' -t '%j' "$ZSH_COMPDUMP" 2>/dev/null) ]]; then
+  compinit -C -d "$ZSH_COMPDUMP"  # Same day: skip audit, use cache
+else
+  compinit -d "$ZSH_COMPDUMP"     # New day: full audit + rebuild cache
+fi
 
 # Call this after zsh completion system loads.
 if [[ -n "$(command -v fzf)" ]]; then
@@ -578,8 +606,14 @@ if command -v sketchybar &>/dev/null; then
     fi
 fi
 
-# -----------------------------  Bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+# -----------------------------  Bun completions (lazy loaded)
+if [ -s "$HOME/.bun/_bun" ]; then
+  bun() {
+    unfunction bun
+    source "$HOME/.bun/_bun"
+    bun "$@"
+  }
+fi
 
 
 
@@ -721,9 +755,9 @@ export _ZO_DATA_DIR="$ZDOTDIR"
 #                  Mise Activation (must be before tool integrations)
 #-------------------------------------------------------------------------------
 
-# Activate mise if available (resilient to early Ghostty startup)
+# Activate mise if available (cached for speed)
 if command -v mise &>/dev/null; then
-  eval "$(mise activate zsh)"
+  _evalcache mise mise activate zsh
 fi
 
 # -----------------------------  Sketchybar Mise Notification
@@ -752,16 +786,30 @@ if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]] && command -v fastfetch &>/dev/null; then
 fi
 
 #-------------------------------------------------------------------------------
-#                  Eval Integrations
+#                  Eval Integrations (Cached)
 #-------------------------------------------------------------------------------
 
-# Load integrations only if commands are available (resilient to early startup)
-command -v fastly &>/dev/null && eval "$(fastly --completion-script-zsh)"
-command -v fzf &>/dev/null && eval "$(fzf --zsh)"
-command -v saml2aws &>/dev/null && eval "$(saml2aws --completion-script-zsh)"
-
+# Cached integrations (regenerate if binary updates)
 command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+command -v fzf &>/dev/null && _evalcache fzf fzf --zsh
+# Atuin needs direct eval (caching breaks widget registration)
 command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
+
+# Rarely used - lazy load on first use
+if command -v fastly &>/dev/null; then
+  fastly() {
+    unfunction fastly
+    eval "$(command fastly --completion-script-zsh)"
+    fastly "$@"
+  }
+fi
+if command -v saml2aws &>/dev/null; then
+  saml2aws() {
+    unfunction saml2aws
+    eval "$(command saml2aws --completion-script-zsh)"
+    saml2aws "$@"
+  }
+fi
 
 ##  Hack: Get Autin global search (ctrl+r) working; while keeping up/down arrow history search and history substring search
 # Only set up atuin keybindings if atuin was successfully loaded
