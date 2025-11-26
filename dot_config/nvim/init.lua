@@ -13,6 +13,10 @@
 vim.g.md_heading_bg = vim.env.MD_HEADING_BG
 vim.g.theme_transparent = vim.env.THEME_TRANSPARENT
 
+vim.g.loaded_netrwPlugin = 1
+vim.g.loaded_netrw = 1
+vim.g.loaded_matchit = 1
+
 -- bootstrap lazy.nvim, LazyVim and your plugins
 require("config.lazy")
 
