@@ -63,61 +63,35 @@ if [[ "$SENDER" == "package_update" ]]; then
   run_with_timeout "/opt/homebrew/bin/brew update >/dev/null 2>&1"
 fi
 
-BREW_OUTPUT=$(run_with_timeout "/opt/homebrew/bin/brew outdated 2>&1")
-BREW_EXIT_CODE=$?
+# Run brew through zsh for proper environment
+BREW_OUTPUT=$(zsh -c 'arch -arm64 /opt/homebrew/bin/brew outdated 2>/dev/null')
 
-if [ $BREW_EXIT_CODE -eq 124 ]; then
-  TIMEOUT_OCCURRED=1
-elif [[ -n "$BREW_OUTPUT" && "$BREW_OUTPUT" != "" ]]; then
-  # Filter out error messages, status messages, and bash trace output
-  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -v '^+++' | grep -v -i '^Error:' | grep -v -i '^Please report' | grep -v '/' | grep -v '^✔︎' | grep -v 'JSON API' | grep -c '^[[:space:]]*[^[:space:]]')
+log_message "DEBUG" "Raw brew output: '$BREW_OUTPUT'"
+
+if [[ -n "$BREW_OUTPUT" && "$BREW_OUTPUT" != "" ]]; then
+  BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
+  log_message "DEBUG" "Brew count: $BREW_COUNT"
 fi
 
-# Check Mac App Store updates
-# log_message "INFO" "Checking Mac App Store..."
-MAS_OUTPUT=$(run_with_timeout "/opt/homebrew/bin/mas outdated 2>/dev/null")
-MAS_EXIT_CODE=$?
+# Check Mac App Store updates - run through zsh for proper environment
+MAS_OUTPUT=$(zsh -c 'mas outdated 2>/dev/null')
 
-if [ $MAS_EXIT_CODE -eq 124 ]; then
-  TIMEOUT_OCCURRED=1
-#  log_message "WARN" "MAS check timed out"
-elif [[ -n "$MAS_OUTPUT" && "$MAS_OUTPUT" != "" ]]; then
+log_message "DEBUG" "Raw mas output: '$MAS_OUTPUT'"
+
+if [[ -n "$MAS_OUTPUT" && "$MAS_OUTPUT" != "" ]]; then
   MAS_COUNT=$(echo "$MAS_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
-fi
-# log_message "INFO" "MAS outdated: $MAS_COUNT"
-
-# Check mise updates
-# log_message "INFO" "Checking mise..."
-MISE_OUTDATED=""
-
-# Check global mise config
-if [ -f "$HOME/.config/mise/config.toml" ]; then
-  GLOBAL_CHECK=$(run_with_timeout "cd $HOME && mise outdated 2>/dev/null")
-  if [ $? -eq 124 ]; then
-    TIMEOUT_OCCURRED=1
-    log_message "WARN" "Mise global check timed out"
-  elif [[ -n "$GLOBAL_CHECK" ]]; then
-    MISE_OUTDATED="$MISE_OUTDATED$GLOBAL_CHECK"
-  fi
+  log_message "DEBUG" "MAS count: $MAS_COUNT"
 fi
 
-# Check known project directories for mise configs
-for PROJECT_DIR in "$HOME/gnohj-monorepo" "$HOME/second-brain"; do
-  if [ -f "$PROJECT_DIR/.mise.toml" ] || [ -f "$PROJECT_DIR/.tool-versions" ]; then
-    PROJECT_CHECK=$(run_with_timeout "cd $PROJECT_DIR && mise outdated 2>/dev/null")
-    if [ $? -eq 124 ]; then
-      TIMEOUT_OCCURRED=1
-      log_message "WARN" "Mise check timed out for $PROJECT_DIR"
-    elif [[ -n "$PROJECT_CHECK" ]]; then
-      MISE_OUTDATED="$MISE_OUTDATED$PROJECT_CHECK"
-    fi
-  fi
-done
+# Check mise updates - run through zsh for proper environment
+MISE_OUTPUT=$(zsh -c 'mise outdated 2>/dev/null')
 
-if [[ -n "$MISE_OUTDATED" ]]; then
-  MISE_COUNT=$(echo "$MISE_OUTDATED" | grep -c '^[[:space:]]*[^[:space:]]')
+log_message "DEBUG" "Raw mise output: '$MISE_OUTPUT'"
+
+if [[ -n "$MISE_OUTPUT" && "$MISE_OUTPUT" != "" ]]; then
+  MISE_COUNT=$(echo "$MISE_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
+  log_message "DEBUG" "Mise count: $MISE_COUNT"
 fi
-# log_message "INFO" "Mise outdated: $MISE_COUNT"
 
 # Calculate total count
 TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT))
@@ -146,4 +120,4 @@ sketchybar --set "$NAME" \
   label.color="$COLOR" \
   icon.color="$MAGENTA"
 
-# log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT)"
+log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT)"
