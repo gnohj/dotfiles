@@ -19,6 +19,15 @@ return {
       untracked = { text = "·" },
     },
     on_attach = function(buffer)
+      -- Skip gitsigns in vscode-diff tabs
+      local ok, lifecycle = pcall(require, "vscode-diff.render.lifecycle")
+      if ok then
+        local tabpage = vim.api.nvim_get_current_tabpage()
+        if lifecycle.get_session(tabpage) then
+          return
+        end
+      end
+
       local gs = package.loaded.gitsigns
 
       local function map(mode, l, r, desc)
