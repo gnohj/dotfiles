@@ -4,6 +4,9 @@ return {
   cmd = { "CodeDiff" },
   config = function()
     require("vscode-diff").setup({
+      diff = {
+        max_computation_time_ms = 2000,
+      },
       keymaps = {
         view = {
           quit = "<esc>",
@@ -24,7 +27,8 @@ return {
       if modified_win and vim.api.nvim_win_is_valid(modified_win) then
         local current_win = vim.api.nvim_get_current_win()
         vim.api.nvim_set_current_win(modified_win)
-        local key = direction == "down" and vim.api.nvim_replace_termcodes("<C-d>", true, false, true)
+        local key = direction == "down"
+            and vim.api.nvim_replace_termcodes("<C-d>", true, false, true)
           or vim.api.nvim_replace_termcodes("<C-u>", true, false, true)
         vim.api.nvim_feedkeys(key, "n", false)
         vim.defer_fn(function()
@@ -39,8 +43,12 @@ return {
     vim.api.nvim_create_autocmd("FileType", {
       pattern = "vscode-diff-explorer",
       callback = function(event)
-        vim.keymap.set("n", "J", function() scroll_diff_views("down") end, { buffer = event.buf, desc = "Scroll diff down" })
-        vim.keymap.set("n", "K", function() scroll_diff_views("up") end, { buffer = event.buf, desc = "Scroll diff up" })
+        vim.keymap.set("n", "J", function()
+          scroll_diff_views("down")
+        end, { buffer = event.buf, desc = "Scroll diff down" })
+        vim.keymap.set("n", "K", function()
+          scroll_diff_views("up")
+        end, { buffer = event.buf, desc = "Scroll diff up" })
       end,
     })
 
@@ -58,8 +66,12 @@ return {
         pcall(vim.keymap.del, "n", "]H", { buffer = buf })
         pcall(vim.keymap.del, "n", "[H", { buffer = buf })
 
-        vim.keymap.set("n", "J", function() scroll_diff_views("down") end, { buffer = buf, desc = "Scroll diff down" })
-        vim.keymap.set("n", "K", function() scroll_diff_views("up") end, { buffer = buf, desc = "Scroll diff up" })
+        vim.keymap.set("n", "J", function()
+          scroll_diff_views("down")
+        end, { buffer = buf, desc = "Scroll diff down" })
+        vim.keymap.set("n", "K", function()
+          scroll_diff_views("up")
+        end, { buffer = buf, desc = "Scroll diff up" })
       end
     end
 
