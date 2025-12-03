@@ -80,10 +80,12 @@ local function updateWidgetPosition()
 end
 
 -- Register the Spotify playback state changed event
-sbar.exec("sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
+-- Delay event registration to avoid deadlock during init
+sbar.exec("sleep 0.1 && sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
 
 -- Register display change event
-sbar.exec("sketchybar --add event display_change")
+-- Delay event registration to avoid deadlock during init
+sbar.exec("sleep 0.1 && sketchybar --add event display_change")
 
 -- Determine initial position based on current display setup
 log_message("INFO", "Initializing Spotify widget")

@@ -21,7 +21,8 @@ log_message() {
 # Function to get current display count
 get_display_count() {
   # Count displays by resolution lines (more reliable)
-  system_profiler SPDisplaysDataType | grep -c 'Resolution:'
+  # Add 3 second timeout to prevent hanging
+  timeout 3 system_profiler SPDisplaysDataType 2>/dev/null | grep -c 'Resolution:' || echo "0"
 }
 
 # Function to get display configuration hash
@@ -29,7 +30,8 @@ get_display_hash() {
   # Get a hash of the display configuration to detect any changes
   # This catches display name changes even when count stays the same
   # Includes display names and resolutions to detect switching between built-in and external
-  system_profiler SPDisplaysDataType | grep -E '(Resolution:|Color LCD|Built-in|Liquid Retina|^\s+[A-Z])' | md5
+  # Add 3 second timeout to prevent hanging
+  timeout 3 system_profiler SPDisplaysDataType 2>/dev/null | grep -E '(Resolution:|Color LCD|Built-in|Liquid Retina|^\s+[A-Z])' | md5 || echo "timeout"
 }
 
 # Initialize with current count and hash
