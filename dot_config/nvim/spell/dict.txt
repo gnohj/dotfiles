@@ -20,6 +20,7 @@ ComScore
 DFP
 DailyMotion
 EXCO
+EdgeWAF
 FB
 Fastly's
 Figma
@@ -55,6 +56,8 @@ Redux
 SSR
 STN
 SameSite
+Sig
+SigSci
 SocialFlow
 TBD
 TODO
@@ -103,6 +106,7 @@ http
 iHeartMedia
 iHeartRadio
 iheart
+isBot
 jira
 js
 json
