@@ -13,8 +13,8 @@ cmd - m : :
 cmd - h : :
 
 # Tmux window navigation
-rctrl - 0x32 : tmux next-window # grave/backtick key (0x32)
-rctrl - space : tmux last-window # toggle between last two windows
+rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
+rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
@@ -22,15 +22,15 @@ rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
 # Launcher - Omarchy-style popup launcher
-rctrl - y : tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
+rctrl - y : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
 
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
-rctrl - 0x2F : tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
-rctrl - 0x2C : tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
+rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
+rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-rctrl - tab : tmux switch-client -l
+rctrl - tab : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
@@ -45,12 +45,12 @@ rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
-rctrl - c : tmux copy-mode
-rctrl + shift - c : tmux neww ~/.config/colorscheme/colorscheme-selector.sh
+rctrl - c : /opt/homebrew/bin/tmux copy-mode
+rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
 # rctrl - q - reserved for nvim shortcut to quit nvim instance
-rctrl - z : tmux kill-pane
-rctrl - m : tmux resize-pane -L 5
-rctrl - 0x2B : tmux resize-pane -R 5 # comma
+rctrl - z : /opt/homebrew/bin/tmux kill-pane
+rctrl - m : /opt/homebrew/bin/tmux resize-pane -L 5
+rctrl - 0x2B : /opt/homebrew/bin/tmux resize-pane -R 5 # comma
 # TODO: move tmux colorscheme selector (rctrl - ,) and transparency toggle (rctrl - .) here
 
 # Aerospace - Focus commands
