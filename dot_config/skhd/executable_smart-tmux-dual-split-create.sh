@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# Ensure Homebrew is in PATH (for tmux)
+export PATH="/opt/homebrew/bin:$PATH"
+
 # Ensure mise is activated and tools are in PATH
-eval "$(mise activate bash)"
+eval "$(mise activate bash)" 2>/dev/null || true
 
 # Get the number of panes in the current window
 PANE_COUNT=$(tmux list-panes | wc -l | tr -d ' ')
