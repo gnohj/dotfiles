@@ -45,6 +45,79 @@ local function is_zen_active()
   return false
 end
 
+-- Filetypes that are zen padding or integrations (should not count as "normal" windows)
+local zen_and_integration_filetypes = {
+  -- Zen padding
+  "zen-left",
+  "zen-right",
+  -- Right integrations
+  "copilot-chat",
+  "neotest-summary",
+  "aerial",
+  "dapui_watches",
+  "dapui_scopes",
+  "dapui_stacks",
+  "dapui_breakpoints",
+  -- Left integrations
+  "fugitiveblame",
+  "fyler",
+  "neo-tree",
+  "dbui",
+  "undotree",
+  "diff",
+  -- Top integrations
+  "man",
+  "help",
+  "fugitive",
+  -- Bottom integrations
+  "dap-repl",
+  "qf",
+  "trouble",
+}
+
+-- Helper to check if filetype is zen or integration
+local function is_zen_or_integration(ft)
+  for _, v in ipairs(zen_and_integration_filetypes) do
+    if ft == v then
+      return true
+    end
+  end
+  return false
+end
+
+-- Helper to check if a window looks like a side panel (zen or integration)
+-- Used when filetype might not be set yet (timing issues)
+local function is_side_panel_window(win)
+  if not vim.api.nvim_win_is_valid(win) then
+    return false
+  end
+  local buf = vim.api.nvim_win_get_buf(win)
+  local ft = vim.bo[buf].filetype
+
+  -- If filetype is known, use that
+  if is_zen_or_integration(ft) then
+    return true
+  end
+
+  -- Fallback for windows with empty filetype (still loading)
+  -- Check if it looks like a side panel: nofile buffer, fixed width, at edge
+  if ft == "" then
+    local buftype = vim.bo[buf].buftype
+    local winfixwidth = vim.wo[win].winfixwidth
+    if buftype == "nofile" and winfixwidth then
+      -- Check if at left or right edge
+      local win_col = vim.api.nvim_win_get_position(win)[2]
+      local win_width = vim.api.nvim_win_get_width(win)
+      local total_cols = vim.o.columns
+      if win_col == 0 or (win_col + win_width >= total_cols - 1) then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
 -- Store main_width for toggle (set during config)
 local zen_main_width = 148
 
@@ -146,25 +219,9 @@ local function is_zen_window(win)
   end
   local buf = vim.api.nvim_win_get_buf(win)
   local ft = vim.bo[buf].filetype
-  -- Check by filetype
-  if ft == "zen-left" or ft == "zen-right" then
-    return true
-  end
-  -- Fallback: check by buffer properties (nofile, no name, fixed width)
-  local buftype = vim.bo[buf].buftype
-  local bufname = vim.api.nvim_buf_get_name(buf)
-  local winfixwidth = vim.wo[win].winfixwidth
-  if buftype == "nofile" and bufname == "" and winfixwidth then
-    -- Check if it's at the edges (left or right most)
-    local win_col = vim.api.nvim_win_get_position(win)[2]
-    local win_width = vim.api.nvim_win_get_width(win)
-    local total_cols = vim.o.columns
-    -- Left edge or right edge
-    if win_col == 0 or (win_col + win_width >= total_cols - 1) then
-      return true
-    end
-  end
-  return false
+  -- Only check by filetype - zen.nvim sets filetype immediately when creating windows
+  -- No fallback needed (fallback was incorrectly matching neotest-summary during loading)
+  return ft == "zen-left" or ft == "zen-right"
 end
 
 -- Helper to style ALL zen windows (left and right)
@@ -280,6 +337,72 @@ return {
       desc = "Hide zen padding when dashboard is visible",
     })
 
+    -- PATCH 1.5: Close zen-right/left when integrations open
+    -- Uses both FileType (first open) and BufWinEnter (subsequent opens when buffer is reused)
+    local function close_zen_right_if_exists()
+      vim.schedule(function()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          if vim.api.nvim_win_is_valid(win) then
+            local buf = vim.api.nvim_win_get_buf(win)
+            if vim.bo[buf].filetype == "zen-right" then
+              pcall(vim.api.nvim_win_close, win, true)
+              if vim.api.nvim_buf_is_valid(buf) then
+                pcall(vim.api.nvim_buf_delete, buf, { force = true })
+              end
+            end
+          end
+        end
+      end)
+    end
+
+    local function close_zen_left_if_exists()
+      vim.schedule(function()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          if vim.api.nvim_win_is_valid(win) then
+            local buf = vim.api.nvim_win_get_buf(win)
+            if vim.bo[buf].filetype == "zen-left" then
+              pcall(vim.api.nvim_win_close, win, true)
+              if vim.api.nvim_buf_is_valid(buf) then
+                pcall(vim.api.nvim_buf_delete, buf, { force = true })
+              end
+            end
+          end
+        end
+      end)
+    end
+
+    -- Right integrations - close zen-right on FileType or BufWinEnter
+    vim.api.nvim_create_autocmd({ "FileType", "BufWinEnter" }, {
+      group = group,
+      callback = function(args)
+        local ft = vim.bo[args.buf].filetype
+        local right_integrations = { "neotest-summary", "aerial", "copilot-chat", "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" }
+        for _, integration_ft in ipairs(right_integrations) do
+          if ft == integration_ft then
+            close_zen_right_if_exists()
+            return
+          end
+        end
+      end,
+      desc = "Close zen-right when right integration opens",
+    })
+
+    -- Left integrations - close zen-left on FileType or BufWinEnter
+    vim.api.nvim_create_autocmd({ "FileType", "BufWinEnter" }, {
+      group = group,
+      callback = function(args)
+        local ft = vim.bo[args.buf].filetype
+        local left_integrations = { "neo-tree", "fugitiveblame", "fyler", "dbui", "undotree", "diff" }
+        for _, integration_ft in ipairs(left_integrations) do
+          if ft == integration_ft then
+            close_zen_left_if_exists()
+            return
+          end
+        end
+      end,
+      desc = "Close zen-left when left integration opens",
+    })
+
     -- PATCH 2: zen.nvim doesn't listen to WinNew, so splits aren't detected immediately
     vim.api.nvim_create_autocmd("WinNew", {
       group = group,
@@ -291,20 +414,19 @@ return {
             return
           end
 
-          -- Count non-popup, non-zen windows
+          -- Count non-popup, non-side-panel windows (real editor splits)
           local normal_wins = 0
           for _, win in ipairs(vim.api.nvim_list_wins()) do
             local config = vim.api.nvim_win_get_config(win)
             if config.relative == "" then
-              local buf = vim.api.nvim_win_get_buf(win)
-              local ft = vim.bo[buf].filetype
-              if ft ~= "zen-left" and ft ~= "zen-right" then
+              -- Use is_side_panel_window which handles empty filetype too
+              if not is_side_panel_window(win) then
                 normal_wins = normal_wins + 1
               end
             end
           end
 
-          -- Close zen padding windows if we have 2+ real windows
+          -- Close zen padding windows if we have 2+ real editor windows
           if normal_wins >= 2 then
             close_zen_padding()
           end
@@ -320,14 +442,12 @@ return {
         return
       end
 
-      -- Count real windows (non-zen, non-popup)
+      -- Count real editor windows (non-side-panel, non-popup)
       local normal_wins = 0
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         local config = vim.api.nvim_win_get_config(win)
         if config.relative == "" then
-          local buf = vim.api.nvim_win_get_buf(win)
-          local ft = vim.bo[buf].filetype
-          if ft ~= "zen-left" and ft ~= "zen-right" then
+          if not is_side_panel_window(win) then
             normal_wins = normal_wins + 1
           end
         end
@@ -366,7 +486,7 @@ return {
       { filetype = "dap-repl" },
       { filetype = "qf" },
       { filetype = "trouble" },
-      { filetype = "noice" }, -- noice opens large notifications in a buffer
+      -- Removed noice - it was causing floats to become horizontal splits
     },
     left = {
       min_width = 46,
