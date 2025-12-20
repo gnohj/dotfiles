@@ -464,9 +464,24 @@ return {
         end,
         -- Enable dropbar for all file types
         enable = function(buf, win, _)
-          -- Check if this is a zen mode window (via auto-zen module)
-          local auto_zen = require("config.auto-zen")
-          local is_zen_win = auto_zen.is_zen_window(win)
+          -- DISABLED: Testing zen.nvim (sand4rt) instead of snacks zen
+          -- local auto_zen = require("config.auto-zen")
+          -- local is_zen_win = auto_zen.is_zen_window(win)
+          local is_zen_win = false
+
+          -- Disable for vscode-diff windows and explorer
+          if vim.w[win].vscode_diff_restore or vim.bo[buf].ft == "vscode-diff-explorer" then
+            return false
+          end
+
+          -- Also check if we're in a vscode-diff tab (session-based check)
+          local ok, lifecycle = pcall(require, "vscode-diff.render.lifecycle")
+          if ok then
+            local tabpage = vim.api.nvim_win_get_tabpage(win)
+            if lifecycle.get_session(tabpage) then
+              return false
+            end
+          end
 
           if
             not vim.api.nvim_buf_is_valid(buf)

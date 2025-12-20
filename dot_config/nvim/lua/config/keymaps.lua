@@ -94,9 +94,10 @@ keymap(
 keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 -- Toggle zen mode manually (overrides auto zen)
-keymap("n", "<leader>uz", function()
-  require("config.auto-zen").toggle_manual()
-end, { desc = "[P]Toggle Zen Mode (manual)" })
+-- DISABLED: Testing zen.nvim (sand4rt) instead
+-- keymap("n", "<leader>uz", function()
+--   require("config.auto-zen").toggle_manual()
+-- end, { desc = "[P]Toggle Zen Mode (manual)" })
 
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
