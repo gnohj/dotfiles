@@ -33,6 +33,18 @@ local function is_dashboard_visible()
   return false
 end
 
+-- Helper to check if we're in a vscode-diff tab
+local function is_vscode_diff_tab()
+  local ok, lifecycle = pcall(require, "vscode-diff.render.lifecycle")
+  if ok then
+    local tabpage = vim.api.nvim_get_current_tabpage()
+    if lifecycle.get_session(tabpage) then
+      return true
+    end
+  end
+  return false
+end
+
 -- Helper to check if zen windows already exist
 local function is_zen_active()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -408,6 +420,12 @@ return {
       group = group,
       callback = function()
         vim.schedule(function()
+          -- Skip if in vscode-diff tab
+          if is_vscode_diff_tab() then
+            close_zen_padding()
+            return
+          end
+
           -- Skip if dashboard is visible
           if is_dashboard_visible() then
             close_zen_padding()
@@ -437,8 +455,8 @@ return {
 
     -- PATCH 3: Manually create zen windows after lazy-load (VimEnter already fired)
     vim.schedule(function()
-      -- Skip if dashboard is visible or window too small
-      if is_dashboard_visible() or vim.o.columns <= opts.main.width then
+      -- Skip if in vscode-diff tab, dashboard visible, or window too small
+      if is_vscode_diff_tab() or is_dashboard_visible() or vim.o.columns <= opts.main.width then
         return
       end
 
