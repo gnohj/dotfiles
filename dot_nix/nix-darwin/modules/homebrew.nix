@@ -24,6 +24,7 @@
       "sst/tap"
       "koekeishiya/formulae"
       "morantron/tmux-fingers"
+      "tonisives/tap"
     ];
 
     # CLI packages (formulae)
@@ -113,6 +114,9 @@
       # Media
       "spotify"
       "vlc"
+
+      # System Wide Vim Mode
+      "tonisives/tap/ovim"
 
       # VPN & Security
       "private-internet-access"
