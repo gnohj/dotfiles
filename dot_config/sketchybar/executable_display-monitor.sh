@@ -114,8 +114,8 @@ while true; do
     bash "$(dirname "$0")/check-external-monitor.sh" > /dev/null 2>&1
 
     # Trigger sketchybar event
-    log_message "INFO" "Triggering sketchybar display_change event"
-    sketchybar --trigger display_change
+    log_message "INFO" "Triggering sketchybar monitor_display_change event"
+    sketchybar --trigger monitor_display_change
 
     # Update stored count and hash
     PREV_COUNT="$CURRENT_COUNT"

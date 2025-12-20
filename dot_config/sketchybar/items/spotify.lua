@@ -83,9 +83,9 @@ end
 -- Delay event registration to avoid deadlock during init
 sbar.exec("sleep 0.1 && sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
 
--- Register display change event
+-- Register custom display change event (NOT the built-in display_change which fires constantly)
 -- Delay event registration to avoid deadlock during init
-sbar.exec("sleep 0.1 && sketchybar --add event display_change")
+sbar.exec("sleep 0.1 && sketchybar --add event monitor_display_change")
 
 -- Determine initial position based on current display setup
 log_message("INFO", "Initializing Spotify widget")
@@ -429,9 +429,9 @@ updateSpotifyInfo()
 updateWidgetPosition()
 log_message("INFO", "Spotify widget initialization complete")
 
--- Subscribe to display change events
-spotify:subscribe("display_change", function()
-	log_message("WARN", "Event triggered: display_change - Display configuration changed")
+-- Subscribe to custom display change events (from display-monitor.sh)
+spotify:subscribe("monitor_display_change", function()
+	log_message("WARN", "Event triggered: monitor_display_change - Display configuration changed")
 	updateWidgetPosition()
 end)
 
