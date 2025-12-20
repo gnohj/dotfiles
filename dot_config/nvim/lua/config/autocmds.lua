@@ -406,8 +406,9 @@ vim.api.nvim_create_autocmd("FileType", {
 -- ============================================================================
 -- Auto Zen Mode: Enable on single window, disable on splits
 -- ============================================================================
+-- DISABLED: Testing zen.nvim (sand4rt) instead
 -- All zen logic is now in config/auto-zen.lua module
-require("config.auto-zen").setup()
+-- require("config.auto-zen").setup()
 
 -- ============================================================================
 -- Auto-reload files changed externally

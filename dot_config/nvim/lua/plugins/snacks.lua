@@ -375,8 +375,9 @@ return {
 ]],
       },
     },
-    -- Zen mode configuration delegated to auto-zen module
-    zen = require("config.auto-zen").get_zen_config(),
+    -- DISABLED: Testing zen.nvim (sand4rt) instead
+    -- zen = require("config.auto-zen").get_zen_config(),
+    zen = { enabled = false },
     scratch = {
       ft = "markdown",
       cmd = "Scratch",
