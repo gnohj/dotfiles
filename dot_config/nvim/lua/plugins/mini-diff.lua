@@ -10,6 +10,16 @@ return {
         delete = "",
       },
     },
+    -- Disable default mappings - using gitsigns for hunk navigation
+    mappings = {
+      apply = "",
+      reset = "",
+      textobject = "",
+      goto_first = "",
+      goto_prev = "",
+      goto_next = "",
+      goto_last = "",
+    },
   },
   keys = {
     {
