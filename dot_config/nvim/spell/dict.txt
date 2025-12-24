@@ -65,6 +65,7 @@ TTFB
 Terraform's
 TraceId
 TrackEnd
+Transifex
 Turborepo
 UserCookie
 WAF
