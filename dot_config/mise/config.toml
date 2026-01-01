@@ -20,6 +20,7 @@ python = 'latest'      # Python runtime
 go = 'latest'          # Go runtime
 rust = 'latest'        # Rust runtime
 bun = 'latest'         # Bun runtime
+zig = 'latest'         # Zig compiler (used for GhosttyFetch)
 
 "npm:prettier" = "latest"
 
