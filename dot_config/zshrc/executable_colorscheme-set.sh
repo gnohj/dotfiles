@@ -468,8 +468,6 @@ gui:
   wrapMainPanel: true
 reporting: 'off'
 confirmOnQuit: false
-keybindings:
-  quit: ["KeyEsc"]
 EOF
 }
 
