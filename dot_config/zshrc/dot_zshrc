@@ -477,6 +477,9 @@ alias cat="bat"
 # eza for modern ls view
 alias ls="eza --icons=always --long --all"
 
+# ghosttyfetch - animated system info for Ghostty
+alias ghosttyfetch="~/.config/ghosttyfetch/ghosttyfetch"
+
 # brew leaves list (installed packages by me)
 alias leaves="brew leaves"
 
@@ -778,11 +781,11 @@ if command -v sketchybar &>/dev/null; then
     }
 fi
 
-# -----------------------------  Fastfetch
-# INFO: kitty is needed to render custom images via `kitty-icat`; arch -arm64 brew install kitty
-# Add a flag to control fastfetch execution
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]] && command -v fastfetch &>/dev/null; then
-    fastfetch
+# -----------------------------  GhosttyFetch
+# Animated Ghostty logo with system info (replaces fastfetch)
+# Only run on first shell level outside tmux
+if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
+    ~/.config/ghosttyfetch/ghosttyfetch
 fi
 
 #-------------------------------------------------------------------------------
