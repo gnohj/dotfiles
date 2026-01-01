@@ -814,6 +814,60 @@ EOF
   echo "Yazi theme updated at '$yazi_theme_file'."
 }
 
+generate_ghosttyfetch_config() {
+  ghosttyfetch_conf_dir="$HOME/.config/ghosttyfetch"
+  ghosttyfetch_conf_file="$ghosttyfetch_conf_dir/config.json"
+
+  # Create directory if it doesn't exist
+  mkdir -p "$ghosttyfetch_conf_dir"
+
+  cat >"$ghosttyfetch_conf_file" <<EOF
+{
+  "_comment": "Auto-generated ghosttyfetch config via colorscheme-set.sh",
+  "sysinfo": {
+    "enabled": true,
+    "modules": [
+      "OS",
+      "Host",
+      "Kernel",
+      "Uptime",
+      "Packages",
+      "Shell",
+      "Display",
+      "CPU",
+      "GPU",
+      "Memory",
+      "Swap",
+      "Disk",
+      "WM",
+      "WMTheme",
+      "Cursor",
+      "Terminal",
+      "TerminalFont",
+      "LocalIp"
+    ]
+  },
+  "fps": 30.0,
+  "color": "${gnohj_color04}",
+  "force_color": true,
+  "no_color": false,
+  "white_gradient_colors": [
+    "${gnohj_color02}",
+    "${gnohj_color03}",
+    "${gnohj_color05}",
+    "${gnohj_color06}",
+    "${gnohj_color11}",
+    "${gnohj_color01}",
+    "${gnohj_color04}"
+  ],
+  "white_gradient_scroll": true,
+  "white_gradient_scroll_speed": 20
+}
+EOF
+
+  echo "GhosttyFetch configuration updated at '$ghosttyfetch_conf_file'."
+}
+
 generate_gitmux_config() {
   gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
 
@@ -926,6 +980,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate yazi theme
   generate_yazi_theme
+
+  # Generate ghosttyfetch config
+  generate_ghosttyfetch_config
 
   # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
   if typeset -f generate_ls_colors >/dev/null 2>&1; then
