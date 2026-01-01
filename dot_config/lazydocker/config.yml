@@ -20,6 +20,3 @@ gui:
   wrapMainPanel: true
 reporting: 'off'
 confirmOnQuit: false
-keybinding:
-  universal:
-    quit: '<esc>'
