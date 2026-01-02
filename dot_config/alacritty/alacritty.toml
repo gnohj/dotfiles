@@ -1,0 +1,24 @@
+# Alacritty Configuration
+# Optimized for ovim popup behavior
+
+[window]
+# "None" = no decorations/traffic lights (borderless)
+decorations = "None"
+
+# Start with reasonable popup dimensions
+dimensions = { columns = 100, lines = 30 }
+
+# Padding for cleaner look
+padding = { x = 12, y = 12 }
+
+# Float above other windows
+option_as_alt = "Both"
+
+# Slight transparency for popup feel
+opacity = 0.95
+
+[font]
+size = 14.0
+
+[terminal]
+shell = { program = "/bin/zsh", args = ["-l"] }
