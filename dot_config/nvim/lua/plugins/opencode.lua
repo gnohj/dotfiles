@@ -1,6 +1,9 @@
 return {
   "sudo-tee/opencode.nvim",
   event = "VeryLazy",
+  cond = function()
+    return vim.fn.executable("opencode") == 1
+  end,
   config = function()
     require("opencode").setup({
       ui = {
