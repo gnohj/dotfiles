@@ -184,6 +184,38 @@ run = "move-node-to-workspace X"
 if.app-id = 'com.microsoft.teams2'
 run = "move-node-to-workspace E"
 
+# ovim edit popup - float and keep on current workspace
+[[on-window-detected]]
+if.app-id = 'net.kovidgoyal.kitty'
+if.window-title-regex-substring = 'nvim'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+if.window-title-regex-substring = 'nvim'
+run = 'layout floating'
+
+# Float any window with ovim-edit in title (ovim popup)
+[[on-window-detected]]
+if.window-title-regex-substring = 'ovim-edit'
+run = 'layout floating'
+
+# Float Alacritty with nvim (ovim popup)
+[[on-window-detected]]
+if.app-id = 'org.alacritty'
+if.window-title-regex-substring = 'nvim'
+run = 'layout floating'
+
+# Float all Terminal.app windows (used only for ovim popup)
+[[on-window-detected]]
+if.app-id = 'com.apple.Terminal'
+run = 'layout floating'
+
+# Float all Alacritty windows (primarily used for ovim popup)
+[[on-window-detected]]
+if.app-id = 'org.alacritty'
+run = 'layout floating'
+
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
 run = "move-node-to-workspace T"
