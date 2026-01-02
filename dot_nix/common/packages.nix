@@ -41,6 +41,7 @@
     opencode
 
     # Terminal & Shell
+    alacritty  # GPU-accelerated terminal
     tmux       # Terminal multiplexer
     starship   # Shell prompt
     atuin      # Shell history

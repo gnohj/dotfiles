@@ -588,6 +588,7 @@ options=(
   hidpi=on
   active_color=0xff${gnohj_color03#\#}
   inactive_color=0x33${gnohj_color09#\#}
+  blacklist="alacritty,Alacritty"
 )
 /opt/homebrew/bin/borders "\${options[@]}"
 EOF
