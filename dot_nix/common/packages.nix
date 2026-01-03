@@ -42,6 +42,7 @@
 
     # Terminal & Shell
     alacritty  # GPU-accelerated terminal
+    kitty      # GPU-accelerated terminal
     tmux       # Terminal multiplexer
     starship   # Shell prompt
     atuin      # Shell history
