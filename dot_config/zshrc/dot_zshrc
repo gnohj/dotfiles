@@ -300,6 +300,12 @@ alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n "$file" ] && chezmoi add "$HOME/$file"; done'
 
+
+# Turbo
+alias lint='pnpm turbo lint'
+alias test='pnpm turbo test'
+alias typecheck='pnpm turbo typecheck'
+
 # Select a file with nvim in curr dir
 _fzf_nvim_current() {
     local file
