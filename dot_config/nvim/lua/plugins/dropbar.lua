@@ -469,13 +469,13 @@ return {
           -- local is_zen_win = auto_zen.is_zen_window(win)
           local is_zen_win = false
 
-          -- Disable for vscode-diff windows and explorer
-          if vim.w[win].vscode_diff_restore or vim.bo[buf].ft == "vscode-diff-explorer" then
+          -- Disable for codediff windows and explorer
+          if vim.bo[buf].ft == "codediff-explorer" then
             return false
           end
 
-          -- Also check if we're in a vscode-diff tab (session-based check)
-          local ok, lifecycle = pcall(require, "vscode-diff.render.lifecycle")
+          -- Check if we're in a codediff tab (session-based check)
+          local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
           if ok then
             local tabpage = vim.api.nvim_win_get_tabpage(win)
             if lifecycle.get_session(tabpage) then

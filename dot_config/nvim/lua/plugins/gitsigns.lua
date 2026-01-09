@@ -19,8 +19,8 @@ return {
       untracked = { text = "·" },
     },
     on_attach = function(buffer)
-      -- Skip gitsigns in vscode-diff tabs
-      local ok, lifecycle = pcall(require, "vscode-diff.render.lifecycle")
+      -- Skip gitsigns in codediff tabs
+      local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
       if ok then
         local tabpage = vim.api.nvim_get_current_tabpage()
         if lifecycle.get_session(tabpage) then
