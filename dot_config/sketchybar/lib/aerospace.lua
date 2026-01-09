@@ -7,17 +7,20 @@
 
 local socket               = require("posix.sys.socket")
 local unistd               = require("posix.unistd")
+local poll                 = require("posix.poll")
 local cjson                = require("cjson")
 
 local DEFAULT              = {
 	SOCK_FMT = "/tmp/bobko.aerospace-%s.sock",
 	MAX_BUF  = 2048,
 	EXT_BUF  = 4096,
+	TIMEOUT  = 500,  -- Socket read timeout in milliseconds
 }
 local ERR                  = {
 	SOCKET   = "socket error",
 	NOT_INIT = "socket not connected",
 	JSON     = "failed to decode JSON",
+	TIMEOUT  = "socket read timeout",
 }
 
 local AF_UNIX, SOCK_STREAM = socket.AF_UNIX, socket.SOCK_STREAM
@@ -70,6 +73,15 @@ function Aerospace:_query(args, want_json, big)
 	if not self:is_initialized() then error(ERR.NOT_INIT) end
 	local payload = PAYLOAD_TMPL:format(encode(args))
 	write(self.fd, payload)
+
+	-- Poll with timeout to prevent blocking forever
+	local fds = { [self.fd] = { events = { IN = true } } }
+	local ready = poll.poll(fds, DEFAULT.TIMEOUT)
+	if ready == 0 then
+		-- Timeout - reconnect and error out
+		self:reconnect()
+		error(ERR.TIMEOUT)
+	end
 
 	local raw = read(self.fd, big and DEFAULT.EXT_BUF or DEFAULT.MAX_BUF)
 	local out = stdout(raw)
