@@ -1,9 +1,9 @@
 return {
-  "esmuellert/vscode-diff.nvim",
+  "esmuellert/codediff.nvim",
   dependencies = { "MunifTanjim/nui.nvim" },
   cmd = "CodeDiff",
   config = function()
-    require("vscode-diff").setup({
+    require("codediff").setup({
       diff = {
         -- Lower timeout for faster performance with large files
         -- Skips slow char-level diffs while keeping line-level and fast char-level diffs
@@ -42,10 +42,10 @@ return {
       },
     })
 
-    -- Helper to scroll diff views from anywhere in the vscode-diff tab
+    -- Helper to scroll diff views from anywhere in the codediff tab
     local function scroll_diff_views(direction)
       local tabpage = vim.api.nvim_get_current_tabpage()
-      local lifecycle = require("vscode-diff.render.lifecycle")
+      local lifecycle = require("codediff.ui.lifecycle")
       local original_win, modified_win = lifecycle.get_windows(tabpage)
 
       if modified_win and vim.api.nvim_win_is_valid(modified_win) then
@@ -63,9 +63,9 @@ return {
       end
     end
 
-    -- Set up J/K keymaps for vscode-diff explorer
+    -- Set up J/K keymaps for codediff explorer
     vim.api.nvim_create_autocmd("FileType", {
-      pattern = "vscode-diff-explorer",
+      pattern = "codediff-explorer",
       callback = function(event)
         vim.keymap.set("n", "J", function()
           scroll_diff_views("down")
@@ -76,9 +76,9 @@ return {
       end,
     })
 
-    -- Helper to navigate hunks in vscode-diff
+    -- Helper to navigate hunks in codediff
     local function navigate_hunk(direction)
-      local lifecycle = require("vscode-diff.render.lifecycle")
+      local lifecycle = require("codediff.ui.lifecycle")
       local tabpage = vim.api.nvim_get_current_tabpage()
       local session = lifecycle.get_session(tabpage)
       if not session or not session.stored_diff_result then return end
@@ -204,16 +204,29 @@ return {
         Snacks.notify.warn({
           ("Heavy diff file detected (%s)."):format(reason),
           "Syntax/LSP/treesitter **disabled** for performance.",
-        }, { title = "vscode-diff: Big File" })
+        }, { title = "codediff: Big File" })
       end
+    end
+
+    -- Check if current window is a codediff view window
+    local function is_codediff_window(win)
+      local tabpage = vim.api.nvim_win_get_tabpage(win)
+      local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
+      if not ok then return false end
+
+      local session = lifecycle.get_session(tabpage)
+      if not session then return false end
+
+      local original_win, modified_win = lifecycle.get_windows(tabpage)
+      return win == original_win or win == modified_win
     end
 
     -- Set up J/K keymaps and disable conflicting plugins for diff view windows
     local function setup_diff_keymaps()
       local win = vim.api.nvim_get_current_win()
       local buf = vim.api.nvim_win_get_buf(win)
-      -- Check for vscode-diff window marker (set by the plugin on diff windows)
-      if vim.w[win].vscode_diff_restore then
+      -- Check if this is a codediff view window
+      if is_codediff_window(win) then
         -- Disable mini.diff and gitsigns on this buffer
         vim.b[buf].minidiff_disable = true
         vim.b[buf].gitsigns_head = nil -- Hint to gitsigns this isn't a normal git buffer
@@ -230,13 +243,13 @@ return {
         pcall(vim.keymap.del, "n", "]H", { buffer = buf })
         pcall(vim.keymap.del, "n", "[H", { buffer = buf })
 
-        -- Set vscode-diff hunk navigation (overrides any remaining keymaps)
+        -- Set codediff hunk navigation (overrides any remaining keymaps)
         vim.keymap.set("n", "]h", function()
           navigate_hunk("next")
-        end, { buffer = buf, desc = "Next hunk (vscode-diff)" })
+        end, { buffer = buf, desc = "Next hunk (codediff)" })
         vim.keymap.set("n", "[h", function()
           navigate_hunk("prev")
-        end, { buffer = buf, desc = "Prev hunk (vscode-diff)" })
+        end, { buffer = buf, desc = "Prev hunk (codediff)" })
 
         vim.keymap.set("n", "J", function()
           scroll_diff_views("down")
