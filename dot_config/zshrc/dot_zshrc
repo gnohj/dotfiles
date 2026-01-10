@@ -300,6 +300,9 @@ alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n "$file" ] && chezmoi add "$HOME/$file"; done'
 
+# Github Dash
+alias ghd='gh-dash'
+
 
 # Turbo
 alias lint='pnpm turbo lint'
