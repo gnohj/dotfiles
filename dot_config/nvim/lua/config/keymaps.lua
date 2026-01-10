@@ -101,7 +101,19 @@ keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p") -- Get the full file path
-  local display_path = full_path:gsub(vim.fn.expand("$HOME"), "~") -- Replace $HOME with ~
+  local display_path
+
+  -- Check if this is a codediff buffer
+  -- Format: codediff:///repo/path///commit_hash/relative/path
+  if full_path:match("^codediff://") then
+    -- Extract path after ///commit_hash/ (40 hex chars)
+    local relative_path = full_path:match("///[a-f0-9]+/(.+)$")
+    display_path = relative_path or full_path
+  else
+    -- Normal file - replace $HOME with ~
+    display_path = full_path:gsub(vim.fn.expand("$HOME"), "~")
+  end
+
   vim.fn.setreg("+", display_path)
   vim.notify("Copied to clipboard: " .. display_path, vim.log.levels.INFO)
 end
@@ -112,6 +124,36 @@ keymap(
   insertFullPath,
   { silent = true, noremap = true, desc = "[P]Copy full path" }
 )
+
+-- Open file from clipboard path (pairs with <leader>fy for codediff workflow)
+keymap("n", "<leader>fY", function()
+  local path = vim.fn.getreg("+"):gsub("%s+", "") -- trim whitespace
+  if path == "" then
+    vim.notify("Clipboard is empty", vim.log.levels.WARN)
+    return
+  end
+
+  -- Expand ~ to home directory
+  local expanded = path:gsub("^~", vim.fn.expand("$HOME"))
+
+  -- Try to find the file relative to cwd first, then as absolute
+  local cwd = vim.fn.getcwd()
+  local try_paths = {
+    cwd .. "/" .. path,      -- relative to cwd
+    cwd .. "/" .. expanded,  -- expanded relative to cwd
+    expanded,                -- absolute path
+  }
+
+  for _, try_path in ipairs(try_paths) do
+    if vim.fn.filereadable(try_path) == 1 then
+      vim.cmd("edit " .. vim.fn.fnameescape(try_path))
+      vim.notify("Opened: " .. path, vim.log.levels.INFO)
+      return
+    end
+  end
+
+  vim.notify("File not found: " .. path, vim.log.levels.ERROR)
+end, { silent = true, noremap = true, desc = "[P]Open file from clipboard" })
 
 keymap(
   { "n", "v", "i" },
