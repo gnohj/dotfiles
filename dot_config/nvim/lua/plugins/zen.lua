@@ -334,6 +334,8 @@ return {
     }, {
       group = group,
       callback = function()
+        -- Skip if in codediff tab to avoid errors when codediff windows close
+        if is_codediff_tab() then return end
         vim.schedule(style_all_zen_windows)
       end,
       desc = "Make zen padding windows transparent",
@@ -347,6 +349,20 @@ return {
         vim.schedule(close_zen_padding)
       end,
       desc = "Hide zen padding when dashboard is visible",
+    })
+
+    -- PATCH 1.1: Close zen padding when codediff opens (prevents errors on codediff close)
+    vim.api.nvim_create_autocmd({ "FileType", "TabEnter" }, {
+      group = group,
+      callback = function(ev)
+        -- Close zen padding when entering codediff explorer or any codediff tab
+        if ev.event == "FileType" and ev.match == "codediff-explorer" then
+          vim.schedule(close_zen_padding)
+        elseif ev.event == "TabEnter" and is_codediff_tab() then
+          vim.schedule(close_zen_padding)
+        end
+      end,
+      desc = "Hide zen padding when codediff is visible",
     })
 
     -- PATCH 1.5: Close zen-right/left when integrations open
