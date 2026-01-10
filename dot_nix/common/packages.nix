@@ -22,6 +22,7 @@
 
     # Git tools
     gh         # GitHub CLI
+    gh-dash    # GitHub CLI dashboard for PRs and issues
     lazygit    # Git TUI
     lazydocker # Docker TUI
 
