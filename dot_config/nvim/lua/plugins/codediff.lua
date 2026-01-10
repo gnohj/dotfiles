@@ -39,6 +39,9 @@ return {
           next_hunk = "]h",
           prev_hunk = "[h",
         },
+        explorer = {
+          quit = "<esc>",
+        },
       },
     })
 
@@ -63,6 +66,26 @@ return {
       end
     end
 
+    -- Force quit codediff tab (handles modified buffers)
+    local function force_quit_codediff()
+      local lifecycle = require("codediff.ui.lifecycle")
+      local tabpage = vim.api.nvim_get_current_tabpage()
+      local session = lifecycle.get_session(tabpage)
+      if not session then return end
+
+      -- Mark diff buffers as unmodified so tabclose works
+      local original_bufnr, modified_bufnr = lifecycle.get_buffers(tabpage)
+      if original_bufnr and vim.api.nvim_buf_is_valid(original_bufnr) then
+        vim.bo[original_bufnr].modified = false
+      end
+      if modified_bufnr and vim.api.nvim_buf_is_valid(modified_bufnr) then
+        vim.bo[modified_bufnr].modified = false
+      end
+
+      -- Now close the tab
+      pcall(vim.cmd, "tabclose!")
+    end
+
     -- Set up J/K keymaps for codediff explorer
     vim.api.nvim_create_autocmd("FileType", {
       pattern = "codediff-explorer",
@@ -73,6 +96,8 @@ return {
         vim.keymap.set("n", "K", function()
           scroll_diff_views("up")
         end, { buffer = event.buf, desc = "Scroll diff up" })
+        -- Override <esc> to force quit (handles modified buffer issue)
+        vim.keymap.set("n", "<esc>", force_quit_codediff, { buffer = event.buf, desc = "Quit codediff" })
       end,
     })
 
