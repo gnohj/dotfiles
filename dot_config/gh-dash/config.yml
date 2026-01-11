@@ -55,7 +55,7 @@ keybindings:
       command: >
         tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim -c ":silent Octo issue create"'
   prs:
-    - key: e
+    - key: P
       command: >
         BASE=$(cd {{.RepoPath}} && gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
         tmux new-window -n "🐙 PR #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' \;
