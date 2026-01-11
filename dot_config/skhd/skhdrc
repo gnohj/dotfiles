@@ -13,7 +13,8 @@ cmd - m : :
 cmd - h : :
 
 # Tmux window navigation
-rctrl - 0x32 : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
+rctrl - tab : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
+rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
 rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
 
 # Tmux smart dual split switching (remembers Neovim buffers)
@@ -30,7 +31,7 @@ rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
-rctrl - tab : /opt/homebrew/bin/tmux switch-client -l
+rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
