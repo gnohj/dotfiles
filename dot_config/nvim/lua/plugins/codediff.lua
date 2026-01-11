@@ -11,6 +11,7 @@ return {
         max_computation_time_ms = 500,
       },
       explorer = {
+        width = 30, -- Sidebar width in columns (default: 40)
         view_mode = "tree", -- "list" (flat) or "tree" (directory tree)
         file_filter = {
           -- Hide heavy/bundle files that are slow to diff
