@@ -790,11 +790,15 @@ if command -v sketchybar &>/dev/null; then
     }
 fi
 
-# -----------------------------  GhosttyFetch
-# Animated Ghostty logo with system info (replaces fastfetch)
+# -----------------------------  System Fetch
+# Ghostty: animated ghosttyfetch, Other terminals: fastfetch
 # Only run on first shell level outside tmux
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
-    ~/.config/ghosttyfetch/ghosttyfetch
+if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
+    if [[ "$TERM_PROGRAM" == "ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
+        ~/.config/ghosttyfetch/ghosttyfetch
+    elif command -v fastfetch &>/dev/null; then
+        fastfetch
+    fi
 fi
 
 #-------------------------------------------------------------------------------
