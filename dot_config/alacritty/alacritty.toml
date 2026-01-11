@@ -20,5 +20,9 @@ opacity = 0.95
 [font]
 size = 14.0
 
+[env]
+# Fix terminfo not found on Nix systems
+TERM = "xterm-256color"
+
 [terminal]
 shell = { program = "/bin/zsh", args = ["-l"] }
