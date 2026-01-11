@@ -1,0 +1,42 @@
+{
+  "_comment": "Auto-generated ghosttyfetch config via colorscheme-set.sh",
+  "sysinfo": {
+    "enabled": true,
+    "modules": [
+      "OS",
+      "Host",
+      "Kernel",
+      "Uptime",
+      "Packages",
+      "Shell",
+      "Display",
+      "CPU",
+      "GPU",
+      "Memory",
+      "Swap",
+      "Disk",
+      "WM",
+      "WMTheme",
+      "Cursor",
+      "Terminal",
+      "TerminalFont",
+      "LocalIp"
+    ]
+  },
+  "fps": 30.0,
+  "color": "#a3b8c6",
+  "match_info_height": true,
+  "force_color": true,
+  "no_color": false,
+  "white_gradient_colors": [
+    "#b7ce97",
+    "#a7cfbd",
+    "#dab183",
+    "#dc988e",
+    "#da858e",
+    "#c0aed2",
+    "#a3b8c6"
+  ],
+  "white_gradient_scroll": true,
+  "white_gradient_scroll_speed": 20
+}

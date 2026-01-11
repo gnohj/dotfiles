@@ -848,6 +848,7 @@ generate_ghosttyfetch_config() {
   },
   "fps": 30.0,
   "color": "${gnohj_color04}",
+  "match_info_height": true,
   "force_color": true,
   "no_color": false,
   "white_gradient_colors": [
