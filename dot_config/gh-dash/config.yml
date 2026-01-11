@@ -58,8 +58,8 @@ keybindings:
     - key: P
       command: >
         BASE=$(cd {{.RepoPath}} && gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        tmux new-window -n "🐙 PR #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' \;
-        split-window -h -l 70% -c {{.RepoPath}} "nvim -c \":silent CodeDiff $BASE\""
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $BASE\""
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
