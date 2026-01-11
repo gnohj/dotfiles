@@ -484,7 +484,7 @@ alias cs='claude --dangerously-skip-permissions'
 alias cat="bat"
 
 # eza for modern ls view
-alias ls="eza --icons=always --long --all"
+alias ls="eza --icons=always --all"
 
 # ghosttyfetch - animated system info for Ghostty
 alias ghosttyfetch="~/.config/ghosttyfetch/ghosttyfetch"
