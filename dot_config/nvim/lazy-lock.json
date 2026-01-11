@@ -48,6 +48,7 @@
   "mini.files": { "branch": "main", "commit": "22c64f010eef047ed270e29e7cc266cd4740787e" },
   "mini.hipatterns": { "branch": "main", "commit": "add8d8abad602787377ec5d81f6b248605828e0f" },
   "mini.icons": { "branch": "main", "commit": "efc85e42262cd0c9e1fdbf806c25cb0be6de115c" },
+  "mini.map": { "branch": "main", "commit": "32a3a5d9a7c074dbb0a4a1d5943d09cb8edbab3f" },
   "mini.pairs": { "branch": "main", "commit": "d5a29b6254dad07757832db505ea5aeab9aad43a" },
   "mini.surround": { "branch": "main", "commit": "cc7b9d0a056b5fa6915ffac1cb91f29bf7c96f69" },
   "neo-tree.nvim": { "branch": "main", "commit": "0d0b29a529216d41173c9c5c8a8f484db5b891ba" },
