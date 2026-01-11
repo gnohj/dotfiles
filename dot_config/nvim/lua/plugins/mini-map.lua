@@ -35,17 +35,28 @@ return {
           local end_line = range.end_line or start_line
 
           -- Determine highlight based on change type
+          -- codediff uses line ranges: empty range means add/delete
+          -- original empty = addition, modified empty = deletion, both have content = modification
           local hl_group
-          if change.type == "add" then
+          local orig_empty = change.original.start_line == change.original.end_line
+          local mod_empty = change.modified.start_line == change.modified.end_line
+
+          if orig_empty and not mod_empty then
+            -- Addition: nothing in original, something in modified
             hl_group = "MiniMapAdd"
-          elseif change.type == "delete" then
+          elseif mod_empty and not orig_empty then
+            -- Deletion: something in original, nothing in modified
             hl_group = "MiniMapDelete"
           else
+            -- Modification: both have content
             hl_group = "MiniMapChange"
           end
 
-          for line = start_line, end_line do
-            table.insert(line_hl, { line = line, hl_group = hl_group })
+          -- Only highlight if this side has actual lines
+          if start_line < end_line then
+            for line = start_line, end_line - 1 do
+              table.insert(line_hl, { line = line, hl_group = hl_group })
+            end
           end
         end
       end
@@ -56,7 +67,11 @@ return {
     -- Set up highlight groups for diff (using gnohj colors)
     vim.api.nvim_set_hl(0, "MiniMapAdd", { fg = "#b7ce97", bold = true }) -- gnohj_color02 green
     vim.api.nvim_set_hl(0, "MiniMapDelete", { fg = "#da858e", bold = true }) -- gnohj_color11 red
-    vim.api.nvim_set_hl(0, "MiniMapChange", { fg = "#da858e", bold = true }) -- gnohj_color11 red
+    vim.api.nvim_set_hl(0, "MiniMapChange", { fg = "#d4976c", bold = true }) -- orange for modifications
+
+    -- Scroll bar colors (gnohj blue)
+    vim.api.nvim_set_hl(0, "MiniMapSymbolLine", { fg = "#7daea3", bold = true }) -- gnohj blue - current line
+    vim.api.nvim_set_hl(0, "MiniMapSymbolView", { fg = "#7daea3" }) -- gnohj blue - viewport
 
     map.setup({
       integrations = {
