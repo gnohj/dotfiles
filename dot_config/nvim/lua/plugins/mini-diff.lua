@@ -5,9 +5,9 @@ return {
     view = {
       style = "sign",
       signs = {
-        add = "•",
-        change = "•",
-        delete = "",
+        add = "█",
+        change = "█",
+        delete = "█",
       },
     },
     -- Disable default mappings - using gitsigns for hunk navigation
