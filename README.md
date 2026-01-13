@@ -16,7 +16,7 @@ My personal dotfiles for macOS.
 - **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace)
   (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
   bar)
-- File Manager: [Yazi](https://yazi-rs.github.io/)
+- **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient),
   [Atuin](https://github.com/atuinsh/atuin) (shell history)
