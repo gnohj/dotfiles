@@ -585,37 +585,28 @@ if command -v sketchybar &>/dev/null; then
     # Brew wrapper function
     function brew() {
         command arch -arm64 brew "$@"
+        local exit_code=$?
         # Trigger on commands that change state
         case "$1" in
             install|uninstall|upgrade|update)
                 sketchybar --trigger package_update 2>/dev/null &
                 ;;
         esac
+        return $exit_code
     }
 
     # MAS wrapper function
     if command -v mas &>/dev/null; then
         function mas() {
             command mas "$@"
+            local exit_code=$?
             # Trigger on commands that change state
             case "$1" in
                 install|uninstall|upgrade)
                     sketchybar --trigger package_update 2>/dev/null &
                     ;;
             esac
-        }
-    fi
-
-    # Mise wrapper function
-    if command -v mise &>/dev/null; then
-        function mise() {
-            command mise "$@"
-            # Trigger on commands that change state
-            case "$1" in
-                install|uninstall|upgrade|use)
-                    sketchybar --trigger package_update 2>/dev/null &
-                    ;;
-            esac
+            return $exit_code
         }
     fi
 fi
@@ -776,16 +767,15 @@ fi
 
 # -----------------------------  Sketchybar Mise Notification
 # Setup sketchybar mise notification (must be AFTER mise activate to override mise's function)
+# Triggers unified package_notification widget
 if command -v sketchybar &>/dev/null; then
-    sketchybar --add event mise_update 2>/dev/null
-    sketchybar --subscribe widgets.mise_notification mise_update 2>/dev/null
     function mise() {
         command mise "$@"
         local exit_code=$?
         # Only trigger on specific commands that actually change state
         case "$1" in
-            install|uninstall|upgrade|use|list)
-                sketchybar --trigger mise_update 2>/dev/null &
+            install|uninstall|upgrade|use)
+                sketchybar --trigger package_update 2>/dev/null &
                 ;;
         esac
         return $exit_code
