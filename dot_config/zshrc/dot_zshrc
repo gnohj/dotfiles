@@ -492,6 +492,7 @@ alias ghosttyfetch="~/.config/ghosttyfetch/ghosttyfetch"
 
 # brew leaves list (installed packages by me)
 alias leaves="brew leaves"
+alias out="outdated"
 
 # brew + mise + mas outdated list
 unalias outdated 2>/dev/null
