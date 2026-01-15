@@ -4,6 +4,9 @@ export HOMEBREW_NO_AUTO_UPDATE="1"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
+# Fallback widget name if not set by sketchybar
+NAME="${NAME:-widgets.package_notification}"
+
 LOG_DIR="$HOME/.logs/sketchybar"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/packages_$(date '+%Y%m').log"
