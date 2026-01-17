@@ -127,7 +127,7 @@ return {
         -- Custom git status that respects .gitignore
         require("snacks").picker({
           title = "Git Status",
-          layout = "ivy",
+          -- layout = "ivy",
           hidden = true, -- show hidden files (like .env, .gitignore, etc)
           finder = "proc",
           cmd = "git",
@@ -175,7 +175,7 @@ return {
 
         require("snacks").picker({
           title = "Environment Variables",
-          layout = "ivy",
+          -- layout = "ivy",
           preview = "preview", -- Use the preview field from items
           finder = function()
             return env_items
@@ -271,7 +271,7 @@ return {
         scores = false,
       },
       layout = {
-        preset = "ivy",
+        -- preset = "ivy",
         cycle = false,
       },
       layouts = {
