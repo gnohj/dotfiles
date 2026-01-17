@@ -1,6 +1,7 @@
 return {
   {
     "dmtrKovalenko/fold-imports.nvim",
+    pin = true, -- Pin to current version (has local patch for treesitter API)
     event = "BufReadPost", -- Load after file is read (later than LazyFile)
     build = function()
       -- Patch the file after installation/update (backwards-compatible fix)
