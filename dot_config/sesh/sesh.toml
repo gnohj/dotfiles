@@ -42,6 +42,11 @@ path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
+name = "inferno/_bare"
+path = "~/Developer/inferno/"
+startup_command = "git worktree list"
+
+[[session]]
 name = "inferno/_main"
 path = "~/Developer/inferno/_develop"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno/_develop"
@@ -69,7 +74,12 @@ name = "toucan_corne42"
 path = "~/Developer/toucan-corne42"
 
 [[session]]
-name = "web/main"
+name = "web/_bare"
+path = "~/Developer/web/"
+startup_command = "git worktree list"
+
+[[session]]
+name = "web/_main"
 path = "~/Developer/web/_master"
 startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web/_master"
 preview_command = "bat --color=always ~/Developer/web/_master/README.md"
