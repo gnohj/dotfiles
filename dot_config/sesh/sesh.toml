@@ -3,91 +3,103 @@
 preview_command = "eza --all --git --icons --color=always {}"
 
 [[session]]
-name = "tmux_home"
+name = "home"
 path = "~/"
 startup_command = "c"
 
 [[session]]
-name = "tmux_bin"
+name = "bin"
 path = "~/_bin"
 startup_command = "ls"
 
 [[session]]
-name = "tmux_config"
+name = "config"
 path = "~/.config"
 startup_command = "n"
 
 [[session]]
-name = "tmux_logs"
+name = "logs"
 path = "~/.logs"
 
 [[session]]
-name = "tmux_chezmoi"
+name = "chezmoi"
 path = "~/.local/share/chezmoi"
 startup_command = "gst"
 
 [[session]]
-name = "tmux_developer"
+name = "developer"
 path = "~/Developer"
 startup_command = "ls"
 
 [[session]]
-name = "tmux_downloads"
+name = "downloads"
 path = "~/Downloads"
 startup_command = "ls"
 
 [[session]]
-name = "tmux_desktop"
+name = "desktop"
 path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "tmux_inferno"
-path = "~/Developer/inferno-monorepo"
-startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno-monorepo"
-preview_command = "bat --color=always ~/Developer/inferno-monorepo/README.md"
+name = "inferno/_main"
+path = "~/Developer/inferno/_develop"
+startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno/_develop"
+preview_command = "bat --color=always ~/Developer/inferno/_develop/README.md"
 
 [[session]]
-name = "tmux_second_brain"
+name = "inferno/_review"
+path = "~/Developer/inferno/_review"
+startup_command = "ghd"
+
+[[session]]
+name = "second_brain"
 path = "~/Obsidian/second-brain"
 
 [[session]]
-name = "tmux_glove80"
+name = "glove80"
 path = "~/Developer/glove80"
 
 [[session]]
-name = "tmux_corne42"
+name = "corne42"
 path = "~/Developer/corne42"
 
 [[session]]
-name = "tmux_toucan_corne42"
+name = "toucan_corne42"
 path = "~/Developer/toucan-corne42"
 
 [[session]]
-name = "tmux_web"
-startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web"
-preview_command = "bat --color=always ~/Developer/web/README.md"
+name = "web/main"
+path = "~/Developer/web/_master"
+startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web/_master"
+preview_command = "bat --color=always ~/Developer/web/_master/README.md"
 
 [[session]]
-name = "tmux_yazi"
+name = "web/_review"
+path = "~/Developer/web/_review"
+startup_command = "ghd"
+
+
+[[session]]
+name = "yazi"
 path = "~/."
 startup_command = "y"
 
 [[session]]
-name = "tmux_radioctl"
+name = "radioctl"
 path = "~/."
 startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
-name = "tmux_radioctl_cmd"
+name = "radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
 startup_command = "n .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 
 [[session]]
-name = "tmux_zsh_gnohj_env"
+name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
