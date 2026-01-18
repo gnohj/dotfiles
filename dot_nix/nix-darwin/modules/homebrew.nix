@@ -16,6 +16,7 @@
 
     # Taps (third-party repositories)
     taps = [
+      "anomalyco/tap/opencode"
       "FelixKratz/formulae"
       "nikitabobko/tap"
       "oven-sh/bun"
