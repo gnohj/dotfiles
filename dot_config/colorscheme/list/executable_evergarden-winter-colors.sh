@@ -63,7 +63,7 @@ gnohj_color24=#b3e3ca
 # Terminal red
 gnohj_color11=#f57f82
 # Terminal white / Text
-gnohj_color14=#f8f9e8
+gnohj_color14=#b3e3ca
 # Nvim Green (fallback)
 gnohj_color40=#cbe3b3
 # Nvim yellow (fallback)

@@ -1,0 +1,313 @@
+# Eza theme with gnohj colors
+# Auto-generated via colorscheme-set.sh
+
+filekinds:
+  directory:
+    foreground: "#a3b8c6"
+    is_bold: true
+  symlink:
+    foreground: "#a7cfbd"
+  executable:
+    foreground: "#b7ce97"
+  regular:
+    foreground: "#b8c9d3"
+  pipe:
+    foreground: "#dab183"
+  socket:
+    foreground: "#dab183"
+  block_device:
+    foreground: "#dab183"
+  char_device:
+    foreground: "#dab183"
+  special:
+    foreground: "#c0aed2"
+
+extensions:
+  # Config files - yellow
+  json:
+    filename:
+      foreground: "#dab183"
+  json5:
+    filename:
+      foreground: "#dab183"
+  jsonc:
+    filename:
+      foreground: "#dab183"
+  yaml:
+    filename:
+      foreground: "#dab183"
+  yml:
+    filename:
+      foreground: "#dab183"
+  toml:
+    filename:
+      foreground: "#dab183"
+  ini:
+    filename:
+      foreground: "#dab183"
+  conf:
+    filename:
+      foreground: "#dab183"
+  config:
+    filename:
+      foreground: "#dab183"
+  env:
+    filename:
+      foreground: "#dab183"
+  envrc:
+    filename:
+      foreground: "#dab183"
+
+  # JavaScript - green
+  js:
+    filename:
+      foreground: "#b7ce97"
+  cjs:
+    filename:
+      foreground: "#b7ce97"
+  mjs:
+    filename:
+      foreground: "#b7ce97"
+
+  # TypeScript - blue
+  ts:
+    filename:
+      foreground: "#a3b8c6"
+  tsx:
+    filename:
+      foreground: "#a3b8c6"
+  jsx:
+    filename:
+      foreground: "#a3b8c6"
+
+  # Shell scripts - green
+  sh:
+    filename:
+      foreground: "#b7ce97"
+  zsh:
+    filename:
+      foreground: "#b7ce97"
+  bash:
+    filename:
+      foreground: "#b7ce97"
+  fish:
+    filename:
+      foreground: "#b7ce97"
+
+  # Chezmoi templates - cyan
+  tmpl:
+    filename:
+      foreground: "#a7cfbd"
+
+  # Documentation - purple
+  md:
+    filename:
+      foreground: "#c0aed2"
+  mdx:
+    filename:
+      foreground: "#c0aed2"
+  txt:
+    filename:
+      foreground: "#b8c9d3"
+  rst:
+    filename:
+      foreground: "#c0aed2"
+
+  # Markup - salmon
+  html:
+    filename:
+      foreground: "#dc988e"
+  htm:
+    filename:
+      foreground: "#dc988e"
+  xml:
+    filename:
+      foreground: "#dc988e"
+  svg:
+    filename:
+      foreground: "#dc988e"
+
+  # Styles - purple
+  css:
+    filename:
+      foreground: "#c0aed2"
+  scss:
+    filename:
+      foreground: "#c0aed2"
+  sass:
+    filename:
+      foreground: "#c0aed2"
+  less:
+    filename:
+      foreground: "#c0aed2"
+
+  # Programming languages
+  py:
+    filename:
+      foreground: "#dab183"
+  rb:
+    filename:
+      foreground: "#da858e"
+  rs:
+    filename:
+      foreground: "#dc988e"
+  go:
+    filename:
+      foreground: "#a7cfbd"
+  lua:
+    filename:
+      foreground: "#a3b8c6"
+  java:
+    filename:
+      foreground: "#dc988e"
+  c:
+    filename:
+      foreground: "#a3b8c6"
+  cpp:
+    filename:
+      foreground: "#a3b8c6"
+  h:
+    filename:
+      foreground: "#a3b8c6"
+  hpp:
+    filename:
+      foreground: "#a3b8c6"
+  php:
+    filename:
+      foreground: "#c0aed2"
+  swift:
+    filename:
+      foreground: "#dc988e"
+  kt:
+    filename:
+      foreground: "#c0aed2"
+
+  # Archives - red
+  tar:
+    filename:
+      foreground: "#da858e"
+  gz:
+    filename:
+      foreground: "#da858e"
+  tgz:
+    filename:
+      foreground: "#da858e"
+  zip:
+    filename:
+      foreground: "#da858e"
+  rar:
+    filename:
+      foreground: "#da858e"
+  7z:
+    filename:
+      foreground: "#da858e"
+  bz2:
+    filename:
+      foreground: "#da858e"
+  xz:
+    filename:
+      foreground: "#da858e"
+
+  # Images - purple
+  png:
+    filename:
+      foreground: "#c0aed2"
+  jpg:
+    filename:
+      foreground: "#c0aed2"
+  jpeg:
+    filename:
+      foreground: "#c0aed2"
+  gif:
+    filename:
+      foreground: "#c0aed2"
+  webp:
+    filename:
+      foreground: "#c0aed2"
+  ico:
+    filename:
+      foreground: "#c0aed2"
+
+  # Video - purple
+  mp4:
+    filename:
+      foreground: "#c0aed2"
+  mkv:
+    filename:
+      foreground: "#c0aed2"
+  webm:
+    filename:
+      foreground: "#c0aed2"
+  avi:
+    filename:
+      foreground: "#c0aed2"
+  mov:
+    filename:
+      foreground: "#c0aed2"
+
+  # Audio - yellow
+  mp3:
+    filename:
+      foreground: "#dab183"
+  flac:
+    filename:
+      foreground: "#dab183"
+  wav:
+    filename:
+      foreground: "#dab183"
+  ogg:
+    filename:
+      foreground: "#dab183"
+  m4a:
+    filename:
+      foreground: "#dab183"
+
+  # Git/ignored files - gray
+  gitignore:
+    filename:
+      foreground: "#505e62"
+  gitattributes:
+    filename:
+      foreground: "#505e62"
+  dockerignore:
+    filename:
+      foreground: "#505e62"
+  prettierignore:
+    filename:
+      foreground: "#505e62"
+  eslintignore:
+    filename:
+      foreground: "#505e62"
+
+  # Lock files - gray
+  lock:
+    filename:
+      foreground: "#505e62"
+  log:
+    filename:
+      foreground: "#505e62"
+
+  # Data
+  sql:
+    filename:
+      foreground: "#dab183"
+  csv:
+    filename:
+      foreground: "#b7ce97"
+  graphql:
+    filename:
+      foreground: "#dc988e"
+  prisma:
+    filename:
+      foreground: "#a3b8c6"
+
+  # Build/compiled - gray
+  o:
+    filename:
+      foreground: "#505e62"
+  pyc:
+    filename:
+      foreground: "#505e62"
+  class:
+    filename:
+      foreground: "#505e62"
