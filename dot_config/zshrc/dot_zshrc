@@ -84,12 +84,20 @@ source /opt/homebrew/opt/zinit/zinit.zsh
 
 # Function to update starship prompt/config and environment based on current repo
 function update_starship_env() {
+  # Skip if in a bare repo (worktree parent)
+  if git rev-parse --is-bare-repository 2>/dev/null | grep -q "true"; then
+    export STARSHIP_CONFIG=~/.config/starship/starship.toml
+    unset RADIO_CTL
+    unset AWS_PROFILE
+    return
+  fi
+
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       repo_name=$(basename "$(git rev-parse --show-toplevel)")
-      # Only use infra config for web and inferno-monorepo
-      if [[ "$repo_name" == "web" ]] || [[ "$repo_name" == "inferno-monorepo" ]]; then
+      # Only use infra config for web and inferno (worktrees)
+      if [[ "$repo_name" == "web" ]] || [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
         export STARSHIP_CONFIG=~/.config/starship/starship-infra.toml
-        if [[ "$repo_name" == "inferno-monorepo" ]]; then
+        if [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
           export AWS_PROFILE="inferno"
         elif [[ "$repo_name" == "web" ]]; then
           export AWS_PROFILE="ihr-prod"
@@ -456,7 +464,16 @@ alias clpr="rm -f ~/.cache/tmux-pr-numbers/* && echo 'Cleared PR number cache'"
 alias gcom="g checkout master"
 alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
-alias lg="HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit"
+# Lazygit with worktree directory switching support
+lg() {
+  export LAZYGIT_NEW_DIR_FILE=~/.lazygit/newdir
+  mkdir -p ~/.lazygit
+  HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit "$@"
+  if [ -f "$LAZYGIT_NEW_DIR_FILE" ]; then
+    cd "$(cat "$LAZYGIT_NEW_DIR_FILE")"
+    rm -f "$LAZYGIT_NEW_DIR_FILE" > /dev/null
+  fi
+}
 
 # Lazydocker
 alias ld="lazydocker"
@@ -704,36 +721,8 @@ generate_ls_colors() {
 # Call it after colorscheme loads
 generate_ls_colors
 
-# Generate EZA_COLORS from active colorscheme for eza file listing
-generate_eza_colors() {
-  # Use active colorscheme variables
-  # Format: eza uses simplified color codes (di=directories, ln=symlinks, etc.)
-  # We'll use the ANSI color codes that match our theme
-  export EZA_COLORS="\
-di=$gnohj_color04:\
-ln=$gnohj_color03:\
-ex=$gnohj_color02:\
-*.tar=$gnohj_color11:\
-*.tgz=$gnohj_color11:\
-*.zip=$gnohj_color11:\
-*.gz=$gnohj_color11:\
-*.bz2=$gnohj_color11:\
-*.jpg=$gnohj_color01:\
-*.jpeg=$gnohj_color01:\
-*.png=$gnohj_color01:\
-*.gif=$gnohj_color01:\
-*.svg=$gnohj_color01:\
-*.mp4=$gnohj_color01:\
-*.mkv=$gnohj_color01:\
-*.webm=$gnohj_color01:\
-*.mp3=$gnohj_color05:\
-*.flac=$gnohj_color05:\
-*.wav=$gnohj_color05:\
-*.ogg=$gnohj_color05"
-}
-
-# Call it after colorscheme loads
-generate_eza_colors
+# Eza colors are now managed via ~/.config/eza/theme.yml
+# (theme.yml supports hex colors, EZA_COLORS only supports ANSI codes)
 
 # Adds color to fzf- for commands not tab, ex: ctrl + r
 export FZF_DEFAULT_OPTS="--gutter=' ' --color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color02,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09,list-border:6,input-border:3,preview-border:-1,header-bg:-1,header-border:6"
