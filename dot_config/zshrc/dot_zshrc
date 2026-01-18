@@ -503,6 +503,7 @@ alias cat="bat"
 # eza for modern ls view
 alias ls="eza --group-directories-first --icons=always --all"
 alias lsl="eza --group-directories-first --long --icons=always --all"
+alias lt="eza --group-directories-first -lTg --icons=always --all"
 
 # ghosttyfetch - animated system info for Ghostty
 alias ghosttyfetch="~/.config/ghosttyfetch/ghosttyfetch"
