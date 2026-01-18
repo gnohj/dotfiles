@@ -813,6 +813,332 @@ EOF
   echo "Yazi theme updated at '$yazi_theme_file'."
 }
 
+generate_eza_theme() {
+  eza_conf_dir="$HOME/.config/eza"
+  eza_theme_file="$eza_conf_dir/theme.yml"
+
+  # Create directory if it doesn't exist
+  mkdir -p "$eza_conf_dir"
+
+  cat >"$eza_theme_file" <<EOF
+# Eza theme with gnohj colors
+# Auto-generated via colorscheme-set.sh
+
+filekinds:
+  directory:
+    foreground: "$gnohj_color04"
+    is_bold: true
+  symlink:
+    foreground: "$gnohj_color03"
+  executable:
+    foreground: "$gnohj_color02"
+  regular:
+    foreground: "$gnohj_color14"
+  pipe:
+    foreground: "$gnohj_color05"
+  socket:
+    foreground: "$gnohj_color05"
+  block_device:
+    foreground: "$gnohj_color05"
+  char_device:
+    foreground: "$gnohj_color05"
+  special:
+    foreground: "$gnohj_color01"
+
+extensions:
+  # Config files - yellow
+  json:
+    filename:
+      foreground: "$gnohj_color05"
+  json5:
+    filename:
+      foreground: "$gnohj_color05"
+  jsonc:
+    filename:
+      foreground: "$gnohj_color05"
+  yaml:
+    filename:
+      foreground: "$gnohj_color05"
+  yml:
+    filename:
+      foreground: "$gnohj_color05"
+  toml:
+    filename:
+      foreground: "$gnohj_color05"
+  ini:
+    filename:
+      foreground: "$gnohj_color05"
+  conf:
+    filename:
+      foreground: "$gnohj_color05"
+  config:
+    filename:
+      foreground: "$gnohj_color05"
+  env:
+    filename:
+      foreground: "$gnohj_color05"
+  envrc:
+    filename:
+      foreground: "$gnohj_color05"
+
+  # JavaScript - green
+  js:
+    filename:
+      foreground: "$gnohj_color02"
+  cjs:
+    filename:
+      foreground: "$gnohj_color02"
+  mjs:
+    filename:
+      foreground: "$gnohj_color02"
+
+  # TypeScript - blue
+  ts:
+    filename:
+      foreground: "$gnohj_color04"
+  tsx:
+    filename:
+      foreground: "$gnohj_color04"
+  jsx:
+    filename:
+      foreground: "$gnohj_color04"
+
+  # Shell scripts - green
+  sh:
+    filename:
+      foreground: "$gnohj_color02"
+  zsh:
+    filename:
+      foreground: "$gnohj_color02"
+  bash:
+    filename:
+      foreground: "$gnohj_color02"
+  fish:
+    filename:
+      foreground: "$gnohj_color02"
+
+  # Chezmoi templates - cyan
+  tmpl:
+    filename:
+      foreground: "$gnohj_color03"
+
+  # Documentation - purple
+  md:
+    filename:
+      foreground: "$gnohj_color01"
+  mdx:
+    filename:
+      foreground: "$gnohj_color01"
+  txt:
+    filename:
+      foreground: "$gnohj_color14"
+  rst:
+    filename:
+      foreground: "$gnohj_color01"
+
+  # Markup - salmon
+  html:
+    filename:
+      foreground: "$gnohj_color06"
+  htm:
+    filename:
+      foreground: "$gnohj_color06"
+  xml:
+    filename:
+      foreground: "$gnohj_color06"
+  svg:
+    filename:
+      foreground: "$gnohj_color06"
+
+  # Styles - purple
+  css:
+    filename:
+      foreground: "$gnohj_color01"
+  scss:
+    filename:
+      foreground: "$gnohj_color01"
+  sass:
+    filename:
+      foreground: "$gnohj_color01"
+  less:
+    filename:
+      foreground: "$gnohj_color01"
+
+  # Programming languages
+  py:
+    filename:
+      foreground: "$gnohj_color05"
+  rb:
+    filename:
+      foreground: "$gnohj_color11"
+  rs:
+    filename:
+      foreground: "$gnohj_color06"
+  go:
+    filename:
+      foreground: "$gnohj_color03"
+  lua:
+    filename:
+      foreground: "$gnohj_color04"
+  java:
+    filename:
+      foreground: "$gnohj_color06"
+  c:
+    filename:
+      foreground: "$gnohj_color04"
+  cpp:
+    filename:
+      foreground: "$gnohj_color04"
+  h:
+    filename:
+      foreground: "$gnohj_color04"
+  hpp:
+    filename:
+      foreground: "$gnohj_color04"
+  php:
+    filename:
+      foreground: "$gnohj_color01"
+  swift:
+    filename:
+      foreground: "$gnohj_color06"
+  kt:
+    filename:
+      foreground: "$gnohj_color01"
+
+  # Archives - red
+  tar:
+    filename:
+      foreground: "$gnohj_color11"
+  gz:
+    filename:
+      foreground: "$gnohj_color11"
+  tgz:
+    filename:
+      foreground: "$gnohj_color11"
+  zip:
+    filename:
+      foreground: "$gnohj_color11"
+  rar:
+    filename:
+      foreground: "$gnohj_color11"
+  7z:
+    filename:
+      foreground: "$gnohj_color11"
+  bz2:
+    filename:
+      foreground: "$gnohj_color11"
+  xz:
+    filename:
+      foreground: "$gnohj_color11"
+
+  # Images - purple
+  png:
+    filename:
+      foreground: "$gnohj_color01"
+  jpg:
+    filename:
+      foreground: "$gnohj_color01"
+  jpeg:
+    filename:
+      foreground: "$gnohj_color01"
+  gif:
+    filename:
+      foreground: "$gnohj_color01"
+  webp:
+    filename:
+      foreground: "$gnohj_color01"
+  ico:
+    filename:
+      foreground: "$gnohj_color01"
+
+  # Video - purple
+  mp4:
+    filename:
+      foreground: "$gnohj_color01"
+  mkv:
+    filename:
+      foreground: "$gnohj_color01"
+  webm:
+    filename:
+      foreground: "$gnohj_color01"
+  avi:
+    filename:
+      foreground: "$gnohj_color01"
+  mov:
+    filename:
+      foreground: "$gnohj_color01"
+
+  # Audio - yellow
+  mp3:
+    filename:
+      foreground: "$gnohj_color05"
+  flac:
+    filename:
+      foreground: "$gnohj_color05"
+  wav:
+    filename:
+      foreground: "$gnohj_color05"
+  ogg:
+    filename:
+      foreground: "$gnohj_color05"
+  m4a:
+    filename:
+      foreground: "$gnohj_color05"
+
+  # Git/ignored files - gray
+  gitignore:
+    filename:
+      foreground: "$gnohj_color08"
+  gitattributes:
+    filename:
+      foreground: "$gnohj_color08"
+  dockerignore:
+    filename:
+      foreground: "$gnohj_color08"
+  prettierignore:
+    filename:
+      foreground: "$gnohj_color08"
+  eslintignore:
+    filename:
+      foreground: "$gnohj_color08"
+
+  # Lock files - gray
+  lock:
+    filename:
+      foreground: "$gnohj_color08"
+  log:
+    filename:
+      foreground: "$gnohj_color08"
+
+  # Data
+  sql:
+    filename:
+      foreground: "$gnohj_color05"
+  csv:
+    filename:
+      foreground: "$gnohj_color02"
+  graphql:
+    filename:
+      foreground: "$gnohj_color06"
+  prisma:
+    filename:
+      foreground: "$gnohj_color04"
+
+  # Build/compiled - gray
+  o:
+    filename:
+      foreground: "$gnohj_color08"
+  pyc:
+    filename:
+      foreground: "$gnohj_color08"
+  class:
+    filename:
+      foreground: "$gnohj_color08"
+EOF
+
+  echo "Eza theme updated at '$eza_theme_file'."
+}
+
 generate_ghosttyfetch_config() {
   ghosttyfetch_conf_dir="$HOME/.config/ghosttyfetch"
   ghosttyfetch_conf_file="$ghosttyfetch_conf_dir/config.json"
@@ -892,7 +1218,7 @@ tmux:
     ahead: "👆"
     behind: "👇"
     clean: ""
-    branch: " "
+    branch: ""
     hashprefix: ":"
     staged: "●"
     conflict: "✖"
@@ -983,6 +1309,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate ghosttyfetch config
   generate_ghosttyfetch_config
+
+  # Generate eza theme
+  generate_eza_theme
 
   # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
   if typeset -f generate_ls_colors >/dev/null 2>&1; then
