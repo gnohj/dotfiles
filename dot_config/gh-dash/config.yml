@@ -57,12 +57,21 @@ keybindings:
   prs:
     - key: P
       command: >
-        BASE=$(cd {{.RepoPath}} && gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        cd {{.RepoPath}} &&
+        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin $BASE $HEAD 2>/dev/null;
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $BASE\""
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff origin/$BASE origin/$HEAD\"" &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude "/review"'
+    - key: A
+      command: >
+        tmux new-window -n "🚀 Actions" -c {{.RepoPath}} 'nvim -c ":silent GithubActionsStatus"'
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
+  iheartradio/inferno-monorepo: ~/Developer/inferno/_review/
+  iheartradio/web: ~/Developer/web/_review/
 theme:
   ui:
     table:
