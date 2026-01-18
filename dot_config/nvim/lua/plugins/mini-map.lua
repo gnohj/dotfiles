@@ -38,8 +38,10 @@ return {
           -- codediff uses line ranges: empty range means add/delete
           -- original empty = addition, modified empty = deletion, both have content = modification
           local hl_group
-          local orig_empty = change.original.start_line == change.original.end_line
-          local mod_empty = change.modified.start_line == change.modified.end_line
+          local orig_empty = change.original.start_line
+            == change.original.end_line
+          local mod_empty = change.modified.start_line
+            == change.modified.end_line
 
           if orig_empty and not mod_empty then
             -- Addition: nothing in original, something in modified
@@ -132,10 +134,19 @@ return {
       if not codediff_map_open and is_codediff_diff_window() then
         -- Ensure mini.map is loaded
         require("lazy").load({ plugins = { "mini.map" } })
-        vim.schedule(function()
-          require("mini.map").open()
-          codediff_map_open = true
-        end)
+        -- Delay to allow CodeDiff to compute diff, then open and refresh
+        vim.defer_fn(function()
+          if is_codediff_diff_window() then
+            require("mini.map").open()
+            codediff_map_open = true
+            -- Refresh again after diff might be ready
+            vim.defer_fn(function()
+              if codediff_map_open then
+                require("mini.map").refresh()
+              end
+            end, 500)
+          end
+        end, 300)
       end
     end
 
@@ -157,6 +168,17 @@ return {
             open_codediff_map()
           end
         end)
+      end,
+    })
+
+    -- Refresh minimap on cursor move/scroll in codediff windows
+    vim.api.nvim_create_autocmd({ "CursorMoved", "WinScrolled" }, {
+      callback = function()
+        if codediff_map_open and is_codediff_diff_window() then
+          pcall(function()
+            require("mini.map").refresh()
+          end)
+        end
       end,
     })
 
