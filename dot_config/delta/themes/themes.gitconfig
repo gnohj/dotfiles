@@ -4,8 +4,8 @@
 	blame-palette = "#0f1419 #222427 #536571 #40474b #505e62"
 	commit-decoration-style = box ul
 	dark = true
-	file-decoration-style = "#e9e9e2"
-	file-style = "#e9e9e2"
+	file-decoration-style = "#b8c9d3"
+	file-style = "#b8c9d3"
 	hunk-header-decoration-style = box ul
 	hunk-header-file-style = bold
 	hunk-header-line-number-style = bold "#9fb7a4"

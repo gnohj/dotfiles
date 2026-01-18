@@ -4,10 +4,10 @@
 theme[main_bg]=""
 
 # Main text color
-theme[main_fg]="#e9e9e2"
+theme[main_fg]="#b8c9d3"
 
 # Title color for boxes
-theme[title]="#e9e9e2"
+theme[title]="#b8c9d3"
 
 # Highlight color for keyboard shortcuts
 theme[hi_fg]="#b7ce97"
@@ -16,13 +16,13 @@ theme[hi_fg]="#b7ce97"
 theme[selected_bg]="#a3b8c6"
 
 # Foreground color of selected item in processes box
-theme[selected_fg]="#e9e9e2"
+theme[selected_fg]="#b8c9d3"
 
 # Color of inactive/disabled text
 theme[inactive_fg]="#9fb7a4"
 
 # Color of text appearing on top of graphs, i.e uptime and current network graph scaling
-theme[graph_text]="#e9e9e2"
+theme[graph_text]="#b8c9d3"
 
 # Background color of the percentage meters
 theme[meter_bg]="#40474b"
