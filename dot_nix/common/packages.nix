@@ -38,9 +38,6 @@
     jq         # JSON processor
     yq         # Yaml processor
 
-    # AI Tools
-    opencode
-
     # Terminal & Shell
     alacritty  # GPU-accelerated terminal
     kitty      # GPU-accelerated terminal
