@@ -35,3 +35,4 @@ setup-global-tools = "mise run install-aicommit"
 auto_install = true
 experimental = true
 idiomatic_version_file_enable_tools = ["node"]
+trusted_config_paths = ["~/Developer"]
