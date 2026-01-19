@@ -66,7 +66,11 @@ return {
       return line_hl
     end
 
-    -- Set up highlight groups for diff (using gnohj colors)
+    -- Make normal minimap content nearly invisible (blends with background)
+    -- This way only the diff highlights show prominently
+    vim.api.nvim_set_hl(0, "MiniMapNormal", { fg = "#1d2021" }) -- Very dark, nearly invisible
+
+    -- Set up highlight groups for diff (using gnohj colors) - these will stand out
     vim.api.nvim_set_hl(0, "MiniMapAdd", { fg = "#b7ce97", bold = true }) -- gnohj_color02 green
     vim.api.nvim_set_hl(0, "MiniMapDelete", { fg = "#da858e", bold = true }) -- gnohj_color11 red
     vim.api.nvim_set_hl(0, "MiniMapChange", { fg = "#d4976c", bold = true }) -- orange for modifications
@@ -84,14 +88,14 @@ return {
         }),
       },
       symbols = {
-        encode = map.gen_encode_symbols.dot("4x2"),
+        encode = map.gen_encode_symbols.block("3x2"),
         scroll_line = "▶",
         scroll_view = "┃",
       },
       window = {
         side = "right",
-        width = 8,
-        winblend = 75, -- 75% transparent so you can see code behind
+        width = 10,
+        winblend = 25, -- Less transparent for better visibility
         show_integration_count = false,
         focusable = false,
       },
@@ -178,6 +182,37 @@ return {
           pcall(function()
             require("mini.map").refresh()
           end)
+        end
+      end,
+    })
+
+    -- Force full re-render on focus/resize events (fixes shrinking issue)
+    vim.api.nvim_create_autocmd({ "FocusGained", "VimResized", "WinResized" }, {
+      callback = function()
+        if codediff_map_open then
+          vim.defer_fn(function()
+            if is_codediff_diff_window() then
+              -- Close and reopen to force full re-render
+              pcall(function()
+                require("mini.map").close()
+                require("mini.map").open()
+                require("mini.map").refresh()
+              end)
+            end
+          end, 50)
+        end
+      end,
+    })
+
+    -- Also refresh when re-entering a codediff window
+    vim.api.nvim_create_autocmd("BufEnter", {
+      callback = function()
+        if codediff_map_open and is_codediff_diff_window() then
+          vim.defer_fn(function()
+            pcall(function()
+              require("mini.map").refresh()
+            end)
+          end, 100)
         end
       end,
     })
