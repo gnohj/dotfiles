@@ -63,7 +63,7 @@ keybindings:
         git fetch origin $BASE $HEAD 2>/dev/null;
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff origin/$BASE origin/$HEAD\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude "/review"'
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
     - key: A
       command: >
         tmux new-window -n "🚀 Actions" -c {{.RepoPath}} 'nvim -c ":silent GithubActionsStatus"'
