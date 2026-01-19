@@ -292,7 +292,17 @@ end
 
 return {
   "sand4rt/zen.nvim",
-  -- Lazy load: don't activate on startup (let dashboard show first)
+  -- Don't load zen.nvim if codediff is being used (detected via env var or arg)
+  -- zen.nvim has a bug with WinClosed that conflicts with codediff
+  cond = function()
+    -- Check if codediff was passed as command line argument
+    for _, arg in ipairs(vim.v.argv) do
+      if arg:match("codediff") then
+        return false
+      end
+    end
+    return true
+  end,
   event = { "BufReadPost", "BufNewFile" },
   keys = {
     {
@@ -335,7 +345,9 @@ return {
       group = group,
       callback = function()
         -- Skip if in codediff tab to avoid errors when codediff windows close
-        if is_codediff_tab() then return end
+        if is_codediff_tab() then
+          return
+        end
         vim.schedule(style_all_zen_windows)
       end,
       desc = "Make zen padding windows transparent",
@@ -351,11 +363,10 @@ return {
       desc = "Hide zen padding when dashboard is visible",
     })
 
-    -- PATCH 1.1: Close zen padding when codediff opens (prevents errors on codediff close)
+    -- PATCH 1.1: Close zen padding when codediff opens
     vim.api.nvim_create_autocmd({ "FileType", "TabEnter" }, {
       group = group,
       callback = function(ev)
-        -- Close zen padding when entering codediff explorer or any codediff tab
         if ev.event == "FileType" and ev.match == "codediff-explorer" then
           vim.schedule(close_zen_padding)
         elseif ev.event == "TabEnter" and is_codediff_tab() then
@@ -404,7 +415,15 @@ return {
       group = group,
       callback = function(args)
         local ft = vim.bo[args.buf].filetype
-        local right_integrations = { "neotest-summary", "aerial", "copilot-chat", "dapui_watches", "dapui_scopes", "dapui_stacks", "dapui_breakpoints" }
+        local right_integrations = {
+          "neotest-summary",
+          "aerial",
+          "copilot-chat",
+          "dapui_watches",
+          "dapui_scopes",
+          "dapui_stacks",
+          "dapui_breakpoints",
+        }
         for _, integration_ft in ipairs(right_integrations) do
           if ft == integration_ft then
             close_zen_right_if_exists()
@@ -420,7 +439,8 @@ return {
       group = group,
       callback = function(args)
         local ft = vim.bo[args.buf].filetype
-        local left_integrations = { "neo-tree", "fugitiveblame", "fyler", "dbui", "undotree", "diff" }
+        local left_integrations =
+          { "neo-tree", "fugitiveblame", "fyler", "dbui", "undotree", "diff" }
         for _, integration_ft in ipairs(left_integrations) do
           if ft == integration_ft then
             close_zen_left_if_exists()
@@ -472,7 +492,11 @@ return {
     -- PATCH 3: Manually create zen windows after lazy-load (VimEnter already fired)
     vim.schedule(function()
       -- Skip if in codediff tab, dashboard visible, or window too small
-      if is_codediff_tab() or is_dashboard_visible() or vim.o.columns <= opts.main.width then
+      if
+        is_codediff_tab()
+        or is_dashboard_visible()
+        or vim.o.columns <= opts.main.width
+      then
         return
       end
 
@@ -526,7 +550,7 @@ return {
       min_width = 46,
       { filetype = "fugitiveblame" },
       { filetype = "fyler" },
-      { filetype = "neo-tree" },  -- Fixed: hyphenated
+      { filetype = "neo-tree" }, -- Fixed: hyphenated
       { filetype = "dbui" },
       { filetype = { "undotree", "diff" } },
     },
