@@ -18,6 +18,7 @@ CTA
 Callouts
 ComScore
 DFP
+DWIM
 DailyMotion
 EXCO
 EdgeWAF
@@ -99,6 +100,7 @@ gdpr
 geo
 getConfigs
 ghostty
+git's
 github
 gitignore
 hotfix
@@ -163,6 +165,7 @@ viewability
 vitest
 webpack
 which
+worktree
 www
 www's
 z100
