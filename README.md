@@ -23,11 +23,14 @@ My personal dotfiles for macOS.
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with
   [Sesh](https://github.com/joshmedeski/sesh) session management
-- **Version Control**: Git with [Delta](https://github.com/dandavison/delta)
-  pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
-- **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (key remapping on
-  laptop), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) &
+- **Version Control**: Git worktrees with
+  [Treekanga](https://github.com/garrettkrohn/treekanga) CLI,
+  [Delta](https://github.com/dandavison/delta) pager,
+  [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping),
+  custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) &
   [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
+- hj/.
 
 ## Bootstrap New Mac (Apple Silicon)
 
