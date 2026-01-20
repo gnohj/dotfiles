@@ -12,8 +12,23 @@ case "$REPO_NAME" in
 inferno) MAIN_DIR="_develop" ;;
 web) MAIN_DIR="_master" ;;
 *)
-  echo "Unknown repo: $REPO_NAME"
-  exit 1
+  # Dynamically detect default branch for unknown repos
+  REPO_ROOT="$HOME/Developer/$REPO_NAME"
+  DEFAULT_BRANCH=$(git -C "$REPO_ROOT" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+  if [ -z "$DEFAULT_BRANCH" ]; then
+    # Fallback: check for common branch names
+    for branch in main master develop; do
+      if [ -d "$REPO_ROOT/_$branch" ]; then
+        DEFAULT_BRANCH="$branch"
+        break
+      fi
+    done
+  fi
+  if [ -z "$DEFAULT_BRANCH" ]; then
+    echo "Could not detect default branch for: $REPO_NAME"
+    exit 1
+  fi
+  MAIN_DIR="_$DEFAULT_BRANCH"
   ;;
 esac
 
@@ -47,3 +62,10 @@ elif [ -f "yarn.lock" ]; then
 fi
 
 echo "$REPO_NAME worktree setup complete!"
+
+# Notify tmux session if running with sesh (session name = repo/worktree)
+WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
+SESSION_NAME="$REPO_NAME/$WORKTREE_NAME"
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+  tmux display-message -d 5000 -t "$SESSION_NAME" "✅ $WORKTREE_NAME post script complete!"
+fi
