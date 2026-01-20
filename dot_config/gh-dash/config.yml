@@ -77,9 +77,29 @@ keybindings:
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
+    - key: enter
+      command: >
+        cd {{.RepoPath}} &&
+        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin $HEAD 2>/dev/null &&
+        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"'
+    - key: D
+      command: >
+        cd {{.RepoPath}} &&
+        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin $BASE $HEAD 2>/dev/null &&
+        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
+        MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\""
     - key: A
       command: >
-        tmux new-window -n "🚀 Actions" -c {{.RepoPath}} 'nvim -c ":silent GithubActionsStatus"'
+        cd {{.RepoPath}} &&
+        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin $HEAD 2>/dev/null &&
+        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
