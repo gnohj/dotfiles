@@ -39,6 +39,15 @@ local function get_buf_dir(buf)
   if path:match("^%w+://") then
     return nil
   end
+  -- Skip octo buffers (paths containing /octo or octo:// patterns)
+  if path:match("/octo$") or path:match("/octo/") or path:match("octo://") then
+    return nil
+  end
+  -- Skip octo filetype buffers
+  local ft = vim.bo[buf].filetype
+  if ft and (ft:match("^octo") or ft == "octo_panel") then
+    return nil
+  end
   return vim.fn.fnamemodify(path, ":h")
 end
 
