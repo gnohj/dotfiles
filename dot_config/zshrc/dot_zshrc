@@ -602,6 +602,19 @@ outdated() {
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
 
+# Delete all local review branches (created by gh-dash P keybinding)
+# Skips branches checked out in other worktrees
+grd() {
+  local branches=$(git for-each-ref --format="%(refname:short)" refs/heads/review/)
+  if [[ -z "$branches" ]]; then
+    echo "No review branches found"
+    return 0
+  fi
+  echo "$branches" | while read branch; do
+    git branch -D "$branch" 2>/dev/null || echo "Skipped $branch (checked out in worktree)"
+  done
+}
+
 alias fman="compgen -c | fzf | xargs man"
 
 #-------------------------------------------------------------------------------
