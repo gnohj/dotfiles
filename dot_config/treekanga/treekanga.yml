@@ -1,5 +1,5 @@
-repos:
-  inferno:
+repos: # use actual repo name from origin not local folder name
+  inferno-monorepo:
     bareRepoName: .git
     defaultBranch: develop
     worktreeTargetDir: Developer/inferno
