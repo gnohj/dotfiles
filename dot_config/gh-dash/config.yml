@@ -60,7 +60,8 @@ keybindings:
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $BASE $HEAD 2>/dev/null;
+        git fetch origin $BASE $HEAD 2>/dev/null &&
+        git checkout $HEAD 2>/dev/null || git checkout -b $HEAD origin/$HEAD &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff origin/$BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
