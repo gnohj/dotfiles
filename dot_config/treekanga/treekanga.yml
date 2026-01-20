@@ -1,0 +1,14 @@
+repos:
+  inferno:
+    bareRepoName: .git
+    defaultBranch: develop
+    worktreeTargetDir: Developer/inferno
+    postScript: ~/.config/treekanga/worktree_setup.sh
+    autoRunPostScript: true
+
+  web:
+    bareRepoName: .git
+    defaultBranch: master
+    worktreeTargetDir: Developer/web
+    postScript: ~/.config/treekanga/worktree_setup.sh
+    autoRunPostScript: true
