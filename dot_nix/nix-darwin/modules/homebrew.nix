@@ -16,8 +16,9 @@
 
     # Taps (third-party repositories)
     taps = [
-      "anomalyco/tap/opencode"
+      "anomalyco/tap"
       "FelixKratz/formulae"
+      "garrettkrohn/treekanga"
       "nikitabobko/tap"
       "oven-sh/bun"
       "fastly/tap"
@@ -30,6 +31,9 @@
 
     # CLI packages (formulae)
     brews = [
+      # AI Tools
+      "anomalyco/tap/opencode"
+
       # System services & window management
       "FelixKratz/formulae/borders"
       "FelixKratz/formulae/sketchybar"
@@ -45,6 +49,7 @@
       "gitmux"
       "morantron/tmux-fingers/tmux-fingers"
       "sesh"
+      "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
       "mailsy"

@@ -311,6 +311,11 @@ alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n
 # Github Dash
 alias ghd='gh-dash'
 
+# Treekanga
+alias tk='treekanga'
+alias tkd='treekanga --log debug'
+alias tkl='treekanga list -v'
+
 
 # Turbo
 alias lint='pnpm turbo lint'
@@ -460,6 +465,37 @@ alias fastly-debug="atuin scripts run fastly-debug"
 # Git Shorcuts
 alias gamend="g commit --amend --date=now --no-edit"
 alias gpom="g pull origin master"
+
+# Fetch remote branches matching a pattern
+# Usage: fetch-origin release/  - fetches all branches matching release/*
+fetch-origin() {
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Error: Not in a git repository" >&2
+    return 1
+  fi
+
+  local pattern="${1:-}"
+  if [[ -z "$pattern" ]]; then
+    echo "Usage: fetch-origin <pattern>"
+    echo "Example: fetch-origin release/"
+    return 1
+  fi
+
+  # List remote refs matching pattern
+  local refs=$(git ls-remote --heads origin 2>/dev/null | awk '{print $2}' | grep "$pattern" | sed 's|refs/heads/||')
+
+  if [[ -z "$refs" ]]; then
+    echo "No branches matching '$pattern' found on origin"
+    return 1
+  fi
+
+  local count=$(echo "$refs" | wc -l | tr -d ' ')
+  echo "Fetching $count branches matching '$pattern'..."
+
+  # Fetch all matching refs in one command
+  git fetch origin ${(f)refs}
+}
+alias fo='fetch-origin'
 alias clpr="rm -f ~/.cache/tmux-pr-numbers/* && echo 'Cleared PR number cache'"
 alias gcom="g checkout master"
 alias gpod="g pull origin develop"
@@ -503,7 +539,7 @@ alias cat="bat"
 # eza for modern ls view
 alias ls="eza --group-directories-first --icons=always --all"
 alias lsl="eza --group-directories-first --long --icons=always --all"
-alias lt="eza --group-directories-first -lTg --icons=always"
+alias lst="eza --group-directories-first -lTg --icons=always"
 
 # ghosttyfetch - animated system info for Ghostty
 alias ghosttyfetch="~/.config/ghosttyfetch/ghosttyfetch"
@@ -745,6 +781,7 @@ reload_prompt() {
 }
 
 export _ZO_DATA_DIR="$ZDOTDIR"
+export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*"
 
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)
