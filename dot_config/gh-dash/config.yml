@@ -61,6 +61,17 @@ keybindings:
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
         git fetch origin $BASE $HEAD 2>/dev/null &&
+        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
+        MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
+    - key: W
+      command: >
+        cd {{.RepoPath}} &&
+        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin $BASE $HEAD 2>/dev/null &&
         git checkout $HEAD 2>/dev/null || git checkout -b $HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
