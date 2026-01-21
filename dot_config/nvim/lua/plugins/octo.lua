@@ -54,31 +54,5 @@ return {
   },
   config = function(_, opts)
     require("octo").setup(opts)
-
-    -- Add <esc> to close octo buffers (issue/PR views)
-    vim.api.nvim_create_autocmd("FileType", {
-      pattern = "octo",
-      callback = function(event)
-        vim.keymap.set("n", "<esc>", function()
-          -- Close window and delete buffer
-          local buf = vim.api.nvim_get_current_buf()
-          local wins = vim.fn.win_findbuf(buf)
-          for _, win in ipairs(wins) do
-            if vim.api.nvim_win_is_valid(win) then
-              vim.api.nvim_win_close(win, true)
-            end
-          end
-          if vim.api.nvim_buf_is_valid(buf) then
-            vim.api.nvim_buf_delete(buf, { force = true })
-          end
-        end, {
-          buffer = event.buf,
-          desc = "Close Octo buffer",
-        })
-      end,
-    })
   end,
-  keys = {
-    { "<leader>oO", "<cmd>Octo<cr>", desc = "Octo" },
-  },
 }
