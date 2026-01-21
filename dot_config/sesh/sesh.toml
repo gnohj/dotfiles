@@ -1,6 +1,6 @@
-# default
-[default]
+[default_session]
 preview_command = "eza --all --git --icons --color=always {}"
+startup_command = "~/.config/sesh/startup.sh {}"
 
 [[session]]
 name = "home"
@@ -44,13 +44,7 @@ startup_command = "ls"
 [[session]]
 name = "inferno/_bare"
 path = "~/Developer/inferno/"
-startup_command = "git worktree list"
-
-[[session]]
-name = "inferno/_main"
-path = "~/Developer/inferno/_develop"
-startup_command = "~/.config/sesh/dev.sh '' ~/Developer/inferno/_develop"
-preview_command = "bat --color=always ~/Developer/inferno/_develop/README.md"
+startup_command = "git branch -vv"
 
 [[session]]
 name = "inferno/_review"
@@ -76,19 +70,12 @@ path = "~/Developer/toucan-corne42"
 [[session]]
 name = "web/_bare"
 path = "~/Developer/web/"
-startup_command = "git worktree list"
-
-[[session]]
-name = "web/_main"
-path = "~/Developer/web/_master"
-startup_command = "~/.config/sesh/dev.sh '' ~/Developer/web/_master"
-preview_command = "bat --color=always ~/Developer/web/_master/README.md"
+startup_command = "git branch -vv"
 
 [[session]]
 name = "web/_review"
 path = "~/Developer/web/_review"
 startup_command = "ghd"
-
 
 [[session]]
 name = "yazi"
