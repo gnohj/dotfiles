@@ -292,17 +292,10 @@ end
 
 return {
   "sand4rt/zen.nvim",
-  enabled = false,
-  -- Don't load zen.nvim if codediff is being used (detected via env var or arg)
-  -- zen.nvim has a bug with WinClosed that conflicts with codediff
+  -- Don't load zen.nvim if vim.g.zen_disabled is set (e.g., nvim --cmd "let g:zen_disabled=1")
+  -- This allows diffview/codediff/octo to open in tmux windows without zen
   cond = function()
-    -- Check if codediff was passed as command line argument
-    for _, arg in ipairs(vim.v.argv) do
-      if arg:match("codediff") then
-        return false
-      end
-    end
-    return true
+    return not vim.g.zen_disabled
   end,
   event = { "BufReadPost", "BufNewFile" },
   keys = {
