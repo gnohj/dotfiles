@@ -6,6 +6,16 @@ return {
     "nvim-tree/nvim-web-devicons",
   },
   cmd = { "Octo" },
+  keys = {
+    {
+      "<leader>gO",
+      function()
+        local cwd = vim.fn.getcwd()
+        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" }, { detach = true })
+      end,
+      desc = "gh-dash",
+    },
+  },
   opts = {
     enable_builtin = true,
     picker = "snacks",
