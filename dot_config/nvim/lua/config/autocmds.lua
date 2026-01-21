@@ -185,56 +185,6 @@ end, {
   end,
 })
 
-
--- ============================================================================
--- Diffview keymaps
--- ============================================================================
--- Setup Diffview-specific keymaps
-vim.api.nvim_create_autocmd({ "FileType" }, {
-  group = augroup("diffview_escape"),
-  pattern = {
-    "DiffviewFiles",
-    "DiffviewFileHistory",
-    "DiffviewFilePanel",
-    "DiffviewFHOptionPanel",
-    "DiffviewOptionPanel",
-    "DiffviewFilePanelTitle",
-    "DiffviewLog",
-  },
-  callback = function(event)
-    vim.bo[event.buf].buflisted = false
-    vim.keymap.set("n", "<esc>", function()
-      vim.cmd("DiffviewClose")
-    end, {
-      buffer = event.buf,
-      silent = true,
-      desc = "[P]Close Diffview",
-    })
-  end,
-})
-
--- For diff buffers within Diffview
-vim.api.nvim_create_autocmd({ "BufEnter" }, {
-  group = augroup("diffview_diff_buffers"),
-  callback = function(event)
-    -- Check if this is a diff buffer inside Diffview
-    if vim.bo[event.buf].filetype == "diff" or vim.wo.diff then
-      -- Check if we're in a Diffview session
-      if
-        vim.fn.exists("*DiffviewExists") == 1 and vim.fn.DiffviewExists() == 1
-      then
-        vim.keymap.set("n", "<esc>", function()
-          vim.cmd("DiffviewClose")
-        end, {
-          buffer = event.buf,
-          silent = true,
-          desc = "[P]Close Diffview",
-        })
-      end
-    end
-  end,
-})
-
 -- ============================================================================
 -- Close filetypes with <esc>
 -- ============================================================================
@@ -254,7 +204,6 @@ vim.api.nvim_create_autocmd("FileType", {
     "tsplayground",
     "neotest-output",
     "checkhealth",
-    "diffview",
     "neotest-summary",
     "neotest-output-panel",
     "dbout",
@@ -264,7 +213,6 @@ vim.api.nvim_create_autocmd("FileType", {
     "Lazy",
     "noice",
     "MCPHub",
-    "fyler",
   },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
