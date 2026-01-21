@@ -2,6 +2,12 @@ return {
   "esmuellert/codediff.nvim",
   dependencies = { "MunifTanjim/nui.nvim" },
   cmd = "CodeDiff",
+  keys = {
+    -- { "<leader>gf", "<cmd>CodeDiff history %<cr>", desc = "File history" }, -- Using diffview for file history until codediff improves
+    { "<leader>gd", "<cmd>CodeDiff<cr>", desc = "Diff working dir" },
+    { "<leader>gD", "<cmd>CodeDiff HEAD~1 HEAD<cr>", desc = "Diff last commit" },
+    { "<leader>gq", "<cmd>tabclose<cr>", desc = "Close diff tab" },
+  },
   config = function()
     require("codediff").setup({
       diff = {
@@ -41,6 +47,9 @@ return {
           prev_hunk = "[h",
         },
         explorer = {
+          quit = "<esc>",
+        },
+        history = {
           quit = "<esc>",
         },
       },
