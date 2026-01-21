@@ -30,7 +30,6 @@ My personal dotfiles for macOS.
 - **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping),
   custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) &
   [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
-- hj/.
 
 ## Bootstrap New Mac (Apple Silicon)
 
