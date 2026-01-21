@@ -1,12 +1,29 @@
+-- Helper to open command in a new tmux window with zen disabled
+local function open_in_tmux(cmd, window_name)
+  local cwd = vim.fn.getcwd()
+  local shell_cmd = string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
+  vim.fn.jobstart({ "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd }, { detach = true })
+end
+
 return {
   "esmuellert/codediff.nvim",
   dependencies = { "MunifTanjim/nui.nvim" },
   cmd = "CodeDiff",
   keys = {
-    -- { "<leader>gf", "<cmd>CodeDiff history %<cr>", desc = "File history" }, -- Using diffview for file history until codediff improves
-    { "<leader>gd", "<cmd>CodeDiff<cr>", desc = "Diff working dir" },
-    { "<leader>gD", "<cmd>CodeDiff HEAD~1 HEAD<cr>", desc = "Diff last commit" },
-    { "<leader>gq", "<cmd>tabclose<cr>", desc = "Close diff tab" },
+    {
+      "<leader>gd",
+      function()
+        -- Get default branch dynamically
+        local default_branch = vim.fn.system(
+          "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' | tr -d '\\n'"
+        )
+        if default_branch == "" then
+          default_branch = "main"
+        end
+        open_in_tmux("CodeDiff origin/" .. default_branch .. " HEAD", "🔀")
+      end,
+      desc = "Diff against default branch (tmux)",
+    },
   },
   config = function()
     require("codediff").setup({
@@ -134,10 +151,10 @@ return {
 
         local reason = is_heavy and vim.fn.fnamemodify(bufname, ":t")
           or string.format("%d lines", line_count)
-        Snacks.notify.warn({
-          ("Heavy diff file detected (%s)."):format(reason),
-          "Syntax/LSP/treesitter **disabled** for performance.",
-        }, { title = "codediff: Big File" })
+        Snacks.notify.warn(
+          ("Heavy diff file (%s). Syntax/LSP/treesitter disabled."):format(reason),
+          { title = "codediff" }
+        )
       end
     end
 
@@ -158,21 +175,32 @@ return {
       return win == original_win or win == modified_win
     end
 
-    -- Set up J/K keymaps and disable conflicting plugins for diff view windows
+    -- Disable conflicting plugins for ALL diff view windows
+    local function setup_diff_window(win, buf)
+      -- Disable mini.diff and gitsigns on this buffer
+      vim.b[buf].minidiff_disable = true
+      vim.b[buf].gitsigns_head = nil -- Hint to gitsigns this isn't a normal git buffer
+
+      -- Disable fold-imports by opening all folds in this buffer
+      vim.wo[win].foldenable = false
+
+      -- Disable features that slow down scrolling for ALL codediff buffers
+      vim.b[buf].minianimate_disable = true
+      vim.b[buf].minihipatterns_disable = true
+      vim.wo[win].cursorline = false
+      vim.wo[win].cursorcolumn = false
+      vim.wo[win].spell = false
+
+      -- Apply additional bigfile optimizations for large/heavy files
+      apply_bigfile_optimizations(buf, win)
+    end
+
     local function setup_diff_keymaps()
       local win = vim.api.nvim_get_current_win()
       local buf = vim.api.nvim_win_get_buf(win)
       -- Check if this is a codediff view window
       if is_codediff_window(win) then
-        -- Disable mini.diff and gitsigns on this buffer
-        vim.b[buf].minidiff_disable = true
-        vim.b[buf].gitsigns_head = nil -- Hint to gitsigns this isn't a normal git buffer
-
-        -- Disable fold-imports by opening all folds in this buffer
-        vim.wo[win].foldenable = false
-
-        -- Apply bigfile optimizations if buffer is large or matches heavy file patterns
-        apply_bigfile_optimizations(buf, win)
+        setup_diff_window(win, buf)
       end
     end
 
@@ -180,6 +208,31 @@ return {
       callback = function()
         -- Defer to ensure plugin has set up the window marker
         vim.schedule(setup_diff_keymaps)
+      end,
+    })
+
+    -- Quit nvim when codediff tab closes (if in zen-disabled tmux window)
+    vim.api.nvim_create_autocmd("TabClosed", {
+      callback = function()
+        if vim.g.zen_disabled then
+          -- Check if any codediff sessions remain
+          local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
+          if ok then
+            -- Small delay to let the tab fully close
+            vim.defer_fn(function()
+              local has_session = false
+              for _, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
+                if lifecycle.get_session(tabpage) then
+                  has_session = true
+                  break
+                end
+              end
+              if not has_session then
+                vim.cmd("qa")
+              end
+            end, 100)
+          end
+        end
       end,
     })
   end,
