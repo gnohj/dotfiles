@@ -20,6 +20,7 @@ local items <const> = {
 	MEMORY = "widgets.memory",
 	CPU = "widgets.cpu",
 	GITHUB_NOTIFICATION = "widgets.github_notification",
+	PR_REVIEW_NOTIFICATION = "widgets.pr_review_notification",
 	BREW_NOTIFICATION = "widgets.brew_notification",
 	MISE_NOTIFICATION = "widgets.mise_notification",
 	MAS_NOTIFICATION = "widgets.mas_notification",
