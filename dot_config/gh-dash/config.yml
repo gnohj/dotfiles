@@ -50,10 +50,10 @@ keybindings:
   issues:
     - key: e
       command: >
-        tmux new-window -n "🐙 Issue #{{.IssueNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo issue edit {{.IssueNumber}}"'
+        tmux new-window -n "🐙 Issue #{{.IssueNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"'
     - key: i
       command: >
-        tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim -c ":silent Octo issue create"'
+        tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
     - key: P
       command: >
@@ -63,8 +63,8 @@ keybindings:
         git fetch origin $BASE $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
     - key: W
       command: >
@@ -74,8 +74,8 @@ keybindings:
         git fetch origin $BASE $HEAD 2>/dev/null &&
         git checkout $HEAD 2>/dev/null || git checkout -b $HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
     - key: enter
       command: >
@@ -83,7 +83,7 @@ keybindings:
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
         git fetch origin $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim -c ":silent Octo pr edit {{.PrNumber}}"'
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
     - key: D
       command: >
         cd {{.RepoPath}} &&
@@ -92,7 +92,7 @@ keybindings:
         git fetch origin $BASE $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\""
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\""
     - key: A
       command: >
         cd {{.RepoPath}} &&
