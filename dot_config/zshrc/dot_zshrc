@@ -311,6 +311,37 @@ alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n
 # Github Dash
 alias ghd='gh-dash'
 
+# GitHub PR summary (filter out bots: renovate, dependabot, changesets, etc.)
+ghpr() {
+  local red='\033[1;31m'
+  local yellow='\033[1;33m'
+  local cyan='\033[1;36m'
+  local reset='\033[0m'
+
+  local bot_filter='[.[] | select(.author.login as $a | ["renovate","renovate[bot]","dependabot","dependabot[bot]","github-actions","github-actions[bot]","changesets","changesets[bot]","changeset-bot","changeset-bot[bot]","greenkeeper","greenkeeper[bot]","snyk-bot","imgbot","imgbot[bot]","codecov","codecov[bot]","allcontributors","allcontributors[bot]","semantic-release-bot","release-please","release-please[bot]"] | map(ascii_downcase) | index($a | ascii_downcase) | not)]'
+  local format_prs='jq -r ".[] | \"\(.repository.nameWithOwner | split(\"/\")[1]) #\(.number) - \(.title) (\(.author.login))\"" | sort'
+
+  # My open PRs
+  local my_prs=$(gh search prs --author=@me --state=open --json author,number,title,repository 2>/dev/null | jq -r "$bot_filter")
+  local my_count=$(echo "$my_prs" | jq 'length')
+  echo "${red}📝 My Open PRs: ${my_count}${reset}"
+  [[ "$my_count" -gt 0 ]] && echo "$my_prs" | eval "$format_prs"
+  echo ""
+
+  # PRs requesting my review
+  local review_prs=$(gh search prs --review-requested=@me --state=open --json author,number,title,repository 2>/dev/null | jq -r "$bot_filter")
+  local review_count=$(echo "$review_prs" | jq 'length')
+  echo "${yellow}👀 PRs Requesting Review: ${review_count}${reset}"
+  [[ "$review_count" -gt 0 ]] && echo "$review_prs" | eval "$format_prs"
+  echo ""
+
+  # PRs I'm involved in (not authored by me)
+  local involved_prs=$(gh search prs --involves=@me --state=open --json author,number,title,repository 2>/dev/null | jq -r "$bot_filter" | jq '[.[] | select(.author.login != "gnohj")]')
+  local involved_count=$(echo "$involved_prs" | jq 'length')
+  echo "${cyan}🔗 PRs I'm Involved In: ${involved_count}${reset}"
+  [[ "$involved_count" -gt 0 ]] && echo "$involved_prs" | eval "$format_prs"
+}
+
 # Treekanga
 alias tk='treekanga'
 alias tkd='treekanga --log debug'
