@@ -157,35 +157,6 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- ============================================================================
--- Open all files changed in the current PR (compared to a base branch)
--- ============================================================================
--- :OpenPRChanges - Uses the default origin/master
--- :OpenPRChanges origin/develop - Uses origin/develop instead
--- :OpenPRChanges + Tab - Shows completion options for branches
-vim.api.nvim_create_user_command("OpenPRChanges", function(opts)
-  local base_branch = opts.args ~= "" and opts.args or "origin/master"
-
-  local changed_files =
-    vim.fn.systemlist("git diff --name-only " .. base_branch .. "...HEAD")
-
-  for _, file in ipairs(changed_files) do
-    vim.cmd("edit " .. file)
-  end
-end, {
-  nargs = "?",
-  complete = function(ArgLead, CmdLine, CursorPos)
-    local branches = vim.fn.systemlist("git branch -a | cut -c 3-")
-    local matches = {}
-    for _, branch in ipairs(branches) do
-      if branch:match("^" .. ArgLead) then
-        table.insert(matches, branch)
-      end
-    end
-    return matches
-  end,
-})
-
--- ============================================================================
 -- Close filetypes with <esc>
 -- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
@@ -213,6 +184,7 @@ vim.api.nvim_create_autocmd("FileType", {
     "Lazy",
     "noice",
     "MCPHub",
+    "aerial",
   },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
@@ -234,13 +206,6 @@ vim.api.nvim_create_autocmd("FileType", {
     end)
   end,
 })
-
--- ============================================================================
--- Auto Zen Mode: Enable on single window, disable on splits
--- ============================================================================
--- DISABLED: Testing zen.nvim (sand4rt) instead
--- All zen logic is now in config/auto-zen.lua module
--- require("config.auto-zen").setup()
 
 -- ============================================================================
 -- Auto-reload files changed externally
