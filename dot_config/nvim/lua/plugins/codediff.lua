@@ -1,8 +1,12 @@
--- Helper to open command in a new tmux window with zen disabled
+-- Helper open command in a new tmux window with zen disabled
 local function open_in_tmux(cmd, window_name)
   local cwd = vim.fn.getcwd()
-  local shell_cmd = string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
-  vim.fn.jobstart({ "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd }, { detach = true })
+  local shell_cmd =
+    string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
+  vim.fn.jobstart(
+    { "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd },
+    { detach = true }
+  )
 end
 
 return {
@@ -152,7 +156,9 @@ return {
         local reason = is_heavy and vim.fn.fnamemodify(bufname, ":t")
           or string.format("%d lines", line_count)
         Snacks.notify.warn(
-          ("Heavy diff file (%s). Syntax/LSP/treesitter disabled."):format(reason),
+          ("Heavy diff file (%s). Syntax/LSP/treesitter disabled."):format(
+            reason
+          ),
           { title = "codediff" }
         )
       end
