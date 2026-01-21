@@ -292,6 +292,7 @@ end
 
 return {
   "sand4rt/zen.nvim",
+  enabled = false,
   -- Don't load zen.nvim if codediff is being used (detected via env var or arg)
   -- zen.nvim has a bug with WinClosed that conflicts with codediff
   cond = function()
