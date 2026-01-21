@@ -817,7 +817,7 @@ reload_prompt() {
 }
 
 export _ZO_DATA_DIR="$ZDOTDIR"
-export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*"
+export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*"
 
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)
