@@ -139,9 +139,9 @@ keymap("n", "<leader>fY", function()
   -- Try to find the file relative to cwd first, then as absolute
   local cwd = vim.fn.getcwd()
   local try_paths = {
-    cwd .. "/" .. path,      -- relative to cwd
-    cwd .. "/" .. expanded,  -- expanded relative to cwd
-    expanded,                -- absolute path
+    cwd .. "/" .. path, -- relative to cwd
+    cwd .. "/" .. expanded, -- expanded relative to cwd
+    expanded, -- absolute path
   }
 
   for _, try_path in ipairs(try_paths) do
@@ -325,26 +325,6 @@ keymap({ "n", "v" }, "<leader>gy", function()
 end, { desc = "[P]Copy Git URL (upstream branch)" })
 
 -------------------------------------------------------------------------------
---                           DiffView
--------------------------------------------------------------------------------
-
-keymap("n", "<leader><leader>m", function()
-  if next(require("diffview.lib").views) == nil then
-    vim.cmd("DiffviewOpen origin/master...HEAD")
-  else
-    vim.cmd("DiffviewClose")
-  end
-end, { desc = "[P]DiffView: Toggle master branch diff" })
-
-keymap("n", "<leader><leader>d", function()
-  if next(require("diffview.lib").views) == nil then
-    vim.cmd("DiffviewOpen origin/develop...HEAD")
-  else
-    vim.cmd("DiffviewClose")
-  end
-end, { desc = "[P]DiffView: Toggle develop branch diff" })
-
--------------------------------------------------------------------------------
 --                           Toggle Copilot Virtual Text
 -------------------------------------------------------------------------------
 
@@ -484,7 +464,9 @@ end, { desc = "[P]Open local tasks folder" })
 
 -- Open global Obsidian Tasks folder
 keymap("n", "<leader>fT", function()
-  local obsidian_tasks = vim.fn.expand("~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks")
+  local obsidian_tasks = vim.fn.expand(
+    "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks"
+  )
 
   if vim.fn.isdirectory(obsidian_tasks) == 1 then
     require("snacks").picker.files({ cwd = obsidian_tasks })
