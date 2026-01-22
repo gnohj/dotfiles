@@ -33,13 +33,29 @@ web) MAIN_DIR="_master" ;;
 esac
 
 MAIN_WORKTREE="$HOME/Developer/$REPO_NAME/$MAIN_DIR"
-
-# Skip if we're in the main worktree
+IS_MAIN_WORKTREE=false
 if [ "$CURRENT_WORKTREE" = "$MAIN_WORKTREE" ]; then
-  exit 0
+  IS_MAIN_WORKTREE=true
 fi
 
 echo "Setting up $REPO_NAME worktree..."
+
+# Create tasks symlink to Obsidian (for <leader>ft in nvim) - applies to ALL worktrees
+OBSIDIAN_TASKS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks/$REPO_NAME"
+if [ -d "$OBSIDIAN_TASKS" ] && [ ! -e "tasks" ]; then
+  echo "Creating tasks symlink to Obsidian..."
+  ln -s "$OBSIDIAN_TASKS" tasks
+elif [ -L "tasks" ]; then
+  echo "Tasks symlink already exists"
+elif [ -d "tasks" ]; then
+  echo "Warning: tasks directory exists but is not a symlink"
+fi
+
+# Skip remaining setup for main worktree
+if [ "$IS_MAIN_WORKTREE" = true ]; then
+  echo "$REPO_NAME main worktree setup complete!"
+  exit 0
+fi
 
 # Copy .env files from main worktree if they exist
 for env_file in .env .env.local .env.development .env.development.local; do
