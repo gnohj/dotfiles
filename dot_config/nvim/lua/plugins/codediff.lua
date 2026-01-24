@@ -1,8 +1,14 @@
 -- Helper open command in a new tmux window with zen disabled
-local function open_in_tmux(cmd, window_name)
+local function open_in_tmux(cmd, window_name, file)
   local cwd = vim.fn.getcwd()
-  local shell_cmd =
-    string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
+  local shell_cmd
+  if file then
+    shell_cmd =
+      string.format([[nvim --cmd "let g:zen_disabled=1" "%s" -c "%s"]], file, cmd)
+  else
+    shell_cmd =
+      string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
+  end
   vim.fn.jobstart(
     { "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd },
     { detach = true }
@@ -37,16 +43,7 @@ return {
           vim.notify("No file in current buffer", vim.log.levels.ERROR)
           return
         end
-        local cwd = vim.fn.getcwd()
-        -- Open the file first, then run CodeDiff
-        local shell_cmd = string.format(
-          [[nvim --cmd "let g:zen_disabled=1" "%s" -c "CodeDiff file HEAD"]],
-          file
-        )
-        vim.fn.jobstart(
-          { "tmux", "new-window", "-n", "📄", "-c", cwd, shell_cmd },
-          { detach = true }
-        )
+        open_in_tmux("CodeDiff file HEAD", "📄", file)
       end,
       desc = "Diff current file against HEAD (tmux)",
     },
