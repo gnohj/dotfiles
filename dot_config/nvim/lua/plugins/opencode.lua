@@ -1,5 +1,6 @@
 return {
   "sudo-tee/opencode.nvim",
+  enabled = false,
   event = "VeryLazy",
   cond = function()
     return vim.fn.executable("opencode") == 1
