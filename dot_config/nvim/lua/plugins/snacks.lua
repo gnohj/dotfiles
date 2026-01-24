@@ -254,7 +254,7 @@ return {
       ignored = true,
       sources = {
         grep = {
-          exclude = { "index.js", "index.js.map", "*.min.js", "*.min.css" },
+          exclude = { "index.js", "index.js.map", "index.d.ts", "*.min.js", "*.min.css", "*.ts.html" },
         },
       },
       matcher = {
