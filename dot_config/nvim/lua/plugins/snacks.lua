@@ -122,7 +122,7 @@ return {
     },
     -- Git status with preview, respects .gitignore
     {
-      "<leader>gs",
+      "<leader>gS",
       function()
         -- Custom git status that respects .gitignore
         require("snacks").picker({

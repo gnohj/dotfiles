@@ -28,6 +28,36 @@ return {
       end,
       desc = "Diff against default branch (tmux)",
     },
+    {
+      "<leader>gc",
+      function()
+        -- Compare current file against last commit
+        local file = vim.fn.expand("%:p")
+        if file == "" then
+          vim.notify("No file in current buffer", vim.log.levels.ERROR)
+          return
+        end
+        local cwd = vim.fn.getcwd()
+        -- Open the file first, then run CodeDiff
+        local shell_cmd = string.format(
+          [[nvim --cmd "let g:zen_disabled=1" "%s" -c "CodeDiff file HEAD"]],
+          file
+        )
+        vim.fn.jobstart(
+          { "tmux", "new-window", "-n", "📄", "-c", cwd, shell_cmd },
+          { detach = true }
+        )
+      end,
+      desc = "Diff current file against HEAD (tmux)",
+    },
+    {
+      "<leader>gs",
+      function()
+        -- Compare all staged/unstaged changes against last commit
+        open_in_tmux("CodeDiff HEAD", "📋")
+      end,
+      desc = "Diff all changes against HEAD (tmux)",
+    },
   },
   config = function()
     require("codediff").setup({
