@@ -252,6 +252,11 @@ return {
     picker = {
       hidden = false,
       ignored = true,
+      sources = {
+        grep = {
+          exclude = { "index.js", "index.js.map", "*.min.js", "*.min.css" },
+        },
+      },
       matcher = {
         frecency = true,
         cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
