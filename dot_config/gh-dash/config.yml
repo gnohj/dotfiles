@@ -55,7 +55,7 @@ keybindings:
       command: >
         tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
-    - key: P
+    - key: P # Open PR in Neovim Octo, Diff, and Claude Review
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -66,7 +66,7 @@ keybindings:
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
-    - key: W
+    - key: W # Open PR in Neovim Octo with Workspaces
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -77,14 +77,14 @@ keybindings:
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'claude --dangerously-skip-permissions "/review"'
-    - key: enter
+    - key: enter # Open PR in Neovim Octo
       command: >
         cd {{.RepoPath}} &&
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
         git fetch origin $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
-    - key: D
+    - key: D # Open PR Diff in Neovim CodeDiff
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -93,7 +93,7 @@ keybindings:
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\""
-    - key: A
+    - key: A # Open PR in Claude Review
       command: >
         cd {{.RepoPath}} &&
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
