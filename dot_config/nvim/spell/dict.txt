@@ -42,6 +42,7 @@ Lazygit
 LocalStorage
 MacOS
 MobX
+N/A
 OS
 OTP
 Omny
@@ -53,7 +54,6 @@ PR
 Pulumi's
 RRv7
 RadioEdit
-Redux
 SSR
 STN
 SameSite
@@ -73,6 +73,7 @@ WAF
 WebRelease
 Webapi
 WiFi
+XSS
 Zsh
 a.
 api
@@ -105,7 +106,9 @@ github
 gitignore
 hotfix
 href
+html
 http
+i18next
 iHeartMedia
 iHeartRadio
 iheart
@@ -113,6 +116,7 @@ isBot
 jira
 js
 json
+lang
 loginToken
 md
 microsite
@@ -131,11 +135,13 @@ permalink
 pid
 pids
 pnpm
+po
 prNumber
 profileId
 pulumi
 px
 recv
+redux
 refetch
 refetches
 reproducibility
