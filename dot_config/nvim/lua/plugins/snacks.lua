@@ -122,7 +122,7 @@ return {
     },
     -- Git status with preview, respects .gitignore
     {
-      "<leader>gS",
+      "<leader>gs",
       function()
         -- Custom git status that respects .gitignore
         require("snacks").picker({
@@ -153,6 +153,14 @@ return {
         })
       end,
       desc = "Git Status (with preview)",
+    },
+    -- Git unstaged changes (modified but not staged)
+    {
+      "<leader>gu",
+      function()
+        require("snacks").picker.git_diff({ staged = false, title = "Git Unstaged Changes" })
+      end,
+      desc = "Git Unstaged Changes",
     },
     -- Environment variables picker
     {
