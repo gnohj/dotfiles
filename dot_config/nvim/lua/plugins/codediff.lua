@@ -21,7 +21,7 @@ return {
   cmd = "CodeDiff",
   keys = {
     {
-      "<leader>gd",
+      "<leader>gD",
       function()
         -- Get default branch dynamically
         local default_branch = vim.fn.system(
@@ -48,7 +48,7 @@ return {
       desc = "Diff current file against HEAD (tmux)",
     },
     {
-      "<leader>gs",
+      "<leader>gS",
       function()
         -- Compare all staged/unstaged changes against last commit
         open_in_tmux("CodeDiff HEAD", "📋")
