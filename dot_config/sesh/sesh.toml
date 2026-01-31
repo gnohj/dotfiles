@@ -44,7 +44,7 @@ startup_command = "ls"
 [[session]]
 name = "inferno/_bare"
 path = "~/Developer/inferno/"
-startup_command = "git branch -vv"
+startup_command = "treekanga tui"
 
 [[session]]
 name = "inferno/_review"
@@ -70,7 +70,7 @@ path = "~/Developer/toucan-corne42"
 [[session]]
 name = "web/_bare"
 path = "~/Developer/web/"
-startup_command = "git branch -vv"
+startup_command = "treekanga tui"
 
 [[session]]
 name = "web/_review"
