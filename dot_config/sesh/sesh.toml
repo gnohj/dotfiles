@@ -24,7 +24,7 @@ path = "~/.logs"
 [[session]]
 name = "chezmoi"
 path = "~/.local/share/chezmoi"
-startup_command = "gst"
+startup_command = "git status"
 
 [[session]]
 name = "developer"
