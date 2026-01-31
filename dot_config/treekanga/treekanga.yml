@@ -5,6 +5,7 @@ repos: # use actual repo name from origin not local folder name
     worktreeTargetDir: Developer/inferno
     postScript: ~/.config/treekanga/worktree_setup.sh
     autoRunPostScript: true
+    tuiTheme: everforest-dark
 
   web:
     bareRepoName: .git
@@ -12,3 +13,4 @@ repos: # use actual repo name from origin not local folder name
     worktreeTargetDir: Developer/web
     postScript: ~/.config/treekanga/worktree_setup.sh
     autoRunPostScript: true
+    tuiTheme: everforest-dark
