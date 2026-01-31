@@ -222,7 +222,7 @@ run = "move-node-to-workspace T"
 
 [[on-window-detected]]
 if.app-id = 'net.kovidgoyal.kitty'
-run = "move-node-to-workspace T"
+run = "move-node-to-workspace F"
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
