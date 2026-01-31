@@ -25,7 +25,7 @@ rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 # Launcher - Omarchy-style popup launcher
 rctrl - y : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
 
-rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai opencode true
+rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
