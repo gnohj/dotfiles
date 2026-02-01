@@ -6,6 +6,22 @@ return {
   priority = 1000,
   keys = {
     { "<leader><space>", false },
+    -- Package Picker (monorepo) - overrides LazyVim's <leader>fp
+    {
+      "<leader>fp",
+      function()
+        require("config.monorepo-picker").pick()
+      end,
+      desc = "Monorepo Picker",
+    },
+    -- Move LazyVim's projects picker to <leader>fP
+    {
+      "<leader>fP",
+      function()
+        Snacks.picker.projects()
+      end,
+      desc = "Projects (LazyVim)",
+    },
     {
       "<S-u>",
       function()
@@ -158,7 +174,10 @@ return {
     {
       "<leader>gu",
       function()
-        require("snacks").picker.git_diff({ staged = false, title = "Git Unstaged Changes" })
+        require("snacks").picker.git_diff({
+          staged = false,
+          title = "Git Unstaged Changes",
+        })
       end,
       desc = "Git Unstaged Changes",
     },
@@ -262,7 +281,14 @@ return {
       ignored = true,
       sources = {
         grep = {
-          exclude = { "index.js", "index.js.map", "index.d.ts", "*.min.js", "*.min.css", "*.ts.html" },
+          exclude = {
+            "index.js",
+            "index.js.map",
+            "index.d.ts",
+            "*.min.js",
+            "*.min.css",
+            "*.ts.html",
+          },
         },
       },
       matcher = {
