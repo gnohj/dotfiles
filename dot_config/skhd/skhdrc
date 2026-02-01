@@ -6,9 +6,8 @@
 # Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
 lctrl - space : skhd -k "ctrl - c"
 
-# Remap Cmd+Shift+Q to quit and disable minimize/hide
+# Disable minimize/hide
 cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true' -e 'tell application frontApp to quit'
-cmd - q : :
 cmd - m : :
 cmd - h : :
 

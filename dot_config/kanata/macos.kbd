@@ -16,11 +16,9 @@
   fn   lctl lalt lmet           spc                     rmet ralt left down up   rght
 )
 
-;; Override Ctrl+Space to send Ctrl+C, remap Cmd+Shift+Q, and disable minimize/hide
+;; Override Ctrl+Space to send Ctrl+C and disable minimize/hide
 (defoverrides
   (lctl spc) (lctl c)
-  (lmet q) (nop0)  ;; Disable Cmd+Q
-  (lmet lsft q) (lmet q)  ;; Cmd+Shift+Q → Cmd+Q
   (lmet m) (nop0)  ;; Disable Cmd+M
   (lmet h) (nop0)  ;; Disable Cmd+H
 )
