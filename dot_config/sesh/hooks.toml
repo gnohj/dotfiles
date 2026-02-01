@@ -1,0 +1,6 @@
+# Sesh hooks configuration
+# This sets up default behavior for new sessions
+
+[hooks]
+# Hook that runs after connecting to a session
+after_connect = "~/.config/sesh/after-connect.sh"
