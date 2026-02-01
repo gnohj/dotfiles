@@ -8,6 +8,52 @@ return {
     { "<leader><space>", false },
     { "<leader>fg", false }, -- Replaced by Seeker grep
     { "<leader>sg", false }, -- Replaced by Seeker grep
+    -- Harper diagnostics picker (overrides default search highlight)
+    {
+      "<leader>sh",
+      function()
+        require("snacks").picker.diagnostics({
+          title = "Harper Diagnostics",
+          filter = {
+            cwd = false, -- Show all, not just cwd
+            filter = function(item)
+              return item.source == "Harper" or (item.item and item.item.source == "Harper")
+            end,
+          },
+        })
+      end,
+      desc = "Harper Diagnostics",
+    },
+    -- Ignore all Harper diagnostics in current buffer
+    {
+      "<leader>sH",
+      function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        local diagnostics = vim.diagnostic.get(bufnr, {})
+        local harper_diagnostics = vim.tbl_filter(function(d)
+          return d.source == "Harper"
+        end, diagnostics)
+
+        if #harper_diagnostics == 0 then
+          vim.notify("No Harper diagnostics to ignore", vim.log.levels.INFO)
+          return
+        end
+
+        local ignored = 0
+        for _, d in ipairs(harper_diagnostics) do
+          vim.api.nvim_win_set_cursor(0, { d.lnum + 1, d.col })
+          vim.lsp.buf.code_action({
+            filter = function(action)
+              return action.title and action.title:match("Ignore")
+            end,
+            apply = true,
+          })
+          ignored = ignored + 1
+        end
+        vim.notify(string.format("Ignored %d Harper diagnostics", ignored), vim.log.levels.INFO)
+      end,
+      desc = "Ignore all Harper diagnostics",
+    },
     { "<leader>gP", false }, -- Disable Snacks gh_pr picker (uppercase)
     { "<leader>gh", false }, -- Disable git_log_line (blank)
     { "<leader>gL", false }, -- Disable git_log cwd
