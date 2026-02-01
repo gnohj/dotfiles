@@ -8,6 +8,18 @@ return {
     { "<leader><space>", false },
     { "<leader>fg", false }, -- Replaced by Seeker grep
     { "<leader>sg", false }, -- Replaced by Seeker grep
+    { "<leader>gP", false }, -- Disable Snacks gh_pr picker (uppercase)
+    { "<leader>gh", false }, -- Disable git_log_line (blank)
+    { "<leader>gL", false }, -- Disable git_log cwd
+    -- gh-dash keybindings
+    {
+      "<leader>gp",
+      function()
+        local cwd = vim.fn.getcwd()
+        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" }, { detach = true })
+      end,
+      desc = "gh-dash PRs (tmux)",
+    },
     -- Package Picker (monorepo) - overrides LazyVim's <leader>fp
     {
       "<leader>fp",
@@ -462,7 +474,6 @@ return {
     bufdelete = {},
     input = {},
     gitbrowse = {},
-    gh = {},
     dim = {},
     toggle = {},
     scroll = { enabled = false },
