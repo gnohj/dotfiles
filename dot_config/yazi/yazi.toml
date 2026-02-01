@@ -12,3 +12,11 @@ run  = "git"
 edit = [
   { run = '''sh -c 'cd "${YAZI_START_DIR:-$PWD}" && nvim "$1"' -- "$@"''', desc = "nvim (preserve cwd)", block = true, for = "unix" },
 ]
+video = [
+  { run = 'open -na "VLC" --args "$@" 2>/dev/null', desc = "VLC (new instance)", for = "macos" },
+]
+
+[open]
+prepend_rules = [
+  { mime = "video/*", use = "video" },
+]
