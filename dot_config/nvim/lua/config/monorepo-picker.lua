@@ -26,31 +26,53 @@ local function is_cache_valid(repo_root)
   return (os.time() - entry.timestamp) < CACHE_TTL
 end
 
+-- Escape Lua pattern special characters
+local function escape_pattern(str)
+  return str:gsub("([%-%+%.%*%?%^%$%(%)%[%]%%])", "%%%1")
+end
+
 local function discover_packages(repo_root)
   local packages = {}
+  local repo_root_escaped = escape_pattern(repo_root .. "/")
 
-  -- Check for common monorepo patterns
+  -- Check for common monorepo patterns (including nested)
   local patterns = {
     "/packages/*/package.json",
+    "/packages/*/*/package.json",
     "/apps/*/package.json",
+    "/apps/*/*/package.json",
     "/libs/*/package.json",
+    "/libs/*/*/package.json",
     "/services/*/package.json",
+    "/services/*/*/package.json",
     "/modules/*/package.json",
+    "/modules/*/*/package.json",
+    "/shared/*/package.json",
+    "/shared/*/*/package.json",
+    "/generator/*/package.json",
+    "/generator/*/*/package.json",
   }
 
+  local seen = {} -- Track seen paths to avoid duplicates
   for _, pattern in ipairs(patterns) do
     local glob_path = repo_root .. pattern
     local matches = vim.fn.glob(glob_path, false, true)
     for _, match in ipairs(matches) do
       local pkg_dir = vim.fn.fnamemodify(match, ":h")
-      local pkg_name = vim.fn.fnamemodify(pkg_dir, ":t")
-      local parent_dir = vim.fn.fnamemodify(pkg_dir, ":h:t")
-      table.insert(packages, {
-        name = pkg_name,
-        path = pkg_dir,
-        category = parent_dir,
-        display = parent_dir .. "/" .. pkg_name,
-      })
+      if not seen[pkg_dir] then
+        seen[pkg_dir] = true
+        local pkg_name = vim.fn.fnamemodify(pkg_dir, ":t")
+        -- Get relative path from repo root for proper display
+        local relative_path = pkg_dir:gsub(repo_root_escaped, "")
+        -- Category is the top-level directory (apps, packages, etc.)
+        local category = relative_path:match("^([^/]+)")
+        table.insert(packages, {
+          name = pkg_name,
+          path = pkg_dir,
+          category = category,
+          display = relative_path,
+        })
+      end
     end
   end
 
@@ -67,11 +89,12 @@ local function discover_packages(repo_root)
       for line in handle:lines() do
         local pkg_dir = vim.fn.fnamemodify(line, ":h")
         if pkg_dir ~= repo_root then -- exclude root package.json
-          local relative = pkg_dir:gsub(repo_root .. "/", "")
+          local relative = pkg_dir:gsub(repo_root_escaped, "")
+          local category = relative:match("^([^/]+)")
           table.insert(packages, {
             name = vim.fn.fnamemodify(pkg_dir, ":t"),
             path = pkg_dir,
-            category = vim.fn.fnamemodify(pkg_dir, ":h:t"),
+            category = category,
             display = relative,
           })
         end
@@ -158,9 +181,18 @@ M.pick = function()
           { repo_name .. " (root)", "Special" },
         }
       end
+      local display = item.text
+      local first_slash = display:find("/")
+      if first_slash then
+        local prefix = display:sub(1, first_slash)
+        local rest = display:sub(first_slash + 1)
+        return {
+          { prefix, "Comment" },
+          { rest, "Normal" },
+        }
+      end
       return {
-        { item.category .. "/", "Comment" },
-        { item.name, "Normal" },
+        { display, "Normal" },
       }
     end,
     confirm = function(picker, item)
