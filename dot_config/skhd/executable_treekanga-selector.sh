@@ -10,12 +10,12 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 color_string="list-border:6,input-border:${gnohj_color04},preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color13},fg+:${gnohj_color02},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
 
-tmux display-popup -E -w 40% -h 30% -b none "
+tmux display-popup -E -w 28% -h 40% -b none "
   export PATH=\"/opt/homebrew/bin:\$PATH\"
   CONFIG_FILE=\"\$HOME/.config/treekanga/treekanga.yml\"
 
-  # Parse repo names from treekanga.yml
-  REPOS=\$(grep -E '^  [a-zA-Z0-9_-]+:\$' \"\$CONFIG_FILE\" | sed 's/^  //' | sed 's/:\$//')
+  # Parse repo names from treekanga.yml and add folder icon
+  REPOS=\$(grep -E '^  [a-zA-Z0-9_-]+:\$' \"\$CONFIG_FILE\" | sed 's/^  //' | sed 's/:\$//' | awk '{print \"📂 \" \$0}')
 
   # Show selector
   SELECTED=\$(echo \"\$REPOS\" | fzf --no-border \
@@ -23,16 +23,17 @@ tmux display-popup -E -w 40% -h 30% -b none "
     --list-border \
     --no-sort \
     --prompt '🌳 ' \
-    --header 'Select repo for treekanga' \
     --gutter=' ' \
     --color '${color_string}' \
     --input-border \
-    --header-border \
     --bind 'tab:down,btab:up')
 
   if [[ -z \"\$SELECTED\" ]]; then
     exit 0
   fi
+
+  # Strip the icon prefix to get just the repo name (get 2nd field)
+  SELECTED=\$(echo \"\$SELECTED\" | awk '{print \$2}')
 
   # Get worktreeTargetDir for selected repo
   WORKTREE_DIR=\$(awk -v repo=\"\$SELECTED\" '
