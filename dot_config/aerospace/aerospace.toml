@@ -181,6 +181,10 @@ if.app-id = 'com.whimsical.desktop'
 run = "move-node-to-workspace X"
 
 [[on-window-detected]]
+if.app-id = 'org.videolan.vlc'
+run = "move-node-to-workspace X"
+
+[[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
 run = "move-node-to-workspace E"
 
