@@ -75,6 +75,7 @@ return {
                 ToDoHyphen = false,
                 SentenceCapitalization = false,
                 CommaFixes = false,
+                LongSentences = false,
               },
               isolateEnglish = true,
               markdown = {
