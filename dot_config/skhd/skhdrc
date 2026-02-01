@@ -27,7 +27,9 @@ rctrl - y : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/laun
 
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
-rctrl - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
+# rctrl - x : moved to capture-pane command
+# rctrl - c : freed for native tmux copy
+rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux split-window -v -c "#{pane_current_path}" # new pane in current directory (forward slash)
 # rctrl - r - reserved for atuin
@@ -47,7 +49,8 @@ rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 L
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - n : ~/.config/skhd/treekanga-selector.sh
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
-rctrl - c : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
+rctrl - c : /opt/homebrew/bin/tmux copy-mode
+rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
 rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
 # rctrl - q - reserved for nvim shortcut to quit nvim instance
 rctrl - z : /opt/homebrew/bin/tmux kill-pane
