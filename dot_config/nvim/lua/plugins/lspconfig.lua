@@ -144,6 +144,7 @@ return {
         },
         -- Add the ansiblels configuration
         ansiblels = {
+          enabled = false, -- Disabled for performance
           settings = {
             ansible = {
               validation = {
@@ -160,6 +161,7 @@ return {
         eslint = {
           settings = {
             format = true,
+            run = "onSave", -- Only run on save for performance
           },
           on_attach = function(client, bufnr)
             -- Manually enable formatting capability since ESLint uses dynamic registration
@@ -167,6 +169,25 @@ return {
             client.server_capabilities.documentFormattingProvider = true
           end,
         },
+        -- Disabled servers for performance
+        angularls = { enabled = false },
+        tailwindcss = { enabled = false },
+        html = { enabled = false },
+        jsonls = { enabled = false },
+        marksman = { enabled = false },
+        pyright = { enabled = false },
+        ruff = { enabled = false },
+        svelte = { enabled = false },
+        bashls = { enabled = false },
+        dockerls = { enabled = false },
+        docker_compose_language_service = { enabled = false },
+        yamlls = { enabled = false },
+        taplo = { enabled = false },
+        templ = { enabled = false },
+        terraformls = { enabled = false },
+        tflint = { enabled = false },
+        vue_ls = { enabled = false },
+        astro = { enabled = false },
       })
 
       opts.inlay_hints = {
