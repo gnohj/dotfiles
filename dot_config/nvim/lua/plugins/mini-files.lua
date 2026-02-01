@@ -101,13 +101,15 @@ return {
       end,
       desc = "Open mini.files (Directory of Current File or CWD if not exists)",
     },
-    -- Open the current working directory
+    -- Open at git root (works from root or nested package)
     {
       "<leader>E",
       function()
-        require("mini.files").open(vim.uv.cwd(), true)
+        local result = vim.fn.systemlist("git rev-parse --show-toplevel 2>/dev/null")
+        local root = (vim.v.shell_error == 0 and result[1]) or vim.uv.cwd()
+        require("mini.files").open(root, true)
       end,
-      desc = "Open mini.files (cwd)",
+      desc = "Open mini.files (git root)",
     },
     {
       "<leader>mc",
