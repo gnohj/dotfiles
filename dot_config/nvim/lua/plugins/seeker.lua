@@ -2,8 +2,8 @@ return {
   "2kabhishek/seeker.nvim",
   dependencies = { "folke/snacks.nvim" },
   keys = {
-    { "<leader>fk", "<cmd>Seeker<cr>", desc = "Seeker (files)" },
-    { "<leader>fK", "<cmd>Seeker grep<cr>", desc = "Seeker (grep)" },
+    { "<leader>fg", "<cmd>Seeker<cr>", desc = "Seeker (files)" },
+    { "<leader>sg", "<cmd>Seeker grep<cr>", desc = "Seeker Grep" },
   },
   opts = {
     picker = "snacks",

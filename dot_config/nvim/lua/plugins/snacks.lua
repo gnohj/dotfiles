@@ -6,6 +6,8 @@ return {
   priority = 1000,
   keys = {
     { "<leader><space>", false },
+    { "<leader>fg", false }, -- Replaced by Seeker grep
+    { "<leader>sg", false }, -- Replaced by Seeker grep
     -- Package Picker (monorepo) - overrides LazyVim's <leader>fp
     {
       "<leader>fp",
