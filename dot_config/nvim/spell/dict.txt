@@ -48,6 +48,7 @@ OTP
 Omny
 OneTrust
 OneTrustActiveGroups
+OneTrustManager
 Outbrain
 Outseam
 PR
@@ -71,12 +72,12 @@ Turborepo
 UserCookie
 WAF
 WebRelease
-Webapi
 WiFi
 XSS
 Zsh
 a.
 api
+axios
 backgrounded
 backmerge
 base64
@@ -169,6 +170,7 @@ vcl
 vercel
 viewability
 vitest
+webapi
 webpack
 which
 worktree
