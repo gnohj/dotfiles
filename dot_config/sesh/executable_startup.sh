@@ -7,6 +7,16 @@ WORKTREE_PATTERN="(_work|_infra|_scratch|_develop|_master|_review)(/|$)"
 
 cd "$SESSION_PATH" || exit 0
 
+# Skip if this session was already initialized (check tmux option)
+SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+INITIALIZED=$(tmux show-options -v -t "$SESSION_NAME" @sesh_initialized 2>/dev/null)
+if [[ "$INITIALIZED" == "true" ]]; then
+  exit 0
+fi
+
+# Mark session as initialized
+tmux set-option -t "$SESSION_NAME" @sesh_initialized true 2>/dev/null
+
 # Check if inside a git repo
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 0
