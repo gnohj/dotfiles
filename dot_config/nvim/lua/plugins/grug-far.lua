@@ -17,7 +17,10 @@ return {
           local current_file = vim.api.nvim_buf_get_name(0)
           local path
 
-          if current_file ~= "" then
+          -- Handle mini.files buffer (format: minifiles://N/path)
+          if current_file:match("^minifiles://") then
+            path = current_file:match("^minifiles://%d+/(.+)$")
+          elseif current_file ~= "" then
             -- Use current file's directory if buffer has a file
             path = vim.fn.fnamemodify(current_file, ":h")
           else
