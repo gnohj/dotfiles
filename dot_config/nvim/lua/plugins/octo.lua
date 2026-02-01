@@ -8,16 +8,16 @@ return {
   cmd = { "Octo" },
   keys = {
     {
-      "<leader>gO",
+      "<leader>gi",
       function()
         local cwd = vim.fn.getcwd()
-        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" }, { detach = true })
+        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash", "--config", vim.fn.expand("~/.config/gh-dash/issues.yml") }, { detach = true })
       end,
-      desc = "gh-dash",
+      desc = "gh-dash Issues (tmux)",
     },
   },
   opts = {
-    enable_builtin = true,
+    enable_builtin = false,
     picker = "snacks",
     mappings = {
       review_diff = {
