@@ -14,10 +14,8 @@ tmux display-popup -E -w 28% -h 40% -b none "
   export PATH=\"/opt/homebrew/bin:\$PATH\"
   CONFIG_FILE=\"\$HOME/.config/treekanga/treekanga.yml\"
 
-  # Parse repo names from treekanga.yml and add folder icon
   REPOS=\$(grep -E '^  [a-zA-Z0-9_-]+:\$' \"\$CONFIG_FILE\" | sed 's/^  //' | sed 's/:\$//' | awk '{print \"📂 \" \$0}')
 
-  # Show selector
   SELECTED=\$(echo \"\$REPOS\" | fzf --no-border \
     --ansi \
     --list-border \
@@ -32,7 +30,6 @@ tmux display-popup -E -w 28% -h 40% -b none "
     exit 0
   fi
 
-  # Strip the icon prefix to get just the repo name (get 2nd field)
   SELECTED=\$(echo \"\$SELECTED\" | awk '{print \$2}')
 
   # Get worktreeTargetDir for selected repo
@@ -51,7 +48,5 @@ tmux display-popup -E -w 28% -h 40% -b none "
 
   BARE_REPO_PATH=\"\$HOME/\$WORKTREE_DIR/\${BARE_NAME:-.git}\"
 
-  # Open new tmux window with treekanga tui in the bare repo
-  # Export PATH so treekanga can find sesh
-  tmux new-window -n '🌳 treekanga' -c \"\$BARE_REPO_PATH\" 'export PATH=\"/opt/homebrew/bin:\$PATH\"; /opt/homebrew/bin/treekanga tui'
+  tmux new-window -n '🌳' -c \"\$BARE_REPO_PATH\" 'export PATH=\"/opt/homebrew/bin:\$PATH\"; /opt/homebrew/bin/treekanga tui'
 "
