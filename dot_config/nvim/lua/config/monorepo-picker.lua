@@ -41,6 +41,8 @@ local function discover_packages(repo_root)
     "/packages/*/*/package.json",
     "/apps/*/package.json",
     "/apps/*/*/package.json",
+    "/apps-legacy/*/package.json",
+    "/apps-legacy/*/*/package.json",
     "/libs/*/package.json",
     "/libs/*/*/package.json",
     "/services/*/package.json",
@@ -51,6 +53,8 @@ local function discover_packages(repo_root)
     "/shared/*/*/package.json",
     "/generator/*/package.json",
     "/generator/*/*/package.json",
+    "/tooling/*/package.json",
+    "/tooling/*/*/package.json",
   }
 
   local seen = {} -- Track seen paths to avoid duplicates
@@ -73,6 +77,20 @@ local function discover_packages(repo_root)
           display = relative_path,
         })
       end
+    end
+  end
+
+  -- Add special directories if they exist
+  local special_dirs = { ".github", ".changeset", ".fastly-vcl", ".scripts", ".husky" }
+  for _, dir in ipairs(special_dirs) do
+    local dir_path = repo_root .. "/" .. dir
+    if vim.fn.isdirectory(dir_path) == 1 then
+      table.insert(packages, {
+        name = dir,
+        path = dir_path,
+        category = dir,
+        display = dir,
+      })
     end
   end
 
