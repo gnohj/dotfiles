@@ -6,8 +6,54 @@ return {
   priority = 1000,
   keys = {
     { "<leader><space>", false },
-    { "<leader>fg", false }, -- Replaced by Seeker grep
+    { "<leader>fg", false }, -- Disabled
     { "<leader>sg", false }, -- Replaced by Seeker grep
+    -- Find Files with frecency (git files only)
+    {
+      "<leader>ff",
+      function()
+        Snacks.picker.smart({
+          title = "Git Files",
+          multi = { "buffers", "recent", "git_files" },
+          format = "file",
+          matcher = {
+            cwd_bonus = true,
+            frecency = true,
+            sort_empty = true,
+          },
+          transform = "unique_file",
+          win = {
+            preview = {
+              wo = { number = false, relativenumber = false },
+            },
+          },
+        })
+      end,
+      desc = "Find Git Files (frecency)",
+    },
+    -- LazyVim default find files (moved to fF)
+    {
+      "<leader>fF",
+      function()
+        Snacks.picker.smart({
+          title = "Files",
+          multi = { "buffers", "recent", "files" },
+          format = "file",
+          matcher = {
+            cwd_bonus = true,
+            frecency = true,
+            sort_empty = true,
+          },
+          transform = "unique_file",
+          win = {
+            preview = {
+              wo = { number = false, relativenumber = false },
+            },
+          },
+        })
+      end,
+      desc = "Find Files (frecency)",
+    },
     -- Harper diagnostics picker (overrides default search highlight)
     {
       "<leader>sh",
@@ -276,37 +322,6 @@ return {
         })
       end,
       desc = "Environment Variables",
-    },
-    -- Find Files - default snacks <leader>ff doesn't work well with frecency and sorting, so overriding here
-    {
-      "<leader>ff",
-      function()
-        require("snacks").picker.smart({
-          title = "Files", -- Custom title instead of "Smart"
-          multi = { "files" },
-          matcher = {
-            cwd_bonus = true, -- rank cwd matches higher than nested sub dir matches
-            fuzzy = true,
-            smartcase = true,
-          },
-          sort = function(a, b) -- gets called after the internal matcher score
-            -- Try to pull recency information if available; if not, rely on the internal matcher score.
-            local a_time = a.last_used or 0
-            local b_time = b.last_used or 0
-            if a_time ~= b_time then
-              return a_time > b_time
-            else
-              return (a.score or 0) > (b.score or 0)
-            end
-          end,
-          win = {
-            preview = {
-              wo = { number = false, relativenumber = false },
-            },
-          },
-        })
-      end,
-      desc = "[P]Snacks picker files",
     },
 
     -- Navigate buffers
