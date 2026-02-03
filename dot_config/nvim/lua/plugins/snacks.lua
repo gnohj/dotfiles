@@ -21,6 +21,9 @@ return {
             frecency = true,
             sort_empty = true,
           },
+          filter = {
+            cwd = true,
+          },
           transform = "unique_file",
           win = {
             preview = {
@@ -39,10 +42,15 @@ return {
           title = "Files",
           multi = { "buffers", "recent", "files" },
           format = "file",
+          hidden = false,
+          ignored = false,
           matcher = {
             cwd_bonus = true,
             frecency = true,
             sort_empty = true,
+          },
+          filter = {
+            cwd = true,
           },
           transform = "unique_file",
           win = {
@@ -53,6 +61,24 @@ return {
         })
       end,
       desc = "Find Files (frecency)",
+    },
+    -- Recent files (cwd only)
+    {
+      "<leader>fr",
+      function()
+        Snacks.picker.recent({
+          filter = { cwd = true },
+        })
+      end,
+      desc = "Recent Files (cwd)",
+    },
+    -- Recent files (global)
+    {
+      "<leader>fR",
+      function()
+        Snacks.picker.recent()
+      end,
+      desc = "Recent Files (global)",
     },
     -- Harper diagnostics picker (overrides default search highlight)
     {
