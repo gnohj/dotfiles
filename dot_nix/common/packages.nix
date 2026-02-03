@@ -42,7 +42,7 @@
     alacritty  # GPU-accelerated terminal
     kitty      # GPU-accelerated terminal
     tmux       # Terminal multiplexer
-    starship   # Shell prompt
+    # starship managed by zinit (see zshrc)
     atuin      # Shell history
 
     # AWS & Cloud
