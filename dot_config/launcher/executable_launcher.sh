@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🎨 Themes\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
+  choice=$(printf "🎨 Themes\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
     fzf --height=80% \
       --reverse \
       --prompt="❯ " \
@@ -28,6 +28,22 @@ main_menu() {
 
   case "$choice" in
   "🎨 Themes") themes_menu ;;
+  "🔀 PRs Requesting Review")
+    zsh -c '
+      red="\033[1;31m"
+      yellow="\033[1;33m"
+      reset="\033[0m"
+      bot_filter="[.[] | select(.author.login as \$a | [\"renovate\",\"dependabot\",\"github-actions\",\"changesets\",\"changeset-bot\"] | map(ascii_downcase) | index(\$a | ascii_downcase) | not)]"
+      review_prs=$(gh search prs --review-requested=@me --state=open --json author,number,title,repository 2>/dev/null | jq -r "$bot_filter")
+      review_count=$(echo "$review_prs" | jq "length")
+      echo "${yellow}👀 PRs Requesting Review: ${review_count}${reset}"
+      [[ "$review_count" -gt 0 ]] && echo "$review_prs" | jq -r ".[] | \"\(.repository.nameWithOwner | split(\"/\")[1])|\(.number)|\(.title)|\(.author.login)\"" | sort | while IFS="|" read -r repo num title author; do
+        echo "${red}${repo}${reset} #${num} - ${title} (${author})"
+      done
+      echo ""
+      read "?Press Enter to exit..."
+    '
+    ;;
   "🚀 Push to GitHub (now)")
     ~/.config/zshrc/github-auto-push.sh --nowait
     echo "GitHub auto-push completed"
