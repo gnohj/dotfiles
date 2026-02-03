@@ -93,8 +93,17 @@ function update_starship_env() {
   fi
 
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      repo_name=$(basename "$(git rev-parse --show-toplevel)")
-      # Only use infra config for web and inferno (worktrees)
+      local toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+      local git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+      local repo_name=$(basename "$toplevel")
+
+      # For worktrees, use the bare repo name from git-common-dir
+      # git-common-dir returns path like /path/to/inferno/.git for worktrees
+      if [[ "$git_common_dir" != ".git" && "$git_common_dir" == */.git ]]; then
+        repo_name=$(basename "$(dirname "$git_common_dir")")
+      fi
+
+      # Only use infra config for web and inferno
       if [[ "$repo_name" == "web" ]] || [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
         export STARSHIP_CONFIG=~/.config/starship/starship-infra.toml
         if [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
@@ -563,6 +572,14 @@ alias c='clear'
 # claude resume
 alias cr='claude --dangerously-skip-permissions --resume'
 alias cs='claude --dangerously-skip-permissions'
+
+webtoken() {
+  export APP_TOKEN=$(radioctl app env ~/Developer/web/_master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
+  echo "✓ APP_TOKEN set"
+}
+
+# web account app token for polaris
+alias account="webtoken"
 
 # bat
 alias cat="bat"
