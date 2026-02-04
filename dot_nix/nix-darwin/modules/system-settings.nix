@@ -79,7 +79,7 @@
       # Trackpad & Mouse settings
       # Based on System Settings → Trackpad and Mouse screenshots
       "com.apple.swipescrolldirection" = true;      # Natural scrolling (enabled)
-      "com.apple.trackpad.scaling" = 4.0;           # Trackpad tracking speed: 0.0-3.0 (UI max), but higher values work
+      "com.apple.trackpad.scaling" = 10.0;          # Trackpad tracking speed: 0.0-3.0 (UI max), but higher values work
       "com.apple.trackpad.enableSecondaryClick" = true;  # Enable right-click
       "com.apple.trackpad.forceClick" = true;       # Enable Force Click and haptic feedback
       "com.apple.mouse.tapBehavior" = 1;            # Enable tap to click
@@ -137,6 +137,14 @@
       GuestEnabled = false;               # Disable guest user
     };
 
+  };
+
+  # Keyboard settings
+  # Ensure Caps Lock is NOT remapped (stays as Caps Lock)
+  system.keyboard = {
+    enableKeyMapping = true;
+    remapCapsLockToControl = false;
+    remapCapsLockToEscape = false;
   };
 
 }
