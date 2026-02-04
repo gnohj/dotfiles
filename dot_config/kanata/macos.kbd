@@ -38,16 +38,22 @@
   (q) q        ;; Q alone = q
   (p) p        ;; P alone = p
 )
+
+;; Shift chord - both shifts together = caps lock
+(defchords shifts 200
+  (ls rs) caps
+  (ls) (one-shot 2000 lsft)
+  (rs) (one-shot 2000 rsft)
+)
+
 (defalias
   ;; Base layer mod-taps (39 keys only)
   tab-ralt (tap-hold 200 200 tab ralt)     ;; Tab position: tap=tab, hold=ralt
   grv-lctl (tap-hold 200 200 grv lctl)     ;; Caps position: tap=grave, hold=lctl
-  ls-stk  (one-shot 2000 lsft)             ;; Left shift as sticky
   esc-lalt (tap-hold 200 200 esc lalt)     ;; Bracket position: tap=esc, hold=lalt
   sc-rctl (tap-hold 200 200 ; rctl)        ;; Semicolon: tap=;, hold=rctl
   qu-lgui (tap-hold 200 200 ' lmet)        ;; Quote: tap=', hold=lgui
   slash-hypr (tap-hold 200 200 / (multi lmet lsft lalt lctl)) ;; Slash: tap=/, hold=hyper
-  rs-stk  (one-shot 2000 rsft)             ;; Right shift as sticky
   ent-lalt (tap-hold 200 200 ret lalt)     ;; Enter: tap=enter, hold=lalt
   bksp-rctl (tap-hold 200 200 bspc rctl)   ;; Backspace: tap=backspace, hold=rctl
 
@@ -99,7 +105,7 @@
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
   @tab-ralt (chord base q) w        e        r        t        y        u        i        o        (chord base p) @esc-lalt XX            XX
   @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
-  @ls-stk  z        x        (chord base c) (chord base v) b        n        (chord base m) (chord base ,) .        @slash-hypr @rs-stk @rs-stk
+  (chord shifts ls) z x (chord base c) (chord base v) b n (chord base m) (chord base ,) . @slash-hypr (chord shifts rs) (chord shifts rs)
   XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
 )
