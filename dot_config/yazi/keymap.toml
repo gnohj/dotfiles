@@ -11,6 +11,9 @@ prepend_keymap = [
   { on = [ "d", "r" ], run = "plugin restore", desc = "Restore trashed files" },
   { on = [ "y", "y" ], run = "yank", desc = "Yank selected files (copy)" },
 
+  # Copy file(s) to macOS clipboard as actual files (paste into Mail, Slack, etc.)
+  { on = [ "c", "y" ], run = "shell 'clippy \"$@\"' --confirm", desc = "Copy file to macOS clipboard (clippy)" },
+
   # System clipboard plugin - copy file paths to system clipboard
   # Using Ctrl-p instead of Ctrl-y because Ctrl-y is intercepted by nvim in terminal mode
   { on = "<C-p>", run = "plugin system-clipboard", desc = "Copy file path to system clipboard" },
