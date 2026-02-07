@@ -8,7 +8,7 @@ return {
   opts = {
     spec = {
       { "<leader>gh", hidden = true },
-      { "<leader>gL", hidden = true },
+      { "<leader>gl", hidden = true }, -- Hidden: use visual mode for gitlineage
       { "<leader>G", hidden = true },
       { "<leader>K", hidden = true },
       { "<leader>L", hidden = true },
