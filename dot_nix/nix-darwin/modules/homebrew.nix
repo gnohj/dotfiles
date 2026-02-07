@@ -52,6 +52,7 @@
       "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
+      "clippy"
       "mailsy"
       "mas"
       "pngpaste"
