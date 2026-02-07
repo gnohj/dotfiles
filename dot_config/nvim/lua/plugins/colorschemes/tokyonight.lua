@@ -254,9 +254,15 @@ return {
 
         hl.DiffviewFolderSign = { fg = colors["gnohj_color35"] }
         hl.DiffviewNonText = { fg = hl_colors.comment }
-        hl.diffAdded = { fg = colors["gnohj_color36"], bold = true }
-        hl.diffChanged = { fg = colors["gnohj_color37"], bold = true }
-        hl.diffRemoved = { fg = colors["gnohj_color38"], bold = true }
+        hl.diffAdded = { fg = colors["gnohj_color02"], bold = true } -- Green for added lines
+        hl.diffChanged = { fg = colors["gnohj_color05"], bold = true } -- Yellow for changed
+        hl.diffRemoved = { fg = colors["gnohj_color11"], bold = true } -- Red for removed
+        -- Diff file headers (--- a/ and +++ b/) - ensure readable text
+        hl.diffOldFile = { fg = colors["gnohj_color10"], bg = colors["gnohj_color11"], bold = true } -- Dark on red bg
+        hl.diffNewFile = { fg = colors["gnohj_color10"], bg = colors["gnohj_color02"], bold = true } -- Dark on green bg
+        hl.diffFile = { fg = colors["gnohj_color04"], bold = true } -- Blue for diff --git line
+        hl.diffIndexLine = { fg = colors["gnohj_color09"] } -- Gray for index line
+        hl.diffLine = { fg = colors["gnohj_color03"] } -- Cyan for @@ line numbers
 
         hl.DiagnosticError = { fg = colors["gnohj_color11"] }
         hl.DiagnosticWarn = { fg = colors["gnohj_color06"] } -- use orange instead of gnohj_color12
