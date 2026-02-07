@@ -128,7 +128,8 @@ return {
     },
     { "<leader>gP", false }, -- Disable Snacks gh_pr picker (uppercase)
     { "<leader>gh", false }, -- Disable git_log_line (blank)
-    { "<leader>gL", false }, -- Disable git_log cwd
+    { "<leader>gl", false, mode = { "n", "v" } }, -- Disable default git_log completely
+    { "<leader>gL", function() Snacks.picker.git_log() end, desc = "Git Log" },
     -- gh-dash keybindings
     {
       "<leader>gp",
