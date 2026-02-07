@@ -179,7 +179,6 @@ vim.api.nvim_create_autocmd("FileType", {
     "neotest-output-panel",
     "dbout",
     "gitsigns-blame",
-    "gitsigns://*",
     "OverseerList",
     "Lazy",
     "noice",
@@ -204,6 +203,26 @@ vim.api.nvim_create_autocmd("FileType", {
         desc = "[P]Quit buffer",
       })
     end)
+  end,
+})
+
+-- Close buffer-name patterns with <esc> (these are not filetypes)
+vim.api.nvim_create_autocmd("BufEnter", {
+  group = augroup("close_buffers_with_esc"),
+  pattern = {
+    "gitsigns://*",
+    "gitlineage://*",
+  },
+  callback = function(event)
+    vim.bo[event.buf].buflisted = false
+    vim.keymap.set("n", "<esc>", function()
+      vim.cmd("close")
+      pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+    end, {
+      buffer = event.buf,
+      silent = true,
+      desc = "[P]Quit buffer",
+    })
   end,
 })
 
