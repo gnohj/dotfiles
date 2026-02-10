@@ -15,6 +15,11 @@ return {
       end,
       desc = "gh-dash Issues (tmux)",
     },
+    {
+      "<leader>oa",
+      "<cmd>Octo actions<cr>",
+      desc = "Octo actions",
+    },
   },
   opts = {
     enable_builtin = false,
@@ -34,12 +39,12 @@ return {
           desc = "close review tab",
         },
         add_review_comment = {
-          lhs = "<leader>ca",
+          lhs = "<leader>oc",
           desc = "add review comment",
           mode = { "n", "x" },
         },
         add_review_suggestion = {
-          lhs = "<leader>sa",
+          lhs = "<leader>os",
           desc = "add review suggestion",
           mode = { "n", "x" },
         },
@@ -52,11 +57,11 @@ return {
           desc = "previous comment thread",
         },
         submit_review = {
-          lhs = "<leader>vs",
+          lhs = "<leader>oS",
           desc = "submit review",
         },
         discard_review = {
-          lhs = "<leader>vd",
+          lhs = "<leader>oD",
           desc = "discard review",
         },
       },
