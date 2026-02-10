@@ -65,7 +65,7 @@ keybindings:
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review"'
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
     - key: W # Open PR in Neovim Octo with Workspaces
       command: >
         cd {{.RepoPath}} &&
@@ -76,7 +76,7 @@ keybindings:
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review"'
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
     - key: enter # Open PR in Neovim Octo
       command: >
         cd {{.RepoPath}} &&
@@ -99,7 +99,7 @@ keybindings:
         HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
         git fetch origin $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review"'
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
