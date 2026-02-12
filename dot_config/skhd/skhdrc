@@ -146,6 +146,6 @@ lalt + shift - u : :
 lalt + shift - y : :
 
 # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
-hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy image to clipboard
-hyper - c : ~/.config/skhd/copy-recent-screenshot.sh    # Copy recent screenshot image to clipboard
+hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
+hyper - c : ~/.config/skhd/copy-recent-screenshot.sh    # Copy recent screenshot filepath to clipboard
 
