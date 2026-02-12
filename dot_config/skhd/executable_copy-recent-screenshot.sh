@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copy the most recent screenshot image to clipboard (paste directly into apps)
+# Copy the most recent screenshot filepath to clipboard
 
 SCREENSHOT_DIR="$HOME/Pictures"
 
@@ -10,13 +10,13 @@ RECENT_FILE=$(fd -t f '^(SCR-|Screenshot-)' "$SCREENSHOT_DIR" -x stat -f "%m %N"
   cut -d' ' -f2-)
 
 if [ -z "$RECENT_FILE" ]; then
-  osascript -e 'display notification "No recent screenshot found" with title "Copy Screenshot"'
+  osascript -e 'display notification "No recent screenshot found" with title "Copy Screenshot Path"'
   exit 1
 fi
 
-# Copy image to clipboard with clippy (paste directly into apps)
-clippy "$RECENT_FILE"
+# Copy filepath to clipboard
+echo -n "$RECENT_FILE" | pbcopy
 
 # Show notification
 FILENAME=$(basename "$RECENT_FILE")
-osascript -e "display notification \"$FILENAME\" with title \"Screenshot copied to clipboard!\""
+osascript -e "display notification \"$FILENAME\" with title \"Screenshot path copied!\""
