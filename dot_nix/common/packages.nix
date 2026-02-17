@@ -80,6 +80,7 @@
     # CLI enhancements
     tlrc       # tldr client
     tree-sitter # Tree-sitter CLI
+    figlet     # ASCII art text banners
   ];
 
 }
