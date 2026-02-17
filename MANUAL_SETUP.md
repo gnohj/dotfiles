@@ -124,6 +124,38 @@ Terminal emulators need this for shell integration and file system operations:
 
 ---
 
+### Input Monitoring
+
+**Path**: System Settings → Privacy & Security → Input Monitoring
+
+These apps need to monitor keyboard/mouse input:
+
+- ✅ kanata (`/opt/homebrew/bin/kanata`) - keyboard remapper
+
+**How to grant**:
+
+1. Open System Settings → Privacy & Security → Input Monitoring
+2. Click the "+" button
+3. Press **Cmd+Shift+G** and type `/opt/homebrew/bin/kanata`
+4. Select the binary and click "Open"
+5. Toggle the switch to enable
+
+> **Warning**: When kanata is upgraded via `brew upgrade`, the binary changes and
+> macOS **invalidates** Input Monitoring and Accessibility permissions. You must
+> remove and re-add `/opt/homebrew/bin/kanata` in both Input Monitoring and
+> Accessibility after every upgrade. Kanata is pinned (`brew pin kanata`) to
+> prevent accidental upgrades. To intentionally upgrade:
+>
+> ```bash
+> brew unpin kanata
+> brew upgrade kanata
+> brew pin kanata
+> # Then re-add kanata to Input Monitoring + Accessibility
+> sudo launchctl kickstart -k system/org.nixos.kanata
+> ```
+
+---
+
 ### Screen Recording
 
 **Path**: System Settings → Privacy & Security → Screen Recording
