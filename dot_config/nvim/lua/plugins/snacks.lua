@@ -1,5 +1,100 @@
 local colors = require("config.colors")
 
+local function get_header()
+  local rainbow_colors = {
+    colors["gnohj_color04"],
+    colors["gnohj_color02"],
+    colors["gnohj_color03"],
+    colors["gnohj_color05"],
+    colors["gnohj_color06"],
+  }
+  for i, color in ipairs(rainbow_colors) do
+    if color then
+      vim.api.nvim_set_hl(0, "SnacksDashboardRainbow" .. i, { fg = color })
+    end
+  end
+  local blue = colors["gnohj_color04"]
+  if blue then
+    vim.api.nvim_set_hl(0, "SnacksDashboardRecentFile", { fg = blue })
+  end
+  vim.api.nvim_set_hl(
+    0,
+    "SnacksDashboardTitle",
+    { link = "SnacksDashboardDesc" }
+  )
+  vim.api.nvim_set_hl(
+    0,
+    "SnacksDashboardIcon",
+    { link = "SnacksDashboardDesc" }
+  )
+
+  local name = vim.fn.system('tmux display-message -p "#S"')
+  if vim.v.shell_error ~= 0 or name:match("^%s*$") then
+    name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+  else
+    name = name:gsub("%s+$", "")
+    name = name:match("[^/]+$") or name
+  end
+
+  local section = { width = 2000, align = "center", padding = 0 }
+
+  local fonts = { "larry3d" }
+  math.randomseed(os.time())
+  local font = fonts[math.random(#fonts)]
+
+  name = name:gsub("_", " ")
+  local figlet = vim.fn.system({ "figlet", "-w", "1000", "-f", font, name })
+  if vim.v.shell_error ~= 0 then
+    section.text = name
+    return section
+  end
+
+  figlet = figlet:gsub("%s+$", "") .. "\n"
+
+  local result = {}
+  local color_idx = 1
+  local num_colors = #rainbow_colors
+  for char in figlet:gmatch(".") do
+    if char:match("%S") then
+      table.insert(result, { char, hl = "SnacksDashboardRainbow" .. color_idx })
+      color_idx = color_idx % num_colors + 1
+    else
+      table.insert(result, { char })
+    end
+  end
+  section.text = result
+  return section
+end
+
+local function get_unstaged_changes()
+  if not Snacks.git.get_root() then
+    return
+  end
+  local result = vim.fn.system("git diff --stat")
+  if vim.v.shell_error ~= 0 or result:match("^%s*$") then
+    return
+  end
+  local red = colors["gnohj_color11"] or "#da858e"
+  local r = tonumber(red:sub(2, 3), 16)
+  local g = tonumber(red:sub(4, 5), 16)
+  local b = tonumber(red:sub(6, 7), 16)
+  local ansi = string.format("\\033[38;2;%d;%d;%dm", r, g, b)
+  local cmd = string.format(
+    'git diff --color=always --stat=55 | awk \'{a[NR]=$0} END{for(i=1;i<=4&&i<NR;i++) print a[i]; if(NR>5) print " ...and more"; print "%s" a[NR] "\\033[0m"}\'',
+    ansi
+  )
+  return {
+    icon = " ",
+    title = "Unstaged Changes",
+    section = "terminal",
+    cmd = cmd,
+    height = 7,
+    indent = 2,
+    padding = 0,
+    ttl = 0,
+  }
+end
+
 return {
   "folke/snacks.nvim",
   lazy = false,
@@ -89,7 +184,8 @@ return {
           filter = {
             cwd = false, -- Show all, not just cwd
             filter = function(item)
-              return item.source == "Harper" or (item.item and item.item.source == "Harper")
+              return item.source == "Harper"
+                or (item.item and item.item.source == "Harper")
             end,
           },
         })
@@ -122,20 +218,32 @@ return {
           })
           ignored = ignored + 1
         end
-        vim.notify(string.format("Ignored %d Harper diagnostics", ignored), vim.log.levels.INFO)
+        vim.notify(
+          string.format("Ignored %d Harper diagnostics", ignored),
+          vim.log.levels.INFO
+        )
       end,
       desc = "Ignore all Harper diagnostics",
     },
     { "<leader>gP", false }, -- Disable Snacks gh_pr picker (uppercase)
     { "<leader>gh", false }, -- Disable git_log_line (blank)
     { "<leader>gl", false, mode = { "n", "v" } }, -- Disable default git_log completely
-    { "<leader>gL", function() Snacks.picker.git_log() end, desc = "Git Log" },
+    {
+      "<leader>gL",
+      function()
+        Snacks.picker.git_log()
+      end,
+      desc = "Git Log",
+    },
     -- gh-dash keybindings
     {
       "<leader>gp",
       function()
         local cwd = vim.fn.getcwd()
-        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" }, { detach = true })
+        vim.fn.jobstart(
+          { "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" },
+          { detach = true }
+        )
       end,
       desc = "gh-dash PRs (tmux)",
     },
@@ -478,21 +586,36 @@ return {
     },
     -- Configure the dashboard
     dashboard = {
+      width = 60,
+      formats = {
+        file = function(item, ctx)
+          local fname = vim.fn.fnamemodify(item.file, ":t")
+          return { { fname, hl = "SnacksDashboardRecentFile" } }
+        end,
+      },
+      sections = {
+        get_header,
+        { section = "startup", padding = 1 },
+        { section = "keys", gap = 1, padding = 1 },
+        {
+          icon = " ",
+          title = "Recent Files",
+          section = "recent_files",
+          limit = 3,
+          cwd = true,
+          indent = 3,
+          padding = 1,
+        },
+        get_unstaged_changes,
+      },
       preset = {
         keys = {
-          -- {
-          --   icon = " ",
-          --   key = "c",
-          --   desc = "Config",
-          --   action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
-          -- },
           {
             icon = " ",
             key = "s",
             desc = "Restore Session",
             section = "session",
           },
-          -- { icon = "󰒲 ", key = "l", desc = "Lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
           {
             icon = " ",
             key = "<Esc>",
@@ -502,18 +625,6 @@ return {
           },
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
         },
-        header = [[
-                                                                    
-      ████ ██████           █████      ██                     
-     ███████████             █████                             
-     █████████ ███████████████████ ███   ███████████   
-    █████████  ███    █████████████ █████ ██████████████   
-   █████████ ██████████ █████████ █████ █████ ████ █████   
- ███████████ ███    ███ █████████ █████ █████ ████ █████  
-██████  █████████████████████ ████ █████ █████ ████ ██████ 
-
- [@gnohj]
-]],
       },
     },
     -- DISABLED: Testing zen.nvim (sand4rt) instead
