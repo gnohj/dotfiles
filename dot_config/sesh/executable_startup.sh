@@ -3,7 +3,7 @@
 # Runs dev.sh for worktrees matching pattern or regular git repos
 
 SESSION_PATH="${1:-$PWD}"
-WORKTREE_PATTERN="(_work|_infra|_scratch|_develop|_master|_review)(/|$)"
+WORKTREE_PATTERN="(work|scratch|develop|master|review)(/|$)"
 
 cd "$SESSION_PATH" || exit 0
 

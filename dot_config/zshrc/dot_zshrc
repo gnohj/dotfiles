@@ -574,7 +574,7 @@ alias cr='claude --dangerously-skip-permissions --resume'
 alias cs='claude --dangerously-skip-permissions'
 
 webtoken() {
-  export APP_TOKEN=$(radioctl app env ~/Developer/web/_master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
+  export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
   echo "✓ APP_TOKEN set"
 }
 
