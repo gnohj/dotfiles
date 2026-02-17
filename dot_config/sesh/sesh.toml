@@ -42,13 +42,13 @@ path = "~/Desktop"
 startup_command = "ls"
 
 [[session]]
-name = "inferno/_bare"
+name = "inferno/bare"
 path = "~/Developer/inferno/"
 startup_command = "treekanga tui"
 
 [[session]]
-name = "inferno/_review"
-path = "~/Developer/inferno/_review"
+name = "inferno/review"
+path = "~/Developer/inferno/review"
 startup_command = "ghd"
 
 [[session]]
@@ -68,13 +68,13 @@ name = "toucan_corne42"
 path = "~/Developer/toucan-corne42"
 
 [[session]]
-name = "web/_bare"
+name = "web/bare"
 path = "~/Developer/web/"
 startup_command = "treekanga tui"
 
 [[session]]
-name = "web/_review"
-path = "~/Developer/web/_review"
+name = "web/review"
+path = "~/Developer/web/review"
 startup_command = "ghd"
 
 [[session]]

@@ -9,8 +9,8 @@ REPO_NAME=$(echo "$CURRENT_WORKTREE" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p'
 
 # Map repo to main worktree directory name
 case "$REPO_NAME" in
-inferno) MAIN_DIR="_develop" ;;
-web) MAIN_DIR="_master" ;;
+inferno) MAIN_DIR="develop" ;;
+web) MAIN_DIR="master" ;;
 *)
   # Dynamically detect default branch for unknown repos
   REPO_ROOT="$HOME/Developer/$REPO_NAME"
@@ -18,7 +18,7 @@ web) MAIN_DIR="_master" ;;
   if [ -z "$DEFAULT_BRANCH" ]; then
     # Fallback: check for common branch names
     for branch in main master develop; do
-      if [ -d "$REPO_ROOT/_$branch" ]; then
+      if [ -d "$REPO_ROOT/$branch" ]; then
         DEFAULT_BRANCH="$branch"
         break
       fi
@@ -28,7 +28,7 @@ web) MAIN_DIR="_master" ;;
     echo "Could not detect default branch for: $REPO_NAME"
     exit 1
   fi
-  MAIN_DIR="_$DEFAULT_BRANCH"
+  MAIN_DIR="$DEFAULT_BRANCH"
   ;;
 esac
 

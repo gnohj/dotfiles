@@ -103,8 +103,8 @@ keybindings:
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
-  iheartradio/inferno-monorepo: ~/Developer/inferno/_review/
-  iheartradio/web: ~/Developer/web/_review/
+  iheartradio/inferno-monorepo: ~/Developer/inferno/review/
+  iheartradio/web: ~/Developer/web/review/
 theme:
   ui:
     table:
