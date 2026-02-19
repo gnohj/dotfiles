@@ -225,7 +225,6 @@ return {
       end,
       desc = "Ignore all Harper diagnostics",
     },
-    { "<leader>gP", false }, -- Disable Snacks gh_pr picker (uppercase)
     { "<leader>gh", false }, -- Disable git_log_line (blank)
     { "<leader>gl", false, mode = { "n", "v" } }, -- Disable default git_log completely
     {
@@ -421,6 +420,28 @@ return {
         })
       end,
       desc = "Git Unstaged Changes",
+    },
+    -- PR branch changes (diff against base branch)
+    {
+      "<leader>gP",
+      function()
+        local root = vim.fn.systemlist("git rev-parse --show-toplevel")[1] or ""
+        local base
+        if root:match("/Developer/web/") then
+          base = "origin/master"
+        elseif root:match("/Developer/inferno/") then
+          base = "origin/develop"
+        else
+          local head = vim.fn.systemlist("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null")[1]
+          base = head and head:match("(refs/remotes/origin/.+)") or "origin/main"
+        end
+        Snacks.picker.git_diff({
+          title = "PR Changes (vs " .. base:gsub("origin/", "") .. ")",
+          base = base,
+          group = true,
+        })
+      end,
+      desc = "PR Branch Changes",
     },
     -- Environment variables picker
     {
