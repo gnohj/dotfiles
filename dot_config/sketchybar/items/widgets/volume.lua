@@ -34,6 +34,8 @@ volumeValue:subscribe("volume_change", function(env)
 		print("Current Output Device: " .. currentOutputDevice)
 		if volume > 0 and currentOutputDevice == "EarFun Air Pro 3" then
 			icon = "􀟥 "
+		elseif volume > 0 and currentOutputDevice == "Gnohj AirPods Pro" then
+			icon = "􀪷 "
 		elseif volume > 0 and currentOutputDevice == "Thunder Flash" or currentOutputDevice == "AirPods von Anna" then
 			icon = "􀺹 "
 		-- elseif currentOutputDevice == "External Headphones" then

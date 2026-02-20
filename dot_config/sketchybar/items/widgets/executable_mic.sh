@@ -9,16 +9,25 @@ CURRENT_MIC=$(SwitchAudioSource -t input -c)
 
 AVAILABLE_INPUTS=$(SwitchAudioSource -a -t input)
 
-# Look for a device name that contains "Tonor"
+# Look for preferred input devices: Tonor first, then AirPods Pro
 TONOR_DEVICE=$(echo "$AVAILABLE_INPUTS" | grep -i "TONOR")
+AIRPODS_DEVICE=$(echo "$AVAILABLE_INPUTS" | grep -i "AirPods Pro")
 
 if [[ -n "$TONOR_DEVICE" && "$CURRENT_MIC" != "$TONOR_DEVICE" ]]; then
   # Only switch if the current device is not already Tonor
   SwitchAudioSource -t input -s "$TONOR_DEVICE"
   MIC_NAME=$(echo "$TONOR_DEVICE" | awk '{print $1}')
+elif [[ -n "$AIRPODS_DEVICE" && -z "$TONOR_DEVICE" && "$CURRENT_MIC" != "$AIRPODS_DEVICE" ]]; then
+  # Switch to AirPods Pro if Tonor is not available
+  SwitchAudioSource -t input -s "$AIRPODS_DEVICE"
+  MIC_NAME="AirPods"
 else
-  # Use the current input device as MIC_NAME
-  MIC_NAME=$(echo "$CURRENT_MIC" | awk '{print $1}')
+  # Use a friendly name for known devices, otherwise first word
+  if [[ "$CURRENT_MIC" == *"AirPods"* ]]; then
+    MIC_NAME="AirPods"
+  else
+    MIC_NAME=$(echo "$CURRENT_MIC" | awk '{print $1}')
+  fi
 fi
 
 # When no microphone is connected, SwitchAudioSource gives me back random
@@ -43,13 +52,13 @@ else
   if [[ $MIC_VOLUME -eq 0 ]]; then
     sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$RED"
   elif [[ $MIC_VOLUME -gt 0 && $MIC_VOLUME -lt 90 ]]; then
-    if [[ "$MIC_NAME" == TONOR* ]]; then
+    if [[ "$MIC_NAME" == TONOR* || "$MIC_NAME" == AirPods* ]]; then
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
     else
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
     fi
   elif [[ $MIC_VOLUME -ge 90 ]]; then
-    if [[ "$MIC_NAME" == TONOR* ]]; then
+    if [[ "$MIC_NAME" == TONOR* || "$MIC_NAME" == AirPods* ]]; then
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
     else
       sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
