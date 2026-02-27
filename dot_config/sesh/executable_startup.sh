@@ -28,8 +28,8 @@ if [[ "$SESSION_PATH" =~ $WORKTREE_PATTERN ]]; then
   exit 0
 fi
 
-# Regular git repo with .git directory - run dev.sh with current path
-if [[ -d "$SESSION_PATH/.git" ]]; then
+# Regular git repo with .git directory or file - run dev.sh with current path
+if [[ -d "$SESSION_PATH/.git" || -f "$SESSION_PATH/.git" ]]; then
   ~/.config/sesh/dev.sh '' "$SESSION_PATH"
   exit 0
 fi

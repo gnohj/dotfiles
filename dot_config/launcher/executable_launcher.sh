@@ -20,11 +20,13 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 main_menu() {
   local choice
   choice=$(printf "🎨 Themes\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
-    fzf --height=80% \
-      --reverse \
+    ~/Scripts/fzf-vim.sh --height=80% \
       --prompt="❯ " \
       --ansi \
       $FZF_COLORS)
+
+  # Clear residual fzf output before running action
+  clear
 
   case "$choice" in
   "🎨 Themes") themes_menu ;;
@@ -104,8 +106,7 @@ main_menu() {
 themes_menu() {
   local choice
   choice=$(printf "🎨 All\n🌙 Dark\n☀️ Light\n← Back" |
-    fzf --height=40% \
-      --reverse \
+    ~/Scripts/fzf-vim.sh --height=40% \
       --header="Themes" \
       --prompt="Theme > " \
       --ansi \
@@ -212,9 +213,8 @@ light_themes_menu() {
 aliases_menu() {
   local selected
   # Source zshrc to get all aliases
-  selected=$(zsh -c "source ~/.config/zshrc/.zshrc && alias" | fzf \
+  selected=$(zsh -c "source ~/.config/zshrc/.zshrc && alias" | ~/Scripts/fzf-vim.sh \
     --height=80% \
-    --reverse \
     --header="Aliases (select to copy) - Type to search" \
     --prompt="Alias > " \
     $FZF_COLORS)
