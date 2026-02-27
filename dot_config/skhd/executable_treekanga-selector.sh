@@ -16,7 +16,8 @@ tmux display-popup -E -w 28% -h 40% -b none "
 
   REPOS=\$(grep -E '^  [a-zA-Z0-9_-]+:\$' \"\$CONFIG_FILE\" | sed 's/^  //' | sed 's/:\$//' | awk '{print \"📂 \" \$0}')
 
-  SELECTED=\$(echo \"\$REPOS\" | fzf --no-border \
+  SELECTED=\$(echo \"\$REPOS\" | \$HOME/Scripts/fzf-vim.sh \
+    --no-border \
     --ansi \
     --list-border \
     --no-sort \
@@ -39,14 +40,14 @@ tmux display-popup -E -w 28% -h 40% -b none "
     found && /worktreeTargetDir:/ { gsub(/.*worktreeTargetDir: */, \"\"); print; exit }
   ' \"\$CONFIG_FILE\")
 
-  # Get bareRepoName (usually .git)
+  # Get bareRepoName (usually .bare)
   BARE_NAME=\$(awk -v repo=\"\$SELECTED\" '
     \$0 ~ \"^  \" repo \":\$\" { found=1; next }
     found && /^  [a-zA-Z]/ { found=0 }
     found && /bareRepoName:/ { gsub(/.*bareRepoName: */, \"\"); print; exit }
   ' \"\$CONFIG_FILE\")
 
-  BARE_REPO_PATH=\"\$HOME/\$WORKTREE_DIR/\${BARE_NAME:-.git}\"
+  BARE_REPO_PATH=\"\$HOME/\$WORKTREE_DIR/\${BARE_NAME:-.bare}\"
 
   tmux new-window -n '🌳' -c \"\$BARE_REPO_PATH\" 'export PATH=\"/opt/homebrew/bin:\$PATH\"; /opt/homebrew/bin/treekanga tui'
 "
