@@ -30,7 +30,7 @@ require("lazy").setup({
       enabled = false,
     },
     {
-      "ggandor/leap.nvim",
+      "https://codeberg.org/andyg/leap.nvim.git",
       enabled = false,
     },
     {
