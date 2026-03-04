@@ -8,6 +8,9 @@ prSections:
   - title: All Open (web)
     filters: is:open repo:iheartradio/web
     limit: 50
+  - title: All Open (inferno)
+    filters: is:open repo:iheartradio/inferno-monorepo
+    limit: 50
 issuesSections:
   - title: My Issues
     filters: is:open author:@me
