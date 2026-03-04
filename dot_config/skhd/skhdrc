@@ -16,6 +16,18 @@ rctrl - tab : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
 rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
 rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
 
+# Tmux window selection by number (windows are 0-indexed)
+rctrl - 1 : /opt/homebrew/bin/tmux select-window -t :0
+rctrl - 2 : /opt/homebrew/bin/tmux select-window -t :1
+rctrl - 3 : /opt/homebrew/bin/tmux select-window -t :2
+rctrl - 4 : /opt/homebrew/bin/tmux select-window -t :3
+rctrl - 5 : /opt/homebrew/bin/tmux select-window -t :4
+rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :5
+rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :6
+rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :7
+rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :8
+rctrl - 0 : /opt/homebrew/bin/tmux select-window -t :9
+
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 # Tmux smart dual split creation (70/30 split on first pane)
