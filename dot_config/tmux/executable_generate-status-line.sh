@@ -34,6 +34,7 @@ fi
 WINDOWS=$(tmux list-windows -F '#{window_index}:#{window_name}:#{window_active}')
 
 WINDOW_LIST=""
+NUM=1
 while IFS=: read -r idx name active; do
   if [ -n "$WINDOW_LIST" ]; then
     SPACING="  "
@@ -42,10 +43,11 @@ while IFS=: read -r idx name active; do
   fi
 
   if [ "$active" = "1" ]; then
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color24}]*#[fg=${gnohj_color04}]${name}"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color03}]${NUM}.${name}*"
   else
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color08}]${name}"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color08}]${NUM}.${name}"
   fi
+  NUM=$((NUM + 1))
 done <<<"$WINDOWS"
 
 # Build complete status line
