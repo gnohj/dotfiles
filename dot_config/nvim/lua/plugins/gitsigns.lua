@@ -20,8 +20,8 @@ return {
     },
     on_attach = function(buffer)
       -- Skip gitsigns in codediff tabs
-      local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
-      if ok then
+      local lifecycle = package.loaded["codediff.ui.lifecycle"]
+      if lifecycle then
         local tabpage = vim.api.nvim_get_current_tabpage()
         if lifecycle.get_session(tabpage) then
           return

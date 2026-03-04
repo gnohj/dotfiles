@@ -475,8 +475,8 @@ return {
           end
 
           -- Check if we're in a codediff tab (session-based check)
-          local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
-          if ok then
+          local lifecycle = package.loaded["codediff.ui.lifecycle"]
+          if lifecycle then
             local tabpage = vim.api.nvim_win_get_tabpage(win)
             if lifecycle.get_session(tabpage) then
               return false
