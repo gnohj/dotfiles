@@ -98,8 +98,8 @@ function update_starship_env() {
       local repo_name=$(basename "$toplevel")
 
       # For worktrees, use the bare repo name from git-common-dir
-      # git-common-dir returns path like /path/to/inferno/.git for worktrees
-      if [[ "$git_common_dir" != ".git" && "$git_common_dir" == */.git ]]; then
+      # git-common-dir returns path like /path/to/inferno/.bare for worktrees
+      if [[ "$git_common_dir" != ".git" && ("$git_common_dir" == */.git || "$git_common_dir" == */.bare) ]]; then
         repo_name=$(basename "$(dirname "$git_common_dir")")
       fi
 
