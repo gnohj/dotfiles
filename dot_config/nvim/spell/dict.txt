@@ -33,6 +33,7 @@ Grugfar
 HAR
 Hotfixes
 HttpOnly
+IAM
 IHRSessionBackend
 IHRWEB
 IaC
@@ -43,6 +44,7 @@ LocalStorage
 MacOS
 MobX
 N/A
+OIDC
 OS
 OTP
 Omny
@@ -113,6 +115,7 @@ i18next
 iHeartMedia
 iHeartRadio
 iheart
+ihr
 isBot
 jira
 js
