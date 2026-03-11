@@ -26,7 +26,7 @@ if [ -n "$PANE_ID" ]; then
 
   if [ -d "$DIR" ]; then
     GIT_INFO=$(cd "$DIR" 2>/dev/null && gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh")
-    [ -n "$GIT_INFO" ] && GIT_INFO="${GIT_INFO} "
+    [ -n "$GIT_INFO" ] && GIT_INFO="${GIT_INFO}  "
   fi
 fi
 
@@ -43,9 +43,9 @@ while IFS=: read -r idx name active; do
   fi
 
   if [ "$active" = "1" ]; then
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color03}]${NUM}.${name}*"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color03}]${NUM}:${name}*"
   else
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color08}]${NUM}.${name}"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color08}]${NUM}:${name}"
   fi
   NUM=$((NUM + 1))
 done <<<"$WINDOWS"
