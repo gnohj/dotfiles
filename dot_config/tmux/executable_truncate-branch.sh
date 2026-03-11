@@ -52,7 +52,7 @@ if [ -n "$input" ]; then
         my $pr_num = $ENV{PR_NUM};
         my $pr_color = $ENV{PR_COLOR};
         my $pr_suffix = " #[fg=$pr_color]#$pr_num";
-        s/\]([A-Za-z0-9_-]+)(\s)/]${branch}${pr_suffix}/;
+        s/\]([A-Za-z0-9_-]+)(\s)/]${branch}${pr_suffix} /;
       }
     ' <<<"$output")
   fi
