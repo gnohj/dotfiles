@@ -25,7 +25,7 @@ if [ -n "$PANE_ID" ]; then
   DIR=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
 
   if [ -d "$DIR" ]; then
-    GIT_INFO=$(cd "$DIR" 2>/dev/null && gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh")
+    GIT_INFO=$(cd "$DIR" 2>/dev/null && gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh" | sed 's/ *#\[none\]$//')
     [ -n "$GIT_INFO" ] && GIT_INFO="${GIT_INFO}  "
   fi
 fi
