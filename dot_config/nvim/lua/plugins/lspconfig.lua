@@ -162,13 +162,8 @@ return {
         eslint = {
           settings = {
             format = true,
-            run = "onSave", -- Only run on save for performance
+            run = "onType",
           },
-          on_attach = function(client, bufnr)
-            -- Manually enable formatting capability since ESLint uses dynamic registration
-            -- which Neovim doesn't support
-            client.server_capabilities.documentFormattingProvider = true
-          end,
         },
         -- Disabled servers for performance
         angularls = { enabled = false },
@@ -190,6 +185,34 @@ return {
         vue_ls = { enabled = false },
         astro = { enabled = false },
       })
+
+      -- Override eslint setup to use fixAll code action instead of LSP format
+      -- (LazyVim routes LSP format through conform which swallows the eslint request)
+      opts.setup = opts.setup or {}
+      opts.setup.eslint = function()
+        local auto_format = vim.g.lazyvim_eslint_auto_format == nil or vim.g.lazyvim_eslint_auto_format
+        if not auto_format then
+          return
+        end
+        LazyVim.format.register({
+          name = "eslint: fixAll",
+          primary = false,
+          priority = 200,
+          format = function(buf)
+            local client = vim.lsp.get_clients({ name = "eslint", bufnr = buf })[1]
+            if client then
+              vim.lsp.buf.code_action({
+                apply = true,
+                context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
+              })
+            end
+          end,
+          sources = function(buf)
+            local clients = vim.lsp.get_clients({ name = "eslint", bufnr = buf })
+            return #clients > 0 and { "eslint" } or {}
+          end,
+        })
+      end
 
       opts.inlay_hints = {
         enabled = false,
