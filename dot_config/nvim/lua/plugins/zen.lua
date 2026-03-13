@@ -483,6 +483,35 @@ return {
       desc = "Fix zen.nvim split detection",
     })
 
+    -- PATCH 2.5: Re-create zen padding when back to single window
+    vim.api.nvim_create_autocmd("WinClosed", {
+      group = group,
+      callback = function()
+        vim.schedule(function()
+          if is_codediff_tab() or is_dashboard_visible() or is_zen_active() then
+            return
+          end
+          if vim.o.columns <= opts.main.width then
+            return
+          end
+
+          -- Count real editor windows
+          local normal_wins = 0
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            local config = vim.api.nvim_win_get_config(win)
+            if config.relative == "" and not is_side_panel_window(win) then
+              normal_wins = normal_wins + 1
+            end
+          end
+
+          if normal_wins == 1 then
+            create_zen_windows(opts.main.width)
+          end
+        end)
+      end,
+      desc = "Re-create zen padding when back to single window",
+    })
+
     -- PATCH 3: Manually create zen windows after lazy-load (VimEnter already fired)
     vim.schedule(function()
       -- Skip if in codediff tab, dashboard visible, or window too small
