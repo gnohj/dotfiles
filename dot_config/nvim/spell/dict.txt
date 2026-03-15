@@ -53,10 +53,11 @@ OneTrustActiveGroups
 OneTrustManager
 Outbrain
 Outseam
-PR
 Pulumi's
+RE Deploys
 RRv7
 RadioEdit
+RadioEdit's
 SSR
 STN
 SameSite
@@ -87,6 +88,7 @@ bashrc
 breakfastclub
 cdn
 changesets
+ci
 cli
 cmd
 cron
@@ -140,6 +142,7 @@ pid
 pids
 pnpm
 po
+pr
 prNumber
 profileId
 pulumi
@@ -179,4 +182,5 @@ which
 worktree
 www
 www's
+yml
 z100
