@@ -7,5 +7,10 @@ return {
   opts = {
     picker = "snacks",
     toggle_key = "<C-e>",
+    picker_opts = {
+      hidden = true,
+      ignored = false,
+      exclude = { "node_modules" },
+    },
   },
 }
