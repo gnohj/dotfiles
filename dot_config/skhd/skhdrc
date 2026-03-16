@@ -26,7 +26,7 @@ rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :5
 rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :6
 rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :7
 rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :8
-rctrl - 0 : /opt/homebrew/bin/tmux select-window -t :9
+rctrl - 0 : /opt/homebrew/bin/tmux list-windows -F '#{window_index}' | tail -n +2 | sort -rn | xargs -I{} /opt/homebrew/bin/tmux kill-window -t :{}
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
