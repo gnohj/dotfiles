@@ -17,4 +17,5 @@ http-client.private.env.json
 *.private.env.json
 .playwright-mcp/
 .mise.local.toml
+.99-tmp
 
