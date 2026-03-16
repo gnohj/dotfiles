@@ -200,7 +200,11 @@ return {
           priority = 200,
           format = function(buf)
             local client = vim.lsp.get_clients({ name = "eslint", bufnr = buf })[1]
-            if client then
+            if not client then
+              return
+            end
+            local diag = vim.diagnostic.get(buf, { namespace = vim.lsp.diagnostic.get_namespace(client.id) })
+            if #diag > 0 then
               vim.lsp.buf.code_action({
                 apply = true,
                 context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
