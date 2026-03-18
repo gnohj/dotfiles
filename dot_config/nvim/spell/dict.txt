@@ -127,6 +127,7 @@ loginToken
 md
 microsite
 microsite's
+minReplicas
 mise
 msg
 ncc
