@@ -20,6 +20,7 @@ ComScore
 DFP
 DWIM
 DailyMotion
+ECR
 EXCO
 EdgeWAF
 FB
@@ -86,6 +87,7 @@ backmerge
 base64
 bashrc
 breakfastclub
+buildx
 cdn
 changesets
 ci
