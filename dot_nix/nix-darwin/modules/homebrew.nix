@@ -49,6 +49,7 @@
       "gitmux"
       "morantron/tmux-fingers/tmux-fingers"
       "sesh"
+      "television"
       "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
