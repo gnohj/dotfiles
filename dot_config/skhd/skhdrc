@@ -58,7 +58,7 @@ rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
-rctrl - n : ~/.config/skhd/treekanga-selector.sh
+rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
 rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
