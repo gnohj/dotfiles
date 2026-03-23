@@ -80,6 +80,7 @@ WiFi
 XSS
 Zsh
 a.
+ai
 api
 axios
 backgrounded
@@ -91,6 +92,7 @@ buildx
 cdn
 changesets
 ci
+claude
 cli
 cmd
 cron
