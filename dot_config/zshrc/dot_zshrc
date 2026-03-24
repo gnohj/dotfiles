@@ -363,114 +363,48 @@ alias test='pnpm turbo test'
 alias typecheck='pnpm turbo typecheck'
 
 # Select a file with nvim in curr dir
-_fzf_nvim_current() {
+# File pickers using television (tv)
+fzc() {
     local file
-    file=$(fzf -m --border-label="📂 Current Directory" --preview="bat -n --color=always --line-range=:500 {} 2>/dev/null || echo \"Error previewing file\"" --height=70% --layout=default --border=rounded)
-    [[ -n "$file" ]] && nvim $file
+    file=$(tv files)
+    file="${file%"${file##*[![:space:]]}"}"  # trim trailing whitespace
+    [[ -n "$file" ]] && nvim "$file"
 }
-alias fzc='_fzf_nvim_current'
 
-# Nvim oldfiles with fzf - open recent files from Neovim history
-_fzf_nvim_oldfiles() {
-    # Get the oldfiles list from Neovim
-    local oldfiles=($(nvim -u NONE --headless +'lua io.write(table.concat(vim.v.oldfiles, "\n") .. "\n")' +qa))
-
-    # Filter invalid paths or files not found
-    local valid_files=()
-    for file in "${oldfiles[@]}"; do
-        if [[ -f "$file" ]]; then
-            valid_files+=("$file")
-        fi
-    done
-
-    # Use fzf to select from valid files
-    local files=($(printf "%s\n" "${valid_files[@]}" | \
-        grep -v '\[.*' | \
-        fzf --multi \
-        --border-label="📜 Neovim History" \
-        --preview 'bat -n --color=always --line-range=:500 {} 2>/dev/null || echo "Error previewing file"' \
-        --height=70% \
-        --layout=default \
-        --border=rounded))
-
-    # Open selected files in Neovim
-    [[ ${#files[@]} -gt 0 ]] && nvim "${files[@]}"
+fzh() {
+    local file
+    file=$(tv recent-files)
+    [[ -n "$file" ]] && nvim "$file"
 }
-alias fzh='_fzf_nvim_oldfiles'
 
-# Search files across zoxide-tracked directories with fzf
-_fzf_zoxide_search() {
-    if [ -z "$1" ]; then
-        # No args: search all files in zoxide-tracked directories
-        file="$(fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup | fzf --border-label="🚀 Zoxide Directories" --height=70% --border=rounded --preview='bat -n --color=always --line-range :500 {}')"
-        if [ -n "$file" ]; then
-            nvim "$file"
-        fi
-    else
-        # With args: search for pattern in zoxide directories
-        lines=$(zoxide query -l | xargs -I {} fd --type f -I -H -E .git -E .git-crypt -E .cache -E .backup -E .vscode "$1" {} | fzf --no-sort --border-label="🚀 Zoxide Directories" --border=rounded)
-        line_count="$(echo "$lines" | wc -l | xargs)"
-
-        if [ -n "$lines" ] && [ "$line_count" -eq 1 ]; then
-            # Single match: open directly
-            nvim "$lines"
-        elif [ -n "$lines" ]; then
-            # Multiple matches: fzf with preview
-            file=$(echo "$lines" | fzf --query="$1" --border-label="🚀 Zoxide Directories" --height=70% --border=rounded --preview='bat -n --color=always --line-range :500 {}')
-            if [ -n "$file" ]; then
-                nvim "$file"
-            fi
-        else
-            echo "No matches found." >&2
-        fi
-    fi
+fzz() {
+    local file
+    file=$(tv zoxide)
+    [[ -n "$file" ]] && nvim "$file"
 }
-alias fzz='_fzf_zoxide_search'
 
-# Browse environment variables and copy to clipboard
-_fzf_env_vars() {
-    local selection
-    # Get all env vars, format as "NAME=value", select with fzf, copy value to clipboard
-    selection=$(env | sort | fzf \
-        --border-label="🔧 Environment Variables" \
-        --height=70% \
-        --border=rounded \
-        --preview='echo {} | cut -d= -f2-' \
-        --preview-window=up:3:wrap)
-
-    if [[ -n "$selection" ]]; then
-        # Extract just the value (everything after first =)
-        local value="${selection#*=}"
+fze() {
+    local value
+    value=$(tv env)
+    if [[ -n "$value" ]]; then
         echo -n "$value" | pbcopy
-        echo "✅ Copied to clipboard: ${selection%%=*}"
+        echo "Copied to clipboard"
     fi
 }
-alias fze='_fzf_env_vars'
 
-# Browse and open log files with fzf
-_fzf_logs() {
+fzl() {
     local log_file
-    log_file=$(fd --type f . ~/.logs | fzf \
-        --border-label="📋 Log Files" \
-        --height=70% \
-        --border=rounded \
-        --preview='bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}' \
-        --preview-window=up:70%)
-
+    log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
     [[ -n "$log_file" ]] && nvim "$log_file"
 }
-alias fzl='_fzf_logs'
 
 # Search and insert alias name into command line
 unalias fza 2>/dev/null  # Remove old alias if it exists
 fza() {
     local selected
-    selected=$(alias | fzf --preview 'echo {}' --preview-window=up:3:wrap)
+    selected=$(tv alias)
     if [[ -n "$selected" ]]; then
-        # Extract just the alias name (before the '=')
-        local alias_name="${selected%%=*}"
-        # Use print -z to put it in the buffer (ready to execute with Enter)
-        print -z "$alias_name"
+        print -z "$selected"
     fi
 }
 
