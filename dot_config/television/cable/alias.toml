@@ -1,0 +1,15 @@
+[metadata]
+name = "alias"
+description = "A channel to select from shell aliases"
+
+[source]
+command = "$SHELL -ic 'alias'"
+output = "{split:=:0}"
+
+[preview]
+command = "echo {}"
+
+[actions.run]
+description = "Execute the selected alias"
+command = "$SHELL -ic '{split:=:0}'"
+mode = "execute"
