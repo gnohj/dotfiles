@@ -79,6 +79,17 @@ return {
     return opts
   end,
 
+  init = function()
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "MiniFilesBufferCreate",
+      callback = function(args)
+        local buf = args.data.buf_id
+        vim.keymap.set("n", "J", "<Nop>", { buffer = buf })
+        vim.keymap.set("n", "K", "<Nop>", { buffer = buf })
+      end,
+    })
+  end,
+
   keys = {
     {
       -- Open the directory of the file currently being edited
