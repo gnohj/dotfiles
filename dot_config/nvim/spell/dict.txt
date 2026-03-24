@@ -62,6 +62,8 @@ RadioEdit's
 SSR
 STN
 SameSite
+SetPrimaryBuild
+SetTraffic
 Sig
 SigSci
 SocialFlow
@@ -73,6 +75,7 @@ TraceId
 TrackEnd
 Transifex
 Turborepo
+UpdateApp
 UserCookie
 WAF
 WebRelease
