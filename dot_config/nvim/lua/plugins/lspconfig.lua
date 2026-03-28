@@ -203,8 +203,15 @@ return {
             if not client then
               return
             end
-            local diag = vim.diagnostic.get(buf, { namespace = vim.lsp.diagnostic.get_namespace(client.id) })
-            if #diag > 0 then
+            -- Check all diagnostics for eslint source (works with both push and pull diagnostic models)
+            local has_eslint_diag = false
+            for _, d in ipairs(vim.diagnostic.get(buf)) do
+              if d.source and d.source:lower():find("eslint") then
+                has_eslint_diag = true
+                break
+              end
+            end
+            if has_eslint_diag then
               vim.lsp.buf.code_action({
                 apply = true,
                 context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
