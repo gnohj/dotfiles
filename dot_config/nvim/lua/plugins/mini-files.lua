@@ -28,7 +28,7 @@ return {
       width_preview = 80,
     })
 
-    vim.g.mini_files_show_c = vim.g.mini_files_show_c or false
+    if vim.g.mini_files_show_c == nil then vim.g.mini_files_show_c = true end
 
     opts.content = vim.tbl_deep_extend("force", opts.content or {}, {
       filter = function(entry)
