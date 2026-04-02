@@ -5,12 +5,14 @@ return {
     opts = {
       linters_by_ft = {
         yaml = { "actionlint" }, -- only does workflow files
+        ["yaml.github"] = { "actionlint" },
         markdown = {}, -- Disable markdownlint-cli2 from LazyVim markdown extra
       },
       linters = {
         actionlint = {
           condition = function(ctx)
             return ctx.filename:match("%.github/workflows/.*%.ya?ml$")
+              or ctx.filename:match("%.github/actions/.*%.ya?ml$")
           end,
         },
       },
