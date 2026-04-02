@@ -163,6 +163,36 @@ return {
           settings = {
             format = true,
             run = "onType",
+            quiet = true,
+          },
+          handlers = {
+            -- Suppress "No ESLint configuration found" errors
+            ["window/showMessageRequest"] = function(_, result)
+              if result and result.message and result.message:find("No ESLint configuration found") then
+                return vim.NIL
+              end
+              return vim.lsp.handlers["window/showMessageRequest"](nil, result)
+            end,
+            ["textDocument/diagnostic"] = function(err, result, ctx, config)
+              if err and err.message and err.message:find("No ESLint configuration found") then
+                return
+              end
+              return vim.lsp.handlers["textDocument/diagnostic"](err, result, ctx, config)
+            end,
+          },
+        },
+        -- GitHub Actions LSP
+        gh_actions_ls = {
+          cmd = { "gh-actions-language-server", "--stdio" },
+          filetypes = { "yaml.github" },
+          root_dir = function(fname)
+            return require("lspconfig.util").root_pattern(".github")(fname)
+          end,
+          single_file_support = true,
+          capabilities = {
+            workspace = {
+              didChangeWorkspaceFolders = { dynamicRegistration = true },
+            },
           },
         },
         -- Disabled servers for performance
