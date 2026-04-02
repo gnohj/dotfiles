@@ -154,7 +154,12 @@ return {
         pcall(function()
           local clients = vim.lsp.get_clients({ bufnr = buf })
           for _, client in ipairs(clients) do
-            vim.lsp.buf_detach_client(buf, client.id)
+            -- buf_detach_client removed in 0.12, use buf_detach if available
+            if client.buf_detach then
+              client:buf_detach(buf)
+            elseif vim.lsp.buf_detach_client then
+              vim.lsp.buf_detach_client(buf, client.id)
+            end
           end
         end)
         vim.b[buf].lsp_disabled = true
