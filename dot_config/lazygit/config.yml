@@ -14,6 +14,7 @@ os:
 gui:
   showFileTree: false
   showBottomLine: false
+  showCommandLog: false
   theme:
     activeBorderColor:
       - "#b7ce97"
