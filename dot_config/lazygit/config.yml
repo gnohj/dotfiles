@@ -12,6 +12,7 @@ git:
 os:
   editPreset: nvim
 gui:
+  showFileTree: false
   showBottomLine: false
   theme:
     activeBorderColor:
