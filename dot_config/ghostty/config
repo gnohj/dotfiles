@@ -48,7 +48,7 @@ font-size = 15
 # font-thicken = true
 
 # cursor
-shell-integration-features = no-cursor
+shell-integration-features = no-cursor,no-sudo,no-title
 cursor-style = block
 cursor-style-blink = false
 
@@ -66,15 +66,17 @@ command = /bin/zsh --login
 # window
 gtk-titlebar = false
 mouse-hide-while-typing = true
-macos-titlebar-style = hidden
+macos-titlebar-style = transparent
+macos-titlebar-proxy-icon = hidden
 window-decoration = true
+# title removed - let Ghostty show app icon by default
 
 # mac only
 window-colorspace = display-p3
 
 window-padding-balance = true
 window-padding-x = 20,20
-window-padding-y = 20,8
+window-padding-y = 0,8
 macos-window-shadow = false
 macos-option-as-alt = right
 
@@ -97,7 +99,7 @@ quit-after-last-window-closed = true
 # Disable automatic secure keyboard entry for password prompts
 # This prevents conflicts with skhd
 shell-integration = detect
-shell-integration-features = no-sudo
+# shell-integration-features merged into line 51
 
 keybind = shift+enter=text:\n
 

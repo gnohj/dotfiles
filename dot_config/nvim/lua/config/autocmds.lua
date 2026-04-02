@@ -250,4 +250,48 @@ vim.filetype.add({
   extension = {
     ["http"] = "http",
   },
+  pattern = {
+    [".*/%.github/workflows/.*%.ya?ml"] = "yaml.github",
+    [".*/%.github/actions/.*%.ya?ml"] = "yaml.github",
+  },
+})
+
+-- ============================================================================
+-- LSP progress → Ghostty terminal progress bar (OSC 9;4)
+-- ============================================================================
+vim.api.nvim_create_autocmd("LspProgress", {
+  callback = function(ev)
+    local value = ev.data.params.value or {}
+    if not value.kind then return end
+
+    local status, percent
+    if value.kind == "end" then
+      status, percent = 0, 0
+    elseif value.percentage then
+      status, percent = 1, value.percentage
+    else
+      status, percent = 3, 0 -- indeterminate spinner
+    end
+
+    local osc_seq = string.format("\27]9;4;%d;%d\a", status, percent)
+
+    if os.getenv("TMUX") then
+      osc_seq = string.format("\27Ptmux;\27%s\27\\", osc_seq)
+    end
+
+    io.stdout:write(osc_seq)
+    io.stdout:flush()
+  end,
+})
+
+-- Clear Ghostty progress bar on exit (prevents stuck indicator)
+vim.api.nvim_create_autocmd({ "VimLeavePre", "ExitPre" }, {
+  callback = function()
+    local osc = "\27]9;4;0;100\a"
+    if os.getenv("TMUX") then
+      osc = string.format("\27Ptmux;\27%s\27\\", osc)
+    end
+    io.stdout:write(osc)
+    io.stdout:flush()
+  end,
 })
