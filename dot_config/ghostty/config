@@ -68,8 +68,9 @@ gtk-titlebar = false
 mouse-hide-while-typing = true
 macos-titlebar-style = transparent
 macos-titlebar-proxy-icon = hidden
+macos-window-buttons = hidden
 window-decoration = true
-# title removed - let Ghostty show app icon by default
+title = " "
 
 # mac only
 window-colorspace = display-p3
