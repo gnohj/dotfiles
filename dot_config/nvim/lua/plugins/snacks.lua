@@ -274,7 +274,7 @@ return {
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
           if
             vim.api.nvim_buf_is_loaded(buf)
-            and vim.api.nvim_buf_get_option(buf, "modified")
+            and vim.bo[buf].modified
           then
             local name = vim.api.nvim_buf_get_name(buf)
             local display_name = name == "" and "[No Name]"
@@ -317,7 +317,7 @@ return {
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
           if
             vim.api.nvim_buf_is_loaded(buf)
-            and vim.api.nvim_buf_get_option(buf, "modified")
+            and vim.bo[buf].modified
           then
             local name = vim.api.nvim_buf_get_name(buf)
             local display_name = name == "" and "[No Name]"

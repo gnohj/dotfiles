@@ -31,6 +31,9 @@ end, { desc = "Go to Definition" })
 -- Quit Neovim instance with save and quit all
 keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
 
+-- Restart Neovim (nvim 0.12+)
+keymap("n", "<leader>qr", "<cmd>restart<cr>", { desc = "[P]Restart Neovim" })
+
 -- Toggle relative line numbers (both number and relativenumber)
 keymap("n", "<leader>tn", function()
   local current = vim.opt.number:get()
@@ -498,17 +501,9 @@ keymap("n", "<CR>", function()
 end, { desc = "[P]Toggle fold" })
 
 local function set_foldmethod_expr()
-  -- These are lazyvim.org defaults but setting them just in case a file
-  -- doesn't have them set
-  if vim.fn.has("nvim-0.10") == 1 then
-    vim.opt.foldmethod = "expr"
-    vim.opt.foldexpr = "v:lua.require'lazyvim.util'.treesitter.foldexpr()"
-    vim.opt.foldtext = ""
-  else
-    vim.opt.foldmethod = "indent"
-    vim.opt.foldtext = "v:lua.require'lazyvim.util'.ui.foldtext()"
-  end
-  -- vim.opt.foldlevel = 99 -- Remove this line.  We'll set foldlevel in the keymaps.
+  vim.opt.foldmethod = "expr"
+  vim.opt.foldexpr = "v:lua.require'lazyvim.util'.treesitter.foldexpr()"
+  vim.opt.foldtext = ""
 end
 
 --
