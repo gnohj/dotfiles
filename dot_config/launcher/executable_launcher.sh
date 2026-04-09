@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🎨 Themes\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
+  choice=$(printf "🎨 Themes\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
     ~/Scripts/fzf-vim.sh --height=80% \
       --prompt="❯ " \
       --ansi \
@@ -76,6 +76,14 @@ main_menu() {
       echo "system-setup.sh not found"
       sleep 2
     fi
+    ;;
+  "⬆️ Run System Update")
+    echo "Updating nix flake inputs..."
+    nix flake update --flake ~/.nix
+    echo "Rebuilding system with updated packages..."
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
+    echo "\nSystem update complete. Press any key to continue..."
+    read -k1
     ;;
   "👤 Run User Setup")
     if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
