@@ -11,7 +11,7 @@ local function buffer_count_with_unsaved()
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if
       vim.api.nvim_buf_is_loaded(buf)
-      and vim.api.nvim_buf_get_option(buf, "modified")
+      and vim.bo[buf].modified
     then
       unsaved_count = unsaved_count + 1
     end
@@ -26,7 +26,7 @@ local function buffer_count_with_unsaved()
 end
 
 local function current_buffer_unsaved_dot()
-  if vim.api.nvim_buf_get_option(0, "modified") then
+  if vim.bo[0].modified then
     local count = buffer_count_with_unsaved()
 
     return "🚨" .. count

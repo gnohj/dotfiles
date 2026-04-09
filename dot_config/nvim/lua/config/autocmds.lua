@@ -257,13 +257,14 @@ vim.filetype.add({
 })
 
 -- ============================================================================
--- LSP progress → Ghostty terminal progress bar (OSC 9;4)
+-- LSP progress → Ghostty terminal progress bar (OSC 9;4) + nvim 0.12 echo
 -- ============================================================================
 vim.api.nvim_create_autocmd("LspProgress", {
   callback = function(ev)
     local value = ev.data.params.value or {}
     if not value.kind then return end
 
+    -- OSC 9;4 for Ghostty progress bar
     local status, percent
     if value.kind == "end" then
       status, percent = 0, 0
@@ -274,13 +275,24 @@ vim.api.nvim_create_autocmd("LspProgress", {
     end
 
     local osc_seq = string.format("\27]9;4;%d;%d\a", status, percent)
-
     if os.getenv("TMUX") then
       osc_seq = string.format("\27Ptmux;\27%s\27\\", osc_seq)
     end
-
     io.stdout:write(osc_seq)
     io.stdout:flush()
+
+    -- nvim 0.12 echo progress (bottom status message)
+    local msg = value.message or "done"
+    if #msg > 40 then msg = msg:sub(1, 37) .. "..." end
+    local client = ev.data.client_id and vim.lsp.get_client_by_id(ev.data.client_id)
+    vim.api.nvim_echo({ { msg } }, false, {
+      id = "lsp",
+      kind = "progress",
+      title = value.title,
+      source = client and client.name or "lsp",
+      status = value.kind ~= "end" and "running" or "success",
+      percent = value.percentage,
+    })
   end,
 })
 
