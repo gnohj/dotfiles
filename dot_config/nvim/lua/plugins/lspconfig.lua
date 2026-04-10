@@ -199,7 +199,23 @@ return {
         angularls = { enabled = false },
         tailwindcss = { enabled = false },
         html = { enabled = false },
-        jsonls = { enabled = false },
+        jsonls = {
+          settings = {
+            json = {
+              schemas = {
+                {
+                  fileMatch = { "**/.claude/settings.json", "**/.claude/settings.local.json" },
+                  url = "https://json.schemastore.org/claude-code-settings.json",
+                },
+                {
+                  fileMatch = { "**/.claude/keybindings.json" },
+                  url = "https://json.schemastore.org/claude-code-keybindings.json",
+                },
+              },
+              validate = { enable = true },
+            },
+          },
+        },
         marksman = { enabled = false },
         pyright = { enabled = false },
         ruff = { enabled = false },
