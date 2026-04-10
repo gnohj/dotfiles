@@ -137,6 +137,7 @@
     # Mac App Store apps (requires mas-cli)
     masApps = {
       "Xcode" = 497799835;
+      "Brother iPrint&Scan" = 1193539993;
     };
   };
 }
