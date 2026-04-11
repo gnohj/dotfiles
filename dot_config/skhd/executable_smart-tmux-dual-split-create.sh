@@ -13,7 +13,7 @@ if [ "$PANE_COUNT" -eq 1 ]; then
   # Single pane - create split on the right side
   tmux split-window -h -c "#{pane_current_path}"
   # Make the left pane (Neovim) take up most of the space
-  tmux resize-pane -t 0 -x 78%
+  tmux resize-pane -t 0 -x 75%
 else
   # Multiple panes exist - use default split behavior
   tmux split-window -h -c "#{pane_current_path}"
