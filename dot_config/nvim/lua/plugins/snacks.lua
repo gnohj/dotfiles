@@ -272,10 +272,7 @@ return {
         local unsaved_buffers = {}
         local buffer_map = {}
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-          if
-            vim.api.nvim_buf_is_loaded(buf)
-            and vim.bo[buf].modified
-          then
+          if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].modified then
             local name = vim.api.nvim_buf_get_name(buf)
             local display_name = name == "" and "[No Name]"
               or vim.fn.fnamemodify(name, ":~:.")
@@ -315,10 +312,7 @@ return {
         local unsaved_buffers = {}
         local buffer_map = {}
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-          if
-            vim.api.nvim_buf_is_loaded(buf)
-            and vim.bo[buf].modified
-          then
+          if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].modified then
             local name = vim.api.nvim_buf_get_name(buf)
             local display_name = name == "" and "[No Name]"
               or vim.fn.fnamemodify(name, ":~:.")
@@ -432,8 +426,11 @@ return {
         elseif root:match("/Developer/inferno/") then
           base = "origin/develop"
         else
-          local head = vim.fn.systemlist("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null")[1]
-          base = head and head:match("(refs/remotes/origin/.+)") or "origin/main"
+          local head = vim.fn.systemlist(
+            "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null"
+          )[1]
+          base = head and head:match("(refs/remotes/origin/.+)")
+            or "origin/main"
         end
         Snacks.picker.git_diff({
           title = "PR Changes (vs " .. base:gsub("origin/", "") .. ")",
@@ -645,6 +642,41 @@ return {
             action = ":qa",
           },
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+          {
+            icon = " ",
+            key = "c",
+            desc = "Claude Code (New)",
+            action = function()
+              vim.fn.system(
+                'tmux split-window -h -c "'
+                  .. vim.fn.getcwd()
+                  .. '" "claude --dangerously-skip-permissions"'
+              )
+              vim.fn.system("tmux resize-pane -t 0 -x 78%")
+            end,
+          },
+          {
+            icon = " ",
+            key = "p",
+            desc = "Claude Code (Plan)",
+            action = function()
+              vim.fn.system('tmux split-window -h -c "' .. vim.fn.getcwd() .. '" "claude --dangerously-skip-permissions --permission-mode plan"')
+              vim.fn.system('tmux resize-pane -t 0 -x 78%')
+            end,
+          },
+          {
+            icon = " ",
+            key = "r",
+            desc = "Claude Code (Resume)",
+            action = function()
+              vim.fn.system(
+                'tmux split-window -h -c "'
+                  .. vim.fn.getcwd()
+                  .. '" "claude --dangerously-skip-permissions --resume"'
+              )
+              vim.fn.system("tmux resize-pane -t 0 -x 78%")
+            end,
+          },
         },
       },
     },
