@@ -652,7 +652,7 @@ return {
                   .. vim.fn.getcwd()
                   .. '" "claude --dangerously-skip-permissions"'
               )
-              vim.fn.system("tmux resize-pane -t 0 -x 78%")
+              vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
           },
           {
@@ -661,7 +661,7 @@ return {
             desc = "Claude Code (Plan)",
             action = function()
               vim.fn.system('tmux split-window -h -c "' .. vim.fn.getcwd() .. '" "claude --dangerously-skip-permissions --permission-mode plan"')
-              vim.fn.system('tmux resize-pane -t 0 -x 78%')
+              vim.fn.system('tmux resize-pane -t 0 -x 75%')
             end,
           },
           {
@@ -674,7 +674,7 @@ return {
                   .. vim.fn.getcwd()
                   .. '" "claude --dangerously-skip-permissions --resume"'
               )
-              vim.fn.system("tmux resize-pane -t 0 -x 78%")
+              vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
           },
         },
