@@ -101,8 +101,8 @@ main_menu() {
   "📸 Copy Recent Screenshot")
     ~/.config/skhd/copy-recent-screenshot.sh
     ;;
-  *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_env_vars" ;;
-  *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && _fzf_logs" ;;
+  *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && fze" ;;
+  *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && fzl" ;;
   *"fza"*) aliases_menu ;;
   *) exit 0 ;;
   esac
