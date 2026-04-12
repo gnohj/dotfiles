@@ -40,6 +40,7 @@ REPO_LIST=(
   "$HOME/Obsidian/second-brain"
   "$HOME/Developer/gnohj-monorepo"
   "$HOME/.claude"
+  "$HOME/Developer/projects/fitness"
 )
 
 # Define the push interval in seconds
