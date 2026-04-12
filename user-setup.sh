@@ -248,6 +248,66 @@ else
   print_warning "mise not found. Skipping language runtime installation."
 fi
 
+# --- PHASE 7: CLONE PRIVATE REPOSITORIES ---
+print_info "› Phase 7: Cloning private repositories..."
+
+REPOS_FILE="$HOME/.config/repos.txt"
+
+if [ -f "$REPOS_FILE" ]; then
+  while IFS= read -r line; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+    repo=$(echo "$line" | awk '{print $1}')
+    dest=$(echo "$line" | awk '{print $2}')
+    dest="${dest/#\~/$HOME}"
+
+    if [ -d "$dest/.git" ]; then
+      print_success "Already cloned: $dest"
+    else
+      mkdir -p "$(dirname "$dest")"
+      if git clone "$repo" "$dest"; then
+        print_success "Cloned: $dest"
+      else
+        print_warning "Failed to clone: $repo"
+      fi
+    fi
+  done < "$REPOS_FILE"
+else
+  print_warning "No repos.txt found at $REPOS_FILE, skipping"
+fi
+
+# --- PHASE 8: INSTALL RUST TOOLS FROM SOURCE ---
+print_info "› Phase 8: Installing Rust tools from source..."
+
+CARGO_FILE="$HOME/.config/cargo-installs.txt"
+
+if [ -f "$CARGO_FILE" ] && command -v cargo &>/dev/null; then
+  while IFS= read -r line; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+    repo=$(echo "$line" | awk '{print $1}')
+    dest=$(echo "$line" | awk '{print $2}')
+    dest="${dest/#\~/$HOME}"
+    binary=$(basename "$dest")
+
+    if command -v "$binary" &>/dev/null; then
+      print_success "Already installed: $binary"
+    else
+      if [ ! -d "$dest/.git" ]; then
+        mkdir -p "$(dirname "$dest")"
+        git clone "$repo" "$dest"
+      fi
+      cargo install --path "$dest"
+      print_success "Installed: $binary"
+    fi
+  done < "$CARGO_FILE"
+elif [ ! -f "$CARGO_FILE" ]; then
+  print_warning "No cargo-installs.txt found, skipping"
+elif ! command -v cargo &>/dev/null; then
+  print_warning "cargo not found, skipping Rust tool installs"
+fi
+
 # --- COMPLETION ---
 echo ""
 print_success "=========================================="

@@ -1,0 +1,7 @@
+# Private repos to clone after SSH setup
+# Format: repo_url destination
+# Lines starting with # are ignored
+
+git@github.com:gnohj/second-brain.git ~/Obsidian/second-brain
+git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
+git@github.com:gnohj/claude.git ~/Developer/claude

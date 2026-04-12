@@ -357,6 +357,9 @@ alias tkd='treekanga --log debug'
 alias tkl='treekanga list -v'
 
 
+# Cargo
+alias cib='cargo install --path .'
+
 # Turbo
 alias lint='pnpm turbo lint'
 alias test='pnpm turbo test'
