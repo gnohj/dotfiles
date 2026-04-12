@@ -67,6 +67,18 @@ return {
         harper_ls = {
           enabled = true,
           filetypes = { "markdown", "md", "mdx" },
+          root_dir = function(fname)
+            local disabled_roots = {
+              vim.fn.expand("~/Developer/projects/fitness"),
+            }
+            local buf_path = vim.fn.fnamemodify(fname, ":p")
+            for _, root in ipairs(disabled_roots) do
+              if buf_path:find(vim.fn.expand(root), 1, true) then
+                return nil
+              end
+            end
+            return require("lspconfig.util").find_git_ancestor(fname)
+          end,
           settings = {
             ["harper-ls"] = {
               userDictPath = "~/.config/nvim/spell/dict.txt", -- only adds global words here
