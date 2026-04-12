@@ -96,6 +96,10 @@ preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioc
 
 
 [[session]]
+name = "recon"
+path = "~/Developer/recon"
+
+[[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env"
