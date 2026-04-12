@@ -1,0 +1,4 @@
+# Rust tools to build from local repos
+# Format: repo_url destination
+# Clones if missing, then runs cargo install --path
+https://github.com/gavraz/recon.git ~/Developer/recon
