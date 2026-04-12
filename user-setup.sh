@@ -308,6 +308,37 @@ elif ! command -v cargo &>/dev/null; then
   print_warning "cargo not found, skipping Rust tool installs"
 fi
 
+# --- PHASE 9: CONFIGURE CLAUDE CODE MCP SERVERS ---
+print_info "› Phase 9: Configuring Claude Code MCP servers..."
+
+MCP_FILE="$HOME/.config/claude-mcp-servers.txt"
+
+if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
+  while IFS= read -r line; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+    type=$(echo "$line" | awk '{print $1}')
+    name=$(echo "$line" | awk '{print $2}')
+    rest=$(echo "$line" | cut -d' ' -f3-)
+
+    # Check if already configured
+    if claude mcp get "$name" -s user &>/dev/null 2>&1; then
+      print_success "MCP already configured: $name"
+    else
+      if [ "$type" = "http" ]; then
+        claude mcp add -s user --transport http "$name" "$rest"
+      else
+        claude mcp add -s user "$name" -- $rest
+      fi
+      print_success "Added MCP server: $name"
+    fi
+  done < "$MCP_FILE"
+elif [ ! -f "$MCP_FILE" ]; then
+  print_warning "No claude-mcp-servers.txt found, skipping"
+elif ! command -v claude &>/dev/null; then
+  print_warning "claude not found, skipping MCP setup"
+fi
+
 # --- COMPLETION ---
 echo ""
 print_success "=========================================="
