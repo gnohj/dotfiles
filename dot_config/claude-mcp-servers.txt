@@ -1,0 +1,15 @@
+# Claude Code MCP servers to install globally (user scope)
+# Format: type name command/url args...
+#   stdio <name> <command> <args...>
+#   http <name> <url>
+# Lines starting with # are ignored
+#
+# Note: First-party servers (claude.ai Gmail, Google Calendar) are added
+# automatically by Claude and require browser OAuth — not scriptable.
+# Unblocked requires the Unblocked.app to be installed — handled separately.
+
+stdio apple-notes npx apple-notes-mcp
+http context7 https://mcp.context7.com/mcp
+stdio playwright npx @playwright/mcp@latest
+stdio chrome-devtools npx chrome-devtools-mcp@latest
+stdio google-drive npx mcp-google-drive
