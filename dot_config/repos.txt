@@ -5,3 +5,4 @@
 git@github.com:gnohj/second-brain.git ~/Obsidian/second-brain
 git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 git@github.com:gnohj/claude.git ~/Developer/claude
+git@github.com:gnohj/fitness.git ~/Developer/projects/fitness

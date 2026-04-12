@@ -96,6 +96,23 @@ in
       };
     };
 
+    # Fitness Workout Sync
+    # At midnight, checks Apple Notes for yesterday's workout
+    # Parses it into the fitness repo and generates next session layout
+    fitness-sync = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/Developer/projects/fitness/scripts/sync-workout.sh"
+        ];
+        StartCalendarInterval = [
+          { Hour = 0; Minute = 5; }  # Run at 12:05 AM daily
+        ];
+        StandardOutPath = "${homeDir}/.logs/fitness/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/fitness/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
