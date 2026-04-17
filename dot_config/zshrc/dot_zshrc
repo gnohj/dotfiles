@@ -361,9 +361,9 @@ alias tkl='treekanga list -v'
 alias cib='cargo install --path .'
 
 # Turbo
-alias lint='pnpm turbo lint'
-alias test='pnpm turbo test'
-alias typecheck='pnpm turbo typecheck'
+alias lint='pnpm turbo lint --affected'
+alias test='pnpm turbo test --affected'
+alias typecheck='pnpm turbo typecheck --affected'
 
 # Select a file with nvim in curr dir
 # File pickers using television (tv)
