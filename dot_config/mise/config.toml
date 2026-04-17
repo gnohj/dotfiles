@@ -23,6 +23,7 @@ bun = 'latest'         # Bun runtime
 zig = 'latest'         # Zig compiler (used for GhosttyFetch)
 
 "npm:prettier" = "latest"
+"npm:codeburn" = "latest"
 
 [tasks]
 # Global CLI tools installed via bun
