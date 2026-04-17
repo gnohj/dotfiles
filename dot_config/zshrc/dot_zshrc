@@ -435,6 +435,9 @@ alias vi="nvim"
 alias vim="nvim"
 export EDITOR="nvim"
 
+# Claude Code - reduce bash output to save tokens
+export CLAUDE_CODE_MAX_OUTPUT_CHARS=15000
+
 # Atuin Script Shortcuts
 alias iheart-token="atuin scripts run iheart-token"
 alias fastly-debug="atuin scripts run fastly-debug"
