@@ -48,14 +48,11 @@ in
     };
 
     # Borders - Window border visualization
-    # Auto-restarts if crashed
+    # KeepAlive = true so colorscheme-set.sh can pkill and it auto-restarts
     borders = {
       serviceConfig = {
         ProgramArguments = [ "${homeDir}/.config/borders/bordersrc" ];
-        KeepAlive = {
-          SuccessfulExit = false;
-          Crashed = true;
-        };
+        KeepAlive = true;
         RunAtLoad = true;
         ProcessType = "Interactive";
         StandardOutPath = "${homeDir}/.logs/borders/launchagent.out.log";
