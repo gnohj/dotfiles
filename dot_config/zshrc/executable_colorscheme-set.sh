@@ -373,7 +373,9 @@ git:
 os:
   editPreset: nvim
 gui:
+  showFileTree: false
   showBottomLine: false
+  showCommandLog: false
   theme:
     activeBorderColor:
       - "${gnohj_color02}"
@@ -409,16 +411,6 @@ customCommands:
     context: "global"
     subprocess: yes
 
-  - key: "<c-g>"
-    prompts:
-      - type: "menuFromCommand"
-        title: "AI Commit"
-        key: "Msg"
-        command: "aic generate"
-    command: git commit -m "{{.Form.Msg}}"
-    context: "files"
-    description: "Generate commit message with AI"
-
   - key: "<c-a>"
     prompts:
       - type: "menuFromCommand"
@@ -428,6 +420,16 @@ customCommands:
     command: git commit -m "{{.Form.Msg}}"
     context: "files"
     description: "Generate commit message with gitmoji"
+
+  - key: "<c-s>"
+    prompts:
+      - type: "menuFromCommand"
+        title: "AI Commit (Plain)"
+        key: "Msg"
+        command: "aic-plain.sh"
+    command: git commit -m "{{.Form.Msg}}"
+    context: "files"
+    description: "Generate plain/simple commit message"
 
   - key: "<c-p>"
     command: gh pr create --draft --editor --assignee @me --reviewer iheartradio/web-engineers
