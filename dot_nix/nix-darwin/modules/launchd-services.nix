@@ -96,6 +96,8 @@ in
     # Fitness Workout Sync — moved to Claude Desktop Cowork scheduled task
     # (runs on Max subscription instead of API credits)
 
+    # Health Check — handled by sketchybar widget (health_check_notification)
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
