@@ -96,6 +96,10 @@ preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioc
 
 
 [[session]]
+name = "claude"
+path = "~/.claude"
+
+[[session]]
 name = "fitness"
 path = "~/Developer/projects/fitness"
 
