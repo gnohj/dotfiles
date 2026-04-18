@@ -35,13 +35,14 @@ log_message() {
   echo "[$timestamp] [$level] [$repo] $message" | tee -a "$LOG_FILE"
 }
 
-# List of repositories to push to
-REPO_LIST=(
-  "$HOME/Obsidian/second-brain"
-  "$HOME/Developer/gnohj-monorepo"
-  "$HOME/.claude"
-  "$HOME/Developer/projects/fitness"
-)
+# List of repositories to push to (from ~/.config/repos.txt)
+REPO_LIST=()
+while IFS= read -r line; do
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  local_path="${line##* }"
+  local_path="${local_path/#\~/$HOME}"
+  REPO_LIST+=("$local_path")
+done < "$HOME/.config/repos.txt"
 
 # Define the push interval in seconds
 # Make sure this matches the frequency of the launch agent

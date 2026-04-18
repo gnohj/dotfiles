@@ -108,6 +108,26 @@ name = "recon"
 path = "~/Developer/recon"
 
 [[session]]
+name = "gnohj-monorepo"
+path = "~/Developer/gnohj-monorepo"
+
+[[session]]
+name = "feed"
+path = "~/Developer/feed"
+
+[[session]]
+name = "GhosttyFetch"
+path = "~/Developer/GhosttyFetch"
+
+[[session]]
+name = "actions"
+path = "~/Developer/actions"
+
+[[session]]
+name = "sre-iam-management"
+path = "~/Developer/sre-iam-management"
+
+[[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env"
