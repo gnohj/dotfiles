@@ -63,7 +63,7 @@ DIRTY_COUNT=${#DIRTY_NAMES[@]}
 # Update sketchybar
 if [ "$DIRTY_COUNT" -eq 0 ]; then
   COLOR=$GREEN
-  LABEL="✓"
+  LABEL="􀆅"
 elif [ "$DIRTY_COUNT" -le 3 ]; then
   COLOR=$ORANGE
   LABEL="$DIRTY_COUNT"
