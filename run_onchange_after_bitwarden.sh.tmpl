@@ -21,9 +21,9 @@ if ! rbw unlocked &> /dev/null; then
   exit 1
 fi
 
-# Sync vault
+# Sync vault (non-fatal — local cache may already be up to date)
 echo "Syncing Bitwarden vault..."
-rbw sync
+rbw sync || echo "Warning: rbw sync failed, continuing with local cache"
 
 # Create secrets file at home dir ~./.zsh_gnohj_env.secrets
 SECRETS_FILE="{{ .chezmoi.homeDir }}/.zsh_gnohj_env.secrets"
