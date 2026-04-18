@@ -54,13 +54,13 @@ local spaceConfigs = {
 	["B"] = { name = "Browser", app = "Google Chrome" },
 	["G"] = { name = "Mail", app = "Mail" },
 	["R"] = { name = "Notes", app = "Notes" },
-	["F"] = { name = "System", app = "Finder" },
+	["F"] = { name = "System", apps = { "Finder", "kitty" } },
 	["D"] = { name = "Discord", app = "Discord" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["V"] = { name = "Passwords", app = "Bitwarden" },
 	["S"] = { name = "Music", app = "Spotify" },
-	["T"] = { name = "Terminal", apps = { "Ghostty", "kitty" } }, -- Multiple terminal apps
-	["X"] = { name = "Whimsical", app = "Whimsical" },
+	["T"] = { name = "Terminal", app = "Ghostty" },
+	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude" } },
 	["A"] = { name = "YouTube", app = "YouTube" },
 	["Z"] = { name = "Brave", app = "Zen" },
 }
