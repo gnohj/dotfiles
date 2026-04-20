@@ -48,7 +48,7 @@ scan_log() {
       ERROR_SOURCES+=("$source")
       return
     fi
-  done < <(grep -E '\[ERROR\]|ERROR:|FATAL|FAIL[^_]' "$file" 2>/dev/null | grep -iv 'KEEP:.*error.log\|NOTIFY.*Error\|already focused\|non-zero')
+  done < <(grep -E '\[ERROR\]|ERROR:|FATAL|FAIL[^_]' "$file" 2>/dev/null | grep -iv 'KEEP:.*error.log\|NOTIFY.*Error\|already focused\|non-zero\|socket read timeout')
 }
 
 # Scan all monthly logs (current month)
