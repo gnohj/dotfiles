@@ -68,6 +68,9 @@ return {
           enabled = true,
           filetypes = { "markdown", "md", "mdx" },
           root_dir = function(fname)
+            if type(fname) == "number" then
+              fname = vim.api.nvim_buf_get_name(fname)
+            end
             local disabled_roots = {
               vim.fn.expand("~/Developer/projects/fitness"),
             }
