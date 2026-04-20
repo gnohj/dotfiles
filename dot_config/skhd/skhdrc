@@ -93,6 +93,9 @@ lalt - d : /opt/homebrew/bin/aerospace workspace D
 lalt - e : /opt/homebrew/bin/aerospace workspace E
 lalt - f : /opt/homebrew/bin/aerospace workspace F
 lalt - g : /opt/homebrew/bin/aerospace workspace G
+lalt - j : /opt/homebrew/bin/aerospace workspace J
+lalt - k : /opt/homebrew/bin/aerospace workspace K
+lalt - m : /opt/homebrew/bin/aerospace workspace M
 lalt - q : /opt/homebrew/bin/aerospace workspace Q
 lalt - r : /opt/homebrew/bin/aerospace workspace R
 lalt - s : /opt/homebrew/bin/aerospace workspace S
@@ -110,6 +113,9 @@ lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
 lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
 lalt + shift - f : /opt/homebrew/bin/aerospace move-node-to-workspace F
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
+lalt + shift - j : /opt/homebrew/bin/aerospace move-node-to-workspace J
+lalt + shift - k : /opt/homebrew/bin/aerospace move-node-to-workspace K
+lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
 lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
 lalt + shift - r : /opt/homebrew/bin/aerospace move-node-to-workspace R
 lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
@@ -136,9 +142,6 @@ lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
 # Block unused lalt keys
 lalt - i : :
-lalt - j : :
-lalt - k : :
-lalt - m : :
 lalt - n : :
 lalt - o : :
 lalt - p : :
@@ -148,9 +151,6 @@ lalt - y : :
 
 # Block unused lalt + shift letter combinations
 lalt + shift - i : :
-lalt + shift - j : :
-lalt + shift - k : :
-lalt + shift - m : :
 lalt + shift - n : :
 lalt + shift - o : :
 lalt + shift - p : :

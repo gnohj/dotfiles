@@ -54,7 +54,8 @@ local spaceConfigs = {
 	["B"] = { name = "Browser", app = "Google Chrome" },
 	["G"] = { name = "Mail", app = "Mail" },
 	["R"] = { name = "Notes", app = "Notes" },
-	["F"] = { name = "System", apps = { "Finder", "kitty" } },
+	["F"] = { name = "System", apps = { "kitty" } },
+	["J"] = { name = "System", apps = { "Finder" } },
 	["D"] = { name = "Discord", app = "Discord" },
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["V"] = { name = "Passwords", app = "Bitwarden" },
@@ -62,6 +63,8 @@ local spaceConfigs = {
 	["T"] = { name = "Terminal", app = "Ghostty" },
 	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude" } },
 	["A"] = { name = "YouTube", app = "YouTube" },
+	["M"] = { name = "Texting", app = "Messages" },
+	["K"] = { name = "Settings", app = "System Settings" },
 	["Z"] = { name = "Brave", app = "Zen" },
 }
 
