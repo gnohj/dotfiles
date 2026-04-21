@@ -9,10 +9,15 @@ tmux new-window -n "🐠" -c "$WORKING_DIR" \; \
   split-window -h -c "$WORKING_DIR" \; \
   split-window -h -c "$WORKING_DIR" \; \
   select-layout even-horizontal \; \
-  select-layout even-horizontal \; \
-  send-keys -t 0 "clear" Enter \; \
-  send-keys -t 1 "clear" Enter \; \
-  send-keys -t 2 "clear" Enter \;
+  select-layout even-horizontal \;
+
+# Wait for shells to initialize (mise hook needs shell to be ready)
+sleep 0.5
+
+# Re-cd to trigger mise's chpwd hook, then clear
+tmux send-keys -t 0 "cd $WORKING_DIR && clear" Enter
+tmux send-keys -t 1 "cd $WORKING_DIR && clear" Enter
+tmux send-keys -t 2 "cd $WORKING_DIR && clear" Enter
 
 # Mark this new window as a fish window for automatic renaming
 SESSION_NAME=$(tmux display-message -p '#{session_name}')
@@ -27,6 +32,4 @@ tmux rename-window "🖊️"
 SESSION_NAME=$(tmux display-message -p '#{session_name}')
 WINDOW_INDEX=$(tmux display-message -p '#{window_index}')
 tmux set-option -w "@original_window_type_${SESSION_NAME}_${WINDOW_INDEX}" "pen"
-tmux send-keys "cd $WORKING_DIR" Enter
-tmux send-keys "clear" Enter
-tmux send-keys "n" Enter
+tmux send-keys "cd $WORKING_DIR && clear && n" Enter
