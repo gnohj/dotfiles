@@ -13,3 +13,4 @@ http context7 https://mcp.context7.com/mcp
 stdio playwright npx @playwright/mcp@latest
 stdio chrome-devtools npx chrome-devtools-mcp@latest
 stdio google-drive npx mcp-google-drive
+http atlassian https://mcp.atlassian.com/v1/mcp
