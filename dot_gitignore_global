@@ -18,4 +18,5 @@ http-client.private.env.json
 .playwright-mcp/
 .mise.local.toml
 .99-tmp
+.superpowers/
 
