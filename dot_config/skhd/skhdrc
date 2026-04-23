@@ -42,7 +42,7 @@ rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
-rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -E -w 80% -h 80% recon # recon claude dashboard (forward slash)
+rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -E -w 80% -h 80% "$HOME/.cargo/bin/recon" # recon claude dashboard (forward slash)
 rctrl - escape : ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true # codeburn AI cost dashboard
 # rctrl - r - reserved for atuin
 rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
