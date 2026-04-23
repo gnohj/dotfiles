@@ -77,6 +77,20 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
 
   log_message "INFO" "$REPO_NAME" "Starting git operations"
 
+  # Clean up stale lock files from crashed git processes
+  for lockfile in "$REPO_PATH/.git/index.lock" "$REPO_PATH/.git/HEAD.lock"; do
+    if [[ -f "$lockfile" ]]; then
+      # Only remove if the lock is older than 60 seconds (not held by an active process)
+      if [[ $(find "$lockfile" -mmin +1 2>/dev/null) ]]; then
+        rm -f "$lockfile"
+        log_message "WARN" "$REPO_NAME" "Removed stale lock file: $lockfile"
+      else
+        log_message "INFO" "$REPO_NAME" "Lock file exists but is recent, skipping: $lockfile"
+        continue 2
+      fi
+    fi
+  done
+
   # Pull the latest changes, otherwise you will get errors and won't be able to
   # push if modifying from multiple devices
   # Rebasing re-applies your local commits on top of the latest commits from
