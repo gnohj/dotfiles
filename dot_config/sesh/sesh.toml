@@ -100,6 +100,10 @@ name = "claude"
 path = "~/.claude"
 
 [[session]]
+name = "opencode"
+path = "~/.config/opencode"
+
+[[session]]
 name = "fitness"
 path = "~/Developer/projects/fitness"
 
