@@ -578,8 +578,8 @@ alias pn="pnpm"
 alias c='clear'
 
 # claude resume
-alias cr='claude --dangerously-skip-permissions --resume'
-alias cs='claude --dangerously-skip-permissions'
+alias cr='claude --dangerously-skip-permissions --resume --add-dir ~/Obsidian/second-brain'
+alias cs='claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain'
 
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
