@@ -650,7 +650,7 @@ return {
               vim.fn.system(
                 'tmux split-window -h -c "'
                   .. vim.fn.getcwd()
-                  .. '" "claude --dangerously-skip-permissions"'
+                  .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain"'
               )
               vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
@@ -660,7 +660,7 @@ return {
             key = "p",
             desc = "Claude Code (Plan)",
             action = function()
-              vim.fn.system('tmux split-window -h -c "' .. vim.fn.getcwd() .. '" "claude --dangerously-skip-permissions --permission-mode plan"')
+              vim.fn.system('tmux split-window -h -c "' .. vim.fn.getcwd() .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --permission-mode plan"')
               vim.fn.system('tmux resize-pane -t 0 -x 75%')
             end,
           },
@@ -672,7 +672,7 @@ return {
               vim.fn.system(
                 'tmux split-window -h -c "'
                   .. vim.fn.getcwd()
-                  .. '" "claude --dangerously-skip-permissions --resume"'
+                  .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --resume"'
               )
               vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
