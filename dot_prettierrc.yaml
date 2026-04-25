@@ -4,5 +4,5 @@ overrides:
   # Markdown files
   - files: "*.md"
     options:
-      proseWrap: "always"
+      proseWrap: "never"
       printWidth: 80
