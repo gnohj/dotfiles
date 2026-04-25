@@ -44,6 +44,14 @@
   # Allow unfree packages globally
   nixpkgs.config.allowUnfree = true;
 
+  # Overlays
+  nixpkgs.overlays = [
+    (final: prev: {
+      # direnv checkPhase hangs on macOS (zsh test spawns interactive shell)
+      direnv = prev.direnv.overrideAttrs (old: { doCheck = false; });
+    })
+  ];
+
   # Auto upgrade nix package and the daemon service
   # services.nix-daemon.enable = true;
 
