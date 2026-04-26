@@ -27,104 +27,110 @@ local function is_created_note(path)
   return false
 end
 
--- Prompt for a title and create a new inbox note, then expand
--- the ;note-template luasnip. Used by both <leader>zN and the dashboard
--- "Second Brain (New)" entry.
+-- Internal: actually create the file and expand the snippet. Shared by
+-- the prompt-driven path (dashboard S, <leader>zN) and the title-supplied
+-- path (`on <title>` shell wrapper).
+local function create_inbox_note(title)
+  if not title or title == "" then
+    return
+  end
+  local date = os.date("%Y-%m-%d")
+  local filename = title:gsub(" ", "-")
+  local path = INBOX .. "/" .. date .. "_" .. filename .. ".md"
+  if vim.fn.filereadable(path) == 1 then
+    vim.notify("Note already exists: " .. path, vim.log.levels.WARN)
+    return
+  end
+
+  vim.opt.eventignore = ""
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+  local buf = vim.api.nvim_get_current_buf()
+
+  -- Force filetype detection + re-fire LazyFile triggers in case the
+  -- original BufNewFile was suppressed (snacks dashboard context).
+  if vim.bo[buf].filetype ~= "markdown" then
+    vim.bo[buf].filetype = "markdown"
+  end
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "BufReadPost",
+    { buffer = buf, modeline = false }
+  )
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "FileType",
+    { buffer = buf, modeline = false }
+  )
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "User",
+    { pattern = "LazyFile", modeline = false }
+  )
+
+  -- Defer snippet expansion one tick so treesitter/LSP have attached
+  -- before we start mutating the buffer in insert mode.
+  vim.schedule(function()
+    local ls = require("luasnip")
+    local snippets = ls.get_snippets("markdown")
+    for _, snip in ipairs(snippets) do
+      if snip.trigger == ";note-template" then
+        vim.cmd("startinsert")
+        ls.snip_expand(snip)
+        return
+      end
+    end
+    vim.notify(";note-template snippet not found", vim.log.levels.WARN)
+  end)
+end
+
+-- Create a new inbox note and expand the ;note-template luasnip. Single
+-- entry point shared by <leader>zN, the dashboard "Second Brain (New)"
+-- action, and the `on <title>` shell wrapper. If `title` is passed (from
+-- the shell), skip the prompt; otherwise ask via vim.ui.input.
 --
 -- When called from the snacks dashboard, no real file has been loaded yet
 -- so LazyVim's `LazyFile` event (which lazy-loads treesitter, LSP, etc.)
 -- hasn't fired and the dashboard's keypress runs under `eventignore`. We
 -- mitigate by clearing eventignore, then re-firing BufReadPost/FileType
 -- after `:edit` so plugins that registered handlers later still attach.
-function M.new_inbox_note()
-  vim.ui.input({ prompt = "New note title: " }, function(title)
-    if not title or title == "" then
-      return
-    end
-    local vault = vim.fn.expand("~/Obsidian/second-brain")
-    local date = os.date("%Y-%m-%d")
-    local filename = title:gsub(" ", "-")
-    local path = vault .. "/0-Inbox/" .. date .. "_" .. filename .. ".md"
-    if vim.fn.filereadable(path) == 1 then
-      vim.notify("Note already exists: " .. path, vim.log.levels.WARN)
-      return
-    end
-
-    vim.opt.eventignore = ""
-    vim.cmd("edit " .. vim.fn.fnameescape(path))
-    local buf = vim.api.nvim_get_current_buf()
-
-    -- Force filetype detection + re-fire LazyFile triggers in case the
-    -- original BufNewFile was suppressed (snacks dashboard context).
-    if vim.bo[buf].filetype ~= "markdown" then
-      vim.bo[buf].filetype = "markdown"
-    end
-    pcall(
-      vim.api.nvim_exec_autocmds,
-      "BufReadPost",
-      { buffer = buf, modeline = false }
-    )
-    pcall(
-      vim.api.nvim_exec_autocmds,
-      "FileType",
-      { buffer = buf, modeline = false }
-    )
-    pcall(
-      vim.api.nvim_exec_autocmds,
-      "User",
-      { pattern = "LazyFile", modeline = false }
-    )
-
-    -- Defer snippet expansion one tick so treesitter/LSP have attached
-    -- before we start mutating the buffer in insert mode.
-    vim.schedule(function()
-      local ls = require("luasnip")
-      local snippets = ls.get_snippets("markdown")
-      for _, snip in ipairs(snippets) do
-        if snip.trigger == ";note-template" then
-          vim.cmd("startinsert")
-          ls.snip_expand(snip)
-          return
-        end
-      end
-      vim.notify(";note-template snippet not found", vim.log.levels.WARN)
-    end)
-  end)
+function M.new_inbox_note(title)
+  if title and title ~= "" then
+    create_inbox_note(title)
+  else
+    vim.ui.input({ prompt = "New note title: " }, create_inbox_note)
+  end
 end
 
--- Open a snacks picker over only the "created notes" in 0-Inbox/. Backs
--- the `or` shell script, the dashboard "Second Brain (Review)" entry, and
--- <leader>zr.
+-- Load every "created note" in 0-Inbox/ as a buffer. Backs the `or` shell
+-- script, the dashboard "Second Brain (Review)" entry, and <leader>zr.
+-- If the inbox has no personal notes, we just notify and bail — no point
+-- launching nvim with nothing to review.
 function M.review_inbox()
   local entries = vim.fn.globpath(INBOX, "*.md", false, true)
-  local items = {}
+  local notes = {}
   for _, path in ipairs(entries) do
     if is_created_note(path) then
-      table.insert(items, {
-        text = vim.fn.fnamemodify(path, ":t"),
-        file = path,
-      })
+      table.insert(notes, path)
     end
   end
-  if #items == 0 then
-    vim.notify("No created notes in 0-Inbox/", vim.log.levels.INFO)
+  if #notes == 0 then
+    vim.notify("No personal notes to review", vim.log.levels.INFO)
     return
   end
-  table.sort(items, function(a, b)
-    return a.text < b.text
-  end)
-  Snacks.picker.pick({
-    title = "Inbox: review created notes (" .. #items .. ")",
-    items = items,
-    format = function(item)
-      return { { item.text } }
-    end,
-    preview = "file",
-    confirm = function(picker, item)
-      picker:close()
-      vim.cmd("edit " .. vim.fn.fnameescape(item.file))
-    end,
-  })
+  table.sort(notes)
+  -- Edit the first note (replaces dashboard / current buffer); add the rest
+  -- as hidden buffers so they all show up in the buffer list (<S-h>) and
+  -- you can step through them with :bnext / :bprev like the old `nvim
+  -- 0-Inbox/*.md` flow.
+  vim.opt.eventignore = ""
+  vim.cmd("edit " .. vim.fn.fnameescape(notes[1]))
+  for i = 2, #notes do
+    vim.cmd("badd " .. vim.fn.fnameescape(notes[i]))
+  end
+  vim.notify(
+    string.format("Loaded %d note%s for review", #notes, #notes == 1 and "" or "s"),
+    vim.log.levels.INFO
+  )
 end
 
 -- The vault directory is a symlink to iCloud, so the buffer path may
