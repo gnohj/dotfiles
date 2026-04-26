@@ -143,7 +143,86 @@ M.clear_cache = function()
   vim.notify("Project picker cache cleared", vim.log.levels.INFO)
 end
 
+-- Walk up from `start` (default: cwd) looking for a directory whose layout
+-- looks like an Obsidian vault — `0-Inbox/` plus `Notes/`. Returns the
+-- vault root or nil. Limits the climb to 10 levels.
+local function find_vault_root(start)
+  local dir = start or vim.fn.getcwd()
+  for _ = 1, 10 do
+    if
+      vim.fn.isdirectory(dir .. "/0-Inbox") == 1
+      and vim.fn.isdirectory(dir .. "/Notes") == 1
+    then
+      return dir
+    end
+    local parent = vim.fn.fnamemodify(dir, ":h")
+    if parent == dir then
+      return nil
+    end
+    dir = parent
+  end
+  return nil
+end
+
+-- Snacks picker over the top-level folders of an Obsidian vault. Used
+-- when `<leader>fp` fires inside the second-brain vault instead of the
+-- monorepo package picker.
+local function pick_vault_folders(vault_root)
+  local entries = vim.fn.globpath(vault_root, "*", false, true)
+  local items = {}
+  for _, entry in ipairs(entries) do
+    if vim.fn.isdirectory(entry) == 1 then
+      local name = vim.fn.fnamemodify(entry, ":t")
+      table.insert(items, {
+        text = name,
+        name = name,
+        file = entry,
+        path = entry,
+      })
+    end
+  end
+  if #items == 0 then
+    vim.notify("No top-level folders in vault", vim.log.levels.WARN)
+    return
+  end
+  table.sort(items, function(a, b)
+    return a.name < b.name
+  end)
+  table.insert(items, 1, {
+    text = "/ (vault root)",
+    name = vim.fn.fnamemodify(vault_root, ":t"),
+    file = vault_root,
+    path = vault_root,
+    is_root = true,
+  })
+
+  require("snacks").picker({
+    title = "Vault: " .. vim.fn.fnamemodify(vault_root, ":t"),
+    finder = function()
+      return items
+    end,
+    format = function(item)
+      if item.is_root then
+        return {
+          { "📁 ", "Normal" },
+          { item.name .. " (root)", "Special" },
+        }
+      end
+      return { { item.text, "Normal" } }
+    end,
+    confirm = function(picker, item)
+      picker:close()
+      require("mini.files").open(item.path, true)
+    end,
+  })
+end
+
 M.pick = function()
+  local vault = find_vault_root()
+  if vault then
+    return pick_vault_folders(vault)
+  end
+
   local repo_root = get_git_root()
   if not repo_root then
     vim.notify("Not in a git repository", vim.log.levels.WARN)
