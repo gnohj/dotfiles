@@ -28,6 +28,104 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- ============================================================================
+-- Markdown LSP codelens (reference counts) — markdown-oxide
+-- ============================================================================
+-- Global autocmd (not buffer-local) so it survives LSP attach/detach cycles.
+-- Pattern from linkarzu/dotfiles-latest. CursorHold fires after `updatetime` ms
+-- of cursor inactivity, so codelens reappears as soon as you stop scrolling.
+local function codelens_supported(bufnr)
+  for _, c in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+    if c.server_capabilities and c.server_capabilities.codeLensProvider then
+      return true
+    end
+  end
+  return false
+end
+
+local function refresh_markdown_codelens(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+  if vim.bo[bufnr].buftype ~= "" then
+    return
+  end
+  if vim.bo[bufnr].filetype ~= "markdown" then
+    return
+  end
+  if not codelens_supported(bufnr) then
+    return
+  end
+  vim.lsp.codelens.refresh({ bufnr = bufnr })
+end
+
+vim.api.nvim_create_autocmd(
+  { "BufEnter", "CursorHold", "InsertLeave", "TextChanged" },
+  {
+    callback = function(args)
+      refresh_markdown_codelens(args.buf)
+    end,
+  }
+)
+
+-- Sanitize markdown-oxide fileOperations capability.
+-- markdown-oxide returns `scheme: null` in its workspace.fileOperations
+-- filters, which decodes to vim.NIL (userdata). mini.files crashes when
+-- saving a newly-created file because it does `scheme .. ':'` which fails
+-- on userdata. Replace vim.NIL with Lua nil at LspAttach time.
+vim.api.nvim_create_autocmd("LspAttach", {
+  callback = function(args)
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
+    if not client or client.name ~= "markdown_oxide" then
+      return
+    end
+    local fo = client.server_capabilities.workspace
+      and client.server_capabilities.workspace.fileOperations
+    if not fo then
+      return
+    end
+    for _, method in ipairs({
+      "didCreate",
+      "didDelete",
+      "didRename",
+      "willCreate",
+      "willDelete",
+      "willRename",
+    }) do
+      local entry = fo[method]
+      if entry and entry.filters then
+        for _, f in ipairs(entry.filters) do
+          if f.scheme == vim.NIL then
+            f.scheme = nil
+          end
+        end
+      end
+    end
+  end,
+})
+
+-- Workaround for nvim issue 16166: codelens at line 0 renders as a virtual
+-- line above line 1 and requires `topfill=1` to be visible. nvim sets this
+-- once on initial render, but plugins that call winrestview on cursor move
+-- can reset it. Force topfill=1 when the viewport is at the top of a
+-- markdown buffer so file-level "X references" codelens stays visible.
+-- (Still useful as a fallback — our inline display above bypasses virt_lines
+-- entirely so this guard is only relevant if we ever revert to default.)
+vim.api.nvim_create_autocmd({ "CursorMoved", "CursorHold", "WinScrolled" }, {
+  callback = function(args)
+    if vim.bo[args.buf].filetype ~= "markdown" then
+      return
+    end
+    if vim.bo[args.buf].buftype ~= "" then
+      return
+    end
+    local view = vim.fn.winsaveview()
+    if view.topline == 1 and view.topfill == 0 then
+      vim.fn.winrestview({ topfill = 1 })
+    end
+  end,
+})
+
+-- ============================================================================
 -- Mini.files key bindings
 -- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
