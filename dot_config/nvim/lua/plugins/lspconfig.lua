@@ -2,21 +2,25 @@ return {
   {
     "neovim/nvim-lspconfig",
     opts = function(_, opts)
-      -- Disable code action keymaps using the new approach
+      -- Extend (don't replace) the wildcard server config so LazyVim's
+      -- default `*.keys` (which provides <leader>cr, <leader>cl, gI, gy,
+      -- gD, etc. plus `workspace.fileOperations` capabilities) survives.
+      -- Direct assignment to opts.servers["*"] = {...} silently dropped
+      -- all of those, leaving most LSP keymaps unregistered.
       opts.servers = opts.servers or {}
-      opts.servers["*"] = {
-        keys = {
-          { "<leader>ca", false },
-          { "<leader>cA", false },
-          {
-            "gr",
-            function()
-              Snacks.picker.lsp_references()
-            end,
-            desc = "References (Snacks)",
-          },
+      opts.servers["*"] = opts.servers["*"] or {}
+      opts.servers["*"].keys = opts.servers["*"].keys or {}
+      vim.list_extend(opts.servers["*"].keys, {
+        { "<leader>ca", false },
+        { "<leader>cA", false },
+        {
+          "gr",
+          function()
+            Snacks.picker.lsp_references()
+          end,
+          desc = "References (Snacks)",
         },
-      }
+      })
 
       -- Existing configurations
       opts.servers = vim.tbl_deep_extend("force", opts.servers, {
