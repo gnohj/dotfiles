@@ -1,5 +1,23 @@
 local colors = require("config.colors")
 
+-- Smart tmux split for Claude Code:
+-- - 1 existing pane (nvim only) → split + resize nvim to 75%
+-- - 2+ existing panes → split + even-horizontal layout (equal-width panes)
+local function claude_split(claude_cmd)
+  local cwd = vim.fn.getcwd()
+  local pane_count = tonumber(
+    vim.fn.system("tmux list-panes | wc -l | tr -d ' '")
+  ) or 1
+  vim.fn.system(
+    'tmux split-window -h -c "' .. cwd .. '" "' .. claude_cmd .. '"'
+  )
+  if pane_count == 1 then
+    vim.fn.system("tmux resize-pane -t 0 -x 75%")
+  else
+    vim.fn.system("tmux select-layout even-horizontal")
+  end
+end
+
 local function get_header()
   local rainbow_colors = {
     colors["gnohj_color04"],
@@ -643,16 +661,70 @@ return {
           },
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
           {
+            icon = "󰧠 ",
+            key = "n",
+            desc = "Second Brain (New)",
+            action = function()
+              local vault = vim.fn.expand("~/Obsidian/second-brain")
+              vim.cmd("cd " .. vim.fn.fnameescape(vault))
+              -- Wipe any active snacks_dashboard buffers so their
+              -- bufhidden=wipe + eventignore context doesn't bleed into
+              -- the new note buffer (which suppresses LSP + treesitter).
+              for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                if
+                  vim.api.nvim_buf_is_valid(buf)
+                  and vim.bo[buf].filetype == "snacks_dashboard"
+                then
+                  pcall(vim.api.nvim_buf_delete, buf, { force = true })
+                end
+              end
+              vim.opt.eventignore = ""
+              vim.defer_fn(function()
+                require("config.obsidian").new_inbox_note()
+              end, 50)
+            end,
+          },
+          {
+            icon = "󰧠 ",
+            key = "R",
+            desc = "Second Brain (Review)",
+            action = function()
+              local vault = vim.fn.expand("~/Obsidian/second-brain")
+              vim.cmd("cd " .. vim.fn.fnameescape(vault))
+              for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                if
+                  vim.api.nvim_buf_is_valid(buf)
+                  and vim.bo[buf].filetype == "snacks_dashboard"
+                then
+                  pcall(vim.api.nvim_buf_delete, buf, { force = true })
+                end
+              end
+              vim.opt.eventignore = ""
+              vim.defer_fn(function()
+                require("config.obsidian").review_inbox()
+              end, 50)
+            end,
+          },
+          {
+            icon = "󰧠 ",
+            key = "P",
+            desc = "Second Brain (Publish)",
+            action = function()
+              local vault = vim.fn.expand("~/Obsidian/second-brain")
+              vim.cmd("cd " .. vim.fn.fnameescape(vault))
+              vim.defer_fn(function()
+                require("config.obsidian").publish()
+              end, 50)
+            end,
+          },
+          {
             icon = " ",
             key = "c",
             desc = "Claude Code (New)",
             action = function()
-              vim.fn.system(
-                'tmux split-window -h -c "'
-                  .. vim.fn.getcwd()
-                  .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain"'
+              claude_split(
+                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain"
               )
-              vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
           },
           {
@@ -660,8 +732,9 @@ return {
             key = "p",
             desc = "Claude Code (Plan)",
             action = function()
-              vim.fn.system('tmux split-window -h -c "' .. vim.fn.getcwd() .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --permission-mode plan"')
-              vim.fn.system('tmux resize-pane -t 0 -x 75%')
+              claude_split(
+                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --permission-mode plan"
+              )
             end,
           },
           {
@@ -669,15 +742,11 @@ return {
             key = "r",
             desc = "Claude Code (Resume)",
             action = function()
-              vim.fn.system(
-                'tmux split-window -h -c "'
-                  .. vim.fn.getcwd()
-                  .. '" "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --resume"'
+              claude_split(
+                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --resume"
               )
-              vim.fn.system("tmux resize-pane -t 0 -x 75%")
             end,
-          },
-        },
+          },        },
       },
     },
     -- DISABLED: Testing zen.nvim (sand4rt) instead
