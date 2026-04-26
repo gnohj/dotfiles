@@ -4,12 +4,78 @@ return {
   "L3MON4D3/LuaSnip",
   config = function()
     local ls = require("luasnip")
-    local s, t, i, f = ls.snippet, ls.text_node, ls.insert_node, ls.function_node
+    local s, t, i, f =
+      ls.snippet, ls.text_node, ls.insert_node, ls.function_node
     local fmt = require("luasnip.extras.fmt").fmt
 
     -- Compute today's date for the frontmatter `date:` field.
     local function today()
       return os.date("%Y-%m-%d")
+    end
+
+    -- Read available hubs from 0-Hubs/hubs.md
+    local function read_hubs()
+      local path = vim.fn.expand("~/Obsidian/second-brain/0-Hubs/hubs.md")
+      if vim.fn.filereadable(path) == 0 then
+        return {}
+      end
+      local hubs = {}
+      for line in io.lines(path) do
+        local hub = line:match("^%-%s*(.+)$")
+        if hub then
+          table.insert(hubs, hub)
+        end
+      end
+      return hubs
+    end
+
+    -- Read available tags from 0-Tags/*.md filenames
+    local function read_tags()
+      local files = vim.fn.globpath(
+        vim.fn.expand("~/Obsidian/second-brain/0-Tags"),
+        "*.md",
+        false,
+        true
+      )
+      local tags = {}
+      for _, f in ipairs(files) do
+        table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
+      end
+      return tags
+    end
+
+    -- Build wrapped YAML comment lines. Every line starts with `  # AVAILABLE:`
+    -- (2-space indent baked in) so multi-line output aligns under YAML fields,
+    -- and `<leader>zc` can strip them all with a single regex.
+    local AVAILABLE_MAX = 80
+    local function build_available(items)
+      if #items == 0 then
+        return { "" }
+      end
+      local indent = "  "
+      local prefix = indent .. "# AVAILABLE: "
+      local lines = {}
+      local current = prefix
+      for i, item in ipairs(items) do
+        local sep = i < #items and ", " or ""
+        local addition = item .. sep
+        if #current + #addition > AVAILABLE_MAX and current ~= prefix then
+          table.insert(lines, current)
+          current = prefix .. addition
+        else
+          current = current .. addition
+        end
+      end
+      table.insert(lines, current)
+      return lines
+    end
+
+    local function hubs_available()
+      return build_available(read_hubs())
+    end
+
+    local function tags_available()
+      return build_available(read_tags())
     end
 
     -- Derive a Title-Cased note title from the filename, mirroring the
@@ -39,9 +105,93 @@ return {
         { desc = "Obsidian wikilink (body)" }
       ),
       s(
+        { trig = ";backaliaslink" },
+        { t("[["), i(1), t("|"), i(2), t("]]") },
+        { desc = "Obsidian wikilink with alias (body)" }
+      ),
+      s(
         { trig = ";tag" },
         { t('"[['), i(1), t(']]"') },
         { desc = "Obsidian wikilink (frontmatter, quoted)" }
+      ),
+      s(
+        { trig = ";todo" },
+        { t("- [ ] "), i(1) },
+        { desc = "Markdown checkbox" }
+      ),
+      s(
+        { trig = ";today" },
+        { f(today) },
+        { desc = "Today's date (YYYY-MM-DD)" }
+      ),
+      s(
+        { trig = ";img" },
+        { t("!["), i(1), t("]("), i(2), t(")") },
+        { desc = "Markdown image (external)" }
+      ),
+      s(
+        { trig = ";imbed" },
+        { t("![["), i(1), t("]]") },
+        { desc = "Embed image/file (Obsidian wikilink)" }
+      ),
+      s(
+        { trig = ";note-callout" },
+        { t({ "> [!NOTE]", "> " }), i(1) },
+        { desc = "Callout: note" }
+      ),
+      s(
+        { trig = ";tip-callout" },
+        { t({ "> [!TIP]", "> " }), i(1) },
+        { desc = "Callout: tip" }
+      ),
+      s(
+        { trig = ";important-callout" },
+        { t({ "> [!IMPORTANT]", "> " }), i(1) },
+        { desc = "Callout: important" }
+      ),
+      s(
+        { trig = ";warning-callout" },
+        { t({ "> [!WARNING] " }), i(1), t({ "", "> " }), i(2) },
+        { desc = "Callout: warning (with custom title)" }
+      ),
+      s(
+        { trig = ";caution-callout" },
+        { t({ "> [!CAUTION]", "> " }), i(1) },
+        { desc = "Callout: caution" }
+      ),
+      s(
+        { trig = ";bug-callout" },
+        { t({ "> [!BUG]", "> " }), i(1) },
+        { desc = "Callout: bug" }
+      ),
+      s(
+        { trig = ";front-matter-template" },
+        fmt(
+          [==[
+---
+date:
+  - {}
+hubs:
+{}
+  - {}
+tags:
+{}
+  - "[[{}]]"
+urls:
+  - {}
+---
+{}]==],
+          {
+            f(today),
+            f(hubs_available),
+            i(1),
+            f(tags_available),
+            i(2),
+            i(3),
+            i(0),
+          }
+        ),
+        { desc = "Frontmatter scaffold (no title)" }
       ),
       s(
         { trig = ";note-template" },
@@ -51,8 +201,10 @@ return {
 date:
   - {}
 hubs:
+{}
   - {}
 tags:
+{}
   - "[[{}]]"
 urls:
   - {}
@@ -64,7 +216,9 @@ urls:
 ]==],
           {
             f(today),
+            f(hubs_available),
             i(1),
+            f(tags_available),
             i(2),
             i(3),
             f(title_from_filename),
