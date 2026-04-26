@@ -662,7 +662,7 @@ return {
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
           {
             icon = "󰧠 ",
-            key = "n",
+            key = "S",
             desc = "Second Brain (New)",
             action = function()
               local vault = vim.fn.expand("~/Obsidian/second-brain")
@@ -719,32 +719,28 @@ return {
           },
           {
             icon = " ",
-            key = "c",
+            key = "C",
             desc = "Claude Code (New)",
             action = function()
-              claude_split(
-                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain"
-              )
+              -- All three Claude entries shell out to the _bin/ wrappers
+              -- so the --add-dir vault flag lives in exactly one place.
+              claude_split("cs")
             end,
           },
           {
             icon = " ",
-            key = "p",
+            key = "L",
             desc = "Claude Code (Plan)",
             action = function()
-              claude_split(
-                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --permission-mode plan"
-              )
+              claude_split("cs --permission-mode plan")
             end,
           },
           {
             icon = " ",
-            key = "r",
+            key = "M",
             desc = "Claude Code (Resume)",
             action = function()
-              claude_split(
-                "claude --dangerously-skip-permissions --add-dir ~/Obsidian/second-brain --resume"
-              )
+              claude_split("cr")
             end,
           },        },
       },
