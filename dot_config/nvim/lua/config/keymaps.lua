@@ -170,9 +170,8 @@ keymap({ "n", "v", "i" }, "<M-y>", function()
   require("noice").cmd("all")
 end, { desc = "[P]Noice History" })
 
--- HACK: View and paste images in Neovim like in Obsidian
--- Paste images
--- The <M-j> keymap is defined in plugins/img-clip.lua to ensure proper loading
+-- Paste images: <leader>zv defined in plugins/img-clip.lua
+-- Pastes clipboard image into vault's Assets/ folder, embeds as ![[filename]]
 
 -- Disable lazygit which is enabled default by LazyVim
 pcall(vim.keymap.del, "n", "<leader>gg")
@@ -583,6 +582,74 @@ keymap("n", "<leader>zt", function()
     end)
   end)
 end, { desc = "[P]Obsidian: Find notes by tag" })
+
+-- Strip AVAILABLE hint comments from frontmatter
+keymap("n", "<leader>zc", function()
+  -- Delete whole-line AVAILABLE comments (above-field format)
+  vim.cmd([[silent! g/^\s*#\s*AVAILABLE:/d]])
+  -- Strip inline AVAILABLE comments (after-field format)
+  vim.cmd([[silent! %s/\s*#\s*AVAILABLE:.*$//]])
+  vim.cmd("write")
+  vim.notify("Stripped AVAILABLE hints", vim.log.levels.INFO)
+end, { desc = "[P]Obsidian: Clean AVAILABLE hints from frontmatter" })
+
+-- Create a new note in 0-Inbox/ and expand luasnip ;note-template
+keymap("n", "<leader>zN", function()
+  require("config.obsidian").new_inbox_note()
+end, { desc = "[P]Obsidian: New note in inbox (snippet)" })
+
+-- Review created notes in 0-Inbox/ (skips raw resources)
+keymap("n", "<leader>zr", function()
+  require("config.obsidian").review_inbox()
+end, { desc = "[P]Obsidian: Review inbox (created notes only)" })
+
+-- Move current inbox buffer to Zettelkasten/ and close it
+keymap("n", "<leader>zk", function()
+  require("config.obsidian").move_to_zettelkasten()
+end, { desc = "[P]Obsidian: Move buffer to Zettelkasten/" })
+
+-- Delete current inbox buffer file (with confirmation)
+keymap("n", "<leader>zx", function()
+  require("config.obsidian").delete_from_inbox()
+end, { desc = "[P]Obsidian: Delete buffer from inbox" })
+
+-- Publish: Zettelkasten/ -> Notes/<hub>/ via the `op` script
+keymap("n", "<leader>zp", function()
+  require("config.obsidian").publish()
+end, { desc = "[P]Obsidian: Publish (Zettelkasten -> Notes/<hub>)" })
+
+-- Pick an image from vault Assets/ and insert as ![[filename]] at cursor
+keymap({ "n", "i" }, "<leader>zi", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local assets = vault .. "/Assets"
+  local exts = { "png", "jpg", "jpeg", "gif", "webp", "avif", "svg" }
+  local items = {}
+  for _, ext in ipairs(exts) do
+    local matches = vim.fn.globpath(assets, "**/*." .. ext, false, true)
+    for _, f in ipairs(matches) do
+      table.insert(items, {
+        text = vim.fn.fnamemodify(f, ":t"),
+        file = f,
+      })
+    end
+  end
+  if #items == 0 then
+    vim.notify("No images in Assets/", vim.log.levels.WARN)
+    return
+  end
+  Snacks.picker.pick({
+    title = "Embed image",
+    items = items,
+    format = function(item)
+      return { { item.text } }
+    end,
+    preview = "file",
+    confirm = function(picker, item)
+      picker:close()
+      vim.api.nvim_put({ "![[" .. item.text .. "]]" }, "c", true, true)
+    end,
+  })
+end, { desc = "[P]Obsidian: Insert image embed from Assets" })
 
 -- Copy hub name to clipboard (for pasting into frontmatter)
 keymap("n", "<leader>zH", function()
