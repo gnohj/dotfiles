@@ -5,8 +5,12 @@ return {
     vim.o.timeout = true
     vim.o.timeoutlen = 500
   end,
-  opts = {
-    spec = {
+  opts = function(_, opts)
+    -- Use a function so we MERGE with LazyVim's default spec instead of
+    -- replacing it. Plain `opts = { spec = { ... } }` overwrites the
+    -- default array (Lua table-merge replaces arrays, doesn't concat),
+    -- which strips LazyVim's group labels like `<leader>s`/`<leader>c`.
+    opts.spec = vim.list_extend(opts.spec or {}, {
       { "<leader>gh", hidden = true },
       { "<leader>gl", hidden = true }, -- Hidden: use visual mode for gitlineage
       { "<leader>G", hidden = true },
@@ -20,6 +24,6 @@ return {
       { "<leader>h", group = "hunks" },
       { "<leader>p", group = "yank history" },
       { "<leader>-", desc = "Open yazi at cwd" },
-    },
-  },
+    })
+  end,
 }

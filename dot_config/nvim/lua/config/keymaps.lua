@@ -402,6 +402,29 @@ keymap(
   { desc = "[P]Obsidian: Delete file in current buffer" }
 )
 
+-- LSP symbols (always-on bindings, independent of plugin lazy-loading).
+-- LazyVim's snacks_picker extra binds these via lspconfig `keys` with a
+-- `has = "documentSymbol"` filter, which means they only attach on LSP
+-- buffers that advertise that capability AND only after the plugin loads.
+-- That race left `<leader>ss` unbound long enough for flash to grab `s`.
+keymap("n", "<leader>ss", function()
+  if package.loaded["snacks"] and Snacks.picker then
+    Snacks.picker.lsp_symbols({ filter = LazyVim.config.kind_filter })
+  else
+    vim.lsp.buf.document_symbol()
+  end
+end, { desc = "LSP Symbols" })
+
+keymap("n", "<leader>sS", function()
+  if package.loaded["snacks"] and Snacks.picker then
+    Snacks.picker.lsp_workspace_symbols({
+      filter = LazyVim.config.kind_filter,
+    })
+  else
+    vim.lsp.buf.workspace_symbol()
+  end
+end, { desc = "LSP Workspace Symbols" })
+
 -- markdown-oxide LSP provides native equivalents:
 --   gd → goto definition (jump to wikilink target)
 --   gr → references (show all backlinks; Lspsaga finder, mtime-sorted, in-place edit)
