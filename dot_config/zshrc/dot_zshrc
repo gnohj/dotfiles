@@ -947,3 +947,6 @@ if [[ -x /usr/local/bin/aws_completer ]]; then
   autoload -Uz bashcompinit && bashcompinit
   complete -C /usr/local/bin/aws_completer aws
 fi
+
+# opencode
+export PATH=/Users/gnohj/.opencode/bin:$PATH
