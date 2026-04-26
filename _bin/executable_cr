@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Claude Code: resume the most recent session with the vault available.
+exec claude \
+  --dangerously-skip-permissions \
+  --resume \
+  --add-dir "$HOME/Obsidian/second-brain" \
+  "$@"

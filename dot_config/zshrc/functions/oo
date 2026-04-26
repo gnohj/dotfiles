@@ -1,0 +1,3 @@
+# `oo` — cd into the Obsidian second-brain vault.
+# A `cd` can't live in _bin/ (subshell scoping), so it's a zsh function here.
+cd "$HOME/Obsidian/second-brain"

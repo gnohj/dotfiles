@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Obsidian: publish reviewed notes from Zettelkasten/ -> Notes/<hub>/.
+# Hubs are validated against ~/Obsidian/second-brain/0-Hubs/hubs.md (the
+# source of truth). Notes whose `hubs:` value isn't a known hub get moved
+# to 0-Hubs-Unknown/ for manual review (no Claude required).
+
+set -euo pipefail
+
+VAULT_DIR="$HOME/Obsidian/second-brain"
+SOURCE_DIR="Zettelkasten"
+DEST_DIR="Notes"
+QUARANTINE_DIR="0-Hubs-Unknown"
+HUBS_FILE="$VAULT_DIR/0-Hubs/hubs.md"
+
+if [ ! -d "$VAULT_DIR/$SOURCE_DIR" ]; then
+  echo "Source dir not found: $VAULT_DIR/$SOURCE_DIR"
+  exit 1
+fi
+
+if [ ! -f "$HUBS_FILE" ]; then
+  echo "Hubs file not found: $HUBS_FILE"
+  exit 1
+fi
+
+# Read valid hubs into an associative array. Lines look like `- hub-name`.
+declare -A VALID_HUBS=()
+while IFS= read -r line; do
+  hub="${line#- }"
+  hub="${hub#"${hub%%[![:space:]]*}"}"
+  hub="${hub%"${hub##*[![:space:]]}"}"
+  [ -n "$hub" ] && VALID_HUBS["$hub"]=1
+done < <(grep -E '^- ' "$HUBS_FILE" || true)
+
+if [ "${#VALID_HUBS[@]}" -eq 0 ]; then
+  echo "No hubs found in $HUBS_FILE (expected lines like '- hub-name')"
+  exit 1
+fi
+
+moved=0
+skipped=0
+quarantined=0
+
+shopt -s nullglob
+for file in "$VAULT_DIR/$SOURCE_DIR"/*.md; do
+  echo "Processing $(basename "$file")"
+
+  # Strip luasnip `# AVAILABLE: …` hints in-place before doing anything
+  # else, so the published note doesn't ship with snippet authoring noise.
+  # Mirrors the nvim `<leader>zc` command: drop whole-line and inline
+  # variants. `sed -i.bak` is the portable form (BSD sed on macOS).
+  sed -i.bak -E \
+    -e '/^[[:space:]]*#[[:space:]]*AVAILABLE:/d' \
+    -e 's/[[:space:]]*#[[:space:]]*AVAILABLE:.*$//' \
+    "$file"
+  rm -f "$file.bak"
+
+  # `hubs:` is a YAML list. Scan forward from `hubs:` skipping
+  # `# AVAILABLE: …` luasnip hints and blank lines, then take the first
+  # `- value` list item. Stop early if we hit another top-level field or
+  # the closing `---` of the frontmatter.
+  hub=$(awk '
+    /^hubs:[[:space:]]*$/ { in_hubs=1; next }
+    in_hubs {
+      if ($0 ~ /^[[:space:]]*#/) next
+      if ($0 ~ /^[[:space:]]*$/) next
+      if ($0 ~ /^---[[:space:]]*$/) exit
+      if ($0 ~ /^[[:alnum:]_-]+:/) exit
+      if ($0 ~ /^[[:space:]]*-[[:space:]]/) {
+        sub(/^[[:space:]]*-[[:space:]]*/, "")
+        sub(/[[:space:]]*#.*$/, "")
+        gsub(/"/, "")
+        sub(/^[[:space:]]+/, "")
+        sub(/[[:space:]]+$/, "")
+        print
+        exit
+      }
+    }
+  ' "$file")
+
+  if [ -z "$hub" ]; then
+    echo "  -> no hub, skipping"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  if [ -n "${VALID_HUBS[$hub]:-}" ]; then
+    target="$VAULT_DIR/$DEST_DIR/$hub"
+    mkdir -p "$target"
+    mv "$file" "$target/"
+    echo "  -> moved to Notes/$hub/"
+    moved=$((moved + 1))
+  else
+    echo "  ! unknown hub '$hub' — quarantining"
+    target="$VAULT_DIR/$QUARANTINE_DIR"
+    mkdir -p "$target"
+    mv "$file" "$target/"
+    quarantined=$((quarantined + 1))
+  fi
+done
+
+echo
+echo "Done 🪷 — moved: $moved, quarantined: $quarantined, skipped: $skipped"

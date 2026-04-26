@@ -7,6 +7,15 @@ fi
 
 file_name=$(echo "$1" | tr ' ' '-')
 formatted_file_name=$(date "+%Y-%m-%d")_${file_name}.md
+target_path="$HOME/Obsidian/second-brain/0-Inbox/${formatted_file_name}"
+
+if [ -f "$target_path" ]; then
+  echo "Note already exists: $target_path"
+  exit 1
+fi
+
 cd "$HOME/Obsidian/second-brain/" || exit
 touch "0-Inbox/${formatted_file_name}"
-nvim "0-Inbox/${formatted_file_name}"
+
+# Open in nvim and expand the ;note-template luasnip after plugins load
+nvim "0-Inbox/${formatted_file_name}" -c 'lua vim.defer_fn(function() local ls = require("luasnip"); for _, sn in ipairs(ls.get_snippets("markdown")) do if sn.trigger == ";note-template" then vim.cmd("startinsert"); ls.snip_expand(sn); return end end end, 300)'

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Obsidian: open the inbox review picker (created notes only).
+exec nvim -c 'lua require("config.obsidian").review_inbox()'
