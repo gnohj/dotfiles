@@ -1,21 +1,15 @@
 #!/usr/bin/env bash
+# Obsidian: create a new inbox note from the command line.
+# All real work (path construction, template expansion, naming convention)
+# lives in dot_config/nvim/lua/config/obsidian.lua so this script, the
+# dashboard "Second Brain (New)" action, and <leader>zN stay in sync.
 
 if [ -z "$1" ]; then
-  echo "Error: A file name must be set, e.g. on \"the wonderful thing about tiggers\"."
+  echo 'Usage: on "note title"'
   exit 1
 fi
 
-file_name=$(echo "$1" | tr ' ' '-')
-formatted_file_name=$(date "+%Y-%m-%d")_${file_name}.md
-target_path="$HOME/Obsidian/second-brain/0-Inbox/${formatted_file_name}"
-
-if [ -f "$target_path" ]; then
-  echo "Note already exists: $target_path"
-  exit 1
-fi
-
-cd "$HOME/Obsidian/second-brain/" || exit
-touch "0-Inbox/${formatted_file_name}"
-
-# Open in nvim and expand the ;note-template luasnip after plugins load
-nvim "0-Inbox/${formatted_file_name}" -c 'lua vim.defer_fn(function() local ls = require("luasnip"); for _, sn in ipairs(ls.get_snippets("markdown")) do if sn.trigger == ";note-template" then vim.cmd("startinsert"); ls.snip_expand(sn); return end end end, 300)'
+# Pass the title via env var so it round-trips to lua without quote-escape
+# headaches that come from interpolating into a -c command string.
+OBSIDIAN_INBOX_TITLE="$*" \
+  exec nvim -c 'lua require("config.obsidian").new_inbox_note(vim.env.OBSIDIAN_INBOX_TITLE)'
