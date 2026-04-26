@@ -9,8 +9,8 @@ DEST_DIR="Notes"
 find "$VAULT_DIR/$SOURCE_DIR" -type f -name "*.md" | while read -r file; do
   echo "Processing $file"
 
-  # Extract the tag from the file. This assumes the tag is on the line immediately following "tags:"
-  tag=$(awk '/tags:/{getline; print; exit}' "$file" | sed -e 's/^ *- *//' -e 's/^ *//;s/ *$//')
+  # Extract the hub from the file. This assumes the hub is on the line immediately following "hubs:"
+  tag=$(awk '/hubs:/{getline; print; exit}' "$file" | sed -e 's/^ *- *//' -e 's/^ *//;s/ *$//')
 
   echo "Found tag $tag"
 
