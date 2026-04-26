@@ -78,7 +78,14 @@ return {
             enabled = true,
             module = "blink.cmp.sources.lsp",
             kind = "LSP",
-            min_keyword_length = 2,
+            -- Markdown gets 0 so markdown-oxide can fire its `[` trigger
+            -- character right after `[[` — without this, blink-cmp swallows
+            -- the request until you've typed 2 chars of the note name.
+            min_keyword_length = function(ctx)
+              return ctx.bufnr and vim.bo[ctx.bufnr].filetype == "markdown"
+                  and 0
+                or 2
+            end,
             score_offset = 100, -- Trust your LSP, it knows your codebase
           },
           path = {
