@@ -402,6 +402,237 @@ keymap(
   { desc = "[P]Obsidian: Delete file in current buffer" }
 )
 
+-- markdown-oxide LSP provides native equivalents:
+--   gd → goto definition (jump to wikilink target)
+--   gr → references (show all backlinks; Lspsaga finder, mtime-sorted, in-place edit)
+--   <leader>cs → workspace symbols (search all headings)
+--   <leader>cr → rename (auto-updates all backlinks)
+--   <leader>ca → code actions (e.g. create note from unresolved [[ref]])
+-- Custom <leader>zl / <leader>zb kept for muscle memory + snacks-picker UI.
+
+-- Follow [[wikilink]] under cursor
+keymap("n", "<leader>zl", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2] + 1
+  -- Find [[...]] around cursor
+  local s, e, link = nil, 0, nil
+  while true do
+    s, e, link = line:find("%[%[([^%]]+)%]%]", e + 1)
+    if not s then
+      break
+    end
+    if col >= s and col <= e then
+      break
+    end
+    link = nil
+  end
+  if not link then
+    vim.notify("No [[wikilink]] under cursor", vim.log.levels.WARN)
+    return
+  end
+  -- Strip any alias (e.g. [[file|alias]])
+  link = link:match("^([^|]+)") or link
+  -- Search vault for matching file
+  local results = vim.fn.globpath(vault, "**/" .. link .. ".md", false, true)
+  if #results == 0 then
+    vim.notify("Note not found: " .. link, vim.log.levels.WARN)
+  elseif #results == 1 then
+    vim.cmd("edit " .. vim.fn.fnameescape(results[1]))
+  else
+    vim.ui.select(results, { prompt = "Multiple matches:" }, function(choice)
+      if choice then
+        vim.cmd("edit " .. vim.fn.fnameescape(choice))
+      end
+    end)
+  end
+end, { desc = "[P]Obsidian: Follow [[wikilink]]" })
+
+-- Show all backlinks to current file
+keymap("n", "<leader>zb", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local name = vim.fn.expand("%:t:r") -- filename without extension
+  local pattern = "\\[\\[" .. name .. "\\]\\]"
+  local results = vim.fn.systemlist(
+    "rg -l '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
+  )
+  if #results == 0 then
+    vim.notify("No backlinks to: " .. name, vim.log.levels.INFO)
+    return
+  end
+  local items = {}
+  for _, path in ipairs(results) do
+    table.insert(items, { text = path, file = path })
+  end
+  Snacks.picker.pick({
+    title = "Backlinks: " .. name,
+    items = items,
+    format = function(item)
+      local rel = item.file:gsub(vault .. "/", "")
+      return { { rel } }
+    end,
+    confirm = function(picker, item)
+      picker:close()
+      vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+    end,
+  })
+end, { desc = "[P]Obsidian: Show backlinks to this note" })
+
+-- Obsidian frontmatter search helper
+local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+
+  local function run_search(query)
+    local pattern = pattern_fn(query)
+    local flag = multiline and "-U -l" or "-l"
+    local results = vim.fn.systemlist(
+      "rg " .. flag .. " '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
+    )
+    if #results == 0 then
+      vim.notify("No notes found for " .. field .. ": " .. query, vim.log.levels.INFO)
+      return
+    end
+    local items = {}
+    for _, path in ipairs(results) do
+      table.insert(items, { text = path, file = path })
+    end
+    Snacks.picker.pick({
+      title = field .. ": " .. query,
+      items = items,
+      format = function(item)
+        local rel = item.file:gsub(vault .. "/", "")
+        return { { rel } }
+      end,
+      confirm = function(picker, item)
+        picker:close()
+        vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+      end,
+    })
+  end
+
+  if prompt then
+    vim.ui.input({ prompt = prompt }, function(query)
+      if not query or query == "" then
+        return
+      end
+      run_search(query)
+    end)
+  else
+    -- Called with pattern_fn already bound to a query (e.g. from vim.ui.select)
+    run_search("")
+  end
+end
+
+-- Search vault by hub (filing category) in frontmatter
+keymap("n", "<leader>zh", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
+  local hubs = {}
+  for _, d in ipairs(hub_dirs) do
+    if vim.fn.isdirectory(d) == 1 then
+      table.insert(hubs, vim.fn.fnamemodify(d, ":t"))
+    end
+  end
+  vim.ui.select(hubs, { prompt = "Hub:" }, function(choice)
+    if not choice then
+      return
+    end
+    vault_frontmatter_search("hub", nil, function()
+      return "^hubs: " .. choice .. "$|^  - " .. choice .. "$"
+    end)
+  end)
+end, { desc = "[P]Obsidian: Find notes by hub" })
+
+-- Search vault by tag (topic) in frontmatter
+keymap("n", "<leader>zt", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local tag_files = vim.fn.globpath(vault .. "/0-Tags", "*.md", false, true)
+  local tags = {}
+  for _, f in ipairs(tag_files) do
+    table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
+  end
+  vim.ui.select(tags, { prompt = "Tag:" }, function(choice)
+    if not choice then
+      return
+    end
+    vault_frontmatter_search("tag", nil, function()
+      return "\\[\\[" .. choice .. "\\]\\]"
+    end)
+  end)
+end, { desc = "[P]Obsidian: Find notes by tag" })
+
+-- Copy hub name to clipboard (for pasting into frontmatter)
+keymap("n", "<leader>zH", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
+  local hubs = {}
+  for _, d in ipairs(hub_dirs) do
+    if vim.fn.isdirectory(d) == 1 then
+      table.insert(hubs, vim.fn.fnamemodify(d, ":t"))
+    end
+  end
+  vim.ui.select(hubs, { prompt = "Copy hub:" }, function(choice)
+    if not choice then
+      return
+    end
+    vim.fn.setreg("+", choice)
+    vim.notify("Copied hub: " .. choice, vim.log.levels.INFO)
+  end)
+end, { desc = "[P]Obsidian: Copy hub to clipboard" })
+
+-- Copy tag name to clipboard (for pasting into frontmatter)
+keymap("n", "<leader>zT", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local tag_files = vim.fn.globpath(vault .. "/0-Tags", "*.md", false, true)
+  local tags = {}
+  for _, f in ipairs(tag_files) do
+    table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
+  end
+  vim.ui.select(tags, { prompt = "Copy tag:" }, function(choice)
+    if not choice then
+      return
+    end
+    local formatted = '"[[' .. choice .. ']]"'
+    vim.fn.setreg("+", formatted)
+    vim.notify("Copied tag: " .. formatted, vim.log.levels.INFO)
+  end)
+end, { desc = "[P]Obsidian: Copy tag to clipboard" })
+
+-- Search vault by date in frontmatter
+keymap("n", "<leader>zd", function()
+  vault_frontmatter_search("date", "Date (YYYY-MM-DD): ", function(q)
+    return "^date:\\n  - " .. q
+  end, true)
+end, { desc = "[P]Obsidian: Find notes by date" })
+
+-- Search vault by URL in frontmatter
+keymap("n", "<leader>zu", function()
+  vault_frontmatter_search("url", "URL contains: ", function(q)
+    return "^urls:\\n  - .*" .. q
+  end, true)
+end, { desc = "[P]Obsidian: Find notes by URL" })
+
+-- Grep within a vault tag folder or hub
+keymap("n", "<leader>zs", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
+  table.insert(dirs, 1, vault .. "/0-Tags")
+  table.insert(dirs, 2, vault .. "/0-Hubs")
+  table.insert(dirs, 3, vault .. "/0-Inbox")
+
+  local labels = {}
+  for _, d in ipairs(dirs) do
+    table.insert(labels, vim.fn.fnamemodify(d, ":t"))
+  end
+
+  vim.ui.select(labels, { prompt = "Search in:" }, function(choice, idx)
+    if not choice then
+      return
+    end
+    Snacks.picker.grep({ dirs = { dirs[idx] } })
+  end)
+end, { desc = "[P]Obsidian: Scoped grep by tag/hub" })
+
 -------------------------------------------------------------------------------
 --                           OpenCode AI Assistant
 -------------------------------------------------------------------------------
