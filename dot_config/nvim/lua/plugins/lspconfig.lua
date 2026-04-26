@@ -8,6 +8,13 @@ return {
         keys = {
           { "<leader>ca", false },
           { "<leader>cA", false },
+          {
+            "gr",
+            function()
+              Snacks.picker.lsp_references()
+            end,
+            desc = "References (Snacks)",
+          },
         },
       }
 
@@ -66,7 +73,7 @@ return {
         },
         harper_ls = {
           enabled = true,
-          filetypes = { "markdown", "md", "mdx" },
+          filetypes = { "markdown" },
           root_dir = function(fname)
             if type(fname) == "number" then
               fname = vim.api.nvim_buf_get_name(fname)
@@ -183,16 +190,29 @@ return {
           handlers = {
             -- Suppress "No ESLint configuration found" errors
             ["window/showMessageRequest"] = function(_, result)
-              if result and result.message and result.message:find("No ESLint configuration found") then
+              if
+                result
+                and result.message
+                and result.message:find("No ESLint configuration found")
+              then
                 return vim.NIL
               end
               return vim.lsp.handlers["window/showMessageRequest"](nil, result)
             end,
             ["textDocument/diagnostic"] = function(err, result, ctx, config)
-              if err and err.message and err.message:find("No ESLint configuration found") then
+              if
+                err
+                and err.message
+                and err.message:find("No ESLint configuration found")
+              then
                 return
               end
-              return vim.lsp.handlers["textDocument/diagnostic"](err, result, ctx, config)
+              return vim.lsp.handlers["textDocument/diagnostic"](
+                err,
+                result,
+                ctx,
+                config
+              )
             end,
           },
         },
@@ -219,7 +239,10 @@ return {
             json = {
               schemas = {
                 {
-                  fileMatch = { "**/.claude/settings.json", "**/.claude/settings.local.json" },
+                  fileMatch = {
+                    "**/.claude/settings.json",
+                    "**/.claude/settings.local.json",
+                  },
                   url = "https://json.schemastore.org/claude-code-settings.json",
                 },
                 {
@@ -232,6 +255,18 @@ return {
           },
         },
         marksman = { enabled = false },
+        markdown_oxide = {
+          filetypes = { "markdown" },
+          capabilities = vim.tbl_deep_extend(
+            "force",
+            vim.lsp.protocol.make_client_capabilities(),
+            {
+              workspace = {
+                didChangeWatchedFiles = { dynamicRegistration = true },
+              },
+            }
+          ),
+        },
         pyright = { enabled = false },
         ruff = { enabled = false },
         svelte = { enabled = false },
@@ -251,7 +286,8 @@ return {
       -- (LazyVim routes LSP format through conform which swallows the eslint request)
       opts.setup = opts.setup or {}
       opts.setup.eslint = function()
-        local auto_format = vim.g.lazyvim_eslint_auto_format == nil or vim.g.lazyvim_eslint_auto_format
+        local auto_format = vim.g.lazyvim_eslint_auto_format == nil
+          or vim.g.lazyvim_eslint_auto_format
         if not auto_format then
           return
         end
@@ -260,7 +296,8 @@ return {
           primary = false,
           priority = 200,
           format = function(buf)
-            local client = vim.lsp.get_clients({ name = "eslint", bufnr = buf })[1]
+            local client =
+              vim.lsp.get_clients({ name = "eslint", bufnr = buf })[1]
             if not client then
               return
             end
@@ -275,12 +312,16 @@ return {
             if has_eslint_diag then
               vim.lsp.buf.code_action({
                 apply = true,
-                context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
+                context = {
+                  only = { "source.fixAll.eslint" },
+                  diagnostics = {},
+                },
               })
             end
           end,
           sources = function(buf)
-            local clients = vim.lsp.get_clients({ name = "eslint", bufnr = buf })
+            local clients =
+              vim.lsp.get_clients({ name = "eslint", bufnr = buf })
             return #clients > 0 and { "eslint" } or {}
           end,
         })
