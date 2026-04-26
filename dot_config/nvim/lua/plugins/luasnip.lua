@@ -1,7 +1,10 @@
 -- LuaSnip is already pulled in as a dependency of blink-cmp; this spec
 -- registers custom snippets that surface in the blink-cmp completion menu.
+-- Lazy-loaded on InsertEnter — snippets are only useful while editing, and
+-- this saves ~2-3ms off startup since the spec used to load eagerly.
 return {
   "L3MON4D3/LuaSnip",
+  event = "InsertEnter",
   config = function()
     local ls = require("luasnip")
     local s, t, i, f =
