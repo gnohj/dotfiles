@@ -6,6 +6,7 @@ return {
       "html-lsp",
       "tailwindcss-language-server",
       "harper-ls",
+      "markdown-oxide",
       "prettierd",
       "eslint-lsp",
       "vtsls",
