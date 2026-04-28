@@ -81,7 +81,8 @@ local function discover_packages(repo_root)
   end
 
   -- Add special directories if they exist
-  local special_dirs = { ".github", ".changeset", ".fastly-vcl", ".scripts", ".husky" }
+  local special_dirs =
+    { ".github", ".changeset", ".fastly-vcl", ".scripts", ".husky" }
   for _, dir in ipairs(special_dirs) do
     local dir_path = repo_root .. "/" .. dir
     if vim.fn.isdirectory(dir_path) == 1 then
@@ -164,37 +165,102 @@ local function find_vault_root(start)
   return nil
 end
 
--- Snacks picker over the top-level folders of an Obsidian vault. Used
--- when `<leader>fp` fires inside the second-brain vault instead of the
--- monorepo package picker.
-local function pick_vault_folders(vault_root)
-  local entries = vim.fn.globpath(vault_root, "*", false, true)
+-- Snacks picker for the second-brain vault. Used when `<leader>fp` fires
+-- inside the vault instead of the monorepo package picker.
+--
+-- Lists, in this order:
+--   1. Vault root
+--   2. Top-level vault folders (0-Inbox, 0-Hubs, Notes, Projects, etc.)
+--   3. Each project under Projects/<name>/  (folder)
+--   4. Each hub under Notes/<hub>/          (folder)
+--
+-- Folders open in mini.files.
+local function pick_vault_items(vault_root)
   local items = {}
-  for _, entry in ipairs(entries) do
-    if vim.fn.isdirectory(entry) == 1 then
-      local name = vim.fn.fnamemodify(entry, ":t")
-      table.insert(items, {
-        text = name,
-        name = name,
-        file = entry,
-        path = entry,
-      })
-    end
-  end
-  if #items == 0 then
-    vim.notify("No top-level folders in vault", vim.log.levels.WARN)
-    return
-  end
-  table.sort(items, function(a, b)
-    return a.name < b.name
-  end)
-  table.insert(items, 1, {
+
+  -- 1. Vault root
+  table.insert(items, {
     text = "/ (vault root)",
     name = vim.fn.fnamemodify(vault_root, ":t"),
     file = vault_root,
     path = vault_root,
     is_root = true,
+    is_dir = true,
+    category = "0-root",
   })
+
+  -- 2. Top-level vault folders (Notes/ and Projects/ are expanded below)
+  for _, entry in ipairs(vim.fn.globpath(vault_root, "*", false, true)) do
+    if vim.fn.isdirectory(entry) == 1 then
+      local name = vim.fn.fnamemodify(entry, ":t")
+      if name ~= "Notes" and name ~= "Projects" then
+        table.insert(items, {
+          text = name .. "/",
+          name = name,
+          file = entry,
+          path = entry,
+          is_dir = true,
+          category = "1-folder",
+        })
+      end
+    end
+  end
+
+  -- 3. Each project under Projects/<name>/
+  local projects_root = vault_root .. "/Projects"
+  if vim.fn.isdirectory(projects_root) == 1 then
+    for _, p in ipairs(vim.fn.globpath(projects_root, "*", false, true)) do
+      if vim.fn.isdirectory(p) == 1 then
+        local name = vim.fn.fnamemodify(p, ":t")
+        table.insert(items, {
+          text = "Projects/" .. name,
+          name = name,
+          file = p,
+          path = p,
+          is_dir = true,
+          is_project = true,
+          category = "2-project",
+        })
+      end
+    end
+  end
+
+  -- 4. Each hub under Notes/<hub>/
+  local notes_root = vault_root .. "/Notes"
+  if vim.fn.isdirectory(notes_root) == 1 then
+    for _, n in ipairs(vim.fn.globpath(notes_root, "*", false, true)) do
+      if vim.fn.isdirectory(n) == 1 then
+        local name = vim.fn.fnamemodify(n, ":t")
+        table.insert(items, {
+          text = "Notes/" .. name,
+          name = name,
+          file = n,
+          path = n,
+          is_dir = true,
+          is_hub = true,
+          category = "3-hub",
+        })
+      end
+    end
+  end
+
+  if #items <= 1 then
+    vim.notify("Vault appears empty", vim.log.levels.WARN)
+    return
+  end
+
+  table.sort(items, function(a, b)
+    if a.is_root then
+      return true
+    end
+    if b.is_root then
+      return false
+    end
+    if a.category == b.category then
+      return a.text < b.text
+    end
+    return a.category < b.category
+  end)
 
   require("snacks").picker({
     title = "Vault: " .. vim.fn.fnamemodify(vault_root, ":t"),
@@ -208,7 +274,21 @@ local function pick_vault_folders(vault_root)
           { item.name .. " (root)", "Special" },
         }
       end
-      return { { item.text, "Normal" } }
+      if item.is_project then
+        return {
+          { "🚀 ", "Normal" },
+          { "Projects/", "Comment" },
+          { item.name, "Normal" },
+        }
+      end
+      if item.is_hub then
+        return {
+          { "🗂️  ", "Normal" },
+          { "Notes/", "Comment" },
+          { item.name, "Normal" },
+        }
+      end
+      return { { "📂 ", "Normal" }, { item.text, "Normal" } }
     end,
     confirm = function(picker, item)
       picker:close()
@@ -220,7 +300,7 @@ end
 M.pick = function()
   local vault = find_vault_root()
   if vault then
-    return pick_vault_folders(vault)
+    return pick_vault_items(vault)
   end
 
   local repo_root = get_git_root()
