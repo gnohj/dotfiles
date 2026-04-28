@@ -615,8 +615,12 @@ keymap("n", "<leader>zo", function()
     local file, lnum, content = line:match("^([^:]+):(%d+):(.*)$")
     if file then
       -- Show path relative to Projects/ so it starts with `<project>/...`
-      -- rather than the full absolute path. Anchored gsub on the first match.
-      local rel = file:gsub(strip, "", 1)
+      -- rather than the full absolute path. Plain prefix strip — gsub would
+      -- interpret dashes (e.g. `second-brain`) as Lua pattern metacharacters.
+      local rel = file
+      if rel:sub(1, #strip) == strip then
+        rel = rel:sub(#strip + 1)
+      end
       table.insert(items, {
         text = rel .. ":" .. lnum .. " " .. (content or ""),
         file = file,
