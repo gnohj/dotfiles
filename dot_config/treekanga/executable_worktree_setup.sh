@@ -40,17 +40,6 @@ fi
 
 echo "Setting up $REPO_NAME worktree..."
 
-# Create tasks symlink to Obsidian (for <leader>ft in nvim) - applies to ALL worktrees
-OBSIDIAN_TASKS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks/$REPO_NAME"
-if [ -d "$OBSIDIAN_TASKS" ] && [ ! -e "tasks" ]; then
-  echo "Creating tasks symlink to Obsidian..."
-  ln -s "$OBSIDIAN_TASKS" tasks
-elif [ -L "tasks" ]; then
-  echo "Tasks symlink already exists"
-elif [ -d "tasks" ]; then
-  echo "Warning: tasks directory exists but is not a symlink"
-fi
-
 # Skip remaining setup for main worktree
 if [ "$IS_MAIN_WORKTREE" = true ]; then
   echo "$REPO_NAME main worktree setup complete!"
