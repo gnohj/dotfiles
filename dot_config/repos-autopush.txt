@@ -9,4 +9,6 @@
 ~/Developer/gnohj-monorepo
 ~/.claude
 ~/Obsidian/second-brain
+~/Obsidian/second-brain/Projects/banking
 ~/Obsidian/second-brain/Projects/fitness
+~/Obsidian/second-brain/Projects/parents-estate
