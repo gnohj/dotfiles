@@ -3,7 +3,7 @@
 
 # Generate filename with timestamp
 FILENAME="Screenshot-$(date +%Y%m%d-%H%M%S).png"
-FILEPATH="$HOME/Pictures/$FILENAME"
+FILEPATH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads/$FILENAME"
 
 # Take screenshot and save to file
 screencapture -i "$FILEPATH"
