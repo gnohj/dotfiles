@@ -193,17 +193,26 @@ else
   print_warning "zsh not found. Please install via nix-darwin."
 fi
 
-# --- PHASE 4: VERIFY MISE ---
-print_info "› Phase 4: Verifying mise..."
+# --- PHASE 4: INSTALL MISE ---
+# mise is installed via its official installer (not nixpkgs) because the
+# aarch64-darwin binary cache often lags behind upstream and forces a slow
+# source build during darwin-rebuild. The installer drops it at ~/.local/bin/mise
+# which is already on PATH via .zshrc.
+print_info "› Phase 4: Installing mise..."
 
 if command -v mise &>/dev/null; then
-  print_success "mise is available"
+  print_success "mise is already available"
   mise --version
 else
-  print_error "mise not found!"
-  print_info "mise should be installed via nix-darwin."
-  print_info "It should already be in common/packages.nix"
-  exit 1
+  print_info "Installing mise via https://mise.run ..."
+  if curl -fsSL https://mise.run | sh; then
+    export PATH="$HOME/.local/bin:$PATH"
+    print_success "mise installed at $(command -v mise)"
+    mise --version
+  else
+    print_error "mise install failed"
+    exit 1
+  fi
 fi
 
 # --- PHASE 5: APPLY DOTFILES WITH CHEZMOI ---

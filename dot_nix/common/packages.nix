@@ -3,13 +3,15 @@
 {
   # Cross-platform CLI utilities and tools
   # Per migration plan: ALL CLI tools from mise → Nix
-  # mise will ONLY contain language runtimes (node, lua, python, etc.)
+  # mise itself is installed via its official installer (curl https://mise.run | sh)
+  # because nixpkgs binary cache lags behind upstream mise releases on
+  # aarch64-darwin and forces source rebuilds during darwin-rebuild.
+  # mise still owns language runtimes only (node, lua, python, etc.)
 
   environment.systemPackages = with pkgs; [
     # Core development tools
     neovim
     chezmoi
-    mise
 
     # CLI utilities (from mise migration)
     bat        # Better cat

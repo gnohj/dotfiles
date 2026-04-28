@@ -4,8 +4,9 @@
 # Change to config directory first
 cd "$HOME/.config/sketchybar" || exit 1
 
-# Add Nix to PATH (mise is installed via Nix)
-export PATH="/run/current-system/sw/bin:$PATH"
+# mise lives at ~/.local/bin (via official installer); also keep Nix bin
+# on PATH so other Nix-managed CLIs called from sketchybar still resolve.
+export PATH="$HOME/.local/bin:/run/current-system/sw/bin:$PATH"
 
 # Activate mise to get the correct lua in PATH
 eval "$(mise activate bash)"
