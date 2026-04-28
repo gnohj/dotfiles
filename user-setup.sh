@@ -248,10 +248,39 @@ else
   print_warning "mise not found. Skipping language runtime installation."
 fi
 
+# --- PHASE 6.5: SYMLINK ICLOUD VAULT TO ~/Obsidian ---
+print_info "› Phase 6.5: Configuring iCloud-backed Obsidian vault..."
+
+ICLOUD_OBSIDIAN="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian"
+
+if [ -L "$HOME/Obsidian" ]; then
+  print_success "~/Obsidian symlink exists → $(readlink "$HOME/Obsidian")"
+elif [ -e "$HOME/Obsidian" ]; then
+  print_error "~/Obsidian exists but is NOT a symlink."
+  print_error "This will conflict with iCloud sync. Inspect and remove before continuing."
+  print_info "  Expected: a symlink to \"$ICLOUD_OBSIDIAN\""
+  exit 1
+elif [ -d "$ICLOUD_OBSIDIAN" ]; then
+  ln -s "$ICLOUD_OBSIDIAN" "$HOME/Obsidian"
+  print_success "Created symlink ~/Obsidian → iCloud Obsidian path"
+else
+  print_warning "iCloud Obsidian path not found yet."
+  print_info "  Expected: $ICLOUD_OBSIDIAN"
+  print_info "  iCloud may still be syncing. Once vault appears, re-run user-setup.sh."
+  print_info "  Skipping vault setup — second-brain is NOT git-cloned (iCloud is source of truth)."
+fi
+
+if [ -d "$HOME/Obsidian/second-brain" ]; then
+  print_success "Vault present at ~/Obsidian/second-brain"
+else
+  print_warning "~/Obsidian/second-brain not found. Wait for iCloud sync to complete."
+  print_info "  Verify with: ls -la \"$ICLOUD_OBSIDIAN/second-brain\""
+fi
+
 # --- PHASE 7: CLONE PRIVATE REPOSITORIES ---
 print_info "› Phase 7: Cloning private repositories..."
 
-REPOS_FILE="$HOME/.config/repos.txt"
+REPOS_FILE="$HOME/.config/repos-clone.txt"
 
 if [ -f "$REPOS_FILE" ]; then
   while IFS= read -r line; do
@@ -274,7 +303,7 @@ if [ -f "$REPOS_FILE" ]; then
     fi
   done < "$REPOS_FILE"
 else
-  print_warning "No repos.txt found at $REPOS_FILE, skipping"
+  print_warning "No repos-clone.txt found at $REPOS_FILE, skipping"
 fi
 
 # --- PHASE 8: INSTALL RUST TOOLS FROM SOURCE ---
