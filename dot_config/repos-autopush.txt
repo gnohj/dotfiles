@@ -1,0 +1,12 @@
+# Repos that github-auto-push.sh should auto-commit & push.
+# Format: one path per line. Comments start with #.
+#
+# This is separate from repos-clone.txt (which is the clone manifest used by
+# user-setup.sh) so that paths can be auto-pushed without being cloned at
+# setup time — e.g. fitness lives in the iCloud-synced vault but its
+# GitHub remote is preserved as an off-machine backup.
+
+~/Developer/gnohj-monorepo
+~/.claude
+~/Obsidian/second-brain
+~/Obsidian/second-brain/Projects/fitness

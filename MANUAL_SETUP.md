@@ -1,18 +1,14 @@
 # macOS Manual Setup Guide
 
-This document covers macOS settings that **cannot be automated** through
-nix-darwin due to TCC (Transparency, Consent, and Control) security restrictions
-or lack of API support.
+This document covers macOS settings that **cannot be automated** through nix-darwin due to TCC (Transparency, Consent, and Control) security restrictions or lack of API support.
 
 ## ⚠️ Prerequisites
 
 **This setup requires:**
 
-- ✅ **Administrator/sudo access** - Required for installing Nix, nix-darwin,
-  and granting TCC permissions
+- ✅ **Administrator/sudo access** - Required for installing Nix, nix-darwin, and granting TCC permissions
 - ✅ **Personal macOS device** - You have full control over system settings
-- ✅ **SIP enabled** - No System Integrity Protection disabling needed (all apps
-  work with SIP on)
+- ✅ **SIP enabled** - No System Integrity Protection disabling needed (all apps work with SIP on)
 
 **NOT compatible with:**
 
@@ -21,9 +17,7 @@ or lack of API support.
 - ❌ Macs where IT policies block third-party app installations
 - ❌ Environments where TCC permission granting is restricted
 
-**Note:** If you don't have admin access, you cannot install Nix, Homebrew, or
-grant the necessary security permissions. This setup is designed for personal
-devices only.
+**Note:** If you don't have admin access, you cannot install Nix, Homebrew, or grant the necessary security permissions. This setup is designed for personal devices only.
 
 ## Table of Contents
 
@@ -53,8 +47,7 @@ devices only.
 - No supported macOS API for programmatic permission grants
 - `tccutil` only supports `reset` (removing), not granting permissions
 
-**The ONLY automation path**: MDM (Mobile Device Management) with PPPC profiles
-in enterprise environments
+**The ONLY automation path**: MDM (Mobile Device Management) with PPPC profiles in enterprise environments
 
 ### Gesture Settings
 
@@ -140,11 +133,7 @@ These apps need to monitor keyboard/mouse input:
 4. Select the binary and click "Open"
 5. Toggle the switch to enable
 
-> **Warning**: When kanata is upgraded via `brew upgrade`, the binary changes and
-> macOS **invalidates** Input Monitoring and Accessibility permissions. You must
-> remove and re-add `/opt/homebrew/bin/kanata` in both Input Monitoring and
-> Accessibility after every upgrade. Kanata is pinned (`brew pin kanata`) to
-> prevent accidental upgrades. To intentionally upgrade:
+> **Warning**: When kanata is upgraded via `brew upgrade`, the binary changes and macOS **invalidates** Input Monitoring and Accessibility permissions. You must remove and re-add `/opt/homebrew/bin/kanata` in both Input Monitoring and Accessibility after every upgrade. Kanata is pinned (`brew pin kanata`) to prevent accidental upgrades. To intentionally upgrade:
 >
 > ```bash
 > brew unpin kanata
@@ -260,10 +249,8 @@ The following gestures from your screenshots **cannot be automated**:
 ### Your Current Configuration
 
 - ❌ **Swipe between pages**: Off
-- ❌ **Swipe between full-screen applications**: Swipe Left or Right with Three
-  Fingers
-- ❌ **Notification Center**: Swipe left from the right edge with two fingers -
-  **Enabled**
+- ❌ **Swipe between full-screen applications**: Swipe Left or Right with Three Fingers
+- ❌ **Notification Center**: Swipe left from the right edge with two fingers - **Enabled**
 - ❌ **Mission Control**: Swipe Up with Three Fingers - **Enabled**
 - ❌ **App Exposé**: Off
 - ❌ **Launchpad**: Pinch with thumb and three fingers - **Enabled**
@@ -275,8 +262,7 @@ The following gestures from your screenshots **cannot be automated**:
 2. Click "More Gestures" tab
 3. Configure each gesture according to your preferences above
 
-**Note**: The "Point & Click" and "Scroll & Zoom" tabs are mostly automated via
-nix-darwin (see `system-settings.nix`).
+**Note**: The "Point & Click" and "Scroll & Zoom" tabs are mostly automated via nix-darwin (see `system-settings.nix`).
 
 ---
 
@@ -350,10 +336,48 @@ defaults read NSGlobalDomain NSRecentDocumentsLimit
 
 ---
 
+### Obsidian Vault (`~/Obsidian/second-brain`)
+
+**Do NOT `git clone` the vault.** It is iCloud-managed, not git-cloned. The GitHub remote (`git@github.com:gnohj/notes.git`) is a backup, not the cross-machine sync mechanism.
+
+**On a new machine:**
+
+1. Sign into iCloud and enable iCloud Drive.
+2. Install Obsidian and enable iCloud sync inside the app.
+3. Wait for the vault to download:
+   ```bash
+   ls -la "$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain"
+   ```
+   This may take minutes to hours depending on vault size and network speed.
+4. Run `user-setup.sh`. **Phase 6.5** automatically creates the symlink:
+   ```
+   ~/Obsidian → ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian
+   ```
+5. The vault's `.git/`, remote config, and **all `Projects/` subfolders** (including their own nested `.git/` dirs) come along via iCloud — no extra clone needed.
+
+**Why iCloud instead of git clone:**
+
+- The vault includes `Projects/<name>/` subfolders that are gitignored from the vault repo (each project has its own nested `.git/` for per-project Claude Code scope). A `git clone` of the vault would NOT bring project content.
+- iCloud syncs the entire folder byte-for-byte, including all nested `.git/` dirs and ignored content.
+- If you `git clone` into `~/Obsidian/second-brain` while iCloud is also syncing to that path (via the symlink), you get duplicate copies that drift.
+
+**If the iCloud path doesn't exist yet** when `user-setup.sh` runs, Phase 6.5 prints a warning and skips. Wait for iCloud, then re-run `user-setup.sh`.
+
+**If `~/Obsidian` already exists as a regular directory** (not a symlink) on the new machine — likely from a previous broken bootstrap — Phase 6.5 will refuse to proceed. Inspect, back up, and remove it manually:
+
+```bash
+# CAREFUL: confirm contents are not unique before deleting
+ls -la ~/Obsidian
+rm -rf ~/Obsidian
+```
+
+Then re-run `user-setup.sh`.
+
+---
+
 ### Clone Personal Repositories
 
-**Cannot be automated**: Requires SSH authentication and personal workflow
-decisions
+**Cannot be automated**: Requires SSH authentication and personal workflow decisions
 
 Clone your frequently-used repositories to your preferred locations. Example:
 
@@ -368,8 +392,7 @@ git clone git@github.com:gnohj/dotfiles.git ~/projects/dotfiles
 # git clone git@github.com:gnohj/repo-name.git ~/projects/repo-name
 ```
 
-**Note**: This assumes your SSH key is already configured via `user-setup.sh`
-and Bitwarden.
+**Note**: This assumes your SSH key is already configured via `user-setup.sh` and Bitwarden.
 
 ---
 
@@ -394,8 +417,7 @@ else
 fi
 ```
 
-**Alternative**: If wallpapers are already in `~/Pictures/wallpapers`, no action
-needed.
+**Alternative**: If wallpapers are already in `~/Pictures/wallpapers`, no action needed.
 
 **Why manual?**:
 
@@ -475,19 +497,16 @@ git config --global core.excludesfile
 
 ### Import Raycast Configuration
 
-**Cannot be automated**: Requires manual import (free alternative to Raycast
-Cloud Sync)
+**Cannot be automated**: Requires manual import (free alternative to Raycast Cloud Sync)
 
-Raycast Cloud Sync is a paid feature. Instead, use export/import to restore
-settings:
+Raycast Cloud Sync is a paid feature. Instead, use export/import to restore settings:
 
 **On current machine (export once)**:
 
 1. Open Raycast Settings → Advanced
 2. Click "Export Settings"
 3. Save the JSON file to your iCloud Drive or backup location
-   - Recommended:
-     `~/Library/Mobile Documents/com~apple~CloudDocs/Documents/raycast-settings.json`
+   - Recommended: `~/Library/Mobile Documents/com~apple~CloudDocs/Documents/raycast-settings.json`
 
 **On new machine (import)**:
 
@@ -530,8 +549,7 @@ settings:
 
 **Cannot be automated**: Contains license key and requires manual setup
 
-Homerow is a keyboard navigation app that requires license activation and
-configuration.
+Homerow is a keyboard navigation app that requires license activation and configuration.
 
 **On new machine:**
 
@@ -564,8 +582,7 @@ configuration.
 
 ### Configure AlDente (Battery Management)
 
-**Cannot be automated**: Settings stored in application database, not config
-files
+**Cannot be automated**: Settings stored in application database, not config files
 
 AlDente allows you to set a charge limit to prolong battery lifespan.
 
@@ -607,6 +624,7 @@ After running through this guide, verify:
 - [ ] Lock Screen UI options configured (4 settings)
 - [ ] Touch ID fingerprints added
 - [ ] Recent Items set to None
+- [ ] iCloud Obsidian vault present at `~/Obsidian/second-brain` (via symlink)
 - [ ] Personal repositories cloned
 - [ ] Wallpapers migrated from iCloud to `~/Pictures/wallpapers`
 - [ ] Global gitignore file created at `~/.gitignore_global`
@@ -666,5 +684,4 @@ tccutil reset Accessibility com.bundle.identifier
 
 ---
 
-**Last Updated**: 2025-01-23 **macOS Version**: Sequoia and later **nix-darwin
-Version**: See flake.lock
+**Last Updated**: 2025-01-23 **macOS Version**: Sequoia and later **nix-darwin Version**: See flake.lock

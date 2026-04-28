@@ -35,14 +35,20 @@ log_message() {
   echo "[$timestamp] [$level] [$repo] $message" | tee -a "$LOG_FILE"
 }
 
-# List of repositories to push to (from ~/.config/repos.txt)
+# List of repositories to push to (paths only, decoupled from clone manifest).
+AUTOPUSH_FILE="$HOME/.config/repos-autopush.txt"
+if [[ ! -f "$AUTOPUSH_FILE" ]]; then
+  log_message "ERROR" "ALL" "Missing $AUTOPUSH_FILE — run \`chezmoi apply\`"
+  exit 1
+fi
+
 REPO_LIST=()
 while IFS= read -r line; do
   [[ -z "$line" || "$line" == \#* ]] && continue
   local_path="${line##* }"
   local_path="${local_path/#\~/$HOME}"
   REPO_LIST+=("$local_path")
-done < "$HOME/.config/repos.txt"
+done < "$AUTOPUSH_FILE"
 
 # Define the push interval in seconds
 # Make sure this matches the frequency of the launch agent
