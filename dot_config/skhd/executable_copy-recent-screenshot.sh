@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copy the most recent screenshot filepath to clipboard
 
-SCREENSHOT_DIR="$HOME/Pictures"
+SCREENSHOT_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
 
 # Find the most recent screenshot (Shottr: SCR-*, macOS: Screenshot-*)
 RECENT_FILE=$(fd -t f '^(SCR-|Screenshot-)' "$SCREENSHOT_DIR" -x stat -f "%m %N" 2>/dev/null | \

@@ -120,7 +120,7 @@
 
     # Screenshot settings
     screencapture = {
-      location = "~/Pictures";            # Save screenshots to Pictures folder
+      location = "~/Library/Mobile Documents/com~apple~CloudDocs/Downloads"; # Save screenshots to iCloud Downloads
       type = "png";                       # Save as PNG format
       disable-shadow = false;             # Keep window shadows in screenshots
       show-thumbnail = false;             # Disable thumbnail preview (no focus stealing)
