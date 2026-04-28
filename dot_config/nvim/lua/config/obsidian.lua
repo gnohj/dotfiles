@@ -3,8 +3,8 @@
 local M = {}
 
 local VAULT = vim.fn.expand("~/Obsidian/second-brain")
-local INBOX = VAULT .. "/0-Inbox"
-local ZETTEL = VAULT .. "/Zettelkasten"
+local INBOX = VAULT .. "/Notes-Inbox"
+local PUBLISH = VAULT .. "/Notes-Publish"
 
 -- A "created note" is a .md file in the inbox whose first non-empty line
 -- is a YAML frontmatter delimiter (`---`). Raw resources (txt dumps,
@@ -101,7 +101,7 @@ function M.new_inbox_note(title)
   end
 end
 
--- Load every "created note" in 0-Inbox/ as a buffer. Backs the `or` shell
+-- Load every "created note" in Notes-Inbox/ as a buffer. Backs the `or` shell
 -- script, the dashboard "Second Brain (Review)" entry, and <leader>zr.
 -- If the inbox has no personal notes, we just notify and bail — no point
 -- launching nvim with nothing to review.
@@ -121,7 +121,7 @@ function M.review_inbox()
   -- Edit the first note (replaces dashboard / current buffer); add the rest
   -- as hidden buffers so they all show up in the buffer list (<S-h>) and
   -- you can step through them with :bnext / :bprev like the old `nvim
-  -- 0-Inbox/*.md` flow.
+  -- Notes-Inbox/*.md` flow.
   vim.opt.eventignore = ""
   vim.cmd("edit " .. vim.fn.fnameescape(notes[1]))
   for i = 2, #notes do
@@ -135,15 +135,15 @@ end
 
 -- The vault directory is a symlink to iCloud, so the buffer path may
 -- resolve to `~/Library/Mobile Documents/...` while INBOX above resolves
--- to `~/Obsidian/second-brain/...`. Match by structural `/0-Inbox/` segment
+-- to `~/Obsidian/second-brain/...`. Match by structural `/Notes-Inbox/` segment
 -- and recover the vault root from the buffer's actual path.
 local function inbox_match(path)
-  return path:match("^(.+)/0%-Inbox/[^/]+%.md$")
+  return path:match("^(.+)/Notes%-Inbox/[^/]+%.md$")
 end
 
--- Move the current buffer's file from 0-Inbox/ to Zettelkasten/ for
+-- Move the current buffer's file from Notes-Inbox/ to Notes-Publish/ for
 -- processing. Closes the buffer after the move (per user preference).
-function M.move_to_zettelkasten()
+function M.move_to_publish()
   local path = vim.api.nvim_buf_get_name(0)
   if path == "" or vim.fn.filereadable(path) ~= 1 then
     vim.notify("No file in current buffer", vim.log.levels.WARN)
@@ -151,15 +151,15 @@ function M.move_to_zettelkasten()
   end
   local vault_root = inbox_match(path)
   if not vault_root then
-    vim.notify("Not in 0-Inbox/: " .. path, vim.log.levels.WARN)
+    vim.notify("Not in Notes-Inbox/: " .. path, vim.log.levels.WARN)
     return
   end
-  local zettel = vault_root .. "/Zettelkasten"
-  vim.fn.mkdir(zettel, "p")
-  local target = zettel .. "/" .. vim.fn.fnamemodify(path, ":t")
+  local publish = vault_root .. "/Notes-Publish"
+  vim.fn.mkdir(publish, "p")
+  local target = publish .. "/" .. vim.fn.fnamemodify(path, ":t")
   if vim.fn.filereadable(target) == 1 then
     vim.notify(
-      "Target exists in Zettelkasten/: " .. target,
+      "Target exists in Notes-Publish/: " .. target,
       vim.log.levels.ERROR
     )
     return
@@ -173,7 +173,7 @@ function M.move_to_zettelkasten()
     return
   end
   vim.cmd("bdelete!")
-  vim.notify("Moved to Zettelkasten/: " .. vim.fn.fnamemodify(target, ":t"))
+  vim.notify("Moved to Notes-Publish/: " .. vim.fn.fnamemodify(target, ":t"))
 end
 
 -- Delete the current buffer's inbox file (with confirmation). Use when
@@ -185,7 +185,7 @@ function M.delete_from_inbox()
     return
   end
   if not inbox_match(path) then
-    vim.notify("Not in 0-Inbox/: " .. path, vim.log.levels.WARN)
+    vim.notify("Not in Notes-Inbox/: " .. path, vim.log.levels.WARN)
     return
   end
   local choice = vim.fn.confirm(
@@ -205,10 +205,10 @@ function M.delete_from_inbox()
   vim.notify("Deleted: " .. vim.fn.fnamemodify(path, ":t"))
 end
 
--- Run the `op` publish script (Zettelkasten/ -> Notes/<hub>/) and report.
+-- Run the `op` publish script (Notes-Publish/ -> Notes/<hub>/) and report.
 -- Output is shown in :messages so you can review what moved/skipped.
 function M.publish()
-  vim.notify("Publishing… (Zettelkasten → Notes/<hub>/)", vim.log.levels.INFO)
+  vim.notify("Publishing… (Notes-Publish → Notes/<hub>/)", vim.log.levels.INFO)
   local out = vim.fn.system({ "op" })
   local code = vim.v.shell_error
   if code ~= 0 then

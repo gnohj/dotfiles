@@ -344,38 +344,6 @@ keymap(
 -------------------------------------------------------------------------------
 --                           Obsidian
 -------------------------------------------------------------------------------
--- convert note to template and remove leading white space
-keymap("n", "<leader>zn", function()
-  local template_path =
-    vim.fn.expand("~/Obsidian/second-brain/Templates/note.md")
-
-  if vim.fn.filereadable(template_path) == 0 then
-    vim.notify("Template not found: " .. template_path, vim.log.levels.ERROR)
-    return
-  end
-
-  -- Extract and format title from filename
-  local filename = vim.fn.expand("%:t:r")
-  local title = filename
-    :gsub("^%d%d%d%d%-%d%d%-%d%d_", "")
-    :gsub("-", " ")
-    :gsub("(%a)([%w_']*)", function(first, rest)
-      return first:upper() .. rest:lower()
-    end)
-
-  local date = os.date("%Y-%m-%d")
-
-  -- Read and insert template
-  vim.cmd("0r " .. template_path)
-
-  -- Replace variables
-  vim.cmd("silent! %s/{ { date } }/" .. date .. "/g")
-  vim.cmd("silent! %s/{{title}}/" .. title .. "/g")
-
-  -- Remove leading whitespace (make this silent too)
-  vim.cmd([[silent! 1,/^\S/s/^\n\{1,}//]])
-end, { desc = "New note template" })
-
 -- strip date from note title and replace dashes with spaces
 -- must have cursor on title
 keymap(
@@ -386,12 +354,12 @@ keymap(
 )
 --
 -- for review workflow
--- move file in current buffer to zettelkasten folder
+-- move file in current buffer to publish folder
 keymap(
   "n",
   "<M-k>",
-  ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Zettelkasten/<cr>:bd<cr>",
-  { desc = "[P]Obsidian: Move file to Zettelkasten" }
+  ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Notes-Publish/<cr>:bd<cr>",
+  { desc = "[P]Obsidian: Move file to Notes-Publish" }
 )
 -- delete file in current buffer
 keymap(
@@ -568,7 +536,7 @@ end, { desc = "[P]Obsidian: Find notes by hub" })
 -- Search vault by tag (topic) in frontmatter
 keymap("n", "<leader>zt", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local tag_files = vim.fn.globpath(vault .. "/0-Tags", "*.md", false, true)
+  local tag_files = vim.fn.globpath(vault .. "/Notes-Tags", "*.md", false, true)
   local tags = {}
   for _, f in ipairs(tag_files) do
     table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
@@ -593,35 +561,35 @@ keymap("n", "<leader>zc", function()
   vim.notify("Stripped AVAILABLE hints", vim.log.levels.INFO)
 end, { desc = "[P]Obsidian: Clean AVAILABLE hints from frontmatter" })
 
--- Create a new note in 0-Inbox/ and expand luasnip ;note-template
+-- Create a new note in Notes-Inbox/ and expand luasnip ;note-template
 keymap("n", "<leader>zN", function()
   require("config.obsidian").new_inbox_note()
 end, { desc = "[P]Obsidian: New note in inbox (snippet)" })
 
--- Review created notes in 0-Inbox/ (skips raw resources)
+-- Review created notes in Notes-Inbox/ (skips raw resources)
 keymap("n", "<leader>zr", function()
   require("config.obsidian").review_inbox()
 end, { desc = "[P]Obsidian: Review inbox (created notes only)" })
 
--- Move current inbox buffer to Zettelkasten/ and close it
+-- Move current inbox buffer to Notes-Publish/ and close it
 keymap("n", "<leader>zk", function()
-  require("config.obsidian").move_to_zettelkasten()
-end, { desc = "[P]Obsidian: Move buffer to Zettelkasten/" })
+  require("config.obsidian").move_to_publish()
+end, { desc = "[P]Obsidian: Move buffer to Notes-Publish/" })
 
 -- Delete current inbox buffer file (with confirmation)
 keymap("n", "<leader>zx", function()
   require("config.obsidian").delete_from_inbox()
 end, { desc = "[P]Obsidian: Delete buffer from inbox" })
 
--- Publish: Zettelkasten/ -> Notes/<hub>/ via the `op` script
+-- Publish: Notes-Publish/ -> Notes/<hub>/ via the `op` script
 keymap("n", "<leader>zp", function()
   require("config.obsidian").publish()
-end, { desc = "[P]Obsidian: Publish (Zettelkasten -> Notes/<hub>)" })
+end, { desc = "[P]Obsidian: Publish (Notes-Publish -> Notes/<hub>)" })
 
--- Pick an image from vault Assets/ and insert as ![[filename]] at cursor
+-- Pick an image from vault Notes-Assets/ and insert as ![[filename]] at cursor
 keymap({ "n", "i" }, "<leader>zi", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local assets = vault .. "/Assets"
+  local assets = vault .. "/Notes-Assets"
   local exts = { "png", "jpg", "jpeg", "gif", "webp", "avif", "svg" }
   local items = {}
   for _, ext in ipairs(exts) do
@@ -634,7 +602,7 @@ keymap({ "n", "i" }, "<leader>zi", function()
     end
   end
   if #items == 0 then
-    vim.notify("No images in Assets/", vim.log.levels.WARN)
+    vim.notify("No images in Notes-Assets/", vim.log.levels.WARN)
     return
   end
   Snacks.picker.pick({
@@ -649,7 +617,7 @@ keymap({ "n", "i" }, "<leader>zi", function()
       vim.api.nvim_put({ "![[" .. item.text .. "]]" }, "c", true, true)
     end,
   })
-end, { desc = "[P]Obsidian: Insert image embed from Assets" })
+end, { desc = "[P]Obsidian: Insert image embed from Notes-Assets" })
 
 -- Copy hub name to clipboard (for pasting into frontmatter)
 keymap("n", "<leader>zH", function()
@@ -673,7 +641,7 @@ end, { desc = "[P]Obsidian: Copy hub to clipboard" })
 -- Copy tag name to clipboard (for pasting into frontmatter)
 keymap("n", "<leader>zT", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local tag_files = vim.fn.globpath(vault .. "/0-Tags", "*.md", false, true)
+  local tag_files = vim.fn.globpath(vault .. "/Notes-Tags", "*.md", false, true)
   local tags = {}
   for _, f in ipairs(tag_files) do
     table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
@@ -706,9 +674,9 @@ end, { desc = "[P]Obsidian: Find notes by URL" })
 keymap("n", "<leader>zs", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
-  table.insert(dirs, 1, vault .. "/0-Tags")
-  table.insert(dirs, 2, vault .. "/0-Hubs")
-  table.insert(dirs, 3, vault .. "/0-Inbox")
+  table.insert(dirs, 1, vault .. "/Notes-Tags")
+  table.insert(dirs, 2, vault .. "/Notes-Hubs")
+  table.insert(dirs, 3, vault .. "/Notes-Inbox")
 
   local labels = {}
   for _, d in ipairs(dirs) do

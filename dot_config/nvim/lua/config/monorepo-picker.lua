@@ -145,13 +145,13 @@ M.clear_cache = function()
 end
 
 -- Walk up from `start` (default: cwd) looking for a directory whose layout
--- looks like an Obsidian vault — `0-Inbox/` plus `Notes/`. Returns the
+-- looks like an Obsidian vault — `Notes-Inbox/` plus `Notes/`. Returns the
 -- vault root or nil. Limits the climb to 10 levels.
 local function find_vault_root(start)
   local dir = start or vim.fn.getcwd()
   for _ = 1, 10 do
     if
-      vim.fn.isdirectory(dir .. "/0-Inbox") == 1
+      vim.fn.isdirectory(dir .. "/Notes-Inbox") == 1
       and vim.fn.isdirectory(dir .. "/Notes") == 1
     then
       return dir
@@ -170,7 +170,7 @@ end
 --
 -- Lists, in this order:
 --   1. Vault root
---   2. Top-level vault folders (0-Inbox, 0-Hubs, Notes, Projects, etc.)
+--   2. Top-level vault folders (Notes-Inbox, Notes-Hubs, Notes, Projects, etc.)
 --   3. Each project under Projects/<name>/  (folder)
 --   4. Each hub under Notes/<hub>/          (folder)
 --
