@@ -16,9 +16,9 @@ return {
       return os.date("%Y-%m-%d")
     end
 
-    -- Read available hubs from Notes-Hubs/hubs.md
+    -- Read available hubs from Notes-Meta/_hubs.md
     local function read_hubs()
-      local path = vim.fn.expand("~/Obsidian/second-brain/Notes-Hubs/hubs.md")
+      local path = vim.fn.expand("~/Obsidian/second-brain/Notes-Meta/_hubs.md")
       if vim.fn.filereadable(path) == 0 then
         return {}
       end
@@ -32,10 +32,10 @@ return {
       return hubs
     end
 
-    -- Read available tags from Notes-Tags/*.md filenames
+    -- Read available tags from Notes-Meta/*.md filenames
     local function read_tags()
       local files = vim.fn.globpath(
-        vim.fn.expand("~/Obsidian/second-brain/Notes-Tags"),
+        vim.fn.expand("~/Obsidian/second-brain/Notes-Meta"),
         "*.md",
         false,
         true
@@ -379,7 +379,7 @@ date:
       -- ;project-note-tagged — vault-style frontmatter for project notes.
       -- Same look as the main vault `;note-template` but WITHOUT `hubs:`
       -- (project IS the hub). For project notes that ALSO touch a cross-cutting
-      -- topic in `Notes-Tags/`, so they appear in vault-wide `gr` results.
+      -- topic in `Notes-Meta/`, so they appear in vault-wide `gr` results.
       s(
         { trig = ";project-note-tagged" },
         fmt(
