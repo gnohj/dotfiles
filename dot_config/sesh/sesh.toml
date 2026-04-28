@@ -1,21 +1,22 @@
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
-startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
+# Trailing ; exec $SHELL keeps pane alive (sesh < PR#372 workaround)
+startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1; exec $SHELL"
 
 [[session]]
 name = "home"
 path = "~/"
-startup_command = "c"
+startup_command = "c; exec $SHELL"
 
 [[session]]
 name = "bin"
 path = "~/_bin"
-startup_command = "ls"
+startup_command = "ls; exec $SHELL"
 
 [[session]]
 name = "config"
 path = "~/.config"
-startup_command = "n"
+startup_command = "n; exec $SHELL"
 
 [[session]]
 name = "logs"
@@ -24,32 +25,32 @@ path = "~/.logs"
 [[session]]
 name = "chezmoi"
 path = "~/.local/share/chezmoi"
-startup_command = "git status"
+startup_command = "git status; exec $SHELL"
 
 [[session]]
 name = "developer"
 path = "~/Developer"
-startup_command = "ls"
+startup_command = "ls; exec $SHELL"
 
 [[session]]
 name = "downloads"
 path = "~/Downloads"
-startup_command = "ls"
+startup_command = "ls; exec $SHELL"
 
 [[session]]
 name = "desktop"
 path = "~/Desktop"
-startup_command = "ls"
+startup_command = "ls; exec $SHELL"
 
 [[session]]
 name = "inferno/bare"
 path = "~/Developer/inferno/"
-startup_command = "treekanga tui"
+startup_command = "treekanga tui; exec $SHELL"
 
 [[session]]
 name = "inferno/review"
 path = "~/Developer/inferno/review"
-startup_command = "ghd"
+startup_command = "ghd; exec $SHELL"
 
 [[session]]
 name = "second_brain"
@@ -70,28 +71,28 @@ path = "~/Developer/toucan-corne42"
 [[session]]
 name = "web/bare"
 path = "~/Developer/web/"
-startup_command = "treekanga tui"
+startup_command = "treekanga tui; exec $SHELL"
 
 [[session]]
 name = "web/review"
 path = "~/Developer/web/review"
-startup_command = "ghd"
+startup_command = "ghd; exec $SHELL"
 
 [[session]]
 name = "yazi"
 path = "~/."
-startup_command = "y"
+startup_command = "y; exec $SHELL"
 
 [[session]]
 name = "radioctl"
 path = "~/."
-startup_command = "n .radioctl2"
+startup_command = "n .radioctl2; exec $SHELL"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
 name = "radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
-startup_command = "n .zsh_radioctl_cmds"
+startup_command = "n .zsh_radioctl_cmds; exec $SHELL"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 
@@ -102,10 +103,6 @@ path = "~/.claude"
 [[session]]
 name = "opencode"
 path = "~/.config/opencode"
-
-[[session]]
-name = "fitness"
-path = "~/Developer/projects/fitness"
 
 [[session]]
 name = "recon"
@@ -134,5 +131,5 @@ path = "~/Developer/sre-iam-management"
 [[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
-startup_command = "n .zsh_gnohj_env"
+startup_command = "n .zsh_gnohj_env; exec $SHELL"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
