@@ -170,7 +170,7 @@ end
 --
 -- Lists, in this order:
 --   1. Vault root
---   2. Top-level vault folders (Notes-Inbox, Notes-Hubs, Notes, Projects, etc.)
+--   2. Top-level vault folders (Notes-Inbox, Notes-Meta, Notes, Projects, etc.)
 --   3. Each project under Projects/<name>/  (folder)
 --   4. Each hub under Notes/<hub>/          (folder)
 --
@@ -283,7 +283,7 @@ local function pick_vault_items(vault_root)
       end
       if item.is_hub then
         return {
-          { "🗂️  ", "Normal" },
+          { "🗂️ ", "Normal" },
           { "Notes/", "Comment" },
           { item.name, "Normal" },
         }
