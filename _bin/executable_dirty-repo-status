@@ -1,0 +1,70 @@
+#!/bin/bash
+# List tracked git repos with their dirty/clean classification.
+# Output (tab-separated): <status>\t<path>
+#   dirty -- working-tree changes OR unpushed commits to upstream
+#   clean -- nothing to commit, nothing to push
+#
+# Discovery sources (deduped at the end):
+#   - ~/.config/repos-clone.txt
+#   - ~/.local/share/chezmoi
+#   - ~/Obsidian/second-brain (vault) + each Projects/<name>/ nested repo
+#   - ~/Developer/* (via fd, max-depth 4, excluding node_modules
+#     and inferno-monorepo.backup)
+#
+# Used by:
+#   - The `dirty()` zsh function in ~/.config/zshrc/.zshrc
+#   - The sketchybar widget at
+#     ~/.config/sketchybar/items/widgets/dirty_repos_notification.sh
+# Keep them on this single source of truth so the count never drifts.
+
+set -u
+
+REPOS=()
+
+# repos-clone.txt (clone manifest, also a convenient seed for tracked repos)
+REPOS_FILE="$HOME/.config/repos-clone.txt"
+if [ -f "$REPOS_FILE" ]; then
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    local_path="${line##* }"
+    local_path="${local_path/#\~/$HOME}"
+    REPOS+=("$local_path")
+  done < "$REPOS_FILE"
+fi
+
+# chezmoi
+REPOS+=("$HOME/.local/share/chezmoi")
+
+# vault + each nested Projects/<name>/
+VAULT="$HOME/Obsidian/second-brain"
+REPOS+=("$VAULT")
+if [ -d "$VAULT/Projects" ]; then
+  for project_git in "$VAULT/Projects"/*/.git; do
+    [ -e "$project_git" ] || continue
+    REPOS+=("${project_git%/.git}")
+  done
+fi
+
+# ~/Developer/* git repos
+if command -v fd &>/dev/null; then
+  while IFS= read -r gitdir; do
+    gitdir="${gitdir%/}"
+    REPOS+=("${gitdir%/.git}")
+  done < <(fd -H '^\.git$' "$HOME/Developer" --max-depth 4 --exclude node_modules --exclude inferno-monorepo.backup 2>/dev/null)
+fi
+
+# Dedupe + classify
+printf '%s\n' "${REPOS[@]}" | sort -u | while IFS= read -r r; do
+  r="${r%/}"
+  [ -z "$r" ] && continue
+  [ ! -e "$r/.git" ] && continue
+  status=$(git -C "$r" status --porcelain 2>/dev/null)
+  # rev-list with @{u} fails silently for repos without upstream — those
+  # only get flagged "dirty" via working-tree changes, which is correct.
+  unpushed=$(git -C "$r" rev-list --count @{u}..HEAD 2>/dev/null)
+  if [ -n "$status" ] || [ "${unpushed:-0}" -gt 0 ]; then
+    printf "dirty\t%s\n" "$r"
+  else
+    printf "clean\t%s\n" "$r"
+  fi
+done
