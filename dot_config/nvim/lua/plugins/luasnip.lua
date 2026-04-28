@@ -94,6 +94,16 @@ return {
         end)
     end
 
+    -- Derive a Title-Cased project name from the current working directory.
+    -- `~/Obsidian/second-brain/Projects/parents-estate-active` → `Parents Estate Active`
+    local function project_name_from_cwd()
+      local cwd = vim.fn.getcwd()
+      local name = vim.fn.fnamemodify(cwd, ":t")
+      return name:gsub("-", " "):gsub("(%a)([%w_']*)", function(first, rest)
+        return first:upper() .. rest:lower()
+      end)
+    end
+
     -- Markdown snippets. Accept via blink-cmp (<C-y>); <Tab> jumps to
     -- the next placeholder.
     --
@@ -229,6 +239,176 @@ urls:
           }
         ),
         { desc = "Obsidian note scaffold (date+title auto-filled)" }
+      ),
+
+      -- ;project-readme — project landing page (purpose, scope, status).
+      -- Scaffolds in the project's root directory; project name auto-derived
+      -- from cwd via Title-Cased folder name.
+      s(
+        { trig = ";project-readme" },
+        fmt(
+          [==[
+# {}
+
+> {}
+
+## Status
+
+- Stage: {}
+- Started: {}
+
+## Scope
+
+- In: {}
+- Out: {}
+
+## Key References
+
+- [[{}]]
+
+{}
+]==],
+          {
+            f(project_name_from_cwd),
+            i(1, "One-line purpose"),
+            i(2, "active"),
+            f(today),
+            i(3),
+            i(4),
+            i(5),
+            i(0),
+          }
+        ),
+        { desc = "Project README scaffold" }
+      ),
+
+      -- ;project-claude — project-specific instructions (Claude Desktop's
+      -- "Set project instructions" equivalent). Layered on top of vault CLAUDE.md
+      -- via the directory-cascade.
+      s(
+        { trig = ";project-claude" },
+        fmt(
+          [==[
+# {} — Project Instructions
+
+This project extends the vault's `CLAUDE.md`. Vault rules (Zettelkasten conventions, hubs/tags, scope boundaries) apply automatically via cascade.
+
+## Context
+
+{}
+
+## Conventions
+
+- {}
+
+## In scope
+
+- {}
+
+## Out of scope
+
+- Task execution → Apple Reminders.
+- General atomic notes → `Notes/<hub>/`.
+- {}
+]==],
+          {
+            f(project_name_from_cwd),
+            i(1, "Status, key stakeholders, what this project is about."),
+            i(2, "Project-specific naming, handling, or privacy rules."),
+            i(3, "What belongs in this project."),
+            i(0, "Anything explicitly excluded from this project."),
+          }
+        ),
+        { desc = "Project CLAUDE.md scaffold (project instructions)" }
+      ),
+
+      -- ;project-index — project's internal map (analog to vault's index.md
+      -- but scoped to this project only).
+      s(
+        { trig = ";project-index" },
+        fmt(
+          [==[
+# {} Index
+
+> Map of this project's files. Last updated: {}
+
+## Notes
+
+- {}
+
+## Assets
+
+See `assets/` directory for binaries (PDFs, images, screenshots).
+
+{}
+]==],
+          {
+            f(project_name_from_cwd),
+            f(today),
+            i(1),
+            i(0),
+          }
+        ),
+        { desc = "Project index.md scaffold" }
+      ),
+
+      -- ;project-note — minimal frontmatter for project notes.
+      -- No `hubs:` (project IS the hub). Just date + title — for casual
+      -- captures where the project is the only context that matters.
+      s(
+        { trig = ";project-note" },
+        fmt(
+          [==[
+---
+date:
+  - {}
+---
+
+# {}
+
+{}
+]==],
+          {
+            f(today),
+            f(title_from_filename),
+            i(0),
+          }
+        ),
+        { desc = "Project note (minimal: date + title)" }
+      ),
+
+      -- ;project-note-tagged — vault-style frontmatter for project notes.
+      -- Same look as the main vault `;note-template` but WITHOUT `hubs:`
+      -- (project IS the hub). For project notes that ALSO touch a cross-cutting
+      -- topic in `0-Tags/`, so they appear in vault-wide `gr` results.
+      s(
+        { trig = ";project-note-tagged" },
+        fmt(
+          [==[
+---
+date:
+  - {}
+tags:
+{}
+  - "[[{}]]"
+urls:
+  - {}
+---
+
+# {}
+
+{}
+]==],
+          {
+            f(today),
+            f(tags_available),
+            i(1),
+            i(2),
+            f(title_from_filename),
+            i(0),
+          }
+        ),
+        { desc = "Project note (vault-style frontmatter, no hubs)" }
       ),
     }
 
