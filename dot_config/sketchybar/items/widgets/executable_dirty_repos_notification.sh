@@ -17,47 +17,14 @@ log_message() {
   echo "[$timestamp] [$level] [DIRTY_REPOS] $message" >>"$LOG_FILE"
 }
 
-REPOS_FILE="$HOME/.config/repos.txt"
+# Discovery + dirty/clean classification lives in ~/_bin/dirty-repo-status,
+# shared with the `dirty()` zsh function so this widget and the shell
+# helper can never drift on which repos they track.
 DIRTY_NAMES=()
+while IFS=$'\t' read -r status path; do
+  [ "$status" = "dirty" ] && DIRTY_NAMES+=("$(basename "$path")")
+done < <("$HOME/_bin/dirty-repo-status")
 
-# Read repos from repos.txt
-while IFS= read -r line; do
-  [[ -z "$line" || "$line" == \#* ]] && continue
-  local_path="${line##* }"
-  local_path="${local_path/#\~/$HOME}"
-  if [ -e "$local_path/.git" ]; then
-    status=$(git -C "$local_path" status --porcelain 2>/dev/null)
-    unpushed=$(git -C "$local_path" rev-list --count @{u}..HEAD 2>/dev/null)
-    if [ -n "$status" ] || [ "${unpushed:-0}" -gt 0 ]; then
-      DIRTY_NAMES+=("$(basename "$local_path")")
-    fi
-  fi
-done < "$REPOS_FILE"
-
-# Also check chezmoi
-if [ -e "$HOME/.local/share/chezmoi/.git" ]; then
-  status=$(git -C "$HOME/.local/share/chezmoi" status --porcelain 2>/dev/null)
-  unpushed=$(git -C "$HOME/.local/share/chezmoi" rev-list --count @{u}..HEAD 2>/dev/null)
-  if [ -n "$status" ] || [ "${unpushed:-0}" -gt 0 ]; then
-    DIRTY_NAMES+=("chezmoi")
-  fi
-fi
-
-# Also check ~/Developer repos (fd for speed)
-if command -v fd &>/dev/null; then
-  while IFS= read -r gitdir; do
-    gitdir="${gitdir%/}"
-    repo_path="${gitdir%/.git}"
-    status=$(git -C "$repo_path" status --porcelain 2>/dev/null)
-    unpushed=$(git -C "$repo_path" rev-list --count @{u}..HEAD 2>/dev/null)
-    if [ -n "$status" ] || [ "${unpushed:-0}" -gt 0 ]; then
-      DIRTY_NAMES+=("$(basename "$repo_path")")
-    fi
-  done < <(fd -H '^\.git$' "$HOME/Developer" --max-depth 4 --exclude node_modules 2>/dev/null)
-fi
-
-# Deduplicate
-DIRTY_NAMES=($(printf '%s\n' "${DIRTY_NAMES[@]}" | sort -u))
 DIRTY_COUNT=${#DIRTY_NAMES[@]}
 
 # Update sketchybar
