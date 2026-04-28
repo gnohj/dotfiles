@@ -59,10 +59,6 @@ return {
           return false
         end
 
-        if entry.fs_type == "directory" and name_lower == "tasks" then
-          return false
-        end
-
         return true
       end,
     })
@@ -162,17 +158,13 @@ return {
                   return false
                 end
 
-                if entry.fs_type == "directory" and name_lower == "tasks" then
-                  return false
-                end
-
                 return true
               end,
             },
           })
         end
       end,
-      desc = "Toggle c files and tasks folders",
+      desc = "Toggle c files visibility",
     },
   },
 }
