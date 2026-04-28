@@ -533,13 +533,17 @@ keymap("n", "<leader>zh", function()
   end)
 end, { desc = "[P]Obsidian: Find notes by hub" })
 
--- Search vault by tag (topic) in frontmatter
+-- Search vault by tag (topic) in frontmatter.
+-- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zt", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local tag_files = vim.fn.globpath(vault .. "/Notes-Tags", "*.md", false, true)
+  local all_files = vim.fn.globpath(vault .. "/Notes-Meta", "*.md", false, true)
   local tags = {}
-  for _, f in ipairs(tag_files) do
-    table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
+  for _, f in ipairs(all_files) do
+    local name = vim.fn.fnamemodify(f, ":t:r")
+    if not name:match("^_") then
+      table.insert(tags, name)
+    end
   end
   vim.ui.select(tags, { prompt = "Tag:" }, function(choice)
     if not choice then
@@ -585,6 +589,54 @@ end, { desc = "[P]Obsidian: Delete buffer from inbox" })
 keymap("n", "<leader>zp", function()
   require("config.obsidian").publish()
 end, { desc = "[P]Obsidian: Publish (Notes-Publish -> Notes/<hub>)" })
+
+-- Open picker for incomplete todos across all `.md` files under Projects/.
+-- Greps `- [ ]` (allowing leading whitespace for indented sub-todos) and on
+-- selection opens the file at the matching line. Uses ripgrep + snacks picker.
+keymap("n", "<leader>zo", function()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local projects_root = vault .. "/Projects"
+  if vim.fn.isdirectory(projects_root) ~= 1 then
+    vim.notify("No Projects/ directory in vault", vim.log.levels.WARN)
+    return
+  end
+  local results = vim.fn.systemlist(
+    "rg -n --no-heading -tmd '^\\s*- \\[ \\]' "
+      .. vim.fn.shellescape(projects_root)
+      .. " 2>/dev/null"
+  )
+  if #results == 0 then
+    vim.notify("No open todos in Projects/", vim.log.levels.INFO)
+    return
+  end
+  local items = {}
+  local strip = projects_root .. "/"
+  for _, line in ipairs(results) do
+    local file, lnum, content = line:match("^([^:]+):(%d+):(.*)$")
+    if file then
+      -- Show path relative to Projects/ so it starts with `<project>/...`
+      -- rather than the full absolute path. Anchored gsub on the first match.
+      local rel = file:gsub(strip, "", 1)
+      table.insert(items, {
+        text = rel .. ":" .. lnum .. " " .. (content or ""),
+        file = file,
+        pos = { tonumber(lnum), 0 },
+      })
+    end
+  end
+  Snacks.picker.pick({
+    title = "Project Todos",
+    items = items,
+    format = function(item)
+      return { { item.text } }
+    end,
+    confirm = function(picker, item)
+      picker:close()
+      vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+      pcall(vim.api.nvim_win_set_cursor, 0, item.pos)
+    end,
+  })
+end, { desc = "[P]Obsidian: Project todos picker" })
 
 -- Pick an image from vault Notes-Assets/ and insert as ![[filename]] at cursor
 keymap({ "n", "i" }, "<leader>zi", function()
@@ -638,13 +690,17 @@ keymap("n", "<leader>zH", function()
   end)
 end, { desc = "[P]Obsidian: Copy hub to clipboard" })
 
--- Copy tag name to clipboard (for pasting into frontmatter)
+-- Copy tag name to clipboard (for pasting into frontmatter).
+-- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zT", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local tag_files = vim.fn.globpath(vault .. "/Notes-Tags", "*.md", false, true)
+  local all_files = vim.fn.globpath(vault .. "/Notes-Meta", "*.md", false, true)
   local tags = {}
-  for _, f in ipairs(tag_files) do
-    table.insert(tags, vim.fn.fnamemodify(f, ":t:r"))
+  for _, f in ipairs(all_files) do
+    local name = vim.fn.fnamemodify(f, ":t:r")
+    if not name:match("^_") then
+      table.insert(tags, name)
+    end
   end
   vim.ui.select(tags, { prompt = "Copy tag:" }, function(choice)
     if not choice then
@@ -674,8 +730,8 @@ end, { desc = "[P]Obsidian: Find notes by URL" })
 keymap("n", "<leader>zs", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
-  table.insert(dirs, 1, vault .. "/Notes-Tags")
-  table.insert(dirs, 2, vault .. "/Notes-Hubs")
+  table.insert(dirs, 1, vault .. "/Notes-Meta")
+  table.insert(dirs, 2, vault .. "/Notes-Meta")
   table.insert(dirs, 3, vault .. "/Notes-Inbox")
 
   local labels = {}
@@ -690,35 +746,6 @@ keymap("n", "<leader>zs", function()
     Snacks.picker.grep({ dirs = { dirs[idx] } })
   end)
 end, { desc = "[P]Obsidian: Scoped grep by tag/hub" })
-
--------------------------------------------------------------------------------
---                           Tasks Folder Navigation
--------------------------------------------------------------------------------
-
--- Open local project tasks folder (if exists)
-keymap("n", "<leader>ft", function()
-  local cwd = vim.fn.getcwd()
-  local tasks_path = cwd .. "/tasks"
-
-  if vim.fn.isdirectory(tasks_path) == 1 then
-    require("snacks").picker.files({ cwd = tasks_path })
-  else
-    vim.notify("No tasks/ folder in current directory", vim.log.levels.WARN)
-  end
-end, { desc = "[P]Open local tasks folder" })
-
--- Open global Obsidian Tasks folder
-keymap("n", "<leader>fT", function()
-  local obsidian_tasks = vim.fn.expand(
-    "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian/second-brain/Tasks"
-  )
-
-  if vim.fn.isdirectory(obsidian_tasks) == 1 then
-    require("snacks").picker.files({ cwd = obsidian_tasks })
-  else
-    vim.notify("Obsidian Tasks folder not found", vim.log.levels.ERROR)
-  end
-end, { desc = "[P]Open Obsidian Tasks folder" })
 
 -------------------------------------------------------------------------------
 --                           Folding section
