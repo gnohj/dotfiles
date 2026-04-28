@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Obsidian: publish reviewed notes from Zettelkasten/ -> Notes/<hub>/.
-# Hubs are validated against ~/Obsidian/second-brain/0-Hubs/hubs.md (the
+# Obsidian: publish reviewed notes from Notes-Publish/ -> Notes/<hub>/.
+# Hubs are validated against ~/Obsidian/second-brain/Notes-Hubs/hubs.md (the
 # source of truth). Notes whose `hubs:` value isn't a known hub get moved
-# to 0-Hubs-Unknown/ for manual review (no Claude required).
+# to Notes-Hubs-Unknown/ for manual review (no Claude required).
 
 set -euo pipefail
 
 VAULT_DIR="$HOME/Obsidian/second-brain"
-SOURCE_DIR="Zettelkasten"
+SOURCE_DIR="Notes-Publish"
 DEST_DIR="Notes"
-QUARANTINE_DIR="0-Hubs-Unknown"
-HUBS_FILE="$VAULT_DIR/0-Hubs/hubs.md"
+QUARANTINE_DIR="Notes-Hubs-Unknown"
+HUBS_FILE="$VAULT_DIR/Notes-Hubs/hubs.md"
 
 if [ ! -d "$VAULT_DIR/$SOURCE_DIR" ]; then
   echo "Source dir not found: $VAULT_DIR/$SOURCE_DIR"

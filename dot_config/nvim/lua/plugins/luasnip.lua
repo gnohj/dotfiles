@@ -16,9 +16,9 @@ return {
       return os.date("%Y-%m-%d")
     end
 
-    -- Read available hubs from 0-Hubs/hubs.md
+    -- Read available hubs from Notes-Hubs/hubs.md
     local function read_hubs()
-      local path = vim.fn.expand("~/Obsidian/second-brain/0-Hubs/hubs.md")
+      local path = vim.fn.expand("~/Obsidian/second-brain/Notes-Hubs/hubs.md")
       if vim.fn.filereadable(path) == 0 then
         return {}
       end
@@ -32,10 +32,10 @@ return {
       return hubs
     end
 
-    -- Read available tags from 0-Tags/*.md filenames
+    -- Read available tags from Notes-Tags/*.md filenames
     local function read_tags()
       local files = vim.fn.globpath(
-        vim.fn.expand("~/Obsidian/second-brain/0-Tags"),
+        vim.fn.expand("~/Obsidian/second-brain/Notes-Tags"),
         "*.md",
         false,
         true
@@ -81,8 +81,7 @@ return {
       return build_available(read_tags())
     end
 
-    -- Derive a Title-Cased note title from the filename, mirroring the
-    -- behavior of the `<leader>zn` keymap:
+    -- Derive a Title-Cased note title from the filename:
     -- `2026-04-26_Markdown-Oxide.md` → `Markdown Oxide`
     local function title_from_filename()
       local filename = vim.fn.expand("%:t:r")
@@ -380,7 +379,7 @@ date:
       -- ;project-note-tagged — vault-style frontmatter for project notes.
       -- Same look as the main vault `;note-template` but WITHOUT `hubs:`
       -- (project IS the hub). For project notes that ALSO touch a cross-cutting
-      -- topic in `0-Tags/`, so they appear in vault-wide `gr` results.
+      -- topic in `Notes-Tags/`, so they appear in vault-wide `gr` results.
       s(
         { trig = ";project-note-tagged" },
         fmt(
