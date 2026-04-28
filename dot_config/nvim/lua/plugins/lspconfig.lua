@@ -83,7 +83,7 @@ return {
               fname = vim.api.nvim_buf_get_name(fname)
             end
             local disabled_roots = {
-              vim.fn.expand("~/Developer/projects/fitness"),
+              vim.fn.expand("~/Obsidian/second-brain/Projects/fitness"),
             }
             local buf_path = vim.fn.fnamemodify(fname, ":p")
             for _, root in ipairs(disabled_roots) do
@@ -261,6 +261,7 @@ return {
         marksman = { enabled = false },
         markdown_oxide = {
           filetypes = { "markdown" },
+          root_markers = { { ".obsidian", ".moxide.toml" }, ".git" },
           capabilities = vim.tbl_deep_extend(
             "force",
             vim.lsp.protocol.make_client_capabilities(),
