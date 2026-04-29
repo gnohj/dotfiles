@@ -101,6 +101,88 @@ function M.new_inbox_note(title)
   end
 end
 
+-- Walk up from cwd looking for a `notes/` directory (the project template
+-- scaffold). Stop at $HOME or `/`. Fall back to cwd if none found.
+local function find_project_notes_dir()
+  local home = vim.fn.expand("~")
+  local dir = vim.fn.getcwd()
+  while dir and dir ~= "/" and dir ~= home do
+    local candidate = dir .. "/notes"
+    if vim.fn.isdirectory(candidate) == 1 then
+      return candidate
+    end
+    local parent = vim.fn.fnamemodify(dir, ":h")
+    if parent == dir then
+      break
+    end
+    dir = parent
+  end
+  return vim.fn.getcwd()
+end
+
+-- Internal: create a project note in the closest `notes/` dir (or cwd
+-- if none found) and expand the ;project-note-tagged luasnip.
+local function create_project_note(title)
+  if not title or title == "" then
+    return
+  end
+  local date = os.date("%Y-%m-%d")
+  local filename = title:gsub(" ", "-")
+  local target_dir = find_project_notes_dir()
+  local path = target_dir .. "/" .. date .. "_" .. filename .. ".md"
+  if vim.fn.filereadable(path) == 1 then
+    vim.notify("Note already exists: " .. path, vim.log.levels.WARN)
+    return
+  end
+
+  vim.opt.eventignore = ""
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+  local buf = vim.api.nvim_get_current_buf()
+
+  if vim.bo[buf].filetype ~= "markdown" then
+    vim.bo[buf].filetype = "markdown"
+  end
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "BufReadPost",
+    { buffer = buf, modeline = false }
+  )
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "FileType",
+    { buffer = buf, modeline = false }
+  )
+  pcall(
+    vim.api.nvim_exec_autocmds,
+    "User",
+    { pattern = "LazyFile", modeline = false }
+  )
+
+  vim.schedule(function()
+    local ls = require("luasnip")
+    local snippets = ls.get_snippets("markdown")
+    for _, snip in ipairs(snippets) do
+      if snip.trigger == ";project-note-tagged" then
+        vim.cmd("startinsert")
+        ls.snip_expand(snip)
+        return
+      end
+    end
+    vim.notify(";project-note-tagged snippet not found", vim.log.levels.WARN)
+  end)
+end
+
+-- Create a new project note in the closest `notes/` dir relative to cwd
+-- (walking up parent directories), or in cwd if no `notes/` exists.
+-- Backs <leader>zn.
+function M.new_project_note(title)
+  if title and title ~= "" then
+    create_project_note(title)
+  else
+    vim.ui.input({ prompt = "New project note title: " }, create_project_note)
+  end
+end
+
 -- Load every "created note" in Notes-Inbox/ as a buffer. Backs the `or` shell
 -- script, the dashboard "Second Brain (Review)" entry, and <leader>zr.
 -- If the inbox has no personal notes, we just notify and bail — no point
