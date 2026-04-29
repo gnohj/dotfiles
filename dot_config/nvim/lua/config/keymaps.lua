@@ -475,8 +475,11 @@ local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
   local function run_search(query)
     local pattern = pattern_fn(query)
     local flag = multiline and "-U -l" or "-l"
+    -- --no-ignore-vcs: vault `.gitignore` excludes /Projects/, but project
+    -- notes can carry vault tags (`;project-note-tagged`) and should appear
+    -- in tag/hub/date/url searches.
     local results = vim.fn.systemlist(
-      "rg " .. flag .. " '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
+      "rg --no-ignore-vcs " .. flag .. " '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
     )
     if #results == 0 then
       vim.notify("No notes found for " .. field .. ": " .. query, vim.log.levels.INFO)
@@ -569,6 +572,12 @@ end, { desc = "[P]Obsidian: Clean AVAILABLE hints from frontmatter" })
 keymap("n", "<leader>zN", function()
   require("config.obsidian").new_inbox_note()
 end, { desc = "[P]Obsidian: New note in inbox (snippet)" })
+
+-- Create a new project note in cwd's closest `notes/` (or cwd if absent)
+-- and expand luasnip ;project-note-tagged
+keymap("n", "<leader>zn", function()
+  require("config.obsidian").new_project_note()
+end, { desc = "[P]Obsidian: New project note (cwd notes/ or root)" })
 
 -- Review created notes in Notes-Inbox/ (skips raw resources)
 keymap("n", "<leader>zr", function()
