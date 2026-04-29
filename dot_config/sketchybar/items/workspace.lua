@@ -59,7 +59,7 @@ local spaceConfigs = {
 	["C"] = { name = "Calendar", app = "Calendar" },
 	["V"] = { name = "Passwords", app = "Bitwarden" },
 	["S"] = { name = "Music", app = "Spotify" },
-	["T"] = { name = "Terminal", apps = { "Ghostty", "Kitty" } },
+	["T"] = { name = "Terminal", apps = { "Ghostty", "kitty" } },
 	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude" } },
 	["A"] = { name = "YouTube", app = "YouTube" },
 	["M"] = { name = "Texting", app = "Messages" },
