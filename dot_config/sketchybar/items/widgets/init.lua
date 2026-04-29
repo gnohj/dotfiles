@@ -5,6 +5,7 @@ require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.volume")
 require("items.widgets.mic")
+require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle
 require("items.widgets.health_check_notification") -- Service health check
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.recon_notification") -- Claude Code agents (recon)
