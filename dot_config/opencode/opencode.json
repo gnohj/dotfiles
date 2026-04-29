@@ -10,5 +10,13 @@
     "plan": {
       "model": "github-copilot/claude-opus-4.6"
     }
+  },
+  "mcp": {
+    "atlassian-rovo": {
+      "type": "remote",
+      "url": "https://mcp.atlassian.com/v1/mcp/authv2",
+      "enabled": true,
+      "oauth": {}
+    }
   }
 }
