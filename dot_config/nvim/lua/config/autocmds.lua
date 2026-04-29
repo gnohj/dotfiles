@@ -338,6 +338,17 @@ vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
   desc = "Check for external file changes on focus/buffer switch",
 })
 
+-- vim-tmux-navigator's <C-h/l> runs `wincmd h/l` before falling through to
+-- tmux. With a single nvim window that no-op move fires WinLeave without a
+-- paired WinEnter, leaving dropbar's NC winhl override stuck on the window.
+-- Re-fire WinEnter on FocusGained so dropbar undims the current window.
+vim.api.nvim_create_autocmd("FocusGained", {
+  callback = function()
+    pcall(vim.api.nvim_exec_autocmds, "WinEnter", { group = "dropbar.hl" })
+  end,
+  desc = "Undim dropbar after tmux pane focus returns",
+})
+
 -- Event-based filesystem watcher for instant change detection
 require("config.auto-filewatcher").setup()
 
