@@ -34,7 +34,8 @@ rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
 # Launcher - Omarchy-style popup launcher
-rctrl - y : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
+rctrl - i : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
+rctrl - y : ~/.config/skhd/tmux-window-simple.sh 📂 yazi yazi true
 
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
@@ -49,7 +50,7 @@ rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
 # rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
 # rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
-# rctrl - i - reserved for nvim shortcut (remapped <C-i> to <rctrl - i>) to jump forward in nvim
+# rctrl - i - moved above to launcher
 # rctrl - w - reserved for nvim shortcut (remapped <C-w> to <rctrl - w>) to do window management in nvim
 # rctrl - s - reserved for nvim shortcuts - open buffers in split - horizontal / vertical ; in normal mode it'll save the file
 # rctrl - y - reserved for nvim - open noice history
