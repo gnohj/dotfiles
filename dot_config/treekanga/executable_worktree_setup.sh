@@ -4,6 +4,16 @@ set -e
 
 CURRENT_WORKTREE="$(pwd)"
 
+# treekanga's postScript runs in whatever shell context spawned `treekanga add`
+# (often bash without mise's interactive hooks), so the wrong node ends up
+# active and pnpm warns about engine mismatch. Put mise shims first on PATH
+# so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
+# .tool-versions in the worktree.
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
+if command -v mise &>/dev/null; then
+  mise install -y 2>/dev/null || true
+fi
+
 # Detect repo from path (e.g., ~/Developer/inferno/feature-x → inferno)
 REPO_NAME=$(echo "$CURRENT_WORKTREE" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
 
