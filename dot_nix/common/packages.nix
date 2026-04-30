@@ -42,7 +42,8 @@
 
     # Terminal & Shell
     alacritty  # GPU-accelerated terminal
-    kitty      # GPU-accelerated terminal
+    # kitty moved to Homebrew cask — Nix builds it adhoc-signed, which fails
+    # macOS launch constraints (CODESIGNING 4) when launched via `open`.
     tmux       # Terminal multiplexer
     # starship managed by zinit (see zshrc)
     atuin      # Shell history

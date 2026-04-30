@@ -95,6 +95,7 @@
 
       # Terminals
       "ghostty"
+      "kitty" # adhoc-signed Nix build fails launch constraints; use cask
 
       # Productivity
       "bitwarden"
