@@ -144,6 +144,137 @@ M.clear_cache = function()
   vim.notify("Project picker cache cleared", vim.log.levels.INFO)
 end
 
+-- Returns the chezmoi source root if cwd is inside it, otherwise nil.
+local function find_chezmoi_root(start)
+  local dir = start or vim.fn.getcwd()
+  local chezmoi_root = vim.fn.expand("~/.local/share/chezmoi")
+  if dir == chezmoi_root or dir:sub(1, #chezmoi_root + 1) == chezmoi_root .. "/" then
+    return chezmoi_root
+  end
+  return nil
+end
+
+-- Snacks picker for the chezmoi source dir. Lists:
+--   1. Chezmoi source root
+--   2. Every top-level folder (dot_config/, dot_nix/, _bin/, etc.)
+--   3. dot_config/nvim/init.lua
+--   4. Every nvim lua file under dot_config/nvim/lua/{config,plugins}/**.lua
+--      (colorschemes/ lives under plugins/ so it's covered by the recursive glob)
+-- Folders open in mini.files. Lua files open via :edit.
+local function pick_chezmoi_items(chezmoi_root)
+  local items = {}
+  local chezmoi_root_escaped = escape_pattern(chezmoi_root .. "/")
+
+  -- 1. Source root
+  table.insert(items, {
+    text = "/ (chezmoi root)",
+    name = vim.fn.fnamemodify(chezmoi_root, ":t"),
+    file = chezmoi_root,
+    path = chezmoi_root,
+    is_root = true,
+    is_dir = true,
+    category = "0-root",
+  })
+
+  -- 2. Top-level folders
+  for _, entry in ipairs(vim.fn.globpath(chezmoi_root, "*", false, true)) do
+    if vim.fn.isdirectory(entry) == 1 then
+      local name = vim.fn.fnamemodify(entry, ":t")
+      table.insert(items, {
+        text = name .. "/",
+        name = name,
+        file = entry,
+        path = entry,
+        is_dir = true,
+        category = "1-folder",
+      })
+    end
+  end
+
+  -- 3. nvim init.lua + recursive *.lua under lua/config/ and lua/plugins/
+  local nvim_root = chezmoi_root .. "/dot_config/nvim"
+  local nvim_lua_files = {}
+  local init_lua = nvim_root .. "/init.lua"
+  if vim.fn.filereadable(init_lua) == 1 then
+    table.insert(nvim_lua_files, init_lua)
+  end
+  for _, sub in ipairs({ "lua/config", "lua/plugins" }) do
+    local dir = nvim_root .. "/" .. sub
+    if vim.fn.isdirectory(dir) == 1 then
+      for _, p in ipairs(vim.fn.globpath(dir, "**/*.lua", false, true)) do
+        table.insert(nvim_lua_files, p)
+      end
+    end
+  end
+  for _, p in ipairs(nvim_lua_files) do
+    local rel = p:gsub(chezmoi_root_escaped, "")
+    table.insert(items, {
+      text = rel,
+      name = vim.fn.fnamemodify(p, ":t:r"),
+      file = p,
+      path = p,
+      is_dir = false,
+      is_plugin = true,
+      category = "2-plugin",
+    })
+  end
+
+  if #items <= 1 then
+    vim.notify("Chezmoi root appears empty", vim.log.levels.WARN)
+    return
+  end
+
+  table.sort(items, function(a, b)
+    if a.is_root then
+      return true
+    end
+    if b.is_root then
+      return false
+    end
+    if a.category == b.category then
+      return a.text < b.text
+    end
+    return a.category < b.category
+  end)
+
+  require("snacks").picker({
+    title = "Chezmoi: Shortcuts",
+    finder = function()
+      return items
+    end,
+    format = function(item)
+      if item.is_root then
+        return {
+          { "📁 ", "Normal" },
+          { item.name .. " (root)", "Special" },
+        }
+      end
+      if item.is_plugin then
+        local last_slash = item.text:find("/[^/]*$")
+        if last_slash then
+          local prefix = item.text:sub(1, last_slash)
+          local rest = item.text:sub(last_slash + 1)
+          return {
+            { "🔌 ", "Normal" },
+            { prefix, "Comment" },
+            { rest, "Normal" },
+          }
+        end
+        return { { "🔌 ", "Normal" }, { item.text, "Normal" } }
+      end
+      return { { "📂 ", "Normal" }, { item.text, "Normal" } }
+    end,
+    confirm = function(picker, item)
+      picker:close()
+      if item.is_dir then
+        require("mini.files").open(item.path, true)
+      else
+        vim.cmd("edit " .. vim.fn.fnameescape(item.path))
+      end
+    end,
+  })
+end
+
 -- Walk up from `start` (default: cwd) looking for a directory whose layout
 -- looks like an Obsidian vault — `Notes-Inbox/` plus `Notes/`. Returns the
 -- vault root or nil. Limits the climb to 10 levels.
@@ -298,6 +429,11 @@ local function pick_vault_items(vault_root)
 end
 
 M.pick = function()
+  local chezmoi = find_chezmoi_root()
+  if chezmoi then
+    return pick_chezmoi_items(chezmoi)
+  end
+
   local vault = find_vault_root()
   if vault then
     return pick_vault_items(vault)
