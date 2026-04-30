@@ -19,8 +19,8 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🌿 Copy Current Branch\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
-    ~/Scripts/fzf-vim.sh --height=80% \
+  choice=$(printf "🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🌿 Copy Current Branch\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
+    ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
       $FZF_COLORS)
@@ -109,6 +109,23 @@ main_menu() {
       echo "Copied branch: $branch"
     else
       echo "Not in a git repository"
+    fi
+    sleep 1
+    ;;
+  "🔗 Open Pull Request")
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+    cd "${pane_path:-$PWD}" 2>/dev/null || true
+    if gh pr view --web 2>/dev/null; then
+      echo "Opened PR for current branch"
+    else
+      repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+      if [ -n "$repo" ]; then
+        open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+        echo "No PR for branch — opened $repo PRs list"
+      else
+        echo "Could not resolve repo (not a git repo or gh not authenticated)"
+      fi
     fi
     sleep 1
     ;;
