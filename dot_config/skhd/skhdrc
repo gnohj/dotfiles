@@ -35,7 +35,7 @@ rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
 # Launcher - Omarchy-style popup launcher
 rctrl - i : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
-rctrl - y : ~/.config/skhd/tmux-window-simple.sh 📂 yazi yazi true
+rctrl - y : ~/.config/skhd/yazi-launch.sh
 
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
