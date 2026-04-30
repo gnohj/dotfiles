@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🎨 Themes\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔔 Test GitHub Notification\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n👻 Toggle Transparency\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔎 Aliases (fza)\n" |
+  choice=$(printf "🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🌿 Copy Current Branch\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
     ~/Scripts/fzf-vim.sh --height=80% \
       --prompt="❯ " \
       --ansi \
@@ -101,8 +101,31 @@ main_menu() {
   "📸 Copy Recent Screenshot")
     ~/.config/skhd/copy-recent-screenshot.sh
     ;;
-  *"fze"*) exec zsh -c "source ~/.config/zshrc/.zshrc && fze" ;;
-  *"fzl"*) exec zsh -c "source ~/.config/zshrc/.zshrc && fzl" ;;
+  "🌿 Copy Current Branch")
+    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+    branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+    if [ -n "$branch" ]; then
+      printf '%s' "$branch" | pbcopy
+      echo "Copied branch: $branch"
+    else
+      echo "Not in a git repository"
+    fi
+    sleep 1
+    ;;
+  *"fze"*)
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    value=$(tv env)
+    if [ -n "$value" ]; then
+      printf '%s' "$value" | pbcopy
+      echo "Copied to clipboard"
+    fi
+    sleep 1
+    ;;
+  *"fzl"*)
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
+    [ -n "$log_file" ] && exec nvim "$log_file"
+    ;;
   *"fza"*) aliases_menu ;;
   *) exit 0 ;;
   esac
@@ -220,12 +243,20 @@ light_themes_menu() {
 #-------------------------------------------------------------------------------
 aliases_menu() {
   local selected
-  # Source zshrc to get all aliases
-  selected=$(zsh -c "source ~/.config/zshrc/.zshrc && alias" | ~/Scripts/fzf-vim.sh \
-    --height=80% \
-    --header="Aliases (select to copy) - Type to search" \
-    --prompt="Alias > " \
-    $FZF_COLORS)
+  # Grep alias declarations directly from rc files instead of sourcing zshrc
+  # (zinit + plugins make a non-interactive `source` hang inside the popup).
+  selected=$(grep -hE "^[[:space:]]*alias [A-Za-z0-9_.-]+=" \
+      "$HOME/.config/zshrc/.zshrc" \
+      "$HOME/.zsh_gnohj_env" \
+      "$HOME/.zsh_aws_cmds" \
+      "$HOME/.zsh_radioctl_cmds" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*alias //' \
+    | sort -u \
+    | ~/Scripts/fzf-vim.sh \
+        --height=80% \
+        --header="Aliases (select to copy) - Type to search" \
+        --prompt="Alias > " \
+        $FZF_COLORS)
 
   if [[ -n "$selected" ]]; then
     # Extract just the alias name (before the '=')
