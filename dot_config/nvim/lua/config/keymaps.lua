@@ -326,6 +326,51 @@ keymap({ "n", "v" }, "<leader>gy", function()
   })
 end, { desc = "[P]Copy Git URL (upstream branch)" })
 
+-- Open the GitHub PR for the current branch in a browser. If no PR exists
+-- for the branch, fall back to the repo's open-PRs list (sorted by updated).
+keymap("n", "<leader>gx", function()
+  local cwd = vim.fn.expand("%:p:h")
+  if cwd == "" then
+    cwd = vim.fn.getcwd()
+  end
+  vim.fn.jobstart({ "gh", "pr", "view", "--web" }, {
+    cwd = cwd,
+    on_exit = function(_, code)
+      if code == 0 then
+        return
+      end
+      -- No PR for this branch — open the repo's open-PRs list instead.
+      vim.fn.jobstart(
+        { "gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner" },
+        {
+          cwd = cwd,
+          stdout_buffered = true,
+          on_stdout = function(_, data)
+            local repo = (data and data[1] or ""):gsub("%s+$", "")
+            vim.schedule(function()
+              if repo == "" then
+                vim.notify(
+                  "No PR for branch and could not resolve repo",
+                  vim.log.levels.WARN
+                )
+                return
+              end
+              local url = "https://github.com/"
+                .. repo
+                .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+              vim.fn.jobstart({ "open", url }, { detach = true })
+              vim.notify(
+                "No PR for branch — opened repo PRs list",
+                vim.log.levels.INFO
+              )
+            end)
+          end,
+        }
+      )
+    end,
+  })
+end, { desc = "[P]Open GitHub PR for current branch (or repo PRs list)" })
+
 -------------------------------------------------------------------------------
 --                           Toggle Copilot Virtual Text
 -------------------------------------------------------------------------------
