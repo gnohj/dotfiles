@@ -459,6 +459,22 @@ gbc() {
   echo "Copied branch: $branch"
 }
 
+# Open the GitHub PR for the current branch in a browser. If no PR exists,
+# fall back to the repo's open-PRs list (sorted by recently-updated).
+gpo() {
+  if gh pr view --web 2>/dev/null; then
+    return 0
+  fi
+  local repo
+  repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+  if [[ -z "$repo" ]]; then
+    echo "Could not resolve repo (not a git repo or gh not authenticated)" >&2
+    return 1
+  fi
+  open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+  echo "No PR for branch — opened $repo PRs list"
+}
+
 # Show dirty/clean state for tracked git repos with file-level breakdown.
 # Discovery + dirty/clean classification lives in ~/_bin/dirty-repo-status,
 # shared with the sketchybar dirty-repos widget so the two stay in lockstep.
