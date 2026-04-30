@@ -447,6 +447,18 @@ alias fastly-debug="atuin scripts run fastly-debug"
 alias gamend="g commit --amend --date=now --no-edit"
 alias gpom="g pull origin master"
 
+# Copy the current git branch name to the clipboard.
+gbc() {
+  local branch
+  branch=$(git branch --show-current 2>/dev/null)
+  if [[ -z "$branch" ]]; then
+    echo "Not in a git repository" >&2
+    return 1
+  fi
+  printf '%s' "$branch" | pbcopy
+  echo "Copied branch: $branch"
+}
+
 # Show dirty/clean state for tracked git repos with file-level breakdown.
 # Discovery + dirty/clean classification lives in ~/_bin/dirty-repo-status,
 # shared with the sketchybar dirty-repos widget so the two stay in lockstep.
