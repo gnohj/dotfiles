@@ -8,8 +8,11 @@ cd "$HOME/.config/sketchybar" || exit 1
 # on PATH so other Nix-managed CLIs called from sketchybar still resolve.
 export PATH="$HOME/.local/bin:/run/current-system/sw/bin:$PATH"
 
-# Activate mise to get the correct lua in PATH
-eval "$(mise activate bash)"
+# Activate mise to get the correct lua in PATH (no-op if mise is missing —
+# Nix-provided lua at /run/current-system/sw/bin is still on PATH).
+if command -v mise &>/dev/null; then
+  eval "$(mise activate bash)"
+fi
 
 # Execute the lua script
 exec lua - <<'LUA_SCRIPT'
