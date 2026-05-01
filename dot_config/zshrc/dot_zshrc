@@ -15,7 +15,12 @@ export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
 # Cache command output to speed up shell startup
 _evalcache() {
-  local name=$1 cache="$ZDOTDIR/.zsh_cache/$name.zsh"
+  # NOTE: split into two lines — zsh evaluates the rhs of all `local` pairs
+  # BEFORE any of the assignments take effect, so combining them on one line
+  # makes `$name` in `cache=...` reference the OUTER scope (often empty),
+  # producing a stale `.zsh` cache file shared across every invocation.
+  local name=$1
+  local cache="$ZDOTDIR/.zsh_cache/$name.zsh"
   shift
   [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache"
   if [[ ! -s "$cache" || "$(which $1)" -nt "$cache" ]]; then
@@ -722,7 +727,7 @@ export PATH="$HOME/_bin:$PATH"
 # add Scripts directory to PATH
 export PATH="$HOME/Scripts:$PATH"
 
-export PATH="~/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 #-------------------------------------------------------------------------------
 #                  Script Integrations
