@@ -27,6 +27,7 @@
       "koekeishiya/formulae"
       "morantron/tmux-fingers"
       "tonisives/tap"
+      "vjeantet/tap"
     ];
 
     # CLI packages (formulae)
@@ -53,6 +54,7 @@
       "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
+      "vjeantet/tap/alerter"
       "clippy"
       "mailsy"
       "mas"
