@@ -56,6 +56,16 @@ if [ "$IS_MAIN_WORKTREE" = true ]; then
   exit 0
 fi
 
+# treekanga v2 removed auto-zoxide and sesh integration; replicate it here so
+# `z <branch>` keeps working and the current tmux client switches to a sesh
+# session for the new worktree (matches v1 `add -s` behavior).
+if command -v zoxide &>/dev/null; then
+  zoxide add "$CURRENT_WORKTREE"
+fi
+if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
+  sesh connect "$CURRENT_WORKTREE"
+fi
+
 # Copy .env files from main worktree if they exist
 for env_file in .env .env.local .env.development .env.development.local; do
   if [ -f "$MAIN_WORKTREE/$env_file" ] && [ ! -f "$env_file" ]; then
@@ -83,4 +93,16 @@ WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
 SESSION_NAME="$REPO_NAME/$WORKTREE_NAME"
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
   tmux display-message -d 5000 -t "$SESSION_NAME" "✅ $WORKTREE_NAME post script complete!"
+fi
+
+# Close the treekanga selector window if this postScript was launched from it
+# (rctrl-semi opens a window named '🌳' running `treekanga tui`). Killing it
+# here also terminates the parent treekanga process — fine, it has nothing
+# left to do.
+if command -v tmux &>/dev/null; then
+  tmux list-windows -a -F '#{session_name}:#{window_index}|#{window_name}' 2>/dev/null \
+    | awk -F'|' '$2 == "🌳" { print $1 }' \
+    | while read -r target; do
+        tmux kill-window -t "$target" 2>/dev/null || true
+      done
 fi

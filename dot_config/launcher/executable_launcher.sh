@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🌿 Copy Current Branch\n📸 Copy Recent Screenshot\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
+  choice=$(printf "🌳 Add Worktree\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🌿 Copy Current Branch\n📸 Copy Recent Screenshot\n🗑  Delete Worktree\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
     ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
@@ -100,6 +100,12 @@ main_menu() {
     ;;
   "📸 Copy Recent Screenshot")
     ~/.config/skhd/copy-recent-screenshot.sh
+    ;;
+  "🗑  Delete Worktree")
+    ~/.config/treekanga/treekanga-rm.sh
+    ;;
+  "🌳 Add Worktree")
+    ~/.config/treekanga/treekanga-add.sh
     ;;
   "🌿 Copy Current Branch")
     pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
