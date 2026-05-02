@@ -30,6 +30,7 @@ import signal
 import subprocess
 import sys
 import termios
+import textwrap
 import time
 import tty
 from datetime import datetime, timezone
@@ -151,7 +152,7 @@ def read_file(path: Path) -> str:
         return ""
 
 
-def build_text(sessions: list[dict], selected: int) -> Text:
+def build_text(sessions: list[dict], selected: int, width: int) -> Text:
     text = Text()
     text.append("claude agents", style=f"bold {COLOR_TITLE}")
     text.append(f" · {len(sessions)}\n\n", style=COLOR_MUTED)
@@ -159,6 +160,12 @@ def build_text(sessions: list[dict], selected: int) -> Text:
     if not sessions:
         text.append("  no sessions\n", style=f"italic {COLOR_MUTED}")
         return text
+
+    # Indentation budget — every visible line indents 4 cells past the
+    # workspace edge ("▶ ● " or "  ● "). Wrapped name lines get the same
+    # 4-space hanging indent so they don't crash back to column 0.
+    INDENT = "    "
+    name_avail = max(8, width - len(INDENT))
 
     for i, s in enumerate(sessions):
         is_sel = i == selected
@@ -169,22 +176,35 @@ def build_text(sessions: list[dict], selected: int) -> Text:
         ctx_pct = int(ratio * 100)
         ts = relative_time(s.get("last_activity"))
         sc = status_color(status)
+        name_style = f"bold {COLOR_NAME}" if is_sel else COLOR_NAME
+
+        # Wrap long names so they stay aligned under the icon. break on
+        # hyphens AND fall back to char-level breaks for slash-heavy paths
+        # (textwrap doesn't split on `/`).
+        name_lines = textwrap.wrap(
+            name,
+            width=name_avail,
+            break_long_words=True,
+            break_on_hyphens=True,
+        ) or [name]
 
         prefix = "▶ " if is_sel else "  "
         text.append(prefix, style=f"bold {COLOR_TITLE}")
         text.append(icon + " ", style=f"bold {sc}")
-        text.append(f"{name}\n", style=f"bold {COLOR_NAME}" if is_sel else COLOR_NAME)
+        text.append(f"{name_lines[0]}\n", style=name_style)
+        for chunk in name_lines[1:]:
+            text.append(f"{INDENT}{chunk}\n", style=name_style)
 
         warn = " ⚠" if ratio > 1.0 else ""
         text.append(
-            f"    {ctx_pct}%{warn} · {ts or 'n/a'}\n",
+            f"{INDENT}{ctx_pct}%{warn} · {ts or 'n/a'}\n",
             style=COLOR_WARN if ratio > 1.0 else COLOR_MUTED,
         )
 
         model = format_model(s.get("model_display") or s.get("model")) or "n/a"
-        text.append(f"    {model}\n", style=COLOR_MUTED)
+        text.append(f"{INDENT}{model}\n", style=COLOR_MUTED)
 
-        text.append("    ", style=COLOR_MUTED)
+        text.append(INDENT, style=COLOR_MUTED)
         text.append(f"{status or 'n/a'}\n", style=sc)
 
     return text
@@ -259,7 +279,11 @@ def main() -> None:
             if dirty:
                 sys.stdout.write(HOME + CLEAR_DOWN)
                 sys.stdout.flush()
-                console.print(build_text(sessions, selected), no_wrap=False, end="")
+                console.print(
+                    build_text(sessions, selected, console.size.width),
+                    no_wrap=True,
+                    end="",
+                )
                 sys.stdout.flush()
                 dirty = False
 
