@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Agent dashboard launcher — opens (or focuses) a Ghostty window running
-# `recon view` as a sidebar. The dashboard window itself is *not* a tmux
-# client; it just runs recon directly. When the user selects an agent in
-# the recon TUI, a wrapper-tmux shim (~/.local/bin/dashboard-shims/tmux)
-# rewrites recon's `tmux switch-client / attach-session` calls so they
-# target the *primary* tmux client (the user's main work window) rather
-# than the sidebar.
+# Agent dashboard launcher — opens (or focuses) a sidebar window running
+# the agent-sidebar TUI. Terminal-agnostic: detects the primary terminal
+# (Ghostty / kitty) from the focused aerospace window and uses that
+# terminal's preferred spawn mechanism so the dashboard window matches the
+# user's primary terminal app.
 #
-# How the new Ghostty window picks up recon (instead of zsh):
-# Ghostty's `command =` is set to dashboard-wrapper.sh. That wrapper checks
-# /tmp/agent-dashboard-launching — if the marker is fresh, it exec's recon;
-# otherwise it exec's /bin/zsh --login. We touch the marker just before
-# `open -na Ghostty` so the next Ghostty window becomes the dashboard.
+# Spawn mechanisms:
+#   - Ghostty: drops a marker file, then `open -na Ghostty`. Ghostty's
+#     `command =` config points at dashboard-wrapper.sh, which sees the
+#     fresh marker and exec's agent-sidebar instead of zsh. (Required
+#     because Ghostty drops CLI args from `open -na` when an instance is
+#     already running.)
+#   - kitty: `open -na kitty --args --title=AgentDash --command=...`. Kitty
+#     respects CLI args on every invocation, so no wrapper is needed.
+#   - Fallback: prefer kitty if available; else Ghostty.
 #
 # Bound to rctrl + shift - d in skhdrc.
 
@@ -50,14 +52,48 @@ PRIMARY=$(tmux list-clients -F '#{client_activity} #{client_tty}' 2>/dev/null \
 PRIMARY_WID=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null | head -n1)
 [ -n "$PRIMARY_WID" ] && echo "$PRIMARY_WID" > "$PRIMARY_WID_FILE"
 
-# Drop the marker so dashboard-wrapper.sh runs recon in the next Ghostty
-# window instead of zsh.
-touch "$MARKER"
+# Detect the primary terminal app from the currently-focused window so we
+# can spawn a matching dashboard window. Falls back to kitty (cleaner CLI)
+# if the focused app isn't a known terminal.
+PRIMARY_APP=$(aerospace list-windows --focused --format '%{app-bundle-id}' 2>/dev/null | head -n1)
+# Use the wrapper, not the bare script — it sets PATH so `uv` resolves
+# even though the spawning terminal inherits a minimal PATH from launchd.
+SIDEBAR_BIN="$HOME/.local/bin/agent-sidebar-launch"
+
+case "$PRIMARY_APP" in
+  net.kovidgoyal.kitty)
+    SPAWN_TERM=kitty
+    ;;
+  com.mitchellh.ghostty)
+    SPAWN_TERM=ghostty
+    ;;
+  *)
+    # Unknown terminal — prefer kitty if available (clean CLI), else Ghostty.
+    if [ -d "/Applications/kitty.app" ]; then
+      SPAWN_TERM=kitty
+    else
+      SPAWN_TERM=ghostty
+    fi
+    ;;
+esac
 
 # Snapshot existing aerospace window-ids so we can identify the new one.
 WINDOWS_BEFORE=$(aerospace list-windows --all --format '%{window-id}' 2>/dev/null | sort)
 
-open -na "Ghostty"
+case "$SPAWN_TERM" in
+  ghostty)
+    # Drop the marker so dashboard-wrapper.sh runs agent-sidebar in the
+    # next Ghostty window instead of zsh.
+    touch "$MARKER"
+    open -na "Ghostty"
+    ;;
+  kitty)
+    # Kitty respects CLI args on every invocation, no wrapper needed.
+    # Use `-e <cmd>` (not `--command=` which doesn't reach the spawn path
+    # via `open -na`).
+    open -na kitty --args --title=AgentDash -e "$SIDEBAR_BIN"
+    ;;
+esac
 sleep 1.0
 
 WINDOWS_AFTER=$(aerospace list-windows --all --format '%{window-id}' 2>/dev/null | sort)
@@ -68,18 +104,23 @@ fi
 
 echo "$NEW_WID" > "$WID_FILE"
 
-# Move to leftmost slot in the workspace, then resize to the sidebar width.
-# Note: `aerospace move left` returns exit 0 even when the window is already
-# at the edge (no `--fail-if-noop` flag exists), so we can't loop on its
-# exit code — looping is infinite. Instead we look up the window's index
-# in the workspace's left-to-right ordering and move left exactly that many
-# times to reach position 0.
-aerospace focus --window-id "$NEW_WID" 2>/dev/null
-WIN_INDEX=$(aerospace list-windows --workspace "$DASH_WORKSPACE" --format '%{window-id}' 2>/dev/null \
-  | grep -n "^${NEW_WID}\$" | head -n1 | cut -d: -f1)
-if [ -n "$WIN_INDEX" ] && [ "$WIN_INDEX" -gt 1 ]; then
-  for _ in $(seq 1 "$((WIN_INDEX - 1))"); do
-    aerospace move left 2>/dev/null
+# Explicitly move the new window to T (rather than relying on the
+# on-window-detected rule, which fires asynchronously and races us).
+# Sleep gives aerospace a beat to register the workspace move so the
+# subsequent index lookup actually finds the window.
+aerospace move-node-to-workspace --window-id "$NEW_WID" "$DASH_WORKSPACE" 2>/dev/null
+sleep 0.2
+
+# Move to leftmost slot. aerospace's `list-windows` order is NOT visual
+# left-to-right (looks more like focus/insertion order), so we can't index
+# off it. Instead we count windows in the workspace and do (N-1) moves —
+# `move left` is a safe no-op when already leftmost, so over-moving is
+# fine. Using --window-id avoids the focus dance, which is unreliable for
+# newly-spawned windows.
+WIN_COUNT=$(aerospace list-windows --workspace "$DASH_WORKSPACE" --format '%{window-id}' 2>/dev/null | wc -l | tr -d ' ')
+if [ -n "$WIN_COUNT" ] && [ "$WIN_COUNT" -gt 1 ]; then
+  for _ in $(seq 1 "$((WIN_COUNT - 1))"); do
+    aerospace move --window-id "$NEW_WID" left 2>/dev/null
   done
 fi
 sleep 0.15
