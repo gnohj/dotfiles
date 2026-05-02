@@ -87,7 +87,7 @@ def _c(key: str, fallback: str) -> str:
     return _SCHEME.get(key, fallback)
 
 
-COLOR_TITLE = _c("gnohj_color01", "#c0aed2")
+COLOR_TITLE = _c("gnohj_color04", "#a3b8c6")  # title + selection arrow — blue
 COLOR_TEXT = _c("gnohj_color14", "#b8c9d3")
 COLOR_MUTED = _c("gnohj_color09", "#9fb7a4")
 COLOR_IDLE = _c("gnohj_color05", "#dab183")
@@ -95,6 +95,7 @@ COLOR_WORKING = _c("gnohj_color04", "#a3b8c6")
 COLOR_INPUT = _c("gnohj_color11", "#da858e")
 COLOR_NEW = _c("gnohj_color03", "#a7cfbd")
 COLOR_NAME = _c("gnohj_color03", "#a7cfbd")  # session name — same hue as "new"
+COLOR_MODEL = _c("gnohj_color01", "#c0aed2")  # model name — purple
 COLOR_WARN = _c("gnohj_color06", "#dc988e")
 
 
@@ -209,7 +210,7 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         )
 
         model = format_model(s.get("model_display") or s.get("model")) or "n/a"
-        text.append(f"{INDENT}{model}\n", style=COLOR_MUTED)
+        text.append(f"{INDENT}{model}\n", style=COLOR_MODEL)
 
         text.append(INDENT, style=COLOR_MUTED)
         text.append(f"{status or 'n/a'}\n", style=sc)
