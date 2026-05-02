@@ -63,6 +63,7 @@ rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 L
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
 rctrl - 0x27 : ~/Scripts/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
+rctrl + shift - d : ~/Scripts/agent-dashboard.sh # toggle/summon agent dashboard (floating Ghostty on workspace 9)
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
 rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
