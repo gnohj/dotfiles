@@ -1,0 +1,293 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["rich>=13"]
+# ///
+"""Compact agent sidebar — narrow-width TUI for Claude Code sessions.
+
+Reads `recon json` for session data, renders one agent per row in a layout
+that fits a ~280px / ~35col Ghostty sidebar window. Selecting an agent
+switches the user's *primary* tmux client (read from
+/tmp/agent-dashboard-primary-client) to that session and refocuses the
+primary aerospace window. The sidebar stays put.
+
+Why direct ANSI (not textual or rich.Live):
+  - textual's widget compositor paints a per-row bg even with `transparent`
+    set, which blocks Ghostty's `background-opacity`.
+  - rich.Live in screen=True mode does the same alt-screen clear with the
+    theme bg.
+  - Manual `\033[H\033[0J` + Console.print(no_wrap=True) emits only the
+    styled text — empty cells stay at the terminal's default bg, which is
+    what Ghostty actually checks when applying window opacity.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import select
+import signal
+import subprocess
+import sys
+import termios
+import time
+import tty
+from datetime import datetime, timezone
+from pathlib import Path
+
+from rich.console import Console
+from rich.text import Text
+
+
+PRIMARY_FILE = Path("/tmp/agent-dashboard-primary-client")
+PRIMARY_WID_FILE = Path("/tmp/agent-dashboard-primary-window")
+RECON = Path.home() / ".cargo" / "bin" / "recon"
+AEROSPACE = "/opt/homebrew/bin/aerospace"
+TMUX = "/opt/homebrew/bin/tmux"
+ACTIVE_SCHEME = Path.home() / ".config/colorscheme/active/active-colorscheme.sh"
+
+REFRESH_SECONDS = 2.0
+POLL_TIMEOUT = 0.1
+
+# ANSI escape sequences. We avoid Rich.Live and any compositor that paints
+# a background — these give us pixel-perfect control over what's emitted.
+ENTER_ALT = "\x1b[?1049h"
+LEAVE_ALT = "\x1b[?1049l"
+HIDE_CURSOR = "\x1b[?25l"
+SHOW_CURSOR = "\x1b[?25h"
+HOME = "\x1b[H"
+CLEAR_DOWN = "\x1b[0J"  # clear from cursor to end-of-screen (uses default bg → transparent)
+RESET_SGR = "\x1b[0m"
+
+STATUS_ICON = {
+    "Idle": "●",
+    "New": "○",
+    "Working": "◐",
+    "Input": "▸",
+}
+
+
+def _parse_colorscheme() -> dict[str, str]:
+    colors: dict[str, str] = {}
+    try:
+        for line in ACTIVE_SCHEME.read_text().splitlines():
+            m = re.match(r"^\s*(gnohj_color\d+)=(#[0-9a-fA-F]+)", line)
+            if m:
+                colors[m.group(1)] = m.group(2)
+    except OSError:
+        pass
+    return colors
+
+
+_SCHEME = _parse_colorscheme()
+
+
+def _c(key: str, fallback: str) -> str:
+    return _SCHEME.get(key, fallback)
+
+
+COLOR_TITLE = _c("gnohj_color01", "#c0aed2")
+COLOR_TEXT = _c("gnohj_color14", "#b8c9d3")
+COLOR_MUTED = _c("gnohj_color09", "#9fb7a4")
+COLOR_IDLE = _c("gnohj_color02", "#b7ce97")
+COLOR_WORKING = _c("gnohj_color04", "#a3b8c6")
+COLOR_INPUT = _c("gnohj_color11", "#da858e")
+COLOR_NEW = _c("gnohj_color03", "#a7cfbd")
+COLOR_NAME = _c("gnohj_color03", "#a7cfbd")  # session name — same hue as "new"
+COLOR_WARN = _c("gnohj_color06", "#dc988e")
+
+
+def relative_time(iso_ts: str | None) -> str:
+    if not iso_ts:
+        return ""
+    try:
+        ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+        seconds = int((datetime.now(timezone.utc) - ts).total_seconds())
+    except ValueError:
+        return ""
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m"
+    if seconds < 86400:
+        return f"{seconds // 3600}h"
+    return f"{seconds // 86400}d"
+
+
+def format_model(model: str | None) -> str:
+    if not model:
+        return ""
+    name = model.removeprefix("claude-")
+    parts = name.split("-")
+    if len(parts) >= 3 and parts[1].isdigit() and parts[2].isdigit():
+        return f"{parts[0]} {parts[1]}.{parts[2]}"
+    return name
+
+
+def status_color(status: str) -> str:
+    return {
+        "Working": COLOR_WORKING,
+        "Input": COLOR_INPUT,
+        "Idle": COLOR_IDLE,
+        "New": COLOR_NEW,
+    }.get(status, COLOR_TEXT)
+
+
+def load_sessions() -> list[dict]:
+    try:
+        out = subprocess.check_output([str(RECON), "json"], text=True, timeout=2)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+    try:
+        return json.loads(out).get("sessions", []) or []
+    except json.JSONDecodeError:
+        return []
+
+
+def read_file(path: Path) -> str:
+    try:
+        return path.read_text().strip()
+    except OSError:
+        return ""
+
+
+def build_text(sessions: list[dict], selected: int) -> Text:
+    text = Text()
+    text.append("claude agents", style=f"bold {COLOR_TITLE}")
+    text.append(f" · {len(sessions)}\n\n", style=COLOR_MUTED)
+
+    if not sessions:
+        text.append("  no sessions\n", style=f"italic {COLOR_MUTED}")
+        return text
+
+    for i, s in enumerate(sessions):
+        is_sel = i == selected
+        ratio = float(s.get("token_ratio") or 0)
+        status = s.get("status") or ""
+        icon = STATUS_ICON.get(status, "·")
+        name = s.get("tmux_session") or s.get("project_name") or "?"
+        ctx_pct = int(ratio * 100)
+        ts = relative_time(s.get("last_activity"))
+        sc = status_color(status)
+
+        prefix = "▶ " if is_sel else "  "
+        text.append(prefix, style=f"bold {COLOR_TITLE}")
+        text.append(icon + " ", style=f"bold {sc}")
+        text.append(f"{name}\n", style=f"bold {COLOR_NAME}" if is_sel else COLOR_NAME)
+
+        warn = " ⚠" if ratio > 1.0 else ""
+        text.append(
+            f"    {ctx_pct}%{warn} · {ts or 'n/a'}\n",
+            style=COLOR_WARN if ratio > 1.0 else COLOR_MUTED,
+        )
+
+        model = format_model(s.get("model_display") or s.get("model")) or "n/a"
+        text.append(f"    {model}\n", style=COLOR_MUTED)
+
+        text.append("    ", style=COLOR_MUTED)
+        text.append(f"{status or 'n/a'}\n", style=sc)
+
+    return text
+
+
+def select_session(sess: dict) -> None:
+    target = sess.get("tmux_session")
+    if not target:
+        return
+    primary = read_file(PRIMARY_FILE)
+    primary_wid = read_file(PRIMARY_WID_FILE)
+
+    if primary:
+        subprocess.run([TMUX, "switch-client", "-c", primary, "-t", target], check=False)
+    else:
+        subprocess.run([TMUX, "switch-client", "-t", target], check=False)
+
+    if primary_wid:
+        subprocess.run([AEROSPACE, "focus", "--window-id", primary_wid], check=False)
+
+
+def main() -> None:
+    fd = sys.stdin.fileno()
+    if not sys.stdin.isatty():
+        sys.stderr.write("agent-sidebar: stdin is not a tty\n")
+        sys.exit(1)
+
+    old_attrs = termios.tcgetattr(fd)
+
+    sys.stdout.write(ENTER_ALT + HIDE_CURSOR)
+    sys.stdout.flush()
+
+    def restore():
+        sys.stdout.write(SHOW_CURSOR + RESET_SGR + LEAVE_ALT)
+        sys.stdout.flush()
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+        except termios.error:
+            pass
+
+    def on_signal(*_):
+        restore()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGTERM, on_signal)
+
+    try:
+        # cbreak preserves output post-processing (auto \r\n) while making
+        # stdin reads return single chars without echo. setraw would break
+        # \n handling on output and is overkill for our needs.
+        tty.setcbreak(fd)
+        # force_terminal=True keeps Rich emitting color even though our
+        # post-cbreak Console may probe oddly. legacy_windows=False avoids
+        # any Windows codepath. width comes from the actual terminal.
+        console = Console(force_terminal=True, color_system="truecolor", legacy_windows=False)
+
+        sessions = load_sessions()
+        selected = 0
+        last_poll = time.monotonic()
+        dirty = True
+
+        while True:
+            now = time.monotonic()
+            if now - last_poll >= REFRESH_SECONDS:
+                sessions = load_sessions()
+                if selected >= len(sessions):
+                    selected = max(0, len(sessions) - 1)
+                last_poll = now
+                dirty = True
+
+            if dirty:
+                sys.stdout.write(HOME + CLEAR_DOWN)
+                sys.stdout.flush()
+                console.print(build_text(sessions, selected), no_wrap=False, end="")
+                sys.stdout.flush()
+                dirty = False
+
+            ready, _, _ = select.select([sys.stdin], [], [], POLL_TIMEOUT)
+            if not ready:
+                continue
+
+            ch = sys.stdin.read(1)
+            if ch in ("q", "\x03"):
+                break
+            if ch == "j" and sessions:
+                selected = (selected + 1) % len(sessions)
+                dirty = True
+            elif ch == "k" and sessions:
+                selected = (selected - 1) % len(sessions)
+                dirty = True
+            elif ch == "r":
+                sessions = load_sessions()
+                if selected >= len(sessions):
+                    selected = max(0, len(sessions) - 1)
+                last_poll = time.monotonic()
+                dirty = True
+            elif ch in ("\r", "\n"):
+                if sessions:
+                    select_session(sessions[selected])
+    finally:
+        restore()
+
+
+if __name__ == "__main__":
+    main()

@@ -23,7 +23,7 @@ PRIMARY_WID_FILE="/tmp/agent-dashboard-primary-window"
 WID_FILE="/tmp/agent-dashboard.wid"
 MARKER="/tmp/agent-dashboard-launching"
 DASH_WORKSPACE="T"
-DASH_WIDTH_PX=280
+DASH_WIDTH_PX=190
 
 # Already running? Look up the saved window-id; if aerospace still tracks
 # it, jump to its workspace.

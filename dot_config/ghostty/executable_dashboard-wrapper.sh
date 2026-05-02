@@ -12,8 +12,13 @@ if [ -f "$MARKER" ]; then
   age=$(( $(date +%s) - $(stat -f %m "$MARKER" 2>/dev/null || echo 0) ))
   rm -f "$MARKER"
   if [ "$age" -lt 5 ]; then
-    export PATH="$HOME/.local/bin/dashboard-shims:$PATH"
-    exec "$HOME/.cargo/bin/recon" view
+    # Run the custom narrow-width agent sidebar (Python/Textual). It calls
+    # `tmux switch-client` directly using the primary-client/window files
+    # in /tmp, so the wrapper-tmux shim isn't needed for this path.
+    # PATH must include $HOME/.local/bin so the script's `uv run` shebang
+    # can find `uv` — Ghostty launches this wrapper with a minimal PATH.
+    export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    exec "$HOME/.local/bin/agent-sidebar"
   fi
 fi
 
