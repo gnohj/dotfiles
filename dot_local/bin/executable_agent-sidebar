@@ -97,6 +97,14 @@ COLOR_NEW = _c("gnohj_color03", "#a7cfbd")
 COLOR_NAME = _c("gnohj_color03", "#a7cfbd")  # session name — same hue as "new"
 COLOR_MODEL = _c("gnohj_color01", "#c0aed2")  # model name — purple
 COLOR_WARN = _c("gnohj_color06", "#dc988e")
+# Row bg for active sessions. Painting any explicit bg defeats Ghostty's
+# background-opacity for those cells, so Idle/New rows stay unstyled
+# (transparent → wallpaper shows through).
+# - Working: recon's selection slate (RGB 45,55,65)
+# - Input: muted red (gnohj_color32, the diffview "removed" surface) so
+#   "needs you" rows visually pop different from "running" rows.
+COLOR_BG_WORKING = "#2d3741"
+COLOR_BG_INPUT = _c("gnohj_color32", "#433030")
 
 
 def relative_time(iso_ts: str | None) -> str:
@@ -156,6 +164,30 @@ def read_file(path: Path) -> str:
         return ""
 
 
+def _row(text: Text, segments: list[tuple[str, str]], width: int, bg: str | None) -> None:
+    """Append one styled row, optionally painted with a row-wide bg.
+
+    segments are (chunk, fg_style). When `bg` is set, every segment's bg is
+    set to it AND the row is padded with bg-only spaces out to `width` so the
+    highlight spans the entire sidebar. When `bg` is None we emit no padding —
+    that leaves trailing cells at the terminal's default bg (transparent
+    under Ghostty's background-opacity).
+    """
+    visible = 0
+    for chunk, fg in segments:
+        if bg:
+            style = f"{fg} on {bg}" if fg else f"on {bg}"
+        else:
+            style = fg
+        text.append(chunk, style=style)
+        visible += len(chunk)
+    if bg:
+        pad = max(0, width - visible)
+        if pad:
+            text.append(" " * pad, style=f"on {bg}")
+    text.append("\n")
+
+
 def build_text(sessions: list[dict], selected: int, width: int) -> Text:
     text = Text()
     text.append("claude agents", style=f"bold {COLOR_TITLE}")
@@ -185,6 +217,13 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         # tracks state changes (Working/Input/New).
         name_color = COLOR_NAME if status == "Idle" else sc
         name_style = f"bold {name_color}" if is_sel else name_color
+        # Subtle row bg for agents that actually need attention. Idle and
+        # New stay bg-less so the wallpaper shows through — `New` is just
+        # an unused fresh session, not interesting.
+        bg = {
+            "Working": COLOR_BG_WORKING,
+            "Input": COLOR_BG_INPUT,
+        }.get(status)
 
         # Wrap long names so they stay aligned under the icon. break on
         # hyphens AND fall back to char-level breaks for slash-heavy paths
@@ -197,23 +236,27 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         ) or [name]
 
         prefix = "▶ " if is_sel else "  "
-        text.append(prefix, style=f"bold {COLOR_TITLE}")
-        text.append(icon + " ", style=f"bold {sc}")
-        text.append(f"{name_lines[0]}\n", style=name_style)
+        _row(text, [
+            (prefix, f"bold {COLOR_TITLE}"),
+            (icon + " ", f"bold {sc}"),
+            (name_lines[0], name_style),
+        ], width, bg)
         for chunk in name_lines[1:]:
-            text.append(f"{INDENT}{chunk}\n", style=name_style)
+            _row(text, [(f"{INDENT}{chunk}", name_style)], width, bg)
 
         warn = " ⚠" if ratio > 1.0 else ""
-        text.append(
-            f"{INDENT}{ctx_pct}%{warn} · {ts or 'n/a'}\n",
-            style=COLOR_WARN if ratio > 1.0 else COLOR_MUTED,
-        )
+        ctx_fg = COLOR_WARN if ratio > 1.0 else COLOR_MUTED
+        _row(text, [
+            (f"{INDENT}{ctx_pct}%{warn} · {ts or 'n/a'}", ctx_fg),
+        ], width, bg)
 
         model = format_model(s.get("model_display") or s.get("model")) or "n/a"
-        text.append(f"{INDENT}{model}\n", style=COLOR_MODEL)
+        _row(text, [(f"{INDENT}{model}", COLOR_MODEL)], width, bg)
 
-        text.append(INDENT, style=COLOR_MUTED)
-        text.append(f"{status or 'n/a'}\n", style=sc)
+        _row(text, [
+            (INDENT, COLOR_MUTED),
+            (status or "n/a", sc),
+        ], width, bg)
 
     return text
 
