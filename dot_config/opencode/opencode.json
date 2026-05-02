@@ -33,11 +33,17 @@
     },
     "playwright": {
       "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"]
+      "command": [
+        "/Users/gnohj/.local/share/mise/shims/npx",
+        "@playwright/mcp@latest"
+      ]
     },
     "chrome-devtools": {
       "type": "local",
-      "command": ["npx", "chrome-devtools-mcp@latest"]
+      "command": [
+        "/Users/gnohj/.local/share/mise/shims/npx",
+        "chrome-devtools-mcp@latest"
+      ]
     }
   }
 }
