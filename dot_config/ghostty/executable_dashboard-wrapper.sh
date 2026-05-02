@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ghostty `command =` wrapper. Normally just exec's the user's login shell.
-# But if ~/Scripts/agent-dashboard.sh dropped a fresh marker file, take over
+# But if ~/Scripts/agent-sidebar-dashboard.sh dropped a fresh marker file, take over
 # this Ghostty window and run the recon dashboard instead. This lets the
 # dashboard launcher transform the next-spawned Ghostty window without
 # keystroke injection — Ghostty drops CLI args (-e, --command) for new
@@ -14,7 +14,7 @@ if [ -f "$MARKER" ]; then
   if [ "$age" -lt 5 ]; then
     # Delegate to the shared launcher which sets PATH then exec's the
     # sidebar. Same wrapper is used by the kitty path in
-    # ~/Scripts/agent-dashboard.sh.
+    # ~/Scripts/agent-sidebar-dashboard.sh.
     exec "$HOME/.local/bin/agent-sidebar-launch"
   fi
 fi
