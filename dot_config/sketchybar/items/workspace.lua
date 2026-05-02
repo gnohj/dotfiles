@@ -350,10 +350,31 @@ workspaceItem:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 	setVisibility(not showingMenu)
 end)
 
+-- Retry init on a schedule until AeroSpace's socket is reachable. Sketchybar
+-- often starts before AeroSpace is fully up after boot/login, which used to
+-- log a permanent failure and leave the workspace widget disabled forever.
+local RETRY_DELAY = 5 -- seconds between attempts
+local RETRY_EVENT = "workspace_retry_init"
+
+sbar.exec("sketchybar --add event " .. RETRY_EVENT)
+
+frontAppWatcher:subscribe(RETRY_EVENT, function()
+	if aerospace and aerospace:is_initialized() then
+		return -- already connected, nothing to do
+	end
+	if init_aerospace() then
+		log_message("INFO", "AeroSpace reachable on retry — workspace widget enabled")
+		getWindows()
+	else
+		sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
+	end
+end)
+
 -- Initialize
 if init_aerospace() then
 	log_message("INFO", "workspace.lua initialized")
 	getWindows()
 else
-	log_message("ERROR", "Failed to initialize AeroSpace connection - workspace widget disabled")
+	log_message("WARN", "AeroSpace socket not yet reachable - retrying every " .. RETRY_DELAY .. "s")
+	sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
 end
