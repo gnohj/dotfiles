@@ -1,6 +1,5 @@
 repos: # use actual repo name from origin not local folder name
   inferno-monorepo:
-    bareRepoName: .bare
     defaultBranch: develop
     worktreeTargetDir: Developer/inferno
     postScript: ~/.config/treekanga/worktree_setup.sh
@@ -8,7 +7,6 @@ repos: # use actual repo name from origin not local folder name
     tuiTheme: everforest-dark
 
   web:
-    bareRepoName: .bare
     defaultBranch: master
     worktreeTargetDir: Developer/web
     postScript: ~/.config/treekanga/worktree_setup.sh

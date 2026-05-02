@@ -361,6 +361,8 @@ ghpr() {
 alias tk='treekanga'
 alias tkd='treekanga --log debug'
 alias tkl='treekanga list -v'
+alias tka='~/.config/treekanga/treekanga-add.sh'
+alias tkrm='~/.config/treekanga/treekanga-rm.sh'
 
 
 # Cargo
