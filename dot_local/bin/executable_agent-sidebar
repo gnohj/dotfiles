@@ -90,7 +90,7 @@ def _c(key: str, fallback: str) -> str:
 COLOR_TITLE = _c("gnohj_color01", "#c0aed2")
 COLOR_TEXT = _c("gnohj_color14", "#b8c9d3")
 COLOR_MUTED = _c("gnohj_color09", "#9fb7a4")
-COLOR_IDLE = _c("gnohj_color02", "#b7ce97")
+COLOR_IDLE = _c("gnohj_color05", "#dab183")
 COLOR_WORKING = _c("gnohj_color04", "#a3b8c6")
 COLOR_INPUT = _c("gnohj_color11", "#da858e")
 COLOR_NEW = _c("gnohj_color03", "#a7cfbd")
@@ -116,7 +116,10 @@ def relative_time(iso_ts: str | None) -> str:
 
 
 def format_model(model: str | None) -> str:
-    if not model:
+    # Treat empty / dash placeholders as "no model" so the caller can swap
+    # in 'n/a'. recon emits "-" or "—" for sessions that haven't picked a
+    # model yet (e.g. fresh `New` sessions).
+    if not model or model.strip() in ("-", "—", "?"):
         return ""
     name = model.removeprefix("claude-")
     parts = name.split("-")
@@ -176,7 +179,11 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         ctx_pct = int(ratio * 100)
         ts = relative_time(s.get("last_activity"))
         sc = status_color(status)
-        name_style = f"bold {COLOR_NAME}" if is_sel else COLOR_NAME
+        # Session name uses default cyan when Idle (the resting state).
+        # Any non-idle state takes the status color so the name visibly
+        # tracks state changes (Working/Input/New).
+        name_color = COLOR_NAME if status == "Idle" else sc
+        name_style = f"bold {name_color}" if is_sel else name_color
 
         # Wrap long names so they stay aligned under the icon. break on
         # hyphens AND fall back to char-level breaks for slash-heavy paths
