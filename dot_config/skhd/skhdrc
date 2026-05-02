@@ -1,7 +1,7 @@
 # On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
 # Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
 
-# Available keys - rctrl - 0x29 (semi), space, single quote
+# Available keys - rctrl -
 
 # Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
 lctrl - space : skhd -k "ctrl - c"
@@ -44,7 +44,8 @@ rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -E -w 80% -h 80% "$HOME/.cargo/bin/recon" # recon claude dashboard (forward slash)
-rctrl - escape : ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true # codeburn AI cost dashboard
+rctrl - escape : pkill alerter; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
+# codeburn dashboard moved to rctrl-i launcher menu
 # rctrl - r - reserved for atuin
 rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
@@ -61,6 +62,7 @@ rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
+rctrl - 0x27 : ~/Scripts/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
 rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
