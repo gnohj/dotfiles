@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🌳 Add Worktree\n✨ Add Worktree (describe)\n🎫 Add Worktree (from Chrome tab with Jira ticket)\n🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🗑  Delete Worktree\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n👤 Run User Setup\n🎨 Themes\n👻 Toggle Transparency\n" |
+  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🎨 Themes\n👻 Toggle Transparency\n🌳 Worktrees\n" |
     ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
@@ -30,6 +30,7 @@ main_menu() {
 
   case "$choice" in
   "🎨 Themes") themes_menu ;;
+  "🌳 Worktrees") worktrees_menu ;;
   "🚀 Push to GitHub (now)")
     ~/.config/zshrc/github-auto-push.sh --nowait
     echo "GitHub auto-push completed"
@@ -56,6 +57,14 @@ main_menu() {
       sleep 2
     fi
     ;;
+  "⬆️ Run System Update")
+    echo "Updating nix flake inputs..."
+    nix flake update --flake ~/.nix
+    echo "Rebuilding system with updated packages..."
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
+    echo "\nSystem update complete. Press any key to continue..."
+    read -k1
+    ;;
   "👤 Run User Setup")
     if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
       cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
@@ -68,25 +77,6 @@ main_menu() {
     ~/.config/tmux/toggle-terminal-transparency.sh
     echo "Transparency toggled"
     sleep 1
-    ;;
-  "🗑  Delete Worktree")
-    ~/.config/treekanga/treekanga-rm.sh
-    ;;
-  "🌳 Add Worktree")
-    ~/.config/treekanga/treekanga-add.sh
-    ;;
-  "✨ Add Worktree (describe)")
-    # The launcher itself runs inside a tmux popup, and worktree-prompt
-    # opens another tmux popup. tmux can't nest popups, so we hand off
-    # to the tmux server via `run-shell -b` — the server schedules
-    # worktree-prompt for *after* this popup closes, in a context that
-    # has clean access to the user's attached client.
-    tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
-    ;;
-  "🎫 Add Worktree (from Chrome tab with Jira ticket)")
-    # jira-worktree reads the active Chrome tab, so it doesn't need the
-    # detach-and-delay trick — it doesn't open another tmux popup.
-    ~/.local/bin/jira-worktree
     ;;
   "🤖 Agent Sidebar Dashboard")
     # Same toggle that rctrl+shift+d fires — summons the recon-backed
@@ -247,6 +237,43 @@ light_themes_menu() {
   *)
     "$HOME/.config/zshrc/colorscheme-set.sh" "$selected_scheme"
     ;;
+  esac
+}
+
+#-------------------------------------------------------------------------------
+# Worktrees Menu
+#-------------------------------------------------------------------------------
+worktrees_menu() {
+  local choice
+  choice=$(printf "🌳 Add Worktree\n✨ Add Worktree (describe)\n🎫 Add Worktree (from Chrome tab with Jira ticket)\n🗑  Delete Worktree\n← Back\n" |
+    ~/Scripts/fzf-vim.sh --height=40% \
+      --header="Worktrees" \
+      --prompt="Worktree > " \
+      --ansi \
+      $FZF_COLORS)
+
+  case "$choice" in
+  "🌳 Add Worktree")
+    ~/.config/treekanga/treekanga-add.sh
+    ;;
+  "✨ Add Worktree (describe)")
+    # The launcher itself runs inside a tmux popup, and worktree-prompt
+    # opens another tmux popup. tmux can't nest popups, so we hand off
+    # to the tmux server via `run-shell -b` — the server schedules
+    # worktree-prompt for *after* this popup closes, in a context that
+    # has clean access to the user's attached client.
+    tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
+    ;;
+  "🎫 Add Worktree (from Chrome tab with Jira ticket)")
+    # jira-worktree reads the active Chrome tab, so it doesn't need the
+    # detach-and-delay trick — it doesn't open another tmux popup.
+    ~/.local/bin/jira-worktree
+    ;;
+  "🗑  Delete Worktree")
+    ~/.config/treekanga/treekanga-rm.sh
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
   esac
 }
 
