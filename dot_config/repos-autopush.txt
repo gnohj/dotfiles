@@ -8,6 +8,7 @@
 
 ~/Developer/gnohj-monorepo
 ~/.claude
+~/.pi
 ~/Obsidian/second-brain
 ~/Obsidian/second-brain/Projects/banking
 ~/Obsidian/second-brain/Projects/fitness
