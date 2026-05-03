@@ -44,7 +44,7 @@ rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -E -w 80% -h 80% "$HOME/.cargo/bin/recon" # recon claude dashboard (forward slash)
-rctrl - escape : pkill alerter; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
+rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
 # codeburn dashboard moved to rctrl-i launcher menu
 # rctrl - r - reserved for atuin
 rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
@@ -65,6 +65,8 @@ rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
 rctrl - 0x27 : ~/Scripts/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
 rctrl + shift - d : ~/Scripts/agent-sidebar-dashboard.sh # toggle/summon agent sidebar dashboard on workspace T
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
+rctrl + shift - j : ~/.local/bin/jira-worktree # active Chrome Jira tab → /worktree (subscription-billed)
+rctrl + shift - h : ~/.local/bin/worktree-prompt # tmux popup describe → /worktree (free-text inference)
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
 rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
 rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
