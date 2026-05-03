@@ -769,6 +769,25 @@ return {
               agent_split("pi -r")
             end,
           },
+          {
+            icon = "ø ",
+            key = "O",
+            desc = "Opencode (New)",
+            action = function()
+              agent_split("opencode")
+            end,
+          },
+          {
+            icon = "ø ",
+            key = "N",
+            desc = "Opencode (Continue)",
+            action = function()
+              -- opencode has no interactive session picker at the CLI
+              -- (only --session <id>). `-c` continues the LAST session,
+              -- closest analog to claude --resume / pi -r.
+              agent_split("opencode -c")
+            end,
+          },
         },
       },
     },
