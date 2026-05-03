@@ -13,8 +13,8 @@ LOGFILE="$HOME/.logs/treekanga-postscript.log"
 mkdir -p "$(dirname "$LOGFILE")"
 log() {
   local msg="$*"
-  echo "$msg"                                # treekanga discards this
-  printf '[%s] %s\n' "$(date +%H:%M:%S)" "$msg" >> "$LOGFILE"
+  echo "$msg" # treekanga discards this
+  printf '[%s] %s\n' "$(date +%H:%M:%S)" "$msg" >>"$LOGFILE"
 }
 log "=== START $CURRENT_WORKTREE ==="
 
@@ -116,9 +116,9 @@ if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
 elif command -v pbcopy &>/dev/null; then
   WORKTREE_BASENAME=$(basename "$CURRENT_WORKTREE")
   CLIPBOARD_VALUE="$REPO_NAME/$WORKTREE_BASENAME"
-  printf '%s' "$CLIPBOARD_VALUE" | pbcopy 2>>"$LOGFILE" \
-    && log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)" \
-    || log "✗ pbcopy failed"
+  printf '%s' "$CLIPBOARD_VALUE" | pbcopy 2>>"$LOGFILE" &&
+    log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)" ||
+    log "✗ pbcopy failed"
 else
   log "· no \$TMUX and no pbcopy; user must navigate manually"
 fi
@@ -170,6 +170,16 @@ else
   log "· no lockfile, skipping install"
 fi
 
+if [ -f "pnpm-lock.yaml" ] && command -v pnpm &>/dev/null; then
+  codegen_start=$(date +%s)
+  log "→ pnpm codegen starting…"
+  if pnpm -r --if-present run codegen >>"$LOGFILE" 2>&1; then
+    log "✓ pnpm codegen completed in $(($(date +%s) - codegen_start))s"
+  else
+    log "✗ pnpm codegen failed (see $LOGFILE — non-fatal, run manually if needed)"
+  fi
+fi
+
 log "$REPO_NAME worktree setup complete!"
 log "=== END ==="
 
@@ -185,9 +195,9 @@ fi
 # here also terminates the parent treekanga process — fine, it has nothing
 # left to do.
 if command -v tmux &>/dev/null; then
-  tmux list-windows -a -F '#{session_name}:#{window_index}|#{window_name}' 2>/dev/null \
-    | awk -F'|' '$2 == "🌳" { print $1 }' \
-    | while read -r target; do
-        tmux kill-window -t "$target" 2>/dev/null || true
-      done
+  tmux list-windows -a -F '#{session_name}:#{window_index}|#{window_name}' 2>/dev/null |
+    awk -F'|' '$2 == "🌳" { print $1 }' |
+    while read -r target; do
+      tmux kill-window -t "$target" 2>/dev/null || true
+    done
 fi
