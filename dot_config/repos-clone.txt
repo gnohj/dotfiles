@@ -12,3 +12,4 @@ git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 # git@github.com:gnohj/project-fitness.git ~/Developer/projects/fitness
 git@github.com:gnohj/claude-code.git ~/.claude
 git@github.com:gnohj/pi.git ~/.pi
+git@github.com:gnohj/opencode.git ~/.config/opencode
