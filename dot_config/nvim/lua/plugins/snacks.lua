@@ -54,6 +54,14 @@ local function get_header()
     name = name:match("[^/]+$") or name
   end
 
+  -- Strip a Jira ticket prefix (e.g. "IHRWEB-23670-") from the figlet
+  -- display so a worktree like `IHRWEB-23670-pulumi-s3` renders as
+  -- `pulumi-s3` — short enough to fit nicely. The branch/cwd retains the
+  -- full name; this only affects the dashboard ASCII header.
+  -- Pattern: `<UPPERCASE+>-<DIGITS+>-` at the start. If no slug follows
+  -- (just the bare ticket key like `IHRWEB-23670`), no match, no strip.
+  name = name:gsub("^%u+%-%d+%-", "")
+
   local section = { width = 2000, align = "center", padding = 0 }
 
   local fonts = { "larry3d" }
