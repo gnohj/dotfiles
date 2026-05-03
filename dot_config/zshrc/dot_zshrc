@@ -594,6 +594,10 @@ alias c='clear'
 
 # Claude Code: `cs` (start) and `cr` (resume) live in _bin/.
 
+# Pi agent shortcuts (parallel to cs/cr but 3-letter — `pn`/`pr` are taken
+alias pis='pi'         # pi start (new session)
+alias pir='pi -r'      # pi resume (interactive session picker)
+
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
   echo "✓ APP_TOKEN set"
