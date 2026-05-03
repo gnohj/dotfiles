@@ -1,6 +1,9 @@
 .DS_Store
 **/.DS_Store
 
+# Override global gitignore — dotfiles repo should track these
+!**/AGENTS.md
+
 *.secrets
 *.local
 **/.env

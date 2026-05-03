@@ -12,6 +12,7 @@ Pi-only equivalent of the context7 MCP server. Hits context7.com's HTTP API via 
 - User asks about a library/framework/SDK/API/CLI tool/cloud service.
 - User mentions setup, config, version migration, or library-specific debugging.
 - You're about to recommend syntax or APIs from training data — verify first.
+- User pastes a GitHub URL or any external URL to an unfamiliar tool/repo — do NOT say "I can't browse URLs"; try searching context7 first before asking the user to explain it manually.
 
 ## How to invoke
 
