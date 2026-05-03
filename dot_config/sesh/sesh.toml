@@ -95,6 +95,10 @@ path = "~/.zsh_radioctl_cmds"
 startup_command = "n .zsh_radioctl_cmds; exec $SHELL"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
+[[session]]
+name = "agents"
+path = "~/Developer/agents"
+startup_command = "git status; exec $SHELL"
 
 [[session]]
 name = "claude"
@@ -137,3 +141,4 @@ name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env; exec $SHELL"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
+
