@@ -1,5 +1,22 @@
 local colors = require("config.colors")
 
+-- True when this nvim instance is "in" the second-brain vault — used to
+-- gate vault-only dashboard items in (Open Inbox / Notes) and to hide
+-- AI-agent items out (Claude/Pi/Opencode) when working in the vault.
+-- Matches either cwd inside ~/Obsidian/second-brain OR a tmux session
+-- named after the vault (the figlet header uses session name, so this
+-- aligns with what the user perceives as "the second-brain dashboard").
+local function is_vault_context()
+  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local cwd = vim.fn.getcwd():gsub("/$", "")
+  if cwd == vault or cwd:sub(1, #vault + 1) == vault .. "/" then
+    return true
+  end
+  local session = vim.fn.system('tmux display-message -p "#S" 2>/dev/null')
+  session = session:gsub("%s+$", "")
+  return session == "second-brain" or session == "second_brain"
+end
+
 -- Smart tmux split for AI agent CLIs (claude, pi, ...):
 -- - 1 existing pane (nvim only) → split + resize nvim to 75%
 -- - 2+ existing panes → split + even-horizontal layout (equal-width panes)
@@ -668,6 +685,50 @@ return {
             action = ":qa",
           },
           { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+          -- Vault-only entries: only shown when nvim was opened from inside
+          -- ~/Obsidian/second-brain (or any subdirectory of it).
+          {
+            icon = " ",
+            key = "i",
+            desc = "Second Brain Inbox",
+            enabled = is_vault_context,
+            action = function()
+              local inbox =
+                vim.fn.expand("~/Obsidian/second-brain/Notes-Inbox")
+              require("snacks").picker.files({
+                title = "Inbox",
+                cwd = inbox,
+              })
+            end,
+          },
+          {
+            icon = " ",
+            key = "n",
+            desc = "Second Brain Notes",
+            enabled = is_vault_context,
+            action = function()
+              local notes =
+                vim.fn.expand("~/Obsidian/second-brain/Notes")
+              require("snacks").picker.files({
+                title = "Notes",
+                cwd = notes,
+              })
+            end,
+          },
+          {
+            icon = "󰉋 ",
+            key = "p",
+            desc = "Second Brain Projects",
+            enabled = is_vault_context,
+            action = function()
+              local projects =
+                vim.fn.expand("~/Obsidian/second-brain/Projects")
+              require("snacks").picker.files({
+                title = "Projects",
+                cwd = projects,
+              })
+            end,
+          },
           {
             icon = "󰧠 ",
             key = "S",
@@ -696,6 +757,7 @@ return {
             icon = "󰧠 ",
             key = "R",
             desc = "Second Brain (Review)",
+            enabled = is_vault_context,
             action = function()
               local vault = vim.fn.expand("~/Obsidian/second-brain")
               vim.cmd("cd " .. vim.fn.fnameescape(vault))
@@ -717,6 +779,7 @@ return {
             icon = "󰧠 ",
             key = "P",
             desc = "Second Brain (Publish)",
+            enabled = is_vault_context,
             action = function()
               local vault = vim.fn.expand("~/Obsidian/second-brain")
               vim.cmd("cd " .. vim.fn.fnameescape(vault))
@@ -729,6 +792,9 @@ return {
             icon = " ",
             key = "C",
             desc = "Claude Code (New)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               -- All three Claude entries shell out to the _bin/ wrappers
               -- so the --add-dir vault flag lives in exactly one place.
@@ -739,6 +805,9 @@ return {
             icon = " ",
             key = "L",
             desc = "Claude Code (Plan)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               agent_split("cs --permission-mode plan")
             end,
@@ -747,6 +816,9 @@ return {
             icon = " ",
             key = "M",
             desc = "Claude Code (Resume)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               agent_split("cr")
             end,
@@ -755,6 +827,9 @@ return {
             icon = "π ",
             key = "I",
             desc = "Pi (New)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               agent_split("pi")
             end,
@@ -763,6 +838,9 @@ return {
             icon = "π ",
             key = "U",
             desc = "Pi (Sessions)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               -- pi -r → "Select a session to resume" (interactive picker;
               -- direct equivalent of claude --resume).
@@ -773,6 +851,9 @@ return {
             icon = "ø ",
             key = "O",
             desc = "Opencode (New)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               agent_split("opencode")
             end,
@@ -781,6 +862,9 @@ return {
             icon = "ø ",
             key = "N",
             desc = "Opencode (Continue)",
+            enabled = function()
+              return not is_vault_context()
+            end,
             action = function()
               -- opencode has no interactive session picker at the CLI
               -- (only --session <id>). `-c` continues the LAST session,
