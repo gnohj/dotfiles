@@ -612,6 +612,20 @@ alias c='clear'
 alias pis='pi'         # pi start (new session)
 alias pir='pi -r'      # pi resume (interactive session picker)
 
+# Opencode shortcuts (parallel to cs/cr, pis/pir). Plain pass-throughs:
+# --dangerously-skip-permissions is documented upstream but rejected by
+# the locally installed opencode (1.14.24); --agent plan needs a "plan"
+# agent that has to be created with `opencode agent create plan` first
+# (only `build` is configured by default). Add either back in here if the
+# upstream catches up or you create the agent.
+#
+# No interactive session picker exists at the CLI — `oc` continues the
+# LAST session (closest analog to claude --resume / pi -r); the in-TUI
+# `/sessions` slash command (alias `/resume`, keybind `ctrl+x l`) handles
+# the picker.
+alias os='opencode'    # opencode start (new session)
+alias oc='opencode -c' # opencode continue (last session)
+
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
   echo "✓ APP_TOKEN set"
