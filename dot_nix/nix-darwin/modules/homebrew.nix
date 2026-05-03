@@ -54,7 +54,7 @@
       "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
-      "vjeantet/tap/alerter"
+      "terminal-notifier"
       "clippy"
       "mailsy"
       "mas"
