@@ -101,6 +101,10 @@ name = "claude"
 path = "~/.claude"
 
 [[session]]
+name = "pi"
+path = "~/.pi/agent"
+
+[[session]]
 name = "opencode"
 path = "~/.config/opencode"
 

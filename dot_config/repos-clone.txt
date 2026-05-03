@@ -11,3 +11,4 @@ git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 # (delivered via iCloud sync). GitHub remote is preserved for off-machine backup.
 # git@github.com:gnohj/project-fitness.git ~/Developer/projects/fitness
 git@github.com:gnohj/claude-code.git ~/.claude
+git@github.com:gnohj/pi.git ~/.pi
