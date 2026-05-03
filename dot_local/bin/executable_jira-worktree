@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# Browser-tab → Jira ticket → /worktree.
+#
+# Reads the URL of the active Chrome tab. If it's an atlassian.net /browse/
+# ticket, fires a "Creating <TICKET>…" notification, opens a Terminal.app
+# window (no auto-focus — runs in the background), runs `claude -p
+# "/worktree <url> --yes"` so the unblocked MCP infers repo/folder/slug and
+# `treekanga add` runs headlessly. When the postScript finishes, fires a
+# second notification ("Worktree ready" or "Worktree FAILED") and closes
+# the Terminal window.
+#
+# Stays on Claude Code subscription OAuth (no API tokens).
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - j : ~/.local/bin/jira-worktree
+
+set -euo pipefail
+
+# skhd spawns this with a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin), so
+# terminal-notifier, alerter, aerospace, etc. aren't on it. Pin a sensible
+# PATH so `command -v` checks resolve regardless of who launched us.
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# `open -na Terminal` propagates SOME env vars to the spawned Terminal
+# (TERM_*, TMUX, etc.) but filters out custom user vars like SKIP_FETCH.
+# When this wrapper is invoked from the launcher popup (running inside
+# tmux + Ghostty), TERM_PROGRAM=ghostty propagates and tricks Terminal's
+# zshrc into firing ghosttyfetch (which spawns its own `tmux` child,
+# creating an unnamed numeric session). Unsetting TERM_PROGRAM here is
+# the only reliable fix — the propagated env then has TERM_PROGRAM
+# unset, so zshrc's `[[ "$TERM_PROGRAM" == "ghostty" ]]` check fails.
+unset TERM_PROGRAM TERM_PROGRAM_VERSION
+export SKIP_FETCH=1  # belt + suspenders; ignored by LaunchServices but
+                     # honored by the inner tmp script's own bash
+
+URL=$(osascript -e 'tell application "Google Chrome" to URL of active tab of front window' 2>/dev/null || true)
+
+# terminal-notifier (registered bundle id) reliably shows banners on
+# Sequoia, unlike `osascript -e 'display notification ...'` which Apple
+# silently drops for unregistered CLI tools. Used here for both the early
+# bail messages AND the "Creating…" / "Worktree ready" banners below.
+notify_error() {
+  local chrome_icon
+  chrome_icon=$(resolve-term-icon chrome 2>/dev/null || true)
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    local args=( -title "jira-worktree" -message "$1" -timeout 6 -group "jira-worktree-error" )
+    [ -n "$chrome_icon" ] && [ -f "$chrome_icon" ] && args+=( -contentImage "$chrome_icon" )
+    terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
+  else
+    osascript -e "display notification \"$1\" with title \"jira-worktree\"" >/dev/null 2>&1 || true
+  fi
+}
+
+if [[ -z "${URL:-}" ]]; then
+  notify_error "No active Chrome tab"
+  exit 1
+fi
+
+# Accept any atlassian.net URL containing a ticket key — covers the
+# /browse/<TICKET> form, board URLs with ?selectedIssue=<TICKET>, search
+# results, etc. We just need a ticket key visible anywhere in the URL.
+if [[ ! "$URL" =~ ^https://[^/]+\.atlassian\.net/ ]]; then
+  notify_error "Active Chrome tab is not a Jira URL — open a ticket and try again"
+  exit 1
+fi
+if [[ ! "$URL" =~ ([A-Z]+-[0-9]+) ]]; then
+  notify_error "No Jira ticket key found in the URL — make sure a ticket is selected"
+  exit 1
+fi
+TICKET="${BASH_REMATCH[1]}"
+GROUP="worktree-${TICKET}"
+# macOS Sequoia ignores `-appIcon` (NSUserNotification's icon override is
+# inert post-Big Sur — banners always show the registering app's bundle
+# icon, here terminal-notifier's terminal). Using `-contentImage` instead,
+# which renders as a thumbnail inside the message body. Resolution comes
+# from `~/.local/bin/resolve-term-icon`, shared with notify-idle.sh.
+ICON_PNG=$(resolve-term-icon terminal 2>/dev/null || true)
+TIMEOUT_SECONDS=12
+
+# terminal-notifier is the right tool for this on macOS Sequoia:
+# - has its own registered bundle ID (so banners actually show)
+# - `-timeout` works (auto-dismisses, no Notification Center stickiness)
+# - `-group` properly replaces prior banners with the same id
+# Falls back to plain osascript if it's not installed.
+notify_banner() {
+  local title="$1" message="$2"
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    local args=(
+      -title "$title"
+      -message "$message"
+      -group "$GROUP"
+      -timeout "$TIMEOUT_SECONDS"
+    )
+    [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
+    terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
+  else
+    osascript -e "display notification \"$message\" with title \"$title\"" >/dev/null 2>&1 || true
+  fi
+}
+
+# Starting banner — same group so the "ready"/"failed" banner replaces it.
+notify_banner "Creating ${TICKET}…" "Worktree setup in progress"
+
+# Snapshot tmux sessions BEFORE we open Terminal.app — something in
+# Terminal/shell init occasionally spawns an unnamed numeric session as a
+# side effect, and we need to know it wasn't ours so we can clean it up
+# at the end. Snapshotting inside the inner tmp script is too late
+# because the spawn happens before that script starts running.
+TMUX_SNAPSHOT=$(mktemp -t jira-worktree-tmux.XXXXXX)
+tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+
+# Capture the postScript log's size AND a wall-clock cutoff so the inner
+# tmp script can tell new entries from this run apart from stale ones
+# left by previous TUI / aborted runs. Without this guard, when claude
+# fails (e.g. orphan directory blocks treekanga), the wrapper would read
+# the most recent OLD postScript entry and falsely report "<unrelated
+# worktree> ready".
+PS_LOG_PATH="$HOME/.logs/treekanga-postscript.log"
+PS_LOG_SIZE_BEFORE=$(wc -c < "$PS_LOG_PATH" 2>/dev/null || echo 0)
+
+# Stage the run-script in a tmp file so we don't have to wrestle with
+# `open --args` quoting. The trap cleans it up after claude exits.
+TMPSCRIPT=$(mktemp -t jira-worktree.XXXXXX.sh)
+chmod +x "$TMPSCRIPT"
+LOGFILE="\$HOME/.logs/jira-worktree.log"
+cat > "$TMPSCRIPT" <<EOF
+#!/usr/bin/env bash
+trap 'rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT"' EXIT
+# Strip TMUX-related env vars so the postScript's \`[ -n "\$TMUX" ]\` branch
+# correctly identifies this as a non-tmux (headless wrapper) flow. Without
+# this, \`open -na Terminal\` propagates the launcher popup's tmux env to
+# the spawned Terminal, and the postScript ends up hijacking the user's
+# tmux client via sesh connect.
+unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
+# Snapshot of tmux sessions taken BEFORE Terminal.app opened (file is
+# written by the outer wrapper). Any new numeric session in our after-
+# state was spawned as a Terminal/shell-init side effect, not by us.
+# Kitty's spawn env on macOS lacks the user's full PATH. Restore enough
+# for claude + git + treekanga + pnpm to resolve.
+export PATH="\$HOME/.local/bin:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+# Suppress GhosttyFetch (zshrc honors SKIP_FETCH) — irrelevant since we
+# close the window at the end, but cheap insurance if exec changes.
+export SKIP_FETCH=1
+mkdir -p "\$(dirname $LOGFILE)"
+echo "=== \$(date) ===" >> $LOGFILE
+echo "URL: $URL" >> $LOGFILE
+echo "Running claude -p /worktree ..." | tee -a $LOGFILE
+claude --dangerously-skip-permissions -p "/worktree $URL --yes" 2>&1 | tee -a $LOGFILE
+echo
+
+# treekanga -x discards the postScript's stdout/stderr, so claude can't
+# see (and won't faithfully report) what actually happened. The postScript
+# now writes its own log; print this run's section so the kitty window
+# shows authoritative ✓/✗ status (zoxide, env copy, pnpm install, etc.).
+PS_LOG="\$HOME/.logs/treekanga-postscript.log"
+TITLE="Worktree FAILED"
+SESSION=""
+# Only consider postScript log entries that were written DURING this run.
+# We use the byte offset captured by the outer wrapper before claude ran;
+# if no new bytes were appended, this run produced no postScript output
+# (likely claude failed before treekanga add ran).
+PS_LOG_NEW=""
+if [ -f "\$PS_LOG" ]; then
+  CURRENT_SIZE=\$(wc -c < "\$PS_LOG" 2>/dev/null || echo 0)
+  if [ "\$CURRENT_SIZE" -gt $PS_LOG_SIZE_BEFORE ]; then
+    PS_LOG_NEW=\$(tail -c \$((CURRENT_SIZE - $PS_LOG_SIZE_BEFORE)) "\$PS_LOG")
+  fi
+fi
+if [ -n "\$PS_LOG_NEW" ]; then
+  echo "── postScript output (from \$PS_LOG) ──"
+  LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
+  printf '%s' "\$LATEST_RUN"
+  echo "──"
+
+  # Derive worktree path / repo / session name from the latest run header.
+  WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
+  REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+  WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
+  SESSION="\$REPO/\$WORKTREE_NAME"
+
+  if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
+    TITLE="Worktree ready"
+  fi
+
+  # Defer session creation to rctrl - ' time. Pre-creating here causes a
+  # brief gitmux/status-bar flicker on the user's current session because
+  # tmux new-session -d fires the global session-created hook which
+  # briefly affects what tmux's "current" pointer resolves to. Instead,
+  # write "<name>|<path>" to the state file so notify-idle-switch.sh can
+  # create-and-attach on demand. The session-created hook still fires —
+  # but during the user's intentional switch, where it's expected.
+  if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
+    echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
+  fi
+fi
+
+# Final banner in the same group — replaces "Creating <TICKET>…".
+MSG="\${SESSION:-$TICKET}"
+if command -v terminal-notifier >/dev/null 2>&1; then
+  args=(
+    -title "\$TITLE"
+    -message "\$MSG"
+    -group "$GROUP"
+    -timeout $TIMEOUT_SECONDS
+  )
+  [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
+  terminal-notifier "\${args[@]}" >/dev/null 2>&1 || true
+else
+  osascript -e "display notification \"\$MSG\" with title \"\$TITLE\"" >/dev/null 2>&1 || true
+fi
+
+# Brief pause so the notification actually posts before the window closes.
+sleep 1
+
+# Kill any new unnamed (numeric) tmux session that appeared during our
+# run. The BEFORE snapshot is the file the outer wrapper wrote at
+# $TMUX_SNAPSHOT (the path is baked in at heredoc-write time).
+TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
+if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
+  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
+    | grep -E '^[0-9]+\$' \
+    | while read -r stale; do
+        tmux kill-session -t "\$stale" 2>/dev/null || true
+      done
+fi
+
+# Close the Terminal.app window running this script. Terminal's default
+# profile keeps windows open when the shell exits, AND closing the last
+# window doesn't quit the app — both need explicit handling.
+# We capture \$(tty) in bash *before* the heredoc; if AppleScript ran
+# \`do shell script "tty"\` it'd spawn a fresh shell with no controlling
+# tty and return garbage, so the comparison would never match.
+# AppleScript can't close a Terminal window from INSIDE that window — the
+# 'close w' command is held while bash + osascript are alive. So we
+# spawn a detached watcher that runs AFTER this bash exits. By the time
+# it fires:
+#   1. Our shell has exited — Terminal applies "When shell exits: Close
+#      the window" preference and the window goes away.
+#   2. Watcher checks Terminal's window count; if zero (our window was
+#      the last one), quits Terminal so it doesn't linger in dock /
+#      Activity Monitor.
+# nohup + disown + redirected fds detach fully so the watcher survives
+# our bash dying.
+{ nohup bash -c '
+    sleep 2
+    osascript -e "tell application \"Terminal\" to if (count of windows) is 0 then quit" 2>/dev/null
+  ' </dev/null >/dev/null 2>&1 &
+  disown
+} 2>/dev/null
+exit 0
+EOF
+
+# Launch macOS Terminal.app in the background.
+# - `-g`         no foregrounding (keeps focus on Chrome)
+# - `-n`         new instance
+# - `--env`      explicitly inject SKIP_FETCH so zsh's login init skips
+#                ghosttyfetch (which itself spawns a `tmux` child and
+#                creates an unnamed numeric session). LaunchServices
+#                filters out custom env vars from the calling shell, so
+#                `--env` is the only reliable way to get them through.
+open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
