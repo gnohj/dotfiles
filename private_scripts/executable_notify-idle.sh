@@ -76,12 +76,10 @@ TITLE="$AGENT"
 MSG="$SESSION"
 TIMEOUT_SECONDS=12
 
-# On click: open Terminal.app and attach to the tmux session there. The
-# AppleScript form `do script` runs the command in a new Terminal window,
-# so this works regardless of whether you have a tmux client attached
-# elsewhere. The session name is single-quoted to handle shell metacharacters
-# (slashes etc. in "web/master" style names).
-EXECUTE_CMD="osascript -e 'tell application \"Terminal\" to do script \"tmux attach -t '\\''$SESSION'\\''\"' -e 'tell application \"Terminal\" to activate'"
+# Click handler dispatches to whichever terminal is currently running
+# (ghostty → kitty → Terminal.app fallback). Helper lives in ~/Scripts/
+# and is deployed by chezmoi from private_Scripts/executable_open-tmux-attach.sh.
+EXECUTE_CMD="$HOME/Scripts/open-tmux-attach.sh '$SESSION'"
 
 if ! command -v terminal-notifier >/dev/null 2>&1; then
   osascript -e "display notification \"$MSG\" with title \"$TITLE\" sound name \"Tink\"" >/dev/null 2>&1 || true
