@@ -226,11 +226,6 @@ if.app-id = 'org.alacritty'
 if.window-title-regex-substring = 'nvim'
 run = 'layout floating'
 
-# Float all Terminal.app windows (used only for ovim popup)
-[[on-window-detected]]
-if.app-id = 'com.apple.Terminal'
-run = 'layout floating'
-
 # Float all Alacritty windows (primarily used for ovim popup)
 [[on-window-detected]]
 if.app-id = 'org.alacritty'
@@ -243,6 +238,10 @@ run = "move-node-to-workspace T"
 [[on-window-detected]]
 if.app-id = 'net.kovidgoyal.kitty'
 run = "move-node-to-workspace T"
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Terminal'
+run = "move-node-to-workspace J"
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
