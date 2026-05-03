@@ -1,8 +1,10 @@
 .DS_Store
 **/.DS_Store
 
-# Override global gitignore — dotfiles repo should track these
-!**/AGENTS.md
+# Project-level agent instructions live at the repo root but are
+# personal to this machine — not part of the dotfiles distribution.
+/CLAUDE.md
+/AGENTS.md
 
 *.secrets
 *.local

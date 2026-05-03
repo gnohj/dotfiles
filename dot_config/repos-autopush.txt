@@ -7,10 +7,8 @@
 # GitHub remote is preserved as an off-machine backup.
 
 ~/Developer/gnohj-monorepo
-~/.claude
-~/.pi
-~/.config/opencode
 ~/Obsidian/second-brain
 ~/Obsidian/second-brain/Projects/banking
 ~/Obsidian/second-brain/Projects/fitness
 ~/Obsidian/second-brain/Projects/parents-estate
+~/Developer/agents
