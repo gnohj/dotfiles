@@ -1999,6 +1999,99 @@ EOF
   echo "Gitmux configuration updated at '$gitmux_conf_file'."
 }
 
+generate_pi_theme() {
+  pi_theme_dir="$HOME/.pi/agent/themes"
+  pi_theme_file="$pi_theme_dir/gnohj.json"
+
+  mkdir -p "$pi_theme_dir"
+
+  cat >"$pi_theme_file" <<EOF
+{
+  "\$schema": "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "gnohj",
+  "vars": {
+    "blue": "${gnohj_color04}",
+    "green": "${gnohj_color02}",
+    "aqua": "${gnohj_color03}",
+    "purple": "${gnohj_color01}",
+    "yellow": "${gnohj_color05}",
+    "orange": "${gnohj_color06}",
+    "red": "${gnohj_color11}",
+    "text": "${gnohj_color14}",
+    "comment": "${gnohj_color09}",
+    "muted": "${gnohj_color08}",
+    "dim": "${gnohj_color13}",
+    "darkGray": "${gnohj_color17}",
+    "selectedBg": "${gnohj_color17}",
+    "codeBg": "#1c2632",
+    "diffAddedBg": "#2a3a30",
+    "diffRemovedBg": "${gnohj_color32}"
+  },
+  "colors": {
+    "accent": "blue",
+    "border": "muted",
+    "borderAccent": "blue",
+    "borderMuted": "darkGray",
+    "success": "green",
+    "error": "red",
+    "warning": "yellow",
+    "muted": "muted",
+    "dim": "dim",
+    "text": "",
+    "thinkingText": "comment",
+
+    "selectedBg": "selectedBg",
+    "userMessageBg": "codeBg",
+    "userMessageText": "",
+    "customMessageBg": "diffAddedBg",
+    "customMessageText": "",
+    "customMessageLabel": "purple",
+    "toolPendingBg": "codeBg",
+    "toolSuccessBg": "diffAddedBg",
+    "toolErrorBg": "diffRemovedBg",
+    "toolTitle": "",
+    "toolOutput": "comment",
+
+    "mdHeading": "yellow",
+    "mdLink": "blue",
+    "mdLinkUrl": "dim",
+    "mdCode": "aqua",
+    "mdCodeBlock": "green",
+    "mdCodeBlockBorder": "muted",
+    "mdQuote": "comment",
+    "mdQuoteBorder": "muted",
+    "mdHr": "muted",
+    "mdListBullet": "aqua",
+
+    "toolDiffAdded": "green",
+    "toolDiffRemoved": "red",
+    "toolDiffContext": "comment",
+
+    "syntaxComment": "comment",
+    "syntaxKeyword": "purple",
+    "syntaxFunction": "yellow",
+    "syntaxVariable": "blue",
+    "syntaxString": "green",
+    "syntaxNumber": "orange",
+    "syntaxType": "aqua",
+    "syntaxOperator": "text",
+    "syntaxPunctuation": "text",
+
+    "thinkingOff": "darkGray",
+    "thinkingMinimal": "muted",
+    "thinkingLow": "blue",
+    "thinkingMedium": "aqua",
+    "thinkingHigh": "purple",
+    "thinkingXhigh": "orange",
+
+    "bashMode": "green"
+  }
+}
+EOF
+
+  echo "Pi theme updated at '$pi_theme_file'."
+}
+
 # If there's an update, replace the active colorscheme and perform necessary actions
 if [ "$UPDATED" = true ]; then
   echo "Updating active colorscheme to '$colorscheme_profile'."
@@ -2044,6 +2137,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate gitmux config
   generate_gitmux_config
+
+  # Generate pi theme
+  generate_pi_theme
 
   # Generate yazi theme
   generate_yazi_theme

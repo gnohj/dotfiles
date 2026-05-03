@@ -37,7 +37,8 @@ rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 rctrl - i : /opt/homebrew/bin/tmux display-popup -E -w 30% -h 40% ~/.config/launcher/launcher.sh
 rctrl - y : ~/.config/skhd/yazi-launch.sh
 
-rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
+# rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
+rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 # rctrl - x : moved to capture-pane command
 # rctrl - c : freed for native tmux copy

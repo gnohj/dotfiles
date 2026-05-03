@@ -1,0 +1,13 @@
+{
+  "defaultProvider": "github-copilot",
+  "defaultModel": "claude-sonnet-4.6",
+  "theme": "gnohj",
+  "skills": [
+    "~/.claude/skills"
+  ],
+  "prompts": [
+    "~/.claude/commands"
+  ],
+  "lastChangelogVersion": "0.72.1",
+  "defaultThinkingLevel": "high"
+}

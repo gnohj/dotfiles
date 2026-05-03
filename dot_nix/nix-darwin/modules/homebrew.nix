@@ -34,6 +34,7 @@
     brews = [
       # AI Tools
       "anomalyco/tap/opencode"
+      "pi-coding-agent"
 
       # System services & window management
       "FelixKratz/formulae/borders"
