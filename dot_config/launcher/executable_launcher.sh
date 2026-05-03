@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🌳 Add Worktree\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🗑  Delete Worktree\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🔀 PRs Requesting Review\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🔔 Test GitHub Notification\n🎨 Themes\n👻 Toggle Transparency\n" |
+  choice=$(printf "🌳 Add Worktree\n✨ Add Worktree (describe)\n🎫 Add Worktree (from Chrome tab with Jira ticket)\n🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🗑  Delete Worktree\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🚀 Push to GitHub (now)\n🔧 Run System Setup\n👤 Run User Setup\n🎨 Themes\n👻 Toggle Transparency\n" |
     ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
@@ -30,30 +30,9 @@ main_menu() {
 
   case "$choice" in
   "🎨 Themes") themes_menu ;;
-  "🔀 PRs Requesting Review")
-    zsh -c '
-      red="\033[1;31m"
-      yellow="\033[1;33m"
-      reset="\033[0m"
-      bot_filter="[.[] | select(.author.login as \$a | [\"renovate\",\"dependabot\",\"github-actions\",\"changesets\",\"changeset-bot\"] | map(ascii_downcase) | index(\$a | ascii_downcase) | not)]"
-      review_prs=$(gh search prs --review-requested=@me --state=open --json author,number,title,repository 2>/dev/null | jq -r "$bot_filter")
-      review_count=$(echo "$review_prs" | jq "length")
-      echo "${yellow}👀 PRs Requesting Review: ${review_count}${reset}"
-      [[ "$review_count" -gt 0 ]] && echo "$review_prs" | jq -r ".[] | \"\(.repository.nameWithOwner | split(\"/\")[1])|\(.number)|\(.title)|\(.author.login)\"" | sort | while IFS="|" read -r repo num title author; do
-        echo "${red}${repo}${reset} #${num} - ${title} (${author})"
-      done
-      echo ""
-      read "?Press Enter to exit..."
-    '
-    ;;
   "🚀 Push to GitHub (now)")
     ~/.config/zshrc/github-auto-push.sh --nowait
     echo "GitHub auto-push completed"
-    sleep 1
-    ;;
-  "🔔 Test GitHub Notification")
-    ~/.config/zshrc/custom-notification.sh
-    echo "GitHub notification completed"
     sleep 1
     ;;
   "📦 Check Outdated Packages")
@@ -77,14 +56,6 @@ main_menu() {
       sleep 2
     fi
     ;;
-  "⬆️ Run System Update")
-    echo "Updating nix flake inputs..."
-    nix flake update --flake ~/.nix
-    echo "Rebuilding system with updated packages..."
-    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
-    echo "\nSystem update complete. Press any key to continue..."
-    read -k1
-    ;;
   "👤 Run User Setup")
     if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
       cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
@@ -103,6 +74,24 @@ main_menu() {
     ;;
   "🌳 Add Worktree")
     ~/.config/treekanga/treekanga-add.sh
+    ;;
+  "✨ Add Worktree (describe)")
+    # The launcher itself runs inside a tmux popup, and worktree-prompt
+    # opens another tmux popup. tmux can't nest popups, so we hand off
+    # to the tmux server via `run-shell -b` — the server schedules
+    # worktree-prompt for *after* this popup closes, in a context that
+    # has clean access to the user's attached client.
+    tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
+    ;;
+  "🎫 Add Worktree (from Chrome tab with Jira ticket)")
+    # jira-worktree reads the active Chrome tab, so it doesn't need the
+    # detach-and-delay trick — it doesn't open another tmux popup.
+    ~/.local/bin/jira-worktree
+    ;;
+  "🤖 Agent Sidebar Dashboard")
+    # Same toggle that rctrl+shift+d fires — summons the recon-backed
+    # claude-agents sidebar on workspace T.
+    ~/Scripts/agent-sidebar-dashboard.sh
     ;;
   "🔥 Codeburn (AI cost)")
     ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
