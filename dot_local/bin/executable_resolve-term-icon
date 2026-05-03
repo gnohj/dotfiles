@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Resolve a terminal-app hint to a PNG path suitable for terminal-notifier's
+# `-contentImage` flag. macOS apps usually ship .icns only, so we convert +
+# cache via `sips` on first use. Output: absolute path to a .png on stdout.
+#
+# Usage:
+#   ICON=$(resolve-term-icon ghostty)        # from explicit hint
+#   ICON=$(resolve-term-icon "$TERM_ID")     # from #{client_termtype}
+#   ICON=$(resolve-term-icon)                # falls back to Terminal.app
+#
+# Returns nothing (no failure) when no .icns can be found — caller should
+# treat empty output as "no icon, omit -contentImage".
+
+set -uo pipefail
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+ICON_CACHE="$HOME/.cache/notify-idle"
+mkdir -p "$ICON_CACHE"
+
+icns_to_png() {
+  local icns="$1" png="$2"
+  [ -f "$png" ] && return 0
+  [ -f "$icns" ] || return 1
+  sips -s format png "$icns" --out "$png" >/dev/null 2>&1
+}
+
+id="${1:-}"
+case "$id" in
+  *ghostty*|Ghostty)
+    if icns_to_png "/Applications/Ghostty.app/Contents/Resources/Ghostty.icns" \
+                    "$ICON_CACHE/ghostty.png"; then
+      echo "$ICON_CACHE/ghostty.png"
+    fi
+    ;;
+  *kitty*|kitty)
+    # kitty ships a PNG natively — skip the icns conversion path.
+    echo "/Applications/kitty.app/Contents/Resources/kitty/logo/kitty-128.png"
+    ;;
+  *wezterm*|*WezTerm*)
+    if icns_to_png "/Applications/WezTerm.app/Contents/Resources/terminal.icns" \
+                    "$ICON_CACHE/wezterm.png"; then
+      echo "$ICON_CACHE/wezterm.png"
+    fi
+    ;;
+  *iTerm*|iterm)
+    if icns_to_png "/Applications/iTerm.app/Contents/Resources/AppIcon.icns" \
+                    "$ICON_CACHE/iterm.png"; then
+      echo "$ICON_CACHE/iterm.png"
+    fi
+    ;;
+  chrome|*Chrome*|*google-chrome*)
+    # Not a terminal — kept here so callers like jira-worktree can use
+    # the same cache + conversion path for Chrome's app icon when
+    # reporting "wrong tab" errors.
+    if icns_to_png "/Applications/Google Chrome.app/Contents/Resources/app.icns" \
+                    "$ICON_CACHE/chrome.png"; then
+      echo "$ICON_CACHE/chrome.png"
+    fi
+    ;;
+  *)
+    # Default / unknown → system Terminal.app (also the click target).
+    if icns_to_png "/System/Applications/Utilities/Terminal.app/Contents/Resources/Terminal.icns" \
+                    "$ICON_CACHE/terminal.png"; then
+      echo "$ICON_CACHE/terminal.png"
+    fi
+    ;;
+esac

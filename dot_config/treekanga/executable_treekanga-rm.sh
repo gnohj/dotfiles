@@ -105,7 +105,19 @@ delete_one() {
 
 run_picker() {
   local records selections
-  records=$(list_worktrees)
+  # Sort worktrees by directory mtime descending so the most recently
+  # touched ones float to the top (matching how the user thinks: "the
+  # one I just made" / "the one I last cd'd into" first). Missing paths
+  # get mtime=0 and sink to the bottom — they're prune candidates anyway.
+  records=$(list_worktrees | while IFS='|' read -r repo branch wt_path bare; do
+    [ -z "$repo" ] && continue
+    if [ -d "$wt_path" ]; then
+      mtime=$(stat -f %m "$wt_path" 2>/dev/null || echo 0)
+    else
+      mtime=0
+    fi
+    printf '%s\t%s|%s|%s|%s\n' "$mtime" "$repo" "$branch" "$wt_path" "$bare"
+  done | sort -rn -k1,1 | cut -f2-)
   if [ -z "$records" ]; then
     echo "No deletable worktrees found."
     sleep 1

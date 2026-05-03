@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# Free-text → /worktree pipeline. Opens a tmux popup asking for a loose
+# description (e.g., "web infra release-automation"), then fires the same
+# downstream pipeline as `jira-worktree`: terminal-notifier banners,
+# Terminal.app spawn, claude -p "/worktree <input> --yes". The skill's
+# Mode C handles the inference (repo / folder / slug from the description).
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - h : ~/.local/bin/worktree-prompt
+
+set -euo pipefail
+
+# skhd spawns this with a minimal PATH. Pin a sensible PATH so
+# terminal-notifier, tmux, claude, aerospace, etc. all resolve.
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# `open -na Terminal` propagates TERM_* env vars but filters custom
+# ones like SKIP_FETCH. Unsetting TERM_PROGRAM is the reliable way to
+# stop zshrc's ghostty branch from firing in the spawned Terminal —
+# see jira-worktree for the full diagnosis.
+unset TERM_PROGRAM TERM_PROGRAM_VERSION
+export SKIP_FETCH=1
+
+# Capture the user's typed input via a tmux popup. tmux display-popup
+# expects the inner command as a SINGLE shell-command arg (not split with
+# `--`), so we stage the popup script in a tmp file and invoke that.
+INPUT_FILE=$(mktemp -t worktree-prompt.XXXXXX)
+POPUP_SH=$(mktemp -t worktree-prompt-popup.XXXXXX.sh)
+chmod +x "$POPUP_SH"
+trap 'rm -f "$INPUT_FILE" "$POPUP_SH"' EXIT
+
+cat > "$POPUP_SH" <<EOF
+#!/usr/bin/env bash
+clear
+cat <<EXAMPLES
+Worktree from description (claude infers repo · folder · slug)
+
+Examples:
+  web infra release-automation
+  inferno fix oauth-redirect-bug
+  web feat new-search-ui
+  web spike fastly-edge-rendering
+
+Format: <repo> <folder-hint> <slug>   (space-separated, loose)
+
+(Ctrl-C to cancel · Enter to submit)
+
+EXAMPLES
+read -e -p "> " input
+[ -n "\$input" ] && echo "\$input" > "$INPUT_FILE"
+EOF
+
+# `-w 70% -h 30%` sizes generously to fit the example block. -E closes
+# the popup when POPUP_SH exits.
+tmux display-popup -E -w 70% -h 30% "$POPUP_SH"
+
+INPUT=$(cat "$INPUT_FILE" 2>/dev/null || true)
+if [ -z "$INPUT" ]; then
+  exit 0
+fi
+
+# A short label used in the banner group / file. Strip non-alphanumerics
+# so it's safe across every interpolation site.
+LABEL=$(echo "$INPUT" | tr -c '[:alnum:]_-' '-' | sed 's/-\{2,\}/-/g; s/^-\|-$//g' | head -c 40)
+GROUP="worktree-${LABEL:-prompt}"
+ICON_PNG=$(resolve-term-icon terminal 2>/dev/null || true)
+TIMEOUT_SECONDS=12
+
+notify_banner() {
+  local title="$1" message="$2"
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    local args=(
+      -title "$title"
+      -message "$message"
+      -group "$GROUP"
+      -timeout "$TIMEOUT_SECONDS"
+    )
+    [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
+    terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
+  else
+    osascript -e "display notification \"$message\" with title \"$title\"" >/dev/null 2>&1 || true
+  fi
+}
+
+notify_banner "Creating worktree…" "$INPUT"
+
+# Snapshot tmux sessions BEFORE Terminal.app opens — see jira-worktree
+# for the rationale. The inner tmp script reads this file to know which
+# numeric sessions appeared as side effects.
+TMUX_SNAPSHOT=$(mktemp -t worktree-prompt-tmux.XXXXXX)
+tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+
+# Capture postScript log size so the inner script only considers entries
+# from THIS run (not stale ones from earlier TUI / aborted runs).
+PS_LOG_PATH="$HOME/.logs/treekanga-postscript.log"
+PS_LOG_SIZE_BEFORE=$(wc -c < "$PS_LOG_PATH" 2>/dev/null || echo 0)
+
+# Stage the run-script just like jira-worktree does — same Terminal.app
+# spawn, same postScript log tailing, same final notification + session
+# pre-creation handling. The only difference is the input source.
+TMPSCRIPT=$(mktemp -t worktree-prompt.XXXXXX.sh)
+chmod +x "$TMPSCRIPT"
+LOGFILE="\$HOME/.logs/worktree-prompt.log"
+cat > "$TMPSCRIPT" <<EOF
+#!/usr/bin/env bash
+trap 'rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT"' EXIT
+# Strip TMUX env so the postScript's headless-flow branch fires (pbcopy
+# instead of sesh connect). See jira-worktree for the rationale.
+unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
+# Snapshot of tmux sessions taken BEFORE Terminal.app opened (file is
+# written by the outer wrapper).
+export PATH="\$HOME/.local/bin:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export SKIP_FETCH=1
+mkdir -p "\$(dirname $LOGFILE)"
+echo "=== \$(date) ===" >> $LOGFILE
+echo "INPUT: $INPUT" >> $LOGFILE
+echo "Running claude -p /worktree (free-text) ..." | tee -a $LOGFILE
+claude --dangerously-skip-permissions -p "/worktree $INPUT --yes" 2>&1 | tee -a $LOGFILE
+echo
+
+PS_LOG="\$HOME/.logs/treekanga-postscript.log"
+TITLE="Worktree FAILED"
+SESSION=""
+# Only consider postScript log content written DURING this run (size diff
+# against the snapshot taken by the outer wrapper). Avoids false "ready"
+# notifications using a previous run's log entry when claude fails.
+PS_LOG_NEW=""
+if [ -f "\$PS_LOG" ]; then
+  CURRENT_SIZE=\$(wc -c < "\$PS_LOG" 2>/dev/null || echo 0)
+  if [ "\$CURRENT_SIZE" -gt $PS_LOG_SIZE_BEFORE ]; then
+    PS_LOG_NEW=\$(tail -c \$((CURRENT_SIZE - $PS_LOG_SIZE_BEFORE)) "\$PS_LOG")
+  fi
+fi
+if [ -n "\$PS_LOG_NEW" ]; then
+  echo "── postScript output (from \$PS_LOG) ──"
+  LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
+  printf '%s' "\$LATEST_RUN"
+  echo "──"
+
+  WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
+  REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+  WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
+  SESSION="\$REPO/\$WORKTREE_NAME"
+
+  if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
+    TITLE="Worktree ready"
+  fi
+
+  # Defer tmux session creation to rctrl - ' time (avoids gitmux flicker
+  # on the user's current session — see jira-worktree for the rationale).
+  if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
+    echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
+  fi
+fi
+
+MSG="\${SESSION:-$INPUT}"
+if command -v terminal-notifier >/dev/null 2>&1; then
+  args=(
+    -title "\$TITLE"
+    -message "\$MSG"
+    -group "$GROUP"
+    -timeout $TIMEOUT_SECONDS
+  )
+  [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
+  terminal-notifier "\${args[@]}" >/dev/null 2>&1 || true
+else
+  osascript -e "display notification \"\$MSG\" with title \"\$TITLE\"" >/dev/null 2>&1 || true
+fi
+
+sleep 1
+
+# Kill any new unnamed (numeric) tmux session that appeared during our
+# run. The BEFORE snapshot was written by the outer wrapper.
+TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
+if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
+  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
+    | grep -E '^[0-9]+\$' \
+    | while read -r stale; do
+        tmux kill-session -t "\$stale" 2>/dev/null || true
+      done
+fi
+
+# Detach a watcher that quits Terminal AFTER our shell exits — see
+# jira-worktree for full rationale (AppleScript can't close a window
+# from inside it). bash exiting triggers Terminal's "close on shell
+# exit" preference; the watcher then quits the app if no windows remain.
+{ nohup bash -c '
+    sleep 2
+    osascript -e "tell application \"Terminal\" to if (count of windows) is 0 then quit" 2>/dev/null
+  ' </dev/null >/dev/null 2>&1 &
+  disown
+} 2>/dev/null
+exit 0
+EOF
+
+# `--env SKIP_FETCH=1` forces SKIP_FETCH through LaunchServices's env
+# filter; without it, zsh's login init in the spawned Terminal fires
+# ghosttyfetch which spawns a stray `tmux` child. See jira-worktree for
+# the full diagnosis.
+open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"

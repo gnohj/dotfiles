@@ -4,12 +4,39 @@ set -e
 
 CURRENT_WORKTREE="$(pwd)"
 
+# treekanga v2 captures the postScript's stdout/stderr via shell.CmdWithDir
+# and discards the result, so anything we `echo` from here is invisible to
+# the calling terminal (kitty window, tmux pane, etc.). Mirror every status
+# line into a per-run log file so callers (e.g. ~/.local/bin/jira-worktree)
+# can tail it post-hoc and surface what actually happened.
+LOGFILE="$HOME/.logs/treekanga-postscript.log"
+mkdir -p "$(dirname "$LOGFILE")"
+log() {
+  local msg="$*"
+  echo "$msg"                                # treekanga discards this
+  printf '[%s] %s\n' "$(date +%H:%M:%S)" "$msg" >> "$LOGFILE"
+}
+log "=== START $CURRENT_WORKTREE ==="
+
 # treekanga's postScript runs in whatever shell context spawned `treekanga add`
 # (often bash without mise's interactive hooks), so the wrong node ends up
 # active and pnpm warns about engine mismatch. Put mise shims first on PATH
 # so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
 # .tool-versions in the worktree.
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
+
+# ~/.zsh_gnohj_env is the user's full environment file (bash-safe) — it
+# exports PNPM_HOME, GIT_AUTHOR_*, XDG paths, and chains into the secrets
+# file (GPR_AUTH_TOKEN, NPM_TOKEN, etc.) and any .local overrides. Without
+# this, the postScript runs with a different PNPM_HOME than interactive
+# zsh, so pnpm uses a different store path. The next interactive `pn i`
+# detects the layout mismatch and helpfully nukes node_modules to recreate
+# from the user's actual store — wasting the install we just did. Sourcing
+# this file aligns the contexts and makes the postScript install reusable.
+if [ -f "$HOME/.zsh_gnohj_env" ]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.zsh_gnohj_env"
+fi
 if command -v mise &>/dev/null; then
   mise install -y 2>/dev/null || true
 fi
@@ -48,45 +75,103 @@ if [ "$CURRENT_WORKTREE" = "$MAIN_WORKTREE" ]; then
   IS_MAIN_WORKTREE=true
 fi
 
-echo "Setting up $REPO_NAME worktree..."
+log "Setting up $REPO_NAME worktree..."
 
 # Skip remaining setup for main worktree
 if [ "$IS_MAIN_WORKTREE" = true ]; then
-  echo "$REPO_NAME main worktree setup complete!"
+  log "$REPO_NAME main worktree setup complete!"
+  log "=== END ==="
   exit 0
 fi
 
-# treekanga v2 removed auto-zoxide and sesh integration; replicate it here so
-# `z <branch>` keeps working and the current tmux client switches to a sesh
-# session for the new worktree (matches v1 `add -s` behavior).
+# treekanga v2 removed auto-zoxide and sesh integration; replicate it here.
+# Behavior is split based on `$TMUX`:
+#   - TMUX set  →  TUI / manual flow (user already in tmux). Auto-attach
+#                  via sesh — matches v1 `add -s` behavior.
+#   - TMUX unset → headless wrapper flow (jira-worktree / worktree-prompt
+#                  spawned a fresh Terminal). Don't switch anyone's client;
+#                  pbcopy the session name so the user can paste it into
+#                  their preferred switcher.
 if command -v zoxide &>/dev/null; then
-  zoxide add "$CURRENT_WORKTREE"
+  # Match the interactive zshrc's custom DB location ($ZDOTDIR). Without
+  # this, non-interactive invocations (treekanga -x, claude -p, etc.) write
+  # to zoxide's default DB at ~/.local/share/zoxide/db.zo — which the
+  # user's `z` command never reads, so the entry effectively vanishes.
+  export _ZO_DATA_DIR="$HOME/.config/zshrc"
+  if zoxide add "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
+    log "✓ zoxide registered ($CURRENT_WORKTREE)"
+  else
+    log "✗ zoxide add failed"
+  fi
+else
+  log "· zoxide not on PATH, skipped"
 fi
+
 if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
-  sesh connect "$CURRENT_WORKTREE"
+  if sesh connect "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
+    log "✓ sesh session connected"
+  else
+    log "✗ sesh connect failed"
+  fi
+elif command -v pbcopy &>/dev/null; then
+  WORKTREE_BASENAME=$(basename "$CURRENT_WORKTREE")
+  CLIPBOARD_VALUE="$REPO_NAME/$WORKTREE_BASENAME"
+  printf '%s' "$CLIPBOARD_VALUE" | pbcopy 2>>"$LOGFILE" \
+    && log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)" \
+    || log "✗ pbcopy failed"
+else
+  log "· no \$TMUX and no pbcopy; user must navigate manually"
 fi
 
 # Copy .env files from main worktree if they exist
+copied_envs=0
 for env_file in .env .env.local .env.development .env.development.local; do
   if [ -f "$MAIN_WORKTREE/$env_file" ] && [ ! -f "$env_file" ]; then
-    echo "Copying $env_file from main worktree..."
-    cp "$MAIN_WORKTREE/$env_file" "$env_file"
+    if cp "$MAIN_WORKTREE/$env_file" "$env_file" 2>>"$LOGFILE"; then
+      log "✓ copied $env_file from main"
+      copied_envs=$((copied_envs + 1))
+    else
+      log "✗ failed to copy $env_file"
+    fi
   fi
 done
+[ "$copied_envs" -eq 0 ] && log "· no .env files to copy from main"
 
-# Install dependencies
+# Install dependencies (timed; capture output to log only — pnpm is noisy)
+install_start=$(date +%s)
 if [ -f "pnpm-lock.yaml" ]; then
-  echo "Installing dependencies with pnpm..."
-  pnpm install
+  log "→ pnpm install starting…"
+  if pnpm install >>"$LOGFILE" 2>&1; then
+    log "✓ pnpm install completed in $(($(date +%s) - install_start))s"
+  else
+    log "✗ pnpm install failed (see $LOGFILE for details)"
+    log "=== END ==="
+    exit 1
+  fi
 elif [ -f "package-lock.json" ]; then
-  echo "Installing dependencies with npm..."
-  npm install
+  log "→ npm install starting…"
+  if npm install >>"$LOGFILE" 2>&1; then
+    log "✓ npm install completed in $(($(date +%s) - install_start))s"
+  else
+    log "✗ npm install failed"
+    log "=== END ==="
+    exit 1
+  fi
 elif [ -f "yarn.lock" ]; then
-  echo "Installing dependencies with yarn..."
-  yarn install
+  log "→ yarn install starting…"
+  if yarn install >>"$LOGFILE" 2>&1; then
+    log "✓ yarn install completed in $(($(date +%s) - install_start))s"
+  else
+    log "✗ yarn install failed"
+    log "=== END ==="
+    exit 1
+  fi
+else
+  log "· no lockfile, skipping install"
 fi
 
-echo "$REPO_NAME worktree setup complete!"
+log "$REPO_NAME worktree setup complete!"
+log "=== END ==="
 
 # Notify tmux session if running with sesh (session name = repo/worktree)
 WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
