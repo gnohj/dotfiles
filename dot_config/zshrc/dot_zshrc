@@ -899,9 +899,20 @@ fi
 
 # -----------------------------  System Fetch
 # Ghostty: animated ghosttyfetch, Other terminals: fastfetch
-# Only run on first shell level outside tmux
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 ]]; then
-    if [[ "$TERM_PROGRAM" == "ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
+# Only run on first shell level outside tmux. Skipped when SKIP_FETCH=1
+# is set by callers that spawn fresh Ghostty windows for one-off tasks
+# (e.g. ~/.local/bin/jira-worktree).
+#
+# Use $__CFBundleIdentifier (set by macOS per-app, can't be falsified by
+# env inheritance) as the source of truth for which terminal is hosting.
+# $TERM_PROGRAM is unreliable: when our worktree wrappers `open -na
+# Terminal` from a Ghostty-spawned shell, TERM_PROGRAM=ghostty leaks
+# through LaunchServices and tricks zshrc into firing ghosttyfetch in
+# the new Terminal.app window — and ghosttyfetch itself spawns a `tmux`
+# child that creates an unnamed numeric session. The bundle id check
+# closes that loophole.
+if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
+    if [[ "$__CFBundleIdentifier" == "com.mitchellh.ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
         ~/.config/ghosttyfetch/ghosttyfetch
     elif command -v fastfetch &>/dev/null; then
         fastfetch

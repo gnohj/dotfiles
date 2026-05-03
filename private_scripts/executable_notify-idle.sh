@@ -4,13 +4,15 @@
 # agent name (used in the banner title) is detected by walking up the process
 # tree — opencode is also recognized for future re-enablement.
 #
-# Why --sender com.apple.facetime: macOS Sequoia silently drops notifications
-# from CLI tools whose bundle ID isn't registered with the legacy
-# NSUserNotificationCenter. Spoofing FaceTime (which has legacy registration)
-# is the alerter maintainer's documented workaround for issue #64. Tradeoffs:
-# clicking the banner opens FaceTime (no click-to-attach), and --timeout is
-# broken with --sender (issue #66) — but FaceTime's banner style auto-dismisses,
-# so we don't need it.
+# Uses terminal-notifier (own bundle id, registered with NSUserNotification)
+# rather than alerter+facetime spoof. Click opens Terminal.app and attaches
+# to the tmux session. `rctrl - '` remains the primary attach path; banner
+# click is the secondary "I just want to grab this from anywhere" path.
+#
+# The notification thumbnail (-contentImage) reflects the terminal hosting
+# the tmux session (Ghostty / kitty / Terminal.app / etc). icns assets are
+# converted to png on first use via `sips` and cached under
+# ~/.cache/notify-idle/ for reuse.
 
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
@@ -37,23 +39,21 @@ fi
 # (rctrl - ') can read it and tmux switch-client back to that session.
 echo "$SESSION" > /tmp/notify-idle.latest 2>/dev/null || true
 
-# Detect the host terminal. Inside tmux we MUST use `#{client_termtype}` —
+# Detect host terminal. Inside tmux we MUST use `#{client_termtype}` —
 # tmux's server inherits TERM from the first client that started it and
 # keeps that value forever, so $TERM in long-lived shells reflects the
 # original launching terminal, not whichever terminal is currently attached.
-# Outside tmux, $TERM is set live by the terminal so it's fine.
+TERM_ID=""
 if [ -n "$SESSION" ]; then
   TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
 fi
 TERM_ID="${TERM_ID:-${TERM:-}}"
 
-case "$TERM_ID" in
-  *ghostty*)           APP_NAME="Ghostty";  APP_ICON="/Applications/Ghostty.app/Contents/Resources/Ghostty.icns" ;;
-  *kitty*)             APP_NAME="kitty";    APP_ICON="/Applications/kitty.app/Contents/Resources/kitty.icns" ;;
-  *wezterm*|*WezTerm*) APP_NAME="WezTerm";  APP_ICON="/Applications/WezTerm.app/Contents/Resources/terminal.icns" ;;
-  *iTerm*)             APP_NAME="iTerm";    APP_ICON="/Applications/iTerm.app/Contents/Resources/AppIcon.icns" ;;
-  *)                   APP_NAME="Ghostty";  APP_ICON="/Applications/Ghostty.app/Contents/Resources/Ghostty.icns" ;;
-esac
+# Resolve content-image PNG via the shared helper. Cache lives in
+# ~/.cache/notify-idle/. Some apps (kitty) ship a usable PNG directly;
+# others (Ghostty, Terminal.app, iTerm) only ship .icns and the helper
+# converts + caches via sips on first use.
+ICON_PNG=$(resolve-term-icon "$TERM_ID" 2>/dev/null || true)
 
 # Detect which agent fired the hook by walking up the process tree. Claude
 # Code spawns the hook as a direct child (PPID = claude), but opencode
@@ -76,38 +76,29 @@ TITLE="$AGENT"
 MSG="$SESSION"
 TIMEOUT_SECONDS=12
 
-if ! command -v alerter >/dev/null 2>&1; then
+# On click: open Terminal.app and attach to the tmux session there. The
+# AppleScript form `do script` runs the command in a new Terminal window,
+# so this works regardless of whether you have a tmux client attached
+# elsewhere. The session name is single-quoted to handle shell metacharacters
+# (slashes etc. in "web/master" style names).
+EXECUTE_CMD="osascript -e 'tell application \"Terminal\" to do script \"tmux attach -t '\\''$SESSION'\\''\"' -e 'tell application \"Terminal\" to activate'"
+
+if ! command -v terminal-notifier >/dev/null 2>&1; then
   osascript -e "display notification \"$MSG\" with title \"$TITLE\" sound name \"Tink\"" >/dev/null 2>&1 || true
   exit 0
 fi
 
-# Fire and detach. alerter's --timeout is broken with --sender (issue #66),
-# so we kill the process ourselves after $TIMEOUT_SECONDS via a shell sleep.
-# We capture alerter's stdout in case @CONTENTCLICKED fires on click — even
-# with --sender (which is supposed to launch the spoofed app instead),
-# alerter sometimes still emits the click event. If it does, focus Ghostty
-# and switch tmux back to the session that ran Claude.
-(
-  RESULT_FILE=$(mktemp -t claude-idle-alerter)
-  alerter \
-    --sender com.apple.facetime \
-    --group "agent-idle-$SESSION" \
-    --app-icon "$APP_ICON" \
-    --title "$TITLE" \
-    --message "$MSG" \
-    >"$RESULT_FILE" 2>/dev/null &
-  ALERTER_PID=$!
-  ( sleep $TIMEOUT_SECONDS && kill "$ALERTER_PID" 2>/dev/null ) &
-  wait "$ALERTER_PID" 2>/dev/null
+# Build the terminal-notifier args; only include -contentImage when we
+# resolved a usable PNG.
+TN_ARGS=(
+  -title "$TITLE"
+  -message "$MSG"
+  -group "agent-idle-$SESSION"
+  -timeout "$TIMEOUT_SECONDS"
+  -execute "$EXECUTE_CMD"
+)
+if [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ]; then
+  TN_ARGS+=( -contentImage "$ICON_PNG" )
+fi
 
-  result=$(cat "$RESULT_FILE" 2>/dev/null)
-  rm -f "$RESULT_FILE"
-
-  if [ "$result" = "@CONTENTCLICKED" ]; then
-    osascript -e "tell application \"$APP_NAME\" to activate" >/dev/null 2>&1 || true
-    tmux switch-client -t "$SESSION" 2>/dev/null \
-      || tmux attach-session -t "$SESSION" 2>/dev/null \
-      || true
-  fi
-) </dev/null >/dev/null 2>&1 &
-disown 2>/dev/null || true
+terminal-notifier "${TN_ARGS[@]}" >/dev/null 2>&1 || true
