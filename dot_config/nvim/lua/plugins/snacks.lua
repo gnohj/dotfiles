@@ -1,15 +1,15 @@
 local colors = require("config.colors")
 
--- Smart tmux split for Claude Code:
+-- Smart tmux split for AI agent CLIs (claude, pi, ...):
 -- - 1 existing pane (nvim only) → split + resize nvim to 75%
 -- - 2+ existing panes → split + even-horizontal layout (equal-width panes)
-local function claude_split(claude_cmd)
+local function agent_split(cmd)
   local cwd = vim.fn.getcwd()
   local pane_count = tonumber(
     vim.fn.system("tmux list-panes | wc -l | tr -d ' '")
   ) or 1
   vim.fn.system(
-    'tmux split-window -h -c "' .. cwd .. '" "' .. claude_cmd .. '"'
+    'tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"'
   )
   if pane_count == 1 then
     vim.fn.system("tmux resize-pane -t 0 -x 75%")
@@ -732,7 +732,7 @@ return {
             action = function()
               -- All three Claude entries shell out to the _bin/ wrappers
               -- so the --add-dir vault flag lives in exactly one place.
-              claude_split("cs")
+              agent_split("cs")
             end,
           },
           {
@@ -740,7 +740,7 @@ return {
             key = "L",
             desc = "Claude Code (Plan)",
             action = function()
-              claude_split("cs --permission-mode plan")
+              agent_split("cs --permission-mode plan")
             end,
           },
           {
@@ -748,9 +748,28 @@ return {
             key = "M",
             desc = "Claude Code (Resume)",
             action = function()
-              claude_split("cr")
+              agent_split("cr")
             end,
-          },        },
+          },
+          {
+            icon = "π ",
+            key = "I",
+            desc = "Pi (New)",
+            action = function()
+              agent_split("pi")
+            end,
+          },
+          {
+            icon = "π ",
+            key = "U",
+            desc = "Pi (Sessions)",
+            action = function()
+              -- pi -r → "Select a session to resume" (interactive picker;
+              -- direct equivalent of claude --resume).
+              agent_split("pi -r")
+            end,
+          },
+        },
       },
     },
     -- DISABLED: Testing zen.nvim (sand4rt) instead
