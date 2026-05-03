@@ -67,13 +67,6 @@ keymap(
   { desc = "[P]Delete without yanking (operator)" }
 )
 keymap(
-  "n",
-  "<leader>D",
-  '"_D',
-  { desc = "[P]Delete to end of line without yanking" }
-)
-
-keymap(
   "v",
   "J",
   ":m '>+1<CR>gv=gv",
@@ -377,7 +370,7 @@ end, { desc = "[P]Open GitHub PR for current branch (or repo PRs list)" })
 
 keymap(
   "n",
-  "<leader>as",
+  "<leader>a",
   ":lua require('copilot.suggestion').toggle_auto_trigger()<CR>",
   {
     silent = true,
