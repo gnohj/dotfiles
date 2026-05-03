@@ -115,7 +115,7 @@ mkdir -p "\$(dirname $LOGFILE)"
 echo "=== \$(date) ===" >> $LOGFILE
 echo "INPUT: $INPUT" >> $LOGFILE
 echo "Running claude -p /worktree (free-text) ..." | tee -a $LOGFILE
-claude --dangerously-skip-permissions -p "/worktree $INPUT --yes" 2>&1 | tee -a $LOGFILE
+claude --dangerously-skip-permissions --model sonnet -p "/worktree $INPUT --yes" 2>&1 | tee -a $LOGFILE
 echo
 
 PS_LOG="\$HOME/.logs/treekanga-postscript.log"

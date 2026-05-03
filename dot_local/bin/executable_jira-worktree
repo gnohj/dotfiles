@@ -145,7 +145,7 @@ mkdir -p "\$(dirname $LOGFILE)"
 echo "=== \$(date) ===" >> $LOGFILE
 echo "URL: $URL" >> $LOGFILE
 echo "Running claude -p /worktree ..." | tee -a $LOGFILE
-claude --dangerously-skip-permissions -p "/worktree $URL --yes" 2>&1 | tee -a $LOGFILE
+claude --dangerously-skip-permissions --model sonnet -p "/worktree $URL --yes" 2>&1 | tee -a $LOGFILE
 echo
 
 # treekanga -x discards the postScript's stdout/stderr, so claude can't
