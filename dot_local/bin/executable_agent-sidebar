@@ -5,11 +5,21 @@
 # ///
 """Compact agent sidebar — narrow-width TUI for Claude Code sessions.
 
-Reads `recon json` for session data, renders one agent per row in a layout
-that fits a ~280px / ~35col Ghostty sidebar window. Selecting an agent
-switches the user's *primary* tmux client (read from
+Reads `recon json` for session data and `~/_bin/dirty-repo-status` for
+dirty-repo data (the same source the sketchybar dirty-repos widget uses,
+so the two never drift). Renders two sections — claude agents in the top
+half, dirty repos (path + per-status file counts) in the bottom half.
+
+Selecting an agent switches the user's *primary* tmux client (read from
 /tmp/agent-dashboard-primary-client) to that session and refocuses the
 primary aerospace window. The sidebar stays put.
+
+Keys:
+  j / k    move agent selection (auto-scrolls top section)
+  J / K    scroll dirty-repo section
+  enter    switch to selected agent
+  r        force refresh
+  q / ^C   quit
 
 Why direct ANSI (not textual or rich.Live):
   - textual's widget compositor paints a per-row bg even with `transparent`
@@ -35,6 +45,7 @@ import time
 import tty
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 from rich.console import Console
 from rich.text import Text
@@ -43,11 +54,15 @@ from rich.text import Text
 PRIMARY_FILE = Path("/tmp/agent-dashboard-primary-client")
 PRIMARY_WID_FILE = Path("/tmp/agent-dashboard-primary-window")
 RECON = Path.home() / ".cargo" / "bin" / "recon"
+DIRTY_STATUS = Path.home() / "_bin" / "dirty-repo-status"
 AEROSPACE = "/opt/homebrew/bin/aerospace"
 TMUX = "/opt/homebrew/bin/tmux"
 ACTIVE_SCHEME = Path.home() / ".config/colorscheme/active/active-colorscheme.sh"
 
 REFRESH_SECONDS = 2.0
+# Dirty-repo status walks every tracked repo and runs git status per-repo —
+# expensive, so refresh on a slower cadence than the recon polling loop.
+DIRTY_REFRESH_SECONDS = 15.0
 POLL_TIMEOUT = 0.1
 
 # ANSI escape sequences. We avoid Rich.Live and any compositor that paints
@@ -97,6 +112,9 @@ COLOR_NEW = _c("gnohj_color03", "#a7cfbd")
 COLOR_NAME = _c("gnohj_color03", "#a7cfbd")  # session name — same hue as "new"
 COLOR_MODEL = _c("gnohj_color01", "#c0aed2")  # model name — purple
 COLOR_WARN = _c("gnohj_color06", "#dc988e")
+# Dirty-status fg colors — match the zsh `dirty()` palette so the sidebar
+# and the terminal helper agree on what each indicator means.
+COLOR_DIRTY_UNPUSHED = _c("gnohj_color12", "#7fb6c5")  # ↑  unpushed (cyan)
 # Row bg for active sessions. Painting any explicit bg defeats Ghostty's
 # background-opacity for those cells, so Idle/New rows stay unstyled
 # (transparent → wallpaper shows through).
@@ -105,6 +123,12 @@ COLOR_WARN = _c("gnohj_color06", "#dc988e")
 #   "needs you" rows visually pop different from "running" rows.
 COLOR_BG_WORKING = "#2d3741"
 COLOR_BG_INPUT = _c("gnohj_color32", "#433030")
+
+
+class Line(NamedTuple):
+    """One rendered terminal row — list of (text, fg_style) segments plus optional row bg."""
+    segments: list[tuple[str, str]]
+    bg: str | None = None
 
 
 def relative_time(iso_ts: str | None) -> str:
@@ -157,6 +181,84 @@ def load_sessions() -> list[dict]:
         return []
 
 
+def _bucket_key(line: str) -> str:
+    """Reduce a porcelain XY code to a single primary-action char (A/M/D/R/C/U/?)."""
+    xy = line[:2]
+    if xy == "??":
+        return "?"
+    return xy[0] if xy[0] != " " else xy[1]
+
+
+# gitmux-style glyphs / colors / sort order. Mirrors arl/gitmux defaults
+# (insertions ⊞ green, deletions ⊟ red, modified ● yellow-ish, untracked + magenta).
+_BUCKET_ORDER = {"A": 0, "M": 1, "D": 2, "R": 3, "C": 4, "U": 5, "?": 6}
+_BUCKET_SYMBOL = {
+    "A": "⊞",
+    "M": "●",
+    "D": "⊟",
+    "R": "→",
+    "C": "⊕",
+    "U": "✖",
+    "?": "+",
+}
+
+
+def load_dirty_data() -> list[tuple[str, dict[str, int], int]]:
+    """Run dirty-repo-status, then collect per-status file counts plus the
+    unpushed-commit count for each dirty repo."""
+    try:
+        out = subprocess.check_output([str(DIRTY_STATUS)], text=True, timeout=10)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+    dirty_paths: list[str] = []
+    for line in out.splitlines():
+        parts = line.split("\t", 1)
+        if len(parts) == 2 and parts[0] == "dirty":
+            dirty_paths.append(parts[1])
+
+    result: list[tuple[str, dict[str, int], int]] = []
+    for p in dirty_paths:
+        counts: dict[str, int] = {}
+        try:
+            status_out = subprocess.check_output(
+                ["git", "-C", p, "status", "--porcelain"],
+                text=True, timeout=2, stderr=subprocess.DEVNULL,
+            )
+            for ln in status_out.splitlines():
+                if not ln:
+                    continue
+                key = _bucket_key(ln)
+                counts[key] = counts.get(key, 0) + 1
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        try:
+            count_out = subprocess.check_output(
+                ["git", "-C", p, "rev-list", "--count", "@{u}..HEAD"],
+                text=True, timeout=2, stderr=subprocess.DEVNULL,
+            )
+            unpushed = int(count_out.strip() or 0)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                FileNotFoundError, ValueError):
+            unpushed = 0
+        result.append((p, counts, unpushed))
+    return result
+
+
+def _bucket_color(key: str) -> str:
+    """gitmux palette: green=add, yellow=modified, red=delete/conflict,
+    magenta=untracked, blue=rename, cyan=copy."""
+    return {
+        "A": COLOR_NEW,
+        "M": COLOR_IDLE,
+        "D": COLOR_INPUT,
+        "R": COLOR_WORKING,
+        "C": COLOR_DIRTY_UNPUSHED,
+        "U": COLOR_INPUT,
+        "?": COLOR_MODEL,
+    }.get(key, COLOR_MUTED)
+
+
 def read_file(path: Path) -> str:
     try:
         return path.read_text().strip()
@@ -164,46 +266,32 @@ def read_file(path: Path) -> str:
         return ""
 
 
-def _row(text: Text, segments: list[tuple[str, str]], width: int, bg: str | None) -> None:
-    """Append one styled row, optionally painted with a row-wide bg.
-
-    segments are (chunk, fg_style). When `bg` is set, every segment's bg is
-    set to it AND the row is padded with bg-only spaces out to `width` so the
-    highlight spans the entire sidebar. When `bg` is None we emit no padding —
-    that leaves trailing cells at the terminal's default bg (transparent
-    under Ghostty's background-opacity).
-    """
-    visible = 0
-    for chunk, fg in segments:
-        if bg:
-            style = f"{fg} on {bg}" if fg else f"on {bg}"
-        else:
-            style = fg
-        text.append(chunk, style=style)
-        visible += len(chunk)
-    if bg:
-        pad = max(0, width - visible)
-        if pad:
-            text.append(" " * pad, style=f"on {bg}")
-    text.append("\n")
-
-
-def build_text(sessions: list[dict], selected: int, width: int) -> Text:
-    text = Text()
-    text.append("claude agents", style=f"bold {COLOR_TITLE}")
-    text.append(f" · {len(sessions)}\n\n", style=COLOR_MUTED)
+def build_agents_lines(
+    sessions: list[dict], selected: int, width: int
+) -> tuple[list[Line], list[int]]:
+    """Build the agents section as a flat line list. Returns (lines, agent_starts)
+    where agent_starts[i] is the line index where agent i begins — used by the
+    auto-scroll logic to keep the selected agent visible."""
+    lines: list[Line] = []
+    lines.append(Line([
+        ("ai agents", f"bold {COLOR_TITLE}"),
+        (f" · {len(sessions)}", COLOR_MUTED),
+    ]))
+    lines.append(Line([("─" * width, COLOR_TITLE)]))
 
     if not sessions:
-        text.append("  no sessions\n", style=f"italic {COLOR_MUTED}")
-        return text
+        lines.append(Line([("  no sessions", f"italic {COLOR_MUTED}")]))
+        return lines, []
 
     # Indentation budget — every visible line indents 4 cells past the
     # workspace edge ("▶ ● " or "  ● "). Wrapped name lines get the same
     # 4-space hanging indent so they don't crash back to column 0.
     INDENT = "    "
     name_avail = max(8, width - len(INDENT))
+    agent_starts: list[int] = []
 
     for i, s in enumerate(sessions):
+        agent_starts.append(len(lines))
         is_sel = i == selected
         ratio = float(s.get("token_ratio") or 0)
         status = s.get("status") or ""
@@ -216,7 +304,7 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         # Any non-idle state takes the status color so the name visibly
         # tracks state changes (Working/Input/New).
         name_color = COLOR_NAME if status == "Idle" else sc
-        name_style = f"bold {name_color}" if is_sel else name_color
+        name_style = name_color
         # Subtle row bg for agents that actually need attention. Idle and
         # New stay bg-less so the wallpaper shows through — `New` is just
         # an unused fresh session, not interesting.
@@ -236,29 +324,146 @@ def build_text(sessions: list[dict], selected: int, width: int) -> Text:
         ) or [name]
 
         prefix = "▶ " if is_sel else "  "
-        _row(text, [
+        lines.append(Line([
             (prefix, f"bold {COLOR_TITLE}"),
             (icon + " ", f"bold {sc}"),
             (name_lines[0], name_style),
-        ], width, bg)
+        ], bg))
         for chunk in name_lines[1:]:
-            _row(text, [(f"{INDENT}{chunk}", name_style)], width, bg)
+            lines.append(Line([(f"{INDENT}{chunk}", name_style)], bg))
 
         warn = " ⚠" if ratio > 1.0 else ""
         ctx_fg = COLOR_WARN if ratio > 1.0 else COLOR_MUTED
-        _row(text, [
-            (f"{INDENT}{ctx_pct}%{warn} · {ts or 'n/a'}", ctx_fg),
-        ], width, bg)
+        lines.append(Line([(f"{INDENT}{ctx_pct}%{warn} · {ts or 'n/a'}", ctx_fg)], bg))
 
         model = format_model(s.get("model_display") or s.get("model")) or "n/a"
-        _row(text, [(f"{INDENT}{model}", COLOR_MODEL)], width, bg)
+        lines.append(Line([(f"{INDENT}{model}", COLOR_MODEL)], bg))
 
-        _row(text, [
+        lines.append(Line([
             (INDENT, COLOR_MUTED),
             (status or "n/a", sc),
-        ], width, bg)
+        ], bg))
 
-    return text
+    return lines, agent_starts
+
+
+def build_dirty_lines(
+    dirty_data: list[tuple[str, dict[str, int], int]], width: int
+) -> list[Line]:
+    """Build the dirty-repos section — repo path + a count-by-status line
+    (e.g. `2M 1AM 1D 3?`) + optional unpushed-commit indicator."""
+    lines: list[Line] = []
+    lines.append(Line([
+        ("git repos", f"bold {COLOR_TITLE}"),
+        (f" · {len(dirty_data)}", COLOR_MUTED),
+    ]))
+    lines.append(Line([("─" * width, COLOR_TITLE)]))
+
+    if not dirty_data:
+        lines.append(Line([("  all clean", f"italic {COLOR_NEW}")]))
+        return lines
+
+    home = str(Path.home())
+    path_avail = max(8, width - 2)   # 2 cells: nerd-icon + space
+
+    for path, counts, unpushed in dirty_data:
+        display = "~" + path[len(home):] if path.startswith(home) else path
+        path_chunks = textwrap.wrap(
+            display,
+            width=path_avail,
+            break_long_words=True,
+            break_on_hyphens=True,
+        ) or [display]
+        lines.append(Line([
+            ("\U000f062c ", COLOR_NAME),
+            (path_chunks[0], COLOR_NAME),
+        ]))
+        for chunk in path_chunks[1:]:
+            lines.append(Line([
+                ("  ", COLOR_NAME),
+                (chunk, COLOR_NAME),
+            ]))
+
+        if counts:
+            sorted_keys = sorted(
+                counts.keys(),
+                key=lambda k: (_BUCKET_ORDER.get(k, 99), k),
+            )
+            segments: list[tuple[str, str]] = [("  ", COLOR_MUTED)]
+            for i, key in enumerate(sorted_keys):
+                if i > 0:
+                    segments.append((" ", COLOR_MUTED))
+                sym = _BUCKET_SYMBOL.get(key, key)
+                segments.append((f"{sym}{counts[key]}", _bucket_color(key)))
+            lines.append(Line(segments))
+
+        if unpushed > 0:
+            lines.append(Line([
+                ("  ↑ ", f"bold {COLOR_DIRTY_UNPUSHED}"),
+                (f"{unpushed} unpushed", COLOR_DIRTY_UNPUSHED),
+            ]))
+
+    return lines
+
+
+def render_section(
+    text: Text,
+    lines: list[Line],
+    height: int,
+    scroll: int,
+    width: int,
+    skip_last_newline: bool = False,
+) -> None:
+    """Emit exactly `height` rows of `lines` (offset by `scroll`). Lines past
+    the viewport are simply clipped — no scrollbar."""
+    if height <= 0:
+        return
+    for i in range(height):
+        idx = scroll + i
+        visible_chars = 0
+        ln_bg: str | None = None
+        if 0 <= idx < len(lines):
+            ln = lines[idx]
+            ln_bg = ln.bg
+            for chunk, fg in ln.segments:
+                if ln_bg:
+                    style = f"{fg} on {ln_bg}" if fg else f"on {ln_bg}"
+                else:
+                    style = fg
+                text.append(chunk, style=style)
+                visible_chars += len(chunk)
+
+        if ln_bg:
+            # Selected/active rows paint bg across the full row.
+            pad = max(0, width - visible_chars)
+            if pad:
+                text.append(" " * pad, style=f"on {ln_bg}")
+        # else: trailing cells stay at default bg (transparent under Ghostty's
+        # window opacity).
+
+        if not (skip_last_newline and i == height - 1):
+            text.append("\n")
+
+
+def ensure_agent_visible(
+    selected: int,
+    agent_starts: list[int],
+    total_lines: int,
+    scroll: int,
+    height: int,
+) -> int:
+    """Clamp `scroll` so the selected agent's row range fits inside the
+    viewport. Called every render — selection can move via j/k or refresh."""
+    max_scroll = max(0, total_lines - height)
+    if not agent_starts or selected < 0 or selected >= len(agent_starts):
+        return max(0, min(scroll, max_scroll))
+    start = agent_starts[selected]
+    end = agent_starts[selected + 1] if selected + 1 < len(agent_starts) else total_lines
+    if start < scroll:
+        scroll = start
+    elif end > scroll + height:
+        scroll = end - height
+    return max(0, min(scroll, max_scroll))
 
 
 def select_session(sess: dict) -> None:
@@ -314,29 +519,58 @@ def main() -> None:
         console = Console(force_terminal=True, color_system="truecolor", legacy_windows=False)
 
         sessions = load_sessions()
+        dirty_data = load_dirty_data()
         selected = 0
-        last_poll = time.monotonic()
-        dirty = True
+        agents_scroll = 0
+        dirty_scroll = 0
+        last_session_poll = time.monotonic()
+        last_dirty_poll = time.monotonic()
+        needs_redraw = True
 
         while True:
             now = time.monotonic()
-            if now - last_poll >= REFRESH_SECONDS:
+            if now - last_session_poll >= REFRESH_SECONDS:
                 sessions = load_sessions()
                 if selected >= len(sessions):
                     selected = max(0, len(sessions) - 1)
-                last_poll = now
-                dirty = True
+                last_session_poll = now
+                needs_redraw = True
+            if now - last_dirty_poll >= DIRTY_REFRESH_SECONDS:
+                dirty_data = load_dirty_data()
+                last_dirty_poll = now
+                needs_redraw = True
 
-            if dirty:
+            if needs_redraw:
+                width = max(8, console.size.width)
+                height = max(4, console.size.height)
+                midline = height // 2
+                agents_height = midline
+                dirty_height = height - midline
+
+                agents_lines, agent_starts = build_agents_lines(sessions, selected, width)
+                dirty_lines = build_dirty_lines(dirty_data, width)
+
+                agents_scroll = ensure_agent_visible(
+                    selected, agent_starts, len(agents_lines), agents_scroll, agents_height
+                )
+                dirty_scroll = max(
+                    0, min(dirty_scroll, max(0, len(dirty_lines) - dirty_height))
+                )
+
+                text = Text()
+                render_section(text, agents_lines, agents_height, agents_scroll, width)
+                # Skip the very last newline so writing the bottom-right cell
+                # doesn't push the alt-screen down a row.
+                render_section(
+                    text, dirty_lines, dirty_height, dirty_scroll, width,
+                    skip_last_newline=True,
+                )
+
                 sys.stdout.write(HOME + CLEAR_DOWN)
                 sys.stdout.flush()
-                console.print(
-                    build_text(sessions, selected, console.size.width),
-                    no_wrap=True,
-                    end="",
-                )
+                console.print(text, no_wrap=True, end="")
                 sys.stdout.flush()
-                dirty = False
+                needs_redraw = False
 
             ready, _, _ = select.select([sys.stdin], [], [], POLL_TIMEOUT)
             if not ready:
@@ -347,16 +581,24 @@ def main() -> None:
                 break
             if ch == "j" and sessions:
                 selected = (selected + 1) % len(sessions)
-                dirty = True
+                needs_redraw = True
             elif ch == "k" and sessions:
                 selected = (selected - 1) % len(sessions)
-                dirty = True
+                needs_redraw = True
+            elif ch == "J":
+                dirty_scroll += 1
+                needs_redraw = True
+            elif ch == "K":
+                dirty_scroll = max(0, dirty_scroll - 1)
+                needs_redraw = True
             elif ch == "r":
                 sessions = load_sessions()
+                dirty_data = load_dirty_data()
                 if selected >= len(sessions):
                     selected = max(0, len(sessions) - 1)
-                last_poll = time.monotonic()
-                dirty = True
+                last_session_poll = time.monotonic()
+                last_dirty_poll = time.monotonic()
+                needs_redraw = True
             elif ch in ("\r", "\n"):
                 if sessions:
                     select_session(sessions[selected])
