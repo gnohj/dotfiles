@@ -84,6 +84,7 @@
     tlrc       # tldr client
     tree-sitter # Tree-sitter CLI
     figlet     # ASCII art text banners
+    d2         # Diagram-as-code (sb-workflow / skills-workflow renders)
   ];
 
 }
