@@ -176,7 +176,11 @@ if [ -n "\$PS_LOG_NEW" ]; then
   WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
   REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
   WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
-  SESSION="\$REPO/\$WORKTREE_NAME"
+  # Session name = path relative to ~/Developer/ so the folder bucket
+  # (infra/, fix/, feat/, …) survives. basename(...) drops the bucket
+  # and yields e.g. "web/test-test" for ~/Developer/web/infra/test-test;
+  # we want "web/infra/test-test" to match sesh's zoxide-derived names.
+  SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
 
   if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
     TITLE="Worktree ready"
