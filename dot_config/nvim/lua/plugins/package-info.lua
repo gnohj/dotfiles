@@ -25,6 +25,18 @@ return {
       if vim.bo.buftype ~= "" then
         return -- Don't do anything for special buffers
       end
+      -- Skip virtual / URI-scheme buffers (octo://, gitdiff://, diffview://,
+      -- fugitive://, etc.). Octo's review layout opens diff buffers named
+      -- `package.json` but their "directory" is a fake URI — `jobstart`
+      -- then fails with E475 (expected valid directory). The buftype
+      -- check above doesn't catch these because Octo leaves it empty.
+      local bufname = vim.api.nvim_buf_get_name(0)
+      if bufname == "" or bufname:match("^%w+://") then
+        return
+      end
+      if vim.fn.isdirectory(vim.fn.fnamemodify(bufname, ":p:h")) == 0 then
+        return
+      end
       -- Call the original function
       return original_show()
     end
