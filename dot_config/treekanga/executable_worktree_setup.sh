@@ -114,8 +114,13 @@ if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
     log "✗ sesh connect failed"
   fi
 elif command -v pbcopy &>/dev/null; then
-  WORKTREE_BASENAME=$(basename "$CURRENT_WORKTREE")
-  CLIPBOARD_VALUE="$REPO_NAME/$WORKTREE_BASENAME"
+  # Use the path relative to ~/Developer/ so the folder bucket survives.
+  # ~/Developer/web/infra/test-test → "web/infra/test-test"
+  # basename(...) would give just "test-test"; prepending REPO_NAME loses
+  # the bucket. Older worktrees show full bucket paths in tmux/gitmux
+  # because sesh auto-derives names from the zoxide cwd (which uses the
+  # full relative path); we match that here so new sessions look identical.
+  CLIPBOARD_VALUE="${CURRENT_WORKTREE#$HOME/Developer/}"
   printf '%s' "$CLIPBOARD_VALUE" | pbcopy 2>>"$LOGFILE" &&
     log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)" ||
     log "✗ pbcopy failed"
@@ -183,9 +188,11 @@ fi
 log "$REPO_NAME worktree setup complete!"
 log "=== END ==="
 
-# Notify tmux session if running with sesh (session name = repo/worktree)
+# Notify tmux session if running with sesh. Session name mirrors sesh's
+# zoxide-derived format: path relative to ~/Developer (includes the
+# folder bucket if present, e.g. "web/infra/test-test").
 WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
-SESSION_NAME="$REPO_NAME/$WORKTREE_NAME"
+SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
   tmux display-message -d 5000 -t "$SESSION_NAME" "✅ $WORKTREE_NAME post script complete!"
 fi
