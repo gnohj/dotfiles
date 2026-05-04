@@ -59,6 +59,41 @@ if [ -z "$INPUT" ]; then
   exit 0
 fi
 
+# Preserve what the user actually typed for the log (we may rewrite below).
+ORIG_INPUT="$INPUT"
+
+# Pre-parse the common case `<repo> <bucket> <slug>` deterministically
+# BEFORE handing off to claude. The /worktree skill on -p sonnet sometimes
+# misclassifies this 3-token shape as Mode B (positional repo/branch/path)
+# instead of Mode C (free-text describe with explicit bucket), which puts
+# the worktree at `<repo>/<slug>` and silently drops the bucket.
+#
+# Mode B's third arg accepts `<folder>/<name>` and parses unambiguously, so
+# we rewrite `<repo> <bucket> <slug>` → `<repo> <slug> <bucket>/<slug>`.
+# That one shape has a single valid parse no matter which mode the LLM
+# picks; the bucket survives.
+#
+# Free-text descriptions (anything not matching this exact shape) pass
+# through unchanged — Mode C still infers via the LLM.
+read -r -a TOKENS <<< "$INPUT"
+if [ "${#TOKENS[@]}" -eq 3 ]; then
+  REPO="${TOKENS[0]}"
+  BUCKET="${TOKENS[1]}"
+  SLUG="${TOKENS[2]}"
+  case "$REPO" in
+    web|inferno)
+      case "$BUCKET" in
+        fix|feat|ui|infra|refactor|perf|test|chore|spike)
+          # Slug must look like a leaf branch name (no slashes, no spaces).
+          if [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            INPUT="$REPO $SLUG $BUCKET/$SLUG"
+          fi
+          ;;
+      esac
+      ;;
+  esac
+fi
+
 # A short label used in the banner group / file. Strip non-alphanumerics
 # so it's safe across every interpolation site.
 LABEL=$(echo "$INPUT" | tr -c '[:alnum:]_-' '-' | sed 's/-\{2,\}/-/g; s/^-\|-$//g' | head -c 40)
@@ -113,8 +148,9 @@ export PATH="\$HOME/.local/bin:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:
 export SKIP_FETCH=1
 mkdir -p "\$(dirname $LOGFILE)"
 echo "=== \$(date) ===" >> $LOGFILE
-echo "INPUT: $INPUT" >> $LOGFILE
-echo "Running claude -p /worktree (free-text) ..." | tee -a $LOGFILE
+echo "USER INPUT:    $ORIG_INPUT" >> $LOGFILE
+echo "CLAUDE INPUT:  $INPUT" >> $LOGFILE
+echo "Running claude -p /worktree ..." | tee -a $LOGFILE
 claude --dangerously-skip-permissions --model sonnet -p "/worktree $INPUT --yes" 2>&1 | tee -a $LOGFILE
 echo
 
@@ -140,7 +176,11 @@ if [ -n "\$PS_LOG_NEW" ]; then
   WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
   REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
   WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
-  SESSION="\$REPO/\$WORKTREE_NAME"
+  # Session name = path relative to ~/Developer/ so the folder bucket
+  # (infra/, fix/, feat/, …) survives. basename(...) drops the bucket
+  # and yields e.g. "web/test-test" for ~/Developer/web/infra/test-test;
+  # we want "web/infra/test-test" to match sesh's zoxide-derived names.
+  SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
 
   if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
     TITLE="Worktree ready"
