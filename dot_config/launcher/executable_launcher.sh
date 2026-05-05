@@ -19,7 +19,7 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #-------------------------------------------------------------------------------
 main_menu() {
   local choice
-  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🧼 Dirty Repos\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🔗 Open Pull Request\n🚀 Push to GitHub (now)\n🔄 Run Agent Sync\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🎨 Themes\n👻 Toggle Transparency\n🌳 Worktrees\n" |
+  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n🌐 Browser ›\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🧼 Dirty Repos\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🚀 Sync Autopush Repos\n🔄 Sync Agent Dashboard\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🎨 Themes ›\n👻 Toggle Transparency\n🌳 Worktrees ›\n" |
     ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
@@ -29,14 +29,15 @@ main_menu() {
   clear
 
   case "$choice" in
-  "🎨 Themes") themes_menu ;;
-  "🌳 Worktrees") worktrees_menu ;;
-  "🚀 Push to GitHub (now)")
+  "🎨 Themes ›") themes_menu ;;
+  "🌐 Browser ›") browser_menu ;;
+  "🌳 Worktrees ›") worktrees_menu ;;
+  "🚀 Sync Autopush Repos")
     ~/.config/zshrc/github-auto-push.sh --nowait
     echo "GitHub auto-push completed"
     sleep 1
     ;;
-  "🔄 Run Agent Sync")
+  "🔄 Sync Agent Dashboard")
     python3 ~/Developer/agents/setup_symlinks.py
     printf '\nAgent sync complete. Press any key to continue...'
     read -n1
@@ -104,23 +105,6 @@ main_menu() {
       echo "Copied branch: $branch"
     else
       echo "Not in a git repository"
-    fi
-    sleep 1
-    ;;
-  "🔗 Open Pull Request")
-    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
-    cd "${pane_path:-$PWD}" 2>/dev/null || true
-    if gh pr view --web 2>/dev/null; then
-      echo "Opened PR for current branch"
-    else
-      repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
-      if [ -n "$repo" ]; then
-        open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
-        echo "No PR for branch — opened $repo PRs list"
-      else
-        echo "Could not resolve repo (not a git repo or gh not authenticated)"
-      fi
     fi
     sleep 1
     ;;
@@ -247,6 +231,60 @@ light_themes_menu() {
   *)
     "$HOME/.config/zshrc/colorscheme-set.sh" "$selected_scheme"
     ;;
+  esac
+}
+
+#-------------------------------------------------------------------------------
+# Browser Menu
+#-------------------------------------------------------------------------------
+browser_menu() {
+  local choice
+  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n← Back\n" |
+    ~/Scripts/fzf-vim.sh --height=40% \
+      --header="Browser" \
+      --prompt="Browser > " \
+      --ansi \
+      $FZF_COLORS)
+
+  clear
+
+  case "$choice" in
+  "🔗 Open Pull Request")
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+    cd "${pane_path:-$PWD}" 2>/dev/null || true
+    if gh pr view --web 2>/dev/null; then
+      echo "Opened PR for current branch"
+    else
+      repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+      if [ -n "$repo" ]; then
+        open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+        echo "No PR for branch — opened $repo PRs list"
+      else
+        echo "Could not resolve repo (not a git repo or gh not authenticated)"
+      fi
+    fi
+    sleep 1
+    ;;
+  "🎫 Open Jira Ticket")
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+    branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+    if [ -z "$branch" ]; then
+      echo "Not in a git repository"
+    else
+      key=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1)
+      if [ -n "$key" ]; then
+        open "https://ihm-it.atlassian.net/browse/$key"
+        echo "Opened ticket: $key"
+      else
+        echo "No Jira ticket key found in branch: $branch"
+      fi
+    fi
+    sleep 1
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
   esac
 }
 
