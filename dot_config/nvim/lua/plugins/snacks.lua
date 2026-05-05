@@ -25,12 +25,17 @@ local function agent_split(cmd)
   local pane_count = tonumber(
     vim.fn.system("tmux list-panes | wc -l | tr -d ' '")
   ) or 1
-  vim.fn.system(
-    'tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"'
-  )
   if pane_count == 1 then
-    vim.fn.system("tmux resize-pane -t 0 -x 75%")
+    -- Split atomically at final size (-l 25%) so the agent's TUI reads
+    -- correct dimensions on first paint. A post-split resize races with
+    -- the agent's startup render and corrupts styled segments.
+    vim.fn.system(
+      'tmux split-window -h -l 25% -c "' .. cwd .. '" "' .. cmd .. '"'
+    )
   else
+    vim.fn.system(
+      'tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"'
+    )
     vim.fn.system("tmux select-layout even-horizontal")
   end
 end
