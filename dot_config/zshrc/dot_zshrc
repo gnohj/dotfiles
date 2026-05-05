@@ -468,7 +468,7 @@ gbc() {
 
 # Open the GitHub PR for the current branch in a browser. If no PR exists,
 # fall back to the repo's open-PRs list (sorted by recently-updated).
-gpo() {
+pullreq() {
   if gh pr view --web 2>/dev/null; then
     return 0
   fi
@@ -480,6 +480,24 @@ gpo() {
   fi
   open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
   echo "No PR for branch — opened $repo PRs list"
+}
+
+# Parse a Jira ticket key (e.g. IHRWEB-23658) from the current branch name
+# and open the corresponding ticket in the browser.
+ticket() {
+  local branch key
+  branch=$(git branch --show-current 2>/dev/null)
+  if [[ -z "$branch" ]]; then
+    echo "Not in a git repository" >&2
+    return 1
+  fi
+  key=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1)
+  if [[ -z "$key" ]]; then
+    echo "No Jira ticket key found in branch: $branch" >&2
+    return 1
+  fi
+  open "https://ihm-it.atlassian.net/browse/$key"
+  echo "Opened ticket: $key"
 }
 
 # Show dirty/clean state for tracked git repos with file-level breakdown.
