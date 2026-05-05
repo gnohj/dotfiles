@@ -362,6 +362,9 @@ return {
         hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
         hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg } -- Make background transparent
 
+        -- Snacks picker input bottom border — blue to match the surrounding picker border
+        hl.SnacksPickerInputBorder = { fg = colors["gnohj_color04"] }
+
         -- Snacks GitHub eye badge fix (reviewed timeline badge)
         hl.SnacksGhReviewCommented = {
           fg = "#ffffff",
