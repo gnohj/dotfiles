@@ -373,7 +373,7 @@ git:
 os:
   editPreset: nvim
 gui:
-  showFileTree: false
+  showFileTree: true
   showBottomLine: false
   showCommandLog: false
   theme:
