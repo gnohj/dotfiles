@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Unified macOS notification helper. Single source of truth for the
+# `terminal-notifier ... || osascript ...` pattern that was duplicated
+# across worktree-runner, worktree-* entry points, worktree-abort,
+# worktree-retry, worktree-capture, and notify-idle.sh.
+#
+# Usage:
+#   mac-notify --title "T" --message "M" [opts]
+#   mac-notify -t "T" -m "M" [opts]
+#
+# Required:
+#   -t, --title <text>      banner title
+#   -m, --message <text>    banner body
+#
+# Optional:
+#   -g, --group <id>        notification group; same group → newer
+#                           replaces older (used for replacing the
+#                           "Creating…" banner with "Worktree ready").
+#   -T, --timeout <sec>     auto-dismiss after N seconds. Default: 6.
+#   -s, --sound <name>      macOS system sound (Glass, Basso, Pop,
+#                           Tink, Funk, …). No sound by default.
+#   -i, --icon <path>       PNG path for -contentImage. By default,
+#                           auto-resolves the terminal icon via
+#                           ~/.local/bin/resolve-term-icon.
+#       --no-icon           suppress icon entirely (skip the
+#                           auto-resolve, don't pass -contentImage).
+#   -e, --execute <cmd>     command to run when the banner is clicked.
+#                           Same effect as `rctrl + '` for worktree
+#                           banners (which pass the notify-idle-switch
+#                           handler here).
+#
+# Behavior:
+#   - Runs `terminal-notifier` with the assembled args. Terminal-notifier
+#     is the right tool on macOS Sequoia: own bundle ID (so banners
+#     reliably show), -timeout actually works, -group properly replaces.
+#   - Falls back to `osascript display notification` when
+#     terminal-notifier isn't installed. The fallback can't honor
+#     group/sound/icon/execute — those are silently ignored.
+#   - Always exits 0; notifications are best-effort. Errors are
+#     suppressed so the caller's flow isn't disrupted by a banner
+#     failure.
+
+set -uo pipefail
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+TITLE=""
+MESSAGE=""
+GROUP=""
+TIMEOUT=6
+SOUND=""
+ICON=""
+EXECUTE=""
+AUTO_ICON=1
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -t|--title)    TITLE="${2:-}"; shift 2 ;;
+    -m|--message)  MESSAGE="${2:-}"; shift 2 ;;
+    -g|--group)    GROUP="${2:-}"; shift 2 ;;
+    -T|--timeout)  TIMEOUT="${2:-6}"; shift 2 ;;
+    -s|--sound)    SOUND="${2:-}"; shift 2 ;;
+    -i|--icon)     ICON="${2:-}"; AUTO_ICON=0; shift 2 ;;
+    --no-icon)     AUTO_ICON=0; shift ;;
+    -e|--execute)  EXECUTE="${2:-}"; shift 2 ;;
+    --) shift; break ;;
+    *)  echo "mac-notify: unknown arg: $1" >&2; exit 0 ;;
+  esac
+done
+
+if [ -z "$TITLE" ] && [ -z "$MESSAGE" ]; then
+  echo "Usage: mac-notify --title <T> --message <M> [opts]" >&2
+  exit 0
+fi
+
+# Auto-resolve terminal icon when caller didn't pass --icon / --no-icon.
+# Prefer the user's actual terminal (Ghostty, kitty, iTerm, …) over the
+# generic Terminal.app icon. Detection order:
+#   1. $TERM_PROGRAM (set by most modern terminals: "ghostty", "iTerm.app",
+#      "Apple_Terminal", "WezTerm", …)
+#   2. tmux's client_termtype (when called from inside a tmux server
+#      reach — e.g. from a script fired via skhd that's bound to keys
+#      pressed inside a tmux pane)
+#   3. fall back to "terminal" (resolve-term-icon will return Terminal.app's
+#      icon, which is the safe generic).
+if [ "$AUTO_ICON" = "1" ] && [ -z "$ICON" ]; then
+  term_hint="${TERM_PROGRAM:-}"
+  if [ -z "$term_hint" ] && command -v tmux >/dev/null 2>&1; then
+    term_hint=$(tmux display-message -p '#{client_termtype}' 2>/dev/null || true)
+  fi
+  ICON=$(resolve-term-icon "${term_hint:-terminal}" 2>/dev/null || true)
+fi
+
+# Fallback path — terminal-notifier missing. osascript can't honor the
+# rich options; just title + message.
+if ! command -v terminal-notifier >/dev/null 2>&1; then
+  osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\"" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+args=( -title "$TITLE" -message "$MESSAGE" -timeout "$TIMEOUT" )
+[ -n "$GROUP" ]   && args+=( -group "$GROUP" )
+[ -n "$SOUND" ]   && args+=( -sound "$SOUND" )
+[ -n "$ICON" ] && [ -f "$ICON" ] && args+=( -contentImage "$ICON" )
+[ -n "$EXECUTE" ] && args+=( -execute "$EXECUTE" )
+
+terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
+exit 0
