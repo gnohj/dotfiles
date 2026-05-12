@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Browser-tab → Jira ticket → /worktree pipeline. Reads active tab from
+# Chrome (preferred) or Brave (fallback); if it's an atlassian.net URL
+# with a ticket key, hands off to worktree-runner.
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - j : ~/.local/bin/worktree-jira
+
+set -euo pipefail
+
+# skhd spawns this with a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin),
+# so terminal-notifier, resolve-term-icon, etc. need a fuller PATH for
+# the early-bail notify_error fallbacks below.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# `exists process` check first — without it, asking a closed browser
+# for its URL launches it (annoying side effect).
+read_active_tab_url() {
+  local app="$1"
+  osascript <<APPLESCRIPT 2>/dev/null
+tell application "System Events"
+  if not (exists process "${app}") then return ""
+end tell
+tell application "${app}"
+  if (count of windows) is 0 then return ""
+  return URL of active tab of front window
+end tell
+APPLESCRIPT
+}
+
+# terminal-notifier (registered bundle id) reliably shows banners on
+# Sequoia, unlike `osascript -e 'display notification ...'` which Apple
+# silently drops for unregistered CLI tools. Used here only for the
+# early-bail messages — the runner handles start/ready/failed banners.
+notify_error() {
+  local browser_icon
+  browser_icon=$(resolve-term-icon chrome 2>/dev/null || true)
+  if [ -n "$browser_icon" ] && [ -f "$browser_icon" ]; then
+    mac-notify -t "worktree-jira" -m "$1" -T 6 -g "worktree-jira-error" -i "$browser_icon"
+  else
+    mac-notify -t "worktree-jira" -m "$1" -T 6 -g "worktree-jira-error"
+  fi
+}
+
+# Tracks LAST_URL across browsers so the not-a-Jira warning can name
+# the browser the user was actually looking at (not just "no tab").
+URL=""
+SOURCE_BROWSER=""
+LAST_URL=""
+LAST_SOURCE=""
+for app in "Google Chrome" "Brave Browser"; do
+  candidate=$(read_active_tab_url "$app" || true)
+  [[ -z "$candidate" ]] && continue
+  case "$app" in
+    "Google Chrome") short="Chrome" ;;
+    "Brave Browser") short="Brave" ;;
+  esac
+  LAST_URL="$candidate"
+  LAST_SOURCE="$short"
+  if [[ "$candidate" =~ ^https://[^/]+\.atlassian\.net/ ]] \
+      && [[ "$candidate" =~ ([A-Z]+-[0-9]+) ]]; then
+    URL="$candidate"
+    SOURCE_BROWSER="$short"
+    TICKET="${BASH_REMATCH[1]}"
+    break
+  fi
+done
+
+if [[ -z "$LAST_URL" ]]; then
+  notify_error "No active tab in Chrome or Brave"
+  exit 1
+fi
+
+if [[ -z "$URL" ]]; then
+  if [[ ! "$LAST_URL" =~ ^https://[^/]+\.atlassian\.net/ ]]; then
+    notify_error "Active $LAST_SOURCE tab is not a Jira URL — open a ticket and try again"
+  else
+    notify_error "No Jira ticket key found in the URL — make sure a ticket is selected"
+  fi
+  exit 1
+fi
+
+# Always Mode A (URL) — haiku is plenty. /worktree's Atlassian-MCP
+# lookup + repo inference doesn't need sonnet's reasoning depth, and
+# haiku is ~50% faster on the claude-side latency.
+WORKTREE_CLAUDE_INPUT="$URL" \
+WORKTREE_CLAUDE_MODEL="haiku" \
+WORKTREE_GROUP="worktree-${TICKET}" \
+WORKTREE_LOG_TAG="worktree-jira" \
+WORKTREE_LOG_HEADER="URL: $URL
+MODEL: haiku" \
+WORKTREE_START_TITLE="Creating ${TICKET}…" \
+WORKTREE_START_MESSAGE="Worktree setup in progress" \
+WORKTREE_FALLBACK_LABEL="$TICKET" \
+WORKTREE_CAPTURE_PAYLOAD="$URL" \
+exec ~/.local/bin/worktree-runner

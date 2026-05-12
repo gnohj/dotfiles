@@ -7,9 +7,16 @@ CURRENT_WORKTREE="$(pwd)"
 # treekanga v2 captures the postScript's stdout/stderr via shell.CmdWithDir
 # and discards the result, so anything we `echo` from here is invisible to
 # the calling terminal (kitty window, tmux pane, etc.). Mirror every status
-# line into a per-run log file so callers (e.g. ~/.local/bin/jira-worktree)
-# can tail it post-hoc and surface what actually happened.
-LOGFILE="$HOME/.logs/treekanga-postscript.log"
+# line into a log file so callers (e.g. ~/.local/bin/worktree-runner and
+# the worktree-* entry points) can tail it post-hoc and surface what
+# actually happened.
+#
+# Honor TREEKANGA_POSTSCRIPT_LOG when set — the runner uses this to give
+# each invocation its own per-run log file, eliminating byte-offset
+# accounting and the cross-run race when two runners fire near-simultaneously
+# (each would read the other's postScript output via shared log tail).
+# When unset (TUI / interactive treekanga add), fall back to the global log.
+LOGFILE="${TREEKANGA_POSTSCRIPT_LOG:-$HOME/.logs/treekanga-postscript.log}"
 mkdir -p "$(dirname "$LOGFILE")"
 log() {
   local msg="$*"
@@ -88,8 +95,10 @@ fi
 # Behavior is split based on `$TMUX`:
 #   - TMUX set  →  TUI / manual flow (user already in tmux). Auto-attach
 #                  via sesh — matches v1 `add -s` behavior.
-#   - TMUX unset → headless wrapper flow (jira-worktree / worktree-prompt
-#                  spawned a fresh Terminal). Don't switch anyone's client;
+#   - TMUX unset → headless wrapper flow (worktree-runner spawned a
+#                  fresh Terminal via worktree-jira / worktree-prompt /
+#                  worktree-clipboard / worktree-bug). Don't switch
+#                  anyone's client;
 #                  pbcopy the session name so the user can paste it into
 #                  their preferred switcher.
 if command -v zoxide &>/dev/null; then
@@ -142,59 +151,124 @@ for env_file in .env .env.local .env.development .env.development.local; do
 done
 [ "$copied_envs" -eq 0 ] && log "· no .env files to copy from main"
 
-# Install dependencies (timed; capture output to log only — pnpm is noisy)
-install_start=$(date +%s)
-if [ -f "pnpm-lock.yaml" ]; then
-  log "→ pnpm install starting…"
-  if pnpm install >>"$LOGFILE" 2>&1; then
-    log "✓ pnpm install completed in $(($(date +%s) - install_start))s"
-  else
-    log "✗ pnpm install failed (see $LOGFILE for details)"
-    log "=== END ==="
-    exit 1
-  fi
-elif [ -f "package-lock.json" ]; then
-  log "→ npm install starting…"
-  if npm install >>"$LOGFILE" 2>&1; then
-    log "✓ npm install completed in $(($(date +%s) - install_start))s"
-  else
-    log "✗ npm install failed"
-    log "=== END ==="
-    exit 1
-  fi
-elif [ -f "yarn.lock" ]; then
-  log "→ yarn install starting…"
-  if yarn install >>"$LOGFILE" 2>&1; then
-    log "✓ yarn install completed in $(($(date +%s) - install_start))s"
-  else
-    log "✗ yarn install failed"
-    log "=== END ==="
-    exit 1
-  fi
-else
-  log "· no lockfile, skipping install"
-fi
-
-if [ -f "pnpm-lock.yaml" ] && command -v pnpm &>/dev/null; then
-  codegen_start=$(date +%s)
-  log "→ pnpm codegen starting…"
-  if pnpm -r --if-present run codegen >>"$LOGFILE" 2>&1; then
-    log "✓ pnpm codegen completed in $(($(date +%s) - codegen_start))s"
-  else
-    log "✗ pnpm codegen failed (see $LOGFILE — non-fatal, run manually if needed)"
-  fi
-fi
-
+# Mark setup complete EARLY — the runner watches for this marker to
+# fire its success banner and write the rctrl+' state file. By
+# logging "complete!" here (BEFORE the slow pnpm install + codegen +
+# per-repo hook), the user gets the success banner in ~10–15s instead
+# of 60–90s, and can rctrl+' into the new worktree session immediately.
+# The slow steps run in a detached background subshell below; when
+# that finishes, it sends a tmux display-message + macOS notification
+# so the user knows full setup (deps + codegen + hook) is ready.
 log "$REPO_NAME worktree setup complete!"
 log "=== END ==="
 
-# Notify tmux session if running with sesh. Session name mirrors sesh's
-# zoxide-derived format: path relative to ~/Developer (includes the
-# folder bucket if present, e.g. "web/infra/test-test").
 WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
 SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
+
+# Detach via double-fork ( ( cmd & ) ) so the bg subshell reparents
+# to init and survives this script's exit, treekanga's exit, claude's
+# exit, and the runner's exit. Output continues appending to LOGFILE
+# so `tail -f ~/.logs/treekanga-postscript.log` (or the per-run log)
+# still works for debugging.
+( (
+  cd "$CURRENT_WORKTREE" || exit
+  set +e
+
+  # Re-source env so PNPM_HOME, GPR_AUTH_TOKEN, etc. are present in
+  # the bg subshell. The fg postScript already sourced this; re-sourcing
+  # is idempotent and keeps the bg path self-contained.
+  if [ -f "$HOME/.zsh_gnohj_env" ]; then
+    # shellcheck disable=SC1091
+    source "$HOME/.zsh_gnohj_env"
+  fi
+
+  bg_log() {
+    local msg="$*"
+    printf '[%s] %s\n' "$(date +%H:%M:%S)" "$msg" >>"$LOGFILE"
+  }
+
+  install_ok=1
+  install_start=$(date +%s)
+  if [ -f "pnpm-lock.yaml" ]; then
+    bg_log "→ (bg) pnpm install starting…"
+    if pnpm install >>"$LOGFILE" 2>&1; then
+      bg_log "✓ (bg) pnpm install completed in $(($(date +%s) - install_start))s"
+    else
+      bg_log "✗ (bg) pnpm install failed"
+      install_ok=0
+    fi
+  elif [ -f "package-lock.json" ]; then
+    bg_log "→ (bg) npm install starting…"
+    if npm install >>"$LOGFILE" 2>&1; then
+      bg_log "✓ (bg) npm install completed in $(($(date +%s) - install_start))s"
+    else
+      bg_log "✗ (bg) npm install failed"
+      install_ok=0
+    fi
+  elif [ -f "yarn.lock" ]; then
+    bg_log "→ (bg) yarn install starting…"
+    if yarn install >>"$LOGFILE" 2>&1; then
+      bg_log "✓ (bg) yarn install completed in $(($(date +%s) - install_start))s"
+    else
+      bg_log "✗ (bg) yarn install failed"
+      install_ok=0
+    fi
+  else
+    bg_log "· (bg) no lockfile, skipping install"
+  fi
+
+  if [ -f "pnpm-lock.yaml" ] && command -v pnpm &>/dev/null; then
+    codegen_start=$(date +%s)
+    bg_log "→ (bg) pnpm codegen starting…"
+    if pnpm -r --if-present run codegen >>"$LOGFILE" 2>&1; then
+      bg_log "✓ (bg) pnpm codegen completed in $(($(date +%s) - codegen_start))s"
+    else
+      bg_log "✗ (bg) pnpm codegen failed (non-fatal)"
+    fi
+  fi
+
+  # Per-repo post-create hook (looks for ~/.config/treekanga/postcreate/<repo>.sh).
+  HOOK="$HOME/.config/treekanga/postcreate/$REPO_NAME.sh"
+  if [ -x "$HOOK" ]; then
+    hook_start=$(date +%s)
+    bg_log "→ (bg) per-repo post-create hook: $HOOK"
+    if (
+      cd "$CURRENT_WORKTREE" \
+        && export WORKTREE_PATH="$CURRENT_WORKTREE" REPO_NAME="$REPO_NAME" \
+        && "$HOOK"
+    ) >>"$LOGFILE" 2>&1; then
+      bg_log "✓ (bg) per-repo hook completed in $(($(date +%s) - hook_start))s"
+    else
+      bg_log "✗ (bg) per-repo hook failed (non-fatal)"
+    fi
+  elif [ -f "$HOOK" ]; then
+    bg_log "· (bg) $HOOK exists but is not executable — chmod +x to enable"
+  fi
+
+  # Notify the user that bg setup is done. tmux display-message lands
+  # on the worktree session's status bar (visible if user already
+  # rctrl+'d in). mac-notify catches the case where they haven't yet.
+  if [ "$install_ok" = "1" ]; then
+    final_msg="✅ $WORKTREE_NAME setup complete (deps + codegen done)"
+    notify_title="✓ Background setup done"
+  else
+    final_msg="⚠️ $WORKTREE_NAME setup completed with errors — check ~/.logs/treekanga-postscript.log"
+    notify_title="⚠️ Background setup had errors"
+  fi
+  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    tmux display-message -d 8000 -t "$SESSION_NAME" "$final_msg" 2>/dev/null
+  fi
+  if command -v mac-notify >/dev/null 2>&1; then
+    mac-notify -t "$notify_title" -m "$WORKTREE_NAME" -T 6 -g "worktree-bg-$WORKTREE_NAME" 2>/dev/null
+  fi
+  bg_log "=== END (bg) ==="
+) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
+
+# Fast-path final notification: tell the user the worktree dir is
+# ready (sync part done). The bg subshell will fire ANOTHER tmux
+# message + mac-notify when deps + codegen + hook actually finish.
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-  tmux display-message -d 5000 -t "$SESSION_NAME" "✅ $WORKTREE_NAME post script complete!"
+  tmux display-message -d 5000 -t "$SESSION_NAME" "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null
 fi
 
 # Close the treekanga selector window if this postScript was launched from it

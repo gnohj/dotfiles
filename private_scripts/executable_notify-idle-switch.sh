@@ -18,22 +18,123 @@ ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
 # State file format:
 #   "<session_name>"           — bare session name (claude-idle banners)
 #   "<session_name>|<path>"    — session may not exist yet, create at path
-#                                (jira-worktree banners)
-SESSION="${ENTRY%%|*}"
-WORKTREE_PATH=""
-case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
+#                                (worktree-runner success banners)
+#   "vault|<note-path>"        — most recent worktree attempt failed or
+#                                was deliberately skipped (NOT_BUG); the
+#                                runner captured it to the second-brain
+#                                inbox and points us at the note. Open
+#                                the vault tmux session and the note in
+#                                a fresh nvim window so the user can
+#                                review the decision in context.
 
-# If a path was provided and the session doesn't exist yet, create it
-# detached at that path. This is the "deferred creation" the worktree
-# wrapper relies on — it skips pre-creation to avoid a session-created
-# hook fire on the user's tmux while they're not switching.
-if [ -n "$WORKTREE_PATH" ] && ! tmux has-session -t "$SESSION" 2>/dev/null; then
-  tmux new-session -d -s "$SESSION" -c "$WORKTREE_PATH" 2>/dev/null || true
-fi
+case "$ENTRY" in
+vault\|*)
+  STATE_NOTE="${ENTRY#vault|}"
+  VAULT_DIR="$HOME/Obsidian/second-brain"
+  VAULT_INBOX="$VAULT_DIR/Notes-Inbox"
+  VAULT_SESSION="second-brain"
 
-tmux switch-client -t "$SESSION" 2>/dev/null \
-  || tmux attach-session -t "$SESSION" 2>/dev/null \
-  || true
+  # If multiple worktree captures landed in the inbox in the last hour,
+  # offer an fzf picker so the user can choose which one to open. The
+  # state file always points at the LATEST, but a stack of failures
+  # would otherwise hide the earlier ones from `rctrl + '`. Single-slot
+  # state is preserved — picker only opens when COUNT > 1.
+  RECENT_NOTES=$(find "$VAULT_INBOX" -maxdepth 1 -name '*Worktree-*.md' -mmin -60 -type f 2>/dev/null \
+    | xargs -I{} stat -f '%m %N' {} 2>/dev/null \
+    | sort -rn \
+    | awk '{$1=""; sub(/^ /, ""); print}')
+
+  # Make sure the state's note is in the candidate list (in case it's
+  # somehow older than the 1h window — e.g. the user re-set the state
+  # manually). Prepend if missing.
+  if [ -n "$STATE_NOTE" ] && [ -f "$STATE_NOTE" ] && ! printf '%s\n' "$RECENT_NOTES" | grep -qFx "$STATE_NOTE"; then
+    RECENT_NOTES=$(printf '%s\n%s' "$STATE_NOTE" "$RECENT_NOTES")
+  fi
+
+  COUNT=$(printf '%s' "$RECENT_NOTES" | grep -c '^.' || true)
+  COUNT=${COUNT:-0}
+
+  if [ "$COUNT" -le 1 ]; then
+    NOTE_PATH="$STATE_NOTE"
+  else
+    # Pretty-format each path for the picker:
+    #   "HH:MM │ <outcome> │ <entry-point> │ <slug>\t<full-path>"
+    # fzf displays only field 1 (the formatted text); we extract field 2
+    # (the path) from the selected line.
+    PICK_LIST=$(mktemp -t notify-idle-picker.XXXXXX)
+    PICK_OUT=$(mktemp -t notify-idle-picker-out.XXXXXX)
+    trap 'rm -f "$PICK_LIST" "$PICK_OUT"' EXIT
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      base=$(basename "$path" .md)
+      # base format: YYYY-MM-DD_Worktree-<entry-point>-<outcome>-<slug>
+      mtime=$(stat -f '%Sm' -t '%H:%M' "$path" 2>/dev/null)
+      stripped=${base#*_Worktree-}
+      # Entry-point matches the WORKTREE_LOG_TAG family: "worktree-<X>"
+      entry=$(printf '%s' "$stripped" | sed -E 's|^(worktree-[a-z]+)-.*|\1|')
+      rest=${stripped#${entry}-}
+      # Outcome is the first hyphenated chunk: success | not-a-bug | failed
+      case "$rest" in
+        not-a-bug-*) outcome="not-a-bug"; slug="${rest#not-a-bug-}" ;;
+        success-*)   outcome="success";   slug="${rest#success-}"   ;;
+        failed-*)    outcome="failed";    slug="${rest#failed-}"    ;;
+        *)           outcome="?";         slug="$rest"              ;;
+      esac
+      printf '%s │ %-9s │ %-18s │ %s\t%s\n' "$mtime" "$outcome" "$entry" "$slug" "$path"
+    done <<< "$RECENT_NOTES" > "$PICK_LIST"
+
+    tmux display-popup -E -w 80% -h 40% \
+      "fzf --reverse --delimiter=$'\t' --with-nth=1 --prompt='capture > ' < '$PICK_LIST' > '$PICK_OUT'" \
+      2>/dev/null || true
+
+    PICK=$(cat "$PICK_OUT" 2>/dev/null || true)
+    NOTE_PATH=$(printf '%s' "$PICK" | awk -F'\t' '{print $2}')
+    rm -f "$PICK_LIST" "$PICK_OUT"
+    trap - EXIT
+
+    # User cancelled the picker (Ctrl-C or Esc) — leave state file alone
+    # so a follow-up press behaves the same.
+    if [ -z "$NOTE_PATH" ]; then
+      exit 0
+    fi
+  fi
+
+  # Create the vault session detached if it doesn't exist (rooted at the
+  # vault dir). If it already exists, opening the note in a fresh window
+  # avoids stomping whatever the user has up in the existing pane.
+  if tmux has-session -t "$VAULT_SESSION" 2>/dev/null; then
+    if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
+      tmux new-window -t "$VAULT_SESSION" -c "$VAULT_DIR" "nvim '$NOTE_PATH'" 2>/dev/null || true
+    fi
+  else
+    if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
+      tmux new-session -d -s "$VAULT_SESSION" -c "$VAULT_DIR" "nvim '$NOTE_PATH'" 2>/dev/null || true
+    else
+      tmux new-session -d -s "$VAULT_SESSION" -c "$VAULT_DIR" 2>/dev/null || true
+    fi
+  fi
+  tmux switch-client -t "$VAULT_SESSION" 2>/dev/null \
+    || tmux attach-session -t "$VAULT_SESSION" 2>/dev/null \
+    || true
+  ;;
+*)
+  SESSION="${ENTRY%%|*}"
+  WORKTREE_PATH=""
+  case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
+
+  # If a path was provided and the session doesn't exist yet, create it
+  # detached at that path. This is the "deferred creation" the worktree
+  # wrapper relies on — it skips pre-creation to avoid a session-created
+  # hook fire on the user's tmux while they're not switching.
+  if [ -n "$WORKTREE_PATH" ] && ! tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux new-session -d -s "$SESSION" -c "$WORKTREE_PATH" 2>/dev/null || true
+  fi
+
+  tmux switch-client -t "$SESSION" 2>/dev/null \
+    || tmux attach-session -t "$SESSION" 2>/dev/null \
+    || true
+  ;;
+esac
 rm -f "$STATE_FILE"
 
 # Clear banners + lingering alerter processes

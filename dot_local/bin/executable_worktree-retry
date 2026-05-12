@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# Retry a worktree-bug capture from the vault. Reads a Notes-Inbox
+# capture note, extracts the original payload + context + entry point,
+# shows a popup so the user can refine the context, then re-fires the
+# bug pipeline through ~/.local/bin/worktree-runner.
+#
+# Usage:
+#   worktree-retry [<path-to-capture-note.md>]
+#
+# When called with no argument, defaults to the most-recently-modified
+# worktree-bug capture in ~/Obsidian/second-brain/Notes-Inbox/. That's
+# the typical "redo the last bug attempt with refined context" flow.
+# Pass an explicit path to retry an older note.
+#
+# Currently supports worktree-bug captures (entry point = worktree-bug).
+# Other entry points capture only on failure and rarely benefit from
+# retry; if you need them, extend the case-statement at the bottom.
+#
+# Bound to:
+#   rctrl + shift - r        (skhd)
+#   "🔁 AI Retry capture …"  (rctrl - i launcher menu)
+# Or invoke directly from nvim while viewing a note:
+#   :silent !worktree-retry %:p
+
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+NOTE="${1:-}"
+
+notify_error() {
+  mac-notify -t "worktree-retry" -m "$1" -T 6 -g "worktree-retry-error"
+}
+
+if [ -z "$NOTE" ]; then
+  # No arg → default to the most-recent worktree-bug capture note.
+  # Filename pattern is: YYYY-MM-DD_Worktree-worktree-bug-<outcome>-<slug>.md
+  NOTE=$(find "$HOME/Obsidian/second-brain/Notes-Inbox" -maxdepth 1 \
+    -name '*Worktree-worktree-bug-*.md' -type f 2>/dev/null \
+    | xargs -I{} stat -f '%m %N' {} 2>/dev/null \
+    | sort -rn \
+    | head -1 \
+    | awk '{$1=""; sub(/^ /, ""); print}')
+  if [ -z "$NOTE" ]; then
+    notify_error "No worktree-bug capture notes in Notes-Inbox/ — fire one first via rctrl+shift-b"
+    exit 1
+  fi
+fi
+
+if [ ! -f "$NOTE" ]; then
+  notify_error "Note not found: $NOTE"
+  exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# 1. Parse the capture note: entry point, payload, old context
+#-------------------------------------------------------------------------------
+
+# Extract a markdown section's body (lines after `## <header>` up to the
+# next `## ` or EOF).
+extract_section() {
+  local note="$1" header="$2"
+  awk -v h="^## ${header}\$" '
+    $0 ~ h        { in_section=1; next }
+    /^## / && in_section { in_section=0 }
+    in_section    { print }
+  ' "$note"
+}
+
+ENTRY_POINT=$(grep -m1 '^\*\*Entry point:\*\*' "$NOTE" 2>/dev/null \
+  | sed -E 's/.*`([^`]+)`.*/\1/')
+
+if [ -z "$ENTRY_POINT" ]; then
+  notify_error "Couldn't read **Entry point:** from note. Is this a capture note?"
+  exit 1
+fi
+
+if [ "$ENTRY_POINT" != "worktree-bug" ]; then
+  notify_error "Retry currently only supports worktree-bug captures (this is $ENTRY_POINT)"
+  exit 1
+fi
+
+ORIGINAL_BLOCK=$(extract_section "$NOTE" "Original input")
+OLD_CONTEXT=$(extract_section "$NOTE" "Additional context" \
+  | sed '/^[[:space:]]*$/d' \
+  | head -3)
+
+# Image vs text detection.
+CLIPBOARD_KIND=""
+TMP_IMG=""
+CLIP=""
+if printf '%s' "$ORIGINAL_BLOCK" | grep -q '!\[\['; then
+  CLIPBOARD_KIND="image"
+  ASSET=$(printf '%s' "$ORIGINAL_BLOCK" | grep -oE '!\[\[[^]]+\]\]' | head -1 \
+    | sed -E 's/!\[\[(.*)\]\]/\1/')
+  TMP_IMG="$HOME/Obsidian/second-brain/Notes-Assets/$ASSET"
+  if [ ! -f "$TMP_IMG" ]; then
+    notify_error "Image asset missing: $ASSET (was Notes-Assets purged?)"
+    exit 1
+  fi
+else
+  CLIPBOARD_KIND="text"
+  # Strip the surrounding ``` code fences, then drop leading blank lines.
+  # (macOS BSD sed doesn't accept the multi-line `:a;$!{N;ba;}` join
+  # idiom that GNU sed uses for trailing-blank stripping. Leading-only
+  # is enough for our case — the runner trims trailing whitespace
+  # implicitly when piping the payload through the prompt.)
+  CLIP=$(printf '%s' "$ORIGINAL_BLOCK" \
+    | sed -E '/^```/d' \
+    | sed -e '/./,$!d')
+fi
+
+if [ "$CLIPBOARD_KIND" = "text" ] && [ -z "$CLIP" ]; then
+  notify_error "Couldn't extract text payload from note's '## Original input' section"
+  exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# 2. Build a preview string for the popup
+#-------------------------------------------------------------------------------
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  PREVIEW="📋 Image (re-using $TMP_IMG)"
+else
+  PREVIEW_TEXT=$(printf '%s' "$CLIP" | tr '\n' ' ' | head -c 200)
+  if [ "${#CLIP}" -gt 200 ]; then PREVIEW_TEXT="${PREVIEW_TEXT}…"; fi
+  PREVIEW="📋 ${PREVIEW_TEXT}"
+fi
+
+NOTE_BASENAME=$(basename "$NOTE" .md)
+
+#-------------------------------------------------------------------------------
+# 3. Tmux popup — refine the context (Enter alone keeps the old context)
+#-------------------------------------------------------------------------------
+INPUT_FILE=$(mktemp -t worktree-retry-input.XXXXXX)
+POPUP_SH=$(mktemp -t worktree-retry-popup.XXXXXX.sh)
+chmod +x "$POPUP_SH"
+trap 'rm -f "$INPUT_FILE" "$POPUP_SH"' EXIT
+
+# Heredoc-write — outer expansions only; \$ stays literal for the inner.
+cat > "$POPUP_SH" <<EOF
+#!/usr/bin/env bash
+clear
+cat <<HEAD
+🔁 Retry capture: $NOTE_BASENAME
+
+$PREVIEW
+
+Previous context: ${OLD_CONTEXT:-(none)}
+
+(Press Enter alone to KEEP the old context, or type new to REPLACE.)
+(Ctrl-C to cancel · Enter to submit)
+
+HEAD
+read -e -p "context > " ctx
+echo "\$ctx" > "$INPUT_FILE"
+EOF
+
+tmux display-popup -E -w 75% -h 35% "$POPUP_SH"
+
+NEW_CONTEXT=$(cat "$INPUT_FILE" 2>/dev/null || true)
+rm -f "$INPUT_FILE" "$POPUP_SH"
+
+# Empty → keep old; non-empty → replace.
+if [ -z "$NEW_CONTEXT" ]; then
+  CONTEXT="$OLD_CONTEXT"
+else
+  CONTEXT="$NEW_CONTEXT"
+fi
+
+#-------------------------------------------------------------------------------
+# 4. Re-build the worktree-bug RAW_PROMPT (mirrors worktree-bug's logic)
+#-------------------------------------------------------------------------------
+PROMPT_SCAFFOLD="$HOME/.local/bin/worktree/jira-prompt.md"
+PROMPT_DETAIL="$HOME/.local/bin/worktree/jira-prompt-company.md"
+
+if [ ! -s "$PROMPT_SCAFFOLD" ] || [ ! -s "$PROMPT_DETAIL" ]; then
+  notify_error "Missing prompt scaffold or company detail under ~/.local/bin/worktree/"
+  exit 1
+fi
+
+CONVENTIONS_BODY=$(cat "$PROMPT_SCAFFOLD" "$PROMPT_DETAIL")
+
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  PAYLOAD_BLOCK="The clipboard payload is an image. Read it now:
+
+  Image path: $TMP_IMG
+
+(If the image contains a Jira URL, treat that as the canonical reference for repo/component inference, but you still must classify whether the *content* describes a reproducible bug before creating any ticket.)"
+else
+  PAYLOAD_BLOCK="The clipboard payload is text:
+
+<clipboard>
+$CLIP
+</clipboard>"
+fi
+
+WORKTREE_RAW_PROMPT="You are analyzing a previously-captured worktree-bug payload that the user is RETRYING. The original capture was: $NOTE_BASENAME
+
+# Step 1 — Classify
+
+Read the payload below carefully.
+
+$PAYLOAD_BLOCK
+
+Additional context from the user (refined on retry): ${CONTEXT:-(none)}
+
+Decide: is this a *reproducible* bug? A reproducible bug has:
+- a clear actual-vs-expected behavior gap, AND
+- enough information (or strong implication) to formulate repro steps.
+
+Borderline cases that are NOT bugs for this flow:
+- Feature requests / wishlist items
+- Pure opinions or design discussions in a Slack thread
+- Vague complaints with no surface to point at
+- Code snippets without a stated failure mode
+- Screenshots of correct behavior
+
+If you're unsure, default to NOT_BUG.
+
+# Step 2 — If NOT a bug
+
+Output exactly one line on its own and stop:
+
+    NOT_BUG: <one-line reason — be specific>
+
+Do NOT call any MCP tool. Do NOT run /worktree.
+
+# Step 3 — If reproducible bug
+
+Follow the conventions below to create the Jira ticket, then run /worktree on the new URL.
+
+---
+
+$CONVENTIONS_BODY
+
+---
+
+Begin analysis now. Be concise — do not narrate every step. Just classify, act, and stop." \
+WORKTREE_GROUP="worktree-bug-retry" \
+WORKTREE_LOG_TAG="worktree-bug" \
+WORKTREE_LOG_HEADER="RETRY OF: $NOTE_BASENAME
+CLIPBOARD KIND: $CLIPBOARD_KIND
+NEW CONTEXT: ${CONTEXT:-(none)}
+$([ "$CLIPBOARD_KIND" = "image" ] && echo "IMAGE PATH: $TMP_IMG" || echo "CLIP: $CLIP")" \
+WORKTREE_START_TITLE="🔁 Retrying bug capture…" \
+WORKTREE_START_MESSAGE="From $NOTE_BASENAME" \
+WORKTREE_FALLBACK_LABEL="retry: $NOTE_BASENAME" \
+WORKTREE_CAPTURE_PAYLOAD="$([ "$CLIPBOARD_KIND" = "image" ] && echo "image:$TMP_IMG" || echo "$CLIP")" \
+WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+WORKTREE_CAPTURE_ALWAYS=1 \
+exec ~/.local/bin/worktree-runner
