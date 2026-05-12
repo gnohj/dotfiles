@@ -98,6 +98,37 @@ in
 
     # Health Check — handled by sketchybar widget (health_check_notification)
 
+    # Weekly /sb-audit nudge — fires a banner, doesn't run claude
+    # headless (no API spend).
+    sb-audit-reminder = {
+      serviceConfig = {
+        # bash -c wrapper: launchd doesn't auto-create StandardOut/
+        # ErrPath parent dirs, so `mkdir -p` here keeps the service
+        # from failing silently on first fire.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/sb-audit
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] sb-audit reminder fired" \
+              >> ${homeDir}/.logs/sb-audit/fires.log
+            ${homeDir}/.local/bin/mac-notify \
+              -t "Vault audit due" \
+              -m "Run /sb-audit when convenient" \
+              -T 20 \
+              -s Pop
+          ''
+        ];
+        StartCalendarInterval = [{
+          Weekday = 0;
+          Hour = 9;
+          Minute = 7;
+        }];
+        StandardOutPath = "${homeDir}/.logs/sb-audit/reminder.out.log";
+        StandardErrorPath = "${homeDir}/.logs/sb-audit/reminder.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
