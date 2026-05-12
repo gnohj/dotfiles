@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Read text from stdin, write valid-UTF-8 text to stdout.
+#
+# Why this exists: claude's CLI (Rust binary) panics in env.rs when its
+# prompt arg contains stray non-UTF-8 bytes — a long Slack thread copied
+# on macOS often comes through with MacRoman bytes (e.g. \xCA = NBSP)
+# embedded between display name and message body. Same content also
+# trips up `tr -c` in the default UTF-8 locale, breaking downstream
+# capture-note slug derivation.
+#
+# Detection ladder:
+#   1. If stdin is already valid UTF-8 → pass through unchanged.
+#   2. Else try MacRoman → UTF-8 (covers Slack's macOS clipboard quirk).
+#   3. Else drop invalid bytes via `iconv -c` so callers never crash.
+#
+# Usage:
+#   sanitized=$(printf '%s' "$CLIP" | clipboard-sanitize)
+#
+# Falls through gracefully when iconv is missing — emits stdin verbatim
+# as a last resort so the caller can still proceed (will likely fail
+# downstream, but no worse than today).
+
+set -euo pipefail
+
+if ! command -v iconv >/dev/null 2>&1; then
+  cat
+  exit 0
+fi
+
+INPUT=$(cat)
+
+# 1. Already valid UTF-8 → return as-is.
+if printf '%s' "$INPUT" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then
+  printf '%s' "$INPUT"
+  exit 0
+fi
+
+# 2. Try MacRoman → UTF-8. iconv emits a partial output on the first
+# invalid byte under -f MAC, but in practice macOS's MacRoman table
+# covers all 256 bytes so this path nearly always succeeds.
+if CONVERTED=$(printf '%s' "$INPUT" | iconv -f MAC -t UTF-8 2>/dev/null) \
+   && [ -n "$CONVERTED" ]; then
+  printf '%s' "$CONVERTED"
+  exit 0
+fi
+
+# 3. Last resort — drop invalid bytes. Loses MacRoman NBSPs, but the
+# remaining content is at least claude-safe.
+printf '%s' "$INPUT" | iconv -c -f UTF-8 -t UTF-8
