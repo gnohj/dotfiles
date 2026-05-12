@@ -16,10 +16,76 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 
 #-------------------------------------------------------------------------------
 # Main Menu
+#
+# Top-level entries + breadcrumb-prefixed leaf entries from each
+# submenu. Typing in fzf at the root searches across everything in one
+# shot — "tokyo" matches the tokyo theme without needing
+# Themes › Dark › tokyo. Submenu pointers (Themes ›, Worktrees ›, etc.)
+# stay too so users who prefer drilldown still get it.
+#
+# Dispatch is by string prefix:
+#   "🎨 Themes › <theme>"          → colorscheme-set <theme>
+#   "🖥  Aerospace › <profile>"    → aerospace-profile <profile>
+#   "🌐 Browser › ..."             → browser_menu's case (extracted)
+#   "🌳 Worktrees › ..."           → worktrees_menu's case (extracted)
 #-------------------------------------------------------------------------------
+build_main_menu_items() {
+  # Top-level (existing top-level + submenu pointers for explicit drilldown)
+  printf "🤖 Agent Sidebar Dashboard\n"
+  printf "🔎 Aliases (fza)\n"
+  printf "🖥  Aerospace Profiles ›\n"
+  printf "🌐 Browser ›\n"
+  printf "📦 Check Outdated Packages\n"
+  printf "🧹 Cleanup Logs\n"
+  printf "🔥 Codeburn (AI cost)\n"
+  printf "🌿 Copy Current Branch\n"
+  printf "🧼 Dirty Repos\n"
+  printf "🔍 Environment Variables (fze)\n"
+  printf "📋 Logs (fzl)\n"
+  printf "🚀 Sync Autopush Repos\n"
+  printf "🔄 Sync Agent Dashboard\n"
+  printf "🔧 Run System Setup\n"
+  printf "⬆️ Run System Update\n"
+  printf "👤 Run User Setup\n"
+  printf "🎨 Themes ›\n"
+  printf "👻 Toggle Transparency\n"
+  printf "🌳 Worktrees ›\n"
+
+  # Aerospace profiles (flattened — type "laptop" or "desk" to match)
+  if [ -d "$HOME/.config/aerospace/profiles" ]; then
+    for f in "$HOME/.config/aerospace/profiles"/*.toml; do
+      [ -f "$f" ] || continue
+      printf "🖥  Aerospace › %s\n" "$(basename "$f" .toml)"
+    done
+  fi
+
+  # Browser (2 actions)
+  printf "🌐 Browser › 🔗 Open Pull Request\n"
+  printf "🌐 Browser › 🎫 Open Jira Ticket\n"
+
+  # Worktrees (mirror worktrees_menu's options)
+  printf "🌳 Worktrees › 🌳 Add Worktree\n"
+  printf "🌳 Worktrees › ✨ AI Add Worktree (prompt → worktree)\n"
+  printf "🌳 Worktrees › 🎫 AI Add Worktree (Chrome tab (jira) → worktree)\n"
+  printf "🌳 Worktrees › 📋 AI Add Worktree (clipboard → worktree)\n"
+  printf "🌳 Worktrees › 🐛 AI Add Worktree (clipboard → Jira bug → worktree)\n"
+  printf "🌳 Worktrees › 🔁 AI Retry capture → worktree\n"
+  printf "🌳 Worktrees › 🗑  Delete Worktree\n"
+
+  # Themes (all of them; type any partial name to fuzzy-match)
+  if [ -d "$HOME/.config/colorscheme/list" ]; then
+    find "$HOME/.config/colorscheme/list" -maxdepth 1 -name "*.sh" -type f -print0 \
+      | xargs -0 -n 1 basename \
+      | sort \
+      | while IFS= read -r theme; do
+          printf "🎨 Themes › %s\n" "$theme"
+        done
+  fi
+}
+
 main_menu() {
   local choice
-  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔎 Aliases (fza)\n🌐 Browser ›\n📦 Check Outdated Packages\n🧹 Cleanup Logs\n🔥 Codeburn (AI cost)\n🌿 Copy Current Branch\n🧼 Dirty Repos\n🔍 Environment Variables (fze)\n📋 Logs (fzl)\n🚀 Sync Autopush Repos\n🔄 Sync Agent Dashboard\n🔧 Run System Setup\n⬆️ Run System Update\n👤 Run User Setup\n🎨 Themes ›\n👻 Toggle Transparency\n🌳 Worktrees ›\n" |
+  choice=$(build_main_menu_items |
     ~/Scripts/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
@@ -28,10 +94,32 @@ main_menu() {
   # Clear residual fzf output before running action
   clear
 
+  # Flattened-entry dispatch (breadcrumb-prefixed leaves)
+  case "$choice" in
+    "🎨 Themes › "*)
+      "$HOME/.config/zshrc/colorscheme-set.sh" "${choice#🎨 Themes › }"
+      return
+      ;;
+    "🖥  Aerospace › "*)
+      "$HOME/.local/bin/aerospace-profile" "${choice#🖥  Aerospace › }"
+      sleep 1
+      return
+      ;;
+    "🌐 Browser › "*)
+      browser_dispatch "${choice#🌐 Browser › }"
+      return
+      ;;
+    "🌳 Worktrees › "*)
+      worktrees_dispatch "${choice#🌳 Worktrees › }"
+      return
+      ;;
+  esac
+
   case "$choice" in
   "🎨 Themes ›") themes_menu ;;
   "🌐 Browser ›") browser_menu ;;
   "🌳 Worktrees ›") worktrees_menu ;;
+  "🖥  Aerospace Profiles ›") aerospace_menu ;;
   "🚀 Sync Autopush Repos")
     ~/.config/zshrc/github-auto-push.sh --nowait
     echo "GitHub auto-push completed"
@@ -148,6 +236,33 @@ themes_menu() {
   esac
 }
 
+aerospace_menu() {
+  local profiles_dir="$HOME/.config/aerospace/profiles"
+  local active
+  active="$(cat "$HOME/.config/aerospace/.active-profile" 2>/dev/null || echo '(none)')"
+
+  local choice
+  choice=$(
+    {
+      find "$profiles_dir" -maxdepth 1 -name '*.toml' -exec basename {} .toml \; 2>/dev/null | sort
+      printf "← Back\n"
+    } | ~/Scripts/fzf-vim.sh --height=40% \
+      --header="Aerospace profile (active: $active)" \
+      --prompt="Profile > " \
+      --ansi \
+      $FZF_COLORS
+  )
+
+  case "$choice" in
+  "← Back") main_menu ;;
+  "") exit 0 ;;
+  *)
+    "$HOME/.local/bin/aerospace-profile" "$choice"
+    sleep 1
+    ;;
+  esac
+}
+
 all_themes_menu() {
   local schemes_dir="$HOME/.config/colorscheme/list"
   local selected_scheme
@@ -235,20 +350,12 @@ light_themes_menu() {
 }
 
 #-------------------------------------------------------------------------------
-# Browser Menu
+# Browser Menu — dispatcher accepts an optional preselected subchoice so
+# the flattened root-menu entries (build_main_menu_items) can call the
+# same actions without duplicating code.
 #-------------------------------------------------------------------------------
-browser_menu() {
-  local choice
-  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n← Back\n" |
-    ~/Scripts/fzf-vim.sh --height=40% \
-      --header="Browser" \
-      --prompt="Browser > " \
-      --ansi \
-      $FZF_COLORS)
-
-  clear
-
-  case "$choice" in
+browser_dispatch() {
+  case "$1" in
   "🔗 Open Pull Request")
     export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
     pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
@@ -288,23 +395,29 @@ browser_menu() {
   esac
 }
 
-#-------------------------------------------------------------------------------
-# Worktrees Menu
-#-------------------------------------------------------------------------------
-worktrees_menu() {
+browser_menu() {
   local choice
-  choice=$(printf "🌳 Add Worktree\n✨ Add Worktree (describe)\n🎫 Add Worktree (from Chrome tab with Jira ticket)\n🗑  Delete Worktree\n← Back\n" |
+  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n← Back\n" |
     ~/Scripts/fzf-vim.sh --height=40% \
-      --header="Worktrees" \
-      --prompt="Worktree > " \
+      --header="Browser" \
+      --prompt="Browser > " \
       --ansi \
       $FZF_COLORS)
 
-  case "$choice" in
+  clear
+  browser_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# Worktrees Menu — dispatcher accepts a preselected subchoice (used by
+# both the drilldown menu and the flattened root-menu entries).
+#-------------------------------------------------------------------------------
+worktrees_dispatch() {
+  case "$1" in
   "🌳 Add Worktree")
     ~/.config/treekanga/treekanga-add.sh
     ;;
-  "✨ Add Worktree (describe)")
+  "✨ AI Add Worktree (prompt → worktree)")
     # The launcher itself runs inside a tmux popup, and worktree-prompt
     # opens another tmux popup. tmux can't nest popups, so we hand off
     # to the tmux server via `run-shell -b` — the server schedules
@@ -312,10 +425,17 @@ worktrees_menu() {
     # has clean access to the user's attached client.
     tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
     ;;
-  "🎫 Add Worktree (from Chrome tab with Jira ticket)")
-    # jira-worktree reads the active Chrome tab, so it doesn't need the
-    # detach-and-delay trick — it doesn't open another tmux popup.
-    ~/.local/bin/jira-worktree
+  "🎫 AI Add Worktree (Chrome tab (jira) → worktree)")
+    ~/.local/bin/worktree-jira
+    ;;
+  "📋 AI Add Worktree (clipboard → worktree)")
+    tmux run-shell -b "$HOME/.local/bin/worktree-clipboard"
+    ;;
+  "🐛 AI Add Worktree (clipboard → Jira bug → worktree)")
+    tmux run-shell -b "$HOME/.local/bin/worktree-bug"
+    ;;
+  "🔁 AI Retry capture → worktree")
+    tmux run-shell -b "$HOME/.local/bin/worktree-retry"
     ;;
   "🗑  Delete Worktree")
     ~/.config/treekanga/treekanga-rm.sh
@@ -323,6 +443,18 @@ worktrees_menu() {
   "← Back") main_menu ;;
   *) exit 0 ;;
   esac
+}
+
+worktrees_menu() {
+  local choice
+  choice=$(printf "🌳 Add Worktree\n✨ AI Add Worktree (prompt → worktree)\n🎫 AI Add Worktree (Chrome tab (jira) → worktree)\n📋 AI Add Worktree (clipboard → worktree)\n🐛 AI Add Worktree (clipboard → Jira bug → worktree)\n🔁 AI Retry capture → worktree\n🗑  Delete Worktree\n← Back\n" |
+    ~/Scripts/fzf-vim.sh --height=40% \
+      --header="Worktrees" \
+      --prompt="Worktree > " \
+      --ansi \
+      $FZF_COLORS)
+
+  worktrees_dispatch "$choice"
 }
 
 #-------------------------------------------------------------------------------
@@ -333,17 +465,17 @@ aliases_menu() {
   # Grep alias declarations directly from rc files instead of sourcing zshrc
   # (zinit + plugins make a non-interactive `source` hang inside the popup).
   selected=$(grep -hE "^[[:space:]]*alias [A-Za-z0-9_.-]+=" \
-      "$HOME/.config/zshrc/.zshrc" \
-      "$HOME/.zsh_gnohj_env" \
-      "$HOME/.zsh_aws_cmds" \
-      "$HOME/.zsh_radioctl_cmds" 2>/dev/null \
-    | sed -E 's/^[[:space:]]*alias //' \
-    | sort -u \
-    | ~/Scripts/fzf-vim.sh \
-        --height=80% \
-        --header="Aliases (select to copy) - Type to search" \
-        --prompt="Alias > " \
-        $FZF_COLORS)
+    "$HOME/.config/zshrc/.zshrc" \
+    "$HOME/.zsh_gnohj_env" \
+    "$HOME/.zsh_aws_cmds" \
+    "$HOME/.zsh_radioctl_cmds" 2>/dev/null |
+    sed -E 's/^[[:space:]]*alias //' |
+    sort -u |
+    ~/Scripts/fzf-vim.sh \
+      --height=80% \
+      --header="Aliases (select to copy) - Type to search" \
+      --prompt="Alias > " \
+      $FZF_COLORS)
 
   if [[ -n "$selected" ]]; then
     # Extract just the alias name (before the '=')

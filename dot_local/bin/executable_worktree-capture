@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# Vault-capture helper invoked by ~/.local/bin/worktree-runner on
+# non-success outcomes (claude output `NOT_BUG:` or any other failure
+# path) AND on success when the entry point is in deferred-jira mode
+# (worktree-bug). Writes a structured note into the second-brain inbox,
+# copies any image payload into Notes-Assets, and stamps
+# /tmp/notify-idle.latest with `vault|<note-path>` so that the next
+# `rctrl + '` opens the captured note in the vault tmux session
+# instead of the (non-existent) worktree session.
+#
+# Privacy: the original clipboard content is written verbatim into the
+# vault. Don't bind the parent hotkeys if your clipboard ever holds
+# secrets (passwords, .env contents, auth tokens, …).
+#
+# Args:
+#   $1 = outcome  (one of: not-a-bug, failed, pending-jira)
+#   $2 = reason   (one-line summary; truncated to 200 chars in note;
+#                  unused for pending-jira)
+#
+# Required env:
+#   WORKTREE_LOG_TAG              — entry-point name, used in filename
+#   WORKTREE_CAPTURE_PAYLOAD_FILE — path to a file holding the original
+#                                   clipboard payload (text body, or
+#                                   the literal string "image:<path>"
+#                                   for image clipboards).
+#   WORKTREE_CAPTURE_LOG          — path to claude's per-run log file
+#                                   (the runner's $LOGFILE). Last 80
+#                                   lines are embedded in the note.
+#
+# Optional env:
+#   WORKTREE_CAPTURE_IMAGE_SRC    — source path of an image payload.
+#                                   Copied into Notes-Assets and
+#                                   embedded as ![[…]] in the note.
+#   WORKTREE_CAPTURE_CONTEXT      — additional context the user typed
+#                                   into the entry-point popup.
+#   WORKTREE_CAPTURE_SKIP_STATE_FILE
+#                                 — "1" → don't write
+#                                   /tmp/notify-idle.latest. The
+#                                   runner's success path uses this
+#                                   so rctrl + ' still routes to the
+#                                   newly-created worktree session
+#                                   (the note is browsable in the
+#                                   inbox without overriding the
+#                                   primary rctrl + ' destination).
+#   WORKTREE_CAPTURE_WORKTREE_PATH
+#                                 — absolute path of the new worktree.
+#                                   Required when outcome=pending-jira
+#                                   so the filename is path-derived
+#                                   (Stage B's worktree-jira-file
+#                                   looks up notes by current $PWD).
+#
+# Stdout: the path of the note written. Caller can surface this in a
+# "Captured to <name>" banner.
+
+set -euo pipefail
+
+OUTCOME="${1:?outcome arg required}"
+REASON="${2:-}"
+
+: "${WORKTREE_LOG_TAG:?WORKTREE_LOG_TAG required}"
+: "${WORKTREE_CAPTURE_PAYLOAD_FILE:?WORKTREE_CAPTURE_PAYLOAD_FILE required}"
+: "${WORKTREE_CAPTURE_LOG:?WORKTREE_CAPTURE_LOG required}"
+
+VAULT_INBOX="$HOME/Obsidian/second-brain/Notes-Inbox"
+VAULT_ASSETS="$HOME/Obsidian/second-brain/Notes-Assets"
+mkdir -p "$VAULT_INBOX" "$VAULT_ASSETS"
+
+TODAY=$(date +%Y-%m-%d)
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Filename + slug strategy depends on outcome:
+#   pending-jira → path-derived slug. Filename is `jira-pending-<slug>.md`
+#                  (no date prefix, no log-tag prefix). Stage B
+#                  (worktree-jira-file) looks up the note by deriving
+#                  the same slug from $PWD, so the filename must be
+#                  reproducible from the worktree path alone.
+#   anything else → payload-preview slug + date prefix. Same pattern as
+#                   the pre-pending-jira capture flow — keeps prior
+#                   captures sortable by date and labeled by outcome.
+WORKTREE_BRANCH=""
+if [ "$OUTCOME" = "pending-jira" ]; then
+  : "${WORKTREE_CAPTURE_WORKTREE_PATH:?WORKTREE_CAPTURE_WORKTREE_PATH required for pending-jira}"
+  # Strip $HOME/Developer/ prefix → replace / with - → safe filename slug.
+  # E.g. /Users/gnohj/Developer/web/feat/foo-bar → web-feat-foo-bar.
+  REL="${WORKTREE_CAPTURE_WORKTREE_PATH#$HOME/Developer/}"
+  SLUG="${REL//\//-}"
+  NOTE_FILE="$VAULT_INBOX/jira-pending-${SLUG}.md"
+  # Detect the actual branch name for frontmatter — gives Stage B a
+  # cross-check signal even if the worktree dir gets renamed/moved.
+  WORKTREE_BRANCH=$(git -C "$WORKTREE_CAPTURE_WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+else
+  # LC_ALL=C — without this, tr -c errors with "Illegal byte sequence"
+  # on any non-UTF-8 byte in the payload (e.g. Slack's MacRoman NBSP
+  # \xCA when the user pastes a Slack thread on macOS). C locale treats
+  # input as opaque bytes so the pipeline never fails — guarantees a
+  # capture note gets written even when the entry point's sanitization
+  # missed something.
+  PAYLOAD_PREVIEW=$(LC_ALL=C bash -c '
+    head -c 200 "$1" 2>/dev/null \
+      | tr "\n" " " \
+      | tr -c "[:alnum:]_-" "-" \
+      | sed "s/-\{2,\}/-/g; s/^-\|-\$//g" \
+      | head -c 40
+  ' _ "$WORKTREE_CAPTURE_PAYLOAD_FILE")
+  SLUG="${PAYLOAD_PREVIEW:-payload}"
+  NOTE_FILE="$VAULT_INBOX/${TODAY}_Worktree-${WORKTREE_LOG_TAG}-${OUTCOME}-${SLUG}.md"
+fi
+
+# Image asset copy (if applicable).
+IMAGE_REF=""
+if [ -n "${WORKTREE_CAPTURE_IMAGE_SRC:-}" ] && [ -f "$WORKTREE_CAPTURE_IMAGE_SRC" ]; then
+  if [ "$OUTCOME" = "pending-jira" ]; then
+    ASSET_NAME="jira-pending-${SLUG}.png"
+  else
+    ASSET_NAME="${TODAY}_${WORKTREE_LOG_TAG}-${OUTCOME}-${SLUG}.png"
+  fi
+  cp "$WORKTREE_CAPTURE_IMAGE_SRC" "$VAULT_ASSETS/$ASSET_NAME" 2>/dev/null || true
+  IMAGE_REF="![[$ASSET_NAME]]"
+fi
+
+# Build the body. pending-jira gets its own structured frontmatter so
+# Stage B (worktree-jira-file) can yq-read worktree_path / branch
+# without parsing markdown. Other outcomes use the original raw-capture
+# layout.
+if [ "$OUTCOME" = "pending-jira" ]; then
+  {
+    cat <<FRONT
+---
+type: pending-jira
+worktree_path: $WORKTREE_CAPTURE_WORKTREE_PATH
+branch: ${WORKTREE_BRANCH:-(unknown)}
+created: $TIMESTAMP
+hubs:
+  - work
+tags:
+  - pending-jira
+---
+
+# Pending Jira — \`${SLUG}\`
+
+Worktree was created from clipboard payload below. Run \`worktree-jira-file\`
+hotkey from inside the worktree to file the Jira ticket using these inputs.
+
+**Worktree path:** \`$WORKTREE_CAPTURE_WORKTREE_PATH\`
+**Branch:** \`${WORKTREE_BRANCH:-(unknown)}\`
+**Captured:** $TIMESTAMP
+
+## Clipboard payload
+
+FRONT
+
+    if [ -n "$IMAGE_REF" ]; then
+      printf '%s\n' "$IMAGE_REF"
+    else
+      printf '```\n'
+      cat "$WORKTREE_CAPTURE_PAYLOAD_FILE" 2>/dev/null || true
+      printf '\n```\n'
+    fi
+
+    cat <<TAIL
+
+## User-provided context
+
+${WORKTREE_CAPTURE_CONTEXT:-(none)}
+TAIL
+  } > "$NOTE_FILE"
+else
+  {
+    cat <<FRONT
+---
+date:
+  - $TODAY
+hubs:
+  - work
+---
+
+# Worktree capture — $OUTCOME
+
+**Entry point:** \`$WORKTREE_LOG_TAG\`
+**Time:** $TIMESTAMP
+**Outcome:** \`$OUTCOME\`${REASON:+ — $REASON}
+
+## Original input
+
+FRONT
+
+    if [ -n "$IMAGE_REF" ]; then
+      printf '%s\n' "$IMAGE_REF"
+    else
+      printf '```\n'
+      cat "$WORKTREE_CAPTURE_PAYLOAD_FILE" 2>/dev/null || true
+      printf '\n```\n'
+    fi
+
+    cat <<MID
+
+## Additional context
+
+${WORKTREE_CAPTURE_CONTEXT:-(none)}
+
+## Claude reasoning (this run only)
+
+\`\`\`
+MID
+    # Slice the run log to the LATEST "=== <date> ===" block. Without
+    # this, tail -n 80 of the append-only logfile would show mostly old
+    # runs, drowning out the actionable content. The runner's outcome
+    # detection already uses the same slicing — keeps capture and
+    # detection consistent.
+    awk '/^=== / { buf = $0 "\n"; next } { buf = buf $0 "\n" } END { printf "%s", buf }' \
+      "$WORKTREE_CAPTURE_LOG" 2>/dev/null \
+      | tail -n 80
+    printf '\n```\n'
+  } > "$NOTE_FILE"
+fi
+
+# State file for rctrl + '. Skipped on success outcomes (the runner
+# already wrote "<session>|<path>" pointing at the new worktree).
+if [ "${WORKTREE_CAPTURE_SKIP_STATE_FILE:-0}" != "1" ]; then
+  echo "vault|$NOTE_FILE" > /tmp/notify-idle.latest 2>/dev/null || true
+fi
+
+printf '%s\n' "$NOTE_FILE"

@@ -1,0 +1,330 @@
+#!/usr/bin/env bash
+# Bug-from-clipboard → /worktree pipeline (deferred Jira filing).
+#
+# Reads whatever's on the system clipboard, prompts for optional
+# context, then creates a worktree from that payload. Routing:
+#
+#   • Jira URL (or bare ticket key) → /worktree on the URL. Ticket
+#     already exists, so NO pending-jira note is written. Same fast
+#     path as worktree-clipboard's URL branch but exposed under -b
+#     so the user doesn't have to remember which hotkey for which
+#     URL kind.
+#   • Slack URL → claude hydrates the thread via Unblocked, then runs
+#     /worktree describe-mode using the thread content. Pending-jira
+#     note written so Stage B can compose the actual Jira ticket from
+#     the same Slack thread later.
+#   • Image / free text → /worktree describe-mode with the payload.
+#     Pending-jira note written for Stage B.
+#
+# Stage A (this script): clipboard → /worktree → vault pending-jira note
+#                        (skipped on Jira URL — ticket already exists).
+# Stage B (worktree-jira-file from inside the worktree):
+#                        cwd → matching pending note → confirm → file.
+#
+# Why deferred? Filing synchronously alongside worktree creation chains
+# 3+ slow LLM steps (classify → write ticket → /worktree). When the
+# upfront ticket is wrong, you've already burned a Jira number. Deferred
+# lets you start coding immediately, then file once you've actually
+# narrowed the bug — same one-hotkey UX, lower commitment.
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - b : ~/.local/bin/worktree-bug
+
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# Re-enter tmux server context when fired by skhd (no tmux client →
+# display-popup fails → set -e kills script silently before any
+# notification fires). Same pattern as worktree-prompt /
+# worktree-jira-file.
+if [ -z "${TMUX:-}" ] \
+   && [ -z "${WORKTREE_BUG_RESPAWNED:-}" ] \
+   && command -v tmux >/dev/null 2>&1 \
+   && tmux ls >/dev/null 2>&1; then
+  WORKTREE_BUG_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-bug"
+  exit 0
+fi
+
+notify_error() {
+  mac-notify -t "worktree-bug" -m "$1" -T 6 -g "worktree-bug-error"
+}
+
+#-------------------------------------------------------------------------------
+# 1. Detect clipboard kind (image vs text)
+#-------------------------------------------------------------------------------
+TMP_IMG_BASE=$(mktemp "${TMPDIR:-/tmp}/worktree-bug-image.XXXXXX")
+TMP_IMG="${TMP_IMG_BASE}.png"
+mv "$TMP_IMG_BASE" "$TMP_IMG"
+CLIPBOARD_KIND=""
+CLIP=""
+
+if pngpaste "$TMP_IMG" 2>/dev/null && [ -s "$TMP_IMG" ]; then
+  CLIPBOARD_KIND="image"
+else
+  rm -f "$TMP_IMG"
+  TMP_IMG=""
+  CLIP=$(pbpaste 2>/dev/null || true)
+  if [ -z "$CLIP" ]; then
+    notify_error "Clipboard is empty"
+    exit 1
+  fi
+  # Sanitize: claude's CLI panics on stray non-UTF-8 bytes (e.g. \xCA
+  # MacRoman NBSP that Slack-on-macOS injects between display name and
+  # message). Sanitizer converts MacRoman → UTF-8 when applicable,
+  # else drops invalid bytes. Pass-through for already-valid UTF-8.
+  CLIP=$(printf '%s' "$CLIP" | clipboard-sanitize)
+
+  # Path-to-image fallback. When the user Cmd-C's a screenshot *file*
+  # in Finder/iCloud, pngpaste returns empty (clipboard has path-as-
+  # text, not raw image bytes). Detect a single-line path to an
+  # existing image and re-route as if the image bytes were on the
+  # clipboard. Mirrors worktree-clipboard's logic.
+  RESOLVED_IMG=""
+  case "$CLIP" in
+    *$'\n'*) ;;
+    *)
+      P="${CLIP#"${CLIP%%[![:space:]]*}"}"
+      P="${P%"${P##*[![:space:]]}"}"
+      case "$P" in
+        \"*\") P="${P#\"}"; P="${P%\"}" ;;
+        \'*\') P="${P#\'}"; P="${P%\'}" ;;
+      esac
+      P="${P#file://}"
+      P="${P/#\~/$HOME}"
+      if [ -f "$P" ]; then
+        case "$P" in
+          *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.gif|*.GIF|*.webp|*.WEBP|*.heic|*.HEIC|*.bmp|*.BMP)
+            RESOLVED_IMG="$P"
+            ;;
+        esac
+      fi
+      ;;
+  esac
+  if [ -n "$RESOLVED_IMG" ]; then
+    TMP_IMG="$RESOLVED_IMG"
+    CLIP=""
+    CLIPBOARD_KIND="image"
+  else
+    CLIPBOARD_KIND="text"
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# 2. URL detection — distinguish Jira (ticket already exists) vs Slack
+#    (URL is opaque, hydrate first) vs everything else.
+#-------------------------------------------------------------------------------
+JIRA_URL=""
+JIRA_TICKET=""
+SLACK_URL=""
+if [ "$CLIPBOARD_KIND" = "text" ]; then
+  if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
+    JIRA_URL="${BASH_REMATCH[1]}"
+    JIRA_TICKET="${BASH_REMATCH[2]}"
+  elif [[ "$CLIP" =~ ^[[:space:]]*([A-Z]+-[0-9]+)[[:space:]]*$ ]]; then
+    JIRA_TICKET="${BASH_REMATCH[1]}"
+    JIRA_URL="$JIRA_TICKET"  # bare key — /worktree skill resolves to canonical URL
+  elif [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.slack\.com/archives/[^[:space:]]+) ]]; then
+    SLACK_URL="${BASH_REMATCH[1]}"
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# 3. Build a preview header for the popup
+#-------------------------------------------------------------------------------
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  PREVIEW="📋 Image (saved to $TMP_IMG)"
+elif [ -n "$JIRA_URL" ]; then
+  PREVIEW="🎫 Jira: $JIRA_TICKET"
+elif [ -n "$SLACK_URL" ]; then
+  PREVIEW="💬 Slack: $SLACK_URL"
+else
+  PREVIEW_TEXT=$(printf '%s' "$CLIP" | tr '\n' ' ' | head -c 200)
+  if [ "${#CLIP}" -gt 200 ]; then PREVIEW_TEXT="${PREVIEW_TEXT}…"; fi
+  PREVIEW="📋 ${PREVIEW_TEXT}"
+fi
+
+#-------------------------------------------------------------------------------
+# 4. Tmux popup — optional context. For Jira URLs the context is just a
+#    hint to /worktree's branch slug. For Slack/text/image, context is
+#    saved alongside the payload in the pending-jira note for Stage B.
+#-------------------------------------------------------------------------------
+if [ -n "$JIRA_URL" ]; then
+  POPUP_HEAD="🎫 Jira ticket → worktree (no pending-jira note — ticket exists)
+
+$PREVIEW
+
+Optional context (hints /worktree's branch-name choice).
+Press Enter alone to skip."
+else
+  POPUP_HEAD="🐛 Bug from clipboard → worktree (Jira filing deferred)
+
+$PREVIEW
+
+Add context — saved alongside the payload in the pending-jira inbox note.
+Stage B (worktree-jira-file from inside the worktree) reads both when
+writing the actual Jira ticket later.
+e.g. \"saw this on listen, only on Safari\", \"after deploy of X\"
+
+Press Enter alone to skip context."
+fi
+
+INPUT_FILE=$(mktemp -t worktree-bug-input.XXXXXX)
+POPUP_SH=$(mktemp -t worktree-bug-popup.XXXXXX.sh)
+chmod +x "$POPUP_SH"
+trap 'rm -f "$INPUT_FILE" "$POPUP_SH"' EXIT
+
+cat > "$POPUP_SH" <<EOF
+#!/usr/bin/env bash
+clear
+cat <<HEAD
+$POPUP_HEAD
+
+(Ctrl-C to cancel · Enter to submit)
+
+HEAD
+read -e -p "context > " ctx
+echo "\$ctx" > "$INPUT_FILE"
+EOF
+
+tmux display-popup -E -w 70% -h 35% "$POPUP_SH"
+
+CONTEXT=$(cat "$INPUT_FILE" 2>/dev/null || true)
+rm -f "$INPUT_FILE" "$POPUP_SH"
+
+#-------------------------------------------------------------------------------
+# 5. Hand off to runner. Branch on input kind:
+#
+#   Jira URL  → /worktree on URL, NO DEFER_JIRA. Mode A → haiku.
+#   Slack URL → RAW_PROMPT: hydrate via Unblocked + /worktree, DEFER_JIRA.
+#   Image     → RAW_PROMPT: read image + /worktree, DEFER_JIRA.
+#   Text      → CLAUDE_INPUT Mode C describe, DEFER_JIRA.
+#-------------------------------------------------------------------------------
+
+# 5a. Jira URL — ticket exists, no pending-jira note. Same path as
+# worktree-jira (Mode A → haiku, no DEFER_JIRA).
+if [ -n "$JIRA_URL" ]; then
+  if [ -n "$CONTEXT" ]; then
+    WORKTREE_RAW_PROMPT="The clipboard contained a Jira ticket URL plus extra context the user wants to factor into worktree creation.
+
+Jira URL / key: $JIRA_URL
+Ticket: $JIRA_TICKET
+
+User context: $CONTEXT
+
+Steps:
+1. Run \`/worktree $JIRA_URL --yes\`. The skill reads the ticket via the Atlassian MCP for canonical repo / folder / slug inference.
+2. If the user's context above suggests a more specific direction (e.g. \"frontend only\", \"prototype with X\"), pass that hint to /worktree as describe-style refinement.
+
+Be concise — fetch, infer, run, no narration." \
+    WORKTREE_CLAUDE_MODEL="haiku" \
+    WORKTREE_GROUP="worktree-${JIRA_TICKET}" \
+    WORKTREE_LOG_TAG="worktree-bug" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: Jira URL ($JIRA_TICKET)
+URL/KEY: $JIRA_URL
+CONTEXT: $CONTEXT
+MODEL: haiku" \
+    WORKTREE_START_TITLE="Creating ${JIRA_TICKET}…" \
+    WORKTREE_START_MESSAGE="Jira URL + context" \
+    WORKTREE_FALLBACK_LABEL="$JIRA_TICKET" \
+    WORKTREE_CAPTURE_PAYLOAD="$JIRA_URL" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec ~/.local/bin/worktree-runner
+  fi
+  WORKTREE_CLAUDE_INPUT="$JIRA_URL" \
+  WORKTREE_CLAUDE_MODEL="haiku" \
+  WORKTREE_GROUP="worktree-${JIRA_TICKET}" \
+  WORKTREE_LOG_TAG="worktree-bug" \
+  WORKTREE_LOG_HEADER="CLIPBOARD: Jira URL ($JIRA_TICKET)
+URL/KEY: $JIRA_URL
+MODEL: haiku" \
+  WORKTREE_START_TITLE="Creating ${JIRA_TICKET}…" \
+  WORKTREE_START_MESSAGE="Jira URL" \
+  WORKTREE_FALLBACK_LABEL="$JIRA_TICKET" \
+  WORKTREE_CAPTURE_PAYLOAD="$JIRA_URL" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# 5b. Slack URL — claude hydrates via Unblocked, then runs /worktree.
+# DEFER_JIRA=1 so a pending-jira note captures the URL for Stage B
+# (which will re-hydrate to compose the actual Jira ticket).
+if [ -n "$SLACK_URL" ]; then
+  WORKTREE_RAW_PROMPT="You are processing a Slack message URL to create a worktree. The Jira ticket will be filed LATER (Stage B); your only job here is to spawn the worktree. Do NOT call any Atlassian MCP tool, do NOT write a Jira ticket.
+
+Slack URL: $SLACK_URL
+
+User context: ${CONTEXT:-(none)}
+
+Step 1: Call \`mcp__unblocked__context_get_urls\` with the Slack URL. Unblocked indexes Slack threads — it returns the message body, channel, who said what, surrounding thread context.
+  • If Unblocked says it's not in the channel: print \"NEEDS_UNBLOCKED: <channel-id>\" on its own line and stop. The user can add Unblocked to the channel and retry, or paste the message contents directly instead of the URL.
+
+Step 2: From the fetched content (and the user's context, if any), infer repo + folder bucket + slug. Bucket should reflect the bug's nature — default \`fix\` for confirmed regressions.
+
+Step 3: Run \`/worktree <inferred-positional-or-describe-args> --yes\`. Use Mode B if you can extract a clean repo/branch/folder, Mode C describe otherwise.
+
+Be concise — fetch, infer, run, stop. Do not narrate." \
+  WORKTREE_DEFER_JIRA=1 \
+  WORKTREE_GROUP="worktree-bug-slack" \
+  WORKTREE_LOG_TAG="worktree-bug" \
+  WORKTREE_LOG_HEADER="CLIPBOARD: Slack URL → $SLACK_URL
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+  WORKTREE_START_TITLE="Hydrating Slack thread…" \
+  WORKTREE_START_MESSAGE="Slack → worktree (Jira deferred)" \
+  WORKTREE_FALLBACK_LABEL="Slack thread" \
+  WORKTREE_CAPTURE_PAYLOAD="$SLACK_URL" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# 5c. Image — claude reads the file, infers repo/bucket/slug, runs /worktree.
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  WORKTREE_RAW_PROMPT="You are processing a clipboard screenshot to create a worktree. The Jira ticket will be filed LATER (Stage B); your only job here is to create the worktree. Do NOT call any Atlassian MCP tool, do NOT write a Jira ticket.
+
+Read the image at: $TMP_IMG
+
+Additional context from the user: ${CONTEXT:-(none)}
+
+Steps:
+1. Read the image. It's typically a screenshot of a Slack thread, GitHub PR comment, terminal output, code snippet, error dialog, or bug report.
+2. Infer repo + folder bucket + slug from the image content (use the additional context above to disambiguate). Bucket reflects the bug's nature: \`fix\` for confirmed regressions, \`spike\` for unclear repros, etc. Default \`fix\`.
+3. Run \`/worktree <inferred-positional-or-describe-args> --yes\`. Mode B if you can extract a clean repo/branch/folder; Mode C describe otherwise.
+
+Be concise — analyze, infer, run /worktree once, stop. Do not narrate." \
+  WORKTREE_DEFER_JIRA=1 \
+  WORKTREE_GROUP="worktree-bug" \
+  WORKTREE_LOG_TAG="worktree-bug" \
+  WORKTREE_LOG_HEADER="CLIPBOARD: image at $TMP_IMG
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+  WORKTREE_START_TITLE="Creating worktree (Jira deferred)…" \
+  WORKTREE_START_MESSAGE="Bug from clipboard image" \
+  WORKTREE_FALLBACK_LABEL="bug from image" \
+  WORKTREE_CAPTURE_PAYLOAD="image:$TMP_IMG" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# 5d. Free text — Mode C describe. Append context so /worktree's
+# inference has both the bug body and the user's hint.
+if [ -n "$CONTEXT" ]; then
+  INPUT="$CLIP -- $CONTEXT"
+else
+  INPUT="$CLIP"
+fi
+
+WORKTREE_CLAUDE_INPUT="$INPUT" \
+WORKTREE_DEFER_JIRA=1 \
+WORKTREE_GROUP="worktree-bug" \
+WORKTREE_LOG_TAG="worktree-bug" \
+WORKTREE_LOG_HEADER="CLIPBOARD (text):
+$CLIP
+
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+WORKTREE_START_TITLE="Creating worktree (Jira deferred)…" \
+WORKTREE_START_MESSAGE="Bug from clipboard text" \
+WORKTREE_FALLBACK_LABEL="bug from text" \
+WORKTREE_CAPTURE_PAYLOAD="$CLIP" \
+WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+exec ~/.local/bin/worktree-runner

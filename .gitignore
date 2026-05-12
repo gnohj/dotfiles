@@ -11,3 +11,26 @@
 **/.env
 **/.env.*
 !**/.env.example
+**/.png
+*.png
+
+# Company-specific Jira detail consumed by ~/.local/bin/worktree-bug.
+# The committed jira-prompt.md is the generic scaffold; this company
+# file holds the cloudId, project key, custom field IDs, and repo
+# inference table — everything that changes per employer. Kept out of
+# the public dotfiles commit so swapping employers = rewrite this one
+# file, no script or scaffold changes.
+/dot_local/bin/worktree/jira-prompt-company.md
+
+# Repo-name allowlist consumed by worktree-prompt's Mode-B rewrite
+# (the `web|inferno`-shaped check that disambiguates "<repo> <bucket>
+# <slug>" inputs). Gitignored so swapping employers = rewrite this
+# file. One repo name per line; blank lines and `#` comments allowed.
+/dot_local/bin/worktree/repos.conf
+
+# Per-repo post-create hooks consumed by treekanga's postScript
+# (executable_worktree_setup.sh). Each file is `<repo>.sh` and runs
+# after the generic setup with cwd = new worktree, REPO_NAME +
+# WORKTREE_PATH exported. Personal / machine-local customization —
+# never part of the public dotfiles commit.
+/dot_config/treekanga/postcreate/

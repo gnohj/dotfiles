@@ -1,0 +1,638 @@
+#!/usr/bin/env bash
+# Shared backend for worktree entry points (worktree-prompt, jira-worktree,
+# and any future capture method — clipboard, screenshot, etc.). Owns the
+# Terminal.app spawn pipeline, claude `/worktree` invocation, postScript
+# log tailing, banner notifications, and tmux side-effect cleanup.
+#
+# Entry points capture user input however they want (popup text, Chrome
+# URL, pbpaste, image OCR, …), reduce it to a single CLAUDE_INPUT string,
+# then exec into this runner with the env vars below.
+#
+# Required env (set by the caller):
+#   WORKTREE_GROUP         terminal-notifier banner group id (used so
+#                          the start banner is replaced by the final
+#                          ready/failed banner).
+#   WORKTREE_LOG_TAG       Basename for the per-run log + tmpfiles
+#                          (e.g. "worktree-jira", "worktree-prompt").
+#
+# Required (one of):
+#   WORKTREE_CLAUDE_INPUT  Token(s) appended to "/worktree …" — runner
+#                          builds "claude -p '/worktree <input> --yes'".
+#                          Use for the standard URL/describe pipelines.
+#   WORKTREE_RAW_PROMPT    Full claude prompt — replaces the constructed
+#                          "/worktree …" entirely. Use when the entry
+#                          point needs to chain pre-steps (e.g. classify
+#                          + create Jira ticket + /worktree) in one
+#                          claude session. Takes precedence over
+#                          CLAUDE_INPUT if both are set.
+#   WORKTREE_RAW_COMMAND   Direct shell command (no claude). Skips
+#                          claude entirely — runner runs the command
+#                          via `bash -c` inside the spawned Terminal.
+#                          ~25–30s faster for canonical inputs that
+#                          don't need claude's inference (e.g. fully-
+#                          rewritten Mode-B "web test-boo infra/test-boo"
+#                          → "git fetch origin --quiet && treekanga add
+#                          test-boo -d ../infra -n test-boo -b origin/HEAD
+#                          -x"). Takes precedence over RAW_PROMPT and
+#                          CLAUDE_INPUT.
+#
+# Optional env:
+#   WORKTREE_CLAUDE_MODEL     Model name passed to `claude --model`.
+#                             Default: sonnet. Set "haiku" for Mode A
+#                             (URL / bare ticket key) or Mode B (3-token
+#                             with structured branch) — those are simple
+#                             lookups; haiku is ~50% faster. Reserve
+#                             sonnet for Mode C free-text inference and
+#                             bug-classification flows.
+#   WORKTREE_LOG_HEADER       Multi-line string written to the log
+#                             between the timestamp and the claude
+#                             invocation. Empty → omitted.
+#   WORKTREE_START_TITLE      Title for the "creating…" banner.
+#                             Default: "Creating worktree…".
+#   WORKTREE_START_MESSAGE    Message for the "creating…" banner.
+#                             Default: $WORKTREE_CLAUDE_INPUT (or
+#                             "Running custom prompt" in RAW_PROMPT mode).
+#   WORKTREE_FALLBACK_LABEL   Banner message used if SESSION couldn't
+#                             be derived from the postScript log.
+#                             Default: same as START_MESSAGE.
+#
+# Vault-capture (optional — by default, failures + NOT_BUG decisions
+# get a vault inbox note. Set CAPTURE_ALWAYS=1 to also capture
+# successes — useful for worktree-bug, where each filed Jira ticket is
+# itself signal worth keeping a record of):
+#   WORKTREE_CAPTURE_PAYLOAD  Original input from the entry point. For
+#                             text clipboards: the text itself. For
+#                             image clipboards: the literal string
+#                             "image:<path>" — the runner copies the
+#                             image into Notes-Assets.
+#   WORKTREE_CAPTURE_CONTEXT  User-provided context (e.g. from the
+#                             entry point's "additional context" popup).
+#   WORKTREE_CAPTURE_ALWAYS   "1" → write a vault note on every
+#                             outcome including success. Default is
+#                             non-success only.
+#
+# Usage from a new entry point:
+#   WORKTREE_CLAUDE_INPUT="<url-or-text>" \
+#   WORKTREE_GROUP="worktree-<id>" \
+#   WORKTREE_LOG_TAG="my-entry-point" \
+#   WORKTREE_LOG_HEADER="<one or more lines>" \
+#   exec ~/.local/bin/worktree-runner
+
+set -euo pipefail
+
+: "${WORKTREE_GROUP:?WORKTREE_GROUP required}"
+: "${WORKTREE_LOG_TAG:?WORKTREE_LOG_TAG required}"
+if [ -z "${WORKTREE_CLAUDE_INPUT:-}" ] && [ -z "${WORKTREE_RAW_PROMPT:-}" ] && [ -z "${WORKTREE_RAW_COMMAND:-}" ]; then
+  echo "ERROR: WORKTREE_CLAUDE_INPUT, WORKTREE_RAW_PROMPT, or WORKTREE_RAW_COMMAND required" >&2
+  exit 1
+fi
+
+# RAW_COMMAND mode → skip claude, run the command directly via bash.
+# Saves ~25–30s on canonical inputs that don't need claude's inference.
+EXEC_MODE="claude"
+if [ -n "${WORKTREE_RAW_COMMAND:-}" ]; then
+  EXEC_MODE="bash"
+fi
+
+DEFAULT_LABEL="${WORKTREE_CLAUDE_INPUT:-Running custom prompt}"
+START_TITLE="${WORKTREE_START_TITLE:-Creating worktree…}"
+START_MESSAGE="${WORKTREE_START_MESSAGE:-$DEFAULT_LABEL}"
+FALLBACK_LABEL="${WORKTREE_FALLBACK_LABEL:-$START_MESSAGE}"
+CLAUDE_MODEL="${WORKTREE_CLAUDE_MODEL:-sonnet}"
+
+# Heartbeat banner shows the trimmed user input alongside the elapsed
+# timer, so when multiple worktree creations are in flight you can tell
+# at a glance which one's still running. Cap at 50 chars with "…" if
+# truncated; collapse newlines to keep the banner single-line.
+HB_INPUT_TRIMMED=$(printf '%s' "$START_MESSAGE" | tr '\n' ' ' | head -c 50)
+[ "${#START_MESSAGE}" -gt 50 ] && HB_INPUT_TRIMMED="${HB_INPUT_TRIMMED}…"
+
+# Capture the user's terminal BEFORE we unset TERM_PROGRAM (which we
+# do below to prevent ghosttyfetch propagation to the spawned
+# Terminal.app). Inside the spawned Terminal.app, TERM_PROGRAM
+# resolves to "Apple_Terminal" — so if banners auto-detect their
+# icon there, they always show Terminal.app's icon. We resolve the
+# REAL user terminal here once, and bake the icon path through to
+# every banner site (start, heartbeat, final). Falls back gracefully
+# when neither $TERM_PROGRAM nor a tmux client is available.
+USER_TERM_HINT="${TERM_PROGRAM:-}"
+if [ -z "$USER_TERM_HINT" ] && command -v tmux >/dev/null 2>&1; then
+  USER_TERM_HINT=$(tmux display-message -p '#{client_termtype}' 2>/dev/null || true)
+fi
+ICON_PNG=$(resolve-term-icon "${USER_TERM_HINT:-terminal}" 2>/dev/null || true)
+
+# `open -na Terminal` propagates SOME env vars to the spawned Terminal
+# (TERM_*, TMUX, etc.) but filters out custom user vars like SKIP_FETCH.
+# When the caller is inside tmux + Ghostty, TERM_PROGRAM=ghostty
+# propagates and tricks Terminal's zshrc into firing ghosttyfetch (which
+# spawns its own `tmux` child, creating an unnamed numeric session).
+# Unsetting TERM_PROGRAM here is the only reliable fix.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+unset TERM_PROGRAM TERM_PROGRAM_VERSION
+export SKIP_FETCH=1  # belt + suspenders; honored by inner script's bash
+
+TIMEOUT_SECONDS=12     # start banner — replaced by heartbeats / final
+FINAL_TIMEOUT=30       # outcome banner — sticks longer so it isn't missed
+
+# All notification firing goes through ~/.local/bin/mac-notify (single
+# source of truth — it owns the terminal-notifier vs osascript fallback,
+# auto-resolves the terminal icon, and handles -group/-timeout/-sound).
+mac-notify -t "$START_TITLE" -m "$START_MESSAGE" -g "$WORKTREE_GROUP" -T "$TIMEOUT_SECONDS"
+
+# Snapshot tmux sessions BEFORE Terminal.app opens — something in
+# Terminal/shell init occasionally spawns an unnamed numeric session as
+# a side effect, and we need to know it wasn't ours so we can clean it
+# up at the end. Snapshotting inside the inner tmp script is too late
+# because the spawn happens before that script starts running.
+TMUX_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-tmux.XXXXXX")
+tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+
+# Stage WORKTREE_LOG_HEADER as a tmpfile so multi-line content + special
+# chars don't have to survive an outer-shell expansion inside the
+# heredoc below.
+LOG_HEADER_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-header.XXXXXX")
+if [ -n "${WORKTREE_LOG_HEADER:-}" ]; then
+  printf '%s\n' "$WORKTREE_LOG_HEADER" > "$LOG_HEADER_FILE"
+fi
+
+# Stage the claude prompt to a tmpfile (same rationale — multi-line
+# content + special chars can't be reliably interpolated through the
+# outer heredoc). The inner script reads it via `$(< "$PROMPT_FILE")`.
+PROMPT_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-prompt.XXXXXX")
+if [ -n "${WORKTREE_RAW_COMMAND:-}" ]; then
+  printf '%s' "$WORKTREE_RAW_COMMAND" > "$PROMPT_FILE"
+elif [ -n "${WORKTREE_RAW_PROMPT:-}" ]; then
+  printf '%s' "$WORKTREE_RAW_PROMPT" > "$PROMPT_FILE"
+else
+  printf '/worktree %s --yes' "$WORKTREE_CLAUDE_INPUT" > "$PROMPT_FILE"
+fi
+
+# Stage the vault-capture payload + context. We always create these
+# files (empty if capture isn't requested) so the inner script's trap
+# can clean a uniform set of paths. The inner skips capture when the
+# payload file is empty.
+CAPTURE_PAYLOAD_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-payload.XXXXXX")
+CAPTURE_CONTEXT_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-context.XXXXXX")
+CAPTURE_IMAGE_SRC=""
+if [ -n "${WORKTREE_CAPTURE_PAYLOAD:-}" ]; then
+  # Convention: "image:<path>" payloads identify a clipboard image. The
+  # capture helper reads the path from CAPTURE_IMAGE_SRC and copies the
+  # image into Notes-Assets; the payload file gets a marker line for
+  # slug derivation.
+  if [[ "$WORKTREE_CAPTURE_PAYLOAD" =~ ^image:(.+)$ ]]; then
+    CAPTURE_IMAGE_SRC="${BASH_REMATCH[1]}"
+    printf 'image: %s\n' "$CAPTURE_IMAGE_SRC" > "$CAPTURE_PAYLOAD_FILE"
+  else
+    printf '%s' "$WORKTREE_CAPTURE_PAYLOAD" > "$CAPTURE_PAYLOAD_FILE"
+  fi
+  printf '%s' "${WORKTREE_CAPTURE_CONTEXT:-}" > "$CAPTURE_CONTEXT_FILE"
+fi
+
+# Per-run postScript log. Treekanga's worktree_setup.sh honors the
+# TREEKANGA_POSTSCRIPT_LOG env var; the inner script exports it before
+# invoking claude so postScript output for THIS run lands in its own
+# file. Each runner reads its own file → no cross-contamination, no
+# tail-c arithmetic.
+#
+# Robustness fallback: if the env var fails to propagate from claude's
+# Bash tool through to treekanga's postScript subprocess (claude's
+# tooling sometimes scrubs env), the per-run log will be empty and the
+# inner script falls back to byte-offset accounting against the global
+# log — same algorithm as before #4, just used as a fallback instead
+# of the primary. Single-runner case still detects success correctly;
+# concurrent-runner case can mis-attribute under that fallback, but
+# no-detection-at-all is worse than the rare race.
+PS_LOG_PER_RUN=$(mktemp -t "${WORKTREE_LOG_TAG}-ps.XXXXXX.log")
+PS_LOG_GLOBAL="$HOME/.logs/treekanga-postscript.log"
+PS_LOG_GLOBAL_SIZE_BEFORE=$(wc -c < "$PS_LOG_GLOBAL" 2>/dev/null || echo 0)
+
+# Stage the run-script in a tmp file so we don't have to wrestle with
+# `open --args` quoting. The trap inside cleans it up after claude exits.
+TMPSCRIPT=$(mktemp -t "${WORKTREE_LOG_TAG}.XXXXXX.sh")
+chmod +x "$TMPSCRIPT"
+LOGFILE="\$HOME/.logs/${WORKTREE_LOG_TAG}.log"
+cat > "$TMPSCRIPT" <<EOF
+#!/usr/bin/env bash
+# Cleanup runs on EVERY exit path — normal completion, abort SIGTERM,
+# claude crash, error. By moving the Terminal-quit watcher into here
+# (instead of at the end of the script), abandoned worktree windows
+# stop piling up when the script doesn't reach its tail (most common
+# cause: rctrl + shift - escape sends SIGTERM mid-claude).
+#
+# Order matters:
+#   1. pkill -P \$\$  — kill children (heartbeat). The Terminal-quit
+#                       watcher we're about to spawn isn't yet a child
+#                       at this moment, so it's safe.
+#   2. ( bash -c '…' & )  — spawn the watcher in a double-fork. Outer
+#                            subshell forks → backgrounds → exits, so
+#                            the watcher's PPID becomes init. Immune
+#                            to any subsequent pkill -P targeting our
+#                            PID. Survives even if the script was
+#                            killed by SIGTERM.
+#   3. rm -f …  — clean tmpfiles + per-PID state file.
+cleanup() {
+  pkill -P \$\$ 2>/dev/null
+  # Capture our tty BEFORE the watcher subshell — once we exit, /dev/tty
+  # is gone. AppleScript matches the Terminal window owning this tty
+  # and closes it explicitly. This doesn't rely on Terminal.app's
+  # "When shell exits" preference (which varies and shipped wrong on
+  # at least one machine — leaving piles of orphan windows visible
+  # in workspace J).
+  local our_tty
+  our_tty=\$(tty 2>/dev/null)
+  ( ( sleep 1; osascript -e 'on run argv
+    set targetTTY to item 1 of argv
+    tell application "Terminal"
+      repeat with w in windows
+        try
+          if (tty of selected tab of w) is targetTTY then
+            close w saving no
+            exit repeat
+          end if
+        end try
+      end repeat
+      if (count of windows) is 0 then quit
+    end tell
+  end run' "\$our_tty" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
+  # Note: $PS_LOG_PER_RUN is NOT removed here. The bg subshell that
+  # postScript spawns continues writing pnpm install + codegen + hook
+  # output to it AFTER this script (and treekanga, and claude) has
+  # exited. Removing it here would race with bg writes (file gets
+  # recreated by >> append, leaving partial bg-only content). /var/
+  # folders/…/T is auto-cleaned by macOS, so leaking the per-run log
+  # is harmless and useful for debugging.
+  rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
+}
+trap cleanup EXIT
+
+# State file for the abort hotkey (rctrl + shift - escape →
+# ~/.local/bin/worktree-abort). One file per concurrent runner —
+# filename includes \$\$ so two runners in flight don't clobber each
+# other's state. The abort script scans /tmp/worktree-runner-*.state
+# and shows an fzf picker when ≥2 are alive.
+cat > /tmp/worktree-runner-\$\$.state <<-STATE
+PID=\$\$
+GROUP=$WORKTREE_GROUP
+TAG=$WORKTREE_LOG_TAG
+STARTED=\$(date +%s)
+STATE
+
+# Strip TMUX-related env vars so the postScript's \`[ -n "\$TMUX" ]\`
+# branch correctly identifies this as a non-tmux (headless wrapper)
+# flow. Without this, \`open -na Terminal\` propagates the launcher
+# popup's tmux env to the spawned Terminal, and the postScript ends up
+# hijacking the user's tmux client via sesh connect.
+unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
+
+# macOS Terminal.app spawn env lacks the user's full PATH. Restore
+# enough for claude + git + treekanga + pnpm to resolve.
+export PATH="\$HOME/.local/bin:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export SKIP_FETCH=1
+# Tell treekanga's postScript to log to OUR per-run file (instead of the
+# global ~/.logs/treekanga-postscript.log). claude inherits this env →
+# treekanga inherits from claude → postScript reads it. Concurrent
+# runners get isolated logs.
+export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+
+START_TS=\$(date +%s)
+fmt_duration() {
+  local s=\$1
+  if [ "\$s" -lt 60 ]; then
+    printf '%ds' "\$s"
+  elif [ "\$s" -lt 3600 ]; then
+    printf '%dm%02ds' "\$((s/60))" "\$((s%60))"
+  else
+    printf '%dh%02dm' "\$((s/3600))" "\$(((s%3600)/60))"
+  fi
+}
+
+mkdir -p "\$(dirname $LOGFILE)"
+echo "=== \$(date) ===" >> $LOGFILE
+[ -s "$LOG_HEADER_FILE" ] && cat "$LOG_HEADER_FILE" >> $LOGFILE
+if [ "$EXEC_MODE" = "bash" ]; then
+  echo "Running raw command (no claude)..." | tee -a $LOGFILE
+else
+  echo "Running claude -p ($CLAUDE_MODEL)..." | tee -a $LOGFILE
+fi
+
+# Heartbeat: replace the "Creating…" banner with "running… Xs elapsed"
+# at growing intervals while claude works. Same notification group as
+# the start banner so each beat REPLACES the previous (no stacking).
+# The EXIT trap pkill's all children of \$\$ — that catches the
+# heartbeat subshell whether claude finishes naturally or the user
+# fires the abort hotkey.
+(
+  HB_ELAPSED=0
+  for HB_INTERVAL in 30 30 30 60 60 120; do
+    sleep "\$HB_INTERVAL"
+    HB_ELAPSED=\$((HB_ELAPSED + HB_INTERVAL))
+    mac-notify \\
+      -t "Worktree running… \${HB_ELAPSED}s" \\
+      -m "${WORKTREE_LOG_TAG}: $HB_INPUT_TRIMMED" \\
+      -g "$WORKTREE_GROUP" \\
+      -T 60
+  done
+) &
+HEARTBEAT_PID=\$!
+
+claude --dangerously-skip-permissions --model $CLAUDE_MODEL -p "\$(< "$PROMPT_FILE")" 2>&1 | tee -a $LOGFILE
+
+# Stop the heartbeat the moment claude returns. SIGKILL the subshell
+# AND any \`terminal-notifier\` GRANDCHILD that the heartbeat may have
+# spawned milliseconds earlier (heartbeat subshell → mac-notify →
+# terminal-notifier). pkill -P only reaches direct children, so a
+# terminal-notifier already running can still submit its banner to
+# NotificationCenter AFTER our final banner — clobbering it via
+# same-group replacement. Killing terminal-notifier by command-line
+# pattern (matching our WORKTREE_GROUP) reaps any in-flight banner
+# attempt before it can submit.
+kill -9 "\$HEARTBEAT_PID" 2>/dev/null || true
+pkill -9 -P "\$HEARTBEAT_PID" 2>/dev/null || true
+pkill -9 -f "terminal-notifier.*${WORKTREE_GROUP}" 2>/dev/null || true
+wait 2>/dev/null || true
+sleep 0.5
+echo
+
+# treekanga -x discards the postScript's stdout/stderr, so claude can't
+# see (and won't faithfully report) what actually happened. The
+# postScript writes its own log (per-run, via TREEKANGA_POSTSCRIPT_LOG);
+# print it here so the Terminal window shows authoritative ✓/✗ status.
+PS_LOG="$PS_LOG_PER_RUN"
+SESSION=""
+WORKTREE_PATH=""
+OUTCOME="failed"
+REASON=""
+
+# Slice $LOGFILE to JUST this run's content. The log is append-only
+# across runs (each starts with "=== <date> ==="), so a naive
+# grep -qE pattern would match prior runs' lines and misclassify the
+# current one. awk resets buf on each "=== " header — END leaves us
+# with the latest block.
+#
+# Concrete bug this prevents: a run whose log has no NOT_BUG line still
+# matched a NOT_BUG from a much earlier run in the same logfile,
+# tagging the new run as "not-a-bug" and writing the wrong vault note.
+# Same hazard exists for the **Worktree:** path grep below — both now
+# read from \$LATEST_RUN_LOG instead of \$LOGFILE.
+LATEST_RUN_LOG=\$(awk '/^=== / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }' $LOGFILE 2>/dev/null)
+
+# Step A — claude output may carry an explicit NOT_BUG marker (deliberate
+# skip from worktree-bug when the clipboard isn't a reproducible bug).
+# This wins over the postScript check below: if claude bailed before
+# calling /worktree, postScript output wouldn't exist anyway.
+if printf '%s' "\$LATEST_RUN_LOG" | grep -qE '^NOT_BUG:'; then
+  OUTCOME="not-a-bug"
+  REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -m1 -E '^NOT_BUG:' | sed 's/^NOT_BUG:[[:space:]]*//' | head -c 200)
+fi
+
+# Step B — read the postScript output for this run.
+#   1. Try the per-run log first (set via TREEKANGA_POSTSCRIPT_LOG).
+#      When env propagates correctly, this is concurrency-safe and the
+#      whole file is exactly this run's output.
+#   2. If empty (env didn't propagate through claude → treekanga →
+#      postScript), fall back to a byte-offset slice of the global log.
+#      Use awk to extract the LATEST "=== START …" block, which works
+#      uniformly for both cases.
+PS_LOG_NEW=""
+if [ -s "\$PS_LOG" ]; then
+  PS_LOG_NEW=\$(cat "\$PS_LOG")
+elif [ -f "$PS_LOG_GLOBAL" ]; then
+  CURRENT_SIZE=\$(wc -c < "$PS_LOG_GLOBAL" 2>/dev/null || echo 0)
+  if [ "\$CURRENT_SIZE" -gt $PS_LOG_GLOBAL_SIZE_BEFORE ]; then
+    PS_LOG_NEW=\$(tail -c \$((CURRENT_SIZE - $PS_LOG_GLOBAL_SIZE_BEFORE)) "$PS_LOG_GLOBAL")
+  fi
+fi
+if [ -n "\$PS_LOG_NEW" ]; then
+  echo "── postScript output (this run) ──"
+  # Latest START block — picks the right block when reading from the
+  # global log under contention; no-op when reading the per-run log.
+  LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
+  printf '%s' "\$LATEST_RUN"
+  echo "──"
+
+  # Derive worktree path / repo / session name from the latest run header.
+  WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
+  REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+  WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
+  # Session name = path relative to ~/Developer/ so the folder bucket
+  # (infra/, fix/, feat/, …) survives. basename(...) drops the bucket
+  # and yields e.g. "web/test-test" for ~/Developer/web/infra/test-test;
+  # we want "web/infra/test-test" to match sesh's zoxide-derived names.
+  SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+
+  if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
+    OUTCOME="success"
+  fi
+fi
+
+# Step B-fallback — if the postScript marker is absent BUT claude's
+# natural-language output says it created a worktree, parse the path
+# from "**Worktree:**" / "**Worktree path:**" line. This is a stepping
+# stone to the rescue below — once we have the path and confirm it
+# exists, we can manually run postScript if treekanga's invocation
+# silently skipped it (claude's /worktree skill says "-x always
+# included", but real-world drift can drop it).
+if [ -z "\$WORKTREE_PATH" ]; then
+  # Read from \$LATEST_RUN_LOG (current run only). Earlier this used
+  # tail -1 against \$LOGFILE, which still picked up paths from prior
+  # runs when THIS run produced no path — leading to the runner
+  # asserting success on a wholly-unrelated old worktree dir.
+  CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '\*\*Worktree( path)?:\*\*' \\
+    | tail -1 \\
+    | sed -E 's/.*\`([^\`]+)\`.*/\1/')
+  if [ -n "\$CLAUDE_PATH" ]; then
+    CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
+    if [ -d "\$CLAUDE_PATH" ]; then
+      WORKTREE_PATH="\$CLAUDE_PATH"
+      REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+      SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+    fi
+  fi
+fi
+
+# Step B-rescue — postScript log is empty AND we know the worktree
+# path AND the dir exists on disk. Treekanga created the worktree but
+# its postScript hook silently didn't fire (likely claude omitted the
+# -x flag). Run worktree_setup.sh manually so sesh/zoxide registration
+# + pnpm install + .env copy + per-repo postcreate hooks still happen.
+# Re-read the per-run log after to pick up the "complete!" marker
+# and classify as success.
+if [ "\$OUTCOME" = "failed" ] \\
+   && [ -z "\$PS_LOG_NEW" ] \\
+   && [ -n "\$WORKTREE_PATH" ] \\
+   && [ -d "\$WORKTREE_PATH" ]; then
+  echo "[\$(date +%H:%M:%S)] postScript didn't fire via treekanga — running manually as rescue at \$WORKTREE_PATH" >> $LOGFILE
+  (
+    cd "\$WORKTREE_PATH"
+    export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+    bash "\$HOME/.config/treekanga/worktree_setup.sh"
+  ) >> $LOGFILE 2>&1
+  # Re-read per-run log; if rescue succeeded, we'll find the marker.
+  if [ -s "\$PS_LOG" ]; then
+    PS_LOG_NEW=\$(cat "\$PS_LOG")
+    if printf '%s' "\$PS_LOG_NEW" | grep -q "worktree setup complete!"; then
+      OUTCOME="success"
+      echo "[\$(date +%H:%M:%S)] rescue succeeded — postScript ran, marker found" >> $LOGFILE
+    fi
+  fi
+fi
+
+# Step B-claude-only-fallback — last resort. Even rescue couldn't get
+# the marker (postScript itself errored), but worktree dir exists.
+# Treat it as success at the surface level — rctrl + ' will switch you
+# to it. Setup is partial (no install / no codegen) but you can run
+# those manually.
+if [ "\$OUTCOME" = "failed" ] && [ -n "\$WORKTREE_PATH" ] && [ -d "\$WORKTREE_PATH" ]; then
+  OUTCOME="success"
+  echo "[\$(date +%H:%M:%S)] success via claude-output fallback (no postScript marker — partial setup): \$WORKTREE_PATH" >> $LOGFILE
+fi
+
+# Step C — fall back to a one-line failure reason from the run log.
+# Same per-run scoping rationale as Steps A/B — old run errors
+# shouldn't leak into the current run's banner.
+if [ "\$OUTCOME" = "failed" ]; then
+  REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '^(Error|error|✗|FAIL)' | tail -n 1 | head -c 200)
+  [ -z "\$REASON" ] && REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | tail -n 1 | head -c 200)
+fi
+
+END_TS=\$(date +%s)
+DURATION_FMT=\$(fmt_duration \$((END_TS - START_TS)))
+
+echo "[\$(date +%H:%M:%S)] outcome=\$OUTCOME duration=\$DURATION_FMT session=\${SESSION:-(none)} path=\${WORKTREE_PATH:-(none)}" >> $LOGFILE
+
+# Step D — outcome-driven banner + state file.
+case "\$OUTCOME" in
+  success)
+    TITLE="Worktree ready · \$DURATION_FMT"
+    MSG="\${SESSION:-$FALLBACK_LABEL}"
+    # Defer session creation to rctrl - ' time. Pre-creating here causes
+    # a brief gitmux/status-bar flicker on the user's current session
+    # because tmux new-session -d fires the global session-created hook
+    # which briefly affects what tmux's "current" pointer resolves to.
+    # Instead, write "<name>|<path>" to the state file so
+    # notify-idle-switch.sh can create-and-attach on demand.
+    if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
+      echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
+    fi
+    ;;
+  not-a-bug)
+    TITLE="🤔 Skipped: not a bug · \$DURATION_FMT"
+    MSG="\${REASON:-(no reason given)}"
+    ;;
+  failed)
+    TITLE="❌ Worktree FAILED · \$DURATION_FMT"
+    MSG="\${REASON:-(check ${WORKTREE_LOG_TAG}.log)}"
+    ;;
+esac
+
+# Step E — vault capture.
+#   Default: non-success outcomes only (failure / not-a-bug → inbox note
+#   so the user can retry or audit later).
+#   WORKTREE_CAPTURE_ALWAYS=1 → success ALSO captured (record-of-every-
+#   filed-ticket, useful for audit trails).
+#   WORKTREE_DEFER_JIRA=1 → success captured as outcome=pending-jira,
+#   with a path-derived filename so worktree-jira-file (Stage B) can
+#   look it up later by current $PWD. The capture helper writes the
+#   inbox note + copies any image asset; on non-success it also stamps
+#   /tmp/notify-idle.latest with "vault|<note-path>". On success the
+#   runner already pointed the state file at the new worktree session,
+#   so capture must NOT clobber that — gate via SKIP_STATE_FILE.
+CAPTURE_SHOULD_RUN=0
+CAPTURE_OUTCOME="\$OUTCOME"
+if [ -s "$CAPTURE_PAYLOAD_FILE" ]; then
+  if [ "\$OUTCOME" != "success" ]; then
+    CAPTURE_SHOULD_RUN=1
+  elif [ "${WORKTREE_DEFER_JIRA:-0}" = "1" ]; then
+    CAPTURE_SHOULD_RUN=1
+    CAPTURE_OUTCOME="pending-jira"
+  elif [ "${WORKTREE_CAPTURE_ALWAYS:-0}" = "1" ]; then
+    CAPTURE_SHOULD_RUN=1
+  fi
+fi
+if [ "\$CAPTURE_SHOULD_RUN" = "1" ]; then
+  CAPTURE_NOTE=\$(
+    WORKTREE_LOG_TAG="${WORKTREE_LOG_TAG}" \\
+    WORKTREE_CAPTURE_PAYLOAD_FILE="$CAPTURE_PAYLOAD_FILE" \\
+    WORKTREE_CAPTURE_LOG="$LOGFILE" \\
+    WORKTREE_CAPTURE_IMAGE_SRC="$CAPTURE_IMAGE_SRC" \\
+    WORKTREE_CAPTURE_CONTEXT="\$(cat $CAPTURE_CONTEXT_FILE 2>/dev/null)" \\
+    WORKTREE_CAPTURE_WORKTREE_PATH="\$WORKTREE_PATH" \\
+    WORKTREE_CAPTURE_SKIP_STATE_FILE="\$([ "\$OUTCOME" = "success" ] && echo 1 || echo 0)" \\
+    \$HOME/.local/bin/worktree-capture "\$CAPTURE_OUTCOME" "\$REASON" 2>/dev/null
+  )
+  if [ -n "\$CAPTURE_NOTE" ]; then
+    if [ "\$CAPTURE_OUTCOME" = "pending-jira" ]; then
+      MSG="\${MSG} · Jira pending"
+    else
+      MSG="\${MSG} · captured to \$(basename \"\$CAPTURE_NOTE\")"
+    fi
+  fi
+fi
+
+# Defensive sweep before the final banner: a heartbeat-spawned
+# terminal-notifier can still be in flight even after we SIGKILLED
+# the heartbeat subshell. Reap any terminal-notifier process whose
+# command line still references our group — if found, it would
+# submit a banner to NotificationCenter and clobber our final via
+# same-group replacement. Belt + suspenders to the SIGKILL above.
+pkill -9 -f "terminal-notifier.*${WORKTREE_GROUP}" 2>/dev/null || true
+sleep 0.2
+
+# Final banner in the same group — replaces the start banner. Longer
+# timeout (FINAL_TIMEOUT) so the result isn't missed if you glanced
+# away. Outcome-specific sound: success = Glass, failed = Basso,
+# not-a-bug = Pop. Click handler runs notify-idle-switch.sh — same as
+# rctrl + ' (success → switch worktree session, non-success → open
+# captured vault note with picker if multiple recent).
+#
+# Build the args as a bash array (NOT \${SOUND:+-s "\$SOUND"} — that
+# string-substitution leaves literal quote chars in the token after
+# word-splitting, which terminal-notifier rejects silently → sound
+# vanishes AND the banner sometimes doesn't fire). Arrays preserve
+# elements verbatim with no quoting hazards.
+notify_args=(
+  -t "\$TITLE"
+  -m "\$MSG"
+  -g "$WORKTREE_GROUP"
+  -T $FINAL_TIMEOUT
+  -e "\$HOME/Scripts/notify-idle-switch.sh"
+)
+case "\$OUTCOME" in
+  success)   notify_args+=( -s Glass ) ;;
+  failed)    notify_args+=( -s Basso ) ;;
+  not-a-bug) notify_args+=( -s Pop )   ;;
+esac
+mac-notify "\${notify_args[@]}"
+echo "[\$(date +%H:%M:%S)] mac-notify exit: \$?" >> $LOGFILE
+
+# Brief pause so the notification actually posts before the window closes.
+sleep 1
+
+# Kill any new unnamed (numeric) tmux session that appeared during our
+# run. The BEFORE snapshot is the file written by the outer wrapper.
+TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
+if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
+  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
+    | grep -E '^[0-9]+\$' \
+    | while read -r stale; do
+        tmux kill-session -t "\$stale" 2>/dev/null || true
+      done
+fi
+
+# Terminal-quit watcher is now spawned by the EXIT trap (cleanup
+# function above). That guarantees a watcher fires regardless of how
+# we exit — normal completion, abort SIGTERM, claude crash, error
+# path. The trap-spawned watcher uses the same double-fork idiom so
+# it survives the trap's pkill -P \$\$.
+exit 0
+EOF
+
+# Launch macOS Terminal.app in the background.
+# - `-g`     no foregrounding (keeps focus on caller)
+# - `-n`     new instance
+# - `--env`  explicitly inject SKIP_FETCH so zsh's login init skips
+#            ghosttyfetch (which spawns a `tmux` child and creates an
+#            unnamed numeric session). LaunchServices filters out
+#            custom env vars from the calling shell, so `--env` is the
+#            only reliable way to get them through.
+open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"

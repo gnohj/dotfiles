@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# Abort an in-flight worktree-runner. Scans /tmp/worktree-runner-*.state
+# for live runners (the runner's inner script writes one per PID at
+# start, removes it on exit). Behavior:
+#
+#   0 alive  → "No worktree in flight"
+#   1 alive  → kill it, fire "❌ aborted" banner in its group
+#   ≥2 alive → fzf picker (TAG · age · group), with a "Kill all" entry
+#              at the top. Pick one to kill that one; pick "Kill all"
+#              to abort every in-flight runner.
+#
+# Stale state files (PID is dead) are cleaned up automatically each
+# time this script runs.
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - escape : ~/.local/bin/worktree-abort
+
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+notify_text() {
+  mac-notify -t "worktree-abort" -m "$1" -T 4 -g "worktree-abort-info"
+}
+
+# Kill one runner by its state file. Sources PID/GROUP/TAG, sends
+# SIGTERM (then KILL after 0.5s), fires the abort banner in that
+# runner's notification group, removes the state file.
+kill_runner() {
+  local state_file="$1"
+  unset PID GROUP TAG STARTED
+  # shellcheck disable=SC1090
+  . "$state_file"
+
+  if [ -n "${PID:-}" ] && kill -0 "$PID" 2>/dev/null; then
+    kill -TERM "$PID" 2>/dev/null || true
+    sleep 0.5
+    if kill -0 "$PID" 2>/dev/null; then
+      kill -KILL "$PID" 2>/dev/null || true
+    fi
+  fi
+
+  mac-notify \
+    -t "❌ Worktree aborted" \
+    -m "${TAG:-runner} — by user" \
+    -g "${GROUP:-worktree-runner}" \
+    -T 6 \
+    -s Basso
+
+  rm -f "$state_file"
+}
+
+# Format an age in seconds as a short human string: 12s / 2m30s / 1h05m.
+fmt_age() {
+  local secs="$1"
+  if [ "$secs" -lt 60 ]; then
+    printf '%ss' "$secs"
+  elif [ "$secs" -lt 3600 ]; then
+    printf '%dm%02ds' $((secs / 60)) $((secs % 60))
+  else
+    printf '%dh%02dm' $((secs / 3600)) $(((secs % 3600) / 60))
+  fi
+}
+
+#-------------------------------------------------------------------------------
+# 1. Gather alive runners; clean stale state files along the way.
+#-------------------------------------------------------------------------------
+ALIVE=()
+shopt -s nullglob
+for f in /tmp/worktree-runner-*.state; do
+  unset PID
+  # shellcheck disable=SC1090
+  . "$f" 2>/dev/null || continue
+  if [ -n "${PID:-}" ] && kill -0 "$PID" 2>/dev/null; then
+    ALIVE+=( "$f" )
+  else
+    rm -f "$f"
+  fi
+done
+shopt -u nullglob
+
+count=${#ALIVE[@]}
+
+if [ "$count" -eq 0 ]; then
+  notify_text "No worktree in flight"
+  rm -f /tmp/notify-idle.latest
+  exit 0
+fi
+
+if [ "$count" -eq 1 ]; then
+  kill_runner "${ALIVE[0]}"
+  rm -f /tmp/notify-idle.latest
+  exit 0
+fi
+
+#-------------------------------------------------------------------------------
+# 2. Multiple alive — fzf picker via tmux popup.
+#-------------------------------------------------------------------------------
+LIST_FILE=$(mktemp -t worktree-abort-list.XXXXXX)
+PICK_FILE=$(mktemp -t worktree-abort-pick.XXXXXX)
+trap 'rm -f "$LIST_FILE" "$PICK_FILE"' EXIT
+
+NOW=$(date +%s)
+
+# "Kill all" entry first — common case when user just wants everything gone.
+printf '%-22s · %-7s · %s\t__ALL__\n' "✗ Abort ALL $count runs" "" "" >> "$LIST_FILE"
+
+for f in "${ALIVE[@]}"; do
+  unset PID GROUP TAG STARTED
+  # shellcheck disable=SC1090
+  . "$f" 2>/dev/null || continue
+  age=$((NOW - ${STARTED:-NOW}))
+  printf '%-22s · %-7s · %s\t%s\n' \
+    "${TAG:-?}" "$(fmt_age "$age")" "${GROUP:-?}" "$f" >> "$LIST_FILE"
+done
+
+tmux display-popup -E -w 80% -h 40% \
+  "fzf --reverse --delimiter=$'\t' --with-nth=1 --prompt='abort > ' < '$LIST_FILE' > '$PICK_FILE'" \
+  2>/dev/null || true
+
+PICK=$(cat "$PICK_FILE" 2>/dev/null || true)
+
+# User cancelled (Esc / Ctrl-C) — leave everything alone.
+if [ -z "$PICK" ]; then
+  exit 0
+fi
+
+CHOICE=$(printf '%s' "$PICK" | awk -F'\t' '{print $2}')
+
+if [ "$CHOICE" = "__ALL__" ]; then
+  for f in "${ALIVE[@]}"; do
+    kill_runner "$f"
+  done
+  rm -f /tmp/notify-idle.latest
+  exit 0
+fi
+
+if [ -n "$CHOICE" ] && [ -f "$CHOICE" ]; then
+  kill_runner "$CHOICE"
+  rm -f /tmp/notify-idle.latest
+fi
+exit 0

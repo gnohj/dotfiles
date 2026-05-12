@@ -1,22 +1,21 @@
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
-# Trailing ; exec $SHELL keeps pane alive (sesh < PR#372 workaround)
-startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1; exec $SHELL"
+startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
 
 [[session]]
 name = "home"
 path = "~/"
-startup_command = "c; exec $SHELL"
+startup_command = "c"
 
 [[session]]
 name = "bin"
 path = "~/_bin"
-startup_command = "ls; exec $SHELL"
+startup_command = "ls"
 
 [[session]]
 name = "config"
 path = "~/.config"
-startup_command = "n; exec $SHELL"
+startup_command = "n"
 
 [[session]]
 name = "logs"
@@ -25,36 +24,41 @@ path = "~/.logs"
 [[session]]
 name = "chezmoi"
 path = "~/.local/share/chezmoi"
-startup_command = "git status; exec $SHELL"
+startup_command = "git status"
 
 [[session]]
 name = "developer"
 path = "~/Developer"
-startup_command = "ls; exec $SHELL"
+startup_command = "ls"
 
 [[session]]
 name = "downloads"
 path = "~/Downloads"
-startup_command = "ls; exec $SHELL"
+startup_command = "ls"
 
 [[session]]
 name = "desktop"
 path = "~/Desktop"
-startup_command = "ls; exec $SHELL"
+startup_command = "ls"
 
 [[session]]
 name = "inferno/bare"
 path = "~/Developer/inferno/"
-startup_command = "treekanga tui; exec $SHELL"
+startup_command = "treekanga tui"
+
+[[session]]
+name = "inferno/develop"
+path = "~/Developer/inferno/develop"
 
 [[session]]
 name = "inferno/review"
 path = "~/Developer/inferno/review"
-startup_command = "ghd; exec $SHELL"
+startup_command = "ghd"
 
 [[session]]
 name = "second_brain"
 path = "~/Obsidian/second-brain"
+startup_command = "n"
 
 [[session]]
 name = "glove80"
@@ -71,34 +75,38 @@ path = "~/Developer/toucan-corne42"
 [[session]]
 name = "web/bare"
 path = "~/Developer/web/"
-startup_command = "treekanga tui; exec $SHELL"
+startup_command = "treekanga tui"
+
+[[session]]
+name = "web/master"
+path = "~/Developer/web/master"
 
 [[session]]
 name = "web/review"
 path = "~/Developer/web/review"
-startup_command = "ghd; exec $SHELL"
+startup_command = "ghd"
 
 [[session]]
 name = "yazi"
 path = "~/."
-startup_command = "y; exec $SHELL"
+startup_command = "y"
 
 [[session]]
 name = "radioctl"
 path = "~/."
-startup_command = "n .radioctl2; exec $SHELL"
+startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 
 [[session]]
 name = "radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
-startup_command = "n .zsh_radioctl_cmds; exec $SHELL"
+startup_command = "n .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 [[session]]
 name = "agents"
 path = "~/Developer/agents"
-startup_command = "git status; exec $SHELL"
+startup_command = "git status"
 
 [[session]]
 name = "claude"
@@ -139,6 +147,6 @@ path = "~/Developer/sre-iam-management"
 [[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
-startup_command = "n .zsh_gnohj_env; exec $SHELL"
+startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
 

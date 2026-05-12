@@ -144,6 +144,44 @@ update_starship_env
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd update_starship_env
 
+# Pattern A worktree workflow: keep `origin/HEAD` (and the rest of
+# `refs/remotes/origin/*`) fresh in the bare repo so any tool that
+# branches off `origin/HEAD` — `treekanga add … -b origin/HEAD`,
+# lazygit, manual `git checkout -b … origin/master` — sees the latest
+# remote without the user thinking about it. The AI flows
+# (worktree-prompt fast-path, /worktree skill) already fetch before
+# branching; this hook covers manual TUI usage of lazygit/treekanga.
+#
+# Behavior:
+#   • Fires only when cwd is inside `$HOME/Developer/<repo>/...`.
+#   • Debounced via `<bare>/.last-fetch` stamp — at most once every
+#     5 minutes per repo to avoid network thrash on rapid `cd` chains.
+#   • Background + disowned (`&!`) so prompts never block.
+#   • Silent on failure (offline, auth blip) — never disrupts cd.
+_worktree_autofetch_origin() {
+  case "$PWD" in
+    "$HOME/Developer/"*) ;;
+    *) return ;;
+  esac
+  local repo_root="${PWD#$HOME/Developer/}"
+  repo_root="${repo_root%%/*}"
+  local bare="$HOME/Developer/$repo_root/.bare"
+  [[ -d "$bare" ]] || return
+
+  local stamp="$bare/.last-fetch"
+  local now=$(date +%s)
+  local last=0
+  [[ -f "$stamp" ]] && last=$(<"$stamp") 2>/dev/null
+  (( now - last < 300 )) && return
+
+  # --prune cleans up remote-tracking refs whose upstream branches were
+  # deleted (merged PR cleanup, dependabot churn, etc.). Free side
+  # effect every 5 min — keeps `git branch -r` and lazygit's branch
+  # list from accumulating dead refs.
+  ( git -C "$bare" fetch origin --quiet --prune 2>/dev/null && print -n "$now" > "$stamp" ) &!
+}
+add-zsh-hook chpwd _worktree_autofetch_origin
+
 # brew init starship - https://github.com/starship/starship/issues/3418
 if [[ "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select" || \
       "${widgets[zle-keymap-select]#user:}" == "starship_zle-keymap-select-wrapped" ]]; then
@@ -444,7 +482,7 @@ alias vim="nvim"
 export EDITOR="nvim"
 
 # Claude Code - reduce bash output to save tokens
-export CLAUDE_CODE_MAX_OUTPUT_CHARS=15000
+# export CLAUDE_CODE_MAX_OUTPUT_CHARS=15000
 
 # Atuin Script Shortcuts
 alias iheart-token="atuin scripts run iheart-token"
@@ -857,9 +895,9 @@ fi
 #-------------------------------------------------------------------------------
 
 # Disable Console Do Not Track (specification)
-export DO_NOT_TRACK=1
+# export DO_NOT_TRACK=1
 # export DISABLE_TELEMETRY=1 # commented out: blocks Claude Code Remote Control
-export DISABLE_AUTOUPDATER=1
+# export DISABLE_AUTOUPDATER=1
 export HOMEBREW_NO_AUTO_UPDATE="1"
 
 # Force ghostty detection for snacks image - https://github.com/folke/snacks.nvim/blob/main/docs/image.md

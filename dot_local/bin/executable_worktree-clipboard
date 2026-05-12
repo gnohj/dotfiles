@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+# Clipboard → /worktree pipeline. Reads whatever's on the system
+# clipboard (text or image) and routes through the shared backend at
+# ~/.local/bin/worktree-runner.
+#
+# UX contract: ALWAYS shows the context popup first, regardless of
+# clipboard kind. Inference happens after — same shape as worktree-bug.
+# This way the user gets one chance to add disambiguation (repo hint,
+# bucket, "saw on Safari", etc.) before claude makes routing decisions.
+#
+# Routing (post-popup):
+# - Image                       → RAW_PROMPT (claude reads the image,
+#                                  infers repo/bucket/slug, runs /worktree).
+# - Text + Jira URL + no context → URL pipeline (fast).
+# - Text + Jira URL + context    → RAW_PROMPT with URL + context.
+# - Text + Slack URL             → RAW_PROMPT: hydrate via unblocked,
+#                                  then /worktree.
+# - Text + other                 → describe pipeline with context appended.
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - k : ~/.local/bin/worktree-clipboard
+
+set -euo pipefail
+
+# skhd spawns this with a minimal PATH. Pin a sensible PATH so tmux,
+# pngpaste, pbpaste, terminal-notifier, etc. resolve.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# When fired by skhd we run OUTSIDE any tmux client context — the
+# `tmux display-popup` call below then has no client to host on and
+# fails with "no current client", which (under set -e) kills the
+# script BEFORE the runner can even fire its start banner. Mirror
+# worktree-prompt's respawn pattern: re-enter the tmux server context
+# via `tmux run-shell -b` so the popup renders.
+if [ -z "${TMUX:-}" ] \
+   && [ -z "${WORKTREE_CLIPBOARD_RESPAWNED:-}" ] \
+   && command -v tmux >/dev/null 2>&1 \
+   && tmux ls >/dev/null 2>&1; then
+  WORKTREE_CLIPBOARD_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-clipboard"
+  exit 0
+fi
+
+notify_error() {
+  mac-notify -t "worktree-clipboard" -m "$1" -T 6 -g "worktree-clipboard-error"
+}
+
+#-------------------------------------------------------------------------------
+# 1. Detect clipboard kind (image takes precedence — pngpaste is authoritative)
+#-------------------------------------------------------------------------------
+# BSD mktemp on macOS only substitutes *trailing* X's — anything after
+# the X's (like `.png`) is treated as a literal prefix. mktemp with
+# trailing X's, then rename to add the extension claude's Read tool
+# needs.
+TMP_IMG_BASE=$(mktemp "${TMPDIR:-/tmp}/worktree-clipboard-image.XXXXXX")
+TMP_IMG="${TMP_IMG_BASE}.png"
+mv "$TMP_IMG_BASE" "$TMP_IMG"
+CLIPBOARD_KIND=""
+CLIP=""
+
+if pngpaste "$TMP_IMG" 2>/dev/null && [ -s "$TMP_IMG" ]; then
+  CLIPBOARD_KIND="image"
+  # NOTE: $TMP_IMG must survive past `exec` because the spawned
+  # Terminal.app's claude session reads it. /tmp is auto-cleaned by
+  # macOS, so no manual cleanup needed.
+else
+  rm -f "$TMP_IMG"
+  TMP_IMG=""
+  CLIP=$(pbpaste 2>/dev/null || true)
+  if [ -z "$CLIP" ]; then
+    notify_error "Clipboard is empty"
+    exit 1
+  fi
+  # Sanitize: see worktree-bug for the same call. claude's CLI panics
+  # on stray non-UTF-8 bytes (e.g. Slack-on-macOS \xCA NBSPs).
+  CLIP=$(printf '%s' "$CLIP" | clipboard-sanitize)
+
+  # Path-to-image fallback. Common case: user Cmd-C's a screenshot
+  # *file* in Finder/iCloud — the clipboard then carries the file path
+  # as text (not raw image bytes), so pngpaste returned empty above.
+  # Detect a single-line path to an existing image and re-route through
+  # the image branch instead of treating the path string itself as a
+  # bug report.
+  RESOLVED_IMG=""
+  case "$CLIP" in
+    *$'\n'*) ;;  # multiline → not a path
+    *)
+      # Trim whitespace + surrounding quotes; strip optional file:// prefix.
+      P="${CLIP#"${CLIP%%[![:space:]]*}"}"
+      P="${P%"${P##*[![:space:]]}"}"
+      case "$P" in
+        \"*\") P="${P#\"}"; P="${P%\"}" ;;
+        \'*\') P="${P#\'}"; P="${P%\'}" ;;
+      esac
+      P="${P#file://}"
+      P="${P/#\~/$HOME}"
+      if [ -f "$P" ]; then
+        case "$P" in
+          *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.gif|*.GIF|*.webp|*.WEBP|*.heic|*.HEIC|*.bmp|*.BMP)
+            RESOLVED_IMG="$P"
+            ;;
+        esac
+      fi
+      ;;
+  esac
+  if [ -n "$RESOLVED_IMG" ]; then
+    TMP_IMG="$RESOLVED_IMG"
+    CLIP=""
+    CLIPBOARD_KIND="image"
+  else
+    CLIPBOARD_KIND="text"
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# 2. Build a preview header for the popup
+#-------------------------------------------------------------------------------
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  PREVIEW="📋 Image (saved to $TMP_IMG)"
+else
+  PREVIEW_TEXT=$(printf '%s' "$CLIP" | tr '\n' ' ' | head -c 200)
+  if [ "${#CLIP}" -gt 200 ]; then PREVIEW_TEXT="${PREVIEW_TEXT}…"; fi
+  PREVIEW="📋 ${PREVIEW_TEXT}"
+fi
+
+#-------------------------------------------------------------------------------
+# 3. Tmux popup for additional context (always shown — Enter alone to skip)
+#-------------------------------------------------------------------------------
+INPUT_FILE=$(mktemp -t worktree-clipboard-input.XXXXXX)
+POPUP_SH=$(mktemp -t worktree-clipboard-popup.XXXXXX.sh)
+chmod +x "$POPUP_SH"
+trap 'rm -f "$INPUT_FILE" "$POPUP_SH"' EXIT
+
+cat > "$POPUP_SH" <<EOF
+#!/usr/bin/env bash
+clear
+cat <<HEAD
+Worktree from clipboard
+
+$PREVIEW
+
+Add context (helps claude infer repo / bucket / slug).
+Press Enter alone to use clipboard as-is.
+
+(Ctrl-C to cancel · Enter to submit)
+
+HEAD
+read -e -p "context > " ctx
+echo "\$ctx" > "$INPUT_FILE"
+EOF
+
+tmux display-popup -E -w 70% -h 30% "$POPUP_SH"
+
+CONTEXT=$(cat "$INPUT_FILE" 2>/dev/null || true)
+rm -f "$INPUT_FILE" "$POPUP_SH"
+
+#-------------------------------------------------------------------------------
+# 4. Route: image first, then text branches (Jira URL / Slack URL / describe)
+#-------------------------------------------------------------------------------
+
+# Image → RAW_PROMPT (claude reads file, infers, runs /worktree)
+if [ "$CLIPBOARD_KIND" = "image" ]; then
+  WORKTREE_RAW_PROMPT="You are processing a screenshot from my system clipboard for worktree creation.
+
+Read the image at: $TMP_IMG
+
+Additional context from the user: ${CONTEXT:-(none)}
+
+Steps:
+1. Read the image file. It may be a screenshot of a Slack thread, GitHub PR, Jira ticket, terminal output, code snippet, or bug report.
+2. If you find a Jira URL or ticket key in the image, run \`/worktree <full-atlassian-URL> --yes\`.
+3. Otherwise, infer repo + folder bucket + slug from the image content (use the additional context above to disambiguate). Then run \`/worktree <inferred-positional-or-describe-args> --yes\`. Use Mode B if you can extract a clean repo/branch/folder; Mode C describe otherwise. \`--yes\` is REQUIRED — without it the skill prompts for confirmation, which fails silently in -p headless mode.
+
+Be concise. Do not narrate every step — just analyze and call /worktree once with --yes." \
+  WORKTREE_GROUP="worktree-clipboard-image" \
+  WORKTREE_LOG_TAG="worktree-clipboard" \
+  WORKTREE_LOG_HEADER="CLIPBOARD: image at $TMP_IMG
+CONTEXT: ${CONTEXT:-(none)}" \
+  WORKTREE_START_MESSAGE="From clipboard image" \
+  WORKTREE_FALLBACK_LABEL="clipboard image" \
+  WORKTREE_CAPTURE_PAYLOAD="image:$TMP_IMG" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# Text + Jira URL — fast path if no context, RAW_PROMPT if context provided
+if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
+  URL="${BASH_REMATCH[1]}"
+  TICKET="${BASH_REMATCH[2]}"
+
+  if [ -z "$CONTEXT" ]; then
+    # Fast path — pure URL (Mode A). haiku handles MCP fetch + repo
+    # inference fine; saves ~50% of claude-side latency vs sonnet.
+    WORKTREE_CLAUDE_INPUT="$URL" \
+    WORKTREE_CLAUDE_MODEL="haiku" \
+    WORKTREE_GROUP="worktree-${TICKET}" \
+    WORKTREE_LOG_TAG="worktree-clipboard" \
+    WORKTREE_LOG_HEADER="CLIPBOARD URL: $URL
+MODEL: haiku" \
+    WORKTREE_START_TITLE="Creating ${TICKET}…" \
+    WORKTREE_START_MESSAGE="From clipboard Jira URL" \
+    WORKTREE_FALLBACK_LABEL="$TICKET" \
+    WORKTREE_CAPTURE_PAYLOAD="$URL" \
+    exec ~/.local/bin/worktree-runner
+  fi
+
+  # URL + context — RAW_PROMPT so claude can factor context into the
+  # branch slug or whether to refine the inference. /worktree still
+  # reads the ticket via Atlassian MCP for canonical fields.
+  WORKTREE_RAW_PROMPT="The clipboard contains a Jira ticket URL plus extra context the user wants you to factor into worktree creation.
+
+Jira URL: $URL
+Ticket key: $TICKET
+
+User context: $CONTEXT
+
+Steps:
+1. Run \`/worktree $URL --yes\`. The skill reads the ticket via the Atlassian MCP for canonical repo / folder / slug inference.
+2. If the user's context above suggests a more specific direction (e.g. \"frontend only\", \"prototype with X\", \"split into two PRs\"), pass that hint to /worktree as describe-style refinement OR record it in a local note for follow-up — your call.
+
+Be concise — fetch, infer, run, no narration." \
+  WORKTREE_CLAUDE_MODEL="haiku" \
+  WORKTREE_GROUP="worktree-${TICKET}" \
+  WORKTREE_LOG_TAG="worktree-clipboard" \
+  WORKTREE_LOG_HEADER="CLIPBOARD URL: $URL
+CONTEXT: $CONTEXT
+MODEL: haiku" \
+  WORKTREE_START_TITLE="Creating ${TICKET}…" \
+  WORKTREE_START_MESSAGE="Jira URL + context" \
+  WORKTREE_FALLBACK_LABEL="$TICKET" \
+  WORKTREE_CAPTURE_PAYLOAD="$URL" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# Text + Slack URL — always RAW_PROMPT (URL is opaque; needs hydration)
+if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.slack\.com/archives/[^[:space:]]+) ]]; then
+  SLACK_URL="${BASH_REMATCH[1]}"
+  WORKTREE_RAW_PROMPT="The clipboard contains a Slack message URL — the URL alone is opaque, so hydrate it before deciding what to do.
+
+Slack URL: $SLACK_URL
+
+User context: ${CONTEXT:-(none)}
+
+Step 1: Call \`mcp__unblocked__context_get_urls\` with this URL. Unblocked indexes Slack threads — it will return the message body, channel, who said what, surrounding thread context.
+
+Step 2: From the fetched content (and the user's context, if any), decide which /worktree mode fits:
+- If the thread references a specific Jira ticket URL, run \`/worktree <jira-url> --yes\` (URL mode).
+- Otherwise, infer repo + folder bucket + slug from the thread (channel name, mentioned product/team, problem description) and run \`/worktree <inferred> --yes\` (describe mode).
+
+Step 3: Be concise — fetch, infer, run. No narration, no commentary." \
+  WORKTREE_GROUP="worktree-slack" \
+  WORKTREE_LOG_TAG="worktree-clipboard" \
+  WORKTREE_LOG_HEADER="CLIPBOARD: Slack URL → $SLACK_URL
+CONTEXT: ${CONTEXT:-(none)}" \
+  WORKTREE_START_TITLE="Fetching Slack thread…" \
+  WORKTREE_START_MESSAGE="Slack → /worktree" \
+  WORKTREE_FALLBACK_LABEL="Slack thread" \
+  WORKTREE_CAPTURE_PAYLOAD="$SLACK_URL" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec ~/.local/bin/worktree-runner
+fi
+
+# Text + other → free-text describe pipeline. Append context to clipboard
+# text so /worktree's Mode C has both signals.
+if [ -n "$CONTEXT" ]; then
+  INPUT="$CLIP -- $CONTEXT"
+else
+  INPUT="$CLIP"
+fi
+
+# Pick model. Default sonnet (Mode C inference power), but downgrade to
+# haiku for clipboard payloads that look like Mode A (bare ticket key —
+# Jira URLs already hit earlier branches) or Mode B (3-token structured
+# branch). Mirrors worktree-prompt's selector — only the clipboard
+# payload, not the appended context, is checked.
+SELECTED_MODEL="sonnet"
+if [[ "$CLIP" =~ ^[[:space:]]*[A-Z]+-[0-9]+[[:space:]]*$ ]]; then
+  SELECTED_MODEL="haiku"
+elif read -r -a CLIP_TOKENS <<< "$CLIP" \
+     && [ "${#CLIP_TOKENS[@]}" -eq 3 ] \
+     && [[ "${CLIP_TOKENS[1]}" =~ [0-9] ]]; then
+  SELECTED_MODEL="haiku"
+fi
+
+WORKTREE_CLAUDE_INPUT="$INPUT" \
+WORKTREE_CLAUDE_MODEL="$SELECTED_MODEL" \
+WORKTREE_GROUP="worktree-clipboard" \
+WORKTREE_LOG_TAG="worktree-clipboard" \
+WORKTREE_LOG_HEADER="CLIPBOARD (text):
+$CLIP
+
+CONTEXT: ${CONTEXT:-(none)}
+MODEL: $SELECTED_MODEL" \
+WORKTREE_START_MESSAGE="From clipboard text" \
+WORKTREE_FALLBACK_LABEL="clipboard text" \
+WORKTREE_CAPTURE_PAYLOAD="$CLIP" \
+WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+exec ~/.local/bin/worktree-runner

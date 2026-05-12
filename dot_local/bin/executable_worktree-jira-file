@@ -1,0 +1,428 @@
+#!/usr/bin/env bash
+# Stage B of the deferred-jira flow.
+#
+# Stage A (~/.local/bin/worktree-bug) captured a clipboard payload into
+# `~/Obsidian/second-brain/Notes-Inbox/jira-pending-<path-slug>.md`
+# alongside the freshly-created worktree. This script — invoked from
+# inside that worktree — looks up the matching pending note and runs a
+# TWO-STEP claude flow with explicit user confirmation BETWEEN steps:
+#
+#   1. Dry-run claude  — composes the ticket payload (summary,
+#                        description, fields). Does NOT call any
+#                        Atlassian MCP. Output is markdown the user
+#                        will read in step 2.
+#   2. tmux popup       — shows the proposed payload. User types "yes"
+#                        to file, anything else cancels. Pending note
+#                        stays in inbox on cancel; user can rerun.
+#   3. File claude      — only runs after explicit yes. Calls
+#                        `mcp__claude_ai_Atlassian_Rovo__createJiraIssue`
+#                        with the approved payload. Outputs ticket key
+#                        and URL.
+#   4. Rename + banner  — note moves to `jira-filed-<TICKET>-<slug>.md`,
+#                        URL copied to clipboard, success banner.
+#
+# Bind via skhd, e.g.:
+#   rctrl + shift - f : ~/.local/bin/worktree-jira-file
+
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# skhd fires this with no tmux client; mirror worktree-prompt's respawn
+# so display-popup has a host. The respawned process inherits TMUX env
+# and can issue tmux commands.
+if [ -z "${TMUX:-}" ] \
+   && [ -z "${WORKTREE_JIRA_FILE_RESPAWNED:-}" ] \
+   && command -v tmux >/dev/null 2>&1 \
+   && tmux ls >/dev/null 2>&1; then
+  WORKTREE_JIRA_FILE_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-jira-file"
+  exit 0
+fi
+
+VAULT_INBOX="$HOME/Obsidian/second-brain/Notes-Inbox"
+PROMPT_DETAIL="$HOME/.local/bin/worktree/jira-prompt-company.md"
+LOGFILE="$HOME/.logs/worktree-jira-file.log"
+mkdir -p "$(dirname "$LOGFILE")"
+
+notify_error() {
+  mac-notify -t "worktree-jira-file" -m "$1" -T 8 -g "worktree-jira-file-error"
+}
+
+# Heartbeat helper — fires a banner every 30s with elapsed time, until
+# killed. Use as: `start_heartbeat <group> <label> & HB_PID=$!` then
+# `kill_heartbeat $HB_PID` after the long-running call.
+start_heartbeat() {
+  local group="$1" label="$2"
+  (
+    local elapsed=0
+    for interval in 30 30 60 60 60; do
+      sleep "$interval"
+      elapsed=$((elapsed + interval))
+      mac-notify -t "${label}… ${elapsed}s" -m "(claude running)" -g "$group" -T 60
+    done
+  ) &
+  echo $!
+}
+kill_heartbeat() {
+  local pid="$1" group="$2"
+  kill -9 "$pid" 2>/dev/null || true
+  pkill -9 -P "$pid" 2>/dev/null || true
+  pkill -9 -f "terminal-notifier.*${group}" 2>/dev/null || true
+  wait 2>/dev/null || true
+  sleep 0.3
+}
+
+#-------------------------------------------------------------------------------
+# 1. Derive the path-slug from the active tmux pane's working directory.
+#    skhd → tmux run-shell respawn lands us in the tmux server's CWD
+#    (~ or /), NOT the user's focused pane — so plain `git rev-parse
+#    --show-toplevel` always fails with "not a git repo." Ask tmux
+#    which pane was active and use its #{pane_current_path}; that's
+#    where the user actually is when they hit the hotkey.
+#-------------------------------------------------------------------------------
+ACTIVE_PATH="$PWD"
+if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+  TMUX_PANE_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
+  if [ -n "$TMUX_PANE_PATH" ] && [ -d "$TMUX_PANE_PATH" ]; then
+    ACTIVE_PATH="$TMUX_PANE_PATH"
+  fi
+fi
+
+WORKTREE_PATH=$(git -C "$ACTIVE_PATH" rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$WORKTREE_PATH" ]; then
+  notify_error "Not inside a git repo (active pane: $ACTIVE_PATH) — focus a worktree pane first"
+  exit 1
+fi
+case "$WORKTREE_PATH" in
+  "$HOME/Developer/"*) ;;
+  *)
+    notify_error "Worktree must be under ~/Developer/<repo>/... (got: $WORKTREE_PATH)"
+    exit 1
+    ;;
+esac
+REL="${WORKTREE_PATH#$HOME/Developer/}"
+SLUG="${REL//\//-}"
+NOTE="$VAULT_INBOX/jira-pending-${SLUG}.md"
+
+#-------------------------------------------------------------------------------
+# 2. Find the pending note. Fall back to fzf picker over all
+#    `jira-pending-*.md` if the path-keyed lookup misses (worktree
+#    renamed/moved post-capture is the realistic case).
+#-------------------------------------------------------------------------------
+if [ ! -f "$NOTE" ]; then
+  PENDING=()
+  while IFS= read -r p; do PENDING+=( "$p" ); done < <(find "$VAULT_INBOX" -maxdepth 1 -name 'jira-pending-*.md' 2>/dev/null | sort)
+
+  if [ "${#PENDING[@]}" -eq 0 ]; then
+    notify_error "No pending Jira notes in inbox (looked for $(basename "$NOTE"))"
+    exit 1
+  fi
+
+  if [ "${#PENDING[@]}" -eq 1 ]; then
+    NOTE="${PENDING[0]}"
+  else
+    PICK_INPUT=$(mktemp -t worktree-jira-file-pick.XXXXXX)
+    PICK_MENU="${PICK_INPUT}.menu"
+    PICK_SH=$(mktemp -t worktree-jira-file-pick.XXXXXX.sh)
+    chmod +x "$PICK_SH"
+    trap 'rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"' EXIT
+
+    {
+      printf 'Path-keyed lookup failed for: %s\n' "$(basename "$NOTE")"
+      printf 'Pick a pending note to file:\n\n'
+      for p in "${PENDING[@]}"; do printf '%s\n' "$(basename "$p")"; done
+    } > "$PICK_MENU"
+
+    cat > "$PICK_SH" <<EOF
+#!/usr/bin/env bash
+clear
+PICKED=\$(tail -n +4 "$PICK_MENU" | fzf --prompt='pending > ' --height=100% --header="\$(head -2 "$PICK_MENU")" --layout=reverse 2>/dev/null || true)
+echo "\$PICKED" > "$PICK_INPUT"
+EOF
+
+    tmux display-popup -E -w 80% -h 60% "$PICK_SH"
+
+    PICKED=$(cat "$PICK_INPUT" 2>/dev/null || true)
+    rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"
+    trap - EXIT
+    if [ -z "$PICKED" ]; then
+      exit 0  # user cancelled — silent
+    fi
+    NOTE="$VAULT_INBOX/$PICKED"
+  fi
+fi
+
+if [ ! -f "$NOTE" ]; then
+  notify_error "Pending note not found: $NOTE"
+  exit 1
+fi
+
+if [ ! -s "$PROMPT_DETAIL" ]; then
+  notify_error "Missing $PROMPT_DETAIL (gitignored, per-employer) — populate before filing"
+  exit 1
+fi
+
+BRANCH=$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '(unknown)')
+GROUP="worktree-jira-file-${SLUG}"
+
+#-------------------------------------------------------------------------------
+# 3. STEP 1 — Dry-run claude. Composes the ticket payload (summary,
+#    description, type, custom fields, technical-notes investigation)
+#    WITHOUT calling createJiraIssue. Output goes to PROPOSAL_FILE for
+#    the user to review in step 2.
+#-------------------------------------------------------------------------------
+COMPANY_BODY=$(cat "$PROMPT_DETAIL")
+NOTE_BODY=$(cat "$NOTE")
+
+PROPOSAL_FILE=$(mktemp -t worktree-jira-file-proposal.XXXXXX)
+
+DRYRUN_PROMPT="You are composing a Jira ticket payload for review. The user will read your output and decide whether to file. Do NOT call any Atlassian MCP tool yet. Do NOT call /worktree (the worktree already exists at $WORKTREE_PATH).
+
+# Worktree context
+
+- Path: $WORKTREE_PATH
+- Branch: $BRANCH
+- Pending note: $NOTE
+
+# Pending capture note (clipboard payload + user context)
+
+\`\`\`markdown
+$NOTE_BODY
+\`\`\`
+
+# Steps
+
+1. If the captured payload is a Slack URL or other indexed reference, hydrate via \`mcp__unblocked__context_get_urls\` to read the actual thread body. If hydration fails (channel not indexed), continue with the URL + user context as best you can — note the limitation in the proposal.
+
+2. Light codebase investigation in $WORKTREE_PATH (≤45s):
+   - rg with 3-5 distinctive terms from the payload
+   - check git log on the top 1-2 suspect files
+   - capture findings for the Technical Notes field
+
+3. Compose the proposed ticket payload using the company conventions below. Output it as a markdown block the user will read.
+
+4. Print EXACTLY this format and stop:
+
+   PROPOSAL_BEGIN
+   ---
+   summary: <one-line title, ≤80 chars>
+   issueType: Bug
+   ---
+
+   ## Description
+
+   <2-3 short paragraphs>
+
+   ## Technical Notes
+
+   <suspect files / recent commits / regression hint per the company convention>
+
+   ## Custom fields
+
+   - <field-id-or-name>: <value>
+   - …
+   PROPOSAL_END
+
+   Do NOT call createJiraIssue. Do NOT print any other markers.
+
+5. If you cannot compose a meaningful proposal (e.g. payload too vague, hydration failed and context is empty), print EXACTLY:
+
+   PROPOSAL_FAILED: <one-line reason>
+
+   …and stop.
+
+# Company-specific detail
+
+$COMPANY_BODY
+
+Be concise — investigate briefly, compose the proposal, print the markers, stop."
+
+mac-notify -t "Composing proposal…" -m "$(basename "$NOTE")" -g "$GROUP" -T 12
+
+echo "=== $(date) ===" >> "$LOGFILE"
+echo "STEP: dry-run" >> "$LOGFILE"
+echo "NOTE: $NOTE" >> "$LOGFILE"
+echo "WORKTREE: $WORKTREE_PATH" >> "$LOGFILE"
+
+HB_PID=$(start_heartbeat "$GROUP" "Composing proposal")
+
+claude --dangerously-skip-permissions --model sonnet -p "$DRYRUN_PROMPT" > "$PROPOSAL_FILE" 2>&1 || true
+
+kill_heartbeat "$HB_PID" "$GROUP"
+
+# Append claude output to the run log for audit.
+{
+  echo "--- dry-run output ---"
+  cat "$PROPOSAL_FILE"
+  echo "--- end dry-run ---"
+} >> "$LOGFILE"
+
+# Extract the proposal block. Tolerant of leading prose claude may emit
+# before PROPOSAL_BEGIN.
+PROPOSAL=$(awk '/^PROPOSAL_BEGIN$/ { capture=1; next } /^PROPOSAL_END$/ { capture=0 } capture' "$PROPOSAL_FILE")
+PROPOSAL_FAILED=$(grep -m1 '^PROPOSAL_FAILED:' "$PROPOSAL_FILE" 2>/dev/null | sed 's/^PROPOSAL_FAILED:[[:space:]]*//' | head -c 200 || true)
+
+if [ -z "$PROPOSAL" ]; then
+  REASON="${PROPOSAL_FAILED:-(no PROPOSAL_BEGIN/END markers — check $LOGFILE)}"
+  mac-notify -t "❌ Proposal failed" -m "$REASON" -g "$GROUP" -T 30 -s Basso
+  rm -f "$PROPOSAL_FILE"
+  exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# 4. STEP 2 — User reviews + confirms. tmux popup shows the proposal.
+#    Anything other than yes/y aborts; the pending note stays put so
+#    the user can rerun after editing.
+#-------------------------------------------------------------------------------
+INPUT_FILE=$(mktemp -t worktree-jira-file-confirm.XXXXXX)
+POPUP_SH=$(mktemp -t worktree-jira-file-confirm.XXXXXX.sh)
+chmod +x "$POPUP_SH"
+trap 'rm -f "$INPUT_FILE" "$POPUP_SH" "$PROPOSAL_FILE"' EXIT
+
+cat > "$POPUP_SH" <<EOF
+#!/usr/bin/env bash
+clear
+cat <<HEAD
+🎫 Review proposed Jira ticket
+
+  Worktree: $WORKTREE_PATH
+  Branch:   $BRANCH
+  Note:     $(basename "$NOTE")
+
+──────────────────────── proposed payload ───────────────────────
+$PROPOSAL
+─────────────────────────────────────────────────────────────────
+
+Type "yes" to FILE this ticket via createJiraIssue.
+Anything else (incl. blank Enter) cancels — pending note stays put.
+
+(Ctrl-C also cancels)
+
+HEAD
+read -e -p "confirm > " ans
+echo "\$ans" > "$INPUT_FILE"
+EOF
+
+tmux display-popup -E -w 90% -h 80% "$POPUP_SH"
+
+CONFIRM=$(cat "$INPUT_FILE" 2>/dev/null || true)
+rm -f "$INPUT_FILE" "$POPUP_SH"
+case "$CONFIRM" in
+  y|Y|yes|YES|Yes) ;;
+  *)
+    mac-notify -t "Filing cancelled" -m "Pending note kept at $(basename "$NOTE")" -g "$GROUP" -T 8 -s Pop
+    rm -f "$PROPOSAL_FILE"
+    exit 0
+    ;;
+esac
+
+#-------------------------------------------------------------------------------
+# 5. STEP 3 — File claude. Hands the approved proposal to claude with
+#    instructions to call createJiraIssue verbatim. Single-purpose call
+#    — no investigation, no rewriting, just execute the API.
+#-------------------------------------------------------------------------------
+FILE_PROMPT="You are filing a Jira ticket. The payload below was already composed in a dry-run step and approved by the user. Your ONLY job is to translate this payload into a \`mcp__claude_ai_Atlassian_Rovo__createJiraIssue\` call.
+
+Do NOT modify the summary or description. Do NOT call /worktree. Do NOT do any further codebase investigation. Just file the ticket.
+
+# Approved payload
+
+$PROPOSAL
+
+# Steps
+
+1. Parse the payload above. Use the company conventions for cloudId / projectKey / customFieldIDs.
+2. Call \`mcp__claude_ai_Atlassian_Rovo__createJiraIssue\` with:
+   - \`summary\`: from payload's frontmatter
+   - \`description\`: the markdown body
+   - \`issueType\`: Bug (per payload)
+   - \`additionalFields\`: per the custom-field map in the company conventions, populated from the \"Custom fields\" section of the payload
+3. After creation, print EXACTLY two lines:
+
+   JIRA_TICKET: <KEY>
+   JIRA_URL: <full atlassian URL>
+
+   Then stop.
+4. If creation fails, print EXACTLY:
+
+   JIRA_FAILED: <one-line reason>
+
+# Company-specific detail (for cloudId / projectKey / customFieldIDs)
+
+$COMPANY_BODY
+
+Be concise — file, print marker, stop."
+
+mac-notify -t "Filing ticket…" -m "$(basename "$NOTE")" -g "$GROUP" -T 12
+
+echo "=== $(date) ===" >> "$LOGFILE"
+echo "STEP: file (after user yes)" >> "$LOGFILE"
+
+FILE_OUT=$(mktemp -t worktree-jira-file-out.XXXXXX)
+HB_PID=$(start_heartbeat "$GROUP" "Filing ticket")
+
+claude --dangerously-skip-permissions --model sonnet -p "$FILE_PROMPT" > "$FILE_OUT" 2>&1 || true
+
+kill_heartbeat "$HB_PID" "$GROUP"
+
+{
+  echo "--- file output ---"
+  cat "$FILE_OUT"
+  echo "--- end file ---"
+} >> "$LOGFILE"
+
+#-------------------------------------------------------------------------------
+# 6. Parse outcome → rename note, copy URL to clipboard, banner.
+#-------------------------------------------------------------------------------
+TICKET=$(grep -m1 '^JIRA_TICKET:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_TICKET:[[:space:]]*//' | tr -dc 'A-Z0-9-' | head -c 32 || true)
+URL=$(grep -m1 '^JIRA_URL:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_URL:[[:space:]]*//' | tr -d ' \t' | head -c 300 || true)
+JIRA_FAIL=$(grep -m1 '^JIRA_FAILED:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_FAILED:[[:space:]]*//' | head -c 200 || true)
+
+rm -f "$FILE_OUT" "$PROPOSAL_FILE"
+trap - EXIT
+
+if [ -n "$TICKET" ]; then
+  NEW_NOTE="$VAULT_INBOX/jira-filed-${TICKET}-${SLUG}.md"
+  TS=$(date '+%Y-%m-%d %H:%M:%S')
+  awk -v ticket="$TICKET" -v url="$URL" -v ts="$TS" '
+    /^---$/ {
+      seen++
+      print
+      if (seen == 1) infm = 1
+      else if (seen == 2) infm = 0
+      next
+    }
+    infm && /^type:[[:space:]]*pending-jira/ { print "type: filed-jira"; next }
+    infm && /^worktree_path:/ {
+      print
+      if (!added) {
+        print "ticket: " ticket
+        print "ticket_url: " url
+        print "filed: " ts
+        added = 1
+      }
+      next
+    }
+    { print }
+  ' "$NOTE" > "${NEW_NOTE}.tmp" && mv "${NEW_NOTE}.tmp" "$NEW_NOTE" && rm -f "$NOTE"
+
+  printf '%s' "$URL" | pbcopy 2>/dev/null || true
+
+  mac-notify \
+    -t "✅ $TICKET filed" \
+    -m "URL copied to clipboard · ${URL}" \
+    -g "$GROUP" \
+    -T 30 \
+    -s Glass \
+    -e "$HOME/Scripts/notify-idle-switch.sh"
+else
+  REASON="${JIRA_FAIL:-(no JIRA_TICKET marker — check $LOGFILE)}"
+  mac-notify \
+    -t "❌ Filing failed" \
+    -m "$REASON" \
+    -g "$GROUP" \
+    -T 30 \
+    -s Basso
+fi
+echo "[$(date +%H:%M:%S)] outcome ticket=${TICKET:-none}" >> "$LOGFILE"
+exit 0

@@ -1,25 +1,39 @@
 #!/usr/bin/env bash
-# Free-text → /worktree pipeline. Opens a tmux popup asking for a loose
-# description (e.g., "web infra release-automation"), then fires the same
-# downstream pipeline as `jira-worktree`: terminal-notifier banners,
-# Terminal.app spawn, claude -p "/worktree <input> --yes". The skill's
-# Mode C handles the inference (repo / folder / slug from the description).
+# Free-text describe → /worktree pipeline. Opens a tmux popup asking
+# for a loose description (e.g., "web infra release-automation"), then
+# hands off to ~/.local/bin/worktree-runner — the shared backend that
+# spawns Terminal.app, runs `claude -p "/worktree <input> --yes"`, and
+# fires start/ready/failed banners.
+#
+# This entry point owns ONLY input capture + Mode-B disambiguation.
+# Everything after `exec worktree-runner` is shared with worktree-jira,
+# worktree-clipboard, worktree-bug, and any future capture method.
 #
 # Bind via skhd, e.g.:
 #   rctrl + shift - h : ~/.local/bin/worktree-prompt
 
 set -euo pipefail
 
-# skhd spawns this with a minimal PATH. Pin a sensible PATH so
-# terminal-notifier, tmux, claude, aerospace, etc. all resolve.
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+# skhd spawns this with a minimal PATH. Pin a sensible PATH so tmux,
+# resolve-term-icon, claude, etc. resolve.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-# `open -na Terminal` propagates TERM_* env vars but filters custom
-# ones like SKIP_FETCH. Unsetting TERM_PROGRAM is the reliable way to
-# stop zshrc's ghostty branch from firing in the spawned Terminal —
-# see jira-worktree for the full diagnosis.
-unset TERM_PROGRAM TERM_PROGRAM_VERSION
-export SKIP_FETCH=1
+# When fired by skhd, this script runs OUTSIDE any tmux client context —
+# `tmux display-popup` then has no client to host the popup on and the
+# script appears to "just close". The launcher menu invocation uses
+# `tmux run-shell -b worktree-prompt`, which re-enters the tmux server
+# context so the popup renders correctly. Mirror that here when we
+# detect we're not inside a tmux client AND a tmux server is up.
+#
+# Re-spawning via `tmux run-shell -b` is fire-and-forget — once it
+# launches the script in tmux's context, this outer process exits.
+if [ -z "${TMUX:-}" ] \
+   && [ -z "${WORKTREE_PROMPT_RESPAWNED:-}" ] \
+   && command -v tmux >/dev/null 2>&1 \
+   && tmux ls >/dev/null 2>&1; then
+  WORKTREE_PROMPT_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
+  exit 0
+fi
 
 # Capture the user's typed input via a tmux popup. tmux display-popup
 # expects the inner command as a SINGLE shell-command arg (not split with
@@ -55,6 +69,8 @@ EOF
 tmux display-popup -E -w 70% -h 30% "$POPUP_SH"
 
 INPUT=$(cat "$INPUT_FILE" 2>/dev/null || true)
+# Done with capture tmpfiles; clean now since `exec` won't fire the trap.
+rm -f "$INPUT_FILE" "$POPUP_SH"
 if [ -z "$INPUT" ]; then
   exit 0
 fi
@@ -75,166 +91,169 @@ ORIG_INPUT="$INPUT"
 #
 # Free-text descriptions (anything not matching this exact shape) pass
 # through unchanged — Mode C still infers via the LLM.
+# Read the canonical repo allowlist from ~/.local/bin/worktree/repos.conf
+# (gitignored, employer-specific). Falls back to "web inferno" if the
+# file is missing or empty — keeps a fresh machine workable until
+# repos.conf is populated. Blank lines and `#` comments are stripped.
+#
+# Portable parsing (no `mapfile`): macOS system bash is 3.2 and skhd
+# fires this script with a minimal PATH that resolves `env bash` to
+# /bin/bash, so we can't rely on bash-4 features here.
+REPOS_CONF="$HOME/.local/bin/worktree/repos.conf"
+VALID_REPOS=()
+if [ -s "$REPOS_CONF" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"                    # strip inline + full-line comments
+    line=$(echo "$line" | tr -d '[:space:]')  # trim all whitespace
+    [ -n "$line" ] && VALID_REPOS+=( "$line" )
+  done < "$REPOS_CONF"
+fi
+[ "${#VALID_REPOS[@]}" -eq 0 ] && VALID_REPOS=( web inferno )
+
 read -r -a TOKENS <<< "$INPUT"
 if [ "${#TOKENS[@]}" -eq 3 ]; then
   REPO="${TOKENS[0]}"
   BUCKET="${TOKENS[1]}"
   SLUG="${TOKENS[2]}"
-  case "$REPO" in
-    web|inferno)
-      case "$BUCKET" in
-        fix|feat|ui|infra|refactor|perf|test|chore|spike)
-          # Slug must look like a leaf branch name (no slashes, no spaces).
-          if [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            INPUT="$REPO $SLUG $BUCKET/$SLUG"
-          fi
-          ;;
-      esac
-      ;;
-  esac
+
+  # Is REPO in the allowlist?
+  REPO_VALID=0
+  for r in "${VALID_REPOS[@]}"; do
+    [ "$REPO" = "$r" ] && { REPO_VALID=1; break; }
+  done
+
+  if [ "$REPO_VALID" -eq 1 ]; then
+    case "$BUCKET" in
+      fix|feat|ui|infra|refactor|perf|test|chore|spike)
+        # Slug must look like a leaf branch name (no slashes, no spaces).
+        if [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          INPUT="$REPO $SLUG $BUCKET/$SLUG"
+        fi
+        ;;
+      *)
+        # Unknown bucket — try a "did you mean?" suggestion via Levenshtein
+        # distance ≤ 2 against the known bucket list. If we find a close
+        # match, auto-correct AND fire a notification so the user sees
+        # the correction. Falls through silently on no close match (claude
+        # will still infer via /worktree's Mode C).
+        SUGGEST=$(awk -v typo="$BUCKET" '
+          function min3(a, b, c) {
+            x = a; if (b < x) x = b; if (c < x) x = c; return x
+          }
+          function lev(a, b,    la, lb, i, j, cost) {
+            la = length(a); lb = length(b)
+            for (i = 0; i <= la; i++) m[i,0] = i
+            for (j = 0; j <= lb; j++) m[0,j] = j
+            for (i = 1; i <= la; i++) {
+              for (j = 1; j <= lb; j++) {
+                cost = (substr(a,i,1) == substr(b,j,1)) ? 0 : 1
+                m[i,j] = min3(m[i-1,j]+1, m[i,j-1]+1, m[i-1,j-1]+cost)
+              }
+            }
+            return m[la,lb]
+          }
+          BEGIN {
+            split("fix feat ui infra refactor perf test chore spike", known, " ")
+            best = ""; best_d = 999
+            for (k in known) {
+              d = lev(typo, known[k])
+              if (d < best_d) { best_d = d; best = known[k] }
+            }
+            if (best_d <= 2) print best
+          }')
+        if [ -n "$SUGGEST" ] && [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          INPUT="$REPO $SLUG $SUGGEST/$SLUG"
+          mac-notify -t "Auto-corrected bucket" \
+                     -m "'$BUCKET' → '$SUGGEST' (worktree at $REPO/$SUGGEST/$SLUG)" \
+                     -T 5 -g "worktree-prompt-typo"
+        fi
+        ;;
+    esac
+  fi
 fi
 
 # A short label used in the banner group / file. Strip non-alphanumerics
 # so it's safe across every interpolation site.
 LABEL=$(echo "$INPUT" | tr -c '[:alnum:]_-' '-' | sed 's/-\{2,\}/-/g; s/^-\|-$//g' | head -c 40)
-GROUP="worktree-${LABEL:-prompt}"
-ICON_PNG=$(resolve-term-icon terminal 2>/dev/null || true)
-TIMEOUT_SECONDS=12
 
-notify_banner() {
-  local title="$1" message="$2"
-  if command -v terminal-notifier >/dev/null 2>&1; then
-    local args=(
-      -title "$title"
-      -message "$message"
-      -group "$GROUP"
-      -timeout "$TIMEOUT_SECONDS"
-    )
-    [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
-    terminal-notifier "${args[@]}" >/dev/null 2>&1 || true
-  else
-    osascript -e "display notification \"$message\" with title \"$title\"" >/dev/null 2>&1 || true
-  fi
-}
+# FAST PATH — if INPUT is in canonical Mode-B-rewrite shape
+# (`<repo> <slug> <bucket>/<slug>`), skip claude entirely and run
+# `treekanga add` directly. Saves ~25–30s per worktree (claude
+# reasoning + tool-call overhead) for the common case of typing
+# `<repo> <known-bucket> <slug>` at the popup.
+#
+# Validation:
+#   - Exactly 3 tokens
+#   - Token 0 (repo) is in $VALID_REPOS
+#   - Token 2 looks like `<bucket>/<slug>` where bucket is known
+#     and slug == token 1 (i.e. the rewrite happened cleanly)
+#   - Bare repo dir exists at ~/Developer/<repo>/.bare
+FAST_PATH_CMD=""
+read -r -a CANON <<< "$INPUT"
+if [ "${#CANON[@]}" -eq 3 ] && [[ "${CANON[2]}" =~ ^([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]]; then
+  CANON_REPO="${CANON[0]}"
+  CANON_SLUG="${CANON[1]}"
+  CANON_BUCKET="${BASH_REMATCH[1]}"
+  CANON_SLUG2="${BASH_REMATCH[2]}"
 
-notify_banner "Creating worktree…" "$INPUT"
+  REPO_VALID=0
+  for r in "${VALID_REPOS[@]}"; do
+    [ "$CANON_REPO" = "$r" ] && { REPO_VALID=1; break; }
+  done
 
-# Snapshot tmux sessions BEFORE Terminal.app opens — see jira-worktree
-# for the rationale. The inner tmp script reads this file to know which
-# numeric sessions appeared as side effects.
-TMUX_SNAPSHOT=$(mktemp -t worktree-prompt-tmux.XXXXXX)
-tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+  case "$CANON_BUCKET" in fix|feat|ui|infra|refactor|perf|test|chore|spike) BUCKET_VALID=1 ;; *) BUCKET_VALID=0 ;; esac
 
-# Capture postScript log size so the inner script only considers entries
-# from THIS run (not stale ones from earlier TUI / aborted runs).
-PS_LOG_PATH="$HOME/.logs/treekanga-postscript.log"
-PS_LOG_SIZE_BEFORE=$(wc -c < "$PS_LOG_PATH" 2>/dev/null || echo 0)
-
-# Stage the run-script just like jira-worktree does — same Terminal.app
-# spawn, same postScript log tailing, same final notification + session
-# pre-creation handling. The only difference is the input source.
-TMPSCRIPT=$(mktemp -t worktree-prompt.XXXXXX.sh)
-chmod +x "$TMPSCRIPT"
-LOGFILE="\$HOME/.logs/worktree-prompt.log"
-cat > "$TMPSCRIPT" <<EOF
-#!/usr/bin/env bash
-trap 'rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT"' EXIT
-# Strip TMUX env so the postScript's headless-flow branch fires (pbcopy
-# instead of sesh connect). See jira-worktree for the rationale.
-unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
-# Snapshot of tmux sessions taken BEFORE Terminal.app opened (file is
-# written by the outer wrapper).
-export PATH="\$HOME/.local/bin:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-export SKIP_FETCH=1
-mkdir -p "\$(dirname $LOGFILE)"
-echo "=== \$(date) ===" >> $LOGFILE
-echo "USER INPUT:    $ORIG_INPUT" >> $LOGFILE
-echo "CLAUDE INPUT:  $INPUT" >> $LOGFILE
-echo "Running claude -p /worktree ..." | tee -a $LOGFILE
-claude --dangerously-skip-permissions --model sonnet -p "/worktree $INPUT --yes" 2>&1 | tee -a $LOGFILE
-echo
-
-PS_LOG="\$HOME/.logs/treekanga-postscript.log"
-TITLE="Worktree FAILED"
-SESSION=""
-# Only consider postScript log content written DURING this run (size diff
-# against the snapshot taken by the outer wrapper). Avoids false "ready"
-# notifications using a previous run's log entry when claude fails.
-PS_LOG_NEW=""
-if [ -f "\$PS_LOG" ]; then
-  CURRENT_SIZE=\$(wc -c < "\$PS_LOG" 2>/dev/null || echo 0)
-  if [ "\$CURRENT_SIZE" -gt $PS_LOG_SIZE_BEFORE ]; then
-    PS_LOG_NEW=\$(tail -c \$((CURRENT_SIZE - $PS_LOG_SIZE_BEFORE)) "\$PS_LOG")
-  fi
-fi
-if [ -n "\$PS_LOG_NEW" ]; then
-  echo "── postScript output (from \$PS_LOG) ──"
-  LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
-  printf '%s' "\$LATEST_RUN"
-  echo "──"
-
-  WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
-  REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
-  WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
-  # Session name = path relative to ~/Developer/ so the folder bucket
-  # (infra/, fix/, feat/, …) survives. basename(...) drops the bucket
-  # and yields e.g. "web/test-test" for ~/Developer/web/infra/test-test;
-  # we want "web/infra/test-test" to match sesh's zoxide-derived names.
-  SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
-
-  if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
-    TITLE="Worktree ready"
-  fi
-
-  # Defer tmux session creation to rctrl - ' time (avoids gitmux flicker
-  # on the user's current session — see jira-worktree for the rationale).
-  if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
-    echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
+  BARE_REPO="$HOME/Developer/$CANON_REPO/.bare"
+  if [ "$REPO_VALID" -eq 1 ] \
+     && [ "$BUCKET_VALID" -eq 1 ] \
+     && [ "$CANON_SLUG" = "$CANON_SLUG2" ] \
+     && [ -d "$BARE_REPO" ]; then
+    # All checks pass — we can call treekanga directly.
+    # Pattern A (ephemeral worktrees, no permanent default-branch worktree):
+    #   `git fetch origin --quiet` updates remote-tracking refs only —
+    #   does NOT advance local master/develop, so no INDEX drift in
+    #   any future or other worktree on those branches.
+    #   `-b origin/HEAD` cuts the new branch from the actual upstream
+    #   default (master for web, develop for inferno — git resolves
+    #   origin/HEAD per-repo automatically).
+    #   `-x` runs the postScript hook (sesh/zoxide/install).
+    # Single-quote arguments — slug/bucket already validated as alnum-safe.
+    FAST_PATH_CMD="cd '$BARE_REPO' && git fetch origin --quiet && treekanga add '$CANON_SLUG' -d '../$CANON_BUCKET' -n '$CANON_SLUG' -b origin/HEAD -x"
   fi
 fi
 
-MSG="\${SESSION:-$INPUT}"
-if command -v terminal-notifier >/dev/null 2>&1; then
-  args=(
-    -title "\$TITLE"
-    -message "\$MSG"
-    -group "$GROUP"
-    -timeout $TIMEOUT_SECONDS
-  )
-  [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ] && args+=( -contentImage "$ICON_PNG" )
-  terminal-notifier "\${args[@]}" >/dev/null 2>&1 || true
-else
-  osascript -e "display notification \"\$MSG\" with title \"\$TITLE\"" >/dev/null 2>&1 || true
+if [ -n "$FAST_PATH_CMD" ]; then
+  WORKTREE_RAW_COMMAND="$FAST_PATH_CMD" \
+  WORKTREE_GROUP="worktree-${LABEL:-describe}" \
+  WORKTREE_LOG_TAG="worktree-prompt" \
+  WORKTREE_LOG_HEADER="USER INPUT:    $ORIG_INPUT
+FAST PATH (no claude):  $FAST_PATH_CMD" \
+  WORKTREE_START_MESSAGE="$ORIG_INPUT (fast-path)" \
+  WORKTREE_FALLBACK_LABEL="$ORIG_INPUT" \
+  WORKTREE_CAPTURE_PAYLOAD="$ORIG_INPUT" \
+  exec ~/.local/bin/worktree-runner
 fi
 
-sleep 1
-
-# Kill any new unnamed (numeric) tmux session that appeared during our
-# run. The BEFORE snapshot was written by the outer wrapper.
-TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
-if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
-  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
-    | grep -E '^[0-9]+\$' \
-    | while read -r stale; do
-        tmux kill-session -t "\$stale" 2>/dev/null || true
-      done
+# Slow path — claude does the inference. Use haiku for Mode A
+# (Jira URL or bare ticket key) and Mode B (3-token with structured
+# branch) since those don't need much reasoning. Use sonnet for
+# Mode C (free-text describe — needs the inference power).
+SELECTED_MODEL="sonnet"
+if [[ "$ORIG_INPUT" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/|[A-Z]+-[0-9]+) ]]; then
+  SELECTED_MODEL="haiku"
+elif read -r -a SLOW_TOKENS <<< "$ORIG_INPUT" && [ "${#SLOW_TOKENS[@]}" -eq 3 ] && [[ "${SLOW_TOKENS[1]}" =~ [0-9] ]]; then
+  # Mode B: token 2 has digits → structured branch name like IHRWEB-1234
+  SELECTED_MODEL="haiku"
 fi
 
-# Detach a watcher that quits Terminal AFTER our shell exits — see
-# jira-worktree for full rationale (AppleScript can't close a window
-# from inside it). bash exiting triggers Terminal's "close on shell
-# exit" preference; the watcher then quits the app if no windows remain.
-{ nohup bash -c '
-    sleep 2
-    osascript -e "tell application \"Terminal\" to if (count of windows) is 0 then quit" 2>/dev/null
-  ' </dev/null >/dev/null 2>&1 &
-  disown
-} 2>/dev/null
-exit 0
-EOF
-
-# `--env SKIP_FETCH=1` forces SKIP_FETCH through LaunchServices's env
-# filter; without it, zsh's login init in the spawned Terminal fires
-# ghosttyfetch which spawns a stray `tmux` child. See jira-worktree for
-# the full diagnosis.
-open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
+WORKTREE_CLAUDE_INPUT="$INPUT" \
+WORKTREE_CLAUDE_MODEL="$SELECTED_MODEL" \
+WORKTREE_GROUP="worktree-${LABEL:-describe}" \
+WORKTREE_LOG_TAG="worktree-prompt" \
+WORKTREE_LOG_HEADER="USER INPUT:    $ORIG_INPUT
+CLAUDE INPUT:  $INPUT
+MODEL:         $SELECTED_MODEL" \
+WORKTREE_START_MESSAGE="$ORIG_INPUT" \
+WORKTREE_FALLBACK_LABEL="$ORIG_INPUT" \
+WORKTREE_CAPTURE_PAYLOAD="$ORIG_INPUT" \
+exec ~/.local/bin/worktree-runner
