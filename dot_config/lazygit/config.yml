@@ -6,9 +6,14 @@ notARepository: "quit"
 quitOnTopLevelReturn: true
 git:
   overrideGpg: true
+  autoFetch: true
+  fetchAll: false # fetch origin only — faster than --all on large repos
   paging:
     colorArg: always
     pager: delta --dark --paging=never
+refresher:
+  fetchInterval: 30
+  refreshInterval: 10
 os:
   editPreset: nvim
 gui:
@@ -69,6 +74,14 @@ customCommands:
     command: git commit -m "{{.Form.Msg}}"
     context: "files"
     description: "Generate plain/simple commit message"
+
+  # Open file in host nvim via RPC; popup auto-closes via the script.
+  # Path is also pbcopy'd as a side-effect (useful for PR descriptions).
+  - key: "<c-o>"
+    command: 'printf "%s" "{{.SelectedFile.Name}}" | pbcopy && lazygit-nvim-edit "{{.SelectedFile.Name}}"'
+    context: "files"
+    description: "Copy path + open in host nvim (popup auto-closes)"
+    output: log
 
   - key: "<c-p>"
     command: gh pr create --draft --editor --assignee @me --reviewer iheartradio/web-engineers
