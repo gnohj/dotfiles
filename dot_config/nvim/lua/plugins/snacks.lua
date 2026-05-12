@@ -656,6 +656,10 @@ return {
       formats = {
         file = function(item, ctx)
           local fname = vim.fn.fnamemodify(item.file, ":t")
+          local max = (ctx and ctx.width or 60) - 6
+          if #fname > max then
+            fname = fname:sub(1, max - 1) .. "…"
+          end
           return { { fname, hl = "SnacksDashboardRecentFile" } }
         end,
       },

@@ -34,21 +34,34 @@ return {
         vim.keymap.set(mode, l, r, { buffer = buffer, desc = desc })
       end
 
-      -- Navigation
+      -- Navigation. `target = "all"` walks both staged AND unstaged hunks
+      -- — without it, gitsigns defaults to "unstaged" and silently skips
+      -- hunks once you stage them, even though signs_staged shows the
+      -- markers. We want ]h/[h to work consistently regardless of stage
+      -- state.
       map("n", "]h", function()
         if vim.wo.diff then
           vim.cmd.normal({ "]c", bang = true })
         else
-          gs.nav_hunk("next")
+          gs.nav_hunk("next", { target = "all" })
         end
-      end, "Next Hunk")
+      end, "Next Hunk (all)")
       map("n", "[h", function()
         if vim.wo.diff then
           vim.cmd.normal({ "[c", bang = true })
         else
-          gs.nav_hunk("prev")
+          gs.nav_hunk("prev", { target = "all" })
         end
-      end, "Prev Hunk")
+      end, "Prev Hunk (all)")
+
+      -- Capital H variants → staged hunks only. Useful when reviewing
+      -- exactly what's about to be committed without unstaged noise.
+      map("n", "]H", function()
+        gs.nav_hunk("next", { target = "staged" })
+      end, "Next Hunk (staged only)")
+      map("n", "[H", function()
+        gs.nav_hunk("prev", { target = "staged" })
+      end, "Prev Hunk (staged only)")
 
       -- Actions
       map("n", "<leader>hs", gs.stage_hunk, "Stage Hunk")

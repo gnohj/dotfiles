@@ -183,6 +183,7 @@ return {
 ---
 date:
   - {}
+state: living # or `frozen` — see vault CLAUDE.md "Living vs Frozen"
 hubs:
 {}
   - {}
@@ -212,6 +213,7 @@ urls:
 ---
 date:
   - {}
+state: living # or `frozen` — see vault CLAUDE.md "Living vs Frozen"
 hubs:
 {}
   - {}
