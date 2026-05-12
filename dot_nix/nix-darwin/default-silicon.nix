@@ -10,6 +10,7 @@
     ./modules/homebrew.nix
     ./modules/packages.nix
     ./modules/launchd-services.nix
+    ./modules/local-dev-auth.nix
   ];
 
   # Nix package manager settings

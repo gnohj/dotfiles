@@ -5,6 +5,13 @@ system-utils.sh
 user-setup.sh
 tasks
 
+# Local dev auth — per-machine mkcert artifacts (private key + cert).
+# Never managed by chezmoi: each developer generates their own cert+key
+# pair locally via mkcert, signed by their own machine-local root CA.
+# Sharing the private key would let anyone impersonate `*.local.inferno.*`.
+.local-dev-auth
+.local-dev-auth/**
+
 # macOS-specific files (skip on Linux/NixOS)
 {{- if ne .chezmoi.os "darwin" }}
 # macOS system scripts

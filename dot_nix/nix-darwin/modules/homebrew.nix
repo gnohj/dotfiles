@@ -142,6 +142,7 @@
     masApps = {
       "Xcode" = 497799835;
       "Brother iPrint&Scan" = 1193539993;
+      "WhatsApp Messenger" = 310633997;
     };
   };
 }
