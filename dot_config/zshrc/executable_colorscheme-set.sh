@@ -367,9 +367,14 @@ notARepository: "quit"
 quitOnTopLevelReturn: true
 git:
   overrideGpg: true
+  autoFetch: true
+  fetchAll: false  # fetch origin only — faster than --all on large repos
   paging:
     colorArg: always
     pager: delta --dark --paging=never
+refresher:
+  fetchInterval: 30
+  refreshInterval: 10
 os:
   editPreset: nvim
 gui:
@@ -430,6 +435,24 @@ customCommands:
     command: git commit -m "{{.Form.Msg}}"
     context: "files"
     description: "Generate plain/simple commit message"
+
+  # Open file in the host nvim instance (the one behind the lazygit
+  # popup) via RPC. Skips the clipboard → exit lazygit → snacks-picker
+  # paste round-trip. Path is also copied to clipboard as a side-effect
+  # so it remains available for other contexts (PR descriptions, etc.).
+  # Uses ~/.local/bin/lazygit-nvim-edit which talks to nvim's RPC
+  # socket (~/.config/nvim/init.lua sets one per tmux pane).
+  #
+  # Note: this does NOT auto-close the lazygit popup. Press q yourself
+  # after the file opens — auto-close was tried with several methods
+  # (inline send-keys, backgrounded subshell, tmux run-shell -b) but
+  # all interacted poorly with lazygit's customCommand wait/output:log
+  # plumbing, leaving the spinner stuck.
+  - key: "<c-o>"
+    command: 'printf "%s" "{{.SelectedFile.Name}}" | pbcopy && lazygit-nvim-edit "{{.SelectedFile.Name}}"'
+    context: "files"
+    description: "Copy path + open in host nvim"
+    output: log
 
   - key: "<c-p>"
     command: gh pr create --draft --editor --assignee @me --reviewer iheartradio/web-engineers
@@ -2091,6 +2114,18 @@ EOF
 
   echo "Pi theme updated at '$pi_theme_file'."
 }
+
+# Always source the active colorscheme + regenerate the small config
+# files whose generation logic may have changed independently of the
+# theme (e.g. lazygit customCommands, lazydocker keymaps). Cheap — just
+# rewrites a few KB of YAML. The heavier theme-switch actions (sketchybar
+# reload, ghostty/kitty/btop reload, wallpaper, etc.) stay gated behind
+# UPDATED below so unchanged-theme calls don't churn UI.
+if [ -f "$active_file" ]; then
+  source "$active_file"
+  generate_lazygit_config 2>/dev/null || true
+  generate_lazydocker_config 2>/dev/null || true
+fi
 
 # If there's an update, replace the active colorscheme and perform necessary actions
 if [ "$UPDATED" = true ]; then

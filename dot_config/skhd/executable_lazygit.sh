@@ -9,10 +9,20 @@ mkdir -p "$HOME/.lazygit"
 # Remove old dir file before starting
 rm -f "$LAZYGIT_DIR_FILE"
 
-# Get current pane's directory (use tmux's pane_current_path directly)
+# Capture the host pane id BEFORE opening the popup. The popup runs in a
+# new tmux pane, so $TMUX_PANE inside it would refer to the popup itself
+# — not where nvim is running. Capturing here gives us the pane the
+# user came from, which is keyed to that nvim's RPC socket
+# (/tmp/nvim-<pane-num>.sock — see ~/.config/nvim/init.lua).
+HOST_PANE=$(/opt/homebrew/bin/tmux display-message -p '#{pane_id}')
+
+# Do not try to identify the popup as a pane and pass that id downstream
+# — popups are overlays, not panes, and display-message returns the
+# host pane. kill-pane on that nukes the user's working pane.
 /opt/homebrew/bin/tmux display-popup -E -w 90% -h 90% -d "#{pane_current_path}" -B "
   export PATH=\"/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:\$PATH\"
   export LAZYGIT_NEW_DIR_FILE=\"$HOME/.lazygit/newdir\"
+  export LAZYGIT_HOST_PANE=\"$HOST_PANE\"
   /usr/bin/git rev-parse --is-inside-work-tree >/dev/null 2>&1 && HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit || exit 0
 "
 

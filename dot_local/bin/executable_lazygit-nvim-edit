@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Lazygit custom command for `<C-o>`: open the selected file in the
+# nvim that was in the pane behind the popup (RPC), or spawn one if
+# none is running. Then auto-close the popup.
+
+set -uo pipefail
+
+# DO NOT try to kill-pane the popup. Tmux popups are not panes —
+# display-message returns the host pane instead, and kill-pane on that
+# nukes the user's real working pane. Killing the lazygit process via
+# process-tree walk is the only safe approach.
+find_lazygit_pid() {
+  local pid=$$ name
+  for _ in 1 2 3 4 5 6; do
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ -n "$pid" ] && [ "$pid" != "0" ] && [ "$pid" != "1" ] || return 1
+    name=$(ps -o comm= -p "$pid" 2>/dev/null | xargs basename 2>/dev/null)
+    if [ "$name" = "lazygit" ]; then
+      printf '%s' "$pid"
+      return 0
+    fi
+  done
+  return 1
+}
+
+DEBUG_LOG="$HOME/.logs/lazygit-nvim-edit.log"
+mkdir -p "$(dirname "$DEBUG_LOG")"
+{
+  printf '=== %s ===\n' "$(date)"
+  printf 'arg1: %q\n' "${1:-}"
+  printf 'PWD: %s\n' "$PWD"
+  printf 'LAZYGIT_HOST_PANE: %q\n' "${LAZYGIT_HOST_PANE:-(unset)}"
+  printf 'lazygit pid (process-tree walk): %s\n' "$(find_lazygit_pid || echo '(not found)')"
+} >> "$DEBUG_LOG"
+
+FILE="${1:-}"
+[ -n "$FILE" ] || { echo "usage: lazygit-nvim-edit <file>" >&2; exit 1; }
+
+# lazygit's {{.SelectedFile.Name}} is repo-relative; resolve against $PWD.
+ABS_FILE="$FILE"
+if [ "${FILE#/}" = "$FILE" ]; then
+  ABS_FILE="$PWD/$FILE"
+fi
+
+# Deferred via double-fork because killing lazygit synchronously would
+# SIGHUP this script (we're a customCommand subprocess of lazygit).
+close_popup_deferred() {
+  local lazygit_pid
+  lazygit_pid=$(find_lazygit_pid)
+  if [ -z "$lazygit_pid" ]; then
+    echo "  → could not find lazygit pid; popup will not auto-close" >> "$DEBUG_LOG"
+    return 0
+  fi
+  echo "  → scheduling lazygit SIGTERM: pid=$lazygit_pid (200ms deferred)" >> "$DEBUG_LOG"
+  ( ( sleep 0.2; kill -TERM "$lazygit_pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
+}
+
+# C-u clears any partial command the user typed before hitting rctrl-g,
+# so we never concatenate it with the nvim invocation.
+spawn_in_host_pane() {
+  local pane="$1"
+  local current_cmd
+  current_cmd=$(tmux display-message -t "$pane" -p '#{pane_current_command}' 2>/dev/null)
+  echo "  host pane $pane current_command: $current_cmd" >> "$DEBUG_LOG"
+  case "$current_cmd" in
+    bash|zsh|fish|sh|dash|tcsh|ksh)
+      tmux send-keys -t "$pane" C-u "nvim '$ABS_FILE'" Enter 2>>"$DEBUG_LOG"
+      echo "  → sent nvim launch to host pane $pane (shell: $current_cmd)" >> "$DEBUG_LOG"
+      return 0
+      ;;
+    *)
+      # Host pane is running a TUI — send-keys would corrupt its input.
+      echo "  → host pane running '$current_cmd'; falling back to new-window" >> "$DEBUG_LOG"
+      spawn_in_new_window
+      ;;
+  esac
+}
+
+spawn_in_new_window() {
+  echo "  → spawning nvim in new tmux window" >> "$DEBUG_LOG"
+  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+    tmux new-window -c "$(dirname "$ABS_FILE")" "nvim '$ABS_FILE'" >>"$DEBUG_LOG" 2>&1
+    echo "  tmux new-window exit: $?" >> "$DEBUG_LOG"
+  else
+    echo "  → tmux unavailable" >> "$DEBUG_LOG"
+  fi
+}
+
+PANE_ID="${LAZYGIT_HOST_PANE:-}"
+if [ -z "$PANE_ID" ]; then
+  spawn_in_new_window
+  close_popup_deferred
+  exit 0
+fi
+
+PANE_NUM="${PANE_ID#%}"
+SOCK="/tmp/nvim-${PANE_NUM}.sock"
+echo "  resolved SOCK: $SOCK (exists: $([ -S "$SOCK" ] && echo yes || echo no))" >> "$DEBUG_LOG"
+
+if [ ! -S "$SOCK" ]; then
+  spawn_in_host_pane "$PANE_ID"
+  close_popup_deferred
+  exit 0
+fi
+
+nvim --server "$SOCK" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1
+echo "  nvim --remote exit: $?" >> "$DEBUG_LOG"
+close_popup_deferred
