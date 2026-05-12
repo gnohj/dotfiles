@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# aerospace-profile — switch the active monitor-routing profile.
+#
+# Splices the chosen profile's `[workspace-to-monitor-force-assignment]`
+# block into ~/.config/aerospace/aerospace.toml in place, marks the
+# selection in ~/.config/aerospace/.active-profile, then reloads
+# aerospace.
+#
+# Profiles live as snippets in ~/.config/aerospace/profiles/<name>.toml
+# (each contains ONLY the body of the assignment block — keys/values,
+# no section header). The script looks up
+# ~/.config/aerospace/aerospace.toml's existing
+# `[workspace-to-monitor-force-assignment]` section, drops everything
+# until the next `[section]` (or EOF), and inserts the chosen profile.
+#
+# Usage:
+#   aerospace-profile             # list profiles + show active
+#   aerospace-profile <name>      # switch to profile
+#   aerospace-profile --current   # print active profile name
+#
+# Examples:
+#   aerospace-profile laptop  # laptop alone OR laptop + HP 27er
+#                             # (Q pins to HP 27er when present, falls
+#                             # back to built-in when not)
+#   aerospace-profile desk    # 3-monitor desk setup (positional indices)
+#
+# After `chezmoi apply` overwrites aerospace.toml, the active profile
+# is re-applied automatically by the chezmoi run_onchange hook (see
+# dot_config/aerospace/run_onchange_after_aerospace-profile.sh.tmpl).
+
+set -euo pipefail
+
+CONF_DIR="$HOME/.config/aerospace"
+TOML="$CONF_DIR/aerospace.toml"
+PROF_DIR="$CONF_DIR/profiles"
+ACTIVE_FILE="$CONF_DIR/.active-profile"
+
+list_profiles() {
+  if [ -d "$PROF_DIR" ]; then
+    find "$PROF_DIR" -maxdepth 1 -name '*.toml' -exec basename {} .toml \; | sort
+  fi
+}
+
+show_status() {
+  local current
+  current="$(cat "$ACTIVE_FILE" 2>/dev/null || echo '(unset)')"
+  echo "Available profiles:"
+  list_profiles | sed 's/^/  /'
+  echo
+  echo "Currently active: $current"
+}
+
+case "${1:-}" in
+  ""|-h|--help)
+    show_status
+    exit 0
+    ;;
+  --current)
+    cat "$ACTIVE_FILE" 2>/dev/null || { echo "(unset)"; exit 1; }
+    exit 0
+    ;;
+esac
+
+NAME="$1"
+PROFILE_FILE="$PROF_DIR/$NAME.toml"
+
+if [ ! -f "$PROFILE_FILE" ]; then
+  echo "Profile '$NAME' not found." >&2
+  show_status >&2
+  exit 1
+fi
+
+if [ ! -f "$TOML" ]; then
+  echo "aerospace.toml not found at $TOML — run \`chezmoi apply\` first." >&2
+  exit 1
+fi
+
+# Splice: keep everything up to and including the
+# [workspace-to-monitor-force-assignment] header, append the profile's
+# body, then resume from the next [section] header (or EOF).
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+awk -v profile_file="$PROFILE_FILE" '
+  /^\[workspace-to-monitor-force-assignment\]/ {
+    print
+    while ((getline line < profile_file) > 0) print line
+    close(profile_file)
+    in_block = 1
+    next
+  }
+  in_block && /^\[/ && !/^\[\[/ {
+    # New top-level section closes the assignment block.
+    in_block = 0
+  }
+  !in_block { print }
+' "$TOML" > "$TMP"
+
+# Sanity check: did we actually find the header? If the splice produced
+# the same content as input (no header found), bail loudly rather than
+# silently doing nothing.
+if ! grep -q '^\[workspace-to-monitor-force-assignment\]' "$TMP"; then
+  echo "ERROR: [workspace-to-monitor-force-assignment] not found in $TOML" >&2
+  exit 1
+fi
+
+mv "$TMP" "$TOML"
+trap - EXIT
+
+echo "$NAME" > "$ACTIVE_FILE"
+
+if command -v aerospace >/dev/null 2>&1; then
+  aerospace reload-config 2>/dev/null || true
+fi
+
+echo "✓ aerospace profile: $NAME"
