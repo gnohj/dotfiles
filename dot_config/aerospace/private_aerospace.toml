@@ -192,6 +192,10 @@ run = "move-node-to-workspace X"
 if.app-id = 'com.apple.MobileSMS'
 run = "move-node-to-workspace M"
 
+[[on-window-detected]]
+if.app-id = 'net.whatsapp.WhatsApp'
+run = "move-node-to-workspace M"
+
 # Agent dashboard — Ghostty window with title "AgentDash" running `recon view`.
 # Tiled on workspace T alongside terminals; the launcher script resizes it to
 # ~25% of the screen width on first open (rctrl+shift+d).
@@ -271,25 +275,30 @@ run = "move-node-to-workspace Q"
 
 
 [workspace-to-monitor-force-assignment]
-# 1 Monitor - Left Side
-# 2 Monitor - Center
-# 3 Laptop
-A = 1
-D = 1
-E = 1
-G = 1
-K = 1
-L = 1
-Q = 1
-R = 1
-S = 1
-W = 1
-X = 1
-U = 1
-B = 2
-C = 1
-F = 1
-V = 1
-T = 2
-Z = 2
-M = 3  # Dedicated workspace for laptop monitor
+# Profile: laptop — covers BOTH "laptop alone" and "laptop + HP 27er".
+# Workspace Q is pinned to the HP 27er by name; when it isn't connected,
+# aerospace gracefully falls back to the main display. Every other
+# workspace is explicitly pinned to the built-in retina so placement
+# stays stable across dock/undock. No separate "solo" profile needed.
+#
+# Spliced into aerospace.toml's [workspace-to-monitor-force-assignment]
+# section by `aerospace-profile`.
+A = '^built-in retina display$'
+B = '^built-in retina display$'
+C = '^built-in retina display$'
+D = '^built-in retina display$'
+E = '^built-in retina display$'
+F = '^built-in retina display$'
+G = '^built-in retina display$'
+K = '^built-in retina display$'
+L = '^built-in retina display$'
+M = '^built-in retina display$'
+R = '^built-in retina display$'
+S = '^built-in retina display$'
+T = '^built-in retina display$'
+U = '^built-in retina display$'
+V = '^built-in retina display$'
+W = '^built-in retina display$'
+X = '^built-in retina display$'
+Z = '^built-in retina display$'
+Q = '^HP 27er$'
