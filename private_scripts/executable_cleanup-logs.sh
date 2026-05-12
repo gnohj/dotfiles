@@ -28,9 +28,33 @@ log_message "Keeping logs from: $PREVIOUS_MONTH and $CURRENT_MONTH"
 # This will match files like: spotify_202501.log, autopush_202501.log, etc.
 DELETED_COUNT=0
 KEPT_COUNT=0
+TRUNCATED_COUNT=0
 
-# Find all .log files in ~/.logs recursively
+# Size cap catches runaway-growth bugs that the mtime check below
+# can't (an actively-written log never ages out). Tail-truncates to
+# keep the last 10 MB for inspection.
+SIZE_CAP_BYTES=$((100 * 1024 * 1024))
+SIZE_KEEP_BYTES=$((10  * 1024 * 1024))
+
 while IFS= read -r -d '' logfile; do
+  if [[ $(uname) == "Darwin" ]]; then
+    SIZE=$(stat -f %z "$logfile" 2>/dev/null || echo 0)
+  else
+    SIZE=$(stat -c %s "$logfile" 2>/dev/null || echo 0)
+  fi
+  if [[ $SIZE -gt $SIZE_CAP_BYTES ]]; then
+    TRUNCATED_COUNT=$((TRUNCATED_COUNT + 1))
+    log_message "TRUNCATE: $logfile (${SIZE} bytes → last 10 MB)"
+    TMP_FILE="${logfile}.cleanup.tmp"
+    if tail -c "$SIZE_KEEP_BYTES" "$logfile" > "$TMP_FILE" 2>/dev/null; then
+      mv -f "$TMP_FILE" "$logfile"
+    else
+      rm -f "$TMP_FILE"
+      log_message "WARN: tail-truncate failed for $logfile — skipping"
+    fi
+    continue   # skip mtime/filename rules below
+  fi
+
   # Extract YYYYMM pattern from filename if it exists
   if [[ "$logfile" =~ _([0-9]{6})\.log$ ]]; then
     FILE_MONTH="${BASH_REMATCH[1]}"
@@ -66,7 +90,7 @@ while IFS= read -r -d '' logfile; do
   fi
 done < <(find "$LOG_DIR" -type f -name "*.log" -print0)
 
-log_message "Cleanup complete: Deleted $DELETED_COUNT files, Kept $KEPT_COUNT files"
+log_message "Cleanup complete: Deleted $DELETED_COUNT files, Truncated $TRUNCATED_COUNT files, Kept $KEPT_COUNT files"
 
 # Clean up empty directories in ~/.logs
 find "$LOG_DIR" -type d -empty -delete

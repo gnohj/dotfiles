@@ -2,7 +2,11 @@
 
 LOG_FILE="$HOME/.logs/tmux-truncate-branch.log"
 
+# Gated — this script fires every tmux status refresh (~1Hz), so
+# unconditional logging once grew a 7.58 GB log. Set TMUX_BRANCH_DEBUG=1
+# only while actively debugging.
 log() {
+  [ -n "${TMUX_BRANCH_DEBUG:-}" ] || return 0
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG_FILE"
 }
 
