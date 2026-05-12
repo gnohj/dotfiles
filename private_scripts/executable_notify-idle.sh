@@ -81,22 +81,17 @@ TIMEOUT_SECONDS=12
 # and is deployed by chezmoi from private_Scripts/executable_open-tmux-attach.sh.
 EXECUTE_CMD="$HOME/Scripts/open-tmux-attach.sh '$SESSION'"
 
-if ! command -v terminal-notifier >/dev/null 2>&1; then
-  osascript -e "display notification \"$MSG\" with title \"$TITLE\" sound name \"Tink\"" >/dev/null 2>&1 || true
-  exit 0
-fi
-
-# Build the terminal-notifier args; only include -contentImage when we
-# resolved a usable PNG.
-TN_ARGS=(
-  -title "$TITLE"
-  -message "$MSG"
-  -group "agent-idle-$SESSION"
-  -timeout "$TIMEOUT_SECONDS"
-  -execute "$EXECUTE_CMD"
+# Fire the banner via the unified mac-notify helper. mac-notify owns
+# the terminal-notifier vs osascript fallback, so this script doesn't
+# need to branch on tool availability.
+notify_args=(
+  -t "$TITLE"
+  -m "$MSG"
+  -g "agent-idle-$SESSION"
+  -T "$TIMEOUT_SECONDS"
+  -e "$EXECUTE_CMD"
 )
 if [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ]; then
-  TN_ARGS+=( -contentImage "$ICON_PNG" )
+  notify_args+=( -i "$ICON_PNG" )
 fi
-
-terminal-notifier "${TN_ARGS[@]}" >/dev/null 2>&1 || true
+mac-notify "${notify_args[@]}"

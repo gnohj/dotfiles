@@ -57,13 +57,14 @@ done < "$AUTOPUSH_FILE"
 # minutes (5 in total) for the next update, I don't care, that's fine
 PUSH_INTERVAL=180
 
-# Function to display macOS notifications
+# Function to display macOS notifications. Routes through mac-notify
+# (single source of truth for terminal-notifier vs osascript fallback).
 display_notification() {
   local message="$1"
   local title="$2"
   local repo="$3"
   log_message "NOTIFY" "$repo" "Notification: $title - $message"
-  osascript -e "display notification \"$message\" with title \"$title\""
+  mac-notify -t "$title" -m "$message"
 }
 
 # Initialize success messages

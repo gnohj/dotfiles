@@ -10,7 +10,7 @@ RECENT_FILE=$(fd -t f '^(SCR-|Screenshot-)' "$SCREENSHOT_DIR" -x stat -f "%m %N"
   cut -d' ' -f2-)
 
 if [ -z "$RECENT_FILE" ]; then
-  osascript -e 'display notification "No recent screenshot found" with title "Copy Screenshot Path"'
+  mac-notify -t "Copy Screenshot Path" -m "No recent screenshot found"
   exit 1
 fi
 
@@ -19,4 +19,4 @@ echo -n "$RECENT_FILE" | pbcopy
 
 # Show notification
 FILENAME=$(basename "$RECENT_FILE")
-osascript -e "display notification \"$FILENAME\" with title \"Screenshot path copied!\""
+mac-notify -t "Screenshot path copied!" -m "$FILENAME"
