@@ -5,7 +5,6 @@ local isPlaying = false
 local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
-local currentPosition = "center" -- Track current position to avoid redundant updates
 
 -- Setup logging
 local LOG_DIR = os.getenv("HOME") .. "/.logs/sketchybar"
@@ -22,76 +21,12 @@ local function log_message(level, message)
 	end
 end
 
--- Function to detect external monitors
--- Reads status file written by check-external-monitor.sh
-local function hasExternalMonitor()
-	-- Read status from file (sbar.exec doesn't work reliably)
-	local status_file = "/tmp/sketchybar_external_monitor"
-	local file = io.open(status_file, "r")
-
-	if not file then
-		-- File doesn't exist yet, run detection script
-		local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
-		os.execute("bash " .. config_dir .. "/check-external-monitor.sh &")
-		log_message("DEBUG", "Status file missing, running detection script")
-		return false
-	end
-
-	local result = file:read("*line")
-	file:close()
-
-	local hasExternal = tonumber(result) or 0
-	log_message("DEBUG", "External monitor detection from file: '" .. tostring(result) .. "' hasExternal: " .. tostring(hasExternal))
-
-	if hasExternal > 0 then
-		log_message("INFO", "External monitor detected")
-		return true
-	end
-
-	log_message("INFO", "No external monitor detected (built-in display only)")
-	return false
-end
-
--- Function to update widget positions based on monitor setup
-local function updateWidgetPosition()
-	local hasExternal = hasExternalMonitor()
-	local newPosition = hasExternal and "center" or "left"
-
-	log_message("INFO", "updateWidgetPosition called - hasExternal: " .. tostring(hasExternal) .. ", newPosition: " .. newPosition .. ", currentPosition: " .. currentPosition)
-
-	-- Only update if position actually changed
-	if newPosition ~= currentPosition then
-		local oldPosition = currentPosition
-		currentPosition = newPosition
-		log_message("WARN", "Display configuration changed - moving Spotify from " .. oldPosition .. " to " .. newPosition)
-
-		-- Update individual item positions AND the bracket using sketchybar commands
-		-- (Lua API doesn't reliably update positions at runtime)
-		log_message("DEBUG", "Executing sketchybar CLI commands to update positions")
-		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".icon position=" .. newPosition)
-		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. " position=" .. newPosition)
-		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".play position=" .. newPosition)
-		sbar.exec("sketchybar --set " .. constants.items.SPOTIFY .. ".bracket position=" .. newPosition)
-
-		log_message("INFO", "Successfully updated position to " .. newPosition)
-	else
-		log_message("DEBUG", "Position unchanged, staying at: " .. currentPosition)
-	end
-end
-
 -- Register the Spotify playback state changed event
 -- Delay event registration to avoid deadlock during init
 sbar.exec("sleep 0.1 && sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
 
--- Register custom display change event (NOT the built-in display_change which fires constantly)
--- Delay event registration to avoid deadlock during init
-sbar.exec("sleep 0.1 && sketchybar --add event monitor_display_change")
-
--- Determine initial position based on current display setup
 log_message("INFO", "Initializing Spotify widget")
-local initialPosition = hasExternalMonitor() and "center" or "left"
-currentPosition = initialPosition
-log_message("INFO", "Initial position set to: " .. initialPosition)
+local initialPosition = "left"
 
 -- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
@@ -357,11 +292,10 @@ spotify:subscribe("spotify_poll", function()
 	updateSpotifyInfo()
 end)
 
--- Also subscribe to system wake event to refresh state and position
+-- Also subscribe to system wake event to refresh state
 spotify:subscribe("system_woke", function()
-	log_message("INFO", "Event triggered: system_woke - Refreshing state and position")
+	log_message("INFO", "Event triggered: system_woke - Refreshing state")
 	updateSpotifyInfo()
-	updateWidgetPosition()
 end)
 
 spotify:subscribe("mouse.clicked", function()
@@ -418,22 +352,14 @@ sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
 	position = initialPosition,
 })
 
--- Start display monitor in background
-local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
-log_message("INFO", "Starting display monitor background process")
-sbar.exec("pkill -f display-monitor.sh; " .. config_dir .. "/display-monitor.sh &")
+-- Kill any lingering display-monitor.sh from a previous session; the
+-- widget no longer responds to monitor changes, so the background poller
+-- has nothing to consume its events.
+sbar.exec("pkill -f display-monitor.sh 2>/dev/null")
 
--- Initial update on load
-log_message("INFO", "Running initial widget updates")
+log_message("INFO", "Running initial widget update")
 updateSpotifyInfo()
-updateWidgetPosition()
 log_message("INFO", "Spotify widget initialization complete")
-
--- Subscribe to custom display change events (from display-monitor.sh)
-spotify:subscribe("monitor_display_change", function()
-	log_message("WARN", "Event triggered: monitor_display_change - Display configuration changed")
-	updateWidgetPosition()
-end)
 
 -- Polling fallback: update on the regular update_freq interval
 spotify:subscribe("front_app_switched", function()
