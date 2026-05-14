@@ -10,6 +10,7 @@ return {
     max_threads = 8,
     layout = {
       prompt_position = "top",
+      flex = { wrap = "bottom" },
     },
     hl = {
       normal = "FFFNormal",
