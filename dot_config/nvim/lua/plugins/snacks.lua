@@ -150,34 +150,34 @@ return {
   keys = {
     { "<leader><space>", false },
     { "<leader>fg", false }, -- Disabled
-    { "<leader>sg", false }, -- Replaced by Seeker grep
-    -- Find Files with frecency (git files only)
     {
-      "<leader>ff",
+      "<leader>sg",
       function()
-        Snacks.picker.smart({
-          title = "Git Files",
-          multi = { "buffers", "recent", "git_files" },
-          format = "file",
-          matcher = {
-            cwd_bonus = true,
-            frecency = true,
-            sort_empty = true,
-          },
-          filter = {
-            cwd = true,
-          },
-          transform = "unique_file",
-          win = {
-            preview = {
-              wo = { number = false, relativenumber = false },
-            },
-          },
-        })
+        Snacks.picker.grep()
       end,
-      desc = "Find Git Files (frecency)",
+      desc = "Grep",
     },
-    -- LazyVim default find files (moved to fF)
+    -- File pickers handed off to fff.nvim (see lua/plugins/fff.lua).
+    -- To revert: delete fff.lua and uncomment the blocks below.
+    -- {
+    --   "<leader>ff",
+    --   function()
+    --     Snacks.picker.smart({
+    --       title = "Git Files",
+    --       multi = { "buffers", "recent", "git_files" },
+    --       format = "file",
+    --       matcher = {
+    --         cwd_bonus = true,
+    --         frecency = true,
+    --         sort_empty = true,
+    --       },
+    --       filter = { cwd = true },
+    --       transform = "unique_file",
+    --       win = { preview = { wo = { number = false, relativenumber = false } } },
+    --     })
+    --   end,
+    --   desc = "Find Git Files (frecency)",
+    -- },
     {
       "<leader>fF",
       function()
@@ -192,30 +192,22 @@ return {
             frecency = true,
             sort_empty = true,
           },
-          filter = {
-            cwd = true,
-          },
+          filter = { cwd = true },
           transform = "unique_file",
-          win = {
-            preview = {
-              wo = { number = false, relativenumber = false },
-            },
-          },
+          win = { preview = { wo = { number = false, relativenumber = false } } },
         })
       end,
       desc = "Find Files (frecency)",
     },
-    -- Recent files (cwd only)
     {
       "<leader>fr",
       function()
-        Snacks.picker.recent({
-          filter = { cwd = true },
-        })
+        Snacks.picker.recent({ filter = { cwd = true } })
       end,
       desc = "Recent Files (cwd)",
     },
-    -- Recent files (global)
+    -- <leader>fR stays in snacks — fff has no global-recent equivalent
+    -- (would require rebuilding its index against /).
     {
       "<leader>fR",
       function()
