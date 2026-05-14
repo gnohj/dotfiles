@@ -1958,6 +1958,166 @@ EOF
   echo "GhosttyFetch configuration updated at '$ghosttyfetch_conf_file'."
 }
 
+generate_gh_dash_config() {
+  gh_dash_conf_file="$HOME/.config/gh-dash/config.yml"
+  mkdir -p "$(dirname "$gh_dash_conf_file")"
+
+  # Full-file ownership (same pattern as generate_lazygit_config). After
+  # this runs, any chezmoi-source dot_config/gh-dash/config.yml is
+  # overwritten — edit the heredoc below for PR queries, keybindings,
+  # repoPaths, etc., not the chezmoi source.
+  cat >"$gh_dash_conf_file" <<EOF
+#
+# ██████╗  █████╗ ███████╗██╗  ██╗
+# ██╔══██╗██╔══██╗██╔════╝██║  ██║
+# ██║  ██║███████║███████╗███████║
+# ██║  ██║██╔══██║╚════██║██╔══██║
+# ██████╔╝██║  ██║███████║██║  ██║
+# ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+#
+# GitHub PR / issue dashboard in your terminal
+# Auto-generated gh-dash config
+# https://github.com/dlvhdr/gh-dash
+prSections:
+  - title: My Pull Requests
+    filters: is:open author:@me
+  - title: Needs My Review
+    filters: is:open review-requested:@me
+  - title: Involved
+    filters: is:open involves:@me -author:@me
+  - title: All Open (web)
+    filters: is:open repo:iheartradio/web
+    limit: 20
+  - title: All Open (inferno)
+    filters: is:open repo:iheartradio/inferno-monorepo
+    limit: 20
+issuesSections:
+  - title: My Issues
+    filters: is:open author:@me
+  - title: Assigned
+    filters: is:open assignee:@me
+  - title: Involved
+    filters: is:open involves:@me -author:@me
+defaults:
+  preview:
+    open: true
+    width: 100
+  prsLimit: 20
+  issuesLimit: 20
+  view: prs
+  layout:
+    prs:
+      updatedAt:
+        width: 7
+      repo:
+        width: 15
+      author:
+        width: 15
+      assignees:
+        width: 20
+        hidden: true
+      base:
+        width: 15
+        hidden: true
+      lines:
+        width: 16
+    issues:
+      updatedAt:
+        width: 7
+      repo:
+        width: 15
+      creator:
+        width: 10
+      assignees:
+        width: 20
+        hidden: true
+  refetchIntervalMinutes: 30
+keybindings:
+  issues:
+    - key: e
+      command: >
+        tmux new-window -n "🐙 Issue #{{.IssueNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"'
+    - key: i
+      command: >
+        tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
+  prs:
+    - key: P # Open PR in Neovim Octo, Diff, and Claude Review
+      command: >
+        cd {{.RepoPath}} &&
+        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin \$BASE \$HEAD 2>/dev/null &&
+        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
+        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\"" &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+    - key: W # Open PR in Neovim Octo with Workspaces
+      command: >
+        cd {{.RepoPath}} &&
+        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin \$BASE \$HEAD 2>/dev/null &&
+        git checkout \$HEAD 2>/dev/null || git checkout -b \$HEAD origin/\$HEAD &&
+        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\"" &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+    - key: enter # Open PR in Neovim Octo
+      command: >
+        cd {{.RepoPath}} &&
+        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin \$HEAD 2>/dev/null &&
+        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
+        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
+    - key: D # Open PR Diff in Neovim CodeDiff
+      command: >
+        cd {{.RepoPath}} &&
+        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
+        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin \$BASE \$HEAD 2>/dev/null &&
+        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
+        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
+        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\""
+    - key: A # Open PR in Claude Review
+      command: >
+        cd {{.RepoPath}} &&
+        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
+        git fetch origin \$HEAD 2>/dev/null &&
+        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+repoPaths:
+  gnohj/*: ~/Developer/*
+  iheartradio/*: ~/Developer/*
+  iheartradio/inferno-monorepo: ~/Developer/inferno/review/
+  iheartradio/web: ~/Developer/web/review/
+theme:
+  ui:
+    table:
+      showSeparator: true
+      compact: false
+  colors:
+    text:
+      primary: "$gnohj_color14"
+      secondary: "$gnohj_color04"
+      inverted: "$gnohj_color10"
+      faint: "$gnohj_color09"
+      warning: "$gnohj_color05"
+      success: "$gnohj_color02"
+      error: "$gnohj_color11"
+    background:
+      selected: "$gnohj_color13"
+    border:
+      primary: "$gnohj_color04"
+      secondary: "$gnohj_color13"
+      faint: "$gnohj_color17"
+pager:
+  diff: ""
+EOF
+
+  echo "gh-dash configuration updated at '\$gh_dash_conf_file'."
+}
+
 generate_gitmux_config() {
   gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
 
@@ -2172,6 +2332,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate gitmux config
   generate_gitmux_config
+
+  # Generate gh-dash config
+  generate_gh_dash_config
 
   # Generate pi theme
   generate_pi_theme
