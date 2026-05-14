@@ -258,8 +258,16 @@ return {
         hl.diffChanged = { fg = colors["gnohj_color05"], bold = true } -- Yellow for changed
         hl.diffRemoved = { fg = colors["gnohj_color11"], bold = true } -- Red for removed
         -- Diff file headers (--- a/ and +++ b/) - ensure readable text
-        hl.diffOldFile = { fg = colors["gnohj_color10"], bg = colors["gnohj_color11"], bold = true } -- Dark on red bg
-        hl.diffNewFile = { fg = colors["gnohj_color10"], bg = colors["gnohj_color02"], bold = true } -- Dark on green bg
+        hl.diffOldFile = {
+          fg = colors["gnohj_color10"],
+          bg = colors["gnohj_color11"],
+          bold = true,
+        } -- Dark on red bg
+        hl.diffNewFile = {
+          fg = colors["gnohj_color10"],
+          bg = colors["gnohj_color02"],
+          bold = true,
+        } -- Dark on green bg
         hl.diffFile = { fg = colors["gnohj_color04"], bold = true } -- Blue for diff --git line
         hl.diffIndexLine = { fg = colors["gnohj_color09"] } -- Gray for index line
         hl.diffLine = { fg = colors["gnohj_color03"] } -- Cyan for @@ line numbers
@@ -291,6 +299,28 @@ return {
           bg = colors["gnohj_color34"],
           bold = true,
         }
+
+        -- fff.nvim picker normal text (filename, prompt body) — gnohj white.
+        hl.FFFNormal = { fg = colors["gnohj_color6"] }
+
+        -- fff.nvim directory-path text. Default links to Comment which
+        -- collides with the cursor-row highlight on the active row.
+        hl.FFFDirectoryPath = { fg = colors["gnohj_color47"] }
+
+        -- fff.nvim git status colors — match the rest of the gnohj
+        -- git convention (gitsigns, mini.diff, diff*).
+        hl.FFFGitStaged = { fg = colors["gnohj_color02"] }
+        hl.FFFGitModified = { fg = colors["gnohj_color05"] }
+        hl.FFFGitDeleted = { fg = colors["gnohj_color11"] }
+        hl.FFFGitRenamed = { fg = colors["gnohj_color04"] }
+        hl.FFFGitUntracked = { fg = colors["gnohj_color02"] }
+        hl.FFFGitIgnored = { fg = colors["gnohj_color09"] }
+        hl.FFFGitSignStaged = { link = "FFFGitStaged" }
+        hl.FFFGitSignModified = { link = "FFFGitModified" }
+        hl.FFFGitSignDeleted = { link = "FFFGitDeleted" }
+        hl.FFFGitSignRenamed = { link = "FFFGitRenamed" }
+        hl.FFFGitSignUntracked = { link = "FFFGitUntracked" }
+        hl.FFFGitSignIgnored = { link = "FFFGitIgnored" }
 
         -- Mini.diff overlay highlights
         hl.MiniDiffOverAdd =
