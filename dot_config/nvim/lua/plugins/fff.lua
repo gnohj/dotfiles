@@ -1,3 +1,4 @@
+-- Ok
 return {
   "dmtrKovalenko/fff.nvim",
   build = function()
@@ -5,6 +6,8 @@ return {
   end,
   lazy = false,
   opts = {
+    lazy_sync = false,
+    max_threads = 8,
     layout = {
       prompt_position = "top",
     },
@@ -18,6 +21,10 @@ return {
     },
     git = {
       status_text_color = true,
+    },
+    preview = {
+      enabled = true,
+      max_size = 50 * 1024,
     },
   },
   keys = {

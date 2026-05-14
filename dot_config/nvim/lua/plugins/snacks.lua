@@ -33,9 +33,7 @@ local function agent_split(cmd)
       'tmux split-window -h -l 25% -c "' .. cwd .. '" "' .. cmd .. '"'
     )
   else
-    vim.fn.system(
-      'tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"'
-    )
+    vim.fn.system('tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"')
     vim.fn.system("tmux select-layout even-horizontal")
   end
 end
@@ -194,7 +192,9 @@ return {
           },
           filter = { cwd = true },
           transform = "unique_file",
-          win = { preview = { wo = { number = false, relativenumber = false } } },
+          win = {
+            preview = { wo = { number = false, relativenumber = false } },
+          },
         })
       end,
       desc = "Find Files (frecency)",
@@ -547,6 +547,12 @@ return {
     picker = {
       hidden = false,
       ignored = true,
+      previewers = {
+        file = {
+          max_size = 50 * 1024,
+          max_line_length = 500,
+        },
+      },
       sources = {
         grep = {
           exclude = {
@@ -694,8 +700,7 @@ return {
             desc = "Second Brain Inbox",
             enabled = is_vault_context,
             action = function()
-              local inbox =
-                vim.fn.expand("~/Obsidian/second-brain/Notes-Inbox")
+              local inbox = vim.fn.expand("~/Obsidian/second-brain/Notes-Inbox")
               require("snacks").picker.files({
                 title = "Inbox",
                 cwd = inbox,
@@ -708,8 +713,7 @@ return {
             desc = "Second Brain Notes",
             enabled = is_vault_context,
             action = function()
-              local notes =
-                vim.fn.expand("~/Obsidian/second-brain/Notes")
+              local notes = vim.fn.expand("~/Obsidian/second-brain/Notes")
               require("snacks").picker.files({
                 title = "Notes",
                 cwd = notes,
@@ -722,8 +726,7 @@ return {
             desc = "Second Brain Projects",
             enabled = is_vault_context,
             action = function()
-              local projects =
-                vim.fn.expand("~/Obsidian/second-brain/Projects")
+              local projects = vim.fn.expand("~/Obsidian/second-brain/Projects")
               require("snacks").picker.files({
                 title = "Projects",
                 cwd = projects,
