@@ -7,7 +7,7 @@ quitOnTopLevelReturn: true
 git:
   overrideGpg: true
   autoFetch: true
-  fetchAll: false # fetch origin only — faster than --all on large repos
+  fetchAll: false  # fetch origin only — faster than --all on large repos
   paging:
     colorArg: always
     pager: delta --dark --paging=never
@@ -75,12 +75,22 @@ customCommands:
     context: "files"
     description: "Generate plain/simple commit message"
 
-  # Open file in host nvim via RPC; popup auto-closes via the script.
-  # Path is also pbcopy'd as a side-effect (useful for PR descriptions).
+  # Open file in the host nvim instance (the one behind the lazygit
+  # popup) via RPC. Skips the clipboard → exit lazygit → snacks-picker
+  # paste round-trip. Path is also copied to clipboard as a side-effect
+  # so it remains available for other contexts (PR descriptions, etc.).
+  # Uses ~/.local/bin/lazygit-nvim-edit which talks to nvim's RPC
+  # socket (~/.config/nvim/init.lua sets one per tmux pane).
+  #
+  # Note: this does NOT auto-close the lazygit popup. Press q yourself
+  # after the file opens — auto-close was tried with several methods
+  # (inline send-keys, backgrounded subshell, tmux run-shell -b) but
+  # all interacted poorly with lazygit's customCommand wait/output:log
+  # plumbing, leaving the spinner stuck.
   - key: "<c-o>"
     command: 'printf "%s" "{{.SelectedFile.Name}}" | pbcopy && lazygit-nvim-edit "{{.SelectedFile.Name}}"'
     context: "files"
-    description: "Copy path + open in host nvim (popup auto-closes)"
+    description: "Copy path + open in host nvim"
     output: log
 
   - key: "<c-p>"
