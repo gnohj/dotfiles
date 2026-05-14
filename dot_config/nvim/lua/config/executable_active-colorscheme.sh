@@ -56,6 +56,7 @@ gnohj_color10=#0f1419
 
 # evergarden winter original
 # gnohj_color10=#1e2528
+
 # Terminal - Cursor color
 gnohj_color24=#a7cfaf
 # Terminal red

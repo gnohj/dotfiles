@@ -1,3 +1,14 @@
+#
+# ██████╗  █████╗ ███████╗██╗  ██╗
+# ██╔══██╗██╔══██╗██╔════╝██║  ██║
+# ██║  ██║███████║███████╗███████║
+# ██║  ██║██╔══██║╚════██║██╔══██║
+# ██████╔╝██║  ██║███████║██║  ██║
+# ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+#
+# GitHub PR / issue dashboard in your terminal
+# Auto-generated gh-dash config
+# https://github.com/dlvhdr/gh-dash
 prSections:
   - title: My Pull Requests
     filters: is:open author:@me
@@ -116,5 +127,20 @@ theme:
     table:
       showSeparator: true
       compact: false
+  colors:
+    text:
+      primary: "#b8c9d3"
+      secondary: "#a3b8c6"
+      inverted: "#0f1419"
+      faint: "#9fb7a4"
+      warning: "#dab183"
+      success: "#b7ce97"
+      error: "#da858e"
+    background:
+      selected: "#536571"
+    border:
+      primary: "#a3b8c6"
+      secondary: "#536571"
+      faint: "#40474b"
 pager:
   diff: ""
