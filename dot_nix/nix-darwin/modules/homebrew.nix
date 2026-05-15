@@ -78,6 +78,7 @@
     casks = [
       # AI Tools
       "claude-code"
+      "superwhisper"
 
       # Browsers
       "brave-browser"
