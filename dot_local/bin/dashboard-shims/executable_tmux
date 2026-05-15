@@ -11,7 +11,7 @@
 # call replaces its own process with the tmux call, so without this re-exec
 # the wrapper would exit and the Ghostty shell would die with it.
 #
-# The launcher (~/Scripts/agent-sidebar-dashboard.sh) writes the primary client's
+# The launcher (~/.local/bin/agent-sidebar-dashboard.sh) writes the primary client's
 # tty path to /tmp/agent-dashboard-primary-client before opening the
 # dashboard. Every other tmux subcommand passes through unchanged.
 

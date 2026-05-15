@@ -16,7 +16,7 @@ tmux display-popup -E -w 28% -h 40% -b none "
 
   REPOS=\$(grep -E '^  [a-zA-Z0-9_-]+:\$' \"\$CONFIG_FILE\" | sed 's/^  //' | sed 's/:\$//' | awk '{print \"📂 \" \$0}')
 
-  SELECTED=\$(echo \"\$REPOS\" | \$HOME/Scripts/fzf-vim.sh \
+  SELECTED=\$(echo \"\$REPOS\" | \$HOME/.local/bin/fzf-vim.sh \
     --no-border \
     --ansi \
     --list-border \

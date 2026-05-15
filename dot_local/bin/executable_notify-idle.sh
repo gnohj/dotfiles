@@ -77,9 +77,9 @@ MSG="$SESSION"
 TIMEOUT_SECONDS=12
 
 # Click handler dispatches to whichever terminal is currently running
-# (ghostty → kitty → Terminal.app fallback). Helper lives in ~/Scripts/
+# (ghostty → kitty → Terminal.app fallback). Helper lives in ~/.local/bin/
 # and is deployed by chezmoi from private_Scripts/executable_open-tmux-attach.sh.
-EXECUTE_CMD="$HOME/Scripts/open-tmux-attach.sh '$SESSION'"
+EXECUTE_CMD="$HOME/.local/bin/open-tmux-attach.sh '$SESSION'"
 
 # Fire the banner via the unified mac-notify helper. mac-notify owns
 # the terminal-notifier vs osascript fallback, so this script doesn't

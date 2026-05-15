@@ -539,7 +539,7 @@ ticket() {
 }
 
 # Show dirty/clean state for tracked git repos with file-level breakdown.
-# Discovery + dirty/clean classification lives in ~/_bin/dirty-repo-status,
+# Discovery + dirty/clean classification lives in ~/.local/bin/dirty-repo-status,
 # shared with the sketchybar dirty-repos widget so the two stay in lockstep.
 dirty() {
   # --list: show every repo dirty-repo-status discovered, with status,
@@ -552,7 +552,7 @@ dirty() {
         dirty) printf "\033[33m● dirty\033[0m  %s\n" "$display" ;;
         clean) printf "\033[32m✓ clean\033[0m  %s\n" "$display" ;;
       esac
-    done < <("$HOME/_bin/dirty-repo-status")
+    done < <("$HOME/.local/bin/dirty-repo-status")
     return
   fi
 
@@ -561,7 +561,7 @@ dirty() {
   while IFS=$'\t' read -r s p; do
     [[ "$s" == "dirty" ]] && dirty_paths+=("$p")
     [[ "$s" == "clean" ]] && clean_paths+=("$p")
-  done < <("$HOME/_bin/dirty-repo-status")
+  done < <("$HOME/.local/bin/dirty-repo-status")
 
   if [ ${#dirty_paths[@]} -eq 0 ]; then
     echo ""
@@ -810,12 +810,6 @@ case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
-
-# add second-brain executables to path - og,on
-export PATH="$HOME/_bin:$PATH"
-
-# add Scripts directory to PATH
-export PATH="$HOME/Scripts:$PATH"
 
 export PATH="$HOME/.local/bin:$PATH"
 

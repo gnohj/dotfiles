@@ -37,8 +37,12 @@ while true; do
       --bind 'enter:accept,i:accept' \
       --bind 'esc:abort') || fzf_rc=$?
   else
+    # Optional: callers can supply a richer corpus via FZF_VIM_INSERT_INPUT
+    # so insert mode searches a larger set (e.g. flattened submenu leaves)
+    # while normal mode shows only the curated top-level list.
+    insert_input="${FZF_VIM_INSERT_INPUT:-$INPUT}"
     printf '\e[5 q' >/dev/tty
-    fzf_out=$(printf "%s\n" "$INPUT" | fzf \
+    fzf_out=$(printf "%s\n" "$insert_input" | fzf \
       "${extra_args[@]}" \
       --reverse --no-clear --no-multi \
       --no-header \

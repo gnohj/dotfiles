@@ -63,8 +63,8 @@ rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
-rctrl - 0x27 : ~/Scripts/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
-rctrl + shift - d : ~/Scripts/agent-sidebar-dashboard.sh # toggle/summon agent sidebar dashboard on workspace T
+rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
+rctrl + shift - d : ~/.local/bin/agent-sidebar-dashboard.sh # toggle/summon agent sidebar dashboard on workspace T
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl + shift - j : ~/.local/bin/worktree-jira # active Chrome Jira tab → /worktree (subscription-billed)
 rctrl + shift - h : ~/.local/bin/worktree-prompt # tmux popup prompt → /worktree (free-text inference)

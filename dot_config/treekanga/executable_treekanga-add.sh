@@ -21,7 +21,7 @@ FZF_COLORS="--color=bg+:${gnohj_color13:-},border:${gnohj_color03:-},fg:${gnohj_
 
 REPOS=$(grep -E '^  [a-zA-Z0-9_-]+:$' "$CONFIG_FILE" | sed 's/^  //;s/:$//' | awk '{print "📂 " $0}')
 
-SELECTED=$(echo "$REPOS" | "$HOME/Scripts/fzf-vim.sh" \
+SELECTED=$(echo "$REPOS" | "$HOME/.local/bin/fzf-vim.sh" \
   --no-border \
   --ansi \
   --no-sort \

@@ -28,30 +28,40 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 #   "🖥  Aerospace › <profile>"    → aerospace-profile <profile>
 #   "🌐 Browser › ..."             → browser_menu's case (extracted)
 #   "🌳 Worktrees › ..."           → worktrees_menu's case (extracted)
+#   "🔧 System › ..."              → system_menu's case (extracted)
+#   "🔁 Sync › ..."                → sync_menu's case (extracted)
+#   "🔎 Fzf › ..."                 → fzf_menu's case (extracted)
+#   "🤖 AI › ..."                  → ai_menu's case (extracted)
 #-------------------------------------------------------------------------------
-build_main_menu_items() {
-  # Top-level (existing top-level + submenu pointers for explicit drilldown)
-  printf "🤖 Agent Sidebar Dashboard\n"
-  printf "🔎 Aliases (fza)\n"
+build_top_level_items() {
+  # Top-level entries + submenu pointers. Shown in NORMAL mode (clean,
+  # navigable list). The flattened breadcrumb leaves below are added only
+  # in INSERT mode so fuzzy-typing "open pr" still resolves directly.
+  printf "🤖 AI ›\n"
   printf "🖥  Aerospace Profiles ›\n"
   printf "🌐 Browser ›\n"
   printf "📦 Check Outdated Packages\n"
   printf "🧹 Cleanup Logs\n"
-  printf "🔥 Codeburn (AI cost)\n"
   printf "🌿 Copy Current Branch\n"
   printf "🧼 Dirty Repos\n"
-  printf "🔍 Environment Variables (fze)\n"
-  printf "📋 Logs (fzl)\n"
-  printf "🚀 Sync Autopush Repos\n"
-  printf "🔄 Sync Agent Dashboard\n"
-  printf "🔧 Run System Setup\n"
-  printf "⬆️ Run System Update\n"
-  printf "👤 Run User Setup\n"
+  printf "🔎 Fzf ›\n"
+  printf "🔁 Sync ›\n"
+  printf "🔧 System ›\n"
   printf "🎨 Themes ›\n"
   printf "👻 Toggle Transparency\n"
   printf "🌳 Worktrees ›\n"
+}
 
-  # Aerospace profiles (flattened — type "laptop" or "desk" to match)
+build_flattened_leaves() {
+  # Breadcrumb-prefixed leaves — surfaced only in INSERT mode so typing
+  # any partial name (e.g. "tokyo", "laptop", "open pr") matches in one
+  # shot. Kept out of the NORMAL-mode list so the root view stays clean.
+
+  # AI (2 actions)
+  printf "🤖 AI › 🤖 Agent Sidebar Dashboard\n"
+  printf "🤖 AI › 🔥 Codeburn (cost)\n"
+
+  # Aerospace profiles (type "laptop" or "desk" to match)
   if [ -d "$HOME/.config/aerospace/profiles" ]; then
     for f in "$HOME/.config/aerospace/profiles"/*.toml; do
       [ -f "$f" ] || continue
@@ -62,6 +72,20 @@ build_main_menu_items() {
   # Browser (2 actions)
   printf "🌐 Browser › 🔗 Open Pull Request\n"
   printf "🌐 Browser › 🎫 Open Jira Ticket\n"
+
+  # fzf (3 actions)
+  printf "🔎 Fzf › 🔎 Aliases (fza)\n"
+  printf "🔎 Fzf › 🔍 Env Vars (fze)\n"
+  printf "🔎 Fzf › 📋 Logs (fzl)\n"
+
+  # Sync (2 actions)
+  printf "🔁 Sync › 🚀 Autopush Repos\n"
+  printf "🔁 Sync › 🔄 Agent Dashboard\n"
+
+  # System (3 actions)
+  printf "🔧 System › 🔧 System Setup\n"
+  printf "🔧 System › ⬆️ System Update\n"
+  printf "🔧 System › 👤 User Setup\n"
 
   # Worktrees (mirror worktrees_menu's options)
   printf "🌳 Worktrees › 🌳 Add Worktree\n"
@@ -84,9 +108,14 @@ build_main_menu_items() {
 }
 
 main_menu() {
-  local choice
-  choice=$(build_main_menu_items |
-    ~/Scripts/fzf-vim.sh --height=100% \
+  local choice insert_corpus
+  # Insert mode gets the full corpus (top-level + flattened leaves) so
+  # fuzzy typing matches across everything. Normal mode (the default,
+  # piped to stdin) shows only the clean top-level list.
+  insert_corpus=$({ build_top_level_items; build_flattened_leaves; })
+  choice=$(build_top_level_items |
+    FZF_VIM_INSERT_INPUT="$insert_corpus" \
+    ~/.local/bin/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
       $FZF_COLORS)
@@ -113,6 +142,22 @@ main_menu() {
       worktrees_dispatch "${choice#🌳 Worktrees › }"
       return
       ;;
+    "🔧 System › "*)
+      system_dispatch "${choice#🔧 System › }"
+      return
+      ;;
+    "🔁 Sync › "*)
+      sync_dispatch "${choice#🔁 Sync › }"
+      return
+      ;;
+    "🔎 Fzf › "*)
+      fzf_dispatch "${choice#🔎 Fzf › }"
+      return
+      ;;
+    "🤖 AI › "*)
+      ai_dispatch "${choice#🤖 AI › }"
+      return
+      ;;
   esac
 
   case "$choice" in
@@ -120,16 +165,10 @@ main_menu() {
   "🌐 Browser ›") browser_menu ;;
   "🌳 Worktrees ›") worktrees_menu ;;
   "🖥  Aerospace Profiles ›") aerospace_menu ;;
-  "🚀 Sync Autopush Repos")
-    ~/.config/zshrc/github-auto-push.sh --nowait
-    echo "GitHub auto-push completed"
-    sleep 1
-    ;;
-  "🔄 Sync Agent Dashboard")
-    python3 ~/Developer/agents/setup_symlinks.py
-    printf '\nAgent sync complete. Press any key to continue...'
-    read -n1
-    ;;
+  "🔧 System ›") system_menu ;;
+  "🔁 Sync ›") sync_menu ;;
+  "🔎 Fzf ›") fzf_menu ;;
+  "🤖 AI ›") ai_menu ;;
   "🧼 Dirty Repos")
     # Use `;` instead of `&&` so the prompt fires even if `dirty` exits non-zero.
     # `read -k1` works because we're inside a zsh subshell.
@@ -139,8 +178,8 @@ main_menu() {
     zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"
     ;;
   "🧹 Cleanup Logs")
-    if [ -f "$HOME/Scripts/cleanup-logs.sh" ]; then
-      ~/Scripts/cleanup-logs.sh
+    if [ -f "$HOME/.local/bin/cleanup-logs.sh" ]; then
+      ~/.local/bin/cleanup-logs.sh
       echo "\nLogs cleaned up. Press any key to continue..."
       read -k1
     else
@@ -148,42 +187,10 @@ main_menu() {
       sleep 2
     fi
     ;;
-  "🔧 Run System Setup")
-    if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
-      cd "$HOME/.local/share/chezmoi" && ./system-setup.sh
-    else
-      echo "system-setup.sh not found"
-      sleep 2
-    fi
-    ;;
-  "⬆️ Run System Update")
-    echo "Updating nix flake inputs..."
-    nix flake update --flake ~/.nix
-    echo "Rebuilding system with updated packages..."
-    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
-    echo "\nSystem update complete. Press any key to continue..."
-    read -k1
-    ;;
-  "👤 Run User Setup")
-    if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
-      cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
-    else
-      echo "user-setup.sh not found"
-      sleep 2
-    fi
-    ;;
   "👻 Toggle Transparency")
     ~/.config/tmux/toggle-terminal-transparency.sh
     echo "Transparency toggled"
     sleep 1
-    ;;
-  "🤖 Agent Sidebar Dashboard")
-    # Same toggle that rctrl+shift+d fires — summons the recon-backed
-    # claude-agents sidebar on workspace T.
-    ~/Scripts/agent-sidebar-dashboard.sh
-    ;;
-  "🔥 Codeburn (AI cost)")
-    ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
     ;;
   "🌿 Copy Current Branch")
     pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
@@ -196,21 +203,6 @@ main_menu() {
     fi
     sleep 1
     ;;
-  *"fze"*)
-    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-    value=$(tv env)
-    if [ -n "$value" ]; then
-      printf '%s' "$value" | pbcopy
-      echo "Copied to clipboard"
-    fi
-    sleep 1
-    ;;
-  *"fzl"*)
-    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-    log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
-    [ -n "$log_file" ] && exec nvim "$log_file"
-    ;;
-  *"fza"*) aliases_menu ;;
   *) exit 0 ;;
   esac
 }
@@ -221,7 +213,7 @@ main_menu() {
 themes_menu() {
   local choice
   choice=$(printf "🎨 All\n🌙 Dark\n☀️ Light\n← Back" |
-    ~/Scripts/fzf-vim.sh --height=40% \
+    ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Themes" \
       --prompt="Theme > " \
       --ansi \
@@ -246,7 +238,7 @@ aerospace_menu() {
     {
       find "$profiles_dir" -maxdepth 1 -name '*.toml' -exec basename {} .toml \; 2>/dev/null | sort
       printf "← Back\n"
-    } | ~/Scripts/fzf-vim.sh --height=40% \
+    } | ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Aerospace profile (active: $active)" \
       --prompt="Profile > " \
       --ansi \
@@ -398,7 +390,7 @@ browser_dispatch() {
 browser_menu() {
   local choice
   choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n← Back\n" |
-    ~/Scripts/fzf-vim.sh --height=40% \
+    ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Browser" \
       --prompt="Browser > " \
       --ansi \
@@ -448,13 +440,162 @@ worktrees_dispatch() {
 worktrees_menu() {
   local choice
   choice=$(printf "🌳 Add Worktree\n✨ AI Add Worktree (prompt → worktree)\n🎫 AI Add Worktree (Chrome tab (jira) → worktree)\n📋 AI Add Worktree (clipboard → worktree)\n🐛 AI Add Worktree (clipboard → Jira bug → worktree)\n🔁 AI Retry capture → worktree\n🗑  Delete Worktree\n← Back\n" |
-    ~/Scripts/fzf-vim.sh --height=40% \
+    ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Worktrees" \
       --prompt="Worktree > " \
       --ansi \
       $FZF_COLORS)
 
   worktrees_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# AI Menu — dispatcher accepts a preselected subchoice (used by both
+# the drilldown menu and the flattened root-menu entries).
+#-------------------------------------------------------------------------------
+ai_dispatch() {
+  case "$1" in
+  "🤖 Agent Sidebar Dashboard")
+    # Same toggle that rctrl+shift+d fires — summons the recon-backed
+    # claude-agents sidebar on workspace T.
+    ~/.local/bin/agent-sidebar-dashboard.sh
+    ;;
+  "🔥 Codeburn (cost)")
+    ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+ai_menu() {
+  local choice
+  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔥 Codeburn (cost)\n← Back\n" |
+    ~/.local/bin/fzf-vim.sh --height=40% \
+      --header="AI" \
+      --prompt="AI > " \
+      --ansi \
+      $FZF_COLORS)
+
+  ai_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# Fzf Menu — dispatcher accepts a preselected subchoice (used by both
+# the drilldown menu and the flattened root-menu entries).
+#-------------------------------------------------------------------------------
+fzf_dispatch() {
+  case "$1" in
+  "🔎 Aliases (fza)") aliases_menu ;;
+  "🔍 Env Vars (fze)")
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    value=$(tv env)
+    if [ -n "$value" ]; then
+      printf '%s' "$value" | pbcopy
+      echo "Copied to clipboard"
+    fi
+    sleep 1
+    ;;
+  "📋 Logs (fzl)")
+    export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+    log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
+    [ -n "$log_file" ] && exec nvim "$log_file"
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+fzf_menu() {
+  local choice
+  choice=$(printf "🔎 Aliases (fza)\n🔍 Env Vars (fze)\n📋 Logs (fzl)\n← Back\n" |
+    ~/.local/bin/fzf-vim.sh --height=40% \
+      --header="Fzf" \
+      --prompt="Fzf > " \
+      --ansi \
+      $FZF_COLORS)
+
+  fzf_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# Sync Menu — dispatcher accepts a preselected subchoice (used by both
+# the drilldown menu and the flattened root-menu entries).
+#-------------------------------------------------------------------------------
+sync_dispatch() {
+  case "$1" in
+  "🚀 Autopush Repos")
+    ~/.config/zshrc/github-auto-push.sh --nowait
+    echo "GitHub auto-push completed"
+    sleep 1
+    ;;
+  "🔄 Agent Dashboard")
+    python3 ~/Developer/agents/setup_symlinks.py
+    printf '\nAgent sync complete. Press any key to continue...'
+    read -n1
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+sync_menu() {
+  local choice
+  choice=$(printf "🚀 Autopush Repos\n🔄 Agent Dashboard\n← Back\n" |
+    ~/.local/bin/fzf-vim.sh --height=40% \
+      --header="Sync" \
+      --prompt="Sync > " \
+      --ansi \
+      $FZF_COLORS)
+
+  sync_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# System Menu — dispatcher accepts a preselected subchoice (used by both
+# the drilldown menu and the flattened root-menu entries).
+#-------------------------------------------------------------------------------
+system_dispatch() {
+  case "$1" in
+  "🔧 System Setup")
+    if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
+      cd "$HOME/.local/share/chezmoi" && ./system-setup.sh
+    else
+      echo "system-setup.sh not found"
+      sleep 2
+    fi
+    ;;
+  "⬆️ System Update")
+    echo "Updating nix flake inputs..."
+    nix flake update --flake ~/.nix
+    echo "Rebuilding system with updated packages..."
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
+    echo "\nSystem update complete. Press any key to continue..."
+    read -k1
+    ;;
+  "👤 User Setup")
+    if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
+      cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
+    else
+      echo "user-setup.sh not found"
+      sleep 2
+    fi
+    ;;
+  "← Back") main_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+system_menu() {
+  local choice
+  choice=$(printf "🔧 System Setup\n⬆️ System Update\n👤 User Setup\n← Back\n" |
+    ~/.local/bin/fzf-vim.sh --height=40% \
+      --header="System" \
+      --prompt="System > " \
+      --ansi \
+      $FZF_COLORS)
+
+  system_dispatch "$choice"
 }
 
 #-------------------------------------------------------------------------------
@@ -471,7 +612,7 @@ aliases_menu() {
     "$HOME/.zsh_radioctl_cmds" 2>/dev/null |
     sed -E 's/^[[:space:]]*alias //' |
     sort -u |
-    ~/Scripts/fzf-vim.sh \
+    ~/.local/bin/fzf-vim.sh \
       --height=80% \
       --header="Aliases (select to copy) - Type to search" \
       --prompt="Alias > " \

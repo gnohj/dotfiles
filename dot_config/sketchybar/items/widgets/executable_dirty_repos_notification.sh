@@ -17,13 +17,13 @@ log_message() {
   echo "[$timestamp] [$level] [DIRTY_REPOS] $message" >>"$LOG_FILE"
 }
 
-# Discovery + dirty/clean classification lives in ~/_bin/dirty-repo-status,
+# Discovery + dirty/clean classification lives in ~/.local/bin/dirty-repo-status,
 # shared with the `dirty()` zsh function so this widget and the shell
 # helper can never drift on which repos they track.
 DIRTY_NAMES=()
 while IFS=$'\t' read -r status path; do
   [ "$status" = "dirty" ] && DIRTY_NAMES+=("$(basename "$path")")
-done < <("$HOME/_bin/dirty-repo-status")
+done < <("$HOME/.local/bin/dirty-repo-status")
 
 DIRTY_COUNT=${#DIRTY_NAMES[@]}
 
