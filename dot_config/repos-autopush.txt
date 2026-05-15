@@ -12,3 +12,4 @@
 ~/Obsidian/second-brain/Projects/fitness
 ~/Obsidian/second-brain/Projects/parents-estate
 ~/Developer/agents
+~/Developer/colorscheme
