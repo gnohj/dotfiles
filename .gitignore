@@ -1,6 +1,12 @@
 .DS_Store
 **/.DS_Store
 
+# Python bytecode caches — generated when py_compile or any Python
+# tooling runs against scripts in dot_local/bin/. Never source-of-truth.
+__pycache__/
+**/__pycache__/
+*.pyc
+
 # Project-level agent instructions live at the repo root but are
 # personal to this machine — not part of the dotfiles distribution.
 /CLAUDE.md
