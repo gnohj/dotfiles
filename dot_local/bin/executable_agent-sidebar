@@ -5,7 +5,7 @@
 # ///
 """Compact agent sidebar — narrow-width TUI for Claude Code sessions.
 
-Reads `recon json` for session data and `~/_bin/dirty-repo-status` for
+Reads `recon json` for session data and `~/.local/bin/dirty-repo-status` for
 dirty-repo data (the same source the sketchybar dirty-repos widget uses,
 so the two never drift). Renders two sections — claude agents in the top
 half, dirty repos (path + per-status file counts) in the bottom half.

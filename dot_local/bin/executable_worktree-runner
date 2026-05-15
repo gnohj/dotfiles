@@ -595,7 +595,7 @@ notify_args=(
   -m "\$MSG"
   -g "$WORKTREE_GROUP"
   -T $FINAL_TIMEOUT
-  -e "\$HOME/Scripts/notify-idle-switch.sh"
+  -e "\$HOME/.local/bin/notify-idle-switch.sh"
 )
 case "\$OUTCOME" in
   success)   notify_args+=( -s Glass ) ;;

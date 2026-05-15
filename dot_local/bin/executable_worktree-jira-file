@@ -414,7 +414,7 @@ if [ -n "$TICKET" ]; then
     -g "$GROUP" \
     -T 30 \
     -s Glass \
-    -e "$HOME/Scripts/notify-idle-switch.sh"
+    -e "$HOME/.local/bin/notify-idle-switch.sh"
 else
   REASON="${JIRA_FAIL:-(no JIRA_TICKET marker — check $LOGFILE)}"
   mac-notify \
