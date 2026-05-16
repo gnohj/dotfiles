@@ -20,7 +20,7 @@ return {
         },
       },
       panel = { enabled = false },
-      filetypes = { markdown = true, help = true, yaml = true },
+      filetypes = { markdown = true, help = true, yaml = true, rust = false },
       copilot_node_command = node_cmd,
     }
   end,
