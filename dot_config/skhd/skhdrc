@@ -40,7 +40,7 @@ rctrl - y : ~/.config/skhd/yazi-launch.sh
 # rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
-# rctrl - x : moved to capture-pane command
+# rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
@@ -74,7 +74,7 @@ rctrl + shift - r : ~/.local/bin/worktree-retry # retry the most-recent worktree
 rctrl + shift - f : ~/.local/bin/worktree-jira-file # Stage B: file the Jira ticket from the current worktree's pending note (dry-run preview → confirm → file)
 rctrl + shift - escape : ~/.local/bin/worktree-abort # abort the most recent worktree-runner in flight
 rctrl - c : /opt/homebrew/bin/tmux copy-mode
-rctrl - x : /opt/homebrew/bin/tmux capture-pane -epS - > /tmp/tmuxhist && /opt/homebrew/bin/tmux display-popup -E -w 95% -h 95% 'nvim -c "term cat /tmp/tmuxhist" -c "normal G"'
+rctrl - x : /opt/homebrew/bin/tmux split-window -v -l 20% -c "#{pane_current_path}" # new pane below at 20% height (tweak with -l N%)
 rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
 # rctrl - q - reserved for nvim shortcut to quit nvim instance
 rctrl - z : /opt/homebrew/bin/tmux kill-pane
