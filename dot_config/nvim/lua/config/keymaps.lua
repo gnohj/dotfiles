@@ -364,6 +364,16 @@ keymap("n", "<leader>gx", function()
   })
 end, { desc = "[P]Open GitHub PR for current branch (or repo PRs list)" })
 
+-- Open the current file in the macOS default app (HTML → browser, PDF → Preview, etc).
+keymap("n", "<leader>gX", function()
+  local path = vim.fn.expand("%:p")
+  if path == "" then
+    vim.notify("No file in buffer", vim.log.levels.WARN)
+    return
+  end
+  vim.ui.open(path)
+end, { desc = "[P]Open current file externally (browser / Preview / etc)" })
+
 -------------------------------------------------------------------------------
 --                           Toggle Copilot Virtual Text
 -------------------------------------------------------------------------------
