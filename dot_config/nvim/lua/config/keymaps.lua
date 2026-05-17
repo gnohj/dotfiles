@@ -364,15 +364,51 @@ keymap("n", "<leader>gx", function()
   })
 end, { desc = "[P]Open GitHub PR for current branch (or repo PRs list)" })
 
--- Open the current file in the macOS default app (HTML → browser, PDF → Preview, etc).
+-- Open the markdown link/image under the cursor in the macOS default app
+-- (image → Preview, HTML → browser, PDF → Preview, etc). Falls back to the
+-- current buffer's file if no `[text](target)` link is at the cursor.
+-- Relative paths are resolved against the buffer's directory so
+-- `../Notes-Assets/foo.png` from a vault note opens correctly.
 keymap("n", "<leader>gX", function()
-  local path = vim.fn.expand("%:p")
-  if path == "" then
-    vim.notify("No file in buffer", vim.log.levels.WARN)
-    return
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2] + 1 -- 1-indexed for string.find
+  local target
+
+  -- Walk all [text](target) and ![text](target) matches; pick the one
+  -- whose span contains the cursor column.
+  local search_start = 1
+  while true do
+    local s, e, t = line:find("!?%[[^%]]*%]%(([^)]+)%)", search_start)
+    if not s then
+      break
+    end
+    if col >= s and col <= e then
+      target = t
+      break
+    end
+    search_start = e + 1
   end
-  vim.ui.open(path)
-end, { desc = "[P]Open current file externally (browser / Preview / etc)" })
+
+  if target then
+    -- Resolve relative paths against the buffer's directory.
+    if not target:match("^%w+://") and not target:match("^/") then
+      local buf_dir = vim.fn.expand("%:p:h")
+      target = vim.fn.fnamemodify(buf_dir .. "/" .. target, ":p")
+    end
+  else
+    -- No markdown link under cursor — fall back to the buffer file.
+    target = vim.fn.expand("%:p")
+    if target == "" then
+      vim.notify(
+        "No file in buffer and no link under cursor",
+        vim.log.levels.WARN
+      )
+      return
+    end
+  end
+
+  vim.ui.open(target)
+end, { desc = "[P]Open link under cursor / current file externally" })
 
 -------------------------------------------------------------------------------
 --                           Toggle Copilot Virtual Text
