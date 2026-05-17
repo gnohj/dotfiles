@@ -119,7 +119,7 @@ main_menu() {
     ~/.local/bin/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   # Clear residual fzf output before running action
   clear
@@ -218,14 +218,14 @@ themes_menu() {
       --header="Themes" \
       --prompt="Theme > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   case "$choice" in
   "🎨 All") all_themes_menu ;;
   "🌙 Dark") dark_themes_menu ;;
   "☀️ Light") light_themes_menu ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -244,11 +244,11 @@ aerospace_menu() {
       --prompt="Profile > " \
       --ansi \
       $FZF_COLORS
-  )
+  ) || true
 
   case "$choice" in
   "← Back") main_menu ;;
-  "") exit 0 ;;
+  "") main_menu ;;
   *)
     "$HOME/.local/bin/aerospace-profile" "$choice"
     sleep 1
@@ -270,7 +270,7 @@ all_themes_menu() {
       --header="All Themes" \
       --prompt="All > " \
       $FZF_COLORS
-  )
+  ) || true
 
   case "$selected_scheme" in
   "← Back") themes_menu ;;
@@ -299,7 +299,7 @@ dark_themes_menu() {
       --prompt="Dark > " \
       --no-info \
       $FZF_COLORS
-  )
+  ) || true
 
   case "$selected_scheme" in
   "← Back") themes_menu ;;
@@ -328,7 +328,7 @@ light_themes_menu() {
       --prompt="Light > " \
       --no-info \
       $FZF_COLORS
-  )
+  ) || true
 
   case "$selected_scheme" in
   "← Back") themes_menu ;;
@@ -384,7 +384,7 @@ browser_dispatch() {
     sleep 1
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -395,7 +395,7 @@ browser_menu() {
       --header="Browser" \
       --prompt="Browser > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   clear
   browser_dispatch "$choice"
@@ -434,7 +434,7 @@ worktrees_dispatch() {
     ~/.config/treekanga/treekanga-rm.sh
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -445,7 +445,7 @@ worktrees_menu() {
       --header="Worktrees" \
       --prompt="Worktree > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   worktrees_dispatch "$choice"
 }
@@ -465,7 +465,7 @@ ai_dispatch() {
     ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -476,7 +476,7 @@ ai_menu() {
       --header="AI" \
       --prompt="AI > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   ai_dispatch "$choice"
 }
@@ -503,7 +503,7 @@ fzf_dispatch() {
     [ -n "$log_file" ] && exec nvim "$log_file"
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -514,7 +514,7 @@ fzf_menu() {
       --header="Fzf" \
       --prompt="Fzf > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   fzf_dispatch "$choice"
 }
@@ -536,7 +536,7 @@ sync_dispatch() {
     read -n1
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -547,7 +547,7 @@ sync_menu() {
       --header="Sync" \
       --prompt="Sync > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   sync_dispatch "$choice"
 }
@@ -636,7 +636,7 @@ system_dispatch() {
     read -k1
     ;;
   "← Back") main_menu ;;
-  *) exit 0 ;;
+  *) main_menu ;;
   esac
 }
 
@@ -647,7 +647,7 @@ system_menu() {
       --header="System" \
       --prompt="System > " \
       --ansi \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   system_dispatch "$choice"
 }
@@ -670,7 +670,7 @@ aliases_menu() {
       --height=80% \
       --header="Aliases (select to copy) - Type to search" \
       --prompt="Alias > " \
-      $FZF_COLORS)
+      $FZF_COLORS) || true
 
   if [[ -n "$selected" ]]; then
     # Extract just the alias name (before the '=')
