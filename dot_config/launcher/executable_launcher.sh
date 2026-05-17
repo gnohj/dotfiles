@@ -82,10 +82,11 @@ build_flattened_leaves() {
   printf "🔁 Sync › 🚀 Autopush Repos\n"
   printf "🔁 Sync › 🔄 Agent Dashboard\n"
 
-  # System (3 actions)
+  # System (4 actions)
   printf "🔧 System › 🔧 System Setup\n"
   printf "🔧 System › ⬆️ System Update\n"
   printf "🔧 System › 👤 User Setup\n"
+  printf "🔧 System › 🎯 All (update + setup + user-setup)\n"
 
   # Worktrees (mirror worktrees_menu's options)
   printf "🌳 Worktrees › 🌳 Add Worktree\n"
@@ -581,6 +582,59 @@ system_dispatch() {
       sleep 2
     fi
     ;;
+  "🎯 All (update + setup + user-setup)")
+    # Pre-authenticate sudo once and refresh in the background so the
+    # whole flow never re-prompts mid-run.
+    #
+    # ORDER MATTERS: darwin-rebuild runs LAST because its activation
+    # scripts reload /etc/sudoers and can invalidate the sudo credential
+    # cache — any sudo step after it would re-prompt for password.
+    # With it last, the cache stays valid through both setup phases.
+    #
+    # Each step is wrapped with `|| echo` so a non-zero exit reports the
+    # failure but doesn't abort the chain (set -euo pipefail is on at
+    # the script level — without the `||` neutralizer, the first failing
+    # step would skip everything below it including the sketchybar reload).
+    echo "Authenticating sudo (one prompt for the whole flow)..."
+    if ! sudo -v; then
+      echo "sudo authentication failed; aborting"
+      sleep 2
+      return
+    fi
+    ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) &
+    SUDO_KEEPALIVE=$!
+    trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null' RETURN
+
+    echo "\n▶ [1/3] System Setup..."
+    if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
+      ( cd "$HOME/.local/share/chezmoi" && ./system-setup.sh ) \
+        || echo "(system-setup.sh exited non-zero — continuing)"
+    else
+      echo "system-setup.sh not found (skipping)"
+    fi
+
+    echo "\n▶ [2/3] User Setup..."
+    if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
+      ( cd "$HOME/.local/share/chezmoi" && ./user-setup.sh ) \
+        || echo "(user-setup.sh exited non-zero — continuing)"
+    else
+      echo "user-setup.sh not found (skipping)"
+    fi
+
+    echo "\n▶ [3/3] System Update — nix flake update + darwin-rebuild..."
+    nix flake update --flake ~/.nix \
+      || echo "(nix flake update failed — continuing)"
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon \
+      || echo "(darwin-rebuild failed — continuing)"
+
+    echo "\n▶ Reloading sketchybar..."
+    /opt/homebrew/bin/sketchybar --reload 2>/dev/null \
+      || sketchybar --reload 2>/dev/null \
+      || echo "(sketchybar not running — skipped)"
+
+    echo "\n✓ All complete. Press any key to continue..."
+    read -k1
+    ;;
   "← Back") main_menu ;;
   *) exit 0 ;;
   esac
@@ -588,7 +642,7 @@ system_dispatch() {
 
 system_menu() {
   local choice
-  choice=$(printf "🔧 System Setup\n⬆️ System Update\n👤 User Setup\n← Back\n" |
+  choice=$(printf "🔧 System Setup\n⬆️ System Update\n👤 User Setup\n🎯 All (update + setup + user-setup)\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="System" \
       --prompt="System > " \
