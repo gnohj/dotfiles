@@ -44,6 +44,27 @@ local function get_file_permissions()
   return file_path and vim.fn.getfperm(file_path) or ""
 end
 
+-- codediff hunk count — renders only when a codediff session is active
+-- in the current tab. Reads session.stored_diff_result.changes (the
+-- internal hunk array — same source navigation.lua / next_hunk uses).
+-- Returns empty string when there's no session, which makes lualine
+-- hide the component automatically (no `cond` callback needed).
+local function codediff_hunk_count()
+  local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
+  if not ok then
+    return ""
+  end
+  local session = lifecycle.get_session(vim.api.nvim_get_current_tabpage())
+  if not session or not session.stored_diff_result then
+    return ""
+  end
+  local changes = session.stored_diff_result.changes
+  if not changes or #changes == 0 then
+    return ""
+  end
+  return "󰊢 " .. tostring(#changes) .. " hunks"
+end
+
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
@@ -65,6 +86,10 @@ return {
           lualine_b = {},
           lualine_c = {},
           lualine_x = {
+            {
+              codediff_hunk_count,
+              color = { fg = colors["gnohj_color04"], gui = "bold" },
+            },
             {
               current_buffer_unsaved_dot,
               color = { fg = colors["gnohj_color11"] },
@@ -235,6 +260,10 @@ return {
           },
         },
         lualine_x = {
+          {
+            codediff_hunk_count,
+            color = { fg = colors["gnohj_color04"], gui = "bold" },
+          },
           {
             lazy_status.updates,
             cond = lazy_status.has_updates,
