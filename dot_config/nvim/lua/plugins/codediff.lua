@@ -3,8 +3,11 @@ local function open_in_tmux(cmd, window_name, file)
   local cwd = vim.fn.getcwd()
   local shell_cmd
   if file then
-    shell_cmd =
-      string.format([[nvim --cmd "let g:zen_disabled=1" "%s" -c "%s"]], file, cmd)
+    shell_cmd = string.format(
+      [[nvim --cmd "let g:zen_disabled=1" "%s" -c "%s"]],
+      file,
+      cmd
+    )
   else
     shell_cmd =
       string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
@@ -63,6 +66,10 @@ return {
         -- Skips slow char-level diffs while keeping line-level and fast char-level diffs
         -- See docs/performance.md: 500ms = "very fast, 95% quality"
         max_computation_time_ms = 500,
+      },
+      highlights = {
+        line_insert = "#1a2419",
+        line_delete = "#2a1818",
       },
       explorer = {
         width = 30, -- Sidebar width in columns (default: 40)
