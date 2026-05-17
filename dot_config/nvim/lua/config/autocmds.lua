@@ -361,7 +361,11 @@ vim.filetype.add({
   },
   pattern = {
     [".*/%.github/workflows/.*%.ya?ml"] = "yaml.github",
-    [".*/%.github/actions/.*%.ya?ml"] = "yaml.github",
+    -- NOTE: composite action.yml files under .github/actions/ stay as plain
+    -- `yaml` filetype. They use a different schema (runs/inputs/outputs, no
+    -- on/jobs), so gh-actions-language-server — which only knows the
+    -- workflow schema — would flag every one of them as malformed.
+    -- actionlint still lints them via its path condition in nvim-lint.lua.
   },
 })
 

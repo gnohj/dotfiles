@@ -278,7 +278,19 @@ return {
         bashls = { enabled = false },
         dockerls = { enabled = false },
         docker_compose_language_service = { enabled = false },
-        yamlls = { enabled = false },
+        yamlls = {
+          filetypes = { "yaml" },
+          settings = {
+            yaml = {
+              schemas = {
+                ["https://json.schemastore.org/github-action.json"] = "/.github/actions/**/action.{yml,yaml}",
+              },
+              validate = true,
+              completion = true,
+              hover = true,
+            },
+          },
+        },
         taplo = { enabled = false },
         templ = { enabled = false },
         terraformls = { enabled = false },

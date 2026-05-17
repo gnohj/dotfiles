@@ -10,9 +10,12 @@ return {
       },
       linters = {
         actionlint = {
+          -- actionlint is a workflow-only linter. Pointing it at composite
+          -- action.yml files under .github/actions/ produces false errors
+          -- ("on" / "jobs" missing) because those files use a different
+          -- schema (runs/inputs/outputs). Restrict to workflows only.
           condition = function(ctx)
-            return ctx.filename:match("%.github/workflows/.*%.ya?ml$")
-              or ctx.filename:match("%.github/actions/.*%.ya?ml$")
+            return ctx.filename:match("%.github/workflows/.*%.ya?ml$") ~= nil
           end,
         },
       },
