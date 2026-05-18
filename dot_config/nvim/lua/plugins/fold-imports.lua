@@ -18,6 +18,16 @@ return {
           "for _, node in query:iter_captures(root, bufnr) do"
         )
 
+        -- Wrap the fold cmd in pcall to silently skip stale ranges.
+        -- checktime can reload a buffer mid-fold-pass, leaving the
+        -- computed end-line past the new buffer's last line and
+        -- producing `E16: Invalid range`. pcall lets the next fold pass
+        -- (re-triggered by the BufRead) apply correctly.
+        content = content:gsub(
+          'vim%.cmd%(string%.format%("%%d,%%dfold"',
+          'pcall(vim.cmd, string.format("%%d,%%dfold"'
+        )
+
         file = io.open(file_path, "w")
         if file then
           file:write(content)
