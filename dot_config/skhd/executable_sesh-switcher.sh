@@ -29,19 +29,19 @@ tmux display-popup -E -w 28% -h 40% -b none "
     --ansi \
     --layout=reverse \
     --list-border \
-    --no-sort --prompt '⚡  ' \
+    --no-sort --prompt '⚡ ' \
     --gutter=' ' \
     --color '${color_string}' \
     --input-border \
     --header-border \
     --bind 'tab:down,btab:up' \
     --bind 'ctrl-b:abort' \
-    --bind 'ctrl-a:change-prompt(⚡  )+reload(sesh list --icons)' \
-    --bind 'ctrl-t:change-prompt(  )+reload(sesh list -t --icons)' \
-    --bind 'ctrl-g:change-prompt(⚙️  )+reload(sesh list -c --icons)' \
-    --bind 'ctrl-x:change-prompt(📁  )+reload(sesh list -z --icons)' \
-    --bind 'ctrl-f:change-prompt(🔎  )+reload(fd -H -d 2 -t d -E .Trash . ~)' \
-    --bind 'ctrl-d:execute(tmux kill-session -t {2..})+change-prompt(⚡  )+reload(sesh list --icons)')
+    --bind 'ctrl-a:change-prompt(⚡ )+reload(sesh list --icons)' \
+    --bind 'ctrl-t:change-prompt( )+reload(sesh list -t --icons)' \
+    --bind 'ctrl-g:change-prompt(⚙️ )+reload(sesh list -c --icons)' \
+    --bind 'ctrl-x:change-prompt(📁 )+reload(sesh list -z --icons)' \
+    --bind 'ctrl-f:change-prompt(🔎 )+reload(fd -H -d 2 -t d -E .Trash . ~)' \
+    --bind 'ctrl-d:execute(tmux kill-session -t {2..})+change-prompt(⚡ )+reload(sesh list --icons)')
 
   [[ -z \"\$SELECTED\" ]] && exit 0
   sesh connect \"\$SELECTED\"
