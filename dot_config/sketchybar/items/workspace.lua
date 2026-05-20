@@ -65,6 +65,7 @@ local spaceConfigs = {
 	["M"] = { name = "Texting", app = "Messages" },
 	["K"] = { name = "Settings", app = "System Settings" },
 	["Z"] = { name = "Brave", app = "Zen" },
+	["J"] = { name = "Wispr Flow", app = "Wispr Flow" },
 }
 
 -- Helper function to find which app to show for a workspace
