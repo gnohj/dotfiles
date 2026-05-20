@@ -196,6 +196,10 @@ run = "move-node-to-workspace M"
 if.app-id = 'net.whatsapp.WhatsApp'
 run = "move-node-to-workspace M"
 
+[[on-window-detected]]
+if.app-id = 'com.electron.wispr-flow'
+run = "move-node-to-workspace J"
+
 # Agent dashboard — Ghostty window with title "AgentDash" running `recon view`.
 # Tiled on workspace T alongside terminals; the launcher script resizes it to
 # ~25% of the screen width on first open (rctrl+shift+d).
