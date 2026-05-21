@@ -1,31 +1,6 @@
 return {
   "Goose97/timber.nvim",
   event = "VeryLazy",
-  -- Build hook applies a compatibility patch for Neovim 0.12+ where
-  -- `query:iter_matches` returns arrays of nodes instead of single
-  -- nodes. The plugin's directive handler still does
-  -- `local node = match[capture_id]` and calls `node:range()`, which
-  -- fails ("attempt to call method 'range' on nil"). The patch grabs
-  -- the first node from the array if it's a table, leaving the old
-  -- nvim behavior unaffected.
-  build = function()
-    local file_path = vim.fn.stdpath("data")
-      .. "/lazy/timber.nvim/lua/timber/actions/treesitter.lua"
-    local file = io.open(file_path, "r")
-    if file then
-      local content = file:read("*all")
-      file:close()
-      content = content:gsub(
-        "local node = match%[capture_id%]\n",
-        'local node = match[capture_id]; if type(node) == "table" then node = node[1] end\n'
-      )
-      file = io.open(file_path, "w")
-      if file then
-        file:write(content)
-        file:close()
-      end
-    end
-  end,
   config = function()
     require("timber").setup({
       log_marker = "🚀",
