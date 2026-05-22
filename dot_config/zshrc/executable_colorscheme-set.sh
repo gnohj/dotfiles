@@ -693,7 +693,6 @@ generate_yazi_theme() {
 # Yazi theme configuration
 # Auto-generated yazi theme - Gnohj color scheme
 # Docs: https://yazi-rs.github.io/docs/configuration/theme
-"\$schema" = "https://yazi-rs.github.io/schemas/theme.json"
 
 [mgr]
 # current working dir
@@ -797,10 +796,10 @@ title_error = { fg = "$gnohj_color11" }
 [filetype]
 rules = [
     # directories
-    { name = "*/", fg = "$gnohj_color04" },
+    { url = "*/", fg = "$gnohj_color04" },
 
     # executables
-    { name = "*", is = "exec", fg = "$gnohj_color02" },
+    { url = "*", is = "exec", fg = "$gnohj_color02" },
 
     # images
     { mime = "image/*", fg = "$gnohj_color05" },
@@ -820,18 +819,18 @@ rules = [
     { mime = "text/x-{c,c++}", fg = "$gnohj_color04" },
 
     # config files
-    { name = "*.json", fg = "$gnohj_color05" },
-    { name = "*.yml", fg = "$gnohj_color04" },
-    { name = "*.toml", fg = "$gnohj_color01" },
+    { url = "*.json", fg = "$gnohj_color05" },
+    { url = "*.yml", fg = "$gnohj_color04" },
+    { url = "*.toml", fg = "$gnohj_color01" },
 
     # special files
-    { name = "*", is = "orphan", bg = "$gnohj_color10" },
+    { url = "*", is = "orphan", bg = "$gnohj_color10" },
 
     # dummy files
-    { name = "*", is = "dummy", bg = "$gnohj_color10" },
+    { url = "*", is = "dummy", bg = "$gnohj_color10" },
 
     # fallback
-    { name = "*/", fg = "$gnohj_color04" },
+    { url = "*/", fg = "$gnohj_color04" },
 ]
 
 [icon]

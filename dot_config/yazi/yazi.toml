@@ -5,9 +5,16 @@ sort_reverse = true
 linemode = "mtime"
 
 [[plugin.prepend_fetchers]]
-id   = "git"
-name = "*"
-run  = "git"
+id    = "git"
+url   = "*"
+run   = "git"
+group = "git"
+
+[[plugin.prepend_fetchers]]
+id    = "git"
+url   = "*/"
+run   = "git"
+group = "git"
 
 [opener]
 # Override default edit opener to preserve original yazi cwd

@@ -1,7 +1,6 @@
 # Yazi theme configuration
 # Auto-generated yazi theme - Gnohj color scheme
 # Docs: https://yazi-rs.github.io/docs/configuration/theme
-"$schema" = "https://yazi-rs.github.io/schemas/theme.json"
 
 [mgr]
 # current working dir
@@ -105,10 +104,10 @@ title_error = { fg = "#da858e" }
 [filetype]
 rules = [
     # directories
-    { name = "*/", fg = "#a3b8c6" },
+    { url = "*/", fg = "#a3b8c6" },
 
     # executables
-    { name = "*", is = "exec", fg = "#b7ce97" },
+    { url = "*", is = "exec", fg = "#b7ce97" },
 
     # images
     { mime = "image/*", fg = "#dab183" },
@@ -128,18 +127,18 @@ rules = [
     { mime = "text/x-{c,c++}", fg = "#a3b8c6" },
 
     # config files
-    { name = "*.json", fg = "#dab183" },
-    { name = "*.yml", fg = "#a3b8c6" },
-    { name = "*.toml", fg = "#c0aed2" },
+    { url = "*.json", fg = "#dab183" },
+    { url = "*.yml", fg = "#a3b8c6" },
+    { url = "*.toml", fg = "#c0aed2" },
 
     # special files
-    { name = "*", is = "orphan", bg = "#0f1419" },
+    { url = "*", is = "orphan", bg = "#0f1419" },
 
     # dummy files
-    { name = "*", is = "dummy", bg = "#0f1419" },
+    { url = "*", is = "dummy", bg = "#0f1419" },
 
     # fallback
-    { name = "*/", fg = "#a3b8c6" },
+    { url = "*/", fg = "#a3b8c6" },
 ]
 
 [icon]
