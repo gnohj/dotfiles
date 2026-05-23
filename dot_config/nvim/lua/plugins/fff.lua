@@ -6,10 +6,15 @@ return {
   end,
   lazy = false,
   opts = {
+    debug = {
+      enabled = true,
+      show_scores = true,
+    },
     lazy_sync = false,
     max_threads = 8,
     layout = {
       prompt_position = "top",
+      path_shorten_strategy = "start",
       flex = { wrap = "bottom" },
     },
     hl = {
@@ -35,6 +40,27 @@ return {
         require("fff").find_files()
       end,
       desc = "FFF — find files (frecency, .gitignore-aware)",
+    },
+    {
+      "<leader>fg",
+      function()
+        require("fff").live_grep()
+      end,
+      desc = "FFF - exact grep",
+    },
+    {
+      "<leader>fz",
+      function()
+        require("fff").live_grep({ grep = { modes = { "fuzzy", "plain" } } })
+      end,
+      desc = "FFF - fuzzy grep",
+    },
+    {
+      "<leader>fx",
+      function()
+        require("fff").live_grep({ query = vim.fn.expand("<cword>") })
+      end,
+      desc = "FFF - Search current word",
     },
   },
 }
