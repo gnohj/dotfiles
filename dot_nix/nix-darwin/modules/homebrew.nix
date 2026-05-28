@@ -35,6 +35,7 @@
       # AI Tools
       "anomalyco/tap/opencode"
       "pi-coding-agent"
+      "herdr"
 
       # System services & window management
       "FelixKratz/formulae/borders"

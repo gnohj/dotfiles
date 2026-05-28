@@ -39,6 +39,7 @@ rctrl - y : ~/.config/skhd/yazi-launch.sh
 
 # rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
+rctrl - v : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "/opt/homebrew/bin/herdr" true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 # rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
