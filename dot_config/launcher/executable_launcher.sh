@@ -69,9 +69,10 @@ build_flattened_leaves() {
     done
   fi
 
-  # Browser (2 actions)
+  # Browser (3 actions)
   printf "🌐 Browser › 🔗 Open Pull Request\n"
   printf "🌐 Browser › 🎫 Open Jira Ticket\n"
+  printf "🌐 Browser › 🐙 Open Dotfiles\n"
 
   # fzf (3 actions)
   printf "🔎 Fzf › 🔎 Aliases (fza)\n"
@@ -383,6 +384,11 @@ browser_dispatch() {
     fi
     sleep 1
     ;;
+  "🐙 Open Dotfiles")
+    open "https://github.com/gnohj/dotfiles"
+    echo "Opened dotfiles repo"
+    sleep 1
+    ;;
   "← Back") main_menu ;;
   *) main_menu ;;
   esac
@@ -390,7 +396,7 @@ browser_dispatch() {
 
 browser_menu() {
   local choice
-  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n← Back\n" |
+  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n🐙 Open Dotfiles\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Browser" \
       --prompt="Browser > " \
