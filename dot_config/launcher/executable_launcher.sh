@@ -57,8 +57,7 @@ build_flattened_leaves() {
   # any partial name (e.g. "tokyo", "laptop", "open pr") matches in one
   # shot. Kept out of the NORMAL-mode list so the root view stays clean.
 
-  # AI (2 actions)
-  printf "🤖 AI › 🤖 Agent Sidebar Dashboard\n"
+  # AI (1 action)
   printf "🤖 AI › 🔥 Codeburn (cost)\n"
 
   # Aerospace profiles (type "laptop" or "desk" to match)
@@ -462,11 +461,6 @@ worktrees_menu() {
 #-------------------------------------------------------------------------------
 ai_dispatch() {
   case "$1" in
-  "🤖 Agent Sidebar Dashboard")
-    # Same toggle that rctrl+shift+d fires — summons the recon-backed
-    # claude-agents sidebar on workspace T.
-    ~/.local/bin/agent-sidebar-dashboard.sh
-    ;;
   "🔥 Codeburn (cost)")
     ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
     ;;
@@ -477,7 +471,7 @@ ai_dispatch() {
 
 ai_menu() {
   local choice
-  choice=$(printf "🤖 Agent Sidebar Dashboard\n🔥 Codeburn (cost)\n← Back\n" |
+  choice=$(printf "🔥 Codeburn (cost)\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="AI" \
       --prompt="AI > " \

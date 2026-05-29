@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# Tiny wrapper that sets PATH before exec'ing agent-sidebar. Needed because
-# terminal apps spawned via `open -na` (kitty, Ghostty) inherit a minimal
-# PATH from launchd that doesn't include ~/.local/bin/, where `uv` lives —
-# and agent-sidebar's shebang is `#!/usr/bin/env -S uv run --script`.
-# Both kitty (via the launcher) and Ghostty (via dashboard-wrapper.sh) call
-# this so the PATH-setup logic lives in one place.
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-exec "$HOME/.local/bin/agent-sidebar"
