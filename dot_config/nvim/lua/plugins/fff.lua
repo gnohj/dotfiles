@@ -7,8 +7,8 @@ return {
   lazy = false,
   opts = {
     debug = {
-      enabled = true,
-      show_scores = true,
+      enabled = false,
+      show_scores = false,
     },
     lazy_sync = false,
     max_threads = 8,
@@ -29,7 +29,7 @@ return {
       status_text_color = true,
     },
     preview = {
-      enabled = false,
+      enabled = true,
       max_size = 50 * 1024,
     },
   },
