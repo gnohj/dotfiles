@@ -78,9 +78,8 @@ build_flattened_leaves() {
   printf "🔎 Fzf › 🔍 Env Vars (fze)\n"
   printf "🔎 Fzf › 📋 Logs (fzl)\n"
 
-  # Sync (2 actions)
+  # Sync (1 action)
   printf "🔁 Sync › 🚀 Autopush Repos\n"
-  printf "🔁 Sync › 🔄 Agent Dashboard\n"
 
   # System (4 actions)
   printf "🔧 System › 🔧 System Setup\n"
@@ -530,11 +529,6 @@ sync_dispatch() {
     echo "GitHub auto-push completed"
     sleep 1
     ;;
-  "🔄 Agent Dashboard")
-    python3 ~/Developer/agents/setup_symlinks.py
-    printf '\nAgent sync complete. Press any key to continue...'
-    read -n1
-    ;;
   "← Back") main_menu ;;
   *) main_menu ;;
   esac
@@ -542,7 +536,7 @@ sync_dispatch() {
 
 sync_menu() {
   local choice
-  choice=$(printf "🚀 Autopush Repos\n🔄 Agent Dashboard\n← Back\n" |
+  choice=$(printf "🚀 Autopush Repos\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Sync" \
       --prompt="Sync > " \
