@@ -1,0 +1,7 @@
+# Old "agent-sidebar" dashboard — superseded by the tmux-dash binary.
+# These targets were dropped from the source; remove their deployed copies.
+.local/bin/agent-sidebar
+.local/bin/agent-sidebar-launch
+.local/bin/agent-sidebar-dashboard.sh
+.local/bin/dashboard-shims
+.config/ghostty/dashboard-wrapper.sh

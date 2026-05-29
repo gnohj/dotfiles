@@ -63,10 +63,7 @@ quick-terminal-position = top
 
 # Ensure zsh runs as login shell to source Nix profile
 # This is especially important when Ghostty starts at login
-# Wrapper script: normally exec's `/bin/zsh --login`, but if the agent
-# dashboard launcher dropped a fresh marker file, takes over the window and
-# runs `recon view` instead. See dashboard-wrapper.sh for details.
-command = /Users/gnohj/.config/ghostty/dashboard-wrapper.sh
+command = /bin/zsh --login
 
 # window
 gtk-titlebar = false
