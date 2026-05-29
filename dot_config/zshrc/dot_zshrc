@@ -369,6 +369,9 @@ alias td='z ~/Developer/tmux-dash && cargo run --release'
 # Github Dash
 alias ghd='gh-dash'
 
+# RTK token savings graph
+alias rtkg='rtk gain --graph'
+
 # GitHub PR summary (filter out bots: renovate, dependabot, changesets, etc.)
 ghpr() {
   local red='\033[1;31m'
