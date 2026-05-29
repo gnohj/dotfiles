@@ -36,6 +36,7 @@
       "anomalyco/tap/opencode"
       "pi-coding-agent"
       "herdr"
+      "rtk"
 
       # System services & window management
       "FelixKratz/formulae/borders"
