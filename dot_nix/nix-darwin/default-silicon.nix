@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, inputs, ... }:
 
 {
   imports = [
@@ -50,6 +50,10 @@
     (final: prev: {
       # direnv checkPhase hangs on macOS (zsh test spawns interactive shell)
       direnv = prev.direnv.overrideAttrs (old: { doCheck = false; });
+
+      # Pin gh-dash to 4.23.2 — 4.24.x panics under tmux (dlvhdr/gh-dash#876).
+      # Sourced from a pinned nixpkgs input; see flake.nix nixpkgs-ghdash.
+      gh-dash = inputs.nixpkgs-ghdash.legacyPackages."aarch64-darwin".gh-dash;
     })
   ];
 
