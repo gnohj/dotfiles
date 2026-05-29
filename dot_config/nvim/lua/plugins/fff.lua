@@ -29,7 +29,7 @@ return {
       status_text_color = true,
     },
     preview = {
-      enabled = true,
+      enabled = false,
       max_size = 50 * 1024,
     },
   },
