@@ -95,7 +95,27 @@ local function get_header()
     return section
   end
 
-  figlet = figlet:gsub("%s+$", "") .. "\n"
+  -- figlet right-pads every line to the widest line's width. The old
+  -- `gsub("%s+$","")` stripped trailing whitespace from the END of the whole
+  -- string — i.e. the LAST line only — leaving descender rows (e.g. a `p`'s
+  -- `\/_/`) narrower than the rest, so snacks' per-line centering shifted them
+  -- out of alignment. Instead: split, drop trailing all-blank lines, then
+  -- re-pad every line to the same width so all lines center identically.
+  local lines = {}
+  for line in (figlet .. "\n"):gmatch("(.-)\n") do
+    table.insert(lines, line)
+  end
+  while #lines > 0 and lines[#lines]:match("^%s*$") do
+    table.remove(lines)
+  end
+  local maxw = 0
+  for _, l in ipairs(lines) do
+    maxw = math.max(maxw, vim.fn.strdisplaywidth(l))
+  end
+  for i, l in ipairs(lines) do
+    lines[i] = l .. string.rep(" ", maxw - vim.fn.strdisplaywidth(l))
+  end
+  figlet = table.concat(lines, "\n") .. "\n"
 
   local result = {}
   local color_idx = 1
