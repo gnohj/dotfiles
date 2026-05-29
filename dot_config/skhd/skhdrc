@@ -39,13 +39,14 @@ rctrl - y : ~/.config/skhd/yazi-launch.sh
 
 # rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
-rctrl - v : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "/opt/homebrew/bin/herdr" true
 rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 # rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
-rctrl - 0x2F : /opt/homebrew/bin/tmux split-window -h -c "#{pane_current_path}" # new pane in current directory (period)
+rctrl - 0x2F : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "/opt/homebrew/bin/herdr" true # herdr (period)
 rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -E -w 80% -h 80% "$HOME/.cargo/bin/recon" # recon claude dashboard (forward slash)
+rctrl + shift - m : /usr/bin/pkill -USR1 -x tmux-dash # toggle tmux-dash agent sidebar focus
+rctrl + shift - 0x2B : /usr/bin/pkill -USR2 -x tmux-dash # toggle tmux-dash git-source sidebar focus (comma)
 rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
 # codeburn dashboard moved to rctrl-i launcher menu
 # rctrl - r - reserved for atuin

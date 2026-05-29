@@ -28,6 +28,13 @@ set -g status-right ""
 set -g window-status-current-format ''
 set -g window-status-format ''
 
+# Cursor color — tmux owns the cursor inside a session and, with the default
+# 'cursor-colour none', it does NOT pass the terminal's configured cursor color
+# through. The cursor then falls back to reverse-video (inverts whatever glyph
+# is under it), which over a transparent background reads as a gray box. Setting
+# it explicitly makes tmux assert the color so the cursor stays this green.
+set -g cursor-colour "${gnohj_color24}"
+
 # Pane border colors
 set -g pane-border-style "fg=${gnohj_color24}"
 set -g pane-active-border-style "fg=${gnohj_color24}"

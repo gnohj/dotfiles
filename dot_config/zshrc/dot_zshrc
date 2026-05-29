@@ -361,6 +361,11 @@ alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n "$file" ] && chezmoi add "$HOME/$file"; done'
 
+# tmux-dash (embedded-tmux agent sidebar)
+# z into the project dir first so cargo builds there and the embedded tmux
+# session opens with that cwd (tmux-dash inherits the current directory).
+alias td='z ~/Developer/tmux-dash && cargo run --release'
+
 # Github Dash
 alias ghd='gh-dash'
 

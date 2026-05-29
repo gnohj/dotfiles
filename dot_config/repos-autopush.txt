@@ -13,3 +13,4 @@
 ~/Obsidian/second-brain/Projects/parents-estate
 ~/Developer/agents
 ~/Developer/colorscheme
+~/Developer/tmux-dash

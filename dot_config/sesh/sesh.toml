@@ -137,6 +137,10 @@ name = "GhosttyFetch"
 path = "~/Developer/GhosttyFetch"
 
 [[session]]
+name = "tmux-dash"
+path = "~/Developer/tmux-dash"
+
+[[session]]
 name = "actions"
 path = "~/Developer/actions"
 
