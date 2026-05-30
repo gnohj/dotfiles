@@ -7,8 +7,7 @@ return {
   lazy = false,
   opts = {
     debug = {
-      enabled = false,
-      show_scores = false,
+      show_scores = true,
     },
     lazy_sync = false,
     max_threads = 8,
