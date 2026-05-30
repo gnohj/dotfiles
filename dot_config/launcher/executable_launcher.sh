@@ -57,8 +57,9 @@ build_flattened_leaves() {
   # any partial name (e.g. "tokyo", "laptop", "open pr") matches in one
   # shot. Kept out of the NORMAL-mode list so the root view stays clean.
 
-  # AI (1 action)
+  # AI (2 actions)
   printf "🤖 AI › 🔥 Codeburn (cost)\n"
+  printf "🤖 AI › 📊 RTK Savings (graph)\n"
 
   # Aerospace profiles (type "laptop" or "desk" to match)
   if [ -d "$HOME/.config/aerospace/profiles" ]; then
@@ -98,12 +99,12 @@ build_flattened_leaves() {
 
   # Themes (all of them; type any partial name to fuzzy-match)
   if [ -d "$HOME/.config/colorscheme/list" ]; then
-    find "$HOME/.config/colorscheme/list" -maxdepth 1 -name "*.sh" -type f -print0 \
-      | xargs -0 -n 1 basename \
-      | sort \
-      | while IFS= read -r theme; do
-          printf "🎨 Themes › %s\n" "$theme"
-        done
+    find "$HOME/.config/colorscheme/list" -maxdepth 1 -name "*.sh" -type f -print0 |
+      xargs -0 -n 1 basename |
+      sort |
+      while IFS= read -r theme; do
+        printf "🎨 Themes › %s\n" "$theme"
+      done
   fi
 }
 
@@ -112,10 +113,13 @@ main_menu() {
   # Insert mode gets the full corpus (top-level + flattened leaves) so
   # fuzzy typing matches across everything. Normal mode (the default,
   # piped to stdin) shows only the clean top-level list.
-  insert_corpus=$({ build_top_level_items; build_flattened_leaves; })
+  insert_corpus=$({
+    build_top_level_items
+    build_flattened_leaves
+  })
   choice=$(build_top_level_items |
     FZF_VIM_INSERT_INPUT="$insert_corpus" \
-    ~/.local/bin/fzf-vim.sh --height=100% \
+      ~/.local/bin/fzf-vim.sh --height=100% \
       --prompt="❯ " \
       --ansi \
       $FZF_COLORS) || true
@@ -125,39 +129,39 @@ main_menu() {
 
   # Flattened-entry dispatch (breadcrumb-prefixed leaves)
   case "$choice" in
-    "🎨 Themes › "*)
-      "$HOME/.config/zshrc/colorscheme-set.sh" "${choice#🎨 Themes › }"
-      return
-      ;;
-    "🖥  Aerospace › "*)
-      "$HOME/.local/bin/aerospace-profile" "${choice#🖥  Aerospace › }"
-      sleep 1
-      return
-      ;;
-    "🌐 Browser › "*)
-      browser_dispatch "${choice#🌐 Browser › }"
-      return
-      ;;
-    "🌳 Worktrees › "*)
-      worktrees_dispatch "${choice#🌳 Worktrees › }"
-      return
-      ;;
-    "🔧 System › "*)
-      system_dispatch "${choice#🔧 System › }"
-      return
-      ;;
-    "🔁 Sync › "*)
-      sync_dispatch "${choice#🔁 Sync › }"
-      return
-      ;;
-    "🔎 Fzf › "*)
-      fzf_dispatch "${choice#🔎 Fzf › }"
-      return
-      ;;
-    "🤖 AI › "*)
-      ai_dispatch "${choice#🤖 AI › }"
-      return
-      ;;
+  "🎨 Themes › "*)
+    "$HOME/.config/zshrc/colorscheme-set.sh" "${choice#🎨 Themes › }"
+    return
+    ;;
+  "🖥  Aerospace › "*)
+    "$HOME/.local/bin/aerospace-profile" "${choice#🖥  Aerospace › }"
+    sleep 1
+    return
+    ;;
+  "🌐 Browser › "*)
+    browser_dispatch "${choice#🌐 Browser › }"
+    return
+    ;;
+  "🌳 Worktrees › "*)
+    worktrees_dispatch "${choice#🌳 Worktrees › }"
+    return
+    ;;
+  "🔧 System › "*)
+    system_dispatch "${choice#🔧 System › }"
+    return
+    ;;
+  "🔁 Sync › "*)
+    sync_dispatch "${choice#🔁 Sync › }"
+    return
+    ;;
+  "🔎 Fzf › "*)
+    fzf_dispatch "${choice#🔎 Fzf › }"
+    return
+    ;;
+  "🤖 AI › "*)
+    ai_dispatch "${choice#🤖 AI › }"
+    return
+    ;;
   esac
 
   case "$choice" in
@@ -463,6 +467,9 @@ ai_dispatch() {
   "🔥 Codeburn (cost)")
     ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true
     ;;
+  "📊 RTK Savings (graph)")
+    ~/.config/skhd/tmux-window-simple.sh 📊 rtk "/opt/homebrew/bin/rtk gain --graph"
+    ;;
   "← Back") main_menu ;;
   *) main_menu ;;
   esac
@@ -470,7 +477,7 @@ ai_dispatch() {
 
 ai_menu() {
   local choice
-  choice=$(printf "🔥 Codeburn (cost)\n← Back\n" |
+  choice=$(printf "🔥 Codeburn (cost)\n📊 RTK Savings (graph)\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="AI" \
       --prompt="AI > " \
@@ -595,36 +602,40 @@ system_dispatch() {
       sleep 2
       return
     fi
-    ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) &
+    (while true; do
+      sudo -n true
+      sleep 60
+      kill -0 "$$" 2>/dev/null || exit
+    done) &
     SUDO_KEEPALIVE=$!
     trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null' RETURN
 
     echo "\n▶ [1/3] System Setup..."
     if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
-      ( cd "$HOME/.local/share/chezmoi" && ./system-setup.sh ) \
-        || echo "(system-setup.sh exited non-zero — continuing)"
+      (cd "$HOME/.local/share/chezmoi" && ./system-setup.sh) ||
+        echo "(system-setup.sh exited non-zero — continuing)"
     else
       echo "system-setup.sh not found (skipping)"
     fi
 
     echo "\n▶ [2/3] User Setup..."
     if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
-      ( cd "$HOME/.local/share/chezmoi" && ./user-setup.sh ) \
-        || echo "(user-setup.sh exited non-zero — continuing)"
+      (cd "$HOME/.local/share/chezmoi" && ./user-setup.sh) ||
+        echo "(user-setup.sh exited non-zero — continuing)"
     else
       echo "user-setup.sh not found (skipping)"
     fi
 
     echo "\n▶ [3/3] System Update — nix flake update + darwin-rebuild..."
-    nix flake update --flake ~/.nix \
-      || echo "(nix flake update failed — continuing)"
-    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon \
-      || echo "(darwin-rebuild failed — continuing)"
+    nix flake update --flake ~/.nix ||
+      echo "(nix flake update failed — continuing)"
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon ||
+      echo "(darwin-rebuild failed — continuing)"
 
     echo "\n▶ Reloading sketchybar..."
-    /opt/homebrew/bin/sketchybar --reload 2>/dev/null \
-      || sketchybar --reload 2>/dev/null \
-      || echo "(sketchybar not running — skipped)"
+    /opt/homebrew/bin/sketchybar --reload 2>/dev/null ||
+      sketchybar --reload 2>/dev/null ||
+      echo "(sketchybar not running — skipped)"
 
     echo "\n✓ All complete. Press any key to continue..."
     read -k1
