@@ -186,6 +186,43 @@ return {
         -- Enable ESLint formatting - Neovim doesn't support dynamic registration
         -- so we need to manually enable the formatting capability
         eslint = {
+          -- Skip scaffolding templates (e.g. iheart-web `templates/*-template/`):
+          -- they ship legacy `.eslintrc.cjs` only, and ESLint v9 flat-config mode
+          -- can't resolve a config from there, causing
+          -- "Request textDocument/diagnostic failed: Could not find config file".
+          root_dir = function(arg, on_dir)
+            -- nvim 0.11+ calls root_dir as (bufnr, on_dir); lspconfig's older
+            -- path calls it as (fname). Support both signatures.
+            local fname = type(arg) == "number"
+                and vim.api.nvim_buf_get_name(arg)
+              or arg
+            local result
+            if
+              fname == ""
+              or fname:match("/templates/[%w%-]+%-template/")
+            then
+              result = nil
+            else
+              result = require("lspconfig.util").root_pattern(
+                "eslint.config.js",
+                "eslint.config.mjs",
+                "eslint.config.cjs",
+                "eslint.config.ts",
+                "eslint.config.mts",
+                "eslint.config.cts",
+                ".eslintrc",
+                ".eslintrc.js",
+                ".eslintrc.cjs",
+                ".eslintrc.yaml",
+                ".eslintrc.yml",
+                ".eslintrc.json"
+              )(fname)
+            end
+            if on_dir then
+              on_dir(result)
+            end
+            return result
+          end,
           settings = {
             format = true,
             run = "onType",
