@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Claude Code SessionStart hook: surface relevant second-brain vault notes for
+# the current work-repo + ticket. Replaces the soft "session-start trigger"
+# guidance in ~/.claude/CLAUDE.md with a deterministic, hook-driven injection.
+#
+# Input (stdin): JSON from Claude Code with .cwd, .source, .session_id, etc.
+# Output (stdout): plain text; Claude Code injects it as additionalContext.
+#                  Empty stdout = no context added (silent no-op).
+#
+# Exit non-zero is treated as a hook error by Claude Code — we always exit 0.
+
+set -uo pipefail
+
+VAULT="$HOME/Obsidian/second-brain"
+
+# Read hook payload from stdin (small JSON, no streaming needed).
+input=$(cat 2>/dev/null || true)
+cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null || true)
+src=$(jq -r '.source // empty' <<<"$input" 2>/dev/null || true)
+
+# Only fire on fresh sessions / resumes. /clear and /compact already have the
+# trigger's effect baked into the user's expectation that context just changed,
+# so re-injecting there is noise.
+case "$src" in
+  startup|resume) ;;
+  *) exit 0 ;;
+esac
+
+# Bail if cwd or vault isn't reachable.
+[ -n "$cwd" ] && [ -d "$cwd" ] && [ -d "$VAULT" ] || exit 0
+
+# Detect tracked work repo by cwd prefix. Mirror the list in ~/.claude/CLAUDE.md
+# "Session-start trigger" section.
+repo=""
+case "$cwd/" in
+  "$HOME/Developer/web/"*)     repo="web" ;;
+  "$HOME/Developer/inferno/"*) repo="inferno" ;;
+  "$HOME/Developer/actions/"*) repo="actions" ;;
+  "$HOME/Developer/recon/"*)   repo="recon" ;;
+  *) exit 0 ;;
+esac
+
+# Extract ticket key from branch (e.g. IHRWEB-23643 from feat/IHRWEB-23643-foo).
+branch=$(git -C "$cwd" branch --show-current 2>/dev/null || true)
+ticket=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
+
+notes=()
+
+# Ticket-specific why-history notes.
+if [ -n "$ticket" ]; then
+  while IFS= read -r -d '' f; do notes+=("$f"); done < <(
+    find "$VAULT/Notes/work" -maxdepth 1 -type f -name "${ticket}-*.md" -print0 2>/dev/null
+  )
+fi
+
+# Per-repo hot-path notes. Keep this list in sync with the per-repo section in
+# ~/.claude/CLAUDE.md ("hot-path notes (read eagerly when the topic comes up)").
+case "$repo" in
+  web)
+    candidates=(
+      "$VAULT/Notes/fact/2026-05-09_Polaris-i18n-Fastly-Geo-Flow.md"
+      "$VAULT/Notes/work/IHRWEB-23643-re-pulumi-phase-1.md"
+      "$VAULT/Notes/work/2026-05-24_Hybrid-Target-Type-Design-fastly_compute_radioedit.md"
+    )
+    for c in "${candidates[@]}"; do
+      [ -e "$c" ] && notes+=("$c")
+    done
+    ;;
+esac
+
+# Dedupe (a ticket note can also be a hot-path note, e.g. IHRWEB-23643).
+if [ ${#notes[@]} -gt 0 ]; then
+  mapfile -t notes < <(printf '%s\n' "${notes[@]}" | awk '!seen[$0]++')
+fi
+
+# Nothing to surface? Exit quietly — no context, no noise.
+[ ${#notes[@]} -eq 0 ] && [ ! -e "$VAULT/index.md" ] && exit 0
+
+# Emit context. Plain text on stdout becomes additionalContext per Claude Code
+# hooks contract (https://code.claude.com/docs/en/hooks).
+{
+  echo "## Second-brain vault context (auto-injected by SessionStart hook)"
+  echo ""
+  echo "Repo: \`$repo\` · Branch: \`$branch\` · Ticket: ${ticket:-none}"
+  echo ""
+  if [ ${#notes[@]} -gt 0 ]; then
+    echo "**Read these BEFORE the first codebase grep/Read on any non-trivial question** — they hold why-history (design intent, prior dead-ends, gotchas) that the code does not capture:"
+    echo ""
+    for n in "${notes[@]}"; do
+      lines=$(wc -l <"$n" 2>/dev/null | tr -d ' ' || echo "?")
+      echo "- \`$n\` (${lines} lines)"
+    done
+    echo ""
+  fi
+  if [ -e "$VAULT/index.md" ]; then
+    echo "Vault index (one-line map of every distilled note): \`$VAULT/index.md\`"
+    echo ""
+  fi
+  echo "Vault-vs-code authority: code is source of truth for current behavior; vault is for intent + history. When they disagree, code wins — surface the drift."
+} 2>/dev/null
+
+exit 0
