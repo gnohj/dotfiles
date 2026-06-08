@@ -116,6 +116,48 @@ else
   log "· zoxide not on PATH, skipped"
 fi
 
+# Thread state file: a JSON doc that links this worktree to its branch +
+# tmux session + (later, when discovered) vault note + PR URL. Read by
+# recon to surface 📝🎟️🔀 badges in tmux-dash and by the rctrl-i "open
+# notes" launcher item. Idempotent — re-runs of treekanga on the same
+# worktree don't overwrite; recon bumps `last_seen_at` on each poll.
+THREAD_BRANCH=$(git -C "$CURRENT_WORKTREE" branch --show-current 2>/dev/null || true)
+if [ -n "$THREAD_BRANCH" ]; then
+  THREAD_DIR="$HOME/.local/state/threads"
+  mkdir -p "$THREAD_DIR" 2>>"$LOGFILE"
+  # ID = first JIRA-style ticket key in the branch (e.g. IHRWEB-1234), else
+  # the worktree basename as a slug (kind=untracked).
+  if [[ "$THREAD_BRANCH" =~ ([A-Z]+-[0-9]+) ]]; then
+    THREAD_ID="${BASH_REMATCH[1]}"
+    THREAD_KIND="ticket"
+  else
+    THREAD_ID="$(basename "$CURRENT_WORKTREE")"
+    THREAD_KIND="untracked"
+  fi
+  THREAD_FILE="$THREAD_DIR/$THREAD_ID.json"
+  THREAD_SESSION="${CURRENT_WORKTREE#$HOME/Developer/}"
+  if [ ! -f "$THREAD_FILE" ]; then
+    NOW="$(date -u +%FT%TZ)"
+    cat >"$THREAD_FILE" <<EOF
+{
+  "id": "$THREAD_ID",
+  "kind": "$THREAD_KIND",
+  "repo": "$REPO_NAME",
+  "branch": "$THREAD_BRANCH",
+  "worktree": "$CURRENT_WORKTREE",
+  "tmux_session": "$THREAD_SESSION",
+  "vault_note": null,
+  "pr_url": null,
+  "created_at": "$NOW",
+  "last_seen_at": "$NOW"
+}
+EOF
+    log "✓ thread state written ($THREAD_FILE)"
+  else
+    log "· thread state already exists ($THREAD_FILE)"
+  fi
+fi
+
 if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
   if sesh connect "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
     log "✓ sesh session connected"
