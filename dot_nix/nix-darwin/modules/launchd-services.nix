@@ -129,6 +129,37 @@ in
       };
     };
 
+    # Jira Status Refresh — runs `/sb-agent-refresh` headlessly so every
+    # ticket-shaped thread state file at ~/.local/state/threads/ stays in
+    # sync with its actual Jira workflow status. That status drives the
+    # text line below each agent row in tmux-dash (e.g. "In Dev Review",
+    # "Ready to Merge").
+    #
+    # Cost: $0 on Claude Max — runs against subscription quota, not API
+    # billing. Verified Rovo MCP is available in `claude -p` headless
+    # context (manual test 2026-06-07).
+    sb-agent-refresh = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/sb-agent-refresh
+            export PATH="${homeDir}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            export HOME="${homeDir}"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] firing /sb-agent-refresh" \
+              >> ${homeDir}/.logs/sb-agent-refresh/fires.log
+            cd "${homeDir}"
+            claude --dangerously-skip-permissions -p '/sb-agent-refresh' \
+              >> ${homeDir}/.logs/sb-agent-refresh/fires.log 2>&1
+          ''
+        ];
+        StartInterval = 900;  # every 15 minutes
+        StandardOutPath = "${homeDir}/.logs/sb-agent-refresh/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/sb-agent-refresh/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
