@@ -569,6 +569,34 @@ if [ "\$CAPTURE_SHOULD_RUN" = "1" ]; then
   fi
 fi
 
+# Step E.5 — Jira ticket capture into the vault.
+#   On success + branch carries a JIRA-style ticket key, queue a backgrounded
+#   \`claude -p '/sb-ticket-capture --yes'\` from inside the new worktree.
+#   The skill auto-detects the ticket from \`git branch --show-current\`,
+#   fetches Jira (+ linked Confluence) via Atlassian Rovo MCP, and writes
+#   \`Notes-Inbox/<TICKET>-<slug>.md\`. Double-forked so it outlives this
+#   Terminal.app window (the EXIT trap above closes the window ~5s after
+#   the final banner — capture typically takes ~15-25s).
+#
+#   The user still has to \`/sb-ingest-mine\` to move the note into
+#   \`Notes/work/\` — the 📝 badge glob looks in both, so it appears either way.
+#   For unticketed Mode-C worktrees (\`release-automation\` etc.), the regex
+#   fails and we skip — no wasted claude invocation.
+if [ "\$OUTCOME" = "success" ] && [ -n "\$WORKTREE_PATH" ] && [ -d "\$WORKTREE_PATH" ]; then
+  CAPTURE_BRANCH=\$(git -C "\$WORKTREE_PATH" branch --show-current 2>/dev/null || true)
+  if [[ "\$CAPTURE_BRANCH" =~ [A-Z]+-[0-9]+ ]]; then
+    (
+      ( ( cd "\$WORKTREE_PATH" && \
+          nohup claude --dangerously-skip-permissions --model haiku \
+            -p '/sb-ticket-capture --yes' \
+            >> "${LOGFILE}.ticket-capture" 2>&1 \
+        ) </dev/null >/dev/null 2>&1 & \
+      ) 2>/dev/null
+    )
+    echo "[\$(date +%H:%M:%S)] queued background /sb-ticket-capture for \$CAPTURE_BRANCH" >> $LOGFILE
+  fi
+fi
+
 # Defensive sweep before the final banner: a heartbeat-spawned
 # terminal-notifier can still be in flight even after we SIGKILLED
 # the heartbeat subshell. Reap any terminal-notifier process whose
