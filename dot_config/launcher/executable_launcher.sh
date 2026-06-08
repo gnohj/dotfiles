@@ -43,6 +43,7 @@ build_top_level_items() {
   printf "📦 Check Outdated Packages\n"
   printf "🧹 Cleanup Logs\n"
   printf "🌿 Copy Current Branch\n"
+  printf "📝 Notes ›\n"
   printf "🧼 Dirty Repos\n"
   printf "🔎 Fzf ›\n"
   printf "🔁 Sync ›\n"
@@ -70,9 +71,12 @@ build_flattened_leaves() {
   fi
 
   # Browser (3 actions)
-  printf "🌐 Browser › 🔗 Open Pull Request\n"
+  printf "🌐 Browser › 🔗 Open Pull Request (PR)\n"
   printf "🌐 Browser › 🎫 Open Jira Ticket\n"
   printf "🌐 Browser › 🐙 Open Dotfiles\n"
+
+  # Notes (1 action)
+  printf "📝 Notes › 📂 Open Current Ticket\n"
 
   # fzf (3 actions)
   printf "🔎 Fzf › 🔎 Aliases (fza)\n"
@@ -162,11 +166,16 @@ main_menu() {
     ai_dispatch "${choice#🤖 AI › }"
     return
     ;;
+  "📝 Notes › "*)
+    notes_dispatch "${choice#📝 Notes › }"
+    return
+    ;;
   esac
 
   case "$choice" in
   "🎨 Themes ›") themes_menu ;;
   "🌐 Browser ›") browser_menu ;;
+  "📝 Notes ›") notes_menu ;;
   "🌳 Worktrees ›") worktrees_menu ;;
   "🖥  Aerospace Profiles ›") aerospace_menu ;;
   "🔧 System ›") system_menu ;;
@@ -352,7 +361,7 @@ light_themes_menu() {
 #-------------------------------------------------------------------------------
 browser_dispatch() {
   case "$1" in
-  "🔗 Open Pull Request")
+  "🔗 Open Pull Request (PR)")
     export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
     pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
     cd "${pane_path:-$PWD}" 2>/dev/null || true
@@ -398,7 +407,7 @@ browser_dispatch() {
 
 browser_menu() {
   local choice
-  choice=$(printf "🔗 Open Pull Request\n🎫 Open Jira Ticket\n🐙 Open Dotfiles\n← Back\n" |
+  choice=$(printf "🔗 Open Pull Request (PR)\n🎫 Open Jira Ticket\n🐙 Open Dotfiles\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Browser" \
       --prompt="Browser > " \
@@ -407,6 +416,69 @@ browser_menu() {
 
   clear
   browser_dispatch "$choice"
+}
+
+#-------------------------------------------------------------------------------
+# Notes Menu — vault-note shortcuts. Currently one action ("open current
+# ticket's note") but kept as a submenu so future note actions (e.g.
+# "create new note", "open most-recently-touched") slot in cleanly.
+#-------------------------------------------------------------------------------
+notes_dispatch() {
+  case "$1" in
+  "📂 Open Current Ticket")
+    # Open the Obsidian vault note(s) for the ticket / unticketed worktree
+    # behind the focused tmux pane. Globs `Notes/work/<id>-*.md` and
+    # `Notes-Inbox/<id>*.md` — matching the convention enforced by
+    # `/sb-ticket-capture` and `/sb-ingest-mine`. Single match → straight
+    # into an nvim tmux window; multiple → fzf-pick first.
+    pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+    branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+    if [ -z "$branch" ]; then
+      tmux display-message -d 3000 "not in a git repo"
+      return
+    fi
+    if [[ "$branch" =~ ([A-Z]+-[0-9]+) ]]; then
+      ID="${BASH_REMATCH[1]}"
+    else
+      ID=$(basename "${pane_path:-$PWD}")
+    fi
+    VAULT="$HOME/Obsidian/second-brain"
+    MATCHES=$( \
+      { ls "$VAULT/Notes/work/${ID}-"*.md 2>/dev/null; \
+        ls "$VAULT/Notes-Inbox/${ID}"*.md 2>/dev/null; } \
+      | sort -u)
+    COUNT=$(printf '%s' "$MATCHES" | grep -c .)
+    # Open in a NEW tmux window (not a nested popup). The launcher itself runs
+    # inside a tmux popup spawned by skhd `rctrl - i`; `tmux display-popup` from
+    # within a popup races against the outer popup's lifecycle — the inner one
+    # never visibly opens and the picker just appears to close. A regular
+    # `new-window` is unaffected by the outer popup and reliably opens nvim
+    # into a switchable window.
+    case "$COUNT" in
+      0) tmux display-message -d 3000 "no vault note for $ID" ;;
+      1) tmux new-window -n "📝" "nvim '$MATCHES'" ;;
+      *)
+        PICK=$(printf '%s\n' "$MATCHES" | $HOME/.local/bin/fzf-vim.sh --prompt '📝 ') || true
+        [ -n "$PICK" ] && tmux new-window -n "📝" "nvim '$PICK'"
+        ;;
+    esac
+    ;;
+  "← Back") main_menu ;;
+  *) main_menu ;;
+  esac
+}
+
+notes_menu() {
+  local choice
+  choice=$(printf "📂 Open Current Ticket\n← Back\n" |
+    ~/.local/bin/fzf-vim.sh --height=40% \
+      --header="Notes" \
+      --prompt="Notes > " \
+      --ansi \
+      $FZF_COLORS) || true
+
+  clear
+  notes_dispatch "$choice"
 }
 
 #-------------------------------------------------------------------------------
