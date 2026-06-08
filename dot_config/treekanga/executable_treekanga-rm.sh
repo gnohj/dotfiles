@@ -76,6 +76,31 @@ delete_one() {
 
   echo "→ $repo:$branch"
 
+  # Pre-delete /sb-ticket-finish hook. Freezes the vault note + cleans up the
+  # ~/.local/state/threads/<TICKET>.json orphan BEFORE the worktree is removed.
+  # Non-blocking: if the recap fails (claude unavailable, vault unmounted, etc.)
+  # we log and continue — the worktree delete is the user's primary intent.
+  # Idempotent: re-running on an already-frozen note is a no-op.
+  local thread_id
+  thread_id=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+  if [ -n "$thread_id" ] && [ -f "$HOME/.local/state/threads/$thread_id.json" ]; then
+    echo "  /sb-ticket-finish $thread_id"
+    if command -v claude &>/dev/null; then
+      SB_TICKET_FINISH_FROM_TKRM=1 claude -p "/sb-ticket-finish $thread_id" 2>&1 \
+        | sed 's/^/    /' \
+        || echo "    (sb-ticket-finish failed for $thread_id — continuing)"
+    else
+      # Defer: drop a marker the next vault-aware session picks up.
+      mkdir -p "$HOME/.local/state/sb-ticket-finish-pending"
+      cp "$HOME/.local/state/threads/$thread_id.json" \
+         "$HOME/.local/state/sb-ticket-finish-pending/$thread_id.json" 2>/dev/null \
+        && echo "    (claude not on PATH — deferred to ~/.local/state/sb-ticket-finish-pending/)"
+    fi
+    # Whether the recap ran or deferred, clean the thread-state file so
+    # recon + launcher badges don't keep showing this worktree.
+    rm -f "$HOME/.local/state/threads/$thread_id.json"
+  fi
+
   if [ ! -d "$wt_path" ]; then
     echo "  (path missing, just pruning) $wt_path"
     git -C "$bare" worktree prune 2>/dev/null || true
