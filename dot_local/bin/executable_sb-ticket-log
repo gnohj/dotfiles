@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# sb-ticket-log — append a timestamped entry to the current ticket's
+# `## Work Log` section in its Obsidian vault note.
+#
+# Usage:
+#   sb-ticket-log "<message>"          # append the message
+#   echo "<message>" | sb-ticket-log   # read from stdin
+#
+# Resolution order for the note path:
+#   1. Thread state file `~/.local/state/threads/<TICKET>.json` → vault_note
+#   2. Glob `Notes/work/<TICKET>-*.md`
+#   3. Glob `Notes-Inbox/<TICKET>*.md`
+#
+# Silently no-ops when:
+#   - Not in a git repo (no current branch).
+#   - Branch carries no `[A-Z]+-\d+` ticket key (e.g. master, scratch).
+#   - No vault note exists yet for the ticket.
+#   - The message is empty / whitespace only.
+#
+# These are all expected when fired from the global post-commit hook —
+# the hook runs on every commit machine-wide; the skill's job is to be
+# the one place that decides whether the commit deserves a log entry.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# 1. Message (argv or stdin)
+# ---------------------------------------------------------------------------
+if [ "$#" -gt 0 ]; then
+  MSG="$*"
+else
+  MSG=$(cat)
+fi
+# Strip leading / trailing whitespace; bail on empty.
+MSG=$(printf '%s' "$MSG" | awk '{$1=$1; print}')
+[ -z "$MSG" ] && exit 0
+
+# ---------------------------------------------------------------------------
+# 2. Ticket key from current branch
+# ---------------------------------------------------------------------------
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+if [[ "$BRANCH" =~ ([A-Z]+-[0-9]+) ]]; then
+  TICKET="${BASH_REMATCH[1]}"
+else
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Resolve the vault note path
+# ---------------------------------------------------------------------------
+VAULT="$HOME/Obsidian/second-brain"
+NOTE=""
+
+THREAD_FILE="$HOME/.local/state/threads/$TICKET.json"
+if [ -f "$THREAD_FILE" ] && command -v jq >/dev/null 2>&1; then
+  REL=$(jq -r '.vault_note // empty' "$THREAD_FILE" 2>/dev/null)
+  if [ -n "$REL" ] && [ -f "$VAULT/$REL" ]; then
+    NOTE="$VAULT/$REL"
+  fi
+fi
+
+if [ -z "$NOTE" ]; then
+  # Glob fallback. Match the convention enforced by /sb-ticket-capture
+  # and /sb-ingest-mine: filenames start with the ticket key.
+  for dir in Notes/work Notes-Inbox; do
+    for pat in "${VAULT}/${dir}/${TICKET}-"*.md "${VAULT}/${dir}/${TICKET}.md"; do
+      if [ -f "$pat" ]; then
+        NOTE="$pat"
+        break 2
+      fi
+    done
+  done
+fi
+
+[ -z "$NOTE" ] && exit 0
+
+# ---------------------------------------------------------------------------
+# 4. Append entry to ## Work Log (newest-first)
+# ---------------------------------------------------------------------------
+TS=$(date '+%Y-%m-%d %H:%M')
+ENTRY="- $TS · $MSG"
+
+TMP=$(mktemp)
+
+if grep -q '^## Work Log' "$NOTE"; then
+  # Insert the new entry immediately after the heading. awk prints every
+  # line; on the first match it also prints our entry right after. Guards
+  # against double-insert if the heading somehow appears twice.
+  awk -v entry="$ENTRY" '
+    { print }
+    /^## Work Log/ && !done { print entry; done = 1 }
+  ' "$NOTE" > "$TMP"
+else
+  # No Work Log section yet — append it at EOF.
+  cat "$NOTE" > "$TMP"
+  {
+    echo ""
+    echo "## Work Log"
+    echo ""
+    echo "$ENTRY"
+  } >> "$TMP"
+fi
+
+mv "$TMP" "$NOTE"
