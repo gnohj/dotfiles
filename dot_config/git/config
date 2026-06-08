@@ -2,6 +2,13 @@
 	email = gnohj@users.noreply.github.com
 	name = gnohj
 
+[core]
+	# Global hooks dir — chezmoi-managed at dot_config/git/hooks/. Currently
+	# holds `post-commit` which calls `sb-ticket-log` with the commit subject
+	# so every ticket-shaped branch's vault note gets an auto-entry per
+	# commit. The hook self-bails on non-ticket branches / no-note cases.
+	hooksPath = ~/.config/git/hooks
+
 [alias]
   co = checkout
   cob = checkout -b

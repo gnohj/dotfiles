@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Global git post-commit hook (machine-wide).
+#
+# Wired via `core.hooksPath = ~/.config/git/hooks` in the global git
+# config, so this fires for every repo + worktree on the machine. The
+# hook itself is a thin wrapper that hands off to `sb-ticket-log`,
+# which decides whether the commit deserves a vault-note entry (based
+# on whether the branch carries a `[A-Z]+-\d+` ticket key and whether
+# a vault note exists yet for that ticket).
+#
+# Bails silently on:
+#   - sb-ticket-log not on PATH (e.g. fresh checkout, chezmoi not applied).
+#   - Empty commit subject.
+#   - Merge commits and reverts (noisy and uninformative in a work log).
+#
+# Never fails the commit — the `|| true` on the final call guarantees a
+# bad logger run can't block a commit from finishing.
+
+set -u
+
+# Hand off to the skill. It's the single point of truth for "is this
+# commit interesting enough to log?" and resolves the vault note path.
+command -v sb-ticket-log >/dev/null 2>&1 || exit 0
+
+SUBJECT=$(git log -1 --pretty=%s 2>/dev/null || true)
+[ -z "$SUBJECT" ] && exit 0
+
+# Skip non-content commits. Merges + reverts add noise without telling
+# us anything we couldn't recover from `git log` directly.
+case "$SUBJECT" in
+  Merge*|Revert*) exit 0 ;;
+esac
+
+sb-ticket-log "$SUBJECT" 2>/dev/null || true
+exit 0
