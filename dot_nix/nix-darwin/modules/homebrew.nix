@@ -12,6 +12,9 @@
       autoUpdate = true;   # Always get latest pkg definitions
       upgrade = false;     # Disabled - don't auto upgrade to latest version
       cleanup = "zap";     # Uninstall packages not declared here
+      # Homebrew 5.1+ requires explicit confirmation for `bundle install --cleanup`.
+      # Pass --force-cleanup so the non-interactive nix-darwin activation doesn't abort.
+      extraFlags = [ "--force-cleanup" ];
     };
 
     # Taps (third-party repositories)
@@ -96,6 +99,7 @@
       "zoom"
 
       # Development
+      "android-studio"
       "docker-desktop"  # Renamed from "docker"
 
       # Terminals
