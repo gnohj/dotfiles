@@ -74,6 +74,8 @@
     # Security & Development
     rbw        # Bitwarden CLI
     mkcert     # Local certificate tool
+    android-tools  # adb/fastboot for USB-debugging a physical Android phone
+    scrcpy         # Mirror a USB-connected Android phone to a Mac window
 
     # Networking & Web
     caddy      # Web server
