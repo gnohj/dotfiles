@@ -76,7 +76,7 @@ build_flattened_leaves() {
   printf "🌐 Browser › 🐙 Open Dotfiles\n"
 
   # Notes (1 action)
-  printf "📝 Notes › 📂 Open Current Ticket\n"
+  printf "📝 Notes › 📂 Open Current Note (Ticket)\n"
 
   # fzf (3 actions)
   printf "🔎 Fzf › 🔎 Aliases (fza)\n"
@@ -425,7 +425,7 @@ browser_menu() {
 #-------------------------------------------------------------------------------
 notes_dispatch() {
   case "$1" in
-  "📂 Open Current Ticket")
+  "📂 Open Current Note (Ticket)")
     # Open the Obsidian vault note(s) for the ticket / unticketed worktree
     # behind the focused tmux pane. Globs `Notes/work/<id>-*.md` and
     # `Notes-Inbox/<id>*.md` — matching the convention enforced by
@@ -470,7 +470,7 @@ notes_dispatch() {
 
 notes_menu() {
   local choice
-  choice=$(printf "📂 Open Current Ticket\n← Back\n" |
+  choice=$(printf "📂 Open Current Note (Ticket)\n← Back\n" |
     ~/.local/bin/fzf-vim.sh --height=40% \
       --header="Notes" \
       --prompt="Notes > " \
