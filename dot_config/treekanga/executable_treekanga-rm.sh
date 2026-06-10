@@ -80,25 +80,57 @@ delete_one() {
   # ~/.local/state/threads/<TICKET>.json orphan BEFORE the worktree is removed.
   # Non-blocking: if the recap fails (claude unavailable, vault unmounted, etc.)
   # we log and continue — the worktree delete is the user's primary intent.
-  # Idempotent: re-running on an already-frozen note is a no-op.
-  local thread_id
+  local thread_id thread_file vault note already_frozen=0 finish_ok=0
   thread_id=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
-  if [ -n "$thread_id" ] && [ -f "$HOME/.local/state/threads/$thread_id.json" ]; then
-    echo "  /sb-ticket-finish $thread_id"
-    if command -v claude &>/dev/null; then
-      SB_TICKET_FINISH_FROM_TKRM=1 claude -p "/sb-ticket-finish $thread_id" 2>&1 \
-        | sed 's/^/    /' \
-        || echo "    (sb-ticket-finish failed for $thread_id — continuing)"
-    else
-      # Defer: drop a marker the next vault-aware session picks up.
-      mkdir -p "$HOME/.local/state/sb-ticket-finish-pending"
-      cp "$HOME/.local/state/threads/$thread_id.json" \
-         "$HOME/.local/state/sb-ticket-finish-pending/$thread_id.json" 2>/dev/null \
-        && echo "    (claude not on PATH — deferred to ~/.local/state/sb-ticket-finish-pending/)"
+  thread_file="$HOME/.local/state/threads/${thread_id}.json"
+  vault="$HOME/Obsidian/second-brain"
+
+  if [ -n "$thread_id" ] && [ -f "$thread_file" ]; then
+    # Cheap shell-level idempotency check: if the vault note already says
+    # `state: frozen`, the user (or a previous tkrm) already shipped this
+    # ticket. Skip the ~10s claude spawn entirely — just clean the orphan.
+    note=$(ls "$vault/Notes/work/${thread_id}-"*.md 2>/dev/null | head -1)
+    if [ -z "$note" ]; then
+      note=$(ls "$vault/Notes-Inbox/${thread_id}-"*.md 2>/dev/null | head -1)
     fi
-    # Whether the recap ran or deferred, clean the thread-state file so
-    # recon + launcher badges don't keep showing this worktree.
-    rm -f "$HOME/.local/state/threads/$thread_id.json"
+    if [ -n "$note" ] && grep -q '^state: frozen' "$note" 2>/dev/null; then
+      already_frozen=1
+      echo "  ✓ /sb-ticket-finish $thread_id — note already frozen, skipping claude"
+    elif [ ! -d "$vault" ]; then
+      # Vault not mounted on this machine — nothing to freeze. Treat as no-op
+      # for state cleanup purposes; the thread JSON is just stale local state.
+      already_frozen=1
+      echo "  ✓ /sb-ticket-finish $thread_id — vault not mounted, cleaning state only"
+    else
+      echo "  /sb-ticket-finish $thread_id"
+      if command -v claude &>/dev/null; then
+        # --add-dir is required: claude's default sandbox is the cwd ($HOME or
+        # wherever tkrm was invoked from), which excludes the vault and the
+        # threads state dir. Without these flags the skill halts at pre-check.
+        if SB_TICKET_FINISH_FROM_TKRM=1 claude -p "/sb-ticket-finish $thread_id" \
+            --add-dir "$vault" \
+            --add-dir "$HOME/.local/state" \
+            2>&1 | sed 's/^/    /'; then
+          finish_ok=1
+        else
+          echo "    (sb-ticket-finish failed for $thread_id — keeping thread state for retry)"
+        fi
+      else
+        # Defer: drop a marker the next vault-aware session picks up.
+        mkdir -p "$HOME/.local/state/sb-ticket-finish-pending"
+        cp "$thread_file" \
+           "$HOME/.local/state/sb-ticket-finish-pending/${thread_id}.json" 2>/dev/null \
+          && echo "    (claude not on PATH — deferred to ~/.local/state/sb-ticket-finish-pending/)"
+      fi
+    fi
+
+    # Only clean the thread JSON when the freeze actually succeeded or was a
+    # confirmed no-op. On failure we keep it so the user can retry via a
+    # manual /sb-ticket-finish — otherwise we'd leave the note `state: living`
+    # with no remaining state-side breadcrumb to fix it.
+    if [ "$already_frozen" -eq 1 ] || [ "$finish_ok" -eq 1 ]; then
+      rm -f "$thread_file"
+    fi
   fi
 
   if [ ! -d "$wt_path" ]; then
