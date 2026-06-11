@@ -46,10 +46,15 @@ ticket=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
 
 notes=()
 
-# Ticket-specific why-history notes.
+# Ticket-specific why-history notes. Glob BOTH Notes/work/ (post-ingest) and
+# Notes-Inbox/ (pre-ingest captures from /sb-ticket-capture) so a freshly
+# captured note still gets surfaced before /sb-ingest-mine has filed it. See
+# memory `feedback-session-start-check-inbox-too`. Match `<KEY>.md` (no slug)
+# and `<KEY>-*.md` (with slug) — both naming forms appear in practice.
 if [ -n "$ticket" ]; then
   while IFS= read -r -d '' f; do notes+=("$f"); done < <(
-    find "$VAULT/Notes/work" -maxdepth 1 -type f -name "${ticket}-*.md" -print0 2>/dev/null
+    find "$VAULT/Notes/work" "$VAULT/Notes-Inbox" -maxdepth 1 -type f \
+      \( -name "${ticket}.md" -o -name "${ticket}-*.md" \) -print0 2>/dev/null
   )
 fi
 
@@ -73,8 +78,30 @@ if [ ${#notes[@]} -gt 0 ]; then
   mapfile -t notes < <(printf '%s\n' "${notes[@]}" | awk '!seen[$0]++')
 fi
 
+# Detect "ticket-branch with no captured vault note" — used below to emit a
+# directive instructing the agent to run /sb-ticket-capture as its first action.
+# This closes the capture gap surfaced by /sb-usage: tickets that were never
+# captured at all (vs. captured-but-hook-missed, which the inbox-glob already
+# handles). Determined by checking whether any entry in `notes` matches the
+# current ticket's filename pattern, NOT whether `notes` is non-empty — a
+# session can match the static web hot-paths without having a ticket-specific
+# note.
+ticket_note_missing=false
+if [ -n "$ticket" ]; then
+  ticket_note_missing=true
+  for n in "${notes[@]}"; do
+    base="${n##*/}"
+    case "$base" in
+      "${ticket}.md"|"${ticket}-"*.md)
+        ticket_note_missing=false
+        break
+        ;;
+    esac
+  done
+fi
+
 # Nothing to surface? Exit quietly — no context, no noise.
-[ ${#notes[@]} -eq 0 ] && [ ! -e "$VAULT/index.md" ] && exit 0
+[ ${#notes[@]} -eq 0 ] && [ ! -e "$VAULT/index.md" ] && [ "$ticket_note_missing" = "false" ] && exit 0
 
 # Emit context. Plain text on stdout becomes additionalContext per Claude Code
 # hooks contract (https://code.claude.com/docs/en/hooks).
@@ -92,8 +119,34 @@ fi
     done
     echo ""
   fi
-  if [ -e "$VAULT/index.md" ]; then
-    echo "Vault index (one-line map of every distilled note): \`$VAULT/index.md\`"
+  # Vault orientation files — applies to ALL tracked work repos (web, inferno,
+  # actions, recon). These are the meta files the agent would Read anyway via
+  # discovery (per global ~/.claude/CLAUDE.md Second-Brain Vault rules); listing
+  # them here makes the load deterministic instead of discovery-driven, so cold
+  # sessions don't have to navigate to find them.
+  orient_files=(
+    "$VAULT/CLAUDE.md:vault protocols (hubs, tags, write rules)"
+    "$VAULT/index.md:one-line map of every distilled note"
+    "$VAULT/log.md:cross-session activity log (newest-first)"
+    "$VAULT/Notes-Meta/_hubs.md:hub / tag overview"
+  )
+  orient_any=false
+  for entry in "${orient_files[@]}"; do
+    p="${entry%%:*}"
+    [ -e "$p" ] && orient_any=true && break
+  done
+  if [ "$orient_any" = "true" ]; then
+    echo "**Vault orientation** (load these for vault layout + recent activity):"
+    echo ""
+    for entry in "${orient_files[@]}"; do
+      p="${entry%%:*}"
+      desc="${entry#*:}"
+      [ -e "$p" ] && echo "- \`$p\` — $desc"
+    done
+    echo ""
+  fi
+  if [ "$ticket_note_missing" = "true" ]; then
+    echo "⚠ **No vault note exists for ${ticket}.** As your first action this session, run \`/sb-ticket-capture\` to fetch the Jira ticket (description, acceptance criteria, linked issues) and write a distilled context note to \`Notes-Inbox/\`. This grounds the rest of the session in why-history rather than blind code-exploration. Do this BEFORE any non-trivial codebase Read/Grep."
     echo ""
   fi
   echo "Vault-vs-code authority: code is source of truth for current behavior; vault is for intent + history. When they disagree, code wins — surface the drift."
