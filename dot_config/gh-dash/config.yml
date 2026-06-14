@@ -86,7 +86,7 @@ keybindings:
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
         tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"' &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'gh-enhance -R {{.RepoName}} {{.PrNumber}}'
+        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
     - key: W # Open PR in Neovim Octo with Workspaces
       name: 🌳 Workspace PR — Octo + CodeDiff + Claude (checkout branch)
       command: >
@@ -121,7 +121,7 @@ keybindings:
       name: ✨ Open PR checks in ENHANCE
       command: >
         cd {{.RepoPath}} &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'gh-enhance -R {{.RepoName}} {{.PrNumber}}'
+        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
     - key: A # Open PR in Claude Review
       name: 🤖 Run Claude /review on PR
       command: >
