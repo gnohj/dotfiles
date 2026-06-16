@@ -142,9 +142,6 @@
       "spotify"
       "vlc"
 
-      # System Wide Vim Mode
-      "tonisives/tap/ovim"
-
       # VPN & Security
       "private-internet-access"
 
