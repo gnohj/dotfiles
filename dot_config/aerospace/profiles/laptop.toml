@@ -1,5 +1,5 @@
-# Profile: laptop — covers BOTH "laptop alone" and "laptop + HP 27er".
-# Workspace Q is pinned to the HP 27er by name; when it isn't connected,
+# Profile: laptop — covers BOTH "laptop alone" and "laptop + HP Z27n".
+# Workspace Q is pinned to the HP Z27n by name; when it isn't connected,
 # aerospace gracefully falls back to the main display. Every other
 # workspace is explicitly pinned to the built-in retina so placement
 # stays stable across dock/undock. No separate "solo" profile needed.
@@ -24,4 +24,4 @@ V = '^built-in retina display$'
 W = '^built-in retina display$'
 X = '^built-in retina display$'
 Z = '^built-in retina display$'
-Q = '^HP 27er$'
+Q = '^HP Z?27'

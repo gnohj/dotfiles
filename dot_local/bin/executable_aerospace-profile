@@ -19,8 +19,8 @@
 #   aerospace-profile --current   # print active profile name
 #
 # Examples:
-#   aerospace-profile laptop  # laptop alone OR laptop + HP 27er
-#                             # (Q pins to HP 27er when present, falls
+#   aerospace-profile laptop  # laptop alone OR laptop + HP Z27n
+#                             # (Q pins to HP Z27n when present, falls
 #                             # back to built-in when not)
 #   aerospace-profile desk    # 3-monitor desk setup (positional indices)
 #
