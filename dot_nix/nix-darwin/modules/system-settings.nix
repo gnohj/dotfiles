@@ -25,7 +25,7 @@
         "/System/Applications/Calendar.app"
         "/System/Applications/Reminders.app"
         "/Applications/Google Chrome.app"
-        "/Applications/Brave Browser.app"
+        "/Applications/Helium.app"
         "/Applications/Ghostty.app"
       ];
     };
@@ -135,18 +135,6 @@
     # Login Window settings
     loginwindow = {
       GuestEnabled = false;               # Disable guest user
-    };
-
-    # Brave Browser: pin to a specific version by disabling its in-app updater.
-    # Pairs with the gnohj/pinned/brave-browser-pinned cask in homebrew.nix.
-    # `UpdateDefault = 0` is Chromium's enterprise policy for "Updates disabled"
-    # and is honored by Brave on macOS via /Library/Preferences/com.brave.Browser.plist.
-    # If Brave still updates after a darwin-rebuild, verify at brave://policy
-    # that UpdateDefault shows as 0 (Mandatory, Platform).
-    CustomSystemPreferences = {
-      "com.brave.Browser" = {
-        UpdateDefault = 0;
-      };
     };
 
   };

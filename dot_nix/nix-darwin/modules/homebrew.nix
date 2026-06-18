@@ -31,13 +31,6 @@
       "morantron/tmux-fingers"
       "tonisives/tap"
       "vjeantet/tap"
-
-      # Local tap for version-pinned casks.
-      # The tap directory is mirrored from
-      #   ~/.local/share/chezmoi/dot_nix/nix-darwin/local-taps/gnohj-pinned/
-      # into /opt/homebrew/Library/Taps/gnohj/homebrew-pinned/ by the
-      # run_onchange_before_install_local_brew_taps.sh chezmoi script.
-      { name = "gnohj/pinned"; clone_target = "/opt/homebrew/Library/Taps/gnohj/homebrew-pinned"; }
     ];
 
     # CLI packages (formulae)
@@ -92,12 +85,9 @@
       "superwhisper"
 
       # Browsers
-      # Brave pinned to v1.91.168 — cask lives in the gnohj/pinned local tap.
-      # In-app auto-updater is disabled via system.defaults.CustomSystemPreferences
-      # for com.brave.Browser (see system-settings.nix).
-      "gnohj/pinned/brave-browser-pinned"
       "firefox"
       "google-chrome"
+      "helium-browser"
       "microsoft-edge"
       "zen"
 
