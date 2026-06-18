@@ -48,7 +48,7 @@ end
 -- Workspace configurations
 -- Support multiple apps per workspace (array of apps or single app string)
 local spaceConfigs = {
-	["Q"] = { name = "Work", app = "Brave Browser" },
+	["Q"] = { name = "Work", app = "Helium" },
 	["W"] = { name = "Slack", app = "Slack" },
 	["E"] = { name = "Teams", app = "Microsoft Teams" },
 	["B"] = { name = "Browser", app = "Google Chrome" },
