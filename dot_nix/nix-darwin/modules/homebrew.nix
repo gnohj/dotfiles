@@ -123,7 +123,7 @@
       "appcleaner"
       "betterdisplay"
       "localsend"
-      "shottr"
+      "macshot"
 
       # Input Devices
       "logi-options+"
