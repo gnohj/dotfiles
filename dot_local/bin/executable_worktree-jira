@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Browser-tab → Jira ticket → /worktree pipeline. Reads active tab from
-# Chrome (preferred) or Brave (fallback); if it's an atlassian.net URL
+# Chrome (preferred), Helium, or Brave; if it's an atlassian.net URL
 # with a ticket key, hands off to worktree-runner.
+#
+# Helium (net.imput.helium) ships no static .sdef but responds to the
+# Chrome-style scripting terms (`URL of active tab of front window`) at
+# runtime, so the same read_active_tab_url path works unchanged.
 #
 # Bind via skhd, e.g.:
 #   rctrl + shift - j : ~/.local/bin/worktree-jira
@@ -48,11 +52,12 @@ URL=""
 SOURCE_BROWSER=""
 LAST_URL=""
 LAST_SOURCE=""
-for app in "Google Chrome" "Brave Browser"; do
+for app in "Google Chrome" "Helium" "Brave Browser"; do
   candidate=$(read_active_tab_url "$app" || true)
   [[ -z "$candidate" ]] && continue
   case "$app" in
     "Google Chrome") short="Chrome" ;;
+    "Helium") short="Helium" ;;
     "Brave Browser") short="Brave" ;;
   esac
   LAST_URL="$candidate"
@@ -67,7 +72,7 @@ for app in "Google Chrome" "Brave Browser"; do
 done
 
 if [[ -z "$LAST_URL" ]]; then
-  notify_error "No active tab in Chrome or Brave"
+  notify_error "No active tab in Chrome, Helium, or Brave"
   exit 1
 fi
 
