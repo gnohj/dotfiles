@@ -62,7 +62,7 @@ PIACTL="$(command -v piactl || echo '/Applications/Private Internet Access.app/C
 
 if [ ! -x "$PIACTL" ]; then
   sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$GREY" \
-    label="n/a" label.color="$GREY"
+    label="n/a" label.color="$GREY" label.drawing=on
   exit 0
 fi
 
@@ -73,12 +73,18 @@ label="$(region_label "$region")"
 case "$state" in
   Connected)
     sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$GREEN" \
-      label="$label" label.color="$GREEN" ;;
+      icon.padding_left=10 icon.padding_right=2 \
+      label="$label" label.color="$GREEN" label.drawing=on ;;
   Connecting | Disconnecting | DisconnectingToReconnect | Interrupting | StillNeedsRetry)
     sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$YELLOW" \
-      label="…" label.color="$YELLOW" ;;
+      icon.padding_left=10 icon.padding_right=2 \
+      label="…" label.color="$YELLOW" label.drawing=on ;;
   *)
-    # Disconnected / Interrupted / unknown -> not protected, show selected region.
+    # Disconnected / Interrupted / unknown -> not protected. Red shield only;
+    # the exit region is moot when not connected, so hide the label entirely.
+    # No label means no label padding, so tighten the left and pad the right to
+    # keep the lone shield balanced against the neighbouring widgets.
     sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$RED" \
-      label="$label" label.color="$RED" ;;
+      icon.padding_left=4 icon.padding_right=12 \
+      label.drawing=off ;;
 esac
