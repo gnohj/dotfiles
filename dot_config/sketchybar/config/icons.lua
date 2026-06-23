@@ -320,6 +320,11 @@ local text <const> = {
 			disconnected = "󰖪",
 			router = "󰑩",
 		},
+		vpn = {
+			-- nf-md-shield-lock / nf-md-shield-off-outline; swap if your font lacks them
+			on = "󰦝",
+			off = "󰦞",
+		},
 		media = {
 			back = "",
 			forward = "",
