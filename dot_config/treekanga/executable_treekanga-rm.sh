@@ -71,6 +71,20 @@ kill_tmux_sessions_for() {
       done
 }
 
+# Portable command timeout. Prefers GNU coreutils timeout/gtimeout; falls back
+# to the perl SIGALRM idiom (perl ships with macOS, coreutils does not). The
+# alarm timer survives exec, so claude is killed after $1 seconds if it stalls.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout &>/dev/null; then
+    timeout "$secs" "$@"
+  elif command -v gtimeout &>/dev/null; then
+    gtimeout "$secs" "$@"
+  else
+    perl -e 'alarm shift; exec @ARGV' "$secs" "$@"
+  fi
+}
+
 delete_one() {
   local repo="$1" branch="$2" wt_path="$3" bare="$4"
 
@@ -107,13 +121,21 @@ delete_one() {
         # --add-dir is required: claude's default sandbox is the cwd ($HOME or
         # wherever tkrm was invoked from), which excludes the vault and the
         # threads state dir. Without these flags the skill halts at pre-check.
-        if SB_TICKET_FINISH_FROM_TKRM=1 claude -p "/sb-ticket-finish $thread_id" \
-            --add-dir "$vault" \
-            --add-dir "$HOME/.local/state" \
+        # Headless hook: no TTY to answer permission prompts, and the skill is
+        # almost entirely Bash (gh/git/find/jq/ccusage/rm). Without bypass mode
+        # every Bash call returns "requires approval" and the session spins for
+        # minutes before giving up. bypassPermissions runs it unattended; the
+        # timeout is a backstop so a stall can never block the delete for long.
+        if run_with_timeout 150 \
+            env SB_TICKET_FINISH_FROM_TKRM=1 \
+            claude -p "/sb-ticket-finish $thread_id" \
+              --permission-mode bypassPermissions \
+              --add-dir "$vault" \
+              --add-dir "$HOME/.local/state" \
             2>&1 | sed 's/^/    /'; then
           finish_ok=1
         else
-          echo "    (sb-ticket-finish failed for $thread_id — keeping thread state for retry)"
+          echo "    (sb-ticket-finish failed or timed out for $thread_id — keeping thread state for retry)"
         fi
       else
         # Defer: drop a marker the next vault-aware session picks up.
