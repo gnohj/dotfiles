@@ -179,10 +179,25 @@ else
   log "· no \$TMUX and no pbcopy; user must navigate manually"
 fi
 
-# Copy .env files from main worktree if they exist
+# Copy .env files from main worktree if they exist. Covers repo-root envs
+# (.env, .env.local, …) AND nested per-app envs (apps/<app>/.env*). The account
+# app reads APP_TOKEN from apps/account/.env for RadioEdit ObjectDB oAuth; the
+# old root-only loop never propagated it, so every new worktree hit the login
+# error until copied by hand. Discovery (not a hardcoded app list) means a new
+# app's .env is picked up automatically, and apps that need none — e.g. listen,
+# which fetches its token at runtime — are simply skipped. .env.example is a
+# tracked template, never a secret to copy.
 copied_envs=0
-for env_file in .env .env.local .env.development .env.development.local; do
+env_files=(.env .env.local .env.development .env.development.local)
+if [ -d "$MAIN_WORKTREE/apps" ]; then
+  while IFS= read -r abs; do
+    env_files+=("${abs#"$MAIN_WORKTREE"/}")
+  done < <(find "$MAIN_WORKTREE/apps" -maxdepth 2 -type f \
+    \( -name '.env' -o -name '.env.*' \) ! -name '.env.example' 2>/dev/null)
+fi
+for env_file in "${env_files[@]}"; do
   if [ -f "$MAIN_WORKTREE/$env_file" ] && [ ! -f "$env_file" ]; then
+    mkdir -p "$(dirname "$env_file")" 2>>"$LOGFILE"
     if cp "$MAIN_WORKTREE/$env_file" "$env_file" 2>>"$LOGFILE"; then
       log "✓ copied $env_file from main"
       copied_envs=$((copied_envs + 1))
