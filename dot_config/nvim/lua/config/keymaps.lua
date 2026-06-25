@@ -948,3 +948,13 @@ keymap("n", "z;", function()
   vim.opt.foldlevel = 3 -- Fold level 4 and above
   vim.cmd("normal! zz") -- center the cursor line on screen
 end, { desc = "[P]Fold all headings level 4 or above" })
+
+--
+-- Right mouse drag → visual-select + auto-copy to the system clipboard,
+-- mirroring the tmux right-drag-to-copy binding. Inside nvim the mouse is
+-- owned by nvim (mouse=a), so tmux passes the event through and we replicate
+-- the behavior here. clipboard=unnamedplus means a plain `y` lands on the
+-- macOS clipboard. mousemodel=extend (options.lua) frees the right button.
+keymap({ "n", "v" }, "<RightMouse>", "<LeftMouse>", { desc = "[P]Right-drag: position cursor" })
+keymap({ "n", "v" }, "<RightDrag>", "<LeftDrag>", { desc = "[P]Right-drag: extend selection" })
+keymap("v", "<RightRelease>", "y", { desc = "[P]Right-drag: copy selection to clipboard" })

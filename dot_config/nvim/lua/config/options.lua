@@ -31,6 +31,10 @@ vim.opt.wrap = false
 -- enable neovim scrolling when in tmux
 vim.opt.mouse = "a"
 vim.opt.mousescroll = "ver:3,hor:0"
+-- free the right mouse button from the popup menu so it can be mapped to
+-- right-drag-select-and-copy (see keymaps.lua) — mirrors the tmux right-drag
+-- binding, which passes through to nvim because mouse=a
+vim.opt.mousemodel = "extend"
 
 -- Global statusline — one statusline across the entire Neovim window, not per split
 vim.opt.laststatus = 3
