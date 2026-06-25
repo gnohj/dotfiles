@@ -62,7 +62,15 @@ local function codediff_hunk_count()
   if not changes or #changes == 0 then
     return ""
   end
-  return "󰊢 " .. tostring(#changes) .. " hunks"
+  -- modified_path tracks the currently-viewed file (updated on file switch in
+  -- explorer mode); fall back to original_path for deletes/renames. It's stored
+  -- relative to the git root, so it's already repo-relative.
+  local path = session.modified_path or session.original_path
+  local hunks = "󰊢 " .. tostring(#changes) .. " hunks"
+  if path and path ~= "" then
+    return "󰈔 " .. path .. " │ " .. hunks
+  end
+  return hunks
 end
 
 return {
