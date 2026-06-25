@@ -851,12 +851,16 @@ if command -v sketchybar &>/dev/null; then
         function mas() {
             command mas "$@"
             local exit_code=$?
-            # Trigger on commands that change state
+            # Trigger on commands that change state (mas has already finished here)
             case "$1" in
                 install|uninstall|upgrade)
                     sketchybar --trigger package_update 2>/dev/null &
                     ;;
             esac
+            # Reload sketchybar after an upgrade so widgets pick up new apps
+            if [[ "$1" == "upgrade" ]]; then
+                sketchybar --reload 2>/dev/null &
+            fi
             return $exit_code
         }
     fi
@@ -979,12 +983,16 @@ if command -v sketchybar &>/dev/null; then
     function mise() {
         command mise "$@"
         local exit_code=$?
-        # Only trigger on specific commands that actually change state
+        # Only trigger on specific commands that actually change state (mise has already finished here)
         case "$1" in
             install|uninstall|upgrade|use)
                 sketchybar --trigger package_update 2>/dev/null &
                 ;;
         esac
+        # Reload sketchybar after an upgrade so widgets pick up new binaries
+        if [[ "$1" == "upgrade" ]]; then
+            sketchybar --reload 2>/dev/null &
+        fi
         return $exit_code
     }
 fi
