@@ -56,6 +56,8 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
+	drawing = false, -- start hidden (like .icon/.play) so an empty slot isn't
+	-- reserved before the first update / when Spotify isn't running
 	updates = true,
 	update_freq = 3,  -- Poll every 3 seconds
 })
