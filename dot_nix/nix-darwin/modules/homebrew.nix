@@ -82,7 +82,7 @@
     casks = [
       # AI Tools
       "claude-code"
-      "superwhisper"
+      "opensuperwhisper"
 
       # Browsers
       "firefox"
