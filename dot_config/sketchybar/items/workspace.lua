@@ -63,9 +63,8 @@ local spaceConfigs = {
 	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude" } },
 	["A"] = { name = "YouTube", app = "YouTube" },
 	["M"] = { name = "Texting", app = "Messages" },
-	["K"] = { name = "Settings", app = "System Settings" },
+	["K"] = { name = "Settings", apps = { "System Settings", "OpenSuperWhisper" } },
 	["Z"] = { name = "Brave", app = "Zen" },
-	["J"] = { name = "Wispr Flow", app = "Wispr Flow" },
 }
 
 -- Helper function to find which app to show for a workspace
