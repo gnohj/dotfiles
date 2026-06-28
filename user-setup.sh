@@ -69,6 +69,10 @@ if [ "$OS" = "Darwin" ]; then
   fi
 fi
 
+# Pre-create log directories so launchd services don't fail silently on first fire.
+mkdir -p "$HOME/.logs/"{skhd,borders,sketchybar,github-auto-push,sb-audit,sb-agent-refresh,cleanup,kanata,watchdog}
+print_success "Log directories ready at ~/.logs/"
+
 # --- PHASE 2: SSH KEY AND SECRETS SETUP FROM BITWARDEN ---
 print_info "› Phase 2: Setting up SSH keys and secrets from Bitwarden..."
 
@@ -242,6 +246,58 @@ else
   print_success "Dotfiles applied"
 fi
 
+# --- PHASE 5.5: WORK ACCOUNT AND SECRETS TEMPLATE SETUP ---
+print_info "› Phase 5.5: Configuring work account state..."
+
+WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
+WORK_EMAIL_FILE="$HOME/.local/state/claude/work-email"
+mkdir -p "$HOME/.local/state/claude"
+
+if [ ! -f "$WORK_ORGS_FILE" ] || [ ! -s "$WORK_ORGS_FILE" ]; then
+  echo ""
+  print_info "Work GitHub org (e.g. iheartmedia) - routes Claude Code to your work account."
+  printf "  Enter org name, or press Enter to skip: "
+  read -r WORK_ORG
+  if [ -n "$WORK_ORG" ]; then
+    printf '%s\n' "$WORK_ORG" >"$WORK_ORGS_FILE"
+    print_success "Work org saved → $WORK_ORG"
+  else
+    print_warning "Skipped. Run later: claude-account add-work-org <org>"
+  fi
+else
+  print_success "Work orgs already configured: $(cat "$WORK_ORGS_FILE")"
+fi
+
+if [ ! -f "$WORK_EMAIL_FILE" ] || [ ! -s "$WORK_EMAIL_FILE" ]; then
+  echo ""
+  print_info "Work email (used by tmux-dash row coloring and claude-account label-for-email)."
+  printf "  Enter email, or press Enter to skip: "
+  read -r WORK_EMAIL_INPUT
+  if [ -n "$WORK_EMAIL_INPUT" ]; then
+    printf '%s\n' "$WORK_EMAIL_INPUT" >"$WORK_EMAIL_FILE"
+    print_success "Work email saved → $WORK_EMAIL_INPUT"
+  else
+    print_warning "Skipped. Run later: claude-account set-work-email <email>"
+  fi
+else
+  print_success "Work email already configured: $(cat "$WORK_EMAIL_FILE")"
+fi
+
+# Generate a fill-in-the-blank template for secrets so Bitwarden is never a hard blocker.
+LOCAL_TEMPLATE="$HOME/.zsh_gnohj_env.local.template"
+VARS_FILE="$HOME/.config/bitwarden/vars.txt"
+if [ -f "$VARS_FILE" ] && [ ! -f "$LOCAL_TEMPLATE" ]; then
+  {
+    printf '# Fill in values manually if not using Bitwarden.\n'
+    printf '# Copy to ~/.zsh_gnohj_env.local and populate - it is sourced automatically.\n\n'
+    while IFS= read -r var; do
+      [ -z "$var" ] && continue
+      printf 'export %s=""\n' "$var"
+    done <"$VARS_FILE"
+  } >"$LOCAL_TEMPLATE"
+  print_success "Created ~/.zsh_gnohj_env.local.template (fill-in-the-blank for all secrets)"
+fi
+
 # --- PHASE 6: INSTALL LANGUAGE RUNTIMES ---
 print_info "› Phase 6: Installing language runtimes via mise..."
 
@@ -289,7 +345,20 @@ fi
 # --- PHASE 7: CLONE PRIVATE REPOSITORIES ---
 print_info "› Phase 7: Cloning private repositories..."
 
+# Verify SSH auth before attempting clones - GitHub exits 1 even on success, so check stderr.
 REPOS_FILE="$HOME/.config/repos-clone.txt"
+SSH_OK=false
+if [ -f "$HOME/.ssh/id_ed25519" ]; then
+  if ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+    SSH_OK=true
+  fi
+fi
+if [ "$SSH_OK" = "false" ]; then
+  print_warning "SSH key not authenticated with GitHub - private repo cloning will likely fail."
+  print_info "  If you skipped Bitwarden in Phase 2, add your SSH key manually:"
+  print_info "    cp <your_key> ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519"
+  print_info "  Then add the public key to GitHub and re-run this script."
+fi
 
 if [ -f "$REPOS_FILE" ]; then
   while IFS= read -r line; do
@@ -383,24 +452,128 @@ print_success "=========================================="
 print_success "User Setup Complete!"
 print_success "=========================================="
 echo ""
-echo "Next steps:"
-echo "  1. Restart your terminal or source your shell config:"
-echo "     source ~/.zshrc"
-echo ""
-echo "  2. Verify installations:"
-echo "     • System packages: darwin-rebuild switch --flake ~/.config/nix-darwin"
-echo "     • Dotfiles: chezmoi status"
-echo "     • Languages: mise list"
-echo ""
 
 if [ -n "$BW_EMAIL" ] && [ "$SHELL" != "$(command -v zsh)" ]; then
   print_warning "Shell changed to zsh. Please log out and back in for it to take effect."
 fi
 
-echo "Configuration locations:"
-echo "  • System: ~/nix/nix-darwin/"
-echo "  • Dotfiles: ~/.local/share/chezmoi/"
-echo "  • Languages: ~/.config/mise/config.toml"
+# --- MANUAL STEPS CHECKLIST ---
+# Scan for anything that still needs human action and print a consolidated list.
+echo ""
+echo "=============================================="
+echo "  What Still Needs Manual Attention"
+echo "=============================================="
+echo ""
+
+PENDING=0
+
+# Obsidian vault (cs/cr --add-dir fails without it)
+if [ ! -d "$HOME/Obsidian/second-brain" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Obsidian vault not synced yet"
+  echo "    iCloud may still be downloading. Once it appears, re-run:"
+  echo "      bash user-setup.sh"
+  echo "    Expected: $HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian"
+  echo ""
+fi
+
+# App Store sign-in + mas apps
+if ! mas account &>/dev/null 2>&1; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] App Store - not signed in"
+  echo "    Sign in via App Store.app, then install:"
+  echo "      mas install 497799835   # Xcode"
+  echo "      mas install 1193539993  # Brother iPrint&Scan"
+  echo "      mas install 310633997   # WhatsApp Messenger"
+  echo ""
+fi
+
+# Claude OAuth tokens
+MISSING_CLAUDE_TOKENS=""
+for ACCT in personal work; do
+  if ! security find-generic-password -a "$USER" -s "claude-oauth-$ACCT" -w &>/dev/null 2>&1; then
+    MISSING_CLAUDE_TOKENS="$MISSING_CLAUDE_TOKENS $ACCT"
+  fi
+done
+if [ -n "$MISSING_CLAUDE_TOKENS" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Claude OAuth tokens missing for:$MISSING_CLAUDE_TOKENS"
+  echo "    For each missing account (run interactively, not piped):"
+  echo "      claude setup-token"
+  echo "      pbpaste | claude-account set-token <personal|work>"
+  echo ""
+fi
+
+# Work org / work email state files
+if [ ! -s "$HOME/.local/state/claude/work-orgs" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Work GitHub org not configured (claude-account always resolves to personal)"
+  echo "      claude-account add-work-org <github-org-name>"
+  echo ""
+fi
+if [ ! -s "$HOME/.local/state/claude/work-email" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Work email not configured (tmux-dash row coloring will not work)"
+  echo "      claude-account set-work-email <your-work-email>"
+  echo ""
+fi
+
+# Atuin sync login
+if command -v atuin &>/dev/null && [ ! -f "$HOME/.local/share/atuin/session" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Atuin shell history not synced"
+  echo "      atuin login"
+  echo ""
+fi
+
+# GPG signing keys
+if command -v gpg &>/dev/null; then
+  GPG_COUNT=$(gpg --list-secret-keys 2>/dev/null | grep -c "^sec" || true)
+  if [ "${GPG_COUNT:-0}" -eq 0 ]; then
+    PENDING=$((PENDING + 1))
+    echo "[$PENDING] GPG signing keys not imported (needed if you sign commits)"
+    echo "      gpg --import your-key.asc"
+    echo "      git config --global user.signingkey <key-id>"
+    echo ""
+  fi
+fi
+
+# TCC permissions - always required on a fresh machine, cannot be detected programmatically
+PENDING=$((PENDING + 1))
+echo "[$PENDING] TCC Permissions (System Settings > Privacy & Security)"
+echo "    Cannot be scripted - must be granted manually."
+echo "    Accessibility:    AeroSpace, borders (x4), Ghostty, kanata, kitty, Raycast, sketchybar, skhd"
+echo "    Full Disk Access: Ghostty, kitty"
+echo "    Input Monitoring: kanata  <-- re-grant after any kanata Homebrew upgrade"
+echo "    Automation:       AeroSpace, Ghostty, osascript, Raycast, sketchybar, skhd"
+echo "    Screen Recording: Raycast"
+echo "    See MANUAL_SETUP.md for full details and the correct grant order."
+echo ""
+
+# AlDente - no config file, always remind
+PENDING=$((PENDING + 1))
+echo "[$PENDING] AlDente: open the app and set charge limit to 80-90%"
+echo ""
+
+# Raycast - no portable config file, always remind
+PENDING=$((PENDING + 1))
+echo "[$PENDING] Raycast: import settings from a backup export"
+echo "    (Raycast Pro users: enable cloud sync instead)"
+echo ""
+
+echo "----------------------------------------------"
+if [ "$PENDING" -gt 0 ]; then
+  echo "  $PENDING item(s) need attention. Run this script again after"
+  echo "  completing them - it is safe to re-run."
+else
+  echo "  All checks passed. Nothing left to do."
+fi
+echo "=============================================="
+echo ""
+echo "Config locations:"
+echo "  System:    ~/.nix/ (nix-darwin flake)"
+echo "  Dotfiles:  ~/.local/share/chezmoi/"
+echo "  Languages: ~/.config/mise/config.toml"
 echo ""
 
 exit 0

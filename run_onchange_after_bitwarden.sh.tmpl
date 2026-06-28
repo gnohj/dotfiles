@@ -14,11 +14,12 @@ if ! command -v rbw &> /dev/null; then
   exit 1
 fi
 
-# Check if vault is unlocked
+# Check if vault is unlocked - exit 0 (not 1) so chezmoi apply doesn't fail.
+# Secrets simply won't be populated; run 'eval $(rbw unlock) && chezmoi apply' to retry.
 if ! rbw unlocked &> /dev/null; then
-  echo "Error: Bitwarden vault is locked."
-  echo "Run 'eval \$(rbw unlock)' to unlock the vault."
-  exit 1
+  echo "Bitwarden vault is locked - skipping secret fetch."
+  echo "To populate secrets: eval \$(rbw unlock) && chezmoi apply"
+  exit 0
 fi
 
 # Sync vault (non-fatal — local cache may already be up to date)
