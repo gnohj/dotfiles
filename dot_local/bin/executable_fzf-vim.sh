@@ -46,6 +46,7 @@ while true; do
       "${extra_args[@]}" \
       --reverse --no-clear --no-multi \
       --no-header \
+      --tiebreak=index \
       --border-label ' INSERT  type to filter  esc→normal ' \
       --expect=enter,esc \
       --bind 'enter:accept' \
