@@ -48,10 +48,10 @@ end
 -- Workspace configurations
 -- Support multiple apps per workspace (array of apps or single app string)
 local spaceConfigs = {
-	["Q"] = { name = "Work", app = "Helium" },
+	["Q"] = { name = "Browser", app = "Google Chrome" },
 	["W"] = { name = "Slack", app = "Slack" },
 	["E"] = { name = "Teams", app = "Microsoft Teams" },
-	["B"] = { name = "Browser", app = "Google Chrome" },
+	["B"] = { name = "Helium", app = "Helium" },
 	["G"] = { name = "Mail", app = "Mail" },
 	["R"] = { name = "Notes", app = "Notes" },
 	["F"] = { name = "System", apps = { "Finder", "Photos" } },
@@ -181,6 +181,7 @@ local function updateWindows()
 
 	if not ok then
 		log_message("ERROR", "Failed to get current workspace: " .. tostring(currentWorkspace))
+		aerospace = nil  -- force full reconnect on next call
 		update_running = false
 		return
 	end
@@ -194,6 +195,7 @@ local function updateWindows()
 
 	if not ok2 then
 		log_message("ERROR", "Failed to list windows: " .. tostring(windowsJson))
+		aerospace = nil  -- force full reconnect on next call
 		update_running = false
 		return
 	end
