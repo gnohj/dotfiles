@@ -132,7 +132,7 @@ backspace = ['close-all-windows-but-current', 'mode main']
 
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome'  # Google Chrome Browser
-run = "move-node-to-workspace B"
+run = "move-node-to-workspace Q"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.mail'
@@ -290,34 +290,30 @@ run = [
 
 [[on-window-detected]]
 if.app-id = 'net.imput.helium'
-run = "move-node-to-workspace Q"
+run = "move-node-to-workspace B"
 
 
 [workspace-to-monitor-force-assignment]
-# Profile: laptop — covers BOTH "laptop alone" and "laptop + HP Z27n".
-# Workspace Q is pinned to the HP Z27n by name; when it isn't connected,
-# aerospace gracefully falls back to the main display. Every other
-# workspace is explicitly pinned to the built-in retina so placement
-# stays stable across dock/undock. No separate "solo" profile needed.
-#
+# Profile: desk — full 3-monitor desk setup.
+# 1 = HP Z27n (Left), 2 = Center monitor, 3 = Laptop built-in.
 # Spliced into aerospace.toml's [workspace-to-monitor-force-assignment]
-# section by `aerospace-profile`.
-A = '^built-in retina display$'
-B = '^built-in retina display$'
-C = '^built-in retina display$'
-D = '^built-in retina display$'
-E = '^built-in retina display$'
-F = '^built-in retina display$'
-G = '^built-in retina display$'
-K = '^built-in retina display$'
-L = '^built-in retina display$'
-M = '^built-in retina display$'
-R = '^built-in retina display$'
-S = '^built-in retina display$'
-T = '^built-in retina display$'
-U = '^built-in retina display$'
-V = '^built-in retina display$'
-W = '^built-in retina display$'
-X = '^built-in retina display$'
-Z = '^built-in retina display$'
-Q = '^HP Z?27'
+# by `aerospace-profile`.
+A = 3
+B = 3
+C = 3
+D = 3
+E = 1
+F = 3
+G = 3
+K = 3
+L = 3
+M = 3
+Q = 1
+R = 3
+S = 3
+T = 3
+U = 3
+V = 3
+W = 1
+X = 3
+Z = 1

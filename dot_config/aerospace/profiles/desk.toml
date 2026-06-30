@@ -1,23 +1,23 @@
 # Profile: desk — full 3-monitor desk setup.
-# 1 = Left monitor, 2 = Center monitor, 3 = Laptop built-in.
+# 1 = HP Z27n (Left), 2 = Center monitor, 3 = Laptop built-in.
 # Spliced into aerospace.toml's [workspace-to-monitor-force-assignment]
 # by `aerospace-profile`.
-A = 1
-D = 1
+A = 3
+B = 3
+C = 3
+D = 3
 E = 1
-G = 1
-K = 1
-L = 1
+F = 3
+G = 3
+K = 3
+L = 3
+M = 3
 Q = 1
-R = 1
-S = 1
+R = 3
+S = 3
+T = 3
+U = 3
+V = 3
 W = 1
-X = 1
-U = 1
-B = 2
-C = 1
-F = 1
-V = 1
-T = 2
-Z = 2
-M = 3  # Dedicated workspace for laptop monitor
+X = 3
+Z = 1
