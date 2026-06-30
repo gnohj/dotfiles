@@ -1,8 +1,6 @@
 # Profile: laptop — covers BOTH "laptop alone" and "laptop + HP Z27n".
-# Workspace Q is pinned to the HP Z27n by name; when it isn't connected,
-# aerospace gracefully falls back to the main display. Every other
-# workspace is explicitly pinned to the built-in retina so placement
-# stays stable across dock/undock. No separate "solo" profile needed.
+# All workspaces pinned to built-in retina so placement stays stable
+# across dock/undock. No separate "solo" profile needed.
 #
 # Spliced into aerospace.toml's [workspace-to-monitor-force-assignment]
 # section by `aerospace-profile`.
@@ -16,6 +14,7 @@ G = '^built-in retina display$'
 K = '^built-in retina display$'
 L = '^built-in retina display$'
 M = '^built-in retina display$'
+Q = '^built-in retina display$'
 R = '^built-in retina display$'
 S = '^built-in retina display$'
 T = '^built-in retina display$'
@@ -24,4 +23,3 @@ V = '^built-in retina display$'
 W = '^built-in retina display$'
 X = '^built-in retina display$'
 Z = '^built-in retina display$'
-Q = '^HP Z?27'
