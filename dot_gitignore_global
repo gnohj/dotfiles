@@ -18,4 +18,4 @@ http-client.private.env.json
 .mise.local.toml
 .99-tmp
 .superpowers/
-
+.no-mistakes.yaml

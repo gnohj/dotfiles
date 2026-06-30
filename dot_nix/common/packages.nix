@@ -1,5 +1,8 @@
 { config, pkgs, lib, ... }:
 
+let
+  no-mistakes = pkgs.callPackage ./no-mistakes.nix { inherit pkgs lib; };
+in
 {
   # Cross-platform CLI utilities and tools
   # Per migration plan: ALL CLI tools from mise → Nix
@@ -88,6 +91,9 @@
     tree-sitter # Tree-sitter CLI
     figlet     # ASCII art text banners
     d2         # Diagram-as-code (sb-workflow / skills-workflow renders)
+
+    # Dev workflow gate (not in nixpkgs — built from source)
+    no-mistakes
   ];
 
 }
