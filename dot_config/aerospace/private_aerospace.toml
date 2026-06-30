@@ -8,6 +8,8 @@
 #  AeroSpace is an i3-like tiling window manager for macOS
 #  https://github.com/nikitabobko/AeroSpace
 
+config-version = 2
+
 # Place a copy of this config to ~/.aerospace.toml
 # After that, you can edit ~/.aerospace.toml to your liking
 
@@ -101,20 +103,20 @@ PATH = '/opt/homebrew/bin:/opt/homebrew/sbin:${PATH}'
 [mode.service.binding]
 esc = [
   'reload-config',
-  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
-  'exec-and-forget opt/homebrew/bin/sketchybar --reload',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --trigger hide_message',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
   'mode main',
 ]
 b = [
   'exec-and-forget ~/.config/aerospace/presentation.sh on',
-  'exec-and-forget opt/homebrew/bin/sketchybar --bar height=0',
-  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --bar height=0',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --trigger hide_message',
   'mode main',
 ]
 shift-b = [
   'exec-and-forget ~/.config/aerospace/presentation.sh off',
-  'exec-and-forget opt/homebrew/bin/sketchybar --bar height=36',
-  'exec-and-forget opt/homebrew/bin/sketchybar --trigger hide_message',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --bar height=36',
+  'exec-and-forget /opt/homebrew/bin/sketchybar --trigger hide_message',
   'mode main',
 ]
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
