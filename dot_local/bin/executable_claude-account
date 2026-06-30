@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Resolves which Claude Code account a session should use, based on the current
+# directory's git remote — and provides the config dir + OAuth token the
+# launchers (claude / cs / cr, incl. the nvim dashboard) inject.
+#
+# WHY tokens: on macOS the OAuth login lives in ONE shared Keychain entry, so
+# CLAUDE_CONFIG_DIR alone can't switch accounts. Each account gets a long-lived
+# token (`claude setup-token`) in its own Keychain slot ("claude-oauth-<acct>"),
+# injected as CLAUDE_CODE_OAUTH_TOKEN. Token decides WHO; CLAUDE_CONFIG_DIR
+# decides WHERE that session's state (history/settings/.claude.json) lives.
+#
+# SELECTION: a repo whose remote is a configured work org (see work-orgs, kept
+# in local state — NOT in dotfiles) → work; everything else (personal repos,
+# non-git dirs) → personal. Override per-shell by exporting CLAUDE_ACCOUNT.
+#
+#   claude-account                 effective account for the current dir
+#   claude-account resolve         same (explicit name; used by `cw`)
+#   claude-account dir             its CLAUDE_CONFIG_DIR        (used by launchers)
+#   claude-account token           its OAuth token, if stored   (used by launchers)
+#   claude-account cwd [path]      account a directory maps to (ignores override)
+#   claude-account set-token <a>   store a token for <a> from stdin (Keychain)
+#                                  e.g. `claude setup-token | claude-account set-token work`
+#   claude-account add-work-org <o>     add a GitHub org that counts as work
+#   claude-account work-orgs            list configured work orgs
+#   claude-account set-work-email <e>   which email counts as "work" (for recon/tmux-dash color)
+#   claude-account work-email           print the configured work email
+#   claude-account label-for-email <e>  classify an email -> personal|work
+set -euo pipefail
+
+WORK_EMAIL_FILE="$HOME/.local/state/claude/work-email"
+WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
+
+# Account a directory maps to, by its git remote org. iHeart (or any configured
+# work org) → work; personal repos / non-git dirs → personal.
+account_for_cwd() {
+  local dir="${1:-$PWD}" url line
+  url="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+  if [ -n "$url" ] && [ -f "$WORK_ORGS_FILE" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      case "$line" in \#*) continue ;; esac
+      # Matches both ssh (git@host:org/repo) and https (host/org/repo) forms.
+      case "$url" in *"$line"/*) echo "work" && return ;; esac
+    done <"$WORK_ORGS_FILE"
+  fi
+  echo "personal"
+}
+
+# Effective account: explicit per-shell override wins, else the cwd rule.
+resolve_account() {
+  case "${CLAUDE_ACCOUNT:-}" in
+  personal | work) echo "$CLAUDE_ACCOUNT" ;;
+  *) account_for_cwd "$PWD" ;;
+  esac
+}
+
+account_dir() {
+  case "$(resolve_account)" in
+  work) echo "$HOME/.claude-work" ;;
+  # Personal = Claude's NATIVE default config (~/.claude.json + ~/.claude). We
+  # deliberately print nothing so launchers leave CLAUDE_CONFIG_DIR unset —
+  # otherwise personal points at ~/.claude/.claude.json, a near-empty config
+  # that loses your existing trust/history (re-prompts "trust this folder").
+  *) echo "" ;;
+  esac
+}
+
+# OAuth token for the resolved account from its Keychain slot (empty if none).
+account_token() {
+  security find-generic-password -a "$USER" -s "claude-oauth-$(resolve_account)" -w 2>/dev/null || true
+}
+
+store_token() {
+  local account="$1" raw token
+  raw="$(cat)"
+  # Extract ONLY the token, even if stdin has surrounding text/ANSI noise.
+  # (Don't pipe `claude setup-token` here — it's interactive; its raw TUI output
+  # is ~57KB of escape codes, not a token. Run it, copy the token, paste it.)
+  token="$(printf '%s' "$raw" | LC_ALL=C grep -aoE 'sk-ant-oat[0-9]+-[A-Za-z0-9_-]+' | head -1)"
+  if [ -z "$token" ]; then
+    echo "✗ No valid token found on input (expected sk-ant-oat…)." >&2
+    echo "  Run \`claude setup-token\` on its own, copy the printed token, then:" >&2
+    echo "    pbpaste | claude-account set-token $account" >&2
+    return 1
+  fi
+  security add-generic-password -U -a "$USER" -s "claude-oauth-$account" -w "$token"
+  echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | shasum | cut -c1-12))"
+}
+
+add_work_org() {
+  mkdir -p "$(dirname "$WORK_ORGS_FILE")"
+  touch "$WORK_ORGS_FILE"
+  if grep -qxF "$1" "$WORK_ORGS_FILE" 2>/dev/null; then
+    echo "Already a work org → $1"
+  else
+    printf '%s\n' "$1" >>"$WORK_ORGS_FILE"
+    echo "Added work org → $1"
+  fi
+}
+
+# Classify an email -> personal|work using the configured work email. Single
+# source of the work/personal POLICY for email; recon mirrors the same compare
+# in Rust (reading the same work-email file) to color rows by the REAL account.
+label_for_email() {
+  local email="$1" work=""
+  [ -f "$WORK_EMAIL_FILE" ] && work="$(cat "$WORK_EMAIL_FILE" 2>/dev/null)"
+  if [ -n "$email" ] && [ -n "$work" ] && [ "$email" = "$work" ]; then
+    echo "work"
+  else
+    echo "personal"
+  fi
+}
+
+case "${1:-get}" in
+get | resolve) resolve_account ;;
+dir) account_dir ;;
+token) account_token ;;
+cwd) account_for_cwd "${2:-$PWD}" ;;
+# Print shell `export` lines for the current dir's account, for launchers that
+# can't use cs/cr (e.g. gh-dash): `eval "$(claude-account env)" && claude …`.
+# Emits nothing for personal-with-no-token (native config), so eval is a no-op.
+env)
+  _d="$(account_dir)"
+  _t="$(account_token)"
+  [ -n "$_d" ] && printf 'export CLAUDE_CONFIG_DIR=%q\n' "$_d"
+  [ -n "$_t" ] && printf 'export CLAUDE_CODE_OAUTH_TOKEN=%q\n' "$_t"
+  ;;
+set-token)
+  case "${2:-}" in
+  personal | work) store_token "$2" ;;
+  *)
+    echo "usage: claude-account set-token <personal|work>   (token on stdin)" >&2
+    exit 1
+    ;;
+  esac
+  ;;
+add-work-org)
+  [ -n "${2:-}" ] || {
+    echo "usage: claude-account add-work-org <org>" >&2
+    exit 1
+  }
+  add_work_org "$2"
+  ;;
+work-orgs) cat "$WORK_ORGS_FILE" 2>/dev/null || true ;;
+work-email) cat "$WORK_EMAIL_FILE" 2>/dev/null || true ;;
+set-work-email)
+  [ -n "${2:-}" ] || {
+    echo "usage: claude-account set-work-email <email>" >&2
+    exit 1
+  }
+  mkdir -p "$(dirname "$WORK_EMAIL_FILE")"
+  printf '%s\n' "$2" >"$WORK_EMAIL_FILE"
+  echo "Work email → $2"
+  ;;
+label-for-email) label_for_email "${2:-}" ;;
+*)
+  echo "usage: claude-account [get|resolve|dir|token|cwd|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  exit 1
+  ;;
+esac

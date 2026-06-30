@@ -670,6 +670,43 @@ alias c='clear'
 
 # Claude Code: `cs` (start) and `cr` (resume) live in _bin/.
 
+# ─── Claude Code multi-account ─────────────────────────────────────────────
+# Same binary, different config dirs (sessions + creds are fully isolated):
+#   ~/.claude       personal account (the default dir)
+#   ~/.claude-work  work account
+# Run `/login` once inside each to authenticate it.
+#
+# The account is chosen automatically from the current dir's git remote (iHeart
+# org → work, else personal) by the `claude-account` script (~/.local/bin), which
+# also hands back the matching config dir + OAuth token. `claude`, `cs`, `cr`, and
+# the nvim dashboard all go through it, so just `cd` into a repo and launch.
+# Force a different account for THIS shell with `cw` (toggle) / `cauto` (clear).
+CLAUDE_BIN="/opt/homebrew/bin/claude"
+
+claude() {
+	local dir tok
+	dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+	tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+	# Subshell so the conditional exports don't leak into the parent shell.
+	# Personal leaves CLAUDE_CONFIG_DIR unset (native default config); only work
+	# sets it. Token is injected when one is stored for the resolved account.
+	(
+		[ -n "$dir" ] && export CLAUDE_CONFIG_DIR="$dir"
+		[ -n "$tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$tok"
+		exec "$CLAUDE_BIN" "$@"
+	)
+}
+
+# Per-shell account override (exported so cs/cr/claude children inherit it).
+# `cw` flips to the OTHER account for this shell; `cauto` returns to automatic.
+cw() {
+	local cur
+	cur="${CLAUDE_ACCOUNT:-$(claude-account resolve)}"
+	[ "$cur" = work ] && export CLAUDE_ACCOUNT=personal || export CLAUDE_ACCOUNT=work
+	echo "CLAUDE_ACCOUNT → $CLAUDE_ACCOUNT (this shell; run cauto for auto)"
+}
+alias cauto='unset CLAUDE_ACCOUNT && echo "CLAUDE_ACCOUNT cleared → auto (by git remote)"'
+
 # Pi agent shortcuts (parallel to cs/cr but 3-letter — `pn`/`pr` are taken
 alias pis='pi'         # pi start (new session)
 alias pir='pi -r'      # pi resume (interactive session picker)

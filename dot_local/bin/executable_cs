@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # Claude Code: start a new session with the second-brain vault available.
+# Account follows the default (claude-account): config dir + OAuth token are
+# injected here so the right account authenticates. Override per-pane by
+# exporting CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN before calling.
+_dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+[ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
+_tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+[ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
 exec claude \
   --dangerously-skip-permissions \
   --add-dir "$HOME/Obsidian/second-brain" \
