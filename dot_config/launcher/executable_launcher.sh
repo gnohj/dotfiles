@@ -25,8 +25,8 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,f
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
   "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace"
+  "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
-  "NOTES|📝 Notes|📝 Notes ›|Notes|Notes > |static|generic|static"
   "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static"
   "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static"
   "SYSTEM|🔧 System|🔧 System ›|System|System > |static|generic|static"
@@ -39,11 +39,11 @@ ACTIONS=(
   "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk"
 
-  "🌐 Browser|🔗 Open Pull Request (PR)|act_browser_pr"
-  "🌐 Browser|🎫 Open Jira Ticket|act_browser_jira"
-  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles"
+  "🔗 Open|🔗 Open PR|act_browser_pr"
+  "🔗 Open|📂 Open Note|act_notes_current"
+  "🔗 Open|🎫 Open Jira|act_browser_jira"
 
-  "📝 Notes|📂 Open Current Note (Ticket)|act_notes_current"
+  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles"
 
   "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases"
   "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env"
@@ -76,9 +76,9 @@ SIMPLE_ACTIONS=(
 
 # Exact NORMAL-mode order — cat:<ID> (renders pointer) or simple:<label>.
 TOP_LEVEL_ORDER=(
-  "cat:AI" "cat:AERO" "cat:BROWSER"
+  "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
-  "cat:NOTES" "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
+  "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
 
