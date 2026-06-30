@@ -5,8 +5,14 @@
 # once (CATEGORIES + ACTIONS + SIMPLE_ACTIONS); the NORMAL pointer list, the
 # flattened INSERT-mode fuzzy corpus, and dispatch are all derived from it — so
 # labels can't drift out of sync and adding an entry is a one-line edit.
+#
+# Flags:
+#   --preview <line>   emit preview content for <line> (called by fzf --preview)
+#   --category <ID>    open directly into the named category's submenu
 
 set -euo pipefail
+
+SELF="${BASH_SOURCE[0]}"
 
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
@@ -34,44 +40,44 @@ CATEGORIES=(
   "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static"
 )
 
-# Static leaves — prefix|label|function. Label defined once, here.
+# Static leaves — prefix|label|function|description
 ACTIONS=(
-  "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn"
-  "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk"
+  "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
+  "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
 
-  "🔗 Open|🔗 Open PR|act_browser_pr"
-  "🔗 Open|📂 Open Note|act_notes_current"
-  "🔗 Open|🎫 Open Jira|act_browser_jira"
+  "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
+  "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim"
+  "🔗 Open|🎫 Open Jira|act_browser_jira|Open the Jira ticket for the current branch in browser"
 
-  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles"
+  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub"
 
-  "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases"
-  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env"
-  "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs"
+  "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases|Browse and copy alias names via fzf"
+  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env|Browse and copy env var values via television"
+  "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via television"
 
-  "🔁 Sync|🚀 Autopush Repos|act_sync_autopush"
+  "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
 
-  "🔧 System|🔧 System Setup|act_system_setup"
-  "🔧 System|⬆️ System Update|act_system_update"
-  "🔧 System|👤 User Setup|act_system_usersetup"
-  "🔧 System|🎯 All (update + setup + user-setup)|act_system_all"
+  "🔧 System|🔧 System Setup|act_system_setup|Run system-setup.sh (brew, nix, packages)"
+  "🔧 System|⬆️ System Update|act_system_update|nix flake update + darwin-rebuild switch"
+  "🔧 System|👤 User Setup|act_system_usersetup|Run user-setup.sh (dotfiles, configs)"
+  "🔧 System|🎯 All (update + setup + user-setup)|act_system_all|Run all three setup steps in sequence with one sudo prompt"
 
-  "🌳 Worktrees|🌳 Add Worktree|act_worktree_add"
-  "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt"
-  "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira"
-  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard"
-  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug"
-  "🌳 Worktrees|🔁 AI Retry capture → worktree|act_worktree_retry"
-  "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete"
+  "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
+  "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
+  "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira|Capture the active Chrome Jira tab and create a worktree"
+  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
+  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
+  "🌳 Worktrees|🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
+  "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
-# Top-level actions with no submenu — label|function.
+# Top-level actions with no submenu — label|function|description
 SIMPLE_ACTIONS=(
-  "📦 Check Outdated Packages|act_outdated"
-  "🧹 Cleanup Logs|act_cleanup_logs"
-  "🌿 Copy Current Branch|act_copy_branch"
-  "🧼 Dirty Repos|act_dirty_repos"
-  "👻 Toggle Transparency|act_toggle_transparency"
+  "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
+  "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs"
+  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
+  "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
+  "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
 
 # Exact NORMAL-mode order — cat:<ID> (renders pointer) or simple:<label>.
@@ -81,6 +87,9 @@ TOP_LEVEL_ORDER=(
   "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
+
+# Preview command: call this script in --preview mode with the selected line.
+PREVIEW_CMD="\"$SELF\" --preview {}"
 
 #===============================================================================
 # Engine — derives all three views from the registry
@@ -103,9 +112,9 @@ get_cat() {
 # Emit leaf labels (no prefix). $1=prefix $2=leaf_provider.
 leaves_of() {
   if [ "$2" = static ]; then
-    local rec p l f
+    local rec p l f desc
     for rec in "${ACTIONS[@]}"; do
-      IFS='|' read -r p l f <<<"$rec"
+      IFS='|' read -r p l f desc <<<"$rec"
       [ "$p" = "$1" ] && printf '%s\n' "$l"
     done
   else
@@ -115,9 +124,9 @@ leaves_of() {
 
 # Static leaf (prefix,label) → function name; 1 if not found.
 action_fn() {
-  local rec p l f
+  local rec p l f desc
   for rec in "${ACTIONS[@]}"; do
-    IFS='|' read -r p l f <<<"$rec"
+    IFS='|' read -r p l f desc <<<"$rec"
     [ "$p" = "$1" ] && [ "$l" = "$2" ] && { printf '%s' "$f"; return 0; }
   done
   return 1
@@ -175,6 +184,46 @@ build_flattened_leaves() {
   done
 }
 
+# Emit preview content for a selected line. Called via --preview mode.
+do_preview() {
+  local line="$1"
+
+  # Category pointer (e.g. "🌳 Worktrees ›") — list its leaves.
+  local rec id prefix pointer header prompt provider submenu handler
+  for rec in "${CATEGORIES[@]}"; do
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler <<<"$rec"
+    if [ "$line" = "$pointer" ]; then
+      printf '%s\n\n' "$header"
+      leaves_of "$prefix" "$provider" | while IFS= read -r leaf; do
+        printf '  %s\n' "$leaf"
+      done
+      return 0
+    fi
+  done
+
+  # INSERT breadcrumb (e.g. "🌳 Worktrees › 🌳 Add Worktree") or bare leaf label.
+  local p l f desc
+  for rec in "${ACTIONS[@]}"; do
+    IFS='|' read -r p l f desc <<<"$rec"
+    if [ "$line" = "$p › $l" ] || [ "$line" = "$l" ]; then
+      printf '%s\n' "$desc"
+      return 0
+    fi
+  done
+
+  # Simple action.
+  local lbl fn
+  for rec in "${SIMPLE_ACTIONS[@]}"; do
+    IFS='|' read -r lbl fn desc <<<"$rec"
+    if [ "$line" = "$lbl" ]; then
+      printf '%s\n' "$desc"
+      return 0
+    fi
+  done
+
+  return 0
+}
+
 # Generic drilldown for static categories: list leaves + Back, then dispatch.
 # $1 prefix $2 header $3 prompt $4 leaf_provider $5 leaf_handler.
 generic_submenu() {
@@ -183,7 +232,8 @@ generic_submenu() {
     {
       leaves_of "$1" "$4"
       printf "← Back\n"
-    } | ~/.local/bin/fzf-vim.sh --height=40% --header="$2" --prompt="$3" --ansi $FZF_COLORS
+    } | ~/.local/bin/fzf-vim.sh --height=40% --header="$2" --prompt="$3" --ansi $FZF_COLORS \
+      --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left'
   ) || true
   clear
   case "$choice" in
@@ -201,7 +251,8 @@ main_menu() {
   })
   choice=$(build_top_level_items |
     FZF_VIM_INSERT_INPUT="$insert_corpus" \
-      ~/.local/bin/fzf-vim.sh --height=100% --prompt="❯ " --ansi $FZF_COLORS) || true
+      ~/.local/bin/fzf-vim.sh --height=100% --prompt="❯ " --ansi $FZF_COLORS \
+      --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || true
   clear
   [ -z "$choice" ] && exit 0
   dispatch_root "$choice"
@@ -226,9 +277,9 @@ dispatch_root() {
       return
     fi
   done
-  local s lbl fn
+  local s lbl fn desc
   for s in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn <<<"$s"
+    IFS='|' read -r lbl fn desc <<<"$s"
     [ "$choice" = "$lbl" ] && { "$fn"; return; }
   done
   exit 0
@@ -537,5 +588,24 @@ act_toggle_transparency() {
   echo "Transparency toggled"
   sleep 1
 }
+
+#===============================================================================
+# Mode handlers — must come after all function definitions
+#===============================================================================
+
+if [[ "${1:-}" == "--preview" ]]; then
+  do_preview "${2:-}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "--category" ]]; then
+  get_cat "${2:-}" || { echo "Unknown category: ${2:-}"; exit 1; }
+  if [ "$REC6" = generic ]; then
+    generic_submenu "$REC1" "$REC3" "$REC4" "$REC5" "$REC7"
+  else
+    "$REC6"
+  fi
+  exit 0
+fi
 
 main_menu
