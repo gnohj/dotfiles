@@ -166,9 +166,19 @@ end, { desc = "[P]Noice History" })
 -- Paste images: <leader>zv defined in plugins/img-clip.lua
 -- Pastes clipboard image into vault's Assets/ folder, embeds as ![[filename]]
 
--- Disable lazygit which is enabled default by LazyVim
+-- Lazygit: re-bind <leader>gg with dynamic config so the inferno-monorepo
+-- overlay (inferno.yml) is picked up at open-time instead of load-time.
 pcall(vim.keymap.del, "n", "<leader>gg")
 pcall(vim.keymap.del, "n", "<leader>gG")
+local function lazygit_open()
+  local cfg = vim.fn.expand("~/.config/lazygit/config.yml")
+  local origin = vim.fn.system("git remote get-url origin 2>/dev/null"):gsub("%s+$", "")
+  if origin:find("inferno-monorepo") then
+    cfg = cfg .. "," .. vim.fn.expand("~/.config/lazygit/inferno.yml")
+  end
+  Snacks.lazygit.open({ args = { "--use-config-file", cfg } })
+end
+keymap("n", "<leader>gg", lazygit_open, { desc = "Lazygit" })
 
 -------------------------------------------------------------------------------
 --                           Grugfar

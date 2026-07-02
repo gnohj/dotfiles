@@ -1,0 +1,16 @@
+# Inferno-monorepo overlay — merged on top of config.yml when lg() detects
+# git remote origin contains "inferno-monorepo".
+#
+# Remaps P (push) to go through the no-mistakes gate instead of pushing
+# directly to origin. Use shift+P in the raw lazygit help if you ever need
+# a direct push bypass (but you probably don't want that for inferno).
+keybinding:
+  universal:
+    pushFiles: "<disabled>"
+customCommands:
+  - key: "P"
+    command: git push no-mistakes {{.CheckedOutBranch.Name}}
+    loadingText: "Pushing through no-mistakes gate..."
+    context: "global"
+    subprocess: yes
+    description: "Push through no-mistakes gate (inferno)"
