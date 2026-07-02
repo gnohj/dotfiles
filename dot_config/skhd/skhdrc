@@ -62,7 +62,7 @@ rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - n - reserved for nvim - reserved for going to previous history
 # rctrl - h/j/k/l - reserved for nvim - navigation
 rctrl - g : ~/.config/skhd/lazygit.sh
-rctrl + shift - g : ~/.config/skhd/tmux-window-simple.sh 🌳 lazygit "HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit" true
+rctrl + shift - g : ~/.config/skhd/lazygit-window.sh
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
 rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear

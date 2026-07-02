@@ -643,7 +643,11 @@ alias gcod="g checkout develop"
 lg() {
   export LAZYGIT_NEW_DIR_FILE=~/.lazygit/newdir
   mkdir -p ~/.lazygit
-  HUSKY=0 LG_CONFIG_FILE=~/.config/lazygit/config.yml lazygit "$@"
+  local lg_cfg="$HOME/.config/lazygit/config.yml"
+  if git remote get-url origin 2>/dev/null | grep -q "inferno-monorepo"; then
+    lg_cfg="$lg_cfg,$HOME/.config/lazygit/inferno.yml"
+  fi
+  HUSKY=0 LG_CONFIG_FILE="$lg_cfg" lazygit "$@"
   if [ -f "$LAZYGIT_NEW_DIR_FILE" ]; then
     cd "$(cat "$LAZYGIT_NEW_DIR_FILE")"
     rm -f "$LAZYGIT_NEW_DIR_FILE" > /dev/null
