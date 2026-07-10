@@ -92,48 +92,52 @@ source /opt/homebrew/opt/zinit/zinit.zsh
 
 # Function to update starship prompt/config and environment based on current repo
 function update_starship_env() {
-  # Skip if in a bare repo (worktree parent)
-  if git rev-parse --is-bare-repository 2>/dev/null | grep -q "true"; then
+  # One `git rev-parse` instead of up to four separate spawns. Each flag prints
+  # one line inside any repo (bare or not); outside a repo the command fails and
+  # we fall back to the default config.
+  local git_info
+  git_info=$(git rev-parse --is-bare-repository --is-inside-work-tree --git-common-dir 2>/dev/null) || {
     export STARSHIP_CONFIG=~/.config/starship/starship.toml
-    unset RADIO_CTL
-    unset AWS_PROFILE
+    unset RADIO_CTL AWS_PROFILE
+    return
+  }
+  local -a gi=("${(@f)git_info}")
+  local is_bare=$gi[1] in_tree=$gi[2] git_common_dir=$gi[3]
+
+  # Bare repo (worktree parent) or not inside a work tree: default config.
+  if [[ "$is_bare" == "true" || "$in_tree" != "true" ]]; then
+    export STARSHIP_CONFIG=~/.config/starship/starship.toml
+    unset RADIO_CTL AWS_PROFILE
     return
   fi
 
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      local toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
-      local git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
-      local repo_name=$(basename "$toplevel")
+  local toplevel repo_name
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+  repo_name=$(basename "$toplevel")
 
-      # For worktrees, use the bare repo name from git-common-dir
-      # git-common-dir returns path like /path/to/inferno/.bare for worktrees
-      if [[ "$git_common_dir" != ".git" && ("$git_common_dir" == */.git || "$git_common_dir" == */.bare) ]]; then
-        repo_name=$(basename "$(dirname "$git_common_dir")")
-      fi
+  # For worktrees, use the bare repo name from git-common-dir
+  # git-common-dir returns path like /path/to/inferno/.bare for worktrees
+  if [[ "$git_common_dir" != ".git" && ("$git_common_dir" == */.git || "$git_common_dir" == */.bare) ]]; then
+    repo_name=$(basename "$(dirname "$git_common_dir")")
+  fi
 
-      # Only use infra config for web and inferno
-      if [[ "$repo_name" == "web" ]] || [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
-        export STARSHIP_CONFIG=~/.config/starship/starship-infra.toml
-        if [[ "$repo_name" == "inferno-monorepo" ]] || [[ "$repo_name" == "inferno" ]]; then
-          export AWS_PROFILE="inferno"
-        elif [[ "$repo_name" == "web" ]]; then
-          export AWS_PROFILE="ihr-prod"
-        fi
-        radio_ctl_prompt=$(get_rc)
-        if [[ $radio_ctl_prompt != 1 ]]; then
-          export RADIO_CTL="$(get_rc)"
-        else
-          unset RADIO_CTL
-        fi
-      else
-        export STARSHIP_CONFIG=~/.config/starship/starship.toml
-        unset RADIO_CTL
-        unset AWS_PROFILE
-      fi
-  else
-      export STARSHIP_CONFIG=~/.config/starship/starship.toml
+  # Only use infra config for web and inferno
+  if [[ "$repo_name" == "web" || "$repo_name" == "inferno-monorepo" || "$repo_name" == "inferno" ]]; then
+    export STARSHIP_CONFIG=~/.config/starship/starship-infra.toml
+    if [[ "$repo_name" == "inferno-monorepo" || "$repo_name" == "inferno" ]]; then
+      export AWS_PROFILE="inferno"
+    elif [[ "$repo_name" == "web" ]]; then
+      export AWS_PROFILE="ihr-prod"
+    fi
+    local radio_ctl_prompt=$(get_rc)
+    if [[ $radio_ctl_prompt != 1 ]]; then
+      export RADIO_CTL="$radio_ctl_prompt"
+    else
       unset RADIO_CTL
-      unset AWS_PROFILE
+    fi
+  else
+    export STARSHIP_CONFIG=~/.config/starship/starship.toml
+    unset RADIO_CTL AWS_PROFILE
   fi
 }
 
