@@ -94,12 +94,17 @@ delete_one() {
   # ~/.local/state/threads/<TICKET>.json orphan BEFORE the worktree is removed.
   # Non-blocking: if the recap fails (claude unavailable, vault unmounted, etc.)
   # we log and continue — the worktree delete is the user's primary intent.
+  #
+  # TKRM_SKIP_FINISH=1 disables this hook entirely. The tmux-orchestrator
+  # teardown sets it: an orch child branch (e.g. IHRWEB-123-foo-ui-settings)
+  # embeds its PARENT's ticket id, so running the finish hook would wrongly
+  # freeze the parent ticket's note + delete its thread state on child close.
   local thread_id thread_file vault note already_frozen=0 finish_ok=0
   thread_id=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
   thread_file="$HOME/.local/state/threads/${thread_id}.json"
   vault="$HOME/Obsidian/second-brain"
 
-  if [ -n "$thread_id" ] && [ -f "$thread_file" ]; then
+  if [ "${TKRM_SKIP_FINISH:-0}" != 1 ] && [ -n "$thread_id" ] && [ -f "$thread_file" ]; then
     # Cheap shell-level idempotency check: if the vault note already says
     # `state: frozen`, the user (or a previous tkrm) already shipped this
     # ticket. Skip the ~10s claude spawn entirely — just clean the orphan.
