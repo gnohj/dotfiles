@@ -78,6 +78,7 @@ SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
+  "📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
@@ -86,6 +87,7 @@ SIMPLE_ACTIONS=(
 TOP_LEVEL_ORDER=(
   "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
+  "simple:📋 Copy Pane Address"
   "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
@@ -234,7 +236,7 @@ generic_submenu() {
     {
       leaves_of "$1" "$4"
       printf "← Back\n"
-    } | ~/.local/bin/fzf-vim.sh --height=40% --header="$2" --prompt="$3" --ansi $FZF_COLORS \
+    } | ~/.local/bin/fzf-vim.sh --height="${LAUNCHER_SUBMENU_HEIGHT:-40%}" --header="$2" --prompt="$3" --ansi $FZF_COLORS \
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left'
   ) || true
   clear
@@ -582,6 +584,28 @@ act_copy_branch() {
   sleep 1
 }
 
+# Copy the focused pane's full tmux address. The launcher runs in a popup, so a
+# bare `display-message` resolves to the popup itself, not the pane you were on.
+# Find the real focused pane first (active pane of the active window — popups are
+# NOT in `list-panes`, so they're excluded), then read its address. window/pane
+# are shown 1-based to match the status bar (tmux is 0-based internally); the raw
+# #{pane_id} (%N) is the unambiguous target — Hunk review sessions match on it.
+act_copy_pane_address() {
+  target=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' -F '#{pane_id}' 2>/dev/null | head -1)
+  if [ -n "$target" ]; then
+    addr=$(tmux display-message -t "$target" -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
+  else
+    addr=$(tmux display-message -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
+  fi
+  if [ -n "$addr" ]; then
+    printf '%s' "$addr" | pbcopy
+    echo "Copied pane address: $addr"
+  else
+    echo "No tmux pane context"
+  fi
+  sleep 1
+}
+
 act_dirty_repos() {
   # `;` not `&&` so the prompt fires even if `dirty` exits non-zero.
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; dirty; echo; echo 'Press any key to continue...'; read -k1"
@@ -604,6 +628,10 @@ fi
 
 if [[ "${1:-}" == "--category" ]]; then
   get_cat "${2:-}" || { echo "Unknown category: ${2:-}"; exit 1; }
+  # Direct category entry is a standalone popup (not a drilldown inside the
+  # full-height main menu), so fill the popup instead of the 40% drilldown height
+  # — otherwise the preview border only spans 40% and reads as "cut off".
+  export LAUNCHER_SUBMENU_HEIGHT=100%
   if [ "$REC6" = generic ]; then
     generic_submenu "$REC1" "$REC3" "$REC4" "$REC5" "$REC7"
   else
