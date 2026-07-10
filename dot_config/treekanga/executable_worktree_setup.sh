@@ -118,9 +118,9 @@ fi
 
 # Thread state file: a JSON doc that links this worktree to its branch +
 # tmux session + (later, when discovered) vault note + PR URL. Read by
-# recon to surface 📝🎟️🔀 badges in tmux-dash and by the rctrl-i "open
-# notes" launcher item. Idempotent — re-runs of treekanga on the same
-# worktree don't overwrite; recon bumps `last_seen_at` on each poll.
+# tmux-dash to surface 📝🎟️🔀 badges and by the rctrl-i "open notes"
+# launcher item. Idempotent — re-runs of treekanga on the same worktree
+# don't overwrite the existing state.
 THREAD_BRANCH=$(git -C "$CURRENT_WORKTREE" branch --show-current 2>/dev/null || true)
 if [ -n "$THREAD_BRANCH" ]; then
   THREAD_DIR="$HOME/.local/state/threads"
@@ -159,6 +159,8 @@ EOF
 fi
 
 if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
+  # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
+  "$HOME/.config/sesh/sesh-spawn.sh" stamp
   if sesh connect "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
     log "✓ sesh session connected"
   else

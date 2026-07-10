@@ -42,17 +42,27 @@ while IFS=: read -r idx name active; do
     SPACING=""
   fi
 
+  # Wrap each window entry in a `range=window` marker so clicking the number or
+  # emoji selects that window. tmux resolves the range's `#{window_index}` into
+  # the `=` mouse target, which the default `MouseDown1Status` binding
+  # (switch-client -t =) uses to jump to it. The range uses the real
+  # window_index ($idx), not the sequential display number ($NUM). Spacing sits
+  # outside the range so the gap between entries stays inert.
   if [ "$active" = "1" ]; then
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color03}]${NUM}:${name}*"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[range=window|${idx}]#[fg=${gnohj_color03}]${NUM}:${name}*#[norange]"
   else
-    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[fg=${gnohj_color08}]${NUM}:${name}"
+    WINDOW_LIST="${WINDOW_LIST}${SPACING}#[range=window|${idx}]#[fg=${gnohj_color08}]${NUM}:${name}#[norange]"
   fi
   NUM=$((NUM + 1))
 done <<<"$WINDOWS"
 
-# Build complete status line
+# Build complete status line. The session name is wrapped in a `range=user|sesh`
+# marker so clicking it opens the sesh picker — the MouseDown1Status binding in
+# tmux.conf checks `#{mouse_status_range}` for `sesh` and launches the switcher.
+# The trailing space stays outside the range so only the name is the hit target.
+SESSION_CELL="#[range=user|sesh]${SESSION_NAME}#[norange] "
 if [ -n "$LOCK" ]; then
-  echo "#[fg=${gnohj_color03},nobold]${LOCK}#[fg=${SESSION_COLOR},nobold]${SESSION_NAME} #[fg=${gnohj_color14},nobold]${GIT_INFO}${WINDOW_LIST}"
+  echo "#[fg=${gnohj_color03},nobold]${LOCK}#[fg=${SESSION_COLOR},nobold]${SESSION_CELL}#[fg=${gnohj_color14},nobold]${GIT_INFO}${WINDOW_LIST}"
 else
-  echo "#[fg=${SESSION_COLOR},nobold]${SESSION_NAME} #[fg=${gnohj_color14},nobold]${GIT_INFO}${WINDOW_LIST}"
+  echo "#[fg=${SESSION_COLOR},nobold]${SESSION_CELL}#[fg=${gnohj_color14},nobold]${GIT_INFO}${WINDOW_LIST}"
 fi
