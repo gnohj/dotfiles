@@ -7,7 +7,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 eval "$(mise activate bash)" 2>/dev/null || true
 
 EMOJI="$1"
-TYPE="$2"
+TYPE="$2" # reserved positional (was a window-type flag nothing read; callers still pass it)
 CMD="$3"
 CLOSE_ON_EXIT="${4:-false}" # Default to false (keep window open)
 
@@ -33,8 +33,4 @@ else
   else
     tmux new-window -n "$EMOJI" -c "#{pane_current_path}"
   fi
-
-  # Mark window type
-  IDX=$(tmux display-message -p '#{window_index}')
-  tmux set-option -w "@original_window_type_${SESSION}_${IDX}" "$TYPE"
 fi

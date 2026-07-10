@@ -7,15 +7,18 @@ WORKTREE_PATTERN="(work|scratch|develop|master|review)(/|$)"
 
 cd "$SESSION_PATH" || exit 0
 
-# Skip if this session was already initialized (check tmux option)
+# (No re-run guard needed: sesh only executes startup_command when it CREATES
+# a session — connector/tmux.go gates startup.Exec on connection.New — so this
+# script cannot fire again on reconnect.)
 SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null)
-INITIALIZED=$(tmux show-options -v -t "$SESSION_NAME" @sesh_initialized 2>/dev/null)
-if [[ "$INITIALIZED" == "true" ]]; then
+
+# If the fast session-created hook (sesh-session-created.sh) already claimed this
+# session, do NOT also run dev.sh (would duplicate the fish window / relaunch
+# nvim the slow way). dev.sh stays as a graceful fallback for sesh sessions the
+# hook skipped (e.g. an entry point missing the @sesh_spawn stamp).
+if [[ "$(tmux show-options -qv -t "$SESSION_NAME" @nvim_fast_done 2>/dev/null)" == "1" ]]; then
   exit 0
 fi
-
-# Mark session as initialized
-tmux set-option -t "$SESSION_NAME" @sesh_initialized true 2>/dev/null
 
 # Check if inside a git repo
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then

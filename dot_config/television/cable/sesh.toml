@@ -28,7 +28,7 @@ ctrl-d = [ "actions:kill_session", "reload_source" ]
 
 [actions.connect]
 description = "Connect to selected session"
-command = "sesh connect '{strip_ansi|split: :1..|join: }'"
+command = "$HOME/.config/sesh/sesh-spawn.sh stamp; sesh connect '{strip_ansi|split: :1..|join: }'"
 mode = "execute"
 
 [actions.kill_session]

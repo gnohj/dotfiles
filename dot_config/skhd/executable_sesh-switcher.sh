@@ -14,37 +14,17 @@ export PATH="/opt/homebrew/bin:$PATH"
 
 export TERM="xterm-256color"
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
-
-# Build the color string properly
-color_string="list-border:6,input-border:6,preview-border:4,header-bg:-1,header-border:6,bg+:${gnohj_color13},fg+:${gnohj_color02},hl+:${gnohj_color04},fg:${gnohj_color02},info:${gnohj_color09},prompt:${gnohj_color04},pointer:${gnohj_color04},marker:${gnohj_color04},header:${gnohj_color09}"
-
 echo "About to run tmux command" >>"$LOG_DIR/sesh-switcher-called.log"
 
-# Use tmux display-popup directly instead of run-shell (with no outer border)
-tmux display-popup -E -w 28% -h 40% -b none "
-  export PATH=\"/opt/homebrew/bin:\$PATH\"
+# Target the tmux server you're currently looking at (personal/work/default), not
+# always the default socket, so sesh follows you across servers. tmux-dash prints
+# `-L <name>` (or empty) for the focused server; sesh inside the popup then inherits
+# $TMUX and lists/connects on that server. (The tmux status-line click path opens
+# the same popup directly, so it doesn't need this out-of-tmux socket detection.)
+TD_SOCK="$("$HOME/.local/bin/tmux-dash" focused-socket 2>/dev/null)"
 
-  SELECTED=\$(sesh list --icons | fzf --no-border \
-    --ansi \
-    --layout=reverse \
-    --list-border \
-    --no-sort --prompt '⚡ ' \
-    --gutter=' ' \
-    --color '${color_string}' \
-    --input-border \
-    --header-border \
-    --bind 'tab:down,btab:up' \
-    --bind 'ctrl-b:abort' \
-    --bind 'ctrl-a:change-prompt(⚡ )+reload(sesh list --icons)' \
-    --bind 'ctrl-t:change-prompt( )+reload(sesh list -t --icons)' \
-    --bind 'ctrl-g:change-prompt(⚙️ )+reload(sesh list -c --icons)' \
-    --bind 'ctrl-x:change-prompt(📁 )+reload(sesh list -z --icons)' \
-    --bind 'ctrl-f:change-prompt(🔎 )+reload(fd -H -d 2 -t d -E .Trash . ~)' \
-    --bind 'ctrl-d:execute(tmux kill-session -t {2..})+change-prompt(⚡ )+reload(sesh list --icons)')
-
-  [[ -z \"\$SELECTED\" ]] && exit 0
-  sesh connect \"\$SELECTED\"
-"
+# The picker UI lives in the shared body script so the hotkey and the status-line
+# click stay identical; here we just place the popup on the focused server.
+tmux $TD_SOCK display-popup -E -w 28% -h 40% -b none "$HOME/.config/tmux/sesh-popup.sh"
 
 echo "Finished running tmux command" >>"$LOG_DIR/sesh-switcher-called.log"
