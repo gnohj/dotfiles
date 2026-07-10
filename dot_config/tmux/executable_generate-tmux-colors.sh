@@ -7,6 +7,16 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 OUTPUT_FILE="$HOME/.config/tmux/tmux-colors.conf"
 
+# Pane-border color as a tmux #{...} conditional (tmux 3.2+ expands formats in
+# style options): only the AI-widget window (name contains the 🤖 robot emoji)
+# keeps the accent green (gnohj_color24); every other window gets the scheme's
+# dimmed slate (gnohj_color13 — the same muted tone as stale agents) so the AI
+# window stands out. Glob-matched (`m:`) so the emoji's variation selector /
+# tmux-fingers suffix don't matter. The shell expands the two ${gnohj_color*}
+# hexes here; the #{...} stays literal and is evaluated by tmux per-window at
+# draw time — no hooks needed.
+border_fmt="fg=#{?#{m:*🤖*,#{window_name}},${gnohj_color24},${gnohj_color13}}"
+
 # Generate tmux color configuration
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
@@ -35,9 +45,26 @@ set -g window-status-format ''
 # it explicitly makes tmux assert the color so the cursor stays this green.
 set -g cursor-colour "${gnohj_color24}"
 
-# Pane border colors
-set -g pane-border-style "fg=${gnohj_color24}"
-set -g pane-active-border-style "fg=${gnohj_color24}"
+# Pane border colors — accent green on every window, except the editor window
+# (🖋️) which blends into the transparent bg; see border_fmt above.
+set -g pane-border-style "${border_fmt}"
+set -g pane-active-border-style "${border_fmt}"
+
+# Border-chip palette — referenced by pane-border-format in tmux.conf (via
+# #{@chip_*}) so the agent-status pills follow the active colorscheme instead of
+# hardcoded hexes. Formats resolve at draw time, so these being set here (sourced
+# after tmux.conf) is fine.
+#   dark  = pill text on filled pills;  green = left identity chip + active dot;
+#   gray  = inactive (dimmed) pill bg.
+set -g @chip_dark "${gnohj_color10}"
+set -g @chip_green "${gnohj_color24}"
+set -g @chip_gray "${gnohj_color17}"
+# Status pill colors — mirror the sidebar's theme.working/idle/input/new (see
+# state::load_theme) so the border pills and the agent list agree at a glance.
+set -g @chip_working "${gnohj_color04}"
+set -g @chip_idle "${gnohj_color05}"
+set -g @chip_input "${gnohj_color11}"
+set -g @chip_new "${gnohj_color03}"
 
 # Message colors (display-message)
 set -g message-style "bg=default,fg=${gnohj_color04}"
