@@ -10,7 +10,7 @@ return {
       show_scores = true,
     },
     lazy_sync = false,
-    max_threads = 8,
+    max_threads = 4,
     layout = {
       prompt_position = "top",
       path_shorten_strategy = "start",
