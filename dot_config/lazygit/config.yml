@@ -7,7 +7,7 @@ quitOnTopLevelReturn: true
 git:
   overrideGpg: true
   autoFetch: true
-  fetchAll: false # fetch origin only — faster than --all on large repos
+  fetchAll: false  # fetch origin only — faster than --all on large repos
   paging:
     colorArg: always
     pager: delta --dark --paging=never
@@ -99,16 +99,3 @@ customCommands:
     context: "global"
     subprocess: yes
     description: "Create draft PR with editor (assigned to you, reviewer} iheartradio/web-engineers"
-
-  # Push through the no-mistakes gate instead of straight to origin.
-  # `git push no-mistakes <branch>` hands the commit to the local gate
-  # proxy, which runs AI review + tests + lint and only forwards to
-  # origin if it passes. `P` (built-in) still pushes direct to origin
-  # and BYPASSES the gate. Only works in repos where `no-mistakes init`
-  # created the `no-mistakes` remote.
-  - key: "N"
-    command: git push no-mistakes {{.CheckedOutBranch.Name}}
-    loadingText: "Pushing through no-mistakes gate..."
-    context: "global"
-    subprocess: yes
-    description: "Push current branch through no-mistakes gate (validates, then forwards to origin)"
