@@ -821,6 +821,30 @@ outdated() {
 # Set an alias for viewing git diffs with delta
 alias gdelta='git diff | delta'
 
+# Review the current branch's PR diff in Hunk (self-review after pushing).
+# There's no `hunk diff --pr` flag yet (modem-dev/hunk#465), so resolve the PR's
+# base branch dynamically and use the three-dot range base...HEAD — i.e. your
+# branch's changes vs the merge-base. Worktree-safe (no --git-dir hardcoding).
+hpr() {
+  local base b
+  # 1. the PR's actual base branch — most accurate, works in any repo
+  base=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null)
+  # 2. origin's default branch (per-repo) when there's no PR yet
+  if [ -z "$base" ]; then
+    base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+    base=${base#origin/}
+  fi
+  # 3. first common default that actually exists on origin
+  if [ -z "$base" ]; then
+    for b in main master develop trunk; do
+      git rev-parse --verify -q "origin/$b" >/dev/null 2>&1 && { base=$b; break; }
+    done
+  fi
+  base=${base:-master}
+  git fetch -q origin "$base" 2>/dev/null
+  hunk diff "origin/${base}...HEAD"
+}
+
 # Delete all local review branches (created by gh-dash P keybinding)
 # Skips branches checked out in other worktrees
 grd() {

@@ -76,6 +76,7 @@
       # Additional tools
       "wordnet"
       "zx"
+      "hunk" # review-first terminal diff viewer (gh-dash PR review)
     ];
 
     # GUI applications (casks)
