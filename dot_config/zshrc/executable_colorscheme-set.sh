@@ -686,6 +686,76 @@ EOF
   echo "Delta themes configuration updated at '$delta_themes_file'."
 }
 
+generate_hunk_config() {
+  hunk_conf_file="$HOME/.config/hunk/config.toml"
+
+  # Create the directory if it doesn't exist
+  mkdir -p "$(dirname "$hunk_conf_file")"
+
+  # Full-file ownership: hunk has no separate theme file, so the whole
+  # config.toml (preferences + custom_theme) is generated here from the
+  # gnohj_color* palette. Custom theme inherits from a built-in base and
+  # overrides colors with palette values (colors 27-33 are the "Nvim -
+  # Diffview colors" group: 30/32 = added/removed bg, 02/11 = added/removed fg).
+  cat >"$hunk_conf_file" <<EOF
+# Auto-generated hunk config — edit generate_hunk_config in colorscheme-set.sh
+theme = "custom"
+mode = "stack"
+vcs = "git"
+watch = false
+exclude_untracked = false
+line_numbers = true
+wrap_lines = false
+menu_bar = true
+agent_notes = true
+transparent_background = true
+
+[custom_theme]
+base = "github-dark-default"
+label = "gnohj"
+accent = "$gnohj_color04"
+accentMuted = "$gnohj_color13"
+text = "$gnohj_color14"
+muted = "$gnohj_color09"
+border = "$gnohj_color17"
+selectedHunk = "$gnohj_color13"
+lineNumberFg = "$gnohj_color09"
+addedBg = "#132a19"
+addedContentBg = "#1f4a2a"
+addedSignColor = "$gnohj_color02"
+removedBg = "#2a1319"
+removedContentBg = "#4a1f2a"
+removedSignColor = "$gnohj_color11"
+movedAddedBg = "#132a19"
+movedRemovedBg = "#2a1319"
+badgeAdded = "$gnohj_color02"
+badgeRemoved = "$gnohj_color11"
+badgeNeutral = "$gnohj_color13"
+fileNew = "$gnohj_color02"
+fileModified = "$gnohj_color05"
+fileDeleted = "$gnohj_color11"
+fileRenamed = "$gnohj_color04"
+fileUntracked = "$gnohj_color09"
+noteBorder = "$gnohj_color01"
+noteTitleText = "$gnohj_color14"
+
+[custom_theme.syntax]
+keyword = "$gnohj_color01"
+string = "$gnohj_color02"
+comment = "$gnohj_color09"
+operator = "$gnohj_color03"
+variable = "$gnohj_color14"
+function = "$gnohj_color04"
+type = "$gnohj_color05"
+number = "$gnohj_color06"
+constant = "$gnohj_color06"
+property = "$gnohj_color04"
+tag = "$gnohj_color11"
+attribute = "$gnohj_color05"
+EOF
+  echo "hunk configuration updated at '$hunk_conf_file'."
+}
+
 generate_yazi_theme() {
   yazi_theme_file="$HOME/.config/yazi/theme.toml"
 
@@ -2042,8 +2112,8 @@ keybindings:
       command: >
         tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
-    - key: P # Open PR in Neovim Octo, Diff, and Claude Review
-      name: 🤖 Review PR — Octo + CodeDiff + Claude /review
+    - key: P # Octo + hunk + agent notes + ENHANCE
+      name: 🤖 Review PR — Octo + hunk + agent notes + ENHANCE
       command: >
         cd {{.RepoPath}} &&
         BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -2052,10 +2122,11 @@ keybindings:
         git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
         MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
+        tmux new-window -e HUNK_PANE="\$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=\$HUNK_PANE"' &&
+        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
     - key: W # Open PR in Neovim Octo with Workspaces
-      name: 🌳 Workspace PR — Octo + CodeDiff + Claude (checkout branch)
+      name: 🌳 Workspace PR — Octo + hunk + Claude (checkout branch)
       command: >
         cd {{.RepoPath}} &&
         BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -2064,8 +2135,8 @@ keybindings:
         git checkout \$HEAD 2>/dev/null || git checkout -b \$HEAD origin/\$HEAD &&
         MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
     - key: enter # Open PR in Neovim Octo
       name: 🐙 Open PR in Octo (review branch)
       command: >
@@ -2074,8 +2145,8 @@ keybindings:
         git fetch origin \$HEAD 2>/dev/null &&
         git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
-    - key: D # Open PR Diff in Neovim CodeDiff
-      name: 🔀 Open PR Diff in CodeDiff
+    - key: D # Open PR Diff in hunk + agent notes
+      name: 🔀 Open PR Diff in hunk (agent notes)
       command: >
         cd {{.RepoPath}} &&
         BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -2083,7 +2154,13 @@ keybindings:
         git fetch origin \$BASE \$HEAD 2>/dev/null &&
         git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
         MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \\":silent CodeDiff \$MERGE_BASE origin/\$HEAD\\""
+        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
+        tmux new-window -e HUNK_PANE="\$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=\$HUNK_PANE"'
+    - key: E # Open PR checks in ENHANCE
+      name: ✨ Open PR checks in ENHANCE
+      command: >
+        cd {{.RepoPath}} &&
+        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
     - key: A # Open PR in Claude Review
       name: 🤖 Run Claude /review on PR
       command: >
@@ -2091,7 +2168,7 @@ keybindings:
         HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
         git fetch origin \$HEAD 2>/dev/null &&
         git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} '/opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
@@ -2332,6 +2409,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate delta config
   generate_delta_config
+
+  # Generate hunk config
+  generate_hunk_config
 
   # Generate borders config
   generate_borders_config

@@ -74,8 +74,8 @@ keybindings:
       command: >
         tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
-    - key: P # Open PR in Neovim Octo, Diff, Claude Review, and ENHANCE
-      name: 🤖 Review PR — Octo + CodeDiff + Claude /review + ENHANCE
+    - key: P # Octo + hunk + agent notes + ENHANCE
+      name: 🤖 Review PR — Octo + hunk + agent notes + ENHANCE
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -84,11 +84,11 @@ keybindings:
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"' &&
+        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
+        tmux new-window -e HUNK_PANE="$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=$HUNK_PANE"' &&
         tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
     - key: W # Open PR in Neovim Octo with Workspaces
-      name: 🌳 Workspace PR — Octo + CodeDiff + Claude (checkout branch)
+      name: 🌳 Workspace PR — Octo + hunk + Claude (checkout branch)
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -97,7 +97,7 @@ keybindings:
         git checkout $HEAD 2>/dev/null || git checkout -b $HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\"" &&
+        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
         tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
     - key: enter # Open PR in Neovim Octo
       name: 🐙 Open PR in Octo (review branch)
@@ -107,8 +107,8 @@ keybindings:
         git fetch origin $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
-    - key: D # Open PR Diff in Neovim CodeDiff
-      name: 🔀 Open PR Diff in CodeDiff
+    - key: D # Open PR Diff in hunk + agent notes
+      name: 🔀 Open PR Diff in hunk (agent notes)
       command: >
         cd {{.RepoPath}} &&
         BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
@@ -116,8 +116,9 @@ keybindings:
         git fetch origin $BASE $HEAD 2>/dev/null &&
         git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
         MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "nvim --cmd 'let g:zen_disabled=1' -c \":silent CodeDiff $MERGE_BASE origin/$HEAD\""
-    - key: C # Open PR checks in ENHANCE
+        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
+        tmux new-window -e HUNK_PANE="$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=$HUNK_PANE"'
+    - key: E # Open PR checks in ENHANCE
       name: ✨ Open PR checks in ENHANCE
       command: >
         cd {{.RepoPath}} &&
