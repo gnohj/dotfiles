@@ -1,0 +1,52 @@
+# `fff-orphans` — find (or reap) leaked fff.nvim orphan processes.
+#
+# Ephemeral `nvim --embed` popups (Octo `pr edit`, `CodeDiff`, any one-shot
+# `-c :silent ...` command) get reparented to launchd when their terminal
+# dies without nvim exiting. They keep the fff LMDB reader lock open forever
+# and pile up until they exhaust LMDB's 126-slot reader table
+# (MDB_READERS_FULL). Plain `--embed` editors (no `-c :silent`) are real
+# sessions and are left alone.
+#
+#   fff-orphans        # list orphaned popups holding the fff lock
+#   fff-orphans -k     # reap them (SIGTERM, then SIGKILL any straggler)
+emulate -L zsh
+setopt local_options
+
+local lock="$HOME/.local/share/nvim/fff_queries/lock.mdb"
+local do_kill=0
+[[ $1 == -k || $1 == --kill ]] && do_kill=1
+
+local -a holders orphans
+holders=(${(f)"$(lsof -t -- "$lock" 2>/dev/null | sort -un)"})
+if (( ! $#holders )); then
+  print "fff: no lock holders"
+  return 0
+fi
+
+local pid args
+for pid in $holders; do
+  args=$(ps -o command= -p $pid 2>/dev/null)
+  [[ $args == *"-c :silent"* ]] && orphans+=$pid
+done
+
+if (( ! $#orphans )); then
+  print "fff: $#holders holder(s), 0 orphaned popups ✅"
+  return 0
+fi
+
+print "fff: $#orphans orphaned popup(s) of $#holders holder(s):"
+ps -o pid=,etime=,command= -p ${(j:,:)orphans} 2>/dev/null \
+  | sed -E 's/ --embed.*-c :silent/ …/'
+
+if (( do_kill )); then
+  kill $orphans 2>/dev/null
+  sleep 1
+  local -a alive
+  for pid in $orphans; do
+    kill -0 $pid 2>/dev/null && alive+=$pid
+  done
+  (( $#alive )) && kill -9 $alive 2>/dev/null
+  print "reaped $#orphans orphan(s) ✅"
+else
+  print "→ run 'fff-orphans -k' to reap them"
+fi

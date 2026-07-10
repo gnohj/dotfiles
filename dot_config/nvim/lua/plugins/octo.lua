@@ -69,5 +69,41 @@ return {
   },
   config = function(_, opts)
     require("octo").setup(opts)
+
+    -- gh-dash / <leader>gi open Octo in a throwaway tmux window flagged with
+    -- `let g:zen_disabled=1`. Unlike codediff (which self-quits on TabClosed),
+    -- Octo never exits, so when that window closes the nvim lingers, gets
+    -- reparented to launchd, and pins an fff LMDB reader slot forever until it
+    -- exhausts the 126-slot table (MDB_READERS_FULL). Quit once the last
+    -- octo:// buffer is gone. Gated on zen_disabled + octo_seen so it only
+    -- affects ephemeral launches and never fires on the startup empty buffer.
+    if vim.g.zen_disabled then
+      local octo_seen = false
+      vim.api.nvim_create_autocmd("BufEnter", {
+        callback = function(ev)
+          if vim.api.nvim_buf_get_name(ev.buf):match("^octo://") then
+            octo_seen = true
+          end
+        end,
+      })
+      vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
+        callback = function()
+          if not octo_seen then
+            return
+          end
+          vim.defer_fn(function()
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+              if
+                vim.api.nvim_buf_is_loaded(buf)
+                and vim.api.nvim_buf_get_name(buf):match("^octo://")
+              then
+                return
+              end
+            end
+            vim.cmd("qa")
+          end, 100)
+        end,
+      })
+    end
   end,
 }
