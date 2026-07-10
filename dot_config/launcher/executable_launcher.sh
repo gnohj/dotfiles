@@ -44,6 +44,8 @@ CATEGORIES=(
 ACTIONS=(
   "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
+  "🤖 AI|👤 Claude Desktop (personal)|act_ai_claude_personal|Launch the Claude Desktop app signed into personal"
+  "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work"
 
   "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
   "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim"
@@ -359,6 +361,8 @@ aliases_menu() {
 
 act_ai_codeburn() { ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true; }
 act_ai_rtk() { ~/.config/skhd/tmux-window-simple.sh 📊 rtk "/opt/homebrew/bin/rtk gain --graph"; }
+act_ai_claude_personal() { "$HOME/.local/bin/claude-desktop" personal; }
+act_ai_claude_work() { "$HOME/.local/bin/claude-desktop" work; }
 
 act_browser_pr() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"

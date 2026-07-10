@@ -11,24 +11,32 @@
 #
 # SELECTION: a repo whose remote is a configured work org (see work-orgs, kept
 # in local state — NOT in dotfiles) → work; everything else (personal repos,
-# non-git dirs) → personal. Override per-shell by exporting CLAUDE_ACCOUNT.
+# non-git dirs) → personal. Precedence, highest first: CLAUDE_ACCOUNT env
+# (per-shell) > pin file (sticky global, set from tmux-dash) > the cwd rule.
 #
 #   claude-account                 effective account for the current dir
 #   claude-account resolve         same (explicit name; used by `cw`)
 #   claude-account dir             its CLAUDE_CONFIG_DIR        (used by launchers)
 #   claude-account token           its OAuth token, if stored   (used by launchers)
 #   claude-account cwd [path]      account a directory maps to (ignores override)
+#   claude-account pin             print the sticky pin (work|personal|auto)
+#   claude-account pin <a>         pin work|personal globally; auto clears it
 #   claude-account set-token <a>   store a token for <a> from stdin (Keychain)
 #                                  e.g. `claude setup-token | claude-account set-token work`
 #   claude-account add-work-org <o>     add a GitHub org that counts as work
 #   claude-account work-orgs            list configured work orgs
-#   claude-account set-work-email <e>   which email counts as "work" (for recon/tmux-dash color)
+#   claude-account set-work-email <e>   which email counts as "work" (for tmux-dash color)
 #   claude-account work-email           print the configured work email
 #   claude-account label-for-email <e>  classify an email -> personal|work
 set -euo pipefail
 
 WORK_EMAIL_FILE="$HOME/.local/state/claude/work-email"
 WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
+# Sticky global account pin (set from tmux-dash's Accounts view). Single source
+# of truth for a deliberate account choice: when it holds work|personal it beats
+# the cwd rule for EVERY new session (cs / cr / dashboard spawns). Absent/empty
+# = auto (fall back to the per-dir git-remote rule). CLAUDE_ACCOUNT still wins.
+PIN_FILE="$HOME/.local/state/claude/account-override"
 
 # Account a directory maps to, by its git remote org. iHeart (or any configured
 # work org) → work; personal repos / non-git dirs → personal.
@@ -46,12 +54,49 @@ account_for_cwd() {
   echo "personal"
 }
 
-# Effective account: explicit per-shell override wins, else the cwd rule.
-resolve_account() {
-  case "${CLAUDE_ACCOUNT:-}" in
-  personal | work) echo "$CLAUDE_ACCOUNT" ;;
-  *) account_for_cwd "$PWD" ;;
+# The sticky pin's value: work|personal when set, else "auto".
+read_pin() {
+  local v=""
+  [ -f "$PIN_FILE" ] && v="$(tr -d '[:space:]' <"$PIN_FILE" 2>/dev/null || true)"
+  case "$v" in
+  personal | work) echo "$v" ;;
+  *) echo "auto" ;;
   esac
+}
+
+# Set (work|personal) or clear (auto) the sticky pin. Atomic tmp+mv.
+set_pin() {
+  case "$1" in
+  auto) rm -f "$PIN_FILE" ;;
+  personal | work)
+    mkdir -p "$(dirname "$PIN_FILE")"
+    printf '%s\n' "$1" >"$PIN_FILE.tmp" && mv -f "$PIN_FILE.tmp" "$PIN_FILE"
+    ;;
+  *)
+    echo "usage: claude-account pin <work|personal|auto>" >&2
+    return 1
+    ;;
+  esac
+}
+
+# Effective account, highest precedence first: per-shell CLAUDE_ACCOUNT env >
+# sticky pin file > the cwd git-remote rule.
+resolve_account() {
+  local pin
+  case "${CLAUDE_ACCOUNT:-}" in
+  personal | work)
+    echo "$CLAUDE_ACCOUNT"
+    return
+    ;;
+  esac
+  pin="$(read_pin)"
+  case "$pin" in
+  personal | work)
+    echo "$pin"
+    return
+    ;;
+  esac
+  account_for_cwd "$PWD"
 }
 
 account_dir() {
@@ -99,8 +144,8 @@ add_work_org() {
 }
 
 # Classify an email -> personal|work using the configured work email. Single
-# source of the work/personal POLICY for email; recon mirrors the same compare
-# in Rust (reading the same work-email file) to color rows by the REAL account.
+# source of the work/personal POLICY for email; tmux-dash mirrors the same
+# compare in Rust (reading the same work-email file) to color rows by account.
 label_for_email() {
   local email="$1" work=""
   [ -f "$WORK_EMAIL_FILE" ] && work="$(cat "$WORK_EMAIL_FILE" 2>/dev/null)"
@@ -116,6 +161,9 @@ get | resolve) resolve_account ;;
 dir) account_dir ;;
 token) account_token ;;
 cwd) account_for_cwd "${2:-$PWD}" ;;
+pin)
+  if [ $# -ge 2 ]; then set_pin "$2"; else read_pin; fi
+  ;;
 # Print shell `export` lines for the current dir's account, for launchers that
 # can't use cs/cr (e.g. gh-dash): `eval "$(claude-account env)" && claude …`.
 # Emits nothing for personal-with-no-token (native config), so eval is a no-op.
@@ -154,7 +202,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|pin [<a>]|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
