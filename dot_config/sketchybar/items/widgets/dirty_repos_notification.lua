@@ -16,7 +16,7 @@ local dirty_repos = sbar.add("item", "widgets.dirty_repos_notification", {
 		padding_left = 1,
 		padding_right = 0,
 	},
-	update_freq = 300,
+	update_freq = 15,
 	script = "~/.config/sketchybar/items/widgets/dirty_repos_notification.sh",
 	drawing = true,
 })

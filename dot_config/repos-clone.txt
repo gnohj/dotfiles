@@ -13,4 +13,3 @@ git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 git@github.com:gnohj/agents.git ~/Developer/agents
 git@github.com:gnohj/colorscheme.git ~/Developer/colorscheme
 git@github.com:gnohj/tmux-dash.git ~/Developer/tmux-dash
-git@github.com:gnohj/recon.git ~/Developer/recon

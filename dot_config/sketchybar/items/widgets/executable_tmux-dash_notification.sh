@@ -1,12 +1,12 @@
 #!/bin/bash
-export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.local/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.cargo/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
-NAME="${NAME:-widgets.recon_notification}"
+NAME="${NAME:-widgets.tmux_dash_notification}"
 
-# Check if recon is available
-if ! command -v recon &>/dev/null; then
+# Check if tmux-dash is available
+if ! command -v tmux-dash &>/dev/null; then
   sketchybar --set "$NAME" drawing=off
   exit 0
 fi
@@ -17,18 +17,18 @@ if ! tmux list-sessions &>/dev/null 2>&1; then
   exit 0
 fi
 
-# Get agent data from recon
-RECON_JSON=$(recon json 2>/dev/null)
+# Get agent data from tmux-dash
+DASH_JSON=$(tmux-dash json 2>/dev/null)
 
-if [[ -z "$RECON_JSON" || "$RECON_JSON" == "null" ]]; then
+if [[ -z "$DASH_JSON" || "$DASH_JSON" == "null" ]]; then
   sketchybar --set "$NAME" drawing=off
   exit 0
 fi
 
-TOTAL=$(echo "$RECON_JSON" | jq '.sessions | length')
-WORKING=$(echo "$RECON_JSON" | jq '[.sessions[] | select(.status == "Working")] | length')
-INPUT=$(echo "$RECON_JSON" | jq '[.sessions[] | select(.status == "Input")] | length')
-IDLE=$(echo "$RECON_JSON" | jq '[.sessions[] | select(.status == "Idle")] | length')
+TOTAL=$(echo "$DASH_JSON" | jq '.sessions | length')
+WORKING=$(echo "$DASH_JSON" | jq '[.sessions[] | select(.status == "Working")] | length')
+INPUT=$(echo "$DASH_JSON" | jq '[.sessions[] | select(.status == "Input")] | length')
+IDLE=$(echo "$DASH_JSON" | jq '[.sessions[] | select(.status == "Idle")] | length')
 
 # Hide if no agents
 if [ "$TOTAL" -eq 0 ]; then

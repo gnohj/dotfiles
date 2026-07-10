@@ -121,10 +121,6 @@ name = "opencode"
 path = "~/.config/opencode"
 
 [[session]]
-name = "recon"
-path = "~/Developer/recon"
-
-[[session]]
 name = "gnohj-monorepo"
 path = "~/Developer/gnohj-monorepo"
 

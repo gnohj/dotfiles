@@ -44,9 +44,9 @@ rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
 rctrl - 0x2F : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "/opt/homebrew/bin/herdr" true # herdr (period)
-rctrl - 0x2C : /opt/homebrew/bin/tmux display-popup -w 80% -h 80% -E "$HOME/.cargo/bin/recon" # recon claude dashboard (forward slash) — bare recon opens TABLE view (recon view = tamagotchi); fresh popup each open, q/escape to close; no phantom tmux session
-rctrl + shift - m : /usr/bin/pkill -USR1 -x tmux-dash # toggle tmux-dash agent sidebar focus
-rctrl + shift - 0x2B : /usr/bin/pkill -USR2 -x tmux-dash # toggle tmux-dash git-source sidebar focus (comma)
+rctrl - 0x2C : "$HOME/.local/bin/tmux-dash" popup # tmux-dash agent dashboard (forward slash) — opens the view in a tmux popup on the *focused* server (tmux-dash infers it), so one key works across default/personal/work. Table of agents; enter switches, i jumps to next input, q/escape closes
+rctrl + shift - m : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
+rctrl + shift - 0x2F : "$HOME/.local/bin/tmux-dash" toggle-sidebar # show/hide the tmux-dash sidebar; running td live-applies (period)
 rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
 # codeburn dashboard moved to rctrl-i launcher menu
 # rctrl - r - reserved for atuin
@@ -64,7 +64,7 @@ rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 rctrl - g : ~/.config/skhd/lazygit.sh
 rctrl + shift - g : ~/.config/skhd/lazygit-window.sh
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
-rctrl - 0x29 : ~/.config/skhd/treekanga-selector.sh # semicolon
+rctrl - 0x29 : "$HOME/.local/bin/tmux-dash" popup table # semicolon — tmux-dash agent dashboard, table view (treekanga moved into tmux-dash: press `w` in the view)
 rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
 rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
 rctrl + shift - j : ~/.local/bin/worktree-jira # active Chrome Jira tab → /worktree (subscription-billed)

@@ -36,7 +36,6 @@ case "$cwd/" in
   "$HOME/Developer/web/"*)     repo="web" ;;
   "$HOME/Developer/inferno/"*) repo="inferno" ;;
   "$HOME/Developer/actions/"*) repo="actions" ;;
-  "$HOME/Developer/recon/"*)   repo="recon" ;;
   *) exit 0 ;;
 esac
 
@@ -120,7 +119,7 @@ fi
     echo ""
   fi
   # Vault orientation files — applies to ALL tracked work repos (web, inferno,
-  # actions, recon). These are the meta files the agent would Read anyway via
+  # actions). These are the meta files the agent would Read anyway via
   # discovery (per global ~/.claude/CLAUDE.md Second-Brain Vault rules); listing
   # them here makes the load deterministic instead of discovery-driven, so cold
   # sessions don't have to navigate to find them.
