@@ -1,0 +1,71 @@
+[features]
+git_source = true
+ai_activity = true
+hooks = true
+pane_name = true
+harness = false
+model = true
+pane_name_model = false
+pane_name_harness = false
+harness_model = false
+
+[features.sidebar]
+jira = false
+second_brain = false
+
+[features.split]
+jira = true
+second_brain = true
+
+[git_source]
+tracked = ["~/Developer"]
+
+[refresh]
+active_ms = 150
+status_ms = 500
+full_ms = 2000
+repos_ms = 15000
+pr_ci_ms = 900000
+
+[layout]
+sidebar_width = 28
+show_sidebar = true
+
+[theme]
+title = "#a3b8c6"
+muted = "#9fb7a4"
+idle = "#dab183"
+working = "#a3b8c6"
+input = "#da858e"
+purple = "#c0aed2"
+blue = "#a3b8c6"
+new = "#a7cfbd"
+name = "#a7cfbd"
+model = "#c0aed2"
+text = "#b8c9d3"
+unpushed = "#ccd19d"
+active = "#dc988e"
+stale = "#536571"
+ci_running = "#ccd19d"
+ci_failure = "#da858e"
+activity = "#a3b8c6"
+sel_bg = "#202325"
+bg_input = "#433030"
+bg_active_session = "#1e2528"
+scrollbar_thumb = "#a3b8c6"
+scrollbar_track = "#505e62"
+
+[view]
+default = "split"
+
+[keybindings]
+universal = []
+server = []
+window = []
+agent = []
+table = []
+
+[[keybindings.session]]
+key = "t"
+name = "treekanga"
+command = '"$HOME/.config/skhd/treekanga-selector.sh"'
