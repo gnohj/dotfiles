@@ -14,4 +14,3 @@
 ~/Developer/agents
 ~/Developer/colorscheme
 ~/Developer/tmux-dash
-~/Developer/recon

@@ -361,8 +361,17 @@ alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n "$file" ] && chezmoi add "$HOME/$file"; done'
 
-# tmux-dash (embedded-tmux agent sidebar)
-alias td='pkill -x tmux-dash 2>/dev/null; sleep 0.2; z ~/Developer/tmux-dash && cargo run --release'
+# tmux-dash dashboard. Bare `td` hosts the default tmux server; `td attach <name>`
+# targets a separate server/socket (e.g. `td attach personal` / `td attach work`)
+# whose agents are fully isolated from the default's — forwarded to the binary's
+# `-L <name>` flag. Any other args pass straight through.
+td() {
+  local sock=()
+  if [[ "$1" == "attach" && -n "$2" ]]; then
+    sock=(-L "$2"); shift 2
+  fi
+  z ~/Developer/tmux-dash && cargo run --release -- "${sock[@]}" "$@"
+}
 
 # Github Dash
 alias ghd='gh-dash'
@@ -544,30 +553,36 @@ ticket() {
   echo "Opened ticket: $key"
 }
 
-# Show dirty/clean state for tracked git repos with file-level breakdown.
-# Discovery + dirty/clean classification lives in ~/.local/bin/dirty-repo-status,
-# shared with the sketchybar dirty-repos widget so the two stay in lockstep.
+# Show dirty/clean state for git repos with a file-level breakdown. Repos come
+# from `tmux-dash json --dirty --clean` (every git-source repo, each tagged with
+# a `dirty` bool), shared with the sketchybar dirty-repos widget (which uses
+# just `--dirty` for its count) so the two stay in lockstep on scope.
 dirty() {
-  # --list: show every repo dirty-repo-status discovered, with status,
-  # no file-level breakdown. Useful for confirming what's in scope.
+  # --list: show every repo in scope with its status, no file-level breakdown.
   if [[ "${1:-}" == "--list" ]]; then
-    local s p display
-    while IFS=$'\t' read -r s p; do
+    local d p display
+    while IFS=$'\t' read -r d p; do
+      [[ -z "$p" ]] && continue
       display="${p/#$HOME/~}"
-      case "$s" in
-        dirty) printf "\033[33m● dirty\033[0m  %s\n" "$display" ;;
-        clean) printf "\033[32m✓ clean\033[0m  %s\n" "$display" ;;
-      esac
-    done < <("$HOME/.local/bin/dirty-repo-status")
+      if [[ "$d" == "true" ]]; then
+        printf "\033[33m● dirty\033[0m  %s\n" "$display"
+      else
+        printf "\033[32m✓ clean\033[0m  %s\n" "$display"
+      fi
+    done < <(tmux-dash json --dirty --clean 2>/dev/null | jq -r '.repos[] | "\(.dirty)\t\(.path)"')
     return
   fi
 
   local dirty_paths=() clean_paths=()
-  local s p
-  while IFS=$'\t' read -r s p; do
-    [[ "$s" == "dirty" ]] && dirty_paths+=("$p")
-    [[ "$s" == "clean" ]] && clean_paths+=("$p")
-  done < <("$HOME/.local/bin/dirty-repo-status")
+  local d p
+  while IFS=$'\t' read -r d p; do
+    [[ -z "$p" ]] && continue
+    if [[ "$d" == "true" ]]; then
+      dirty_paths+=("$p")
+    else
+      clean_paths+=("$p")
+    fi
+  done < <(tmux-dash json --dirty --clean 2>/dev/null | jq -r '.repos[] | "\(.dirty)\t\(.path)"')
 
   if [ ${#dirty_paths[@]} -eq 0 ]; then
     echo ""

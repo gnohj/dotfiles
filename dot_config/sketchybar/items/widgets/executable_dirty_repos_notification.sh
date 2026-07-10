@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.cargo/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
@@ -17,13 +17,13 @@ log_message() {
   echo "[$timestamp] [$level] [DIRTY_REPOS] $message" >>"$LOG_FILE"
 }
 
-# Discovery + dirty/clean classification lives in ~/.local/bin/dirty-repo-status,
-# shared with the `dirty()` zsh function so this widget and the shell
-# helper can never drift on which repos they track.
+# Dirty repos come from `tmux-dash json --dirty` (the git-source dirty list),
+# shared with the `dirty()` zsh function so this widget and the shell helper
+# can never drift on which repos they track.
 DIRTY_NAMES=()
-while IFS=$'\t' read -r status path; do
-  [ "$status" = "dirty" ] && DIRTY_NAMES+=("$(basename "$path")")
-done < <("$HOME/.local/bin/dirty-repo-status")
+while IFS= read -r name; do
+  [ -n "$name" ] && DIRTY_NAMES+=("$name")
+done < <(tmux-dash json --dirty 2>/dev/null | jq -r '.repos[].name')
 
 DIRTY_COUNT=${#DIRTY_NAMES[@]}
 
