@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Claude Desktop (GUI app): launch an isolated instance under a named profile so
+# personal and work accounts run side-by-side without sharing history/settings.
+# Unlike the CLI (cs/cr), the desktop app has no CLAUDE_CODE_OAUTH_TOKEN-style
+# headless auth: it signs in via interactive OAuth and persists the login inside
+# --user-data-dir. So each profile is a one-time sign-in that sticks thereafter.
+# `personal` reuses the default data dir (existing login); `work` gets its own.
+#
+# Dedup: `open -na` is required to start a SECOND account while the first is
+# running (macOS reuses by bundle id, and Claude has no per-profile single-
+# instance lock), but -n also force-spawns a duplicate on every relaunch. So we
+# first look for a main Claude process already serving this profile and just
+# bring it to the front; only when none exists do we open a new instance.
+# Usage: claude-desktop [personal|work]   (default: personal)
+set -euo pipefail
+
+account="${1:-personal}"
+support="$HOME/Library/Application Support"
+default="$support/Claude"
+case "$account" in
+  personal) profile="$default" ;;
+  work) profile="$support/Claude-work" ;;
+  *)
+    echo "claude-desktop: unknown account '$account' (use personal|work)" >&2
+    exit 1
+    ;;
+esac
+mkdir -p "$profile"
+
+main_exe="/Applications/Claude.app/Contents/MacOS/Claude"
+
+# Find the main Claude process already serving this profile, if any. Instances
+# we launch end their command line with "--user-data-dir=<profile>" (the value
+# runs to end-of-line, so profile paths with spaces match cleanly). A Claude
+# started bare (e.g. from the Dock) has no flag and maps to the default profile.
+# Helper/renderer/crashpad procs carry the flag mid-line, so they never match
+# the exact-suffix patterns below.
+found_pid=""
+while read -r pid cmd; do
+  case "$cmd" in
+    "$main_exe") udd="$default" ;;
+    "$main_exe --user-data-dir="*) udd="${cmd#*--user-data-dir=}" ;;
+    *) continue ;;
+  esac
+  if [ "$udd" = "$profile" ]; then
+    found_pid="$pid"
+    break
+  fi
+done < <(ps -axo pid=,command=)
+
+if [ -n "$found_pid" ]; then
+  # Already running for this profile — raise its window instead of duplicating.
+  osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $found_pid) to true" >/dev/null 2>&1 || true
+else
+  exec open -na "Claude" --args --user-data-dir="$profile"
+fi
