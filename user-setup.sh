@@ -156,11 +156,17 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
           chmod 644 "$HOME/.ssh/id_ed25519.pub"
           print_info "Generated public key from private key"
 
-          # Add GitHub to known_hosts only if not already present
+          # Add GitHub to known_hosts only if not already present. Pin GitHub's
+          # PUBLISHED host keys rather than ssh-keyscan (trust-on-first-use), so a
+          # hostile/MITM'd network at bootstrap can't get a forged key pinned. Verify
+          # against https://docs.github.com/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
           touch "$HOME/.ssh/known_hosts" # Ensure file exists
           if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
-            ssh-keyscan github.com >>"$HOME/.ssh/known_hosts" 2>/dev/null
-            print_info "Added github.com to known_hosts"
+            {
+              echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+              echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4mpXNJ5DZ76SzTS8jFxdEUgIw=="
+            } >>"$HOME/.ssh/known_hosts"
+            print_info "Added github.com to known_hosts (pinned published keys)"
           fi
           print_success "SSH key configured successfully."
           echo ""
@@ -345,13 +351,34 @@ fi
 # --- PHASE 7: CLONE PRIVATE REPOSITORIES ---
 print_info "› Phase 7: Cloning private repositories..."
 
-# Verify SSH auth before attempting clones - GitHub exits 1 even on success, so check stderr.
+# Verify SSH auth before attempting clones. Notes on the probe:
+#   - GitHub's `ssh -T` exits 1 even on success, so we grep stderr, not $?.
+#   - Accept a key file OR a loaded agent identity (Bitwarden/1Password/keychain).
+#   - Seed known_hosts first: with BatchMode=yes a missing host key fails host-key
+#     verification silently, which looks identical to an auth failure (false negative
+#     on fresh machines / before ~/.ssh dotfiles are applied). We pin GitHub's
+#     PUBLISHED host keys rather than ssh-keyscan (trust-on-first-use), so a
+#     hostile/MITM'd network at bootstrap can't get a forged key pinned. Verify
+#     against https://docs.github.com/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+#   - Cold first-connect to github.com can exceed 8s on a fresh boot, so use a 15s
+#     timeout and retry a few times before warning.
 REPOS_FILE="$HOME/.config/repos-clone.txt"
 SSH_OK=false
-if [ -f "$HOME/.ssh/id_ed25519" ]; then
-  if ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    SSH_OK=true
+if [ -f "$HOME/.ssh/id_ed25519" ] || ssh-add -l >/dev/null 2>&1; then
+  if ! ssh-keygen -F github.com >/dev/null 2>&1; then
+    mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+    {
+      echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+      echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4mpXNJ5DZ76SzTS8jFxdEUgIw=="
+    } >> "$HOME/.ssh/known_hosts"
   fi
+  for _ in 1 2 3; do
+    if ssh -o BatchMode=yes -o ConnectTimeout=15 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+      SSH_OK=true
+      break
+    fi
+    sleep 2
+  done
 fi
 if [ "$SSH_OK" = "false" ]; then
   print_warning "SSH key not authenticated with GitHub - private repo cloning will likely fail."
