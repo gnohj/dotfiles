@@ -6,7 +6,7 @@ return {
     "typescript",
     "typescriptreact",
   },
-  conifg = function()
+  config = function()
     require("nvim-ts-autotag").setup()
   end,
 }
