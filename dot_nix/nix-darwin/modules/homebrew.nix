@@ -50,6 +50,7 @@
 
       # Shell & plugin managers
       "zinit"
+      "atuin" # shell history — 18.17+ needs rustc 1.96.1, newer than nixpkgs
 
       # Terminal & tmux utilities
       "gitmux"

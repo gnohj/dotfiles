@@ -5,6 +5,12 @@ system-utils.sh
 user-setup.sh
 tasks
 
+# Generated at runtime by generate-tmux-colors.sh (run-shell on tmux start,
+# prefix+r reload, and colorscheme-set.sh). Self-rewrites a `# Generated at:`
+# timestamp on every run and re-resolves @chip_* from the active colorscheme,
+# so tracking it as source guarantees perpetual `chezmoi diff` drift.
+.config/tmux/tmux-colors.conf
+
 # Local dev auth — per-machine mkcert artifacts (private key + cert).
 # Never managed by chezmoi: each developer generates their own cert+key
 # pair locally via mkcert, signed by their own machine-local root CA.
