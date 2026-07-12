@@ -36,4 +36,7 @@ setup-global-tools = "mise run install-aicommit"
 auto_install = true
 experimental = true
 idiomatic_version_file_enable_tools = ["node"]
-trusted_config_paths = ["~/Developer"]
+# ~/.treehouse holds pooled git worktrees for PR review (treehouse). Each slot
+# is a fresh path, so its repo `.mise.toml` is untrusted by default and mise
+# errors on entry. Trust the whole tree so review worktrees load tooling cleanly.
+trusted_config_paths = ["~/Developer", "~/.treehouse"]
