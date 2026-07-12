@@ -7,15 +7,33 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 OUTPUT_FILE="$HOME/.config/tmux/tmux-colors.conf"
 
-# Pane-border color as a tmux #{...} conditional (tmux 3.2+ expands formats in
-# style options): only the AI-widget window (name contains the 🤖 robot emoji)
-# keeps the accent green (gnohj_color24); every other window gets the scheme's
-# dimmed slate (gnohj_color13 — the same muted tone as stale agents) so the AI
-# window stands out. Glob-matched (`m:`) so the emoji's variation selector /
-# tmux-fingers suffix don't matter. The shell expands the two ${gnohj_color*}
-# hexes here; the #{...} stays literal and is evaluated by tmux per-window at
-# draw time — no hooks needed.
-border_fmt="fg=#{?#{m:*🤖*,#{window_name}},${gnohj_color24},${gnohj_color13}}"
+# Active-pane border COLOR (tmux 3.2+ expands formats in style options): the
+# pane you're ON is green (gnohj_color03, #a7cfbd) normally — the SAME bright mint
+# green as tmux-dash's sidebar foreground text (theme.name → gnohj_color03), so
+# the active pane reads in the same green as the agent names. Orange
+# (gnohj_color05) in copy-mode, lavender (gnohj_color01) when zoomed. NB: this is
+# close to the identity pill's green (@chip_green → gnohj_color24), so the active
+# border can blend with the pill's edges on agent panes — intended, to match the
+# sidebar text.
+# Same on every window; 🤖 windows are already marked by the agent HUD chip, so
+# the border just means "you are here". pane_in_mode / window_zoomed_flag are
+# evaluated in the active pane's OWN context, and tmux re-evaluates *-style
+# formats on every redraw - including on pane switch and on entering/leaving copy
+# or zoom - so this needs no hooks. Prefix is intentionally NOT tinted: tmux
+# never repaints borders on prefix press, so it would require taking over the
+# prefix key (we don't).
+active_border_color="#{?pane_in_mode,${gnohj_color05},#{?window_zoomed_flag,${gnohj_color01},${gnohj_color03}}}"
+
+# Inactive panes: a muted slate blue (gnohj_color13, #536571), thin (fg only, no
+# bg fill), on every window — blue-toned so it recedes but still reads distinct
+# from the red active border.
+inactive_border_fmt="fg=${gnohj_color13}"
+
+# Active-pane border: a bright colored line (fg only, no bg fill) so it stays
+# thin like the inactive borders but pops by color — green normally, orange in
+# copy, lavender when zoomed. (Filling bg with the color would make a solid,
+# heavier band like tubular's "extra bold"; too heavy here.)
+active_border_fmt="fg=${active_border_color}"
 
 # Generate tmux color configuration
 cat >"$OUTPUT_FILE" <<EOF
@@ -45,10 +63,12 @@ set -g window-status-format ''
 # it explicitly makes tmux assert the color so the cursor stays this green.
 set -g cursor-colour "${gnohj_color24}"
 
-# Pane border colors — accent green on every window, except the editor window
-# (🖋️) which blends into the transparent bg; see border_fmt above.
-set -g pane-border-style "${border_fmt}"
-set -g pane-active-border-style "${border_fmt}"
+# Pane border colors — inactive panes dim to muted gray so the active pane
+# stands out by color on pane switch; the active pane keeps its per-window
+# normal color (green on 🤖 windows, slate elsewhere) plus the mode-aware
+# copy/zoom tint. See inactive_border_fmt / active_border_fmt above.
+set -g pane-border-style "${inactive_border_fmt}"
+set -g pane-active-border-style "${active_border_fmt}"
 
 # Border-chip palette — referenced by pane-border-format in tmux.conf (via
 # #{@chip_*}) so the agent-status pills follow the active colorscheme instead of
@@ -59,11 +79,14 @@ set -g pane-active-border-style "${border_fmt}"
 set -g @chip_dark "${gnohj_color10}"
 set -g @chip_green "${gnohj_color24}"
 set -g @chip_gray "${gnohj_color17}"
-# Status pill colors — mirror the sidebar's theme.working/idle/input/new (see
-# state::load_theme) so the border pills and the agent list agree at a glance.
+# Status pill colors — mirror the sidebar's theme.working/idle/input/done/new
+# (see state::load_theme) so the border pills and the agent list agree at a
+# glance. `input`, `done`, and `limit` all share the red (color11) — they're the
+# "needs you" states — distinguished by the pill's text, not color.
 set -g @chip_working "${gnohj_color04}"
 set -g @chip_idle "${gnohj_color05}"
 set -g @chip_input "${gnohj_color11}"
+set -g @chip_done "${gnohj_color11}"
 set -g @chip_new "${gnohj_color03}"
 
 # Message colors (display-message)
