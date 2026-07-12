@@ -63,6 +63,8 @@ gnohj_color24=#a7cfaf
 gnohj_color11=#da858e
 # Terminal white / Text
 gnohj_color14=#b8c9d3
+# Nvim orange 2 — distinct orange for input (done keeps color11 red)
+gnohj_color15=#e6934e
 # Nvim green (fallback)
 gnohj_color40=#b7ce97
 # Nvim yellow (fallback)
