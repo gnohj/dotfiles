@@ -92,17 +92,20 @@ source /opt/homebrew/opt/zinit/zinit.zsh
 
 # Function to update starship prompt/config and environment based on current repo
 function update_starship_env() {
-  # One `git rev-parse` instead of up to four separate spawns. Each flag prints
-  # one line inside any repo (bare or not); outside a repo the command fails and
-  # we fall back to the default config.
+  # One `git rev-parse` for everything, and zero coreutil spawns. `--show-toplevel`
+  # errors (non-zero exit) in a bare repo or outside a work tree, so the whole
+  # call drops straight to the default-config fallback — the same result the old
+  # explicit is_bare/in_tree branch produced, minus a probe. Runs on every cd and
+  # on shell startup, so trimming the ~4 subprocess spawns (2nd rev-parse +
+  # basename + dirname) matters in the big monorepos where each git spawn is slow.
   local git_info
-  git_info=$(git rev-parse --is-bare-repository --is-inside-work-tree --git-common-dir 2>/dev/null) || {
+  git_info=$(git rev-parse --is-bare-repository --is-inside-work-tree --git-common-dir --show-toplevel 2>/dev/null) || {
     export STARSHIP_CONFIG=~/.config/starship/starship.toml
     unset RADIO_CTL AWS_PROFILE
     return
   }
   local -a gi=("${(@f)git_info}")
-  local is_bare=$gi[1] in_tree=$gi[2] git_common_dir=$gi[3]
+  local is_bare=$gi[1] in_tree=$gi[2] git_common_dir=$gi[3] toplevel=$gi[4]
 
   # Bare repo (worktree parent) or not inside a work tree: default config.
   if [[ "$is_bare" == "true" || "$in_tree" != "true" ]]; then
@@ -111,14 +114,14 @@ function update_starship_env() {
     return
   fi
 
-  local toplevel repo_name
-  toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
-  repo_name=$(basename "$toplevel")
+  # basename via zsh :t modifier — no subprocess.
+  local repo_name=${toplevel:t}
 
   # For worktrees, use the bare repo name from git-common-dir
-  # git-common-dir returns path like /path/to/inferno/.bare for worktrees
+  # git-common-dir returns path like /path/to/inferno/.bare for worktrees;
+  # :h:t is dirname-then-basename with no subprocess.
   if [[ "$git_common_dir" != ".git" && ("$git_common_dir" == */.git || "$git_common_dir" == */.bare) ]]; then
-    repo_name=$(basename "$(dirname "$git_common_dir")")
+    repo_name=${git_common_dir:h:t}
   fi
 
   # Only use infra config for web and inferno
@@ -198,6 +201,26 @@ zinit ice as"command" from"gh-r" \
           atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
           atpull"%atclone" src"init.zsh"
 zinit load starship/starship
+
+# Blank line before the prompt only when real output sits above it. Starship's own
+# `add_newline` is off (see starship*.toml) so it never adds one; instead we print a
+# separator in precmd, skipping it whenever the screen was just cleared. Net effect:
+# a fresh pane, `clear`/`c`/`reset`, and Ctrl+L all start flush at the top row, but a
+# prompt that follows command output gets a blank-line separator. No terminal I/O, so
+# nothing can leak to the screen or race with type-ahead.
+_prompt_at_top=1
+_prompt_blank_precmd() {
+    (( _prompt_at_top )) || print
+    _prompt_at_top=0
+}
+_prompt_blank_preexec() {
+    case ${1%% *} in
+        clear|c|reset) _prompt_at_top=1 ;;
+    esac
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _prompt_blank_precmd
+add-zsh-hook preexec _prompt_blank_preexec
 
 
 #-------------------------------------------------------------------------------
@@ -1058,6 +1081,19 @@ export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/
 # Activate mise if available (cached for speed)
 if command -v mise &>/dev/null; then
   _evalcache mise mise activate zsh
+
+  # `mise activate` registers hook-env on BOTH precmd (every prompt) and chpwd
+  # (every cd). The precmd hook re-runs hook-env after every command — ~8-10ms
+  # of config parsing + tool-state loading each time — even when the directory
+  # never changed. Tool/env switching only actually needs to happen on cd, which
+  # chpwd already covers, and the one-shot resolve `mise activate` runs at load
+  # handles the current shell's startup dir. So drop precmd and keep chpwd.
+  #
+  # Tradeoff: editing a `.mise.toml`/`.nvmrc` in place no longer reloads the
+  # current shell until you cd out-and-back (or open a new shell). Acceptable for
+  # a worktree workflow where tool pins rarely change under a live shell.
+  autoload -Uz add-zsh-hook
+  add-zsh-hook -d precmd _mise_hook_precmd 2>/dev/null
 fi
 
 # -----------------------------  Sketchybar Mise Notification
