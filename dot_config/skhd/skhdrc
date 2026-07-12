@@ -14,7 +14,7 @@ cmd - h : :
 # Tmux window navigation
 rctrl - tab : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
 rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
-rctrl - space : /opt/homebrew/bin/tmux last-window # toggle between last two windows
+rctrl - space : /opt/homebrew/bin/tmux last-window 2>/dev/null || { [ "$(/opt/homebrew/bin/tmux list-windows | wc -l)" -eq 2 ] && /opt/homebrew/bin/tmux next-window; } # toggle last two; fall back to the other window when only 2 exist and no jump history yet
 
 # Tmux window selection by number (windows are 0-indexed)
 rctrl - 1 : /opt/homebrew/bin/tmux select-window -t :0
@@ -26,7 +26,7 @@ rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :5
 rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :6
 rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :7
 rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :8
-rctrl - 0 : /opt/homebrew/bin/tmux list-windows -F '#{window_index}' | tail -n +2 | sort -rn | xargs -I{} /opt/homebrew/bin/tmux kill-window -t :{}
+rctrl - 0 : /opt/homebrew/bin/tmux list-windows -F '#{window_index}' | tail -n +2 | sort -rn | xargs -I{} /opt/homebrew/bin/tmux kill-window -t :{} ; /opt/homebrew/bin/tmux select-window -t :0
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
@@ -39,7 +39,7 @@ rctrl - y : ~/.config/skhd/yazi-launch.sh
 
 # rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
 rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
-rctrl - e : ~/.config/skhd/tmux-window-simple.sh 🖊️ pen nvim
+rctrl - e : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
 # rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
