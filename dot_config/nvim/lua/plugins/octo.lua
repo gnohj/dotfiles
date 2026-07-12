@@ -70,6 +70,36 @@ return {
   config = function(_, opts)
     require("octo").setup(opts)
 
+    -- gh-dash review launches pass `let g:octo_auto_review=1`. Once the PR
+    -- buffer's filetype is set (its PR node is already attached by then), fire a
+    -- bare `Octo review`, which start-or-resumes: it opens octo's internal diff
+    -- mode for inline comments, resuming an existing pending review if one is
+    -- already open on GitHub. Resolves the PR from the octo buffer, so it works
+    -- even when the checked-out branch is `review/<head>` rather than the head
+    -- itself. Deferred so it runs after the buffer finishes configuring, and
+    -- latched to a single PR buffer so it never double-fires.
+    if vim.g.octo_auto_review then
+      local fired = false
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "octo",
+        callback = function(ev)
+          if fired then
+            return
+          end
+          if not vim.api.nvim_buf_get_name(ev.buf):match("/pull/%d+$") then
+            return
+          end
+          fired = true
+          vim.schedule(function()
+            if vim.api.nvim_buf_is_valid(ev.buf) then
+              vim.api.nvim_set_current_buf(ev.buf)
+              vim.cmd("Octo review")
+            end
+          end)
+        end,
+      })
+    end
+
     -- gh-dash / <leader>gi open Octo in a throwaway tmux window flagged with
     -- `let g:zen_disabled=1`. Unlike codediff (which self-quits on TabClosed),
     -- Octo never exits, so when that window closes the nvim lingers, gets
