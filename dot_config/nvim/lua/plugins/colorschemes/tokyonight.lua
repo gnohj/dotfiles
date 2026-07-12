@@ -14,6 +14,12 @@ return {
   config = function()
     require("tokyonight").setup({
       style = "storm",
+      -- tokyonight keys its compiled-highlight cache on {version, opts,
+      -- plugins, on_colors palette} — but NOT on the on_highlights function
+      -- body. Editing on_highlights (e.g. Diff* groups) therefore never busts
+      -- the cache and the stale compile is served forever. Disable the cache so
+      -- highlight tweaks always take effect; the recompile cost is negligible.
+      cache = false,
       transparent = transparent,
       styles = {
         sidebars = transparent and "transparent" or "dark",
