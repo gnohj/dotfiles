@@ -38,6 +38,60 @@ local function agent_split(cmd)
   end
 end
 
+-- Generate the post-processed figlet block for `name`/`font`, memoized to disk.
+-- snacks blocks on this `figlet` subprocess before the colorscheme paints (see
+-- init.lua), so on consecutive starts we skip the shell-out entirely and read
+-- the cached block instead. Cache is keyed by name+font, so a new tmux session,
+-- worktree, or font produces a fresh entry; the old ones just linger harmlessly.
+-- Returns the padded figlet string, or nil when figlet is missing/errored so the
+-- caller can fall back to plain text. Bump CACHE_VERSION whenever the font file,
+-- figlet behavior, or post-processing below changes — it's part of the cache key,
+-- so a bump orphans every prior entry at once and forces a clean re-render.
+local CACHE_VERSION = 1
+local function render_figlet(name, font)
+  local cache_dir = vim.fn.stdpath("cache") .. "/dashboard_figlet"
+  local key = ("v" .. CACHE_VERSION .. "_" .. font .. "_" .. name):gsub("[^%w%-]", "_")
+  local cache_file = cache_dir .. "/" .. key .. ".txt"
+
+  if vim.fn.filereadable(cache_file) == 1 then
+    local cached = table.concat(vim.fn.readfile(cache_file), "\n")
+    if cached ~= "" then
+      return cached
+    end
+  end
+
+  local figlet = vim.fn.system({ "figlet", "-w", "1000", "-f", font, name })
+  if vim.v.shell_error ~= 0 then
+    return nil
+  end
+
+  -- figlet right-pads every line to the widest line's width. The old
+  -- `gsub("%s+$","")` stripped trailing whitespace from the END of the whole
+  -- string — i.e. the LAST line only — leaving descender rows (e.g. a `p`'s
+  -- `\/_/`) narrower than the rest, so snacks' per-line centering shifted them
+  -- out of alignment. Instead: split, drop trailing all-blank lines, then
+  -- re-pad every line to the same width so all lines center identically.
+  local lines = {}
+  for line in (figlet .. "\n"):gmatch("(.-)\n") do
+    table.insert(lines, line)
+  end
+  while #lines > 0 and lines[#lines]:match("^%s*$") do
+    table.remove(lines)
+  end
+  local maxw = 0
+  for _, l in ipairs(lines) do
+    maxw = math.max(maxw, vim.fn.strdisplaywidth(l))
+  end
+  for i, l in ipairs(lines) do
+    lines[i] = l .. string.rep(" ", maxw - vim.fn.strdisplaywidth(l))
+  end
+  figlet = table.concat(lines, "\n") .. "\n"
+
+  vim.fn.mkdir(cache_dir, "p")
+  vim.fn.writefile(vim.split(figlet, "\n"), cache_file)
+  return figlet
+end
+
 local function get_header()
   local rainbow_colors = {
     colors["gnohj_color04"],
@@ -89,33 +143,11 @@ local function get_header()
   local font = fonts[math.random(#fonts)]
 
   name = name:gsub("_", " ")
-  local figlet = vim.fn.system({ "figlet", "-w", "1000", "-f", font, name })
-  if vim.v.shell_error ~= 0 then
+  local figlet = render_figlet(name, font)
+  if not figlet then
     section.text = name
     return section
   end
-
-  -- figlet right-pads every line to the widest line's width. The old
-  -- `gsub("%s+$","")` stripped trailing whitespace from the END of the whole
-  -- string — i.e. the LAST line only — leaving descender rows (e.g. a `p`'s
-  -- `\/_/`) narrower than the rest, so snacks' per-line centering shifted them
-  -- out of alignment. Instead: split, drop trailing all-blank lines, then
-  -- re-pad every line to the same width so all lines center identically.
-  local lines = {}
-  for line in (figlet .. "\n"):gmatch("(.-)\n") do
-    table.insert(lines, line)
-  end
-  while #lines > 0 and lines[#lines]:match("^%s*$") do
-    table.remove(lines)
-  end
-  local maxw = 0
-  for _, l in ipairs(lines) do
-    maxw = math.max(maxw, vim.fn.strdisplaywidth(l))
-  end
-  for i, l in ipairs(lines) do
-    lines[i] = l .. string.rep(" ", maxw - vim.fn.strdisplaywidth(l))
-  end
-  figlet = table.concat(lines, "\n") .. "\n"
 
   local result = {}
   local color_idx = 1
@@ -132,32 +164,93 @@ local function get_header()
   return section
 end
 
+-- Split a `git diff --stat` graph column (everything after the `|`, e.g.
+-- " 30 ++++++++++-") into colored dashboard text chunks: `+` runs green
+-- (gnohj_color02), `-` runs red (gnohj_color11), everything else (the count,
+-- spaces, "Bin ... bytes") left at default fg. Consecutive same-class chars
+-- are coalesced into one chunk so the highlight extmarks stay minimal.
+local function colorize_stat_graph(graph)
+  local chunks = {}
+  local i, n = 1, #graph
+  while i <= n do
+    local c = graph:sub(i, i)
+    local j = i
+    if c == "+" then
+      while j <= n and graph:sub(j, j) == "+" do
+        j = j + 1
+      end
+      table.insert(chunks, { graph:sub(i, j - 1), hl = "gnohj_color02" })
+    elseif c == "-" then
+      while j <= n and graph:sub(j, j) == "-" do
+        j = j + 1
+      end
+      table.insert(chunks, { graph:sub(i, j - 1), hl = "gnohj_color11" })
+    else
+      while j <= n and graph:sub(j, j) ~= "+" and graph:sub(j, j) ~= "-" do
+        j = j + 1
+      end
+      table.insert(chunks, { graph:sub(i, j - 1) })
+    end
+    i = j
+  end
+  return chunks
+end
+
 local function get_unstaged_changes()
   if not Snacks.git.get_root() then
     return
   end
-  local result = vim.fn.system("git diff --stat")
+  local result = vim.fn.system("git diff --stat=55")
   if vim.v.shell_error ~= 0 or result:match("^%s*$") then
     return
   end
-  local red = colors["gnohj_color11"] or "#da858e"
-  local r = tonumber(red:sub(2, 3), 16)
-  local g = tonumber(red:sub(4, 5), 16)
-  local b = tonumber(red:sub(6, 7), 16)
-  local ansi = string.format("\\033[38;2;%d;%d;%dm", r, g, b)
-  local cmd = string.format(
-    'git diff --color=always --stat=55 | awk \'{a[NR]=$0} END{for(i=1;i<=4&&i<NR;i++) print a[i]; if(NR>5) print " ...and more"; print "%s" a[NR] "\\033[0m"}\'',
-    ansi
-  )
+
+  -- Rendered as a static text section (not section = "terminal"). A live
+  -- terminal spawns a pty whose `[Process exited N]` line races snacks'
+  -- hide-timer for fast commands like this one, so with ttl = 0 (fresh every
+  -- render) the message would stick. Building the chunks ourselves keeps the
+  -- stat fresh on every render with zero terminal buffer and no exit line.
+  --
+  -- Last line is git's summary ("N files changed, ..."); the rest are per-file
+  -- rows. Cap at 4 rows + a "...and more" marker + the summary, matching the
+  -- prior awk-based renderer exactly.
+  local lines = vim.split(result, "\n", { trimempty = true })
+  local total = #lines
+  if total == 0 then
+    return
+  end
+
+  local summary = lines[total]
+  local text = {}
+  local function newline()
+    table.insert(text, { "\n" })
+  end
+
+  for i = 1, math.min(4, total - 1) do
+    local line = lines[i]
+    local sep = line:find("|", 1, true)
+    if sep then
+      table.insert(text, { line:sub(1, sep) })
+      vim.list_extend(text, colorize_stat_graph(line:sub(sep + 1)))
+    else
+      table.insert(text, { line })
+    end
+    newline()
+  end
+
+  if total > 5 then
+    table.insert(text, { " ...and more" })
+    newline()
+  end
+
+  table.insert(text, { summary, hl = "gnohj_color11" })
+
   return {
     icon = " ",
     title = "Unstaged Changes",
-    section = "terminal",
-    cmd = cmd,
-    height = 7,
     indent = 2,
     padding = 0,
-    ttl = 0,
+    { text = text },
   }
 end
 
