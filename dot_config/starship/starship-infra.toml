@@ -10,6 +10,7 @@
 # Auto-generated starship config for infrastructure repos
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
+add_newline = false
 format = '''
 ${env_var.RADIO_CTL}
 ${env_var.AWS_PROFILE}

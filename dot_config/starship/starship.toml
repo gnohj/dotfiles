@@ -10,6 +10,7 @@
 # Auto-generated starship config
 # https://starship.rs
 "$schema" = 'https://starship.rs/config-schema.json'
+add_newline = false
 format = '''
 $directory$cmd_duration[❯](bold #b7ce97) 
 '''
