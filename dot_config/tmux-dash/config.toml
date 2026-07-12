@@ -8,6 +8,7 @@ model = true
 pane_name_model = false
 pane_name_harness = false
 harness_model = false
+preview = false
 
 [features.sidebar]
 jira = false
@@ -28,7 +29,7 @@ repos_ms = 15000
 pr_ci_ms = 900000
 
 [layout]
-sidebar_width = 28
+sidebar_width = 24
 show_sidebar = true
 
 [theme]
@@ -37,6 +38,7 @@ muted = "#9fb7a4"
 idle = "#dab183"
 working = "#a3b8c6"
 input = "#da858e"
+done = "#da858e"
 purple = "#c0aed2"
 blue = "#a3b8c6"
 new = "#a7cfbd"
@@ -49,10 +51,12 @@ stale = "#536571"
 ci_running = "#ccd19d"
 ci_failure = "#da858e"
 activity = "#a3b8c6"
-sel_bg = "#202325"
+sel_bg = "#40474b"
 bg_input = "#433030"
 bg_active_session = "#1e2528"
-scrollbar_thumb = "#a3b8c6"
+active_session_chip_bg = "#40474b"
+active_session_chip_fg = "#a7cfaf"
+scrollbar_thumb = "#a7cfaf"
 scrollbar_track = "#505e62"
 
 [view]
