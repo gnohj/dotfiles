@@ -223,6 +223,41 @@ return {
             end
             return result
           end,
+          -- ESLint v9 defaults to flat-config mode, but several web-monorepo
+          -- apps (e.g. apps-legacy/www) ship only a legacy `.eslintrc.cjs`.
+          -- The nvim 0.11 native eslint config leaves `useFlatConfig` unset, so
+          -- the server runs flat mode there and fails with
+          -- "-32603: Could not find config file". Detect the config flavor at
+          -- the resolved root and pin `useFlatConfig` per-root so flat apps
+          -- (vite8/*) and legacy apps both lint. Replicates the workspaceFolder
+          -- that the native before_init would otherwise set (it's overridden).
+          before_init = function(_, config)
+            local root_dir = config.root_dir
+            if not root_dir then
+              return
+            end
+            config.settings = config.settings or {}
+            config.settings.workspaceFolder = {
+              uri = root_dir,
+              name = vim.fn.fnamemodify(root_dir, ":t"),
+            }
+            local uv = vim.uv or vim.loop
+            local flat = false
+            for _, name in ipairs({
+              "eslint.config.js",
+              "eslint.config.mjs",
+              "eslint.config.cjs",
+              "eslint.config.ts",
+              "eslint.config.mts",
+              "eslint.config.cts",
+            }) do
+              if uv.fs_stat(root_dir .. "/" .. name) then
+                flat = true
+                break
+              end
+            end
+            config.settings.useFlatConfig = flat
+          end,
           settings = {
             format = true,
             run = "onType",
