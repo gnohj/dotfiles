@@ -1,4 +1,16 @@
 Host github.com
+  # UseKeychain is macOS-only; IgnoreUnknown lets Linux ssh parse this file
+  # without erroring on the keyword.
+  IgnoreUnknown UseKeychain
   AddKeysToAgent yes
   UseKeychain yes
   IdentityFile ~/.ssh/id_ed25519
+
+# herdr --remote VPS (uncomment + set HostName once the box exists). Agent
+# forwarding lets `git push` from the box sign with the key held in the Mac's
+# agent — the private key never lands on the server.
+# Host herdr-box
+#   HostName <tailscale-name-or-ip>
+#   User gnohj
+#   ForwardAgent yes
+#   IdentityFile ~/.ssh/id_ed25519

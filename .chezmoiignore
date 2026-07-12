@@ -39,3 +39,10 @@ dot_nix/nix-darwin
 # Nix-Darwin configuration
 dot_nix/nix-darwin/
 {{- end }}
+
+# Linux-only files (skip on macOS)
+{{- if eq .chezmoi.os "darwin" }}
+# Slim non-Nix toolchain bootstrap — only runs on a Linux VPS. .chezmoiignore
+# matches the TARGET name (source run_onchange_after_linux-bootstrap.sh.tmpl).
+linux-bootstrap.sh
+{{- end }}

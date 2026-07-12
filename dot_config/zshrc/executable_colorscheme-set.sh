@@ -265,6 +265,7 @@ generate_starship_config() {
 # Auto-generated starship config
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
+add_newline = false
 format = '''
 \$directory\$cmd_duration[❯](bold ${gnohj_color02}) 
 '''
@@ -310,6 +311,7 @@ EOF
 # Auto-generated starship config for infrastructure repos
 # https://starship.rs
 "\$schema" = 'https://starship.rs/config-schema.json'
+add_newline = false
 format = '''
 \${env_var.RADIO_CTL}
 \${env_var.AWS_PROFILE}
@@ -2358,6 +2360,95 @@ EOF
   echo "Pi theme updated at '$pi_theme_file'."
 }
 
+generate_herdr_config() {
+  # herdr draws its own UI (panels, split-pane borders, sidebar). Two knobs feed
+  # its colors, both mapped here from the gnohj_color* palette so herdr tracks
+  # the active scheme like every other tool:
+  #
+  #   * [theme.custom] - the full 15-token palette herdr accepts (Catppuccin role
+  #     names: panel_bg, surface0/1, surface_dim, overlay0/1, text, subtext0,
+  #     mauve, green, yellow, red, blue, teal, peach). Managed as a marker-
+  #     delimited block appended at EOF, so the hand-maintained [keys]/[remote]/
+  #     [session] config is never touched. panel_bg stays "reset" to preserve the
+  #     terminal background (herdr draws over it - keeps transparency working).
+  #   * [ui] accent - the active/focused border + nav highlight. It is NOT a
+  #     [theme.custom] token, so it is kept on its own line (retarget existing,
+  #     else inject under [ui]). Matched to gnohj_color03, identical to the tmux
+  #     active-pane border, so the focus cue is the same in herdr and plain tmux.
+  #
+  # Both the live target AND the chezmoi source are patched (no `chezmoi apply`
+  # drift; same spirit as tracking active-colorscheme.sh), then a running herdr
+  # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
+  # colors pass via env so the perl expressions need no shell-quote gymnastics.
+  local herdr_accent="$gnohj_color03"
+  local herdr_target="$HOME/.config/herdr/config.toml"
+  local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
+
+  local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
+  local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
+  local herdr_block
+  herdr_block="$(
+    cat <<EOF
+$herdr_begin
+[theme.custom]
+panel_bg = "reset"
+# surface_dim drives the sidebar active/selected row bg and surface0 the inactive
+# tab bg (verified live against herdr 0.7.3). Both set to gnohj_color26 - the same
+# dark tint tmux-dash uses for its active-session row (bg_active_session) - so the
+# active item reads as that subtle near-bg fill. surface1 tracks them for a flat ramp.
+surface_dim = "$gnohj_color26"
+surface0 = "$gnohj_color26"
+surface1 = "$gnohj_color26"
+overlay0 = "$gnohj_color13"
+overlay1 = "$gnohj_color46"
+subtext0 = "$gnohj_color09"
+text = "$gnohj_color14"
+mauve = "$gnohj_color01"
+# herdr colors the agent "idle" state with its green token and the "working" state
+# with its yellow token (both verified live). Point green at gnohj_color05 (idle)
+# and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
+# like tmux-dash's @chip_idle / @chip_working. NOTE: herdr has no per-state color
+# config, so any other element using green/yellow shifts with them.
+green = "$gnohj_color05"
+yellow = "$gnohj_color04"
+red = "$gnohj_color11"
+blue = "$gnohj_color04"
+teal = "$gnohj_color03"
+peach = "$gnohj_color06"
+$herdr_end
+EOF
+  )"
+
+  local herdr_file
+  for herdr_file in "$herdr_target" "$herdr_source"; do
+    [ -f "$herdr_file" ] || continue
+
+    # 1) [ui] accent: retarget an existing line, else inject under [ui]. The
+    #    inject branch is what makes this work on a target that predates the
+    #    accent line (fresh machine, or before the first `chezmoi apply`) -
+    #    without it the generator would be a silent no-op there.
+    if grep -qE '^[[:space:]]*accent[[:space:]]*=' "$herdr_file"; then
+      HERDR_ACCENT="$herdr_accent" perl -i -pe \
+        's/^(\s*accent\s*=).*/$1 "$ENV{HERDR_ACCENT}"/' "$herdr_file"
+    elif grep -qE '^\[ui\][[:space:]]*$' "$herdr_file"; then
+      HERDR_ACCENT="$herdr_accent" perl -i -pe \
+        'if (/^\[ui\]\s*$/) { $_ .= "accent = \"$ENV{HERDR_ACCENT}\"\n" }' "$herdr_file"
+    fi
+
+    # 2) [theme.custom] palette: strip any prior managed block (idempotent), then
+    #    re-append the freshly-interpolated one at EOF.
+    HERDR_BEGIN="$herdr_begin" HERDR_END="$herdr_end" perl -0777 -i -pe \
+      's/\n*\Q$ENV{HERDR_BEGIN}\E.*?\Q$ENV{HERDR_END}\E\n?//s' "$herdr_file"
+    printf '\n%s\n' "$herdr_block" >>"$herdr_file"
+  done
+
+  # Hot-reload a running herdr server so colors update without a restart.
+  if command -v herdr >/dev/null 2>&1; then
+    herdr server reload-config >/dev/null 2>&1 || true
+  fi
+  echo "herdr configuration updated (full palette + accent=$herdr_accent)."
+}
+
 # Always source the active colorscheme + regenerate the small config
 # files whose generation logic may have changed independently of the
 # theme (e.g. lazygit customCommands, lazydocker keymaps). Cheap — just
@@ -2424,6 +2515,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate pi theme
   generate_pi_theme
+
+  # Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
+  generate_herdr_config
 
   # Generate yazi theme
   generate_yazi_theme

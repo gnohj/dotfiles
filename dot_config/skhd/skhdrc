@@ -12,7 +12,10 @@ cmd - m : :
 cmd - h : :
 
 # Tmux window navigation
-rctrl - tab : /opt/homebrew/bin/tmux next-window # grave/backtick key (0x32)
+# rctrl - tab : moved to multiplexer-native binds so it works on herdr --remote too:
+#   tmux (native/dash) binds -n C-Tab → next-window (base.conf); herdr binds
+#   ctrl+tab → cycle_pane_next (config.toml). Freed from skhd so ctrl+tab reaches
+#   whichever multiplexer you're in. (grave/backtick key 0x32)
 rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
 rctrl - space : /opt/homebrew/bin/tmux last-window 2>/dev/null || { [ "$(/opt/homebrew/bin/tmux list-windows | wc -l)" -eq 2 ] && /opt/homebrew/bin/tmux next-window; } # toggle last two; fall back to the other window when only 2 exist and no jump history yet
 
@@ -34,11 +37,26 @@ rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
 # Launcher - Omarchy-style popup launcher
-rctrl - i : /opt/homebrew/bin/tmux display-popup -E -w 55% -h 55% ~/.config/launcher/launcher.sh
-rctrl - y : ~/.config/skhd/yazi-launch.sh
+rctrl - i : ~/.config/skhd/launcher-switcher.sh
+# rctrl - y : freed so ctrl+y reaches the multiplexer (like ctrl+g lazygit):
+#   tmux binds -n C-y → yazi-launch.sh (base.conf); herdr binds ctrl+y →
+#   yazi-herdr.sh (config.toml, server-side, --remote-safe).
+
+# kitty quake (quick-access) terminal — global toggle. Single-instance kitten:
+# each press shows/hides the same window. Config: ~/.config/kitty/quick-access-terminal.conf.
+# Plain kitty (no tmux/herdr in front), so yazi image previews render here.
+#
+# NOTE: cmd - s was removed — a global skhd cmd+s taps the key before any app
+# sees it, so it killed Save (and cmd+s) in ghostty and every GUI app. Pick a
+# conflict-free trigger below.
+cmd + ctrl - s : /Applications/kitty.app/Contents/MacOS/kitten quick-access-terminal --detach
 
 # rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
-rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
+# rctrl - a : FREED so ;-hold + a (right-ctrl+a) reaches the multiplexer as the
+#   prefix (tmux prefix C-a / herdr prefix ctrl+a). skhd was eating right-ctrl+a
+#   here — that's why manual LEFT-ctrl+a worked but ;+a did nothing. AI window
+#   relocated to rctrl+shift-a below.
+rctrl + shift - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
 rctrl - e : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
 # rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
@@ -61,7 +79,10 @@ rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 # rctrl - p - reserved for nvim - reserved for going to next history
 # rctrl - n - reserved for nvim - reserved for going to previous history
 # rctrl - h/j/k/l - reserved for nvim - navigation
-rctrl - g : ~/.config/skhd/lazygit.sh
+# rctrl - g : moved to multiplexer-native binds so lazygit works on herdr --remote:
+#   tmux (native/dash) binds -n C-g → lazygit.sh (base.conf); herdr binds ctrl+g →
+#   lazygit pane (config.toml, server-side). Freed from skhd so ctrl+g reaches the
+#   multiplexer instead of a client-side popup that can't reach a remote repo.
 rctrl + shift - g : ~/.config/skhd/lazygit-window.sh
 rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : "$HOME/.local/bin/tmux-dash" popup table # semicolon — tmux-dash agent dashboard, table view (treekanga moved into tmux-dash: press `w` in the view)

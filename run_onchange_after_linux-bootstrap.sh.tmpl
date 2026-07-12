@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# linux-bootstrap version: 1   (bump to force a re-run on `chezmoi apply`)
+#
+# Slim toolchain for a Linux VPS running herdr --remote. Installs the FOUNDATION
+# (mise, herdr, zinit, apt basics) + a best-effort core CLI set via mise. Nix is
+# NOT used on Linux — this is the deliberately-slim, non-Nix path. Skipped on
+# macOS via .chezmoiignore.
+#
+# Every step is best-effort (|| true / guarded) so a network hiccup never aborts
+# `chezmoi apply`.
+set -uo pipefail
+
+echo "==> Linux slim toolchain bootstrap"
+
+# 1. mise — runtimes + (via ubi/aqua/cargo backends) most CLIs.
+if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
+  echo "==> installing mise"
+  curl -fsSL https://mise.run | sh || echo "!! mise install failed — install manually: https://mise.run"
+fi
+MISE="$(command -v mise 2>/dev/null || echo "$HOME/.local/bin/mise")"
+
+# 2. herdr — the agent multiplexer / --remote server.
+if ! command -v herdr >/dev/null 2>&1; then
+  echo "==> installing herdr"
+  curl -fsSL https://herdr.dev/install.sh | sh || echo "!! herdr install failed — see https://herdr.dev"
+fi
+
+# 3. zinit — zsh plugin manager (zshrc self-clones too; seed it here).
+ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
+if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
+  echo "==> cloning zinit"
+  git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || true
+fi
+
+# 4. apt base packages — only with passwordless sudo, else print the one-liner.
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard"
+if command -v apt-get >/dev/null 2>&1; then
+  if sudo -n true 2>/dev/null; then
+    echo "==> apt: $APT_PKGS"
+    sudo -n apt-get update -y >/dev/null 2>&1 || true
+    sudo -n apt-get install -y $APT_PKGS >/dev/null 2>&1 || true
+  else
+    echo "==> skip apt (no passwordless sudo). Run once yourself:"
+    echo "    sudo apt-get update && sudo apt-get install -y $APT_PKGS"
+  fi
+fi
+
+# 5. Core CLIs via mise (best-effort per tool; adjust to taste). These mirror the
+#    Mac toolchain so nvim + shell feel identical over --remote.
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  echo "==> mise: core CLIs"
+  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship; do
+    "$MISE" use -g "$tool" >/dev/null 2>&1 || echo "   (skip $tool — check name with 'mise registry')"
+  done
+  # gitmux + sesh via ubi/aqua backends (no first-party mise registry entry).
+  "$MISE" use -g "ubi:arl/gitmux" >/dev/null 2>&1 || echo "   (skip gitmux — install manually)"
+  "$MISE" use -g "aqua:joshmedeski/sesh" >/dev/null 2>&1 || echo "   (skip sesh — install manually)"
+fi
+
+echo "==> bootstrap done."
+echo "    Confirm on PATH: mise herdr git zsh nvim rg fd lazygit"
+echo "    LSP servers / tree-sitter parsers install on first nvim launch."
