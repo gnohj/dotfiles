@@ -2,6 +2,7 @@
 
 let
   no-mistakes = pkgs.callPackage ./no-mistakes.nix { inherit pkgs lib; };
+  treehouse = pkgs.callPackage ./treehouse.nix { inherit pkgs lib; };
 in
 {
   # Cross-platform CLI utilities and tools
@@ -49,8 +50,12 @@ in
     # kitty moved to Homebrew cask — Nix builds it adhoc-signed, which fails
     # macOS launch constraints (CODESIGNING 4) when launched via `open`.
     tmux       # Terminal multiplexer
+    herdr      # AI-agent multiplexer (tmux-for-agents) — trialing locally
     # starship managed by zinit (see zshrc)
-    atuin      # Shell history
+    # atuin — moved to Homebrew (nix-darwin/modules/homebrew.nix). 18.17.0+
+    # requires rustc 1.96.1, newer than any current nixpkgs (still 1.95.0),
+    # so nix can only build 18.16.1. Homebrew ships a prebuilt 18.17 bottle.
+    # Move back to Nix once nixpkgs bumps rustc and packages 18.17.
 
     # AWS & Cloud
     awscli2    # AWS CLI
@@ -94,6 +99,9 @@ in
 
     # Dev workflow gate (not in nixpkgs — built from source)
     no-mistakes
+
+    # Pooled detached git worktrees for PR review (not in nixpkgs — built from source)
+    treehouse
   ];
 
 }
