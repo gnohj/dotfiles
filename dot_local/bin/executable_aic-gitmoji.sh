@@ -8,7 +8,7 @@
 # below that to leave headroom for the system prompt + JSON envelope.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:/usr/bin:/bin:$PATH"
 
 # Anything bigger than this character count routes to claude. ~28K chars
 # stays comfortably under the 8000-token cap (~32K chars / 4-chars-per-

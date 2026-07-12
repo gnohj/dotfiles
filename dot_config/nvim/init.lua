@@ -46,11 +46,21 @@ vim.g.loaded_matchit = 1
 -- bootstrap lazy.nvim, LazyVim and your plugins
 require("config.lazy")
 
--- Per-tmux-pane RPC socket so external tools (yazi launcher, etc.) can ask
--- this nvim instance for the current buffer path. Path is keyed off
--- TMUX_PANE so the right nvim is queried even when several are running.
-if vim.env.TMUX_PANE then
-  local socket = "/tmp/nvim-" .. vim.env.TMUX_PANE:gsub("%%", "") .. ".sock"
+-- Per-pane RPC socket so external tools (yazi launcher, lazygit-nvim-edit, etc.)
+-- can ask THIS nvim instance for the current buffer / open a file. Keyed off the
+-- pane id so the right nvim is queried when several run. Works under BOTH tmux
+-- (TMUX_PANE) and herdr (HERDR_PANE_ID). herdr takes precedence when both are set
+-- (herdr runs inside the `th` tmux wrapper, whose single TMUX_PANE would collide
+-- across herdr panes), so each herdr pane's nvim gets a distinct socket.
+local pane_key
+if vim.env.HERDR_PANE_ID and vim.env.HERDR_PANE_ID ~= "" then
+  -- HERDR_PANE_ID looks like "w1:p2" — sanitize non-alphanumerics for the filename.
+  pane_key = "herdr-" .. vim.env.HERDR_PANE_ID:gsub("[^%w]", "-")
+elseif vim.env.TMUX_PANE then
+  pane_key = vim.env.TMUX_PANE:gsub("%%", "")
+end
+if pane_key then
+  local socket = "/tmp/nvim-" .. pane_key .. ".sock"
   pcall(vim.fn.serverstart, socket)
   vim.api.nvim_create_autocmd("VimLeavePre", {
     callback = function()

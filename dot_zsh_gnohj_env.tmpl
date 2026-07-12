@@ -49,7 +49,11 @@ export LESS="-R"
 #-------------------------------------------------------------------------------
 # Tool-Specific Paths
 #-------------------------------------------------------------------------------
+{{- if eq .chezmoi.os "darwin" }}
 export PNPM_HOME="$HOME/Library/pnpm"
+{{- else }}
+export PNPM_HOME="$HOME/.local/share/pnpm"
+{{- end }}
 
 #-------------------------------------------------------------------------------
 # Platform Info (useful for conditional logic in scripts)

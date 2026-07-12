@@ -58,7 +58,7 @@ cursor-style-blink = false
 keybind = global:cmd+s=toggle_quick_terminal
 keybind = cmd+s=toggle_quick_terminal
 quick-terminal-animation-duration = 0.08
-quick-terminal-size = 25%
+quick-terminal-size = 50%
 quick-terminal-position = top
 
 # Ensure zsh runs as login shell to source Nix profile

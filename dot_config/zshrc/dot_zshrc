@@ -64,6 +64,33 @@ if [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ]; then
 fi
 
 #-------------------------------------------------------------------------------
+#--          Cross-platform shims (Linux VPS / herdr --remote)
+#-------------------------------------------------------------------------------
+# On non-macOS, define the macOS clipboard/open tools in terms of their Linux
+# equivalents so every existing call site (fze, gbc, pullreq, ticket, tmux
+# copy-pipe, …) keeps working untouched. Only defined when the real command is
+# absent, so a Linux box that happens to have them installed still wins.
+if [[ "$OSTYPE" != darwin* ]]; then
+  if ! command -v pbcopy >/dev/null 2>&1; then
+    if command -v wl-copy >/dev/null 2>&1; then
+      pbcopy() { wl-copy; }
+      pbpaste() { wl-paste; }
+    elif command -v xclip >/dev/null 2>&1; then
+      pbcopy() { xclip -selection clipboard; }
+      pbpaste() { xclip -selection clipboard -o; }
+    else
+      # OSC52: copy to the terminal's (client's) clipboard over any tty — ideal
+      # over SSH/herdr --remote, where there is no local X/Wayland clipboard.
+      pbcopy() { printf '\033]52;c;%s\a' "$(base64 | tr -d '\n')"; }
+      pbpaste() { :; }
+    fi
+  fi
+  if ! command -v open >/dev/null 2>&1; then
+    open() { xdg-open "$@" >/dev/null 2>&1 & }
+  fi
+fi
+
+#-------------------------------------------------------------------------------
 #--                      Nix Package Manager
 #-------------------------------------------------------------------------------
 # Source nix-daemon if installed (added by nix-darwin/Nix installer)
@@ -84,7 +111,17 @@ fi
 #--                           Zinit
 #-------------------------------------------------------------------------------
 
-source /opt/homebrew/opt/zinit/zinit.zsh
+# Source zinit from Homebrew on macOS, else from the standard git-clone location
+# ($ZINIT_HOME); clone it on first run if missing (Linux/VPS bootstrap).
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+if [[ -f "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/zinit/zinit.zsh" ]]; then
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/zinit/zinit.zsh"
+else
+  if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]] && command -v git >/dev/null 2>&1; then
+    git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" 2>/dev/null
+  fi
+  [[ -f "$ZINIT_HOME/zinit.zsh" ]] && source "$ZINIT_HOME/zinit.zsh"
+fi
 
 #-------------------------------------------------------------------------------
 #--                 Zinit - Prompt (Starship)
@@ -308,11 +345,18 @@ zinit snippet OMZP::golang
 
 # Load completions - run full audit once per day, use cache otherwise
 autoload -Uz compinit
-if [[ -f "$ZSH_COMPDUMP" && $(date +'%j') == $(stat -f '%Sm' -t '%j' "$ZSH_COMPDUMP" 2>/dev/null) ]]; then
+# Day-of-year of the compdump's mtime — BSD/macOS `stat -f` vs GNU/Linux `stat -c`.
+if _compdump_day=$(stat -f '%Sm' -t '%j' "$ZSH_COMPDUMP" 2>/dev/null); then
+  :
+else
+  _compdump_day=$(date -d "@$(stat -c '%Y' "$ZSH_COMPDUMP" 2>/dev/null)" +'%j' 2>/dev/null)
+fi
+if [[ -f "$ZSH_COMPDUMP" && $(date +'%j') == "$_compdump_day" ]]; then
   compinit -C -d "$ZSH_COMPDUMP"  # Same day: skip audit, use cache
 else
   compinit -d "$ZSH_COMPDUMP"     # New day: full audit + rebuild cache
 fi
+unset _compdump_day
 
 # Call this after zsh completion system loads.
 if [[ -n "$(command -v fzf)" ]]; then
@@ -376,6 +420,15 @@ export YSU_IGNORED_ALIASES=("vi" "vim")
 # Wrap yazi to preserve cwd when opening files in nvim
 alias y='YAZI_START_DIR="$PWD" yazi'
 
+# Run the Omarchy-style launcher directly in the current terminal (draws inline
+# via fzf) instead of through the tmux display-popup wrapper (launcher-switcher.sh
+# / skhd rctrl-i). Both entry points share ALL launcher logic (launcher.sh);
+# only the backend differs:
+#   launcher  → LAUNCHER_MODE=tmux  (window actions drive tmux; use inside tmux)
+#   ql        → LAUNCHER_MODE=herdr (window actions drive herdr; use in the quake)
+alias launcher='~/.config/launcher/launcher.sh'
+alias ql='~/.config/launcher/launcher-quake.sh'
+
 # Zinit Status
 alias zstatus='zinit status'
 
@@ -399,6 +452,13 @@ td() {
   fi
   z ~/Developer/tmux-dash && cargo run --release -- "${sock[@]}" "$@"
 }
+
+# tmux profiles — the default `tmux`/`sesh` flow uses ~/.config/tmux/tmux.conf
+# (base + agentic HUD). These select the alternate profiles:
+#   tn — clean personal tmux, no agent HUD (base only)
+#   th — invisible host on a dedicated -L herdr socket for the herdr client
+alias tn='tmux -f ~/.config/tmux/native.conf'
+alias th='tmux -L herdr -f ~/.config/tmux/herdr.conf'
 
 # Github Dash
 alias ghd='gh-dash'
@@ -727,7 +787,7 @@ alias c='clear'
 # also hands back the matching config dir + OAuth token. `claude`, `cs`, `cr`, and
 # the nvim dashboard all go through it, so just `cd` into a repo and launch.
 # Force a different account for THIS shell with `cw` (toggle) / `cauto` (clear).
-CLAUDE_BIN="/opt/homebrew/bin/claude"
+CLAUDE_BIN="$(command -v claude 2>/dev/null || echo /opt/homebrew/bin/claude)"
 
 claude() {
 	local dir tok
@@ -818,9 +878,9 @@ outdated() {
   local mas_g=$((16#${mas_color_hex:2:2}))
   local mas_b=$((16#${mas_color_hex:4:2}))
 
-  local brew_outdated=$(brew outdated)
+  local brew_outdated=$(command -v brew >/dev/null 2>&1 && brew outdated)
   local mise_outdated=$(mise outdated 2>/dev/null)
-  local mas_outdated=$(mas outdated)
+  local mas_outdated=$(command -v mas >/dev/null 2>&1 && mas outdated)
 
   if [[ -n "$brew_outdated" ]]; then
     echo "$brew_outdated" | awk -v r="$brew_r" -v g="$brew_g" -v b="$brew_b" '{print "\033[38;2;" r ";" g ";" b "mbrew\033[0m package: " $1}'
@@ -1194,4 +1254,4 @@ if [[ -x /usr/local/bin/aws_completer ]]; then
 fi
 
 # opencode
-export PATH=/Users/gnohj/.opencode/bin:$PATH
+export PATH="$HOME/.opencode/bin:$PATH"

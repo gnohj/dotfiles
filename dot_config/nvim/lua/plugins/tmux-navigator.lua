@@ -5,6 +5,12 @@ return {
   -- actually drives <C-hjkl> nvim<->tmux pane navigation.
   {
     "christoomey/vim-tmux-navigator",
+    -- Skip entirely inside a herdr pane (HERDR_SOCKET_PATH set): there,
+    -- herdr-navigator.lua owns <C-hjkl>. Everywhere else (the Mac under tmux)
+    -- this loads exactly as before, so no behavior change off-herdr.
+    cond = function()
+      return vim.env.HERDR_SOCKET_PATH == nil
+    end,
     -- Own every <C-hjkl> mapping ourselves (below) so the plugin never installs
     -- its default <C-h> → TmuxNavigateLeft over our custom sidebar-aware one.
     init = function()

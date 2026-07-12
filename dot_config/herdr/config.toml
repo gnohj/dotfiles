@@ -1,0 +1,136 @@
+# herdr — https://herdr.dev/docs/configuration/
+# Deploys to macOS and Linux (harmless on the Mac if herdr is also used locally).
+# Resolve the effective path with `herdr --help`; export defaults with
+# `herdr --default-config`.
+
+[keys]
+# ctrl+a matches the tmux prefix muscle memory. The `th` wrapper tmux runs with
+# `prefix None` + `unbind C-a`, so ctrl+a passes straight through to herdr here.
+# Note: herdr can't distinguish left vs right ctrl (the terminal collapses both),
+# so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
+prefix = "ctrl+a"
+
+# prefix+tab toggles back-and-forth to the last-focused pane (tmux-style alternate).
+# Directional movement is already covered by the direct ctrl+h/j/k/l chords
+# (vim-herdr-navigation below), so prefix+tab is better spent on the toggle than on
+# cycle-next. ctrl+tab as a DIRECT chord doesn't survive the Ghostty → th-tmux →
+# herdr chain (special key, two hops of disambiguation) — but after the prefix it's
+# just a plain `tab`, which is bulletproof. With the one-tap kanata prefix (or
+# ;-hold+a), this is [prefix]+tab. prefix+shift+tab still cycles for a sequential walk.
+last_pane = "prefix+tab"
+cycle_pane_previous = "prefix+shift+tab"
+
+# lazygit as a real herdr pane (runs server-side, where the repo lives — works
+# local AND --remote). Direct chord ctrl+g for single-motion (;-hold + g).
+# NOTE: ctrl+g is thereby taken from pane apps (nvim "show file info", readline
+# abort) — switch to "ctrl+alt+g" if that bites. (prefix+shift+g was wrong: it's
+# herdr's built-in new_worktree.)
+[[keys.command]]
+key = "ctrl+g"
+type = "pane"
+command = "lazygit"
+description = "lazygit (server-side, on the pane's repo)"
+
+# yazi seeded from the sibling nvim's current buffer (or its cwd) — herdr
+# counterpart of the tmux rctrl-y launcher. Direct chord ctrl+y (;-hold + y),
+# matching ctrl+g lazygit. skhd's rctrl-y is freed so ctrl+y reaches herdr; tmux
+# mirrors it with -n C-y. NOTE: side-blind — takes ctrl+y from nvim (scroll-up) /
+# readline (yank), same tradeoff as ctrl+g.
+[[keys.command]]
+key = "ctrl+y"
+type = "pane"
+command = "yazi-herdr.sh"
+description = "yazi (seeded from the sibling nvim buffer / cwd)"
+
+[theme]
+# Match the tokyonight scheme without needing the macOS colorscheme tooling.
+name = "terminal"
+auto_switch = false
+
+[remote]
+# Write a private temp SSH config (includes ~/.ssh/config) with keepalive +
+# per-attach control sockets for connection reuse over `herdr --remote`.
+manage_ssh_config = true
+
+[ui]
+mouse_capture = true
+
+# Active/focused split-pane border + nav highlight. This `accent` line and the
+# generated [theme.custom] block at the bottom of this file are both retargeted
+# to the active colorscheme by generate_herdr_config in colorscheme-set.sh on
+# every theme switch - value here is just the current-scheme seed (gnohj_color03,
+# same as the tmux active-pane border). accent is NOT a [theme.custom] token, so
+# it has to live here under [ui].
+accent = "#a7cfbd"
+
+[session]
+resume_agents_on_restore = true
+
+# vim-herdr-navigation (https://github.com/paulbkim-dev/vim-herdr-navigation):
+# seamless ctrl+h/j/k/l across herdr panes AND Neovim splits. On each press the
+# action checks the focused pane's foreground process via `herdr pane
+# process-info` (needs jq) — if it's vim/nvim it forwards the key into that pane,
+# otherwise it moves herdr's focus. The Neovim half is wired in
+# dot_config/nvim/lua/plugins/herdr-navigator.lua. Direct chords (no prefix), so
+# the `th` passthrough tmux (prefix None) hands ctrl+h/j/k/l straight to herdr.
+#
+# Requires the herdr-side plugin to be installed (otherwise these error "plugin
+# action not found"):  herdr plugin install paulbkim-dev/vim-herdr-navigation
+[[keys.command]]
+key = "ctrl+h"
+type = "plugin_action"
+command = "vim-herdr-navigation.left"
+description = "navigate left (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+j"
+type = "plugin_action"
+command = "vim-herdr-navigation.down"
+description = "navigate down (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+k"
+type = "plugin_action"
+command = "vim-herdr-navigation.up"
+description = "navigate up (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+l"
+type = "plugin_action"
+command = "vim-herdr-navigation.right"
+description = "navigate right (vim/herdr)"
+
+[experimental]
+# Render the Kitty graphics protocol inside herdr panes so yazi image previews,
+# image.nvim, etc. actually draw. herdr sits between yazi and the outer terminal
+# and swallows graphics escapes unless this is on. Outer terminal is ghostty,
+# which is Kitty-graphics-compatible, so the requirement is met. Flagged
+# experimental by herdr (0.7.3) — previews may still be imperfect.
+kitty_graphics = true
+# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>
+[theme.custom]
+panel_bg = "reset"
+# surface_dim drives the sidebar active/selected row bg and surface0 the inactive
+# tab bg (verified live against herdr 0.7.3). Both set to gnohj_color26 - the same
+# dark tint tmux-dash uses for its active-session row (bg_active_session) - so the
+# active item reads as that subtle near-bg fill. surface1 tracks them for a flat ramp.
+surface_dim = "#1e2528"
+surface0 = "#1e2528"
+surface1 = "#1e2528"
+overlay0 = "#536571"
+overlay1 = "#7a90a0"
+subtext0 = "#9fb7a4"
+text = "#b8c9d3"
+mauve = "#c0aed2"
+# herdr colors the agent "idle" state with its green token and the "working" state
+# with its yellow token (both verified live). Point green at gnohj_color05 (idle)
+# and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
+# like tmux-dash's @chip_idle / @chip_working. NOTE: herdr has no per-state color
+# config, so any other element using green/yellow shifts with them.
+green = "#dab183"
+yellow = "#a3b8c6"
+red = "#da858e"
+blue = "#a3b8c6"
+teal = "#a7cfbd"
+peach = "#dc988e"
+# <<< colorscheme-set: herdr theme palette <<<

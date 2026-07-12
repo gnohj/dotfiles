@@ -14,6 +14,13 @@ set -euo pipefail
 
 SELF="${BASH_SOURCE[0]}"
 
+# Backend mode. `tmux` (default): the launcher runs inside a tmux popup, so
+# window-opening / pane actions drive tmux. `herdr`: the launcher runs standalone
+# (e.g. the ghostty quake), so those actions drive herdr's socket API instead.
+# Entry points set this; ALL the menu/registry/engine logic below is shared and
+# identical for both. See launcher-quake.sh for the herdr entry point.
+LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
+
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
@@ -64,13 +71,13 @@ ACTIONS=(
   "🔧 System|👤 User Setup|act_system_usersetup|Run user-setup.sh (dotfiles, configs)"
   "🔧 System|🎯 All (update + setup + user-setup)|act_system_all|Run all three setup steps in sequence with one sudo prompt"
 
-  "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
-  "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
+  "🌳 Worktrees|[tmux] 🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
+  "🌳 Worktrees|[tmux] ✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
   "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira|Capture the active Chrome Jira tab and create a worktree"
-  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
-  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
-  "🌳 Worktrees|🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
-  "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
+  "🌳 Worktrees|[tmux] 📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
+  "🌳 Worktrees|[tmux] 🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
+  "🌳 Worktrees|[tmux] 🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
+  "🌳 Worktrees|[tmux] 🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
 # Top-level actions with no submenu — label|function|description
@@ -78,7 +85,7 @@ SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
-  "📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
+  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
@@ -87,7 +94,7 @@ SIMPLE_ACTIONS=(
 TOP_LEVEL_ORDER=(
   "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
-  "simple:📋 Copy Pane Address"
+  "simple:[tmux] 📋 Copy Pane Address"
   "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
@@ -136,14 +143,31 @@ action_fn() {
   return 1
 }
 
+# Actions that must KEEP the quake open after running (herdr mode): they run long,
+# prompt for a keypress (read -k1), or drive their own interactive UI / output you
+# read in place. Everything else auto-dismisses the quake once chosen. Names are
+# the dispatched function names. (No effect in tmux mode — dismiss_quake no-ops.)
+KEEP_QUAKE_OPEN="act_system_setup act_system_update act_system_usersetup act_system_all act_outdated act_cleanup_logs act_dirty_repos act_fzf_aliases act_fzf_env act_fzf_logs act_sync_autopush"
+
+# Run a terminal action, then dismiss the quake unless it's in KEEP_QUAKE_OPEN.
+run_action() {
+  local fn="$1"
+  shift
+  "$fn" "$@"
+  case " $KEEP_QUAKE_OPEN " in
+  *" $fn "*) : ;;
+  *) dismiss_quake ;;
+  esac
+}
+
 # Run a chosen leaf. $1=prefix $2=label $3=leaf_handler.
 run_leaf() {
   if [ "$3" = static ]; then
     local fn
     fn=$(action_fn "$1" "$2") || { main_menu; return; }
-    "$fn"
+    run_action "$fn"
   else
-    "$3" "$2"
+    run_action "$3" "$2"
   fi
 }
 
@@ -284,7 +308,7 @@ dispatch_root() {
   local s lbl fn desc
   for s in "${SIMPLE_ACTIONS[@]}"; do
     IFS='|' read -r lbl fn desc <<<"$s"
-    [ "$choice" = "$lbl" ] && { "$fn"; return; }
+    [ "$choice" = "$lbl" ] && { run_action "$fn"; return; }
   done
   exit 0
 }
@@ -318,7 +342,7 @@ themes_filtered() {
   ) || true
   case "$sel" in
   "← Back" | "") themes_menu ;;
-  *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel" ;;
+  *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel"; dismiss_quake ;;
   esac
 }
 
@@ -335,7 +359,7 @@ aerospace_menu() {
   ) || true
   case "$choice" in
   "← Back" | "") main_menu ;;
-  *) handle_aerospace "$choice" ;;
+  *) handle_aerospace "$choice"; dismiss_quake ;;
   esac
 }
 
@@ -361,14 +385,137 @@ aliases_menu() {
 # Actions (bodies ported verbatim; load-bearing comments kept)
 #===============================================================================
 
-act_ai_codeburn() { ~/.config/skhd/tmux-window-simple.sh 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true; }
-act_ai_rtk() { ~/.config/skhd/tmux-window-simple.sh 📊 rtk "/opt/homebrew/bin/rtk gain --graph"; }
+# Resolve the working directory of the pane the launcher should act on, across
+# every context the launcher can run in:
+#
+#   * plain tmux (default socket or any -L server): the active pane of the
+#     active window IS the repo pane. A bare `display-message -p
+#     '#{pane_current_path}'` can resolve to the popup itself (same trap fixed
+#     in act_copy_pane_address), so we read it from `list-panes` instead —
+#     popups are excluded from `list-panes`, so the real pane wins every time.
+#   * herdr (launcher drawn in the tmux popup): the `-L herdr` tmux host is an
+#     INVISIBLE shell — its only pane runs the `herdr` client, and the actual
+#     repo pane is managed by herdr, not tmux (so tmux only ever reports the
+#     herdr host's cwd, ~). Detect that (active tmux pane command == herdr) and
+#     ask herdr's socket API for the focused pane's cwd instead.
+#   * NO multiplexer around us (run via the `launcher` alias in the ghostty quake
+#     or any plain shell): tmux reports nothing, so ask herdr's socket for its
+#     GLOBALLY-focused pane cwd (see herdr_focused_cwd above).
+#
+# Empty output lets callers fall back to $PWD. Every step is guarded so a
+# missing tool / stopped server degrades to the plain-tmux path, never worse
+# than the pre-fix behavior.
+# herdr's GLOBALLY-focused pane cwd, straight over the socket API — needs neither
+# tmux nor the HERDR pane env, so it resolves from the ghostty quake or any
+# standalone shell. herdr's own focus does not move when macOS focus shifts to
+# the quake window, so this still points at the pane you were looking at.
+herdr_focused_cwd() {
+  command -v herdr >/dev/null 2>&1 || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  herdr api snapshot 2>/dev/null | jq -r '
+    .result.snapshot as $s
+    | $s.panes[]? | select(.pane_id == $s.focused_pane_id)
+    | .foreground_cwd // .cwd // empty' 2>/dev/null
+}
+
+focused_pane_path() {
+  local line cmd path hcwd
+  # `|| true` so a failing tmux (running standalone, e.g. from the quake, where
+  # there is no tmux server) does not trip `set -euo pipefail` and abort the whole
+  # launcher before the herdr-focus fallback below can run.
+  line=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' \
+    -F '#{pane_current_command}	#{pane_current_path}' 2>/dev/null | head -1) || true
+  cmd=${line%%$'\t'*}
+  path=${line#*$'\t'}
+
+  if [ "$cmd" = herdr ] && command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    hcwd=$(herdr pane process-info --current 2>/dev/null |
+      jq -r '[.result.process_info.foreground_processes[].cwd]
+               | map(select(. != null and . != "")) | .[-1] // empty' 2>/dev/null) || hcwd=""
+    [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
+  fi
+
+  # No tmux context around us (run via the `launcher` alias in the ghostty quake
+  # or any plain shell): ask herdr's socket for its globally-focused pane cwd.
+  if [ -z "$path" ]; then
+    hcwd=$(herdr_focused_cwd) && [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
+  fi
+
+  printf '%s' "$path"
+}
+
+# Transient message. tmux mode uses the tmux status line; standalone prints inline.
+notify() {
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    echo "$1"
+    sleep 1.5
+  else
+    tmux display-message -d 3000 "$1" 2>/dev/null || { echo "$1"; sleep 1.5; }
+  fi
+}
+
+# Open <cmd> in a fresh window/tab labeled <label>, optionally rooted at <dir>.
+# tmux mode → new tmux window. herdr mode → new herdr tab in the focused
+# workspace (herdr defaults the new tab to the focused workspace), then run <cmd>
+# in that tab's root pane over the socket API.
+open_window() {
+  local label="$1" cmd="$2" dir="${3:-}" pane
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 ||
+      { notify "herdr/jq not available"; return 1; }
+    pane=$(herdr tab create --label "$label" ${dir:+--cwd "$dir"} --focus 2>/dev/null |
+      jq -r '.result.root_pane.pane_id // empty') || pane=""
+    if [ -n "$pane" ]; then
+      herdr pane run "$pane" "$cmd"
+    else
+      notify "herdr: could not open tab"
+    fi
+  else
+    tmux new-window -n "$label" "$cmd" 2>/dev/null || { notify "tmux: could not open window"; return 1; }
+  fi
+}
+
+# Open a NAMED command window. tmux mode delegates to tmux-window-simple.sh (which
+# reuses a window by emoji and keeps the shell alive after the command); herdr
+# mode opens a herdr tab running the command (optionally keeping a shell open).
+open_named_window() {
+  local emoji="$1" name="$2" cmd="$3" keepopen="${4:-}" run
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    run="$cmd"
+    [ -n "$keepopen" ] && run="$cmd; exec ${SHELL:-/bin/zsh} -l"
+    open_window "$emoji" "$run"
+  else
+    ~/.config/skhd/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
+  fi
+}
+
+# In herdr mode the launcher runs inside the ghostty quake; once an action hands
+# off to a herdr tab, dismiss the quake so the herdr window comes forward. Ghostty
+# has no CLI to toggle the quick terminal, so we send its toggle keybind (cmd+s,
+# per ghostty/config `keybind = cmd+s=toggle_quick_terminal`) via System Events —
+# key code 1 = 's'. Best-effort: needs Accessibility permission for the terminal;
+# silently no-ops otherwise. Only fires in herdr mode (the quake), never in tmux.
+dismiss_quake() {
+  [ "$LAUNCHER_MODE" = herdr ] || return 0
+  command -v osascript >/dev/null 2>&1 || return 0
+  osascript -e 'tell application "System Events" to key code 1 using {command down}' >/dev/null 2>&1 || true
+}
+
+# Guard for actions still wired only to tmux: in herdr mode, say so and bail
+# instead of aborting the launcher under `set -euo pipefail`.
+require_tmux() {
+  [ "$LAUNCHER_MODE" = herdr ] && { notify "'$1' is tmux-only for now"; return 1; }
+  return 0
+}
+
+act_ai_codeburn() { open_named_window 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true; }
+act_ai_rtk() { open_named_window 📊 rtk "/opt/homebrew/bin/rtk gain --graph"; }
 act_ai_claude_personal() { "$HOME/.local/bin/claude-desktop" personal; }
 act_ai_claude_work() { "$HOME/.local/bin/claude-desktop" work; }
 
 act_browser_pr() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-  pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
+  pane_path=$(focused_pane_path)
   cd "${pane_path:-$PWD}" 2>/dev/null || true
   if gh pr view --web 2>/dev/null; then
     echo "Opened PR for current branch"
@@ -386,8 +533,8 @@ act_browser_pr() {
 
 act_browser_jira() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-  pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
-  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+  pane_path=$(focused_pane_path)
+  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null) || branch=""
   if [ -z "$branch" ]; then
     echo "Not in a git repository"
   else
@@ -412,10 +559,10 @@ act_notes_current() {
   # Open the Obsidian vault note(s) for the ticket / unticketed worktree behind
   # the focused pane. Globs Notes/work/<id>-*.md and Notes-Inbox/<id>*.md (the
   # convention from /sb-ticket-capture and /sb-ingest-mine).
-  pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
-  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+  pane_path=$(focused_pane_path)
+  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null) || branch=""
   if [ -z "$branch" ]; then
-    tmux display-message -d 3000 "not in a git repo"
+    notify "not in a git repo"
     return
   fi
   if [[ "$branch" =~ ([A-Z]+-[0-9]+) ]]; then
@@ -430,16 +577,16 @@ act_notes_current() {
       ls "$VAULT/Notes-Inbox/${ID}"*.md 2>/dev/null
     } | sort -u
   )
-  COUNT=$(printf '%s' "$MATCHES" | grep -c .)
-  # Open in a NEW tmux window, not a nested popup: the launcher already runs in
-  # a tmux popup (skhd rctrl-i), and `display-popup` from within a popup races
-  # the outer one's lifecycle and never visibly opens. `new-window` is immune.
+  COUNT=$(printf '%s' "$MATCHES" | grep -c .) || COUNT=0
+  # open_window abstracts the multiplexer: a new tmux window in tmux mode, a new
+  # herdr tab in herdr mode. (Avoids nested popups: the launcher may itself run in
+  # a tmux popup, and display-popup-from-popup races the outer one's lifecycle.)
   case "$COUNT" in
-  0) tmux display-message -d 3000 "no vault note for $ID" ;;
-  1) tmux new-window -n "📝" "nvim '$MATCHES'" ;;
+  0) notify "no vault note for $ID" ;;
+  1) open_window "📝" "nvim '$MATCHES'" "${pane_path:-$PWD}" ;;
   *)
     PICK=$(printf '%s\n' "$MATCHES" | $HOME/.local/bin/fzf-vim.sh --prompt '📝 ') || true
-    [ -n "$PICK" ] && tmux new-window -n "📝" "nvim '$PICK'"
+    [ -n "$PICK" ] && open_window "📝" "nvim '$PICK'" "${pane_path:-$PWD}"
     ;;
   esac
 }
@@ -549,13 +696,13 @@ act_system_all() {
 # Worktree AI actions hand off via `tmux run-shell -b`: the launcher runs inside
 # a tmux popup and these open another popup; tmux can't nest popups, so the
 # server schedules them for after this popup closes.
-act_worktree_add() { ~/.config/treekanga/treekanga-add.sh; }
-act_worktree_ai_prompt() { tmux run-shell -b "$HOME/.local/bin/worktree-prompt"; }
+act_worktree_add() { require_tmux "Add Worktree" || return; ~/.config/treekanga/treekanga-add.sh; }
+act_worktree_ai_prompt() { require_tmux "AI Add Worktree (prompt)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-prompt"; }
 act_worktree_jira() { ~/.local/bin/worktree-jira; }
-act_worktree_clipboard() { tmux run-shell -b "$HOME/.local/bin/worktree-clipboard"; }
-act_worktree_bug() { tmux run-shell -b "$HOME/.local/bin/worktree-bug"; }
-act_worktree_retry() { tmux run-shell -b "$HOME/.local/bin/worktree-retry"; }
-act_worktree_delete() { ~/.config/treekanga/treekanga-rm.sh; }
+act_worktree_clipboard() { require_tmux "AI Add Worktree (clipboard)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-clipboard"; }
+act_worktree_bug() { require_tmux "AI Add Worktree (bug)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-bug"; }
+act_worktree_retry() { require_tmux "AI Retry capture" || return; tmux run-shell -b "$HOME/.local/bin/worktree-retry"; }
+act_worktree_delete() { require_tmux "Delete Worktree" || return; ~/.config/treekanga/treekanga-rm.sh; }
 
 act_outdated() {
   zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"
@@ -573,8 +720,8 @@ act_cleanup_logs() {
 }
 
 act_copy_branch() {
-  pane_path=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
-  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null)
+  pane_path=$(focused_pane_path)
+  branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null) || branch=""
   if [ -n "$branch" ]; then
     printf '%s' "$branch" | pbcopy
     echo "Copied branch: $branch"
@@ -591,7 +738,8 @@ act_copy_branch() {
 # are shown 1-based to match the status bar (tmux is 0-based internally); the raw
 # #{pane_id} (%N) is the unambiguous target — Hunk review sessions match on it.
 act_copy_pane_address() {
-  target=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' -F '#{pane_id}' 2>/dev/null | head -1)
+  require_tmux "Copy Pane Address" || return
+  target=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' -F '#{pane_id}' 2>/dev/null | head -1) || target=""
   if [ -n "$target" ]; then
     addr=$(tmux display-message -t "$target" -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
   else

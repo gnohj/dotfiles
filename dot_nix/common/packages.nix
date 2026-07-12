@@ -72,6 +72,8 @@ in
 
     # Image processing for terminal
     imagemagick
+    ffmpeg     # yazi video preloader (.mov/.mp4 thumbnails) — without it,
+               # video preloader tasks never finish ("unfinished tasks" on quit)
 
     # Fonts (new nerd-fonts namespace)
     nerd-fonts.hasklug       # Ghostty primary (Hasklig Nerd Font)

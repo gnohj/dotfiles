@@ -1,2 +1,14 @@
 #  Zshell entry point
 export ZDOTDIR=$HOME/.config/zshrc
+
+# ~/.local/bin must be on PATH for EVERY zsh, not just interactive ones. .zshenv
+# is sourced by all invocations (login, non-login, interactive or not); .zshrc is
+# interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
+# to launch pane commands, and which tmux/skhd launchers use - never read .zshrc,
+# so anything living only in ~/.local/bin (yazi-herdr.sh, claude-account, worktree
+# helpers, ...) was unresolvable from those chains. Setting it here fixes it
+# locally and over `herdr --remote` (each host resolves its own ~/.local/bin).
+# typeset -U keeps PATH duplicate-free; .zshrc re-prepends it to preserve the
+# original front-precedence for interactive shells without adding a second entry.
+typeset -U path PATH
+export PATH="$HOME/.local/bin:$PATH"

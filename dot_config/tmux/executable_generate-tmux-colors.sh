@@ -3,7 +3,15 @@
 # shellcheck disable=SC1090
 # shellcheck disable=SC1091
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null || true
+
+# Defensive defaults (Tokyo Night-ish) for the vars this script emits, in case
+# the active palette is momentarily unavailable (e.g. mid `chezmoi apply` on a
+# fresh box). Keeps the generated file from emitting empty `fg=`/`bg=` styles.
+: "${gnohj_color01:=#c0aed2}" "${gnohj_color02:=#b7ce97}" "${gnohj_color03:=#a7cfbd}"
+: "${gnohj_color04:=#a3b8c6}" "${gnohj_color05:=#dab183}" "${gnohj_color09:=#9fb7a4}"
+: "${gnohj_color10:=#0f1419}" "${gnohj_color11:=#da858e}" "${gnohj_color13:=#536571}"
+: "${gnohj_color14:=#b8c9d3}" "${gnohj_color17:=#40474b}" "${gnohj_color24:=#a7cfaf}"
 
 OUTPUT_FILE="$HOME/.config/tmux/tmux-colors.conf"
 
@@ -81,7 +89,7 @@ set -g @chip_green "${gnohj_color24}"
 set -g @chip_gray "${gnohj_color17}"
 # Status pill colors — mirror the sidebar's theme.working/idle/input/done/new
 # (see state::load_theme) so the border pills and the agent list agree at a
-# glance. `input`, `done`, and `limit` all share the red (color11) — they're the
+# glance. \`input\`, \`done\`, and \`limit\` all share the red (color11) — they're the
 # "needs you" states — distinguished by the pill's text, not color.
 set -g @chip_working "${gnohj_color04}"
 set -g @chip_idle "${gnohj_color05}"
