@@ -61,7 +61,7 @@ rctrl - e : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — land
 # rctrl - x : top/bottom horizontal split (see line below for binding)
 # rctrl - c : freed for native tmux copy
 rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
-rctrl - 0x2F : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "/opt/homebrew/bin/herdr" true # herdr (period)
+rctrl - 0x2F : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "herdr" true # herdr (period) — bare name, PATH-resolved (nix: /run/current-system/sw/bin/herdr); the old /opt/homebrew/bin/herdr path doesn't exist
 rctrl - 0x2C : "$HOME/.local/bin/tmux-dash" popup # tmux-dash agent dashboard (forward slash) — opens the view in a tmux popup on the *focused* server (tmux-dash infers it), so one key works across default/personal/work. Table of agents; enter switches, i jumps to next input, q/escape closes
 rctrl + shift - m : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
 rctrl + shift - 0x2F : "$HOME/.local/bin/tmux-dash" toggle-sidebar # show/hide the tmux-dash sidebar; running td live-applies (period)
