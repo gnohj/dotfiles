@@ -47,9 +47,10 @@ fi
 
 tmux set-option -t "$SESSION" @nvim_fast_done 1
 
-# --- pen window (window 0): fast, surviving nvim ------------------------------
-tmux respawn-window -k -t "${SESSION}:0" "zsh -i -c 'cd \"$DIR\"; nvim; exec zsh'"
-mark_window "${SESSION}:0" pen
+# --- pen window (window 1): fast, surviving nvim ------------------------------
+# base-index 1 (base.conf) → the session's first window is :1, not :0.
+tmux respawn-window -k -t "${SESSION}:1" "zsh -i -c 'cd \"$DIR\"; nvim; exec zsh'"
+mark_window "${SESSION}:1" pen
 
 # --- fish window: 3 background panes (-d keeps focus on nvim) ------------------
 create_fish_window "$SESSION" "$DIR"
