@@ -1,8 +1,8 @@
--- Helper to open command in a new tmux window with zen disabled
-local function open_in_tmux(cmd, window_name)
-  local cwd = vim.fn.getcwd()
+-- Open a diffview command in a new multiplexer window (tmux or herdr) with zen
+-- disabled. The window's nvim self-quits on close via the view_closed hook.
+local function open_in_window(cmd, window_name)
   local shell_cmd = string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
-  vim.fn.jobstart({ "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd }, { detach = true })
+  require("config.mux").new_window(shell_cmd, { name = window_name })
 end
 
 return {
@@ -17,9 +17,9 @@ return {
           vim.notify("No file to show history for", vim.log.levels.WARN)
           return
         end
-        open_in_tmux("DiffviewFileHistory " .. vim.fn.fnameescape(file), "📜")
+        open_in_window("DiffviewFileHistory " .. vim.fn.fnameescape(file), "📜")
       end,
-      desc = "File history (tmux)",
+      desc = "File history (window)",
     },
   },
   opts = {

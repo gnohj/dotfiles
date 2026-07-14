@@ -17,25 +17,10 @@ local function is_vault_context()
   return session == "second-brain" or session == "second_brain"
 end
 
--- Smart tmux split for AI agent CLIs (claude, pi, ...):
--- - 1 existing pane (nvim only) → split + resize nvim to 75%
--- - 2+ existing panes → split + even-horizontal layout (equal-width panes)
+-- Smart multiplexer split for AI agent CLIs (claude, pi, ...). Dispatches to
+-- tmux or herdr depending on the live multiplexer; see config/mux.lua.
 local function agent_split(cmd)
-  local cwd = vim.fn.getcwd()
-  local pane_count = tonumber(
-    vim.fn.system("tmux list-panes | wc -l | tr -d ' '")
-  ) or 1
-  if pane_count == 1 then
-    -- Split atomically at final size (-l 25%) so the agent's TUI reads
-    -- correct dimensions on first paint. A post-split resize races with
-    -- the agent's startup render and corrupts styled segments.
-    vim.fn.system(
-      'tmux split-window -h -l 25% -c "' .. cwd .. '" "' .. cmd .. '"'
-    )
-  else
-    vim.fn.system('tmux split-window -h -c "' .. cwd .. '" "' .. cmd .. '"')
-    vim.fn.system("tmux select-layout even-horizontal")
-  end
+  require("config.mux").agent_split(cmd)
 end
 
 -- Generate the post-processed figlet block for `name`/`font`, memoized to disk.
@@ -120,21 +105,30 @@ local function get_header()
     { link = "SnacksDashboardDesc" }
   )
 
-  local name = vim.fn.system('tmux display-message -p "#S"')
-  if vim.v.shell_error ~= 0 or name:match("^%s*$") then
-    name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
-  else
-    name = name:gsub("%s+$", "")
-    name = name:match("[^/]+$") or name
-  end
+  -- Derive the header name from the cwd (worktree) basename. We used to read
+  -- the tmux session name (`#S`), but herdr manages tmux sessions with numeric
+  -- names (`12`) and keeps the human label in its own state, so `#S` rendered a
+  -- meaningless number. The cwd basename is the worktree/branch name we want.
+  local name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
 
-  -- Strip a Jira ticket prefix (e.g. "IHRWEB-23670-") from the figlet
-  -- display so a worktree like `IHRWEB-23670-pulumi-s3` renders as
-  -- `pulumi-s3` — short enough to fit nicely. The branch/cwd retains the
-  -- full name; this only affects the dashboard ASCII header.
-  -- Pattern: `<UPPERCASE+>-<DIGITS+>-` at the start. If no slug follows
-  -- (just the bare ticket key like `IHRWEB-23670`), no match, no strip.
-  name = name:gsub("^%u+%-%d+%-", "")
+  -- Cap the header at ~12 chars so a long branch slug (e.g.
+  -- `IHRWEB-24331-locale-race-i18n-config-mutation`) doesn't render as an
+  -- unreadably wide figlet banner. The cap lands on a word boundary: if 12
+  -- chars would cut mid-word, extend forward to the next hyphen so the header
+  -- always ends on a complete word (so it can exceed 12 chars). A 12-char cut
+  -- that lands exactly on a hyphen keeps the clean break, e.g.
+  -- `IHRWEB-24331-...` -> `IHRWEB-24331`.
+  if #name > 12 then
+    if name:sub(13, 13) == "-" then
+      name = name:sub(1, 12)
+    else
+      local next_hyphen = name:find("-", 13, true)
+      if next_hyphen then
+        name = name:sub(1, next_hyphen - 1)
+      end
+    end
+    name = name:gsub("%-+$", "")
+  end
 
   local section = { width = 2000, align = "center", padding = 0 }
 
@@ -391,13 +385,9 @@ return {
     {
       "<leader>gp",
       function()
-        local cwd = vim.fn.getcwd()
-        vim.fn.jobstart(
-          { "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash" },
-          { detach = true }
-        )
+        require("config.mux").new_window("gh-dash", { name = "🐙" })
       end,
-      desc = "gh-dash PRs (tmux)",
+      desc = "gh-dash PRs (window)",
     },
     -- Package Picker (monorepo) - overrides LazyVim's <leader>fp
     {

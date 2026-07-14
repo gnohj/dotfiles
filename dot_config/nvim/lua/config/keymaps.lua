@@ -336,40 +336,79 @@ keymap("n", "<leader>gx", function()
   if cwd == "" then
     cwd = vim.fn.getcwd()
   end
+  -- Fallback: open the repo's open-PRs list (sorted by recently-updated).
+  local function open_pr_list()
+    vim.fn.jobstart(
+      { "gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner" },
+      {
+        cwd = cwd,
+        stdout_buffered = true,
+        on_stdout = function(_, data)
+          local repo = (data and data[1] or ""):gsub("%s+$", "")
+          vim.schedule(function()
+            if repo == "" then
+              vim.notify(
+                "No PR for branch and could not resolve repo",
+                vim.log.levels.WARN
+              )
+              return
+            end
+            local url = "https://github.com/"
+              .. repo
+              .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+            vim.fn.jobstart({ "open", url }, { detach = true })
+            vim.notify(
+              "No PR for branch — opened repo PRs list",
+              vim.log.levels.INFO
+            )
+          end)
+        end,
+      }
+    )
+  end
+
+  -- Detached HEAD (e.g. a review worktree) has no current branch. Recover the
+  -- branch from the remote ref pointing at HEAD (remote-agnostic) and open
+  -- that branch's PR before falling back to the repo PRs list.
+  local function try_detached_then_list()
+    local sym = vim.fn.systemlist({ "git", "-C", cwd, "symbolic-ref", "-q", "--short", "HEAD" })
+    if #sym > 0 and sym[1] ~= "" then
+      open_pr_list()
+      return
+    end
+    local refs = vim.fn.systemlist({
+      "git", "-C", cwd, "branch", "--points-at", "HEAD", "-r", "--format=%(refname:short)",
+    })
+    local branch
+    for _, r in ipairs(refs) do
+      r = r:gsub("%s+$", "")
+      if r ~= "" and not r:match("/HEAD$") then
+        branch = r:gsub("^[^/]+/", "")
+        break
+      end
+    end
+    if not branch or branch == "" then
+      open_pr_list()
+      return
+    end
+    vim.fn.jobstart({ "gh", "pr", "view", branch, "--web" }, {
+      cwd = cwd,
+      on_exit = function(_, c2)
+        if c2 == 0 then
+          return
+        end
+        open_pr_list()
+      end,
+    })
+  end
+
   vim.fn.jobstart({ "gh", "pr", "view", "--web" }, {
     cwd = cwd,
     on_exit = function(_, code)
       if code == 0 then
         return
       end
-      -- No PR for this branch — open the repo's open-PRs list instead.
-      vim.fn.jobstart(
-        { "gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner" },
-        {
-          cwd = cwd,
-          stdout_buffered = true,
-          on_stdout = function(_, data)
-            local repo = (data and data[1] or ""):gsub("%s+$", "")
-            vim.schedule(function()
-              if repo == "" then
-                vim.notify(
-                  "No PR for branch and could not resolve repo",
-                  vim.log.levels.WARN
-                )
-                return
-              end
-              local url = "https://github.com/"
-                .. repo
-                .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
-              vim.fn.jobstart({ "open", url }, { detach = true })
-              vim.notify(
-                "No PR for branch — opened repo PRs list",
-                vim.log.levels.INFO
-              )
-            end)
-          end,
-        }
-      )
+      try_detached_then_list()
     end,
   })
 end, { desc = "[P]Open GitHub PR for current branch (or repo PRs list)" })

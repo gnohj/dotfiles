@@ -1,6 +1,6 @@
--- Helper open command in a new tmux window with zen disabled
-local function open_in_tmux(cmd, window_name, file)
-  local cwd = vim.fn.getcwd()
+-- Open a codediff command in a new multiplexer window (tmux or herdr) with zen
+-- disabled. The window's nvim self-quits on close via the TabClosed autocmd.
+local function open_in_window(cmd, window_name, file)
   local shell_cmd
   if file then
     shell_cmd = string.format(
@@ -12,10 +12,7 @@ local function open_in_tmux(cmd, window_name, file)
     shell_cmd =
       string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
   end
-  vim.fn.jobstart(
-    { "tmux", "new-window", "-n", window_name, "-c", cwd, shell_cmd },
-    { detach = true }
-  )
+  require("config.mux").new_window(shell_cmd, { name = window_name })
 end
 
 return {
@@ -33,9 +30,9 @@ return {
         if default_branch == "" then
           default_branch = "main"
         end
-        open_in_tmux("CodeDiff origin/" .. default_branch .. " HEAD", "🔀")
+        open_in_window("CodeDiff origin/" .. default_branch .. " HEAD", "🔀")
       end,
-      desc = "Diff against default branch (tmux)",
+      desc = "Diff against default branch (window)",
     },
     {
       "<leader>gc",
@@ -46,17 +43,17 @@ return {
           vim.notify("No file in current buffer", vim.log.levels.ERROR)
           return
         end
-        open_in_tmux("CodeDiff file HEAD", "📄", file)
+        open_in_window("CodeDiff file HEAD", "📄", file)
       end,
-      desc = "Diff current file against HEAD (tmux)",
+      desc = "Diff current file against HEAD (window)",
     },
     {
       "<leader>gS",
       function()
         -- Compare all staged/unstaged changes against last commit
-        open_in_tmux("CodeDiff HEAD", "📋")
+        open_in_window("CodeDiff HEAD", "📋")
       end,
-      desc = "Diff all changes against HEAD (tmux)",
+      desc = "Diff all changes against HEAD (window)",
     },
   },
   config = function()

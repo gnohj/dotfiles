@@ -420,3 +420,22 @@ vim.api.nvim_create_autocmd({ "VimLeavePre", "ExitPre" }, {
     io.stdout:flush()
   end,
 })
+
+-- herdr `prefix+e` (edit_scrollback) dumps the focused pane's buffer to a temp
+-- `herdr-scrollback-*.txt` and opens it in $EDITOR (nvim), landing on line 1. The useful
+-- end of a scrollback is the BOTTOM (most recent output), so jump there on open. Scheduled
+-- so it wins over any last-cursor-position restore that also runs on BufReadPost.
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+  pattern = "*herdr-scrollback-*",
+  callback = function(ev)
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(ev.buf) then
+        return
+      end
+      local win = vim.fn.bufwinid(ev.buf)
+      if win ~= -1 then
+        vim.api.nvim_win_set_cursor(win, { vim.api.nvim_buf_line_count(ev.buf), 0 })
+      end
+    end)
+  end,
+})
