@@ -52,7 +52,10 @@ generate_ghostty_theme() {
   cat >"$ghostty_conf_file" <<EOF
 # Auto-generated ghostty configuration
 background = $gnohj_color10
-foreground = $gnohj_color14
+# foreground = gnohj blue (gnohj_color04) instead of the near-white gnohj_color14,
+# so terminal text (incl. the Claude Code pane) reads steel blue. Global: tints all
+# default terminal text. ANSI white stays gnohj_color14 (palette 7/15 below).
+foreground = $gnohj_color04
 
 cursor-color = $gnohj_color24
 
@@ -92,7 +95,9 @@ generate_kitty_theme() {
   cat >"$temp_file" <<EOF
 # Auto-generated kitty theme configuration
 background $gnohj_color10
-foreground $gnohj_color14
+# foreground = gnohj blue (gnohj_color04) instead of near-white gnohj_color14, so
+# terminal text (incl. the Claude Code pane) reads steel blue. Matches ghostty.
+foreground $gnohj_color04
 
 cursor $gnohj_color24
 
@@ -370,7 +375,7 @@ quitOnTopLevelReturn: true
 git:
   overrideGpg: true
   autoFetch: true
-  fetchAll: false  # fetch origin only — faster than --all on large repos
+  fetchAll: false # fetch origin only — faster than --all on large repos
   paging:
     colorArg: always
     pager: delta --dark --paging=never
@@ -418,7 +423,10 @@ customCommands:
     context: "global"
     subprocess: yes
 
-  - key: "<c-a>"
+  # <c-e> (Emoji), not <c-a>: <c-a> is herdr's prefix, so it never reaches
+  # lazygit inside a herdr pane. Trigger with LEFT ctrl (;-hold layer) — skhd's
+  # rctrl-e (tmux-dash focus) is RIGHT-ctrl only, so left-ctrl+e is clear.
+  - key: "<c-e>"
     prompts:
       - type: "menuFromCommand"
         title: "AI Commit (Gitmoji)"
@@ -2030,152 +2038,22 @@ EOF
 }
 
 generate_gh_dash_config() {
-  gh_dash_conf_file="$HOME/.config/gh-dash/config.yml"
-  mkdir -p "$(dirname "$gh_dash_conf_file")"
+  # gh-dash's keybindings, PR/issue queries, repoPaths and layout are hand-
+  # maintained in the chezmoi source (dot_config/gh-dash/config.yml) and applied
+  # by chezmoi. Only the theme: block is theme-dependent, so - exactly like
+  # generate_herdr_config - it is managed here as a marker-delimited block appended
+  # at EOF and rewritten from the gnohj_color* palette. Both the live target AND the
+  # chezmoi source are patched (no chezmoi-apply drift), so every non-theme section
+  # has ONE owner: the chezmoi source. Edit keybindings/queries THERE, colors HERE.
+  local gh_dash_target="$HOME/.config/gh-dash/config.yml"
+  local gh_dash_source="$HOME/.local/share/chezmoi/dot_config/gh-dash/config.yml"
 
-  # Full-file ownership (same pattern as generate_lazygit_config). After
-  # this runs, any chezmoi-source dot_config/gh-dash/config.yml is
-  # overwritten — edit the heredoc below for PR queries, keybindings,
-  # repoPaths, etc., not the chezmoi source.
-  cat >"$gh_dash_conf_file" <<EOF
-#
-# ██████╗  █████╗ ███████╗██╗  ██╗
-# ██╔══██╗██╔══██╗██╔════╝██║  ██║
-# ██║  ██║███████║███████╗███████║
-# ██║  ██║██╔══██║╚════██║██╔══██║
-# ██████╔╝██║  ██║███████║██║  ██║
-# ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
-#
-# GitHub PR / issue dashboard in your terminal
-# Auto-generated gh-dash config
-# https://github.com/dlvhdr/gh-dash
-prSections:
-  - title: My Pull Requests
-    filters: is:open author:@me
-  - title: Needs My Review
-    filters: is:open review-requested:@me
-  - title: Involved
-    filters: is:open involves:@me -author:@me
-  - title: All Open (web)
-    filters: is:open repo:iheartradio/web
-    limit: 20
-  - title: All Open (inferno)
-    filters: is:open repo:iheartradio/inferno-monorepo
-    limit: 20
-issuesSections:
-  - title: My Issues
-    filters: is:open author:@me
-  - title: Assigned
-    filters: is:open assignee:@me
-  - title: Involved
-    filters: is:open involves:@me -author:@me
-defaults:
-  preview:
-    open: true
-    width: 100
-  prsLimit: 20
-  issuesLimit: 20
-  view: prs
-  layout:
-    prs:
-      updatedAt:
-        width: 7
-      repo:
-        width: 15
-      author:
-        width: 15
-      assignees:
-        width: 20
-        hidden: true
-      base:
-        width: 15
-        hidden: true
-      lines:
-        width: 16
-    issues:
-      updatedAt:
-        width: 7
-      repo:
-        width: 15
-      creator:
-        width: 10
-      assignees:
-        width: 20
-        hidden: true
-  refetchIntervalMinutes: 30
-keybindings:
-  issues:
-    - key: e
-      name: 🐙 Edit issue in Octo (new tmux window)
-      command: >
-        tmux new-window -n "🐙 Issue #{{.IssueNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"'
-    - key: i
-      name: 🐙 Create issue in Octo (tmux popup)
-      command: >
-        tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
-  prs:
-    - key: P # Octo + hunk + agent notes + ENHANCE
-      name: 🤖 Review PR — Octo + hunk + agent notes + ENHANCE
-      command: >
-        cd {{.RepoPath}} &&
-        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin \$BASE \$HEAD 2>/dev/null &&
-        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
-        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
-        tmux new-window -e HUNK_PANE="\$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=\$HUNK_PANE"' &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
-    - key: W # Open PR in Neovim Octo with Workspaces
-      name: 🌳 Workspace PR — Octo + hunk + Claude (checkout branch)
-      command: >
-        cd {{.RepoPath}} &&
-        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin \$BASE \$HEAD 2>/dev/null &&
-        git checkout \$HEAD 2>/dev/null || git checkout -b \$HEAD origin/\$HEAD &&
-        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
-    - key: enter # Open PR in Neovim Octo
-      name: 🐙 Open PR in Octo (review branch)
-      command: >
-        cd {{.RepoPath}} &&
-        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin \$HEAD 2>/dev/null &&
-        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
-    - key: D # Open PR Diff in hunk + agent notes
-      name: 🔀 Open PR Diff in hunk (agent notes)
-      command: >
-        cd {{.RepoPath}} &&
-        BASE=\$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin \$BASE \$HEAD 2>/dev/null &&
-        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
-        MERGE_BASE=\$(git merge-base origin/\$BASE origin/\$HEAD) &&
-        PANE=\$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff \$MERGE_BASE") &&
-        tmux new-window -e HUNK_PANE="\$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=\$HUNK_PANE"'
-    - key: E # Open PR checks in ENHANCE
-      name: ✨ Open PR checks in ENHANCE
-      command: >
-        cd {{.RepoPath}} &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
-    - key: A # Open PR in Claude Review
-      name: 🤖 Run Claude /review on PR
-      command: >
-        cd {{.RepoPath}} &&
-        HEAD=\$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin \$HEAD 2>/dev/null &&
-        git checkout review/\$HEAD 2>/dev/null || git checkout -b review/\$HEAD origin/\$HEAD &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "\$(\$HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
-repoPaths:
-  gnohj/*: ~/Developer/*
-  iheartradio/*: ~/Developer/*
-  iheartradio/inferno-monorepo: ~/Developer/inferno/review/
-  iheartradio/web: ~/Developer/web/review/
+  local ghd_begin="# >>> colorscheme-set: gh-dash theme - generated, do not edit (see generate_gh_dash_config) >>>"
+  local ghd_end="# <<< colorscheme-set: gh-dash theme <<<"
+  local ghd_block
+  ghd_block="$(
+    cat <<EOF
+$ghd_begin
 theme:
   ui:
     table:
@@ -2196,11 +2074,21 @@ theme:
       primary: "$gnohj_color04"
       secondary: "$gnohj_color13"
       faint: "$gnohj_color17"
-pager:
-  diff: ""
+$ghd_end
 EOF
+  )"
 
-  echo "gh-dash configuration updated at '\$gh_dash_conf_file'."
+  # Strip any prior managed block (idempotent) then re-append the fresh one at EOF,
+  # in both the live target and the chezmoi source. [ -f ] || continue mirrors
+  # generate_herdr_config: on a fresh machine (file not applied yet) this is a
+  # no-op until chezmoi lays the base file down, then the next run themes it.
+  local ghd_file
+  for ghd_file in "$gh_dash_target" "$gh_dash_source"; do
+    [ -f "$ghd_file" ] || continue
+    GHD_BEGIN="$ghd_begin" GHD_END="$ghd_end" perl -0777 -i -pe \
+      's/\n*\Q$ENV{GHD_BEGIN}\E.*?\Q$ENV{GHD_END}\E\n?//s' "$ghd_file"
+    printf '\n%s\n' "$ghd_block" >>"$ghd_file"
+  done
 }
 
 generate_gitmux_config() {
@@ -2360,6 +2248,85 @@ EOF
   echo "Pi theme updated at '$pi_theme_file'."
 }
 
+generate_claude_theme() {
+  # Claude Code custom theme - mirrors generate_pi_theme's palette choices so the
+  # two AI CLIs read identically. Claude file-watches ~/.claude/themes/, so a write
+  # here hot-reloads any running session. base "dark-ansi" keeps CODE syntax on the
+  # terminal's (gnohj) ANSI palette; the overrides below theme all the UI chrome in
+  # gnohj truecolor. settings.json selects it via "theme": "custom:gnohj-theme".
+  # Not chezmoi/monorepo-tracked (generated file) - colorscheme-set is sole owner.
+  claude_theme_dir="$HOME/.claude/themes"
+  claude_theme_file="$claude_theme_dir/gnohj-theme.json"
+
+  mkdir -p "$claude_theme_dir"
+
+  cat >"$claude_theme_file" <<EOF
+{
+  "name": "gnohj-theme",
+  "base": "dark-ansi",
+  "overrides": {
+    "claude": "${gnohj_color03}",
+    "text": "${gnohj_color14}",
+    "inverseText": "${gnohj_color10}",
+    "inactive": "${gnohj_color13}",
+    "subtle": "${gnohj_color17}",
+    "suggestion": "${gnohj_color03}",
+    "permission": "${gnohj_color01}",
+    "remember": "${gnohj_color01}",
+
+    "success": "${gnohj_color02}",
+    "error": "${gnohj_color11}",
+    "warning": "${gnohj_color03}",
+    "merged": "${gnohj_color01}",
+
+    "promptBorder": "${gnohj_color03}",
+    "planMode": "${gnohj_color03}",
+    "autoAccept": "${gnohj_color02}",
+    "bashBorder": "${gnohj_color02}",
+    "ide": "${gnohj_color03}",
+    "fastMode": "${gnohj_color21}",
+
+    "diffAdded": "#2a3a30",
+    "diffRemoved": "${gnohj_color32}",
+    "diffAddedDimmed": "#1e2823",
+    "diffRemovedDimmed": "#28201f",
+    "diffAddedWord": "${gnohj_color02}",
+    "diffRemovedWord": "${gnohj_color11}",
+
+    "userMessageBackground": "#1c2632",
+    "userMessageBackgroundHover": "#232f3c",
+    "messageActionsBackground": "${gnohj_color17}",
+    "bashMessageBackgroundColor": "#1e2a20",
+    "memoryBackgroundColor": "#241f2a",
+    "selectionBg": "${gnohj_color17}",
+
+    "rate_limit_fill": "${gnohj_color04}",
+    "rate_limit_empty": "${gnohj_color17}",
+    "briefLabelYou": "${gnohj_color04}",
+    "briefLabelClaude": "${gnohj_color02}",
+
+    "claudeShimmer": "${gnohj_color12}",
+    "warningShimmer": "${gnohj_color12}",
+    "permissionShimmer": "${gnohj_color52}",
+    "promptBorderShimmer": "${gnohj_color12}",
+    "inactiveShimmer": "${gnohj_color46}",
+    "fastModeShimmer": "${gnohj_color52}",
+
+    "red_FOR_SUBAGENTS_ONLY": "${gnohj_color11}",
+    "blue_FOR_SUBAGENTS_ONLY": "${gnohj_color04}",
+    "green_FOR_SUBAGENTS_ONLY": "${gnohj_color02}",
+    "yellow_FOR_SUBAGENTS_ONLY": "${gnohj_color05}",
+    "purple_FOR_SUBAGENTS_ONLY": "${gnohj_color01}",
+    "orange_FOR_SUBAGENTS_ONLY": "${gnohj_color15}",
+    "pink_FOR_SUBAGENTS_ONLY": "${gnohj_color06}",
+    "cyan_FOR_SUBAGENTS_ONLY": "${gnohj_color03}"
+  }
+}
+EOF
+
+  echo "Claude Code theme updated at '$claude_theme_file'."
+}
+
 generate_herdr_config() {
   # herdr draws its own UI (panels, split-pane borders, sidebar). Two knobs feed
   # its colors, both mapped here from the gnohj_color* palette so herdr tracks
@@ -2401,9 +2368,14 @@ surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
 overlay0 = "$gnohj_color13"
 overlay1 = "$gnohj_color46"
-subtext0 = "$gnohj_color09"
+# herdr sidebar token map (verified via diagnostic): text = active/focused row's
+# whole line (workspace+tab), subtext0 = inactive rows' whole line, mauve = active
+# space's branch line. These tokens are SHARED by the spaces AND agents sections,
+# so they can't be set per-panel. subtext0 = gnohj blue (agents/inactive rows),
+# text = default, mauve = green (only the active space's branch line).
+subtext0 = "$gnohj_color04"
 text = "$gnohj_color14"
-mauve = "$gnohj_color01"
+mauve = "#c2f0db"
 # herdr colors the agent "idle" state with its green token and the "working" state
 # with its yellow token (both verified live). Point green at gnohj_color05 (idle)
 # and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
@@ -2415,6 +2387,13 @@ red = "$gnohj_color11"
 blue = "$gnohj_color04"
 teal = "$gnohj_color03"
 peach = "$gnohj_color06"
+# Copy-mode (visual selection) highlight - herdr's src/selection.rs reads these
+# two CustomThemeColors fields. Point them at the exact pair tmux's mode-style
+# uses (generate-tmux-colors.sh: "bg=\$gnohj_color13,fg=\$gnohj_color02") so a
+# selection in a herdr pane reads identically to one in tmux copy-mode: slate
+# bg (color13) under green text (color02).
+selection_background = "$gnohj_color13"
+selection_foreground = "$gnohj_color02"
 $herdr_end
 EOF
   )"
@@ -2485,9 +2464,15 @@ if [ "$UPDATED" = true ]; then
   # Generate lazydocker config
   generate_lazydocker_config
 
-  # Generate the ghostty theme file, then reload config
+  # Generate the ghostty theme file, then reload config. SIGUSR2 is ghostty's
+  # documented reload signal (systemd ExecReload sends it on Linux; the macOS
+  # build honors it too - verified live). Signal-based reload is focus-INDEPENDENT,
+  # exactly like kitty's `pkill -USR1 -x kitty` above. The prior osascript sent
+  # cmd+shift+, via System Events, which lands on the FRONTMOST app - so running
+  # the theme picker from the kitty quick-access terminal reloaded kitty (signal)
+  # but never reached ghostty (keystroke went to kitty), leaving ghostty's bg stale.
   generate_ghostty_theme
-  osascript "$HOME/.config/ghostty/reload-config.scpt" &
+  pkill -USR2 -x ghostty 2>/dev/null || true
 
   # Generate the kitty theme file
   generate_kitty_theme
@@ -2515,6 +2500,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate pi theme
   generate_pi_theme
+
+  # Generate Claude Code theme (custom theme, hot-reloaded via ~/.claude/themes watch)
+  generate_claude_theme
 
   # Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
   generate_herdr_config

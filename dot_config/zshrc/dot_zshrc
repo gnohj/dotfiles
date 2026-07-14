@@ -309,9 +309,21 @@ ZVM_VI_OPPEND_ESCAPE_BINDKEY=$ZVM_VI_ESCAPE_BINDKEY
 ZVM_VI_HIGHLIGHT_BACKGROUND=#275378
 ZVM_OPPEND_MODE_CURSOR=$ZVM_CURSOR_UNDERLINE
 
+function _shell_ctrl_d_noop() { }  # does nothing
+
 function zvm_after_init() {
   # Source .fzf.zsh so that ctrl+r works
   # [ -f $HOME/.fzf.zsh ] && source $HOME/.fzf.zsh
+
+  # Ctrl+D in the shell = no-op. rctrl+d is reserved for nvim's half-page scroll;
+  # a stray one in a shell should do nothing. `setopt ignore_eof` already stops it
+  # from exiting (closing the pane); without this, ^D still falls through to zsh's
+  # delete-char-or-list and dumps "do you wish to see all N possibilities" on an
+  # empty line. Bound in zvm_after_init so it survives zsh-vi-mode's keymap resets.
+  zle -N _shell_ctrl_d_noop
+  bindkey -M viins '^D' _shell_ctrl_d_noop
+  bindkey -M vicmd '^D' _shell_ctrl_d_noop
+  bindkey -M emacs '^D' _shell_ctrl_d_noop
 }
 
 #-------------------------------------------------------------------------------
@@ -409,6 +421,10 @@ SAVEHIST=$HISTSIZE
 setopt appendhistory
 setopt sharehistory
 setopt hist_ignore_dups
+# Ctrl+D at an empty prompt no longer exits the shell (which would close the tmux
+# pane). rctrl+d is reserved for nvim's half-page scroll; a stray one in a shell
+# should be a no-op, not a pane-kill. Type `exit` to close a shell intentionally.
+setopt ignore_eof
 
 
 #-------------------------------------------------------------------------------
@@ -420,10 +436,9 @@ export YSU_IGNORED_ALIASES=("vi" "vim")
 # Wrap yazi to preserve cwd when opening files in nvim
 alias y='YAZI_START_DIR="$PWD" yazi'
 
-# Run the Omarchy-style launcher directly in the current terminal (draws inline
-# via fzf) instead of through the tmux display-popup wrapper (launcher-switcher.sh
-# / skhd rctrl-i). Both entry points share ALL launcher logic (launcher.sh);
-# only the backend differs:
+# Run the Omarchy-style launcher inline in the current terminal (draws via fzf).
+# `launcher` and `ql` share ALL launcher logic (launcher.sh); only the backend
+# differs:
 #   launcher  → LAUNCHER_MODE=tmux  (window actions drive tmux; use inside tmux)
 #   ql        → LAUNCHER_MODE=herdr (window actions drive herdr; use in the quake)
 alias launcher='~/.config/launcher/launcher.sh'
@@ -459,6 +474,43 @@ td() {
 #   th — invisible host on a dedicated -L herdr socket for the herdr client
 alias tn='tmux -f ~/.config/tmux/native.conf'
 alias th='tmux -L herdr -f ~/.config/tmux/herdr.conf'
+
+# herdr launch wrapper — two jobs, both about making the custom keybindings work:
+#
+#  1. Bare local `herdr` (client on the local server): start the pane-tracker daemon
+#     that powers the within-workspace last-pane toggle (prefix+b), and the
+#     activity-tracker daemon that powers the last-notification jump (prefix+'). Starting
+#     the latter here (not just lazily on first press) means it's up before the first
+#     toast, so the very first prefix+' can catch it. Not for subcommands (`herdr agent
+#     list`, `herdr server`, ...) — those just pass through. Both daemons self-terminate
+#     ~20s after herdr is unreachable, so they never orphan.
+#
+#  2. `herdr --remote <host>`: force --remote-keybindings server so our type=shell
+#     helpers (prefix+b/enter/i) run ON THE REMOTE server, where the panes and socket
+#     live. herdr's default is `local`, which would run them on this laptop against the
+#     wrong/absent socket. type=pane binds (lazygit/yazi/prefix+u) are server-side
+#     regardless, so this only fixes the shell ones. Over --remote the pane-tracker
+#     daemon lazy-starts server-side on first prefix+b, so we do NOT ensure it locally.
+herdr() {
+  if [[ $# -eq 0 ]]; then
+    herdr-pane-tracker.py ensure >/dev/null 2>&1
+    herdr-activity-tracker.py ensure >/dev/null 2>&1
+    # tab-renumber daemon: keep every tab's "<n>." prefix at its bar position as
+    # tabs open/close (herdr has no native renumber). Started here so it covers
+    # ALL tabs in ALL workspaces, not just gh-dash/sesh-created ones.
+    herdr-tab-renumber.py ensure >/dev/null 2>&1
+    # workspace-git daemon: append gitmux SYMBOLS (no branch) to each workspace's
+    # label so the sidebar shows working-tree status inline with the name. herdr
+    # renders the label in the agents panel too (accepted leak); it restores clean
+    # labels on exit. Symbols-only keeps it short regardless of long worktree branches.
+    herdr-workspace-git.py ensure >/dev/null 2>&1
+    command herdr
+  elif [[ $1 == --remote && " $* " != *" --remote-keybindings "* ]]; then
+    command herdr --remote-keybindings server "$@"
+  else
+    command herdr "$@"
+  fi
+}
 
 # Github Dash
 alias ghd='gh-dash'
@@ -611,6 +663,18 @@ gbc() {
 pullreq() {
   if gh pr view --web 2>/dev/null; then
     return 0
+  fi
+  # Detached HEAD (e.g. a review worktree) has no current branch, so the
+  # lookup above fails. Recover the branch from the remote ref pointing at
+  # HEAD (remote-agnostic) and open that branch's PR.
+  if [[ -z "$(git symbolic-ref -q --short HEAD 2>/dev/null)" ]]; then
+    local detached_ref detached_branch
+    detached_ref=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1)
+    detached_branch=${detached_ref#*/}
+    if [[ -n "$detached_branch" ]] && gh pr view "$detached_branch" --web 2>/dev/null; then
+      echo "Opened PR for detached-HEAD branch: $detached_branch"
+      return 0
+    fi
   fi
   local repo
   repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
@@ -791,15 +855,26 @@ CLAUDE_BIN="$(command -v claude 2>/dev/null || echo /opt/homebrew/bin/claude)"
 
 claude() {
 	local dir tok
+	local -a mode
 	dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
 	tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+	# settings.json sets permissions.defaultMode = "bypassPermissions" so herdr's
+	# flagless session-resume (resume_agents_on_restore) comes back in bypass mode
+	# after a reboot instead of a locked-down pane. A fresh interactive `claude`
+	# should stay safe, so force --permission-mode default here — but ONLY for a new
+	# session. A resume/continue (herdr's restore path, or a manual `claude -r`) must
+	# inherit the bypass default, so skip the override when a resume flag is present.
+	case " $* " in
+		*" -r "*|*" --resume "*|*" -c "*|*" --continue "*) ;;
+		*) mode=(--permission-mode default) ;;
+	esac
 	# Subshell so the conditional exports don't leak into the parent shell.
 	# Personal leaves CLAUDE_CONFIG_DIR unset (native default config); only work
 	# sets it. Token is injected when one is stored for the resolved account.
 	(
 		[ -n "$dir" ] && export CLAUDE_CONFIG_DIR="$dir"
 		[ -n "$tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$tok"
-		exec "$CLAUDE_BIN" "$@"
+		exec "$CLAUDE_BIN" "${mode[@]}" "$@"
 	)
 }
 
@@ -932,19 +1007,6 @@ hpr() {
   hunk diff "origin/${base}...HEAD"
 }
 
-# Delete all local review branches (created by gh-dash P keybinding)
-# Skips branches checked out in other worktrees
-grd() {
-  local branches=$(git for-each-ref --format="%(refname:short)" refs/heads/review/)
-  if [[ -z "$branches" ]]; then
-    echo "No review branches found"
-    return 0
-  fi
-  echo "$branches" | while read branch; do
-    git branch -D "$branch" 2>/dev/null || echo "Skipped $branch (checked out in worktree)"
-  done
-}
-
 # cd to default branch worktree from bare repo
 cdm() {
   if [[ ! -d ".git" ]]; then
@@ -968,6 +1030,64 @@ cdm() {
   cd "$worktree"
 }
 
+# List (and with -r, return) ORPHANED treehouse pool leases: slots that are
+# leased but have NO tmux pane sitting inside them — the gh-dash review or
+# orchestrator agent that borrowed the slot is gone, so it's silently holding
+# pool capacity (the leak that stranded 19153/19179 before). Reads treehouse's
+# own per-pool state files, so it spans EVERY pool (web review, inferno,
+# orchestration) regardless of cwd. Complements gh-dash `R` (review pool only)
+# and tkrm.
+#   treehouse-orphans        list orphaned leases
+#   treehouse-orphans -r     return them (treehouse return --force)
+treehouse-orphans() {
+  command -v jq >/dev/null 2>&1 || { echo "treehouse-orphans: needs jq"; return 1; }
+  local return_them=0
+  [[ "$1" == "-r" || "$1" == "--return" ]] && return_them=1
+  local panes; panes="$(tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null)"
+  local found=0 wt holder since procs
+  while IFS=$'\t' read -r wt holder since; do
+    [[ -n "$wt" ]] || continue
+    # In use if any pane's cwd is the worktree or a subdir of it → not an orphan.
+    if printf '%s\n' "$panes" | awk -v w="$wt" '$0==w||index($0,w"/")==1{f=1}END{exit f?0:1}'; then
+      continue
+    fi
+    found=1
+    procs=$(lsof -d cwd -Fn 2>/dev/null | grep -c "^n${wt}" || true)
+    printf '🌲 %-26s %s  (leased %s, %s zombie proc)\n' "$holder" "$wt" "${since%%T*}" "${procs:-0}"
+    if (( return_them )); then
+      case "$holder" in
+        review-*)
+          # gh-dash review lease → use its own release so the gh-review state
+          # file is cleaned too (raw `treehouse return` would leave it dangling).
+          if "$HOME/.config/gh-dash/review-worktree.sh" release "${holder#review-}" >/dev/null 2>&1; then
+            echo "   ↳ released"
+          else
+            echo "   ↳ release failed"
+          fi
+          ;;
+        *)
+          if ( cd "$wt" 2>/dev/null && treehouse return "$wt" --force ) >/dev/null 2>&1; then
+            echo "   ↳ returned"
+          else
+            echo "   ↳ return failed — try: treehouse return \"$wt\" --force"
+          fi
+          ;;
+      esac
+    fi
+  done < <(find "$HOME/.treehouse" -maxdepth 2 -name treehouse-state.json 2>/dev/null \
+    -exec jq -r '.worktrees[]? | select(.leased==true) | "\(.path)\t\(.lease_holder // "?")\t\(.leased_at // "?")"' {} + 2>/dev/null)
+  if (( ! found )); then
+    echo "🌲 no orphaned treehouse leases"
+  elif (( ! return_them )); then
+    echo "   run 'treehouse-orphans -r' to return them"
+  fi
+}
+
+# Housekeeping companion to treehouse-orphans: sweep STALE worktrees across every
+# pool (managed, unused, clean, HEAD already merged into default). Dry-run by
+# default — append --yes to actually delete, --prune-orphans for backing-repo-gone.
+alias treehouse-prune-global='treehouse prune --global'
+
 alias fman="compgen -c | fzf | xargs man"
 
 #-------------------------------------------------------------------------------
@@ -985,6 +1105,13 @@ case ":$PATH:" in
 esac
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# vim-herdr-navigation passthrough — also set in .zshenv, but ZDOTDIR is usually
+# pre-set when the herdr-launching shell starts, so $HOME/.zshenv gets skipped
+# ($ZDOTDIR/.zshenv is read instead and doesn't exist). .zshrc IS read by that
+# interactive launch, so this is the copy the local herdr server actually inherits.
+# Lets ctrl+j/k pass through to the herdr-sesh.sh fzf picker. Restart herdr to apply.
+export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 
 #-------------------------------------------------------------------------------
 #                  Script Integrations

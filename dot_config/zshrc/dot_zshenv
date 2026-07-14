@@ -1,0 +1,15 @@
+# $ZDOTDIR/.zshenv — bridges the real entry point back into every shell.
+#
+# zsh reads ~/.zshenv ONLY when ZDOTDIR is unset at startup. The first login
+# shell reads ~/.zshenv, which sets & EXPORTS ZDOTDIR=~/.config/zshrc. From then
+# on every child/subshell (GUI-launched apps, tmux panes, `zsh -c`, herdr's
+# non-interactive login shells) inherits ZDOTDIR from the environment, so zsh
+# reads $ZDOTDIR/.zshenv (this file) INSTEAD of ~/.zshenv. Without this file the
+# entry-point env — PATH prepend, MISE_TRUSTED_CONFIG_PATHS, HERDR_NAV_PASSTHROUGH_RE
+# — silently never applied in those shells, which is why `mise` warned that repos
+# under ~/Developer were "not trusted" despite ~/.zshenv listing them.
+#
+# Sourcing ~/.zshenv here keeps it the single source of truth for all shell env.
+if [[ -r "$HOME/.zshenv" ]]; then
+  source "$HOME/.zshenv"
+fi
