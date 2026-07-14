@@ -574,6 +574,8 @@ echo "    Full Disk Access: Ghostty, kitty"
 echo "    Input Monitoring: kanata  <-- re-grant after any kanata Homebrew upgrade"
 echo "    Automation:       AeroSpace, Ghostty, osascript, Raycast, sketchybar, skhd"
 echo "    Screen Recording: Raycast"
+echo "    Driver Extensions: org.pqrs.Karabiner-DriverKit-VirtualHIDDevice (kanata's driver)"
+echo "                       <-- Login Items & Extensions; approve after the v6.2.0 pkg installs"
 echo "    See MANUAL_SETUP.md for full details and the correct grant order."
 echo ""
 

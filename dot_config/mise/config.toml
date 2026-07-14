@@ -36,7 +36,11 @@ setup-global-tools = "mise run install-aicommit"
 auto_install = true
 experimental = true
 idiomatic_version_file_enable_tools = ["node"]
-# ~/.treehouse holds pooled git worktrees for PR review (treehouse). Each slot
-# is a fresh path, so its repo `.mise.toml` is untrusted by default and mise
-# errors on entry. Trust the whole tree so review worktrees load tooling cleanly.
-trusted_config_paths = ["~/Developer", "~/.treehouse"]
+# trusted_config_paths intentionally lives in $MISE_TRUSTED_CONFIG_PATHS (~/.zshenv),
+# NOT here. mise honors trusted_config_paths ONLY from the GLOBAL config, but this
+# exact file is ALSO seen as a NON-global (local) config whenever a shell is cd'd
+# inside the chezmoi source tree (mise walks up and finds
+# ~/.local/share/chezmoi/dot_config/mise/config.toml). It then warns
+# "trusted_config_paths in non-global config ... is ignored for security reasons" on
+# every command. Keeping the key out of every config file entirely means that warning
+# never fires; the env var provides the same trust with no such restriction.

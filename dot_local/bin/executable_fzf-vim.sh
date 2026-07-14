@@ -30,7 +30,7 @@ while true; do
       --bind 'change:clear-query' \
       --no-header \
       --border-label ' NORMAL  j/k  G/g  i→insert  esc→quit ' \
-      --expect=enter,i,esc \
+      --expect=enter,i,esc,ctrl-c \
       --bind 'j:down,k:up' \
       --bind 'G:last,g:first' \
       --bind 'd:half-page-down,u:half-page-up' \
@@ -48,7 +48,7 @@ while true; do
       --no-header \
       --tiebreak=index \
       --border-label ' INSERT  type to filter  esc→normal ' \
-      --expect=enter,esc \
+      --expect=enter,esc,ctrl-c \
       --bind 'enter:accept' \
       --bind 'esc:abort') || fzf_rc=$?
   fi
@@ -59,6 +59,14 @@ while true; do
   else
     key=$(printf "%s\n" "$fzf_out" | head -n1)
     sel=$(printf "%s\n" "$fzf_out" | sed -n '2p')
+  fi
+
+  # Ctrl+C is a hard quit from EITHER mode. fzf runs the terminal in raw mode, so
+  # ^C is delivered as a keystroke (no SIGINT is generated) — we capture it via
+  # --expect and exit 130 so callers can tell it apart from esc (exit 1 = go
+  # back / redraw). Esc stays soft (normal→quit-with-1, insert→back-to-normal).
+  if [[ "$key" == "ctrl-c" ]]; then
+    exit 130
   fi
 
   # Mode transitions

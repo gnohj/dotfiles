@@ -55,11 +55,16 @@ cursor-style = block
 cursor-style-blink = false
 
 # quick terminal
-keybind = global:cmd+s=toggle_quick_terminal
-keybind = cmd+s=toggle_quick_terminal
-quick-terminal-animation-duration = 0.08
-quick-terminal-size = 50%
-quick-terminal-position = top
+# Ghostty quick terminal (quake) DISABLED — replaced by the kitty quakes driven
+# from skhd (cmd+rctrl+s → ql launcher, cmd+rctrl+y → yazi, cmd+rctrl+k → plain
+# shell). Kitty is used because its quick-access supports per-instance Esc-to-hide
+# and the graphics protocol for yazi image previews; ghostty can't scope Esc to
+# just the quick terminal. Re-enable by uncommenting the block below.
+# keybind = global:cmd+s=toggle_quick_terminal
+# keybind = cmd+s=toggle_quick_terminal
+# quick-terminal-animation-duration = 0.08
+# quick-terminal-size = 35%
+# quick-terminal-position = top
 
 # Ensure zsh runs as login shell to source Nix profile
 # This is especially important when Ghostty starts at login
