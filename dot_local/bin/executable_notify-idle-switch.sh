@@ -118,9 +118,23 @@ vault\|*)
     || true
   ;;
 *)
-  SESSION="${ENTRY%%|*}"
+  RAW="${ENTRY%%|*}"
   WORKTREE_PATH=""
   case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
+
+  # RAW is one of:
+  #   %N          — a STABLE pane id (notify-idle.sh records this). It survives
+  #                 pane/window renumbering, so it always points at the agent that
+  #                 fired — even minutes later, even with multiple agents in the
+  #                 session. Resolve its live session name for the switch.
+  #   <session>   — a bare session (worktree deferred-create banner, or older
+  #                 state). We ask tmux-dash for its agent pane at press time
+  #                 (fresh, so no drift).
+  # PANE = the pane to focus (id or index target); SESSION = its session.
+  case "$RAW" in
+    %*) PANE="$RAW"; SESSION=$(tmux display-message -t "$RAW" -p '#{session_name}' 2>/dev/null) ;;
+    *)  PANE="";     SESSION="$RAW" ;;
+  esac
 
   # If a path was provided and the session doesn't exist yet, create it
   # detached at that path. This is the "deferred creation" the worktree
@@ -130,9 +144,26 @@ vault\|*)
     tmux new-session -d -s "$SESSION" -c "$WORKTREE_PATH" 2>/dev/null || true
   fi
 
-  tmux switch-client -t "$SESSION" 2>/dev/null \
-    || tmux attach-session -t "$SESSION" 2>/dev/null \
-    || true
+  # Bare session → resolve its agent pane now, fresh from tmux-dash (no drift).
+  if [ -z "$PANE" ] && [ -n "$SESSION" ]; then
+    PANE=$("$HOME/.local/bin/tmux-dash" json 2>/dev/null \
+      | jq -r --arg s "$SESSION" 'first(.sessions[] | select(.tmux_session == $s) | .pane_target) // empty' 2>/dev/null)
+  fi
+
+  # Focus the EXACT agent pane before switching. select-window sets the current
+  # window (both a %pane-id and a session:window.pane target resolve to their
+  # window); select-pane focuses the pane in it — select-pane alone won't change
+  # the current window, so both are needed.
+  if [ -n "$PANE" ]; then
+    tmux select-window -t "$PANE" 2>/dev/null || true
+    tmux select-pane -t "$PANE" 2>/dev/null || true
+  fi
+  # Switch to the session (skipped only if a stale pane id resolved to nothing).
+  if [ -n "$SESSION" ]; then
+    tmux switch-client -t "$SESSION" 2>/dev/null \
+      || tmux attach-session -t "$SESSION" 2>/dev/null \
+      || true
+  fi
   ;;
 esac
 rm -f "$STATE_FILE"

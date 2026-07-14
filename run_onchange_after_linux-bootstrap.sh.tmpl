@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 1   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 2   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim toolchain for a Linux VPS running herdr --remote. Installs the FOUNDATION
 # (mise, herdr, zinit, apt basics) + a best-effort core CLI set via mise. Nix is
@@ -33,7 +33,10 @@ if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
 fi
 
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard"
+# python3: required by herdr-pane-tracker.py (the prefix+b last-pane daemon) so herdr
+# keybinding scripts work over --remote, not just locally. Usually preinstalled on
+# Ubuntu/Debian, listed here to guarantee it on a minimal VPS.
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
@@ -49,7 +52,11 @@ fi
 #    Mac toolchain so nvim + shell feel identical over --remote.
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   echo "==> mise: core CLIs"
-  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship; do
+  # gh is here because aic (@kkidd/aicommit, the lazygit <c-e>/<c-s> AI-commit
+  # tool) authenticates via `gh auth token` — dot_aicommitrc.tmpl reads that token
+  # at chezmoi-apply time. Installing gh is not enough: `gh auth login` is a
+  # one-time interactive step (can't be scripted) — see the reminder at the end.
+  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship yazi jq gh; do
     "$MISE" use -g "$tool" >/dev/null 2>&1 || echo "   (skip $tool — check name with 'mise registry')"
   done
   # gitmux + sesh via ubi/aqua backends (no first-party mise registry entry).
@@ -57,6 +64,19 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   "$MISE" use -g "aqua:joshmedeski/sesh" >/dev/null 2>&1 || echo "   (skip sesh — install manually)"
 fi
 
+# 6. aic — AI commit-message tool behind lazygit's <c-e> (gitmoji) / <c-s> (plain)
+#    customCommands. `setup-global-tools` runs `bun add -g @kkidd/aicommit`; bun is
+#    a mise [tools] entry, so `mise run` auto-installs it first (settings.auto_install).
+#    Only the fast `aic` path is provisioned here — the large-diff `claude -p`
+#    fallback stays Mac-only (nix-darwin homebrew "claude-code" + per-machine OAuth).
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  echo "==> mise: aic (AI commit tool)"
+  "$MISE" run setup-global-tools >/dev/null 2>&1 \
+    || echo "   (skip aic — after 'gh auth login', run: mise run setup-global-tools)"
+fi
+
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise herdr git zsh nvim rg fd lazygit"
+echo "    Confirm on PATH: mise herdr git zsh nvim rg fd lazygit yazi jq gh aic"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
+echo "    ONE-TIME for lazygit AI-commit (<c-e>/<c-s>): run 'gh auth login', then"
+echo "    'mise run setup-global-tools' + 'chezmoi apply' (so ~/.aicommitrc gets the token)."

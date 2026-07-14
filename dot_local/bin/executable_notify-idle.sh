@@ -27,6 +27,13 @@ mkdir -p "$LOG_DIR"
 } >> "$LOG_DIR/notify-idle.log" 2>&1
 
 SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
+# The STABLE id (%N) of the pane the agent runs in. The Stop hook inherits
+# TMUX_PANE from the agent process, so display-message resolves the agent's OWN
+# pane — this lets rctrl - ' land on the precise pane even when one session hosts
+# several agents. A pane id (not session:window.pane) is drift-proof: it never
+# changes when panes/windows renumber between the banner and the keypress. Empty
+# (→ bare session) if it can't be resolved.
+PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
 BRANCH="$(git -C "$PWD" branch --show-current 2>/dev/null)"
 
 # Only notify when both tmux session and git branch exist — otherwise the
@@ -35,9 +42,11 @@ if [ -z "$SESSION" ] || [ -z "$BRANCH" ]; then
   exit 0
 fi
 
-# Track the most recent session to fire a banner so the smart-switch binding
-# (rctrl - ') can read it and tmux switch-client back to that session.
-echo "$SESSION" > /tmp/notify-idle.latest 2>/dev/null || true
+# Track the most recent agent PANE to fire a banner so the smart-switch binding
+# (rctrl - ') can read it and focus that exact pane — not just its session, which
+# would be ambiguous when a session hosts multiple agents. Falls back to the bare
+# session when the pane couldn't be resolved.
+echo "${PANE_ID:-$SESSION}" > /tmp/notify-idle.latest 2>/dev/null || true
 
 # Detect host terminal. Inside tmux we MUST use `#{client_termtype}` —
 # tmux's server inherits TERM from the first client that started it and
