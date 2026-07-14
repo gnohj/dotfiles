@@ -25,6 +25,13 @@ fi
 # Get git repo root and branch for cache key
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 BRANCH=$(git branch --show-current 2>/dev/null)
+# Detached HEAD (e.g. a review worktree) has no current branch. Recover it
+# from the remote ref pointing at HEAD (remote-agnostic) so both the cache
+# key and the PR lookup stay stable.
+if [ -z "$BRANCH" ]; then
+  DETACHED_REF=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1)
+  BRANCH=${DETACHED_REF#*/}
+fi
 CACHE_KEY=$(echo "$REPO_ROOT:$BRANCH" | md5)
 CACHE_FILE="$CACHE_DIR/$CACHE_KEY"
 
@@ -62,7 +69,11 @@ fi
 # Start background fetch
 (
   touch "$LOCK_FILE"
-  PR_NUM=$(gh pr view --json number --jq '.number' 2>/dev/null)
+  if [ -n "$BRANCH" ]; then
+    PR_NUM=$(gh pr view "$BRANCH" --json number --jq '.number' 2>/dev/null)
+  else
+    PR_NUM=$(gh pr view --json number --jq '.number' 2>/dev/null)
+  fi
   if [ -n "$PR_NUM" ] && [ "$PR_NUM" -eq "$PR_NUM" ] 2>/dev/null; then
     echo "$PR_NUM" > "$CACHE_FILE"
   else

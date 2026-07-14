@@ -15,7 +15,7 @@ SESSION_NAME="$(tmux display-message -p '#S')"
 PREFIX_ACTIVE="$(tmux display-message -p '#{client_prefix}')"
 
 if [ "$PREFIX_ACTIVE" = "1" ]; then
-  SESSION_COLOR="${gnohj_color06}"
+  SESSION_COLOR="${gnohj_color21}"
 else
   SESSION_COLOR="${gnohj_color04}"
 fi
