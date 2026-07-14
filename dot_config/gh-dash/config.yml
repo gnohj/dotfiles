@@ -63,79 +63,54 @@ defaults:
         width: 20
         hidden: true
   refetchIntervalMinutes: 30
+# Every window is spawned via ~/.local/bin/mux-window.sh, which detects the live
+# multiplexer and dispatches: tmux new-window on the Mac (off-herdr), or
+# `herdr tab create` + `pane run` under herdr (where panes have no backing tmux
+# server, so a bare `tmux new-window` silently fails). Backward compatible with
+# both. See mux-window.sh for the tmux-vs-herdr command model.
 keybindings:
   issues:
     - key: e
-      name: 🐙 Edit issue in Octo (new tmux window)
+      name: 🐙 Edit issue in Octo (new window)
       command: >
-        tmux new-window -n "🐙 Issue #{{.IssueNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"'
+        nohup $HOME/.local/bin/mux-window.sh "🐙 Issue #{{.IssueNumber}}" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"' </dev/null >/dev/null 2>&1 &
     - key: i
-      name: 🐙 Create issue in Octo (tmux popup)
+      name: 🐙 Create issue in Octo (popup)
       command: >
-        tmux display-popup -d {{.RepoPath}} -w 80% -h 90% -E 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
+        $HOME/.local/bin/mux-window.sh --popup "🐙 New Issue" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
     - key: P # Octo + hunk + agent notes + ENHANCE
       name: 🤖 Review PR — Octo + hunk + agent notes + ENHANCE
       command: >
-        cd {{.RepoPath}} &&
-        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $BASE $HEAD 2>/dev/null &&
-        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
-        tmux new-window -e HUNK_PANE="$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=$HUNK_PANE"' &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
-    - key: W # Open PR in Neovim Octo with Workspaces
-      name: 🌳 Workspace PR — Octo + hunk + Claude (checkout branch)
-      command: >
-        cd {{.RepoPath}} &&
-        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $BASE $HEAD 2>/dev/null &&
-        git checkout $HEAD 2>/dev/null || git checkout -b $HEAD origin/$HEAD &&
-        MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"' &&
-        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+        nohup bash $HOME/.config/gh-dash/review-open.sh full {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: enter # Open PR in Neovim Octo
       name: 🐙 Open PR in Octo (review branch)
       command: >
-        cd {{.RepoPath}} &&
-        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $HEAD 2>/dev/null &&
-        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        tmux new-window -n "🐙 #{{.PrNumber}}" -c {{.RepoPath}} 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo pr edit {{.PrNumber}}"'
+        nohup bash $HOME/.config/gh-dash/review-open.sh octo {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: D # Open PR Diff in hunk + agent notes
       name: 🔀 Open PR Diff in hunk (agent notes)
       command: >
-        cd {{.RepoPath}} &&
-        BASE=$(gh pr view {{.PrNumber}} --json baseRefName -q .baseRefName) &&
-        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $BASE $HEAD 2>/dev/null &&
-        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        MERGE_BASE=$(git merge-base origin/$BASE origin/$HEAD) &&
-        PANE=$(tmux new-window -P -F "#{pane_id}" -n "🔀 #{{.PrNumber}}" -c {{.RepoPath}} "hunk diff $MERGE_BASE") &&
-        tmux new-window -e HUNK_PANE="$PANE" -n "🔍 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review {{.PrNumber}} pane=$HUNK_PANE"'
+        nohup bash $HOME/.config/gh-dash/review-open.sh diff {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: E # Open PR checks in ENHANCE
       name: ✨ Open PR checks in ENHANCE
       command: >
-        cd {{.RepoPath}} &&
-        tmux new-window -n "✨ #{{.PrNumber}}" -c {{.RepoPath}} 'ENHANCE_THEME=iceberg_dark gh-enhance -R {{.RepoName}} {{.PrNumber}}'
+        nohup bash $HOME/.config/gh-dash/review-open.sh enhance {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: A # Open PR in Claude Review
       name: 🤖 Run Claude /review on PR
       command: >
-        cd {{.RepoPath}} &&
-        HEAD=$(gh pr view {{.PrNumber}} --json headRefName -q .headRefName) &&
-        git fetch origin $HEAD 2>/dev/null &&
-        git checkout review/$HEAD 2>/dev/null || git checkout -b review/$HEAD origin/$HEAD &&
-        tmux new-window -n "🤖 #{{.PrNumber}}" -c {{.RepoPath}} 'eval "$($HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review {{.PrNumber}}"'
+        nohup bash $HOME/.config/gh-dash/review-open.sh claude {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
+    - key: R # Reclaim idle TREEHOUSE review-pool slots only (leased ~/.treehouse worktrees whose review windows are closed). Does NOT touch your personal git worktrees.
+      name: 🧹 Reclaim idle treehouse review slots (pool only, not personal worktrees)
+      command: >
+        nohup bash $HOME/.config/gh-dash/review-worktree.sh reclaim </dev/null >/dev/null 2>&1 &
 repoPaths:
   gnohj/*: ~/Developer/*
   iheartradio/*: ~/Developer/*
   iheartradio/inferno-monorepo: ~/Developer/inferno/review/
   iheartradio/web: ~/Developer/web/review/
+pager:
+  diff: ""
+# >>> colorscheme-set: gh-dash theme - generated, do not edit (see generate_gh_dash_config) >>>
 theme:
   ui:
     table:
@@ -156,5 +131,4 @@ theme:
       primary: "#a3b8c6"
       secondary: "#536571"
       faint: "#40474b"
-pager:
-  diff: ""
+# <<< colorscheme-set: gh-dash theme <<<

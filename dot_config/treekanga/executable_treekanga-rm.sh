@@ -242,8 +242,33 @@ run_direct() {
   done
 }
 
+# tkrm deletes your PERSONAL worktrees, but gh-dash `P` reviews lease SEPARATE
+# treehouse pool worktrees (under ~/.treehouse/, tracked in gh-review-worktrees/)
+# that tkrm never touches — so a review whose windows you've closed keeps holding
+# a pool slot silently. Piggyback on the cleanup you already do: after removing
+# worktrees, reclaim idle review slots (no open windows) and surface any that are
+# still active. Idle-only + grace-guarded, so an in-progress review is safe.
+reclaim_review_slots() {
+  local rw="$HOME/.config/gh-dash/review-worktree.sh"
+  local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees"
+  [ -x "$rw" ] || return 0
+  local before after freed
+  before=$(find "$state_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  [ "${before:-0}" -eq 0 ] && return 0
+  "$rw" reclaim >/dev/null 2>&1 || true
+  after=$(find "$state_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  freed=$((before - after))
+  if [ "$freed" -gt 0 ]; then
+    echo "🌲 reclaimed $freed idle review worktree slot(s); ${after} still leased (active)"
+  elif [ "${after:-0}" -gt 0 ]; then
+    echo "🌲 ${after} review worktree slot(s) still leased & active — close their windows then rerun, or press R in gh-dash"
+  fi
+}
+
 if [ $# -eq 0 ]; then
   run_picker
 else
   run_direct "$(list_worktrees)" "$@"
 fi
+
+reclaim_review_slots
