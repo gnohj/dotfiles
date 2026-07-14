@@ -12,97 +12,43 @@ cmd - m : :
 cmd - h : :
 
 # Tmux window navigation
-# rctrl - tab : moved to multiplexer-native binds so it works on herdr --remote too:
-#   tmux (native/dash) binds -n C-Tab → next-window (base.conf); herdr binds
-#   ctrl+tab → cycle_pane_next (config.toml). Freed from skhd so ctrl+tab reaches
-#   whichever multiplexer you're in. (grave/backtick key 0x32)
 rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
-rctrl - space : /opt/homebrew/bin/tmux last-window 2>/dev/null || { [ "$(/opt/homebrew/bin/tmux list-windows | wc -l)" -eq 2 ] && /opt/homebrew/bin/tmux next-window; } # toggle last two; fall back to the other window when only 2 exist and no jump history yet
+# toggle last two; fall back to the other window when only 2 exist and no jump history yet
+rctrl - space : /opt/homebrew/bin/tmux last-window 2>/dev/null || { [ "$(/opt/homebrew/bin/tmux list-windows | wc -l)" -eq 2 ] && /opt/homebrew/bin/tmux next-window; } 
+rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
 
-# Tmux window selection by number (windows are 0-indexed)
-rctrl - 1 : /opt/homebrew/bin/tmux select-window -t :0
-rctrl - 2 : /opt/homebrew/bin/tmux select-window -t :1
-rctrl - 3 : /opt/homebrew/bin/tmux select-window -t :2
-rctrl - 4 : /opt/homebrew/bin/tmux select-window -t :3
-rctrl - 5 : /opt/homebrew/bin/tmux select-window -t :4
-rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :5
-rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :6
-rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :7
-rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :8
-rctrl - 0 : /opt/homebrew/bin/tmux list-windows -F '#{window_index}' | tail -n +2 | sort -rn | xargs -I{} /opt/homebrew/bin/tmux kill-window -t :{} ; /opt/homebrew/bin/tmux select-window -t :0
+# Tmux window selection by number (base-index 1 → rctrl-1 = first window).
+# Back in skhd after the terminal ctrl+digit prefix-expansion approach hit an
+# unresolved ctrl+3 wall in the kanata/number-layer path.
+rctrl - 1 : /opt/homebrew/bin/tmux select-window -t :1
+rctrl - 2 : /opt/homebrew/bin/tmux select-window -t :2
+rctrl - 3 : /opt/homebrew/bin/tmux select-window -t :3
+rctrl - 4 : /opt/homebrew/bin/tmux select-window -t :4
+rctrl - 5 : /opt/homebrew/bin/tmux select-window -t :5
+rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :6
+rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :7
+rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :8
+rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :9
+rctrl - 0 : /opt/homebrew/bin/tmux kill-window -a -t :1
 
 # Tmux smart dual split switching (remembers Neovim buffers)
 rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
-# Tmux smart dual split creation (70/30 split on first pane)
-rctrl - f : ~/.config/skhd/smart-tmux-dual-split-create.sh
 
-# Launcher - Omarchy-style popup launcher
-rctrl - i : ~/.config/skhd/launcher-switcher.sh
-# rctrl - y : freed so ctrl+y reaches the multiplexer (like ctrl+g lazygit):
-#   tmux binds -n C-y → yazi-launch.sh (base.conf); herdr binds ctrl+y →
-#   yazi-herdr.sh (config.toml, server-side, --remote-safe).
+# Global Kitty Quake Terminals
+cmd + rctrl - s : ~/.config/skhd/kitty-ql-quake.sh
+cmd + rctrl - y : ~/.config/skhd/kitty-yazi-quake.sh
+cmd + rctrl - k : ~/.config/skhd/kitty-quake.sh
 
-# kitty quake (quick-access) terminal — global toggle. Single-instance kitten:
-# each press shows/hides the same window. Config: ~/.config/kitty/quick-access-terminal.conf.
-# Plain kitty (no tmux/herdr in front), so yazi image previews render here.
-#
-# NOTE: cmd - s was removed — a global skhd cmd+s taps the key before any app
-# sees it, so it killed Save (and cmd+s) in ghostty and every GUI app. Pick a
-# conflict-free trigger below.
-cmd + ctrl - s : /Applications/kitty.app/Contents/MacOS/kitten quick-access-terminal --detach
-
-# rctrl - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai /opt/homebrew/bin/opencode true
-# rctrl - a : FREED so ;-hold + a (right-ctrl+a) reaches the multiplexer as the
-#   prefix (tmux prefix C-a / herdr prefix ctrl+a). skhd was eating right-ctrl+a
-#   here — that's why manual LEFT-ctrl+a worked but ;+a did nothing. AI window
-#   relocated to rctrl+shift-a below.
-rctrl + shift - a : ~/.config/skhd/tmux-window-simple.sh 🤖 ai "/opt/homebrew/bin/pi -c" true
+# Global tmux-dash
 rctrl - e : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
-# rctrl - x : top/bottom horizontal split (see line below for binding)
-# rctrl - c : freed for native tmux copy
-rctrl + shift - x : ~/.config/skhd/tmux-window-simple.sh 🐠 shell
-rctrl - 0x2F : ~/.config/skhd/tmux-window-simple.sh 🐑 herd "herdr" true # herdr (period) — bare name, PATH-resolved (nix: /run/current-system/sw/bin/herdr); the old /opt/homebrew/bin/herdr path doesn't exist
 rctrl - 0x2C : "$HOME/.local/bin/tmux-dash" popup # tmux-dash agent dashboard (forward slash) — opens the view in a tmux popup on the *focused* server (tmux-dash infers it), so one key works across default/personal/work. Table of agents; enter switches, i jumps to next input, q/escape closes
-rctrl + shift - m : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
-rctrl + shift - 0x2F : "$HOME/.local/bin/tmux-dash" toggle-sidebar # show/hide the tmux-dash sidebar; running td live-applies (period)
-rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
-# codeburn dashboard moved to rctrl-i launcher menu
-# rctrl - r - reserved for atuin
-rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
-# rctrl - d - reserved for nvim shortcut (remapped <C-d> to <rctrl - d>) to scroll down in nvim
-# rctrl - u - reserved for nvim shortcut (remapped <C-u> to <rctrl - u>) to scroll up in nvim
-# rctrl - o - reserved for nvim shortcut (remapped <C-o> to <rctrl - o>) to jump back in nvim
-# rctrl - i - moved above to launcher
-# rctrl - w - reserved for nvim shortcut (remapped <C-w> to <rctrl - w>) to do window management in nvim
-# rctrl - s - reserved for nvim shortcuts - open buffers in split - horizontal / vertical ; in normal mode it'll save the file
-# rctrl - y - reserved for nvim - open noice history
-# rctrl - p - reserved for nvim - reserved for going to next history
-# rctrl - n - reserved for nvim - reserved for going to previous history
-# rctrl - h/j/k/l - reserved for nvim - navigation
-# rctrl - g : moved to multiplexer-native binds so lazygit works on herdr --remote:
-#   tmux (native/dash) binds -n C-g → lazygit.sh (base.conf); herdr binds ctrl+g →
-#   lazygit pane (config.toml, server-side). Freed from skhd so ctrl+g reaches the
-#   multiplexer instead of a client-side popup that can't reach a remote repo.
-rctrl + shift - g : ~/.config/skhd/lazygit-window.sh
-rctrl - t : ~/.config/skhd/sesh-switcher.sh
 rctrl - 0x29 : "$HOME/.local/bin/tmux-dash" popup table # semicolon — tmux-dash agent dashboard, table view (treekanga moved into tmux-dash: press `w` in the view)
+rctrl - i : ~/.config/skhd/mux-passthrough.sh i
 rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
-rctrl + shift - t : ~/.config/tmux/toggle-terminal-transparency.sh
-rctrl + shift - j : ~/.local/bin/worktree-jira # active Chrome Jira tab → /worktree (subscription-billed)
-rctrl + shift - h : ~/.local/bin/worktree-prompt # tmux popup prompt → /worktree (free-text inference)
-rctrl + shift - k : ~/.local/bin/worktree-clipboard # clipboard (text or image) → classify + /worktree
-rctrl + shift - b : ~/.local/bin/worktree-bug # clipboard → classify-as-bug + create Jira ticket + /worktree
-rctrl + shift - r : ~/.local/bin/worktree-retry # retry the most-recent worktree-bug capture (refine context)
-rctrl + shift - f : ~/.local/bin/worktree-jira-file # Stage B: file the Jira ticket from the current worktree's pending note (dry-run preview → confirm → file)
+
+# OS Notifications
+rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
 rctrl + shift - escape : ~/.local/bin/worktree-abort # abort the most recent worktree-runner in flight
-rctrl - c : /opt/homebrew/bin/tmux copy-mode
-rctrl - x : /opt/homebrew/bin/tmux split-window -v -l 20% -c "#{pane_current_path}" # new pane below at 20% height (tweak with -l N%)
-rctrl + shift - c : /opt/homebrew/bin/tmux neww ~/.config/colorscheme/colorscheme-selector.sh
-# rctrl - q - reserved for nvim shortcut to quit nvim instance
-rctrl - z : /opt/homebrew/bin/tmux kill-pane
-rctrl - m : /opt/homebrew/bin/tmux resize-pane -L 5
-rctrl - 0x2B : /opt/homebrew/bin/tmux resize-pane -R 5 # comma
-# TODO: move tmux colorscheme selector (rctrl - ,) and transparency toggle (rctrl - .) here
 
 # Aerospace - Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
