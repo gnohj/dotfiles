@@ -10,10 +10,10 @@ return {
     {
       "<leader>gi",
       function()
-        local cwd = vim.fn.getcwd()
-        vim.fn.jobstart({ "tmux", "new-window", "-n", "🐙", "-c", cwd, "gh-dash", "--config", vim.fn.expand("~/.config/gh-dash/issues.yml") }, { detach = true })
+        local cmd = "gh-dash --config " .. vim.fn.expand("~/.config/gh-dash/issues.yml")
+        require("config.mux").new_window(cmd, { name = "🐙" })
       end,
-      desc = "gh-dash Issues (tmux)",
+      desc = "gh-dash Issues (window)",
     },
     {
       "<leader>oa",

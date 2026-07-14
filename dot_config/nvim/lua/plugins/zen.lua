@@ -130,8 +130,51 @@ local function is_side_panel_window(win)
   return false
 end
 
--- Store main_width for toggle (set during config)
-local zen_main_width = 148
+-- True when this nvim is being rendered inside tmux-dash. tmux-dash sets the
+-- global `@dash` user option on its server while running (and clears it on
+-- exit), so any pane in that tmux server can detect the dashboard viewport and
+-- skip zen centering: the sidebar already claims horizontal space, so centering
+-- the editor on top of it just wastes columns.
+--
+-- Cached, since it's read on every width recompute. The marker only changes when
+-- tmux-dash starts/stops, and attaching/detaching it resizes the client — so
+-- VimResized invalidates the cache (see config()), keeping detection live.
+local tmux_dash_cache = nil
+local function in_tmux_dash()
+  if tmux_dash_cache ~= nil then
+    return tmux_dash_cache
+  end
+  local result = false
+  if vim.env.TMUX and vim.env.TMUX ~= "" then
+    local out = vim.fn.system({ "tmux", "show-option", "-gv", "@dash" })
+    result = vim.v.shell_error == 0 and vim.trim(out) == "1"
+  end
+  tmux_dash_cache = result
+  return result
+end
+
+-- Ideal (max) centered content width, and the min terminal width worth
+-- centering at all. The effective width shrinks to fit narrower panes (e.g.
+-- nvim sharing a herdr tab with an agent pane at ~141 cols) so zen still
+-- centers instead of silently bailing; at full width it stays at the max.
+local ZEN_MAX_WIDTH = 148
+local ZEN_MIN_COLUMNS = 100
+
+-- Effective centered width for the current terminal. Below ZEN_MIN_COLUMNS we
+-- return the full column count so zen.nvim's own `columns <= width` gate trips
+-- and it declines to center (a pane that narrow isn't worth centering).
+local function zen_target_width()
+  -- Returning the full column count makes zen.nvim's own `columns <= width` gate
+  -- trip, so its built-in activation declines too (not just the manual paths).
+  if vim.o.columns <= ZEN_MIN_COLUMNS or in_tmux_dash() then
+    return vim.o.columns
+  end
+  return math.min(ZEN_MAX_WIDTH, vim.o.columns - 8)
+end
+
+local function zen_should_activate()
+  return vim.o.columns > ZEN_MIN_COLUMNS and not in_tmux_dash()
+end
 
 -- Store original highlights/settings to restore later
 local original_win_separator = nil
@@ -306,8 +349,8 @@ return {
           close_zen_padding()
         else
           -- Only create if window is wide enough
-          if vim.o.columns > zen_main_width then
-            create_zen_windows(zen_main_width)
+          if zen_should_activate() then
+            create_zen_windows(zen_target_width())
           end
         end
       end,
@@ -315,11 +358,20 @@ return {
     },
   },
   config = function(_, opts)
-    -- Store width for toggle keymap
-    zen_main_width = opts.main.width or 148
     require("zen").setup(opts)
 
     local group = vim.api.nvim_create_augroup("ZenNvimFixes", { clear = true })
+
+    -- Invalidate the tmux-dash detection cache when the client resizes, since
+    -- attaching/detaching the dashboard (which sets/clears the @dash marker)
+    -- changes the viewport width and thus fires VimResized.
+    vim.api.nvim_create_autocmd("VimResized", {
+      group = group,
+      callback = function()
+        tmux_dash_cache = nil
+      end,
+      desc = "Re-check tmux-dash marker on resize",
+    })
 
     -- PATCH 0: Style ALL zen windows aggressively
     -- Run styling a few times at startup, then rely on events
@@ -491,7 +543,7 @@ return {
           if is_codediff_tab() or is_dashboard_visible() or is_zen_active() then
             return
           end
-          if vim.o.columns <= opts.main.width then
+          if not zen_should_activate() then
             return
           end
 
@@ -505,7 +557,7 @@ return {
           end
 
           if normal_wins == 1 then
-            create_zen_windows(opts.main.width)
+            create_zen_windows(zen_target_width())
           end
         end)
       end,
@@ -518,7 +570,7 @@ return {
       if
         is_codediff_tab()
         or is_dashboard_visible()
-        or vim.o.columns <= opts.main.width
+        or not zen_should_activate()
       then
         return
       end
@@ -536,13 +588,13 @@ return {
 
       -- Only create zen windows if single window and no zen windows exist
       if normal_wins == 1 and not is_zen_active() then
-        create_zen_windows(opts.main.width)
+        create_zen_windows(zen_target_width())
       end
     end)
   end,
   opts = {
     main = {
-      width = 148, -- or vim.wo.colorcolumn
+      width = zen_target_width,
     },
     -- TIP: find a buffer's filetype with :lua print(vim.bo.filetype)
     top = {
