@@ -1,0 +1,14 @@
+# treehouse USER-level config (~/.config/treehouse/config.toml).
+#
+# Only lifecycle hooks live here — max_trees (16) and root (~/.treehouse) stay at
+# treehouse's defaults on purpose (a relative root would break `prune --global`).
+# Hooks in a repo-level treehouse.toml are ignored for safety, so this user-level
+# file is the ONLY place they take effect.
+#
+# post_create runs right after a pool worktree is provisioned OR reset, just
+# before `treehouse get` / `--lease` hands it over — so gh-dash `P` reviews and
+# orchestrator `-e` agents get a worktree with deps + env ready. The script is
+# deliberately lean (env copy + backgrounded pnpm install + zoxide); see it for
+# why it does NOT mirror treekanga's heavier worktree_setup.sh.
+[hooks]
+post_create = ["$HOME/.config/treehouse/post-create.sh"]

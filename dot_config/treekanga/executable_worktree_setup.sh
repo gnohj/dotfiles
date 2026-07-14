@@ -158,7 +158,20 @@ EOF
   fi
 fi
 
-if [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
+if [ "${WORKTREE_OPEN_IN:-}" = "herdr" ] && command -v herdr &>/dev/null; then
+  # herdr / `ql` launcher path: open the new worktree as a herdr workspace with the
+  # pen/fish layout (herdr-sesh-layout.sh) — the herdr-native counterpart of `sesh
+  # connect`. Talks to the herdr server over its socket, so it works from the ghostty
+  # quake window too (no $TMUX). herdr-sesh-layout.sh attaches if a workspace for this
+  # dir is already open, and labels it by the inferred repo name. The signal env var
+  # is set by the herdr worktree actions in launcher.sh (and threaded through the
+  # worktree-runner headless flow, which otherwise strips custom env).
+  if "$HOME/.local/bin/herdr-sesh-layout.sh" "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
+    log "✓ herdr workspace opened ($CURRENT_WORKTREE)"
+  else
+    log "✗ herdr-sesh-layout.sh failed"
+  fi
+elif [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
   # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
   "$HOME/.config/sesh/sesh-spawn.sh" stamp
   if sesh connect "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then

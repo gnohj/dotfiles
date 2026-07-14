@@ -293,6 +293,11 @@ export SKIP_FETCH=1
 # treekanga inherits from claude → postScript reads it. Concurrent
 # runners get isolated logs.
 export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+# Where worktree_setup.sh should open the new worktree (herdr workspace vs sesh
+# vs clipboard). Rides the SAME env chain as the log var above — set by the ql /
+# herdr launcher actions and baked here so it survives the open→Terminal boundary;
+# claude → treekanga → postScript inherits it. Empty (the tmux path) is a no-op.
+export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
 
 START_TS=\$(date +%s)
 fmt_duration() {
@@ -440,6 +445,20 @@ if [ -z "\$WORKTREE_PATH" ]; then
   CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '\*\*Worktree( path)?:\*\*' \\
     | tail -1 \\
     | sed -E 's/.*\`([^\`]+)\`.*/\1/')
+  # Secondary — any backtick-wrapped path under /Developer/ anywhere in
+  # the output. Covers claude phrasings that skip the "**Worktree:**"
+  # marker entirely. The concrete miss this fixes: when the worktree
+  # ALREADY EXISTS, haiku replies conversationally ("Great news! The
+  # worktree already exists") and emits the path as
+  # "**Path**: \`~/Developer/web/infra/…\`" with no Worktree: line — the
+  # primary grep above returns empty, WORKTREE_PATH stays unset, the
+  # rescue + claude-only fallbacks (both gated on WORKTREE_PATH) never
+  # fire, and a present, registered worktree is misreported as failed.
+  if [ -z "\$CLAUDE_PATH" ]; then
+    CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" \\
+      | grep -oE '\`[^\`]*/Developer/[^\`]+\`' \\
+      | tail -1 | tr -d '\`')
+  fi
   if [ -n "\$CLAUDE_PATH" ]; then
     CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
     if [ -d "\$CLAUDE_PATH" ]; then
@@ -465,6 +484,7 @@ if [ "\$OUTCOME" = "failed" ] \\
   (
     cd "\$WORKTREE_PATH"
     export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+    export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
     bash "\$HOME/.config/treekanga/worktree_setup.sh"
   ) >> $LOGFILE 2>&1
   # Re-read per-run log; if rescue succeeded, we'll find the marker.
