@@ -3,6 +3,10 @@
 # Resolve the effective path with `herdr --help`; export defaults with
 # `herdr --default-config`.
 
+# Suppress the first-run orientation/onboarding screen on every startup. herdr
+# shows it whenever this key is missing OR true; false dismisses it for good.
+onboarding = false
+
 [keys]
 # ctrl+a matches the tmux prefix muscle memory. The `th` wrapper tmux runs with
 # `prefix None` + `unbind C-a`, so ctrl+a passes straight through to herdr here.
@@ -10,15 +14,130 @@
 # so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
 prefix = "ctrl+a"
 
-# prefix+tab toggles back-and-forth to the last-focused pane (tmux-style alternate).
-# Directional movement is already covered by the direct ctrl+h/j/k/l chords
-# (vim-herdr-navigation below), so prefix+tab is better spent on the toggle than on
-# cycle-next. ctrl+tab as a DIRECT chord doesn't survive the Ghostty → th-tmux →
-# herdr chain (special key, two hops of disambiguation) — but after the prefix it's
-# just a plain `tab`, which is bulletproof. With the one-tap kanata prefix (or
-# ;-hold+a), this is [prefix]+tab. prefix+shift+tab still cycles for a sequential walk.
-last_pane = "prefix+tab"
+# prefix+b is a TRUE last-pane toggle (A<->B bounce), scoped to the current workspace -
+# see the herdr-pane-tracker.py [[keys.command]] block below. herdr's native last_pane
+# is global (changelog #287, "across workspaces and tabs") and its only workspace-scoped
+# option is cycle_pane_next (a cycle, not a toggle), so neither fit. prefix+shift+tab is
+# kept as a plain sequential pane walk within the tab.
 cycle_pane_previous = "prefix+shift+tab"
+
+# Sidebar toggle, relocated off its default prefix+b (now the last-pane toggle) to prefix+B.
+toggle_sidebar = "prefix+shift+b"
+
+# prefix+a cycles through ALL agents in sidebar order (herdr's native next_agent) -
+# a browse-the-queue walk regardless of state. Distinct from prefix+i below, which
+# jumps only to blocked agents. prefix+A (shift+a) walks the same list backwards.
+next_agent = "prefix+a"
+previous_agent = "prefix+shift+a"
+
+# prefix+s cycles forward through spaces/workspaces; prefix+S (shift+s) cycles back -
+# mirrors the prefix+a / prefix+A agent pair. Displaces herdr's default prefix+s
+# (settings), which moves to prefix+, below.
+next_workspace = "prefix+s"
+previous_workspace = "prefix+shift+s"
+
+# prefix+, opens settings, moved off its default prefix+s (now next_workspace) - the
+# comma matches the near-universal "preferences" shortcut convention.
+settings = "prefix+,"
+
+# Unbind prefix+o (herdr's native open_notification_target). An empty string
+# disables the action, freeing the key.
+open_notification_target = ""
+
+# Single-chord window/tab nav (ctrl+1..9) is handled by PREFIX-EXPANSION at the
+# terminal, NOT here: ghostty/kitty translate ctrl+N into `prefix N`, so it lands
+# on herdr's native switch_tab (prefix+1..9, 1-indexed). No herdr keybind needed —
+# ctrl+N arrives as the ordinary prefix sequence and works over --remote.
+
+# prefix+= is a second key for horizontal split, alongside herdr's built-in
+# split_horizontal = "prefix+minus" (the - and = keys sit together, tmux muscle
+# memory). The built-in action takes only ONE key, so the alias is a shell binding
+# that calls the CLI: `herdr pane split --current --direction down` splits the
+# globally-focused pane downward (down = horizontal divider, same as prefix+minus).
+# The = key uses its literal token here ("prefix+="); herdr rejects "prefix+equal"
+# as an invalid keybinding (unlike minus/plus/comma, "equal" is not a named token).
+[[keys.command]]
+key = "prefix+="
+type = "shell"
+command = "herdr pane split --current --direction down --focus"
+description = "horizontal split (alias of prefix+minus)"
+
+# prefix+b: true "last pane" toggle (tmux-style A<->B bounce) scoped to the current
+# workspace, so it never crosses into another workspace (that's prefix+enter's job).
+# herdr has no native equivalent - last_pane is global and cycle_pane_next only cycles.
+# herdr-pane-tracker.py runs a tiny daemon that subscribes to pane.focused events over
+# the socket API and records each workspace's previous pane; this toggle focuses it via
+# pane.focus (the only by-id focus, reachable only over the raw socket). The daemon is
+# lazy-started on first press, so the very first toggle in a fresh herdr session may
+# no-op until one focus change has been recorded.
+[[keys.command]]
+key = "prefix+b"
+type = "shell"
+command = "herdr-pane-tracker.py toggle"
+description = "toggle to last-focused pane (within workspace)"
+
+# prefix+i jumps to the next BLOCKED agent (waiting on input) - the herdr analog of
+# the tmux-dash split-view `i` jump. herdr's native next_agent cycles ALL agents in
+# sidebar order (blocked, working, idle, done) even with agent_panel_sort="priority",
+# so it's a browse-the-queue key, not a jump-to-attention key. This `type = "shell"`
+# binding runs herdr-next-blocked.sh, which re-scans the live agent list each press
+# and focuses only blocked agents (wrapping through multiples) - so a re-blocked agent
+# reappears immediately. prefix+' (below) is the reactive companion: it jumps to the
+# pane behind the LAST emitted notification (blocked OR finished), not just blocked.
+[[keys.command]]
+key = "prefix+i"
+type = "shell"
+command = "herdr-next-blocked.sh"
+description = "jump to next blocked agent (needs input)"
+
+# prefix+' jumps to the pane behind the LAST emitted notification - whatever most
+# recently toasted, whether it went blocked (needs input) or finished (working->idle),
+# in any background workspace. herdr's built-in open_notification_target is dead in 0.7.3
+# (resolves no target, and has no socket API to drive it), so this runs
+# herdr-activity-tracker.py: a small poll daemon that records the most recent background
+# notification and focuses its pane via pane.focus. Distinct from prefix+i, which only
+# cycles BLOCKED agents. The daemon lazy-starts on first press (and eagerly from
+# dot_zshrc when HERDR_WORKSPACE_ID is set), so a toast fired before it started is missed.
+[[keys.command]]
+key = "prefix+'"
+type = "shell"
+command = "herdr-activity-tracker.py jump"
+description = "jump to the pane behind the last emitted notification"
+
+# prefix+u jumps to the last user prompt ("❯ ") in a Claude/agent pane - herdr analog
+# of the tmux `bind u` copy-mode search (agentic.conf). herdr has no copy-mode or
+# scroll-to API, so instead of scrolling the live pane, herdr-last-prompt.sh captures
+# the agent pane's scrollback (herdr agent read) and opens it read-only in an nvim
+# overlay positioned at the last ❯; n = earlier prompt, N = later, q closes. type="pane"
+# (not shell) so it runs server-side and works over --remote just like ctrl+g/ctrl+y.
+[[keys.command]]
+key = "prefix+u"
+type = "pane"
+command = "herdr-last-prompt.sh"
+description = "jump to last user prompt (❯) in the agent pane"
+
+# prefix+enter toggles to the most-recently-used WORKSPACE (workspace-level sibling
+# of last_pane above, and of tmux's `bind Space switch-client -l`). herdr has no
+# native last_workspace/alternate_workspace action as of 0.7.3 (feature request
+# ogulcancelik/herdr#1327 was auto-closed to Discussions, not planned), so this is a
+# `type = "shell"` binding that runs the MRU-tracking helper detached on the host.
+# previous_workspace/next_workspace navigate in fixed order; this one is recency-based.
+[[keys.command]]
+key = "prefix+enter"
+type = "shell"
+command = "herdr-last-workspace.sh"
+description = "toggle to last-used workspace (MRU)"
+
+# prefix+0 → close every tab to the RIGHT of the first, keeping only the leftmost
+# tab in the current workspace (tmux "close all other windows" feel). Closes by
+# stable tab_id in tab-bar order. Single-chord ctrl+0 reaches this via terminal
+# prefix-expansion (ctrl+0 → prefix 0), matching tmux's prefix 0 kill-others.
+# prefix+1..9 (and ctrl+1..9 via expansion) remain tab switches.
+[[keys.command]]
+key = "prefix+0"
+type = "shell"
+command = "herdr-close-tabs-right.sh"
+description = "close all tabs right of the first (keep leftmost)"
 
 # lazygit as a real herdr pane (runs server-side, where the repo lives — works
 # local AND --remote). Direct chord ctrl+g for single-motion (;-hold + g).
@@ -42,6 +161,54 @@ type = "pane"
 command = "yazi-herdr.sh"
 description = "yazi (seeded from the sibling nvim buffer / cwd)"
 
+# ctrl+t → herdr-sesh.sh, the sesh-style session picker (herdr-native replacement
+# for the tmux sesh popup). type=pane = full-screen zoom overlay like ctrl+g/ctrl+y,
+# and runs server-side so it works over --remote. Reuses `sesh list -c -z --icons`
+# so config entries come live from sesh.toml (⚙) and recent dirs from zoxide (📁),
+# with herdr's OPEN workspaces pinned at top (⚡). Select an open workspace → focus;
+# select a dir → herdr-sesh-layout.sh opens it (pen nvim + fish shells), attaching to
+# an existing workspace if one's already there. Direct chord ;-hold + t. skhd's
+# rctrl-t is freed so ctrl+t reaches herdr; tmux mirrors -n C-t → the tmux sesh popup
+# for the plain-tmux world (same wiring as ctrl+g lazygit / ctrl+y yazi). zoxide is
+# folded into this one picker, so there is no separate prefix+t binding anymore.
+[[keys.command]]
+key = "ctrl+t"
+type = "pane"
+command = "herdr-sesh.sh"
+description = "sesh-style session picker"
+
+# prefix+f → git-aware file viewer (smarzban/herdr-file-viewer): a read-only tree in a
+# right split with git status glyphs/colors (M/A/D/untracked) on the left, and the right
+# pane auto-picks the view — changed files show a diff, markdown renders, code gets syntax
+# highlighting. This is the "git signs in a sidebar" surface; ctrl+g lazygit stays the
+# full-ops git tool. The plugin's open-file-viewer.sh is a launch-or-focus-or-close toggle
+# scoped to the current tab (repeat press hides it), so it's bound type="shell" as the plugin
+# intends. Inside: f fuzzy-find, v cycle diff/rendered/syntax, b toggle baseline
+# (merge-base vs HEAD), e open in editor, Z fullscreen, ? help.
+#
+# Requires the plugin installed on whichever host runs the herdr server:
+#   herdr plugin install smarzban/herdr-file-viewer
+# REMOTE CAVEAT: this is a type="shell" binding (unlike the native type="plugin_action"
+# vim-herdr-navigation chords), so over `herdr --remote` it needs --remote-keybindings server
+# and the plugin present on the remote box — same rule as the other shell helpers here.
+[[keys.command]]
+key = "prefix+f"
+type = "shell"
+command = "herdr plugin action invoke open-file-viewer --plugin herdr-file-viewer"
+description = "git-aware file viewer (status glyphs + diffs)"
+
+# prefix+F (shift+f) → herdr-pluck: tmux-fingers-style "grab a visible token". Overlays
+# one/two-letter hints on every URL / file path / git SHA / UUID / IP / k8s ref in the pane
+# and copies the picked one to the system clipboard (pbcopy here). type="plugin_action" is the
+# NATIVE plugin binding (like the vim-herdr-navigation chords), so it runs server-side and works
+# over --remote without --remote-keybindings=server (unlike the type="shell" prefix+f above).
+# Install (not chezmoi-managed — run on a fresh box): herdr plugin install rmarganti/herdr-pluck
+[[keys.command]]
+key = "prefix+shift+f"
+type = "plugin_action"
+command = "rmarganti.herdr-pluck.pluck"
+description = "pluck: copy a visible token (URL/path/SHA) via hints"
+
 [theme]
 # Match the tokyonight scheme without needing the macOS colorscheme tooling.
 name = "terminal"
@@ -55,6 +222,16 @@ manage_ssh_config = true
 [ui]
 mouse_capture = true
 
+# Show detected/reported agent labels (claude / codex / etc.) in split-pane
+# borders when no manual pane name is set - mirrors the tmux-dash agent chips.
+show_agent_labels_on_pane_borders = true
+
+# Order the Agents panel as an attention queue (blocked/needs-input first) instead
+# of the default "spaces" (grouped by workspace), so the sidebar visually surfaces
+# blocked agents at the top. The prefix+i jump itself is driven by herdr-next-blocked.sh
+# (a shell keybinding), not this sort - this just keeps the panel readable at a glance.
+agent_panel_sort = "priority"
+
 # Active/focused split-pane border + nav highlight. This `accent` line and the
 # generated [theme.custom] block at the bottom of this file are both retargeted
 # to the active colorscheme by generate_herdr_config in colorscheme-set.sh on
@@ -62,6 +239,29 @@ mouse_capture = true
 # same as the tmux active-pane border). accent is NOT a [theme.custom] token, so
 # it has to live here under [ui].
 accent = "#a7cfbd"
+
+# Background notification popups. "herdr" renders an in-app toast (bottom-right)
+# instead of handing off to the OS notification service. In-app toasts are what
+# prefix+' (open_notification_target) resolves its jump target from — with the
+# prior "system" delivery the toast went to macOS Notification Center, leaving
+# prefix+' with nothing to focus, so it silently no-op'd. "herdr" keeps the toast
+# inside herdr so prefix+' can focus the pane behind the latest notification.
+# Tradeoff: agent done / needs-attention popups no longer surface at the OS level
+# when herdr isn't the focused app. Kept last in the [ui] block so this subtable
+# doesn't swallow the bare keys above.
+[ui.toast]
+delivery = "herdr"
+
+# In-app toast position. Default is bottom-right; top-right keeps popups up out of
+# the way of the shell prompt / agent input at the bottom of a pane.
+[ui.toast.herdr]
+position = "top-right"
+
+# Silence agent state-change sounds in background workspaces. herdr's default is
+# `[ui.sound] enabled = true`, which plays a sound on agent done / needs-attention.
+# Toasts still render (see [ui.toast] above); this only mutes the audio.
+[ui.sound]
+enabled = false
 
 [session]
 resume_agents_on_restore = true
@@ -107,6 +307,10 @@ description = "navigate right (vim/herdr)"
 # which is Kitty-graphics-compatible, so the requirement is met. Flagged
 # experimental by herdr (0.7.3) — previews may still be imperfect.
 kitty_graphics = true
+
+# Persist each pane's recent screen content across full herdr server restarts, so
+# panes come back with their output (not just layout + blank scrollback).
+pane_history = true
 # >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>
 [theme.custom]
 panel_bg = "reset"
@@ -119,9 +323,14 @@ surface0 = "#1e2528"
 surface1 = "#1e2528"
 overlay0 = "#536571"
 overlay1 = "#7a90a0"
-subtext0 = "#9fb7a4"
+# herdr sidebar token map (verified via diagnostic): text = active/focused row's
+# whole line (workspace+tab), subtext0 = inactive rows' whole line, mauve = active
+# space's branch line. These tokens are SHARED by the spaces AND agents sections,
+# so they can't be set per-panel. subtext0 = gnohj blue (agents/inactive rows),
+# text = default, mauve = green (only the active space's branch line).
+subtext0 = "#a3b8c6"
 text = "#b8c9d3"
-mauve = "#c0aed2"
+mauve = "#c2f0db"
 # herdr colors the agent "idle" state with its green token and the "working" state
 # with its yellow token (both verified live). Point green at gnohj_color05 (idle)
 # and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
@@ -133,4 +342,11 @@ red = "#da858e"
 blue = "#a3b8c6"
 teal = "#a7cfbd"
 peach = "#dc988e"
+# Copy-mode (visual selection) highlight - herdr's src/selection.rs reads these
+# two CustomThemeColors fields. Point them at the exact pair tmux's mode-style
+# uses (generate-tmux-colors.sh: "bg=$gnohj_color13,fg=$gnohj_color02") so a
+# selection in a herdr pane reads identically to one in tmux copy-mode: slate
+# bg (color13) under green text (color02).
+selection_background = "#536571"
+selection_foreground = "#b7ce97"
 # <<< colorscheme-set: herdr theme palette <<<

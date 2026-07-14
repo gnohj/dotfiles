@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# herdr-config-reload version: 1   (bump to force a re-run on `chezmoi apply`)
+#
+# config.toml hash: {{ include "dot_config/herdr/config.toml" | sha256sum }}
+#
+# Reload the RUNNING herdr server after chezmoi rewrites config.toml. herdr reads its
+# keybindings into memory ONCE at server startup; `chezmoi apply` rewrites the file on disk
+# but never tells the live server, so new/changed bindings silently drift until the next
+# server restart (old bindings keep working, new ones are dead — a confusing split).
+#
+# The `include ... | sha256sum` line above bakes a hash of config.toml into this script's
+# rendered output, so chezmoi re-runs `run_onchange` ONLY when the config actually changes.
+# `after_` ordering means it fires once the new config.toml is already on disk.
+set -uo pipefail
+
+# Fresh box: herdr may not be installed yet (comes from nix/brew). Skip quietly — the config is
+# on disk and the first server start will read it. Exit 0 so apply is not marked failed.
+command -v herdr >/dev/null 2>&1 || { echo "herdr not on PATH yet; skipping config reload"; exit 0; }
+
+# reload-config is a client->server RPC: it only does anything if a server is live. If none is
+# running there is nothing to reload (next start reads config.toml fresh), so tolerate failure.
+if herdr server reload-config >/dev/null 2>&1; then
+  echo "herdr: reloaded running server config"
+else
+  echo "herdr: no running server to reload (config applies on next start)"
+fi
+exit 0
