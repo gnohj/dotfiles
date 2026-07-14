@@ -12,3 +12,22 @@ export ZDOTDIR=$HOME/.config/zshrc
 # original front-precedence for interactive shells without adding a second entry.
 typeset -U path PATH
 export PATH="$HOME/.local/bin:$PATH"
+
+# vim-herdr-navigation: forward ctrl+h/j/k/l to these TUIs (matched on the lower-cased
+# foreground process) instead of moving herdr's pane focus — so ctrl+j/k navigate
+# inside the herdr-sesh.sh fzf picker like the tmux sesh popup. Set here (not .zshrc)
+# so the herdr SERVER inherits it: navigate.sh reads this env at keypress time, and
+# the server's env comes from this login chain. Needs a herdr server restart to apply.
+export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
+
+# mise: directory trees mise trusts without a per-repo `mise trust` prompt (each
+# path also trusts everything beneath it, so a parent dir acts as a wildcard).
+# Set HERE, not in mise's config.toml, on purpose: mise honors trusted_config_paths
+# ONLY from the GLOBAL config, yet that same config.toml is ALSO loaded as a
+# NON-global config whenever a shell is cd'd inside the chezmoi source tree - which
+# makes mise warn "trusted_config_paths in non-global config ... is ignored" on
+# every command. The env var carries no such restriction and applies from every
+# shell. Colon-separated (Unix). ~/Developer + ~/.treehouse: work repos and pooled
+# PR-review worktrees; ~/.local/share/chezmoi: the dotfiles source itself, so mise
+# loads its own config there cleanly instead of warning/erroring.
+export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi"
