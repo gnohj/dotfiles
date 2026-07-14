@@ -8,7 +8,6 @@
 # any plain shell.
 #
 # Entry-point map:
-#   launcher-switcher.sh  → tmux display-popup → launcher.sh   (LAUNCHER_MODE=tmux)
 #   launcher.sh (alias `launcher`)                             (LAUNCHER_MODE=tmux)
 #   this file  (alias `ql`)          → launcher.sh             (LAUNCHER_MODE=herdr)
 exec env LAUNCHER_MODE=herdr "$HOME/.config/launcher/launcher.sh" "$@"

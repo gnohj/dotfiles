@@ -25,7 +25,7 @@ LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
-FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color02,fg+:$gnohj_color02,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
+FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
 
 #===============================================================================
 # Registry — the only thing you edit to add/rename entries
@@ -71,13 +71,13 @@ ACTIONS=(
   "🔧 System|👤 User Setup|act_system_usersetup|Run user-setup.sh (dotfiles, configs)"
   "🔧 System|🎯 All (update + setup + user-setup)|act_system_all|Run all three setup steps in sequence with one sudo prompt"
 
-  "🌳 Worktrees|[tmux] 🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
-  "🌳 Worktrees|[tmux] ✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
+  "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
+  "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
   "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira|Capture the active Chrome Jira tab and create a worktree"
-  "🌳 Worktrees|[tmux] 📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
-  "🌳 Worktrees|[tmux] 🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
-  "🌳 Worktrees|[tmux] 🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
-  "🌳 Worktrees|[tmux] 🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
+  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
+  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
+  "🌳 Worktrees|🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
+  "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
 # Top-level actions with no submenu — label|function|description
@@ -143,28 +143,23 @@ action_fn() {
   return 1
 }
 
-# Actions that must KEEP the quake open after running (herdr mode): they run long,
-# prompt for a keypress (read -k1), or drive their own interactive UI / output you
-# read in place. Everything else auto-dismisses the quake once chosen. Names are
-# the dispatched function names. (No effect in tmux mode — dismiss_quake no-ops.)
-KEEP_QUAKE_OPEN="act_system_setup act_system_update act_system_usersetup act_system_all act_outdated act_cleanup_logs act_dirty_repos act_fzf_aliases act_fzf_env act_fzf_logs act_sync_autopush"
-
-# Run a terminal action, then dismiss the quake unless it's in KEEP_QUAKE_OPEN.
+# Run a terminal action, then return to the caller. In herdr mode the launcher is
+# a persistent root-menu loop (see the entry point), so every action — a process,
+# a GUI hand-off, a worktree capture — returns to the root menu the moment it
+# finishes. Nothing dismisses the quake per-action; only an explicit Ctrl+C tears
+# the picker down. In tmux mode the popup closes on its own when the launcher
+# exits, exactly as before.
 run_action() {
   local fn="$1"
   shift
   "$fn" "$@"
-  case " $KEEP_QUAKE_OPEN " in
-  *" $fn "*) : ;;
-  *) dismiss_quake ;;
-  esac
 }
 
 # Run a chosen leaf. $1=prefix $2=label $3=leaf_handler.
 run_leaf() {
   if [ "$3" = static ]; then
     local fn
-    fn=$(action_fn "$1" "$2") || { main_menu; return; }
+    fn=$(action_fn "$1" "$2") || { back_to_root; return; }
     run_action "$fn"
   else
     run_action "$3" "$2"
@@ -255,23 +250,24 @@ do_preview() {
 # Generic drilldown for static categories: list leaves + Back, then dispatch.
 # $1 prefix $2 header $3 prompt $4 leaf_provider $5 leaf_handler.
 generic_submenu() {
-  local choice
+  local choice rc=0
   choice=$(
     {
       leaves_of "$1" "$4"
       printf "← Back\n"
     } | ~/.local/bin/fzf-vim.sh --height="${LAUNCHER_SUBMENU_HEIGHT:-40%}" --header="$2" --prompt="$3" --ansi $FZF_COLORS \
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left'
-  ) || true
+  ) || rc=$?
+  quit_on_interrupt "$rc"
   clear
   case "$choice" in
-  "← Back" | "") main_menu ;;
+  "← Back" | "") back_to_root ;;
   *) run_leaf "$1" "$choice" "$5" ;;
   esac
 }
 
 main_menu() {
-  local choice insert_corpus
+  local choice insert_corpus rc=0
   # INSERT corpus = top-level + flattened leaves; NORMAL list = top-level only.
   insert_corpus=$({
     build_top_level_items
@@ -280,10 +276,15 @@ main_menu() {
   choice=$(build_top_level_items |
     FZF_VIM_INSERT_INPUT="$insert_corpus" \
       ~/.local/bin/fzf-vim.sh --height=100% --prompt="❯ " --ansi $FZF_COLORS \
-      --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || true
+      --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || rc=$?
+  quit_on_interrupt "$rc"
   clear
-  [ -z "$choice" ] && exit 0
+  # Empty = Esc / aborted fzf. Never an exit: in herdr mode the loop just redraws
+  # root (only Ctrl+C quits); in tmux mode returning falls through to the end of
+  # the script, closing the popup as before.
+  [ -z "$choice" ] && return 0
   dispatch_root "$choice"
+  return 0
 }
 
 dispatch_root() {
@@ -310,7 +311,7 @@ dispatch_root() {
     IFS='|' read -r lbl fn desc <<<"$s"
     [ "$choice" = "$lbl" ] && { run_action "$fn"; return; }
   done
-  exit 0
+  return 0
 }
 
 #===============================================================================
@@ -319,14 +320,15 @@ dispatch_root() {
 
 # Themes drilldown. Flattened root leaves still jump straight to a theme.
 themes_menu() {
-  local choice
+  local choice rc=0
   choice=$(printf "🎨 All\n🌙 Dark\n☀️ Light\n← Back" |
-    ~/.local/bin/fzf-vim.sh --height=40% --header="Themes" --prompt="Theme > " --ansi $FZF_COLORS) || true
+    ~/.local/bin/fzf-vim.sh --height=40% --header="Themes" --prompt="Theme > " --ansi $FZF_COLORS) || rc=$?
+  quit_on_interrupt "$rc"
   case "$choice" in
   "🎨 All") themes_filtered "" "All Themes" "All > " ;;
   "🌙 Dark") themes_filtered "dark" "Dark Themes" "Dark > " ;;
   "☀️ Light") themes_filtered "light" "Light Themes" "Light > " ;;
-  *) main_menu ;;
+  *) back_to_root ;;
   esac
 }
 
@@ -342,13 +344,13 @@ themes_filtered() {
   ) || true
   case "$sel" in
   "← Back" | "") themes_menu ;;
-  *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel"; dismiss_quake ;;
+  *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel" ;;
   esac
 }
 
 # Custom so the header can show the currently-active profile.
 aerospace_menu() {
-  local active choice
+  local active choice rc=0
   active="$(cat "$HOME/.config/aerospace/.active-profile" 2>/dev/null || echo '(none)')"
   choice=$(
     {
@@ -356,16 +358,17 @@ aerospace_menu() {
       printf "← Back\n"
     } | ~/.local/bin/fzf-vim.sh --height=40% --header="Aerospace profile (active: $active)" \
       --prompt="Profile > " --ansi $FZF_COLORS
-  ) || true
+  ) || rc=$?
+  quit_on_interrupt "$rc"
   case "$choice" in
-  "← Back" | "") main_menu ;;
-  *) handle_aerospace "$choice"; dismiss_quake ;;
+  "← Back" | "") back_to_root ;;
+  *) handle_aerospace "$choice" ;;
   esac
 }
 
 # fza — copy an alias name to the clipboard.
 aliases_menu() {
-  local selected
+  local selected rc=0
   # Grep alias decls from rc files instead of sourcing zshrc (zinit + plugins
   # make a non-interactive `source` hang inside the popup).
   selected=$(grep -hE "^[[:space:]]*alias [A-Za-z0-9_.-]+=" \
@@ -373,7 +376,8 @@ aliases_menu() {
     "$HOME/.zsh_aws_cmds" "$HOME/.zsh_radioctl_cmds" 2>/dev/null |
     sed -E 's/^[[:space:]]*alias //' | sort -u |
     ~/.local/bin/fzf-vim.sh --height=80% \
-      --header="Aliases (select to copy) - Type to search" --prompt="Alias > " $FZF_COLORS) || true
+      --header="Aliases (select to copy) - Type to search" --prompt="Alias > " $FZF_COLORS) || rc=$?
+  quit_on_interrupt "$rc"
   if [[ -n "$selected" ]]; then
     echo -n "${selected%%=*}" | pbcopy
     echo "Copied to clipboard: ${selected%%=*}"
@@ -501,6 +505,29 @@ dismiss_quake() {
   osascript -e 'tell application "System Events" to key code 1 using {command down}' >/dev/null 2>&1 || true
 }
 
+# Ctrl+C is a hard quit from any picker. fzf-vim.sh exits 130 on Ctrl+C (esc
+# exits 1 = go back). The persistent herdr-mode loop treats an aborted picker as
+# "redraw root", so without this Ctrl+C would just bounce back to the menu — the
+# user wants it to bypass that and tear the launcher (and the quake) down. Called
+# right after each picker with its captured exit code; runs in the main shell (the
+# `$(...)` capture is a subshell, but its exit code propagates out), so `exit`
+# here ends the whole launcher. In tmux mode dismiss_quake no-ops and the exit
+# closes the popup — Ctrl+C dismissing the popup is correct there too.
+quit_on_interrupt() {
+  [ "${1:-0}" = 130 ] || return 0
+  dismiss_quake
+  exit 0
+}
+
+# Navigate "up one level" to the root menu. In herdr mode the launcher is a
+# persistent loop (see the entry point), so returning unwinds to it and root
+# re-renders. In tmux mode there's no loop, so recurse into main_menu to redraw
+# root in place — the original single-popup behavior, unchanged.
+back_to_root() {
+  [ "$LAUNCHER_MODE" = herdr ] && return 0
+  main_menu
+}
+
 # Guard for actions still wired only to tmux: in herdr mode, say so and bail
 # instead of aborting the launcher under `set -euo pipefail`.
 require_tmux() {
@@ -519,6 +546,8 @@ act_browser_pr() {
   cd "${pane_path:-$PWD}" 2>/dev/null || true
   if gh pr view --web 2>/dev/null; then
     echo "Opened PR for current branch"
+  elif [ -z "$(git symbolic-ref -q --short HEAD 2>/dev/null)" ] && detached_ref=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1) && [ -n "$detached_ref" ] && detached_branch=${detached_ref#*/} && gh pr view "$detached_branch" --web 2>/dev/null; then
+    echo "Opened PR for detached-HEAD branch: $detached_branch"
   else
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
     if [ -n "$repo" ]; then
@@ -585,7 +614,9 @@ act_notes_current() {
   0) notify "no vault note for $ID" ;;
   1) open_window "📝" "nvim '$MATCHES'" "${pane_path:-$PWD}" ;;
   *)
-    PICK=$(printf '%s\n' "$MATCHES" | $HOME/.local/bin/fzf-vim.sh --prompt '📝 ') || true
+    local rc=0
+    PICK=$(printf '%s\n' "$MATCHES" | $HOME/.local/bin/fzf-vim.sh --prompt '📝 ') || rc=$?
+    quit_on_interrupt "$rc"
     [ -n "$PICK" ] && open_window "📝" "nvim '$PICK'" "${pane_path:-$PWD}"
     ;;
   esac
@@ -693,16 +724,40 @@ act_system_all() {
   read -k1
 }
 
-# Worktree AI actions hand off via `tmux run-shell -b`: the launcher runs inside
-# a tmux popup and these open another popup; tmux can't nest popups, so the
-# server schedules them for after this popup closes.
-act_worktree_add() { require_tmux "Add Worktree" || return; ~/.config/treekanga/treekanga-add.sh; }
-act_worktree_ai_prompt() { require_tmux "AI Add Worktree (prompt)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-prompt"; }
-act_worktree_jira() { ~/.local/bin/worktree-jira; }
-act_worktree_clipboard() { require_tmux "AI Add Worktree (clipboard)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-clipboard"; }
-act_worktree_bug() { require_tmux "AI Add Worktree (bug)" || return; tmux run-shell -b "$HOME/.local/bin/worktree-bug"; }
-act_worktree_retry() { require_tmux "AI Retry capture" || return; tmux run-shell -b "$HOME/.local/bin/worktree-retry"; }
-act_worktree_delete() { require_tmux "Delete Worktree" || return; ~/.config/treekanga/treekanga-rm.sh; }
+# Kick off an AI-worktree capture script, per host:
+#   tmux mode  — hand off via `tmux run-shell -b`. The launcher runs inside a tmux
+#     popup and the capture opens another popup; tmux can't nest popups, so the
+#     server schedules it for after THIS popup closes.
+#   herdr mode (ql) — run the capture inline in the quake (no tmux), signaling
+#     worktree_setup.sh to open the result as a herdr workspace. WORKTREE_OPEN_IN
+#     rides worktree-runner's env chain (open→Terminal, then claude→treekanga→
+#     postScript), the same channel TREEKANGA_POSTSCRIPT_LOG uses. When the
+#     capture returns, the persistent picker redraws root.
+run_worktree_capture() {
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    WORKTREE_OPEN_IN=herdr "$1"
+  else
+    tmux run-shell -b "$1"
+  fi
+}
+
+# treekanga-add.sh self-detects its host: tmux → new tmux window, herdr/quake →
+# new herdr tab running `treekanga tui`. Runs in both modes.
+act_worktree_add() { ~/.config/treekanga/treekanga-add.sh; }
+act_worktree_ai_prompt() { run_worktree_capture "$HOME/.local/bin/worktree-prompt"; }
+act_worktree_jira() {
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree-jira
+  else
+    ~/.local/bin/worktree-jira
+  fi
+}
+act_worktree_clipboard() { run_worktree_capture "$HOME/.local/bin/worktree-clipboard"; }
+act_worktree_bug() { run_worktree_capture "$HOME/.local/bin/worktree-bug"; }
+act_worktree_retry() { run_worktree_capture "$HOME/.local/bin/worktree-retry"; }
+# Removal runs in both hosts (treekanga-rm.sh's tmux session-kill is guarded). In
+# herdr mode it won't auto-close the herdr workspace yet — minor follow-up.
+act_worktree_delete() { ~/.config/treekanga/treekanga-rm.sh; }
 
 act_outdated() {
   zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"
@@ -788,4 +843,17 @@ if [[ "${1:-}" == "--category" ]]; then
   exit 0
 fi
 
-main_menu
+if [ "$LAUNCHER_MODE" = herdr ]; then
+  # Persistent root-menu picker: every action returns here when it finishes, and
+  # Esc / an aborted fzf just redraws root. The only way out is an explicit Ctrl+C
+  # (SIGINT), which dismisses the quake on the way down. `|| true` keeps a
+  # non-zero return (e.g. no fzf match) from tripping `set -e` and killing the loop.
+  trap 'dismiss_quake; exit 0' INT
+  while true; do
+    main_menu || true
+  done
+else
+  # tmux popup: single pass. The popup closes when the launcher exits, which the
+  # worktree hand-off relies on (`tmux run-shell -b` fires after the popup closes).
+  main_menu
+fi
