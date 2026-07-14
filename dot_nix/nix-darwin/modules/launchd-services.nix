@@ -178,6 +178,27 @@ in
 
   # System LaunchDaemons (run as root)
   launchd.daemons = {
+    # Karabiner VirtualHIDDevice daemon - kanata's output-driver bridge.
+    # kanata (below) sends its remapped keys through this daemon's socket; without
+    # it kanata logs `connect_failed asio.system:2` and the keyboard goes dead.
+    # Karabiner-Elements used to run this, but KE ships a VirtualHIDDevice version
+    # incompatible with kanata (needs v6.2.0), so KE is removed (see homebrew.nix)
+    # and we run the standalone daemon ourselves. The pinned v6.2.0 driver .pkg is
+    # installed by run_onchange_after_karabiner-driverkit.sh.tmpl, which also
+    # removes any hand-made /Library/LaunchDaemons plist superseded by this one.
+    karabiner-vhid-daemon = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
+        ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        ProcessType = "Interactive";
+        StandardOutPath = "/var/log/karabiner-vhid-daemon.out.log";
+        StandardErrorPath = "/var/log/karabiner-vhid-daemon.err.log";
+      };
+    };
+
     # Kanata - Keyboard remapping daemon
     # Must run as root for low-level keyboard access
     kanata = {

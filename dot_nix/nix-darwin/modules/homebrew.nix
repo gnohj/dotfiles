@@ -117,7 +117,11 @@
       # Window Management & Navigation
       "nikitabobko/tap/aerospace"
       "homerow"
-      "karabiner-elements"
+      # karabiner-elements removed: kanata is the remapper, and KE ships a
+      # VirtualHIDDevice driver (16.1.0 → 8.0.0) that's incompatible with kanata
+      # (needs v6.2.0), plus its own grabber conflicts with kanata for the keyboard.
+      # The standalone Karabiner-DriverKit-VirtualHIDDevice v6.2.0 .pkg is installed
+      # manually (not brew-managed) so it stays pinned.
       "mouseless"
 
       # System Utilities
