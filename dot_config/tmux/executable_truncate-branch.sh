@@ -10,17 +10,14 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG_FILE"
 }
 
-# Source gnohj color variables
 # shellcheck disable=SC1090
 source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null
 
-# Read gitmux output from stdin or as argument
 input="${1:-$(cat)}"
 log "Input received: $input"
 log "Current directory: $(pwd)"
 
 if [ -n "$input" ]; then
-  # Get PR number for current branch
   log "Calling get-pr-number.sh from $(pwd)"
   PR_NUM=$("$HOME/.config/tmux/get-pr-number.sh" "$(pwd)")
   log "PR_NUM returned: '$PR_NUM'"

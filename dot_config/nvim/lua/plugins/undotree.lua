@@ -7,6 +7,6 @@ return {
       "<leader>ut",
       "<cmd>lua require('undotree').toggle()<cr>",
       desc = "Toggle UndoTree",
-    }, -- Correct syntax for desc
+    },
   },
 }

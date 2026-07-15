@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-# Auto-regen hook: after `chezmoi apply` rewrites aerospace.toml or any
-# profile snippet, re-apply the user's currently-active profile so the
-# fresh aerospace.toml matches their last `aerospace-profile <name>`
-# selection. Without this, every `cz apply` silently resets monitor
-# routing to whatever's in the chezmoi source.
-#
-# The hash comments below embed sha256 of every aerospace source file.
-# When any of them change, this script's rendered content changes,
-# chezmoi treats it as a new run, and the script executes.
+# Auto-regen hook: after `chezmoi apply` rewrites aerospace.toml, re-apply the
+# active profile so monitor routing isn't silently reset to the chezmoi source.
+# The hash comments below embed sha256 of every aerospace source file so any
+# change re-triggers this run_onchange script.
 
 # aerospace.toml: {{ include "dot_config/aerospace/private_aerospace.toml" | sha256sum }}
 {{ range $f := glob (joinPath .chezmoi.sourceDir "dot_config/aerospace/profiles/*.toml") -}}
@@ -22,10 +17,8 @@ SCRIPT="$HOME/.local/bin/aerospace-profile"
 # No script yet (first apply on a fresh machine) — nothing to do.
 [ -x "$SCRIPT" ] || exit 0
 
-# Default to "laptop" on first run when no profile is set. The laptop
-# profile gracefully covers both laptop-alone and laptop+HP-27er via
-# aerospace's monitor-pattern fallback, so it's the safe default on a
-# fresh apply.
+# Default to "laptop" on first run: it covers both laptop-alone and laptop+HP-27er
+# via aerospace's monitor-pattern fallback, so it's the safe default on a fresh apply.
 PROFILE="$(cat "$ACTIVE_FILE" 2>/dev/null || true)"
 [ -z "$PROFILE" ] && PROFILE="laptop"
 

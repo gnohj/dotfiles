@@ -1,11 +1,9 @@
--- Function to read colorscheme values
 local function load_colors()
 	local colors = {}
 	local file = io.open(os.getenv("HOME") .. "/.config/colorscheme/active/active-colorscheme.sh", "r")
 
 	if file then
 		for line in file:lines() do
-			-- Only match lines that start with gnohj_color
 			local key, value = line:match("^(gnohj_color%w+)=(.+)")
 			if key and value then
 				-- Remove quotes and # from hex values
@@ -21,7 +19,6 @@ end
 
 local colorscheme = load_colors()
 
--- Helper function to convert hex to sketchybar format
 local function hex_to_sketchybar(hex, alpha)
 	alpha = alpha or "ff"
 	return tonumber("0x" .. alpha .. hex)

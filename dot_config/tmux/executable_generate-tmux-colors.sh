@@ -44,7 +44,6 @@ inactive_border_fmt="fg=${gnohj_color13}"
 # solid, heavier band like tubular's "extra bold"; too heavy here.)
 active_border_fmt="fg=${active_border_color}"
 
-# Generate tmux color configuration
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
 # Generated at: $(date)
@@ -116,10 +115,8 @@ set -g message-command-style "bg=default,fg=${gnohj_color04}"
 set -g mode-style "bg=${gnohj_color13},fg=${gnohj_color02}"
 EOF
 
-# Silent generation - only output on error
 # echo "Tmux colors generated at $OUTPUT_FILE"
 
-# Reload tmux if it's running (silently)
 if tmux info &>/dev/null; then
   tmux source-file "$OUTPUT_FILE" 2>/dev/null
 fi

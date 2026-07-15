@@ -13,13 +13,12 @@ local package_notification = sbar.add("item", "widgets.package_notification", {
 		padding_left = 1,
 		padding_right = 0,
 	},
-	update_freq = 3600, -- Update every hour
+	update_freq = 3600,
 	script = "~/.config/sketchybar/items/widgets/package_notification.sh",
 	drawing = true,
 })
 
--- Subscribe to forced refresh and routine updates
 package_notification:subscribe({ "forced", "routine" })
 
--- Add custom event for manual package updates
+-- Custom event for manual package updates
 package_notification:subscribe("package_update")

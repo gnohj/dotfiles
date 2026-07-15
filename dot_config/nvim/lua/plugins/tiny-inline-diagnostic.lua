@@ -37,7 +37,6 @@ return {
             msg = msg:sub(1, 1):lower() .. msg:sub(2)
           end
 
-          -- Add source if available
           local source_text = ""
           if diagnostic.source and diagnostic.source ~= "" then
             source_text = " [" .. diagnostic.source .. "]"

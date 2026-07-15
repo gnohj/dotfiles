@@ -1,12 +1,10 @@
 #!/bin/bash
 
-# Ensure Homebrew and bun are in PATH
 export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:$PATH"
 
 LAZYGIT_DIR_FILE="$HOME/.lazygit/newdir"
 mkdir -p "$HOME/.lazygit"
 
-# Remove old dir file before starting
 rm -f "$LAZYGIT_DIR_FILE"
 
 # Capture the host pane id BEFORE opening the popup. The popup runs in a

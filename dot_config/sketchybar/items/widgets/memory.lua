@@ -3,7 +3,7 @@ local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
--- Function to get memory usage percentage (matching iStats calculation)
+-- Memory usage percentage (matching iStats calculation)
 local function get_memory_percentage(callback)
 	sbar.exec([[vm_stat | awk '
     /page size/ {pagesize=$8}
@@ -66,5 +66,4 @@ end
 
 memory:subscribe({ "routine", "forced", "system_woke" }, update)
 
--- Initial update
 update()

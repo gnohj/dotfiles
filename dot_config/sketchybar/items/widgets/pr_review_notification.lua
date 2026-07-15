@@ -1,7 +1,6 @@
 local constants = require("constants")
 local colors = require("config.colors")
 
--- PR Review notification widget
 local pr_review = sbar.add("item", "widgets.pr_review_notification", {
 	position = "right",
 	padding_right = 12,

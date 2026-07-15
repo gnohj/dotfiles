@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
 
-# Timeout wrapper for gitmux status
-# Prevents hanging in tmux status bar
+# Timeout wrapper for gitmux status; prevents hanging in tmux status bar
 
-# Get current directory
 DIR="${1:-$(pwd)}"
 
-# Function to run gitmux with timeout
 run_gitmux() {
   cd "$DIR" 2>/dev/null || exit 0
 
-  # Get repo info
   FULL_REPO_NAME=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
   REPO_NAME=$(echo "$FULL_REPO_NAME" | sed 's/[-_].*//')
 
-  # Run gitmux with built-in timeout using read
   if OUTPUT=$(gitmux -cfg "$HOME/.config/gitmux/gitmux.yml" 2>/dev/null | sed 's/^ //' | "$HOME/.config/tmux/truncate-branch.sh"); then
     if [ -n "$REPO_NAME" ]; then
       echo "#[fg=#b7ce97]${REPO_NAME}#[fg=#9ea3b9]${OUTPUT} "

@@ -254,7 +254,7 @@ return {
   priority = 1000,
   keys = {
     { "<leader><space>", false },
-    { "<leader>fg", false }, -- Disabled
+    { "<leader>fg", false },
     {
       "<leader>sg",
       function()
@@ -322,7 +322,6 @@ return {
       end,
       desc = "Recent Files (global)",
     },
-    -- Harper diagnostics picker (overrides default search highlight)
     {
       "<leader>sh",
       function()
@@ -339,7 +338,6 @@ return {
       end,
       desc = "Harper Diagnostics",
     },
-    -- Ignore all Harper diagnostics in current buffer
     {
       "<leader>sH",
       function()
@@ -408,10 +406,8 @@ return {
     {
       "<S-u>",
       function()
-        -- Create the highlight group
         vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"] })
 
-        -- Get all unsaved buffers
         local unsaved_buffers = {}
         local buffer_map = {}
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
@@ -444,14 +440,11 @@ return {
       end,
       desc = "[P]Unsaved buffers",
     },
-    -- Also map Alt+h for unsaved buffers
     {
       "<M-h>",
       function()
-        -- Create the highlight group
         vim.api.nvim_set_hl(0, "CustomTeal", { fg = colors["gnohj_color11"] })
 
-        -- Get all unsaved buffers
         local unsaved_buffers = {}
         local buffer_map = {}
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
@@ -485,7 +478,6 @@ return {
       desc = "[P]Unsaved buffers (Alt)",
     },
 
-    -- Find Config Files (Chezmoi)
     {
       "<leader>fC",
       function()
@@ -500,7 +492,6 @@ return {
       end,
       desc = "Find Config Files (Chezmoi)",
     },
-    -- Find Config Files (~/.config)
     {
       "<leader>fc",
       function()
@@ -513,11 +504,9 @@ return {
       end,
       desc = "Find Config Files (~/.config)",
     },
-    -- Git status with preview, respects .gitignore
     {
       "<leader>gs",
       function()
-        -- Custom git status that respects .gitignore
         require("snacks").picker({
           title = "Git Status",
           -- layout = "ivy",
@@ -547,7 +536,6 @@ return {
       end,
       desc = "Git Status (with preview)",
     },
-    -- Git unstaged changes (modified but not staged)
     {
       "<leader>gu",
       function()
@@ -558,7 +546,6 @@ return {
       end,
       desc = "Git Unstaged Changes",
     },
-    -- PR branch changes (diff against base branch)
     {
       "<leader>gP",
       function()
@@ -583,7 +570,6 @@ return {
       end,
       desc = "PR Branch Changes",
     },
-    -- Environment variables picker
     {
       "<leader>se",
       function()
@@ -620,7 +606,6 @@ return {
       desc = "Environment Variables",
     },
 
-    -- Navigate buffers
     {
       "<S-h>",
       function()
@@ -751,7 +736,6 @@ return {
         },
       },
     },
-    -- Configure the dashboard
     dashboard = {
       width = 60,
       formats = {
@@ -1005,7 +989,6 @@ return {
         max_height = 30,
       },
     },
-    -- Configure notifier
     notifier = {
       enabled = true,
       top_down = false,

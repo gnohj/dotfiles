@@ -20,21 +20,16 @@ if [[ "$(tmux show-options -qv -t "$SESSION_NAME" @nvim_fast_done 2>/dev/null)" 
   exit 0
 fi
 
-# Check if inside a git repo
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 0
 fi
 
-# Worktree matching our pattern - run dev.sh with current worktree
 if [[ "$SESSION_PATH" =~ $WORKTREE_PATTERN ]]; then
   ~/.config/sesh/dev.sh '' "$SESSION_PATH"
   exit 0
 fi
 
-# Regular git repo with .git directory or file - run dev.sh with current path
 if [[ -d "$SESSION_PATH/.git" || -f "$SESSION_PATH/.git" ]]; then
   ~/.config/sesh/dev.sh '' "$SESSION_PATH"
   exit 0
 fi
-
-# Default: do nothing

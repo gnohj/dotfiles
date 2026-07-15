@@ -1,13 +1,5 @@
---[[
-███████╗██╗██╗     ███████╗    ██╗    ██╗ █████╗ ████████╗ ██████╗██╗  ██╗███████╗██████╗
-██╔════╝██║██║     ██╔════╝    ██║    ██║██╔══██╗╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗
-█████╗  ██║██║     █████╗      ██║ █╗ ██║███████║   ██║   ██║     ███████║█████╗  ██████╔╝
-██╔══╝  ██║██║     ██╔══╝      ██║███╗██║██╔══██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗
-██║     ██║███████╗███████╗    ╚███╔███╔╝██║  ██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║
-╚═╝     ╚═╝╚══════╝╚══════╝     ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
-Event-based filesystem watcher for instant external file change detection
-Inspired by folke/sidekick.nvim - https://github.com/folke/sidekick.nvim/blob/main/lua/sidekick/cli/watch.lua
---]]
+-- Event-based filesystem watcher for instant external file change detection.
+-- Inspired by folke/sidekick.nvim: https://github.com/folke/sidekick.nvim/blob/main/lua/sidekick/cli/watch.lua
 
 local M = {}
 
@@ -100,7 +92,6 @@ end
 local function update_impl()
   local active_dirs = {}
 
-  -- Collect directories from all loaded buffers
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) then
       local dir = get_buf_dir(buf)
@@ -111,7 +102,6 @@ local function update_impl()
     end
   end
 
-  -- Remove watches for directories no longer in use
   for dir in pairs(M.watches) do
     if not active_dirs[dir] then
       M.stop(dir)
@@ -131,7 +121,6 @@ end
 
 --- Setup autocmds and initialize
 function M.setup()
-  -- Update watches when buffers change
   vim.api.nvim_create_autocmd({ "BufAdd", "BufDelete", "BufEnter" }, {
     callback = function()
       vim.schedule(M.update)
@@ -139,10 +128,8 @@ function M.setup()
     desc = "Update filesystem watches",
   })
 
-  -- Initial setup
   vim.defer_fn(M.update, 100)
 
-  -- Cleanup on exit
   vim.api.nvim_create_autocmd("VimLeavePre", {
     callback = M.cleanup,
     desc = "Cleanup filesystem watches",

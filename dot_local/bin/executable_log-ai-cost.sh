@@ -10,7 +10,6 @@ LOG_DIR="$HOME/.logs/ai-costs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/$(date '+%Y-%m').log"
 
-# Read JSON from stdin
 JSON=$(cat)
 
 # Parse fields from claude -p --output-format json
@@ -24,7 +23,6 @@ CACHE_READ=$(echo "$JSON" | jq -r '.modelUsage | to_entries[0].value.cacheReadIn
 CACHE_CREATE=$(echo "$JSON" | jq -r '.modelUsage | to_entries[0].value.cacheCreationInputTokens // 0')
 DURATION_SEC=$(echo "scale=1; $DURATION / 1000" | bc 2>/dev/null || echo "0")
 
-# Write header if file is new
 if [ ! -f "$LOG_FILE" ]; then
   echo "date|subject|model|input_tokens|output_tokens|cache_read|cache_create|cost_usd|duration_s" >> "$LOG_FILE"
 fi

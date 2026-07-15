@@ -10,7 +10,6 @@
 
   system.defaults = {
     # Dock settings
-    # Migrated from: run_onchange_before_mac_system.sh.tmpl
     dock = {
       autohide = true;                    # Auto-hide the dock
       autohide-delay = 10.0;             # Dock appears only after 10-second hover
@@ -31,7 +30,6 @@
     };
 
     # Finder settings
-    # Migrated from: run_onchange_before_mac_system.sh.tmpl
     finder = {
       AppleShowAllFiles = true;          # Show hidden files
       AppleShowAllExtensions = true;     # Show all file extensions
@@ -59,7 +57,6 @@
       # NOTE: Recent Items (NSRecentDocumentsLimit) is not supported by nix-darwin
       # To set to "None", manually run: defaults write NSGlobalDomain NSRecentDocumentsLimit 0
 
-      # Migrated from: run_onchange_before_mac_system.sh.tmpl
       _HIHideMenuBar = true;                         # Auto-hide menu bar
       NSAutomaticWindowAnimationsEnabled = false;    # Disable window animations
       NSWindowShouldDragOnGesture = true;           # Move windows by dragging anywhere (Ctrl+Cmd)
@@ -70,7 +67,6 @@
       NSAutomaticPeriodSubstitutionEnabled = false; # Disable automatic period substitution (double-space)
 
       # Keyboard settings
-      # Migrated from: run_onchange_before_mac_system.sh.tmpl
       InitialKeyRepeat = 15;                        # Faster initial key repeat (delay before repeat)
       KeyRepeat = 1;                                # Faster key repeat (speed once repeating)
       # ApplePressAndHoldEnabled = false;           # Enable press-and-hold for accented characters

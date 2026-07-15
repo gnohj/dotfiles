@@ -8,7 +8,6 @@ local frontApps = {}
 local aerospace = nil
 local isShowingSpaces = true
 
--- Logging setup
 local log_dir = os.getenv("HOME") .. "/.logs/sketchybar"
 local log_file = log_dir .. "/workspace_" .. os.date("%Y%m") .. ".log"
 sbar.exec("mkdir -p " .. log_dir)
@@ -20,7 +19,6 @@ local function log_message(level, message)
 	sbar.exec("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. log_file)
 end
 
--- Initialize AeroSpace socket connection
 local function init_aerospace()
 	local ok, result = pcall(function()
 		return Aerospace.new()
@@ -36,7 +34,6 @@ local function init_aerospace()
 	end
 end
 
--- Reconnect if socket is closed
 local function ensure_connection()
 	if not aerospace or not aerospace:is_initialized() then
 		log_message("WARN", "Socket not initialized, attempting reconnect")
@@ -45,7 +42,6 @@ local function ensure_connection()
 	return true
 end
 
--- Workspace configurations
 -- Support multiple apps per workspace (array of apps or single app string)
 local spaceConfigs = {
 	["Q"] = { name = "Browser", app = "Google Chrome" },
@@ -67,29 +63,24 @@ local spaceConfigs = {
 	["Z"] = { name = "Brave", app = "Zen" },
 }
 
--- Helper function to find which app to show for a workspace
 local function getAppForWorkspace(workspace, focusedApp)
 	local config = spaceConfigs[workspace]
 	if not config then
 		return nil
 	end
 
-	-- If workspace has multiple apps, find which one is focused
 	if config.apps then
 		for _, app in ipairs(config.apps) do
 			if focusedApp == app then
 				return app
 			end
 		end
-		-- Default to first app if none are focused
 		return config.apps[1]
 	end
 
-	-- Single app workspace
 	return config.app
 end
 
--- Create workspace indicator item (icon-only)
 local workspaceItem = sbar.add("item", constants.items.SPACES, {
 	position = "left",
 	icon = {
@@ -110,7 +101,6 @@ local workspaceItem = sbar.add("item", constants.items.SPACES, {
 	drawing = isShowingSpaces,
 })
 
--- Create front apps bracket and watcher
 sbar.add("bracket", constants.items.FRONT_APPS, {}, { position = "left" })
 local frontAppWatcher = sbar.add("item", {
 	drawing = false,
@@ -138,13 +128,11 @@ local function updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedApp
 		return
 	end
 
-	-- Only update if we have windows
 	if not hasWindows then
 		return
 	end
 
 	if currentWorkspace then
-		-- Get the appropriate app icon based on focused app
 		local appToShow = getAppForWorkspace(currentWorkspace, focusedApp)
 
 		if appToShow then
@@ -170,11 +158,9 @@ local function updateWindows()
 		return
 	end
 
-	-- Clear existing items
 	sbar.remove("/" .. constants.items.FRONT_APPS .. "\\.*/")
 	frontApps = {}
 
-	-- Get current workspace using socket
 	local ok, currentWorkspace = pcall(function()
 		return aerospace:list_current():match("[^\r\n]+")
 	end)
@@ -188,7 +174,6 @@ local function updateWindows()
 
 	log_message("INFO", "Current workspace: " .. tostring(currentWorkspace))
 
-	-- Get all windows using socket
 	local ok2, windowsJson = pcall(function()
 		return aerospace:list_all_windows()
 	end)
@@ -200,7 +185,6 @@ local function updateWindows()
 		return
 	end
 
-	-- Count windows in current workspace
 	local windowCount = 0
 	for _, window in ipairs(windowsJson) do
 		if window["workspace"] == currentWorkspace then
@@ -208,7 +192,6 @@ local function updateWindows()
 		end
 	end
 
-	-- Hide workspace indicator if no windows
 	local hasWindows = windowCount > 0
 	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
 
@@ -232,16 +215,13 @@ local function updateWindows()
 		end
 	end
 
-	-- Update workspace indicator image with focused app
 	updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedAppName)
 
-	-- Parse windows and create items
 	for _, window in ipairs(windowsJson) do
 		local windowId = tostring(window["window-id"])
 		local windowName = window["app-name"]
 		local workspace = window["workspace"]
 
-		-- Only show windows in current workspace
 		if workspace == currentWorkspace then
 			local labelString = windowName .. " | " .. workspace
 
@@ -257,7 +237,6 @@ local function updateWindows()
 
 			frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
 				selectFocusedWindow(env.INFO)
-				-- Update workspace indicator when focus changes
 				if not ensure_connection() then
 					return
 				end
@@ -271,7 +250,6 @@ local function updateWindows()
 		end
 	end
 
-	-- Select the focused window
 	if focusedAppName then
 		selectFocusedWindow(focusedAppName)
 	end
@@ -308,21 +286,14 @@ local function setVisibility(visible)
 	isShowingSpaces = visible
 	log_message("INFO", "Setting visibility to: " .. tostring(visible))
 
-	-- Update workspace indicator
 	workspaceItem:set({ drawing = visible })
 
-	-- Update all front app items
 	for _, app in pairs(frontApps) do
 		app:set({ drawing = visible })
 	end
 end
 
--- Subscribe to workspace changes (removed - handled in updateWindows)
--- workspaceItem:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
--- 	log_message("INFO", "AEROSPACE_WORKSPACE_CHANGED event received")
--- 	updateWorkspaceIndicator()
--- end)
-
+-- Workspace changes are handled in updateWindows, not via a separate subscribe
 frontAppWatcher:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
 	log_message("INFO", "AEROSPACE_WORKSPACE_CHANGED event received: " .. tostring(env.FOCUSED_WORKSPACE))
 	getWindows()
@@ -340,7 +311,6 @@ frontAppWatcher:subscribe(constants.events.UPDATE_WINDOWS, function()
 	getWindows()
 end)
 
--- Subscribe to menu/spaces toggle
 frontAppWatcher:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 	local showingMenu = env.isShowingMenu == "on"
 	log_message("INFO", "SWAP_MENU_AND_SPACES event received, showingMenu: " .. tostring(showingMenu))
@@ -372,7 +342,6 @@ frontAppWatcher:subscribe(RETRY_EVENT, function()
 	end
 end)
 
--- Initialize
 if init_aerospace() then
 	log_message("INFO", "workspace.lua initialized")
 	getWindows()

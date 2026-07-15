@@ -396,7 +396,7 @@ return {
 
         -- Completion and mini elements
         hl.NoiceCompletionItemKindDefault = { fg = colors["gnohj_color04"] }
-        hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg } -- Make background transparent
+        hl.NoiceMini = { bg = "NONE", fg = hl_colors.fg }
 
         -- Snacks picker input bottom border — blue to match the surrounding picker border
         hl.SnacksPickerInputBorder = { fg = colors["gnohj_color04"] }

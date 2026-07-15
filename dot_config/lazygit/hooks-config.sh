@@ -4,5 +4,4 @@
 touch /tmp/lazygit-no-husky-$$
 trap "rm -f /tmp/lazygit-no-husky-$$" EXIT
 
-# Run lazygit
 /opt/homebrew/bin/lazygit "$@"

@@ -1,20 +1,11 @@
-# Alacritty Configuration
-# Optimized for ovim popup behavior
+# Alacritty - tuned for the ovim popup.
 
 [window]
-# "None" = no decorations/traffic lights (borderless)
+# "None" = borderless (no decorations/traffic lights)
 decorations = "None"
-
-# Start with reasonable popup dimensions
 dimensions = { columns = 100, lines = 30 }
-
-# Padding for cleaner look
 padding = { x = 12, y = 12 }
-
-# Float above other windows
 option_as_alt = "Both"
-
-# Slight transparency for popup feel
 opacity = 0.95
 
 [font]

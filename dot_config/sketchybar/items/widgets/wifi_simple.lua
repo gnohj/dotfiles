@@ -11,12 +11,11 @@ local wifi = sbar.add("item", constants.items.WIFI, {
 		padding_right = 8,
 	},
 	label = {
-		drawing = false,  -- No label, just icon
+		drawing = false,
 	},
 })
 
 local function updateWifiStatus()
-	-- Quick check for IP address (non-blocking)
 	sbar.exec("ipconfig getifaddr en0", function(ip)
 		local isConnected = ip ~= ""
 
@@ -27,7 +26,6 @@ local function updateWifiStatus()
 			wifiIcon = settings.icons.text.wifi.connected
 			wifiColor = settings.colors.light_blue
 
-			-- Check for VPN (non-blocking, runs after WiFi check)
 			sbar.exec("scutil --nwi | grep -m1 'utun' | awk '{ print $1 }'", function(vpn)
 				local isVPNConnected = vpn ~= ""
 
@@ -48,7 +46,6 @@ local function updateWifiStatus()
 				end
 			end)
 		else
-			-- Not connected, no need to check VPN
 			wifi:set({
 				icon = {
 					string = wifiIcon,
@@ -59,26 +56,20 @@ local function updateWifiStatus()
 	end)
 end
 
--- Subscribe to WiFi change events (event-driven, no polling)
 wifi:subscribe("wifi_change", function()
 	updateWifiStatus()
 end)
 
--- Subscribe to system wake event
 wifi:subscribe("system_woke", function()
 	updateWifiStatus()
 end)
 
--- Subscribe to forced refresh
 wifi:subscribe("forced", function()
 	updateWifiStatus()
 end)
 
--- Click to open WiFi settings
 wifi:subscribe("mouse.clicked", function()
-	-- Open WiFi in System Settings
 	sbar.exec("open x-apple.systempreferences:com.apple.preference.network?Wi-Fi")
 end)
 
--- Initial update on load
 updateWifiStatus()

@@ -39,7 +39,7 @@ return {
                 checkThirdParty = false,
                 maxPreload = 500, -- Reasonable limit for Neovim config files
                 preloadFileSize = 50, -- KB - only preload small files
-                ignoreDir = { ".git", "node_modules", "lazy" }, -- Ignore these directories
+                ignoreDir = { ".git", "node_modules", "lazy" },
                 ignoreSubmodules = true,
               },
               diagnostics = {
@@ -51,7 +51,6 @@ return {
                 workspaceWord = false, -- Don't scan workspace for completions
                 showWord = "Disable",
               },
-              -- Disable telemetry
               telemetry = { enable = false },
             },
           },
@@ -62,17 +61,15 @@ return {
             if type(fname) == "number" then
               fname = vim.api.nvim_buf_get_name(fname)
             end
-            -- For Neovim config files, use the nvim config dir as root
             if fname:match("%.config/nvim/") then
               return vim.fn.expand("~/.config/nvim")
             end
-            -- For other lua files, look for .luarc.json or .git
             return util.root_pattern(".luarc.json", ".luarc.jsonc", ".git")(
               fname
             ) or util.find_git_ancestor(fname) or vim.fn.fnamemodify(
               fname,
               ":h"
-            ) -- Use file's directory as root
+            )
           end,
         },
         harper_ls = {
@@ -169,7 +166,6 @@ return {
             },
           },
         },
-        -- Add the ansiblels configuration
         ansiblels = {
           enabled = false, -- Disabled for performance
           settings = {
@@ -292,7 +288,6 @@ return {
             end,
           },
         },
-        -- GitHub Actions LSP
         gh_actions_ls = {
           cmd = { "gh-actions-language-server", "--stdio" },
           filetypes = { "yaml.github" },

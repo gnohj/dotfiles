@@ -1,16 +1,8 @@
 #!/bin/bash
-# tmux-dash-next-input.sh — jump straight to the next agent that needs you, with
-# NO dashboard UI. Two-tier priority: agents waiting for Input (needs-you) come
-# first, then Done (finished, unreviewed) as a last tier. This extends tmux-dash's
-# built-in `i` key (which is Input-only) so one keypress keeps cycling the blocked
-# agents, then sweeps up finished ones once nothing is left blocked — without ever
-# drawing the popup.
-#
-# Bound to rctrl-i via mux-passthrough.sh, which gates it to a frontmost terminal
-# so a stray press in Chrome/Slack doesn't silently reshuffle your tmux client.
-#
-# `tmux-dash json` is the documented script API and the same source of truth the
-# dashboard renders from, so this stays in step with its Input/Done detection.
+# tmux-dash-next-input.sh — jump to the next agent needing you, no dashboard UI.
+# Two-tier priority: Input (needs-you) agents first, then Done (unreviewed) last.
+# Bound to rctrl-i via mux-passthrough.sh (gated to a frontmost terminal).
+# Uses `tmux-dash json`, the documented API, so it stays in step with the dashboard.
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -18,17 +10,12 @@ td="$HOME/.local/bin/tmux-dash"
 [ -x "$td" ] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
-# `-L <name>` (or empty) for whichever server the focused terminal shows, so the
-# jump follows you across personal/work/herdr servers — same inference the
-# dashboard popup uses. Unquoted so an empty result expands to nothing.
+# `-L <name>` (or empty) for the focused terminal's server so the jump follows you
+# across servers. Unquoted so an empty result expands to nothing.
 sock=$("$td" focused-socket 2>/dev/null)
 
-# Target pane, by priority: every Input (needs-you) agent in the dashboard's own
-# row order, THEN every Done (finished, unreviewed) agent. first() over the two
-# concatenated streams yields the top Input, or — when nothing needs input — the
-# top Done. Repeated presses advance as agents change state (a handled Input
-# leaves the tier; a reviewed Done flips to Idle). pane_target is already a valid
-# `session:window.pane` tmux target (the TUI switches to it verbatim), untouched.
+# Target pane by priority: top Input agent, else top Done — in the dashboard's row
+# order. pane_target is already a valid `session:window.pane` tmux target.
 target=$("$td" $sock json 2>/dev/null | jq -r '
   first(
     (.sessions[] | select(.status == "Input") | .pane_target),
@@ -37,12 +24,9 @@ target=$("$td" $sock json 2>/dev/null | jq -r '
 
 [ -n "$target" ] || exit 0
 
-# Focus the EXACT agent pane, deterministically. switch-client -t "sess:win.pane"
-# switches the session but frequently leaves the client on the window's previously
-# active pane — so you land on a sibling (often non-agent) pane. select-pane only
-# sets the active pane WITHIN its window and does NOT change the current window,
-# so both are needed: make the window current, focus the pane in it (both persist
-# server-side even before the client attaches), THEN switch the client.
+# Focus the exact agent pane deterministically: switch-client alone often lands on
+# the window's previously-active (sibling) pane, so select-window + select-pane
+# first (both persist server-side), THEN switch-client.
 sess=${target%%:*}
 win=${target#*:}; win=${win%%.*}
 tmux $sock select-window -t "${sess}:${win}" 2>/dev/null

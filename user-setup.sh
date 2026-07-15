@@ -76,7 +76,6 @@ print_success "Log directories ready at ~/.logs/"
 # --- PHASE 2: SSH KEY AND SECRETS SETUP FROM BITWARDEN ---
 print_info "› Phase 2: Setting up SSH keys and secrets from Bitwarden..."
 
-# Check if we need to unlock Bitwarden
 NEED_BITWARDEN_UNLOCK=false
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
   NEED_BITWARDEN_UNLOCK=true
@@ -455,7 +454,6 @@ if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
     name=$(echo "$line" | awk '{print $2}')
     rest=$(echo "$line" | cut -d' ' -f3-)
 
-    # Check if already configured
     if claude mcp get "$name" -s user &>/dev/null 2>&1; then
       print_success "MCP already configured: $name"
     else

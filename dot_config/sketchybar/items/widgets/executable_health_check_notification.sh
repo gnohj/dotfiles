@@ -33,7 +33,6 @@ log_message() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$HEALTH_LOG"
 }
 
-# Collect recent errors from all log dirs
 ERROR_SOURCES=()
 
 scan_log() {
@@ -51,7 +50,6 @@ scan_log() {
   done < <(grep -E '\[ERROR\]|ERROR:|FATAL|FAIL[^_]' "$file" 2>/dev/null | grep -iv 'KEEP:.*error.log\|NOTIFY.*Error\|already focused\|non-zero\|socket read timeout')
 }
 
-# Scan all monthly logs (current month)
 MONTH=$(date '+%Y%m')
 for dir in "$LOG_DIR"/*/; do
   dir_name=$(basename "$dir")
@@ -64,11 +62,9 @@ for dir in "$LOG_DIR"/*/; do
   # Real errors are captured in timestamped monthly logs above
 done
 
-# Deduplicate sources
 ERROR_SOURCES=($(printf '%s\n' "${ERROR_SOURCES[@]}" | sort -u))
 ERROR_COUNT=${#ERROR_SOURCES[@]}
 
-# Update sketchybar
 if [ "$ERROR_COUNT" -eq 0 ]; then
   COLOR=$GREEN
   LABEL="􀆅"

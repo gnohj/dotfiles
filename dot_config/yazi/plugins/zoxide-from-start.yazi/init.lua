@@ -3,7 +3,6 @@
 local function entry()
 	local start_dir = os.getenv("YAZI_START_DIR") or ya.target_family() == "windows" and os.getenv("CD") or os.getenv("PWD")
 
-	-- Change to start dir and run zoxide interactive query
 	local cmd = string.format(
 		"cd '%s' && zoxide query -i",
 		start_dir

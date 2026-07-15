@@ -8,10 +8,8 @@ DISPLAY_HASH_FILE="/tmp/sketchybar_display_hash"
 LOG_DIR="$HOME/.logs/sketchybar"
 LOG_FILE="$LOG_DIR/display-monitor_$(date +%Y%m).log"
 
-# Ensure log directory exists
 mkdir -p "$LOG_DIR"
 
-# Logging function
 log_message() {
   local level="$1"
   local message="$2"
@@ -24,11 +22,9 @@ run_with_timeout() {
   shift
   local output_file=$(mktemp)
 
-  # Run command in background
   "$@" > "$output_file" 2>/dev/null &
   local pid=$!
 
-  # Wait for timeout or completion
   local count=0
   while kill -0 "$pid" 2>/dev/null; do
     sleep 0.5
@@ -48,10 +44,8 @@ run_with_timeout() {
   return $exit_code
 }
 
-# Function to get current display count
 get_display_count() {
-  # Count displays by resolution lines (more reliable)
-  # Add 3 second timeout to prevent hanging
+  # Count displays by resolution lines (more reliable); 3s timeout prevents hanging
   local result
   result=$(run_with_timeout 3 system_profiler SPDisplaysDataType)
   if [ $? -eq 0 ] && [ -n "$result" ]; then
@@ -61,12 +55,9 @@ get_display_count() {
   fi
 }
 
-# Function to get display configuration hash
 get_display_hash() {
-  # Get a hash of the display configuration to detect any changes
-  # This catches display name changes even when count stays the same
-  # Includes display names and resolutions to detect switching between built-in and external
-  # Add 3 second timeout to prevent hanging
+  # Hash of display names + resolutions catches config changes even when the
+  # count stays the same (e.g. switching built-in <-> external); 3s timeout.
   local result
   result=$(run_with_timeout 3 system_profiler SPDisplaysDataType)
   if [ $? -eq 0 ] && [ -n "$result" ]; then
@@ -76,7 +67,6 @@ get_display_hash() {
   fi
 }
 
-# Initialize with current count and hash
 PREV_COUNT=$(get_display_count)
 PREV_HASH=$(get_display_hash)
 echo "$PREV_COUNT" > "$DISPLAY_COUNT_FILE"
@@ -96,12 +86,10 @@ while true; do
   CURRENT_COUNT=$(get_display_count)
   CURRENT_HASH=$(get_display_hash)
 
-  # Periodic heartbeat log (every 60 seconds)
   if [ $((LOOP_COUNT % HEARTBEAT_INTERVAL)) -eq 0 ]; then
     log_message "DEBUG" "Monitor heartbeat - current: $CURRENT_COUNT display(s), previous: $PREV_COUNT display(s)"
   fi
 
-  # Check if display count OR configuration changed
   if [ "$CURRENT_COUNT" != "$PREV_COUNT" ] || [ "$CURRENT_HASH" != "$PREV_HASH" ]; then
     if [ "$CURRENT_COUNT" != "$PREV_COUNT" ]; then
       log_message "WARN" "Display count changed: $PREV_COUNT -> $CURRENT_COUNT displays"
@@ -109,15 +97,12 @@ while true; do
       log_message "WARN" "Display configuration changed (same count but different display)"
     fi
 
-    # Update external monitor status file
     log_message "INFO" "Running check-external-monitor.sh to update detection file"
     bash "$(dirname "$0")/check-external-monitor.sh" > /dev/null 2>&1
 
-    # Trigger sketchybar event
     log_message "INFO" "Triggering sketchybar monitor_display_change event"
     sketchybar --trigger monitor_display_change
 
-    # Update stored count and hash
     PREV_COUNT="$CURRENT_COUNT"
     PREV_HASH="$CURRENT_HASH"
     echo "$CURRENT_COUNT" > "$DISPLAY_COUNT_FILE"

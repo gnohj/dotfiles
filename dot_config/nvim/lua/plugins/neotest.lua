@@ -14,7 +14,7 @@ return {
     local neotest = require("neotest")
 
     local function find_nearest_node_modules_dir()
-      local current_dir = vim.fn.expand("%:p:h") -- current buffer dir
+      local current_dir = vim.fn.expand("%:p:h")
       while current_dir ~= "/" do
         if vim.fn.isdirectory(current_dir .. "/node_modules") == 1 then
           return current_dir

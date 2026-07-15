@@ -863,7 +863,6 @@ prepend_exts = [
 ]
 prepend_conds = [
 	# Special files
-	# Special files
 	{ if = "orphan", text = "", fg = "#b8c9d3" },
 	{ if = "link", text = "", fg = "#9fb7a4" },
 	{ if = "block", text = "", fg = "#dab183" },

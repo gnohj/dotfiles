@@ -3,7 +3,6 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
-# Fallback widget name if not set by sketchybar
 NAME="${NAME:-widgets.pr_review_notification}"
 
 LOG_DIR="$HOME/.logs/sketchybar"
@@ -66,7 +65,6 @@ if [[ -z "$PR_JSON" || "$PR_JSON" == "[]" ]]; then
   echo "[]" > "$PR_DATA_FILE"
   log_message "INFO" "No PRs found requesting review"
 else
-  # Filter out bot authors and build filtered PR list
   FILTERED_PRS=$(echo "$PR_JSON" | jq -c '[.[] | select(.author.login as $author | ["renovate","renovate[bot]","dependabot","dependabot[bot]","github-actions","github-actions[bot]","changesets","changesets[bot]","changeset-bot","changeset-bot[bot]","greenkeeper","greenkeeper[bot]","snyk-bot","imgbot","imgbot[bot]","codecov","codecov[bot]","allcontributors","allcontributors[bot]","semantic-release-bot","release-please","release-please[bot]"] | map(ascii_downcase) | index($author | ascii_downcase) | not)]')
 
   # Save filtered PRs with repo info for popup
@@ -76,24 +74,26 @@ else
   log_message "INFO" "Found $PR_COUNT PRs (after filtering bots)"
 fi
 
-# Determine color and label based on count
+# Hide entirely when nothing is awaiting review — clean menu bar; the widget only
+# appears when there's actually something to act on.
 if [ "$PR_COUNT" -eq 0 ]; then
-  COLOR=$GREEN
-  LABEL="􀆅"
-elif [ "$PR_COUNT" -le 3 ]; then
+  sketchybar --set "$NAME" drawing=off
+  log_message "INFO" "No PRs awaiting review — widget hidden"
+  exit 0
+fi
+
+if [ "$PR_COUNT" -le 3 ]; then
   COLOR=$WHITE
-  LABEL="$PR_COUNT"
 elif [ "$PR_COUNT" -le 5 ]; then
   COLOR=$ORANGE
-  LABEL="$PR_COUNT"
 else
   COLOR=$RED
-  LABEL="$PR_COUNT"
 fi
 
 # Update sketchybar (icon color set in lua, only update label here)
 sketchybar --set "$NAME" \
-  label="$LABEL" \
+  drawing=on \
+  label="$PR_COUNT" \
   label.color="$COLOR"
 
 log_message "INFO" "PR review check completed - Count: $PR_COUNT"

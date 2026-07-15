@@ -1,12 +1,10 @@
 local colors = require("config.colors")
 
--- Custom component to display buffer count
 local function buffer_count()
-  local buffers = vim.fn.getbufinfo({ buflisted = 1 }) -- Only count listed buffers
+  local buffers = vim.fn.getbufinfo({ buflisted = 1 })
   return "(" .. tostring(#buffers) .. ")"
 end
 local function buffer_count_with_unsaved()
-  -- Count only unsaved buffers
   local unsaved_count = 0
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if
@@ -17,9 +15,8 @@ local function buffer_count_with_unsaved()
     end
   end
 
-  -- Only show count if there are unsaved buffers
   if unsaved_count > 0 then
-    return tostring(unsaved_count) -- Just the number, no dot
+    return tostring(unsaved_count)
   else
     return ""
   end
@@ -35,7 +32,6 @@ local function current_buffer_unsaved_dot()
   end
 end
 
--- File permissions component
 local function get_file_permissions()
   if vim.bo.filetype ~= "sh" then
     return ""
@@ -76,7 +72,7 @@ end
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
-  enabled = true, -- Always enable lualine
+  enabled = true,
   opts = function(_, opts)
     local lazy_status = require("lazy.status") -- to configure lazy pending updates count
     local icons = require("lazyvim.config").icons

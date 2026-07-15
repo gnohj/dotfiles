@@ -12,7 +12,7 @@ sbar.add("item", constants.items.BREW_NOTIFICATION, {
 		padding_left = 1,
 		padding_right = 0,
 	},
-	update_freq = 3600, -- Update every hour
+	update_freq = 3600,
 	script = "~/.config/sketchybar/items/widgets/brew_notification.sh",
 	drawing = true,
 })
