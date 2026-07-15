@@ -69,9 +69,6 @@ open_herdr() {
   tab_id="$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty' 2>/dev/null)"
   num="$(printf '%s' "$out" | jq -r '.result.tab.number // empty' 2>/dev/null)"
   [ -n "$tab_id" ] && [ -n "$num" ] && "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
-  # Keep numbered tab labels position-correct as tabs open/close (herdr has no
-  # native renumber). Lazy-start the renumber daemon; it persists per session.
-  "$HOME/.local/bin/herdr-tab-renumber.py" ensure >/dev/null 2>&1 || true
   "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
   [ -n "$print_pane" ] && printf '%s\n' "$pane"
   return 0

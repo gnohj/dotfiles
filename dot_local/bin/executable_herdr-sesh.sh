@@ -185,9 +185,8 @@ entries = []
 active_paths = set()
 for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
     wid = w.get("workspace_id")
-    # herdr-workspace-git.py appends " · <gitmux symbols>" to the workspace LABEL for the sidebar.
-    # This picker builds its own git column from the cwd, so strip that segment (split on the same
-    # " · " divider — keep in sync with the daemon SEP) to avoid a doubled/clipped name.
+    # This picker builds its own git column from the cwd, so strip any " · <symbols>"
+    # suffix a workspace label may carry to avoid a doubled/clipped name.
     label = (w.get("label", "?") or "?").split(" · ", 1)[0].rstrip()
     cwd = wscwd.get(wid, "").rstrip("/")
     if cwd: active_paths.add(cwd)
