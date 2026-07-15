@@ -8,7 +8,6 @@ local apps <const> = {
 	["Affinity Publisher"] = ":affinity_publisher:",
 	["Affinity Publisher 2"] = ":affinity_publisher_2:",
 	["Airmail"] = ":airmail:",
-	["Alacritty"] = "",
 	["Alfred Preferences"] = ":alfred:",
 	["Android Messages"] = ":android_messages:",
 	["Android Studio"] = ":android_studio:",
