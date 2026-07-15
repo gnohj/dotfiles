@@ -4,7 +4,6 @@ export HOMEBREW_NO_AUTO_UPDATE="1"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
-# Fallback widget name if not set by sketchybar
 NAME="${NAME:-widgets.package_notification}"
 
 LOG_DIR="$HOME/.logs/sketchybar"
@@ -19,17 +18,15 @@ log_message() {
   echo "[$timestamp] [$level] [PACKAGES] $message" >>"$LOG_FILE"
 }
 
-# Timeout wrapper function (10 second timeout)
 run_with_timeout() {
   local timeout=10
   local cmd="$1"
   local tmpfile="/tmp/package_notification_$$"
 
-  # Run command in background and capture output (disable tracing)
+  # disable tracing so command output isn't polluted
   (set +x; eval "$cmd" > "$tmpfile" 2>&1) &
   local pid=$!
 
-  # Wait for command with timeout (0.1s intervals)
   local elapsed=0
   while kill -0 $pid 2>/dev/null; do
     if [ $elapsed -ge $((timeout * 10)) ]; then
@@ -43,7 +40,6 @@ run_with_timeout() {
     elapsed=$((elapsed + 1))
   done
 
-  # Get command exit code and output
   wait $pid
   local exit_code=$?
   if [ -f "$tmpfile" ]; then
@@ -60,7 +56,6 @@ MAS_COUNT=0
 MISE_COUNT=0
 TIMEOUT_OCCURRED=0
 
-# Check Homebrew updates
 # log_message "INFO" "Checking Homebrew..."
 if [[ "$SENDER" == "package_update" ]]; then
   run_with_timeout "/opt/homebrew/bin/brew update >/dev/null 2>&1"
@@ -96,19 +91,22 @@ if [[ -n "$MISE_OUTPUT" && "$MISE_OUTPUT" != "" ]]; then
   log_message "DEBUG" "Mise count: $MISE_COUNT"
 fi
 
-# Calculate total count
 TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT))
 
-# Determine color based on total count
 COLOR=$RED
 LABEL="$TOTAL_COUNT"
+
+# Hide entirely when nothing needs updating — clean menu bar; only show when there
+# are pending updates (or a timeout '?', which is an error state worth seeing).
+if [ $TIMEOUT_OCCURRED -eq 0 ] && [ $TOTAL_COUNT -eq 0 ]; then
+  sketchybar --set "$NAME" drawing=off
+  log_message "INFO" "No pending updates — widget hidden"
+  exit 0
+fi
 
 if [ $TIMEOUT_OCCURRED -eq 1 ]; then
   COLOR=$GREY
   LABEL="?"
-elif [ $TOTAL_COUNT -eq 0 ]; then
-  COLOR=$GREEN
-  LABEL="􀆅"
 elif [ $TOTAL_COUNT -le 9 ]; then
   COLOR=$WHITE
 elif [ $TOTAL_COUNT -le 29 ]; then
@@ -117,8 +115,8 @@ else
   COLOR=$RED
 fi
 
-# Update sketchybar with single combined count
 sketchybar --set "$NAME" \
+  drawing=on \
   label="$LABEL" \
   label.color="$COLOR" \
   icon.color="$MAGENTA"
