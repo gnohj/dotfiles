@@ -49,6 +49,17 @@ _slog() {
   printf '%s [%s] %s\n' "$(date '+%H:%M:%S')" "$$" "$*" >>"$SWEEP_LOG" 2>/dev/null || true
 }
 
+# gh-dash `R` runs reclaim fully detached (nohup … >/dev/null 2>&1 &), so the TUI
+# shows no feedback. Surface the result as a macOS toast via the unified
+# ~/.local/bin/mac-notify helper (single source of truth for the
+# terminal-notifier || osascript pattern; owns icon/timeout/group/fallback).
+# Absolute path: reclaim runs detached, where ~/.local/bin may not be on PATH.
+# -group collapses repeated R presses onto one banner. Best-effort — a notify
+# failure must never abort the reclaim under set -e.
+notify() {
+  "$HOME/.local/bin/mac-notify" -t 'gh-dash reclaim' -m "$1" -g gh-dash-reclaim >/dev/null 2>&1 || true
+}
+
 # Epoch seconds of a file's mtime (macOS BSD stat, Linux GNU stat fallback).
 _mtime() {
   stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
@@ -203,7 +214,13 @@ sweep() {
   #   `reclaim` command (gh-dash `R`) — frees slots for PRs that already merged /
   #   closed and dropped out of gh-dash, which no per-PR release could reach.
   local mode="${1:-confirm}"
-  [ -d "$STATE_DIR" ] || return 0
+  local reclaimed=0
+  if [ ! -d "$STATE_DIR" ]; then
+    if [ "$mode" = immediate ]; then
+      notify "🧹 No idle treehouse review slots to reclaim"
+    fi
+    return 0
+  fi
   sleep 0.3 # debounce: let the just-closed window/tab finish unlinking
   local cwds wins f pr wt now age total
   case "$(mux_kind)" in
@@ -258,6 +275,7 @@ sweep() {
       _slog "  RELEASE $pr (reclaim): no #${pr} window and no pane in $wt (lease age ${age}s)"
       release_pr "$pr"
       rm -f "$PENDING_DIR/$pr"
+      reclaimed=$((reclaimed + 1))
     elif [ -f "$PENDING_DIR/$pr" ] && [ "$((now - $(_mtime "$PENDING_DIR/$pr")))" -ge "$SWEEP_CONFIRM" ]; then
       _slog "  RELEASE $pr: window-less for >=${SWEEP_CONFIRM}s, confirmed (lease age ${age}s)"
       release_pr "$pr"
@@ -268,6 +286,13 @@ sweep() {
       _slog "  defer $pr: window-less but unconfirmed (needs ${SWEEP_CONFIRM}s sustained absence) — likely transient churn"
     fi
   done
+  if [ "$mode" = immediate ]; then
+    if [ "$reclaimed" -gt 0 ]; then
+      notify "🧹 Reclaimed $reclaimed idle treehouse review slot$([ "$reclaimed" -eq 1 ] || echo s)"
+    else
+      notify "🧹 No idle treehouse review slots to reclaim"
+    fi
+  fi
   return 0
 }
 
