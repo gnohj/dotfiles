@@ -3,14 +3,16 @@
 
 export PATH="/opt/homebrew/bin:$PATH"
 
+# Inherently macOS: drives the sketchybar github-notification widget. No sketchybar
+# on a headless Linux VPS — no-op cleanly.
+[[ "$OSTYPE" == darwin* ]] || exit 0
+
 # Gentle fade-in effect (5 blinks)
 for i in {1..5}; do
-  # Show notification
   touch "$HOME/github-custom-notification.txt"
   sketchybar --update 2>/dev/null || true
   sleep 1.0
 
-  # Hide notification
   rm -f "$HOME/github-custom-notification.txt"
   sketchybar --update 2>/dev/null || true
   sleep 0.5
@@ -21,6 +23,5 @@ touch "$HOME/github-custom-notification.txt"
 sketchybar --update 2>/dev/null || true
 sleep 5
 
-# Final cleanup
 rm -f "$HOME/github-custom-notification.txt"
 sketchybar --update 2>/dev/null || true

@@ -38,7 +38,12 @@ import time
 
 # Minimal launchd/skhd PATH won't resolve gitmux (brew) or git (nix) — set one that does.
 os.environ["PATH"] = (
-    "/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:" + os.environ.get("PATH", "")
+    "/run/current-system/sw/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:"
+    + os.path.expanduser("~/.local/share/mise/shims")
+    + ":"
+    + os.path.expanduser("~/.local/bin")
+    + ":/usr/bin:/bin:"
+    + os.environ.get("PATH", "")
 )
 
 STATE_DIR = os.path.join(

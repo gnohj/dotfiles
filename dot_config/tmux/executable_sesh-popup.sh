@@ -15,7 +15,9 @@
 #                sources back in). Caller: tmux-dash "new session → sesh" via
 #                the sesh-new-picker.sh adapter, 45%x65%.
 
-export PATH="/opt/homebrew/bin:$PATH"
+# /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
+# (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
+export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"

@@ -1,24 +1,8 @@
---[[
- █████╗ ██╗   ██╗████████╗ ██████╗  ██████╗███╗   ███╗██████╗ ███████╗
-██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗██╔════╝████╗ ████║██╔══██╗██╔════╝
-███████║██║   ██║   ██║   ██║   ██║██║     ██╔████╔██║██║  ██║███████╗
-██╔══██║██║   ██║   ██║   ██║   ██║██║     ██║╚██╔╝██║██║  ██║╚════██║
-██║  ██║╚██████╔╝   ██║   ╚██████╔╝╚██████╗██║ ╚═╝ ██║██████╔╝███████║
-╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝  ╚═════╝╚═╝     ╚═╝╚═════╝ ╚══════╝
-See `:help lua-guide-autocommands`
---]]
-
--- Autocmds are automatically loaded on the VeryLazy event ( after startup and runs in the background )
--- Default autocmds that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/autocmds.luaa
--- Add any additional autocmds here
-
 local function augroup(name)
   return vim.api.nvim_create_augroup("lazyvim_" .. name, { clear = true })
 end
 
--- ============================================================================
 -- Wrap for markdown files
--- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "markdown",
   callback = function()
@@ -27,9 +11,7 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
--- ============================================================================
 -- Markdown LSP codelens (reference counts) — markdown-oxide
--- ============================================================================
 -- Global autocmd (not buffer-local) so it survives LSP attach/detach cycles.
 -- Pattern from linkarzu/dotfiles-latest. CursorHold fires after `updatetime` ms
 -- of cursor inactivity, so codelens reappears as soon as you stop scrolling.
@@ -125,15 +107,12 @@ vim.api.nvim_create_autocmd({ "CursorMoved", "CursorHold", "WinScrolled" }, {
   end,
 })
 
--- ============================================================================
 -- Mini.files key bindings
--- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "minifiles",
   callback = function(args)
     local buf_id = args.buf
 
-    -- Make sure mini.files is available
     local ok, mini_files = pcall(require, "mini.files")
     if not ok then
       vim.notify("mini.files not available", vim.log.levels.WARN)
@@ -141,11 +120,19 @@ vim.api.nvim_create_autocmd("FileType", {
     end
 
     vim.keymap.set("n", "<space>y", function()
-      -- Get the current entry (file or directory)
       local curr_entry = mini_files.get_fs_entry()
       if curr_entry then
         local path = curr_entry.path
-        -- Build the osascript command to copy the file or directory to the clipboard
+        if vim.fn.has("mac") ~= 1 then
+          -- osascript "set the clipboard to POSIX file" is macOS-only and has no
+          -- clean Linux equivalent (Wayland/X clipboards don't carry a file-object
+          -- reference). No-op with a hint; <space>fy copies the path instead.
+          vim.notify(
+            "Copy file to clipboard is macOS-only (use <space>fy for the path)",
+            vim.log.levels.WARN
+          )
+          return
+        end
         local cmd = string.format(
           [[osascript -e 'set the clipboard to POSIX file "%s"' ]],
           path
@@ -167,18 +154,14 @@ vim.api.nvim_create_autocmd("FileType", {
       desc = "[P]MiniFiles Copy file/directory contents to clipboard",
     })
 
-    -- Copy path to clipboard
     vim.keymap.set("n", "<space>fy", function()
-      -- Get the current entry using the API
       local curr_entry = mini_files.get_fs_entry()
 
       if curr_entry then
         local path = curr_entry.path
 
-        -- Format the path (replace home directory with ~)
         path = path:gsub(vim.fn.expand("$HOME"), "~")
 
-        -- Copy to clipboard
         vim.fn.setreg("+", path)
         vim.fn.setreg('"', path)
 
@@ -198,21 +181,17 @@ vim.api.nvim_create_autocmd("FileType", {
 local map_split = function(buf_id, lhs, direction)
   local MiniFiles = require("mini.files")
   local rhs = function()
-    -- Get the file under cursor
     local fs_entry = MiniFiles.get_fs_entry()
     if not fs_entry or fs_entry.fs_type ~= "file" then
-      -- Not a file under cursor
       return
     end
 
-    -- Make new window and set it as target
     local cur_target = MiniFiles.get_explorer_state().target_window
     local new_target = vim.api.nvim_win_call(cur_target, function()
       vim.cmd(direction .. " split")
       return vim.api.nvim_get_current_win()
     end)
 
-    -- Set as target and go in (open the file)
     MiniFiles.set_target_window(new_target)
     MiniFiles.go_in()
   end
@@ -226,7 +205,6 @@ vim.api.nvim_create_autocmd("User", {
   pattern = "MiniFilesBufferCreate",
   callback = function(args)
     local buf_id = args.data.buf_id
-    -- You can customize these key mappings
     map_split(buf_id, "<C-s>", "horizontal")
     map_split(buf_id, "<C-v>", "vertical")
   end,
@@ -239,9 +217,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
   desc = "Disable New Line Comment",
 })
 
--- ============================================================================
 -- Disable built-in spellchecking for Markdown - https://github.com/LazyVim/LazyVim/discussions/392
--- ============================================================================
 vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
 vim.api.nvim_create_autocmd("FileType", {
   group = vim.api.nvim_create_augroup(
@@ -254,9 +230,7 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
--- ============================================================================
 -- Close filetypes with <esc>
--- ============================================================================
 vim.api.nvim_create_autocmd("FileType", {
   group = augroup("close_with_q"),
   pattern = {
@@ -324,11 +298,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
   end,
 })
 
--- ============================================================================
 -- Auto-reload files changed externally
--- ============================================================================
-
--- Check for external changes when switching buffers or gaining focus
 vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
   callback = function()
     if vim.fn.mode() ~= "c" then
@@ -349,12 +319,9 @@ vim.api.nvim_create_autocmd("FocusGained", {
   desc = "Undim dropbar after tmux pane focus returns",
 })
 
--- Event-based filesystem watcher for instant change detection
 require("config.auto-filewatcher").setup()
 
--- ============================================================================
 -- Filetype detection for HTTP files (kulala.nvim)
--- ============================================================================
 vim.filetype.add({
   extension = {
     ["http"] = "http",
@@ -369,9 +336,7 @@ vim.filetype.add({
   },
 })
 
--- ============================================================================
 -- LSP progress → Ghostty terminal progress bar (OSC 9;4) + nvim 0.12 echo
--- ============================================================================
 vim.api.nvim_create_autocmd("LspProgress", {
   callback = function(ev)
     local value = ev.data.params.value or {}

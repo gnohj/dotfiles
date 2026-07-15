@@ -12,7 +12,7 @@
 
 set -uo pipefail
 
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
 CONFIG_FILE="$HOME/.config/treekanga/treekanga.yml"
 # Use a temp dir on the same filesystem as $HOME so `mv` is an inode rename
@@ -196,7 +196,7 @@ run_picker() {
   records=$(list_worktrees | while IFS='|' read -r repo branch wt_path bare; do
     [ -z "$repo" ] && continue
     if [ -d "$wt_path" ]; then
-      mtime=$(stat -f %m "$wt_path" 2>/dev/null || echo 0)
+      mtime=$(stat -f %m "$wt_path" 2>/dev/null || stat -c %Y "$wt_path" 2>/dev/null || echo 0)
     else
       mtime=0
     fi

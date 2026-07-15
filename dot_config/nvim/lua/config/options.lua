@@ -1,16 +1,3 @@
---[[
- ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
-██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
-██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
-██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
-╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
- ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
---]]
-
--- Options are automatically loaded before lazy.nvim startup
--- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
--- Add any additional options here
-
 local opt = vim.opt
 
 opt.timeout = true
@@ -71,3 +58,18 @@ opt.splitbelow = true -- split horizontal window to the bottom
 opt.number = false -- Disable line numbers by default
 opt.relativenumber = false -- Disable relative numbers
 opt.signcolumn = "yes:1" -- Keep minimal sign column for git/diagnostics
+
+-- OSC52 clipboard when working over SSH (remote dev box). Locally on the Mac the native
+-- provider (pbcopy) stays in charge; over SSH there's no pbcopy on a headless box, so
+-- route yanks through the terminal's OSC52 escape → they land in the LOCAL Mac clipboard.
+-- Gated on $SSH_TTY so it ONLY kicks in on the remote side, never locally. (nvim 0.10+)
+if os.getenv("SSH_TTY") ~= nil then
+  local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
+  if ok then
+    vim.g.clipboard = {
+      name = "OSC 52",
+      copy = { ["+"] = osc52.copy("+"), ["*"] = osc52.copy("*") },
+      paste = { ["+"] = osc52.paste("+"), ["*"] = osc52.paste("*") },
+    }
+  end
+end

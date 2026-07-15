@@ -2,10 +2,9 @@
 
 # ensures at least 3 minutes have elapsed since the last file modification before it will push changes
 
-export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$PATH"
+export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 export HUSKY=0  # Disable Husky hooks for automated commits
 
-# Parse command line arguments
 # This allows me to directly call the script without having to wait the PUSH_INTERVAL:
 # NOTE: Call the script with
 # ./github-auto-push.sh --nowait
@@ -21,7 +20,6 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-# Configure logging
 LOG_DIR="$HOME/.logs/git_autopush"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/autopush_$(date '+%Y%m').log"
@@ -50,15 +48,13 @@ while IFS= read -r line; do
   REPO_LIST+=("$local_path")
 done < "$AUTOPUSH_FILE"
 
-# Define the push interval in seconds
 # Make sure this matches the frequency of the launch agent
 # NOTE: This does not cover the case in which the file is modified at min 1,
 # launch agent executes at min 3, skips the update, so I have to wait other 3
 # minutes (5 in total) for the next update, I don't care, that's fine
 PUSH_INTERVAL=180
 
-# Function to display macOS notifications. Routes through mac-notify
-# (single source of truth for terminal-notifier vs osascript fallback).
+# Routes through mac-notify (single source of truth for terminal-notifier vs osascript).
 display_notification() {
   local message="$1"
   local title="$2"
@@ -67,15 +63,12 @@ display_notification() {
   mac-notify -t "$title" -m "$message"
 }
 
-# Initialize success messages
 SUCCESS_MESSAGES=""
 
-# Loop through each repository
 for REPO_PATH in "${REPO_LIST[@]}"; do
   REPO_NAME=$(basename "$REPO_PATH")
   ERROR_LOG="$LOG_DIR/${REPO_NAME}_error.log"
 
-  # Navigate to the repository
   cd "$REPO_PATH" || {
     log_message "ERROR" "$REPO_NAME" "Failed to navigate to $REPO_PATH"
     display_notification "Failed to navigate to directory" "Error" "$REPO_NAME"
@@ -106,7 +99,6 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
   if [[ -n $(git status --porcelain) ]]; then
     log_message "INFO" "$REPO_NAME" "Unstaged changes detected. Skipping pull."
   else
-    # Pull the latest changes
     # if ! git pull --rebase >>/tmp/git_error.log 2>&1; then
     if ! git pull --rebase 2>"$ERROR_LOG"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
@@ -142,12 +134,12 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
   if [[ -n "$UNCOMMITTED_CHANGES" || "$UNPUSHED_COMMITS" -gt 0 ]]; then
     if [[ -n "$UNCOMMITTED_CHANGES" ]]; then
       log_message "INFO" "$REPO_NAME" "Staging changes"
-      # Stage all changes
       git add .
 
       # Commit with a timestamp message and computer name
       # Use --no-verify to skip Husky hooks that require interactive terminal
-      COMPUTER_NAME=$(scutil --get ComputerName)
+      # macOS: scutil. Linux fallback: hostname. Keeps the commit author-name tag.
+      COMPUTER_NAME=$(scutil --get ComputerName 2>/dev/null || hostname -s 2>/dev/null || hostname 2>/dev/null || echo host)
       TIMESTAMP=$(date '+%y%m%d-%H%M%S')
       if ! git commit --no-verify -m "$COMPUTER_NAME-$TIMESTAMP" 2>"$ERROR_LOG"; then
         ERROR_MSG=$(cat "$ERROR_LOG")
@@ -159,7 +151,6 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
       fi
     fi
 
-    # Push changes
     if ! git push 2>"$ERROR_LOG"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
       log_message "ERROR" "$REPO_NAME" "Push failed: $ERROR_MSG"

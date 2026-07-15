@@ -23,7 +23,7 @@
 # the pane/tab when the command finishes — matching tmux's close-on-exit.
 set -uo pipefail
 
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$PATH"
 herdr="${HERDR_BIN_PATH:-herdr}"
 
 print_pane=""

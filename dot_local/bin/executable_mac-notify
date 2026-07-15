@@ -43,6 +43,12 @@
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
+# Inherently macOS: terminal-notifier / osascript banners. On Linux there is no
+# desktop-notification surface here (a future remote dispatcher will own that),
+# so no-op cleanly. Every caller already treats this as best-effort, so exiting 0
+# is safe.
+[[ "$OSTYPE" == darwin* ]] || exit 0
+
 TITLE=""
 MESSAGE=""
 GROUP=""

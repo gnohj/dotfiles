@@ -24,7 +24,7 @@ set -euo pipefail
 
 # skhd spawns this with a minimal PATH. Pin a sensible PATH so tmux,
 # pngpaste, pbpaste, terminal-notifier, etc. resolve.
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 # When fired by skhd we run OUTSIDE any tmux client context — the
 # `tmux display-popup` call below then has no client to host on and
@@ -65,7 +65,7 @@ if pngpaste "$TMP_IMG" 2>/dev/null && [ -s "$TMP_IMG" ]; then
 else
   rm -f "$TMP_IMG"
   TMP_IMG=""
-  CLIP=$(pbpaste 2>/dev/null || true)
+  CLIP=$(pbpaste 2>/dev/null || wl-paste 2>/dev/null || true)
   if [ -z "$CLIP" ]; then
     notify_error "Clipboard is empty"
     exit 1

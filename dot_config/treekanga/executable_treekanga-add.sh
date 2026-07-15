@@ -9,7 +9,7 @@
 # flow in `tmux display-popup` because skhd launches outside of tmux.
 
 set -euo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
 CONFIG_FILE="$HOME/.config/treekanga/treekanga.yml"
 
@@ -40,7 +40,9 @@ WORKTREE_DIR=$(awk -v repo="$SELECTED" '
 
 BARE_REPO_PATH="$HOME/$WORKTREE_DIR/.bare"
 
-TUI_CMD='export PATH="/opt/homebrew/bin:$PATH"; /opt/homebrew/bin/treekanga tui'
+# PATH-portable: /opt/homebrew first (mac, unchanged) + mise shims / ~/.local/bin
+# (linux) so `treekanga` resolves in the popup context on either platform.
+TUI_CMD='export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"; treekanga tui'
 
 # Open the treekanga TUI in whichever multiplexer you're ATTACHED to. A tmux
 # server and the herdr server can both be running at once, so "is it running"
