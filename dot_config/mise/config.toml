@@ -1,34 +1,26 @@
 # mise configuration - Language runtimes ONLY
 # https://mise.jdx.dev/configuration.html
 #
-# Migration Strategy (see ~/.local/share/chezmoi/dot_nix/README.md):
-# - Nix (common/packages.nix): System packages & ALL CLI tools
-# - Mise (this file): Language runtimes ONLY
-# - Homebrew (nix-darwin): macOS-specific apps & system services
-#
-# CLI tools migrated to Nix:
-#   bat, eza, fd, fzf, ripgrep, delta, zoxide, gh, lazygit, lazydocker,
-#   jq, tmux, starship, atuin, awscli2, saml2aws, direnv, duf, fastfetch,
-#   xh, stylua, neovim, chezmoi
+# Migration strategy (see ~/.local/share/chezmoi/dot_nix/README.md): Nix owns
+# system packages & ALL CLI tools; mise (this file) owns language runtimes ONLY;
+# Homebrew (nix-darwin) owns macOS-specific apps & services.
 
 [tools]
-# Language runtimes (version managers)
 # Note: Node 22 is also installed for Neovim Copilot (see ~/.config/nvim/lua/plugins/copilot.lua)
 node = { version = 'lts', postinstall = 'corepack enable' }
 lua = '5.4'
-python = 'latest'      # Python runtime
-go = 'latest'          # Go runtime
-rust = 'latest'        # Rust runtime
-bun = 'latest'         # Bun runtime
-zig = 'latest'         # Zig compiler (used for GhosttyFetch)
+python = 'latest'
+go = 'latest'
+rust = 'latest'
+bun = 'latest'
+zig = 'latest'          # used for GhosttyFetch
 
 "npm:prettier" = "latest"
 "npm:codeburn" = "latest"
 
 [tasks]
-# Global CLI tools installed via bun
-# Note: aic is configured via chezmoi template at ~/.aicommitrc (see dot_aicommitrc.tmpl)
-# Uses GitHub Copilot Enterprise via GitHub Models with dynamic token from 'gh auth token'
+# aic is configured via chezmoi template at ~/.aicommitrc (see dot_aicommitrc.tmpl);
+# uses GitHub Copilot Enterprise via GitHub Models with a dynamic 'gh auth token'.
 install-aicommit = "bun add -g @kkidd/aicommit"
 setup-global-tools = "mise run install-aicommit"
 

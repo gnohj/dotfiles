@@ -1,7 +1,5 @@
--- Forward declaration for restore function (defined later)
 local restore_win_separator
 
--- Helper to close zen padding windows
 local function close_zen_padding()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) then
@@ -15,13 +13,11 @@ local function close_zen_padding()
       end
     end
   end
-  -- Restore normal window separators
   if restore_win_separator then
     restore_win_separator()
   end
 end
 
--- Helper to check if dashboard is visible
 local function is_dashboard_visible()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
@@ -33,7 +29,6 @@ local function is_dashboard_visible()
   return false
 end
 
--- Helper to check if we're in a codediff tab
 local function is_codediff_tab()
   local lifecycle = package.loaded["codediff.ui.lifecycle"]
   if lifecycle then
@@ -45,7 +40,6 @@ local function is_codediff_tab()
   return false
 end
 
--- Helper to check if zen windows already exist
 local function is_zen_active()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
@@ -87,7 +81,6 @@ local zen_and_integration_filetypes = {
   "trouble",
 }
 
--- Helper to check if filetype is zen or integration
 local function is_zen_or_integration(ft)
   for _, v in ipairs(zen_and_integration_filetypes) do
     if ft == v then
@@ -97,7 +90,6 @@ local function is_zen_or_integration(ft)
   return false
 end
 
--- Helper to check if a window looks like a side panel (zen or integration)
 -- Used when filetype might not be set yet (timing issues)
 local function is_side_panel_window(win)
   if not vim.api.nvim_win_is_valid(win) then
@@ -106,18 +98,15 @@ local function is_side_panel_window(win)
   local buf = vim.api.nvim_win_get_buf(win)
   local ft = vim.bo[buf].filetype
 
-  -- If filetype is known, use that
   if is_zen_or_integration(ft) then
     return true
   end
 
   -- Fallback for windows with empty filetype (still loading)
-  -- Check if it looks like a side panel: nofile buffer, fixed width, at edge
   if ft == "" then
     local buftype = vim.bo[buf].buftype
     local winfixwidth = vim.wo[win].winfixwidth
     if buftype == "nofile" and winfixwidth then
-      -- Check if at left or right edge
       local win_col = vim.api.nvim_win_get_position(win)[2]
       local win_width = vim.api.nvim_win_get_width(win)
       local total_cols = vim.o.columns
@@ -176,24 +165,19 @@ local function zen_should_activate()
   return vim.o.columns > ZEN_MIN_COLUMNS and not in_tmux_dash()
 end
 
--- Store original highlights/settings to restore later
 local original_win_separator = nil
 local original_fillchars = nil
 
--- Helper to apply transparent/invisible styling to a zen window
 local function style_zen_window(win)
-  -- Get the Normal highlight to match exact background
   local normal_hl = vim.api.nvim_get_hl(0, { name = "Normal" })
   local bg = normal_hl.bg
 
-  -- Create a window-specific highlight that matches Normal exactly
   if bg then
     vim.api.nvim_set_hl(0, "ZenBg", { bg = bg, fg = bg })
   else
     vim.api.nvim_set_hl(0, "ZenBg", { bg = "NONE", fg = "NONE" })
   end
 
-  -- Save original settings once
   if original_win_separator == nil then
     original_win_separator = vim.api.nvim_get_hl(0, { name = "WinSeparator" })
   end
@@ -206,7 +190,6 @@ local function style_zen_window(win)
   local current_fillchars = vim.o.fillchars
   local needs_update = false
 
-  -- Hide vertical separator
   if not current_fillchars:match("vert: ") then
     if current_fillchars:match("vert:[^,]*") then
       current_fillchars = current_fillchars:gsub("vert:[^,]*", "vert: ")
@@ -216,7 +199,6 @@ local function style_zen_window(win)
     needs_update = true
   end
 
-  -- Hide horizontal separator
   if not current_fillchars:match("horiz: ") then
     if current_fillchars:match("horiz:[^,]*") then
       current_fillchars = current_fillchars:gsub("horiz:[^,]*", "horiz: ")
@@ -230,7 +212,6 @@ local function style_zen_window(win)
     vim.o.fillchars = current_fillchars
   end
 
-  -- Also make WinSeparator background transparent
   if bg then
     vim.api.nvim_set_hl(0, "WinSeparator", { fg = bg, bg = bg })
   else
@@ -238,7 +219,6 @@ local function style_zen_window(win)
     vim.api.nvim_set_hl(0, "WinSeparator", { fg = "#000000", bg = "NONE" })
   end
 
-  -- Set window-local highlight namespace
   vim.wo[win].winhighlight = table.concat({
     "Normal:ZenBg",
     "NormalNC:ZenBg",
@@ -252,12 +232,11 @@ local function style_zen_window(win)
     "CursorLineNr:ZenBg",
     "LineNr:ZenBg",
   }, ",")
-  vim.wo[win].fillchars = "eob: ,vert: ,horiz: " -- Hide end-of-buffer and separators
-  vim.wo[win].statusline = " " -- Empty status line
+  vim.wo[win].fillchars = "eob: ,vert: ,horiz: "
+  vim.wo[win].statusline = " "
   vim.wo[win].signcolumn = "no"
 end
 
--- Restore original WinSeparator and fillchars when zen is not active
 restore_win_separator = function()
   if original_win_separator then
     vim.api.nvim_set_hl(0, "WinSeparator", original_win_separator)
@@ -267,7 +246,6 @@ restore_win_separator = function()
   end
 end
 
--- Helper to check if a window is a zen padding window
 local function is_zen_window(win)
   if not vim.api.nvim_win_is_valid(win) then
     return false
@@ -279,7 +257,6 @@ local function is_zen_window(win)
   return ft == "zen-left" or ft == "zen-right"
 end
 
--- Helper to style ALL zen windows (left and right)
 local function style_all_zen_windows()
   local found_zen = false
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -288,7 +265,6 @@ local function style_all_zen_windows()
       found_zen = true
     end
   end
-  -- If no zen windows, restore original WinSeparator
   if not found_zen then
     restore_win_separator()
   end
@@ -299,7 +275,6 @@ local function create_zen_windows(main_width)
   local current_win = vim.api.nvim_get_current_win()
   local padding_width = math.floor((vim.o.columns - main_width) / 2)
 
-  -- Create left padding window
   vim.cmd("topleft vnew")
   local left_win = vim.api.nvim_get_current_win()
   local left_buf = vim.api.nvim_get_current_buf()
@@ -314,7 +289,6 @@ local function create_zen_windows(main_width)
   vim.bo[left_buf].buflisted = false
   style_zen_window(left_win)
 
-  -- Create right padding window
   vim.cmd("botright vnew")
   local right_win = vim.api.nvim_get_current_win()
   local right_buf = vim.api.nvim_get_current_buf()
@@ -329,7 +303,6 @@ local function create_zen_windows(main_width)
   vim.bo[right_buf].buflisted = false
   style_zen_window(right_win)
 
-  -- Return focus to original window
   vim.api.nvim_set_current_win(current_win)
 end
 
@@ -348,7 +321,6 @@ return {
         if is_zen_active() then
           close_zen_padding()
         else
-          -- Only create if window is wide enough
           if zen_should_activate() then
             create_zen_windows(zen_target_width())
           end
@@ -508,13 +480,11 @@ return {
             return
           end
 
-          -- Skip if dashboard is visible
           if is_dashboard_visible() then
             close_zen_padding()
             return
           end
 
-          -- Count non-popup, non-side-panel windows (real editor splits)
           local normal_wins = 0
           for _, win in ipairs(vim.api.nvim_list_wins()) do
             local config = vim.api.nvim_win_get_config(win)
@@ -526,7 +496,6 @@ return {
             end
           end
 
-          -- Close zen padding windows if we have 2+ real editor windows
           if normal_wins >= 2 then
             close_zen_padding()
           end
@@ -547,7 +516,6 @@ return {
             return
           end
 
-          -- Count real editor windows
           local normal_wins = 0
           for _, win in ipairs(vim.api.nvim_list_wins()) do
             local config = vim.api.nvim_win_get_config(win)
@@ -566,7 +534,6 @@ return {
 
     -- PATCH 3: Manually create zen windows after lazy-load (VimEnter already fired)
     vim.schedule(function()
-      -- Skip if in codediff tab, dashboard visible, or window too small
       if
         is_codediff_tab()
         or is_dashboard_visible()
@@ -575,7 +542,6 @@ return {
         return
       end
 
-      -- Count real editor windows (non-side-panel, non-popup)
       local normal_wins = 0
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         local config = vim.api.nvim_win_get_config(win)
@@ -586,7 +552,6 @@ return {
         end
       end
 
-      -- Only create zen windows if single window and no zen windows exist
       if normal_wins == 1 and not is_zen_active() then
         create_zen_windows(zen_target_width())
       end

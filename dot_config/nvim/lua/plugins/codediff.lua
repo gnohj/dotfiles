@@ -23,7 +23,6 @@ return {
     {
       "<leader>gD",
       function()
-        -- Get default branch dynamically
         local default_branch = vim.fn.system(
           "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' | tr -d '\\n'"
         )
@@ -37,7 +36,6 @@ return {
     {
       "<leader>gc",
       function()
-        -- Compare current file against last commit
         local file = vim.fn.expand("%:p")
         if file == "" then
           vim.notify("No file in current buffer", vim.log.levels.ERROR)
@@ -50,7 +48,6 @@ return {
     {
       "<leader>gS",
       function()
-        -- Compare all staged/unstaged changes against last commit
         open_in_window("CodeDiff HEAD", "📋")
       end,
       desc = "Diff all changes against HEAD (window)",
@@ -134,7 +131,6 @@ return {
       return false
     end
 
-    -- Apply bigfile optimizations for large buffers
     local function apply_bigfile_optimizations(buf, win)
       local bufname = vim.api.nvim_buf_get_name(buf)
       local line_count = vim.api.nvim_buf_line_count(buf)
@@ -142,19 +138,16 @@ return {
       local is_heavy = is_heavy_file(bufname)
 
       if line_count > size_threshold or is_heavy then
-        -- Disable expensive features
         vim.bo[buf].swapfile = false
         vim.bo[buf].undolevels = 100
         vim.b[buf].completion = false
         vim.b[buf].minianimate_disable = true
         vim.b[buf].minihipatterns_disable = true
 
-        -- Disable treesitter highlighting for this buffer
         pcall(function()
           vim.treesitter.stop(buf)
         end)
 
-        -- Disable LSP for this buffer
         pcall(function()
           local clients = vim.lsp.get_clients({ bufnr = buf })
           for _, client in ipairs(clients) do
@@ -163,12 +156,10 @@ return {
         end)
         vim.b[buf].lsp_disabled = true
 
-        -- Set syntax off for heavy files
         if is_heavy then
           vim.bo[buf].syntax = "off"
         end
 
-        -- Set simpler window options
         vim.wo[win].foldmethod = "manual"
         vim.wo[win].statuscolumn = ""
         vim.wo[win].conceallevel = 0
@@ -179,7 +170,6 @@ return {
         vim.wo[win].colorcolumn = ""
         vim.wo[win].signcolumn = "no"
 
-        -- Disable matchparen
         if vim.fn.exists(":NoMatchParen") ~= 0 then
           vim.cmd([[NoMatchParen]])
         end
@@ -195,7 +185,6 @@ return {
       end
     end
 
-    -- Check if current window is a codediff view window
     local function is_codediff_window(win)
       local tabpage = vim.api.nvim_win_get_tabpage(win)
       local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
@@ -214,7 +203,6 @@ return {
 
     -- Disable conflicting plugins for ALL diff view windows
     local function setup_diff_window(win, buf)
-      -- Disable mini.diff and gitsigns on this buffer
       vim.b[buf].minidiff_disable = true
       vim.b[buf].gitsigns_head = nil -- Hint to gitsigns this isn't a normal git buffer
 
@@ -228,14 +216,12 @@ return {
       vim.wo[win].cursorcolumn = false
       vim.wo[win].spell = false
 
-      -- Apply additional bigfile optimizations for large/heavy files
       apply_bigfile_optimizations(buf, win)
     end
 
     local function setup_diff_keymaps()
       local win = vim.api.nvim_get_current_win()
       local buf = vim.api.nvim_win_get_buf(win)
-      -- Check if this is a codediff view window
       if is_codediff_window(win) then
         setup_diff_window(win, buf)
       end
@@ -252,7 +238,6 @@ return {
     vim.api.nvim_create_autocmd("TabClosed", {
       callback = function()
         if vim.g.zen_disabled then
-          -- Check if any codediff sessions remain
           local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
           if ok then
             -- Small delay to let the tab fully close

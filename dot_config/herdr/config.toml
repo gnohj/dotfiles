@@ -1,10 +1,8 @@
 # herdr — https://herdr.dev/docs/configuration/
 # Deploys to macOS and Linux (harmless on the Mac if herdr is also used locally).
-# Resolve the effective path with `herdr --help`; export defaults with
-# `herdr --default-config`.
 
-# Suppress the first-run orientation/onboarding screen on every startup. herdr
-# shows it whenever this key is missing OR true; false dismisses it for good.
+# Suppress the first-run orientation/onboarding screen. herdr shows it whenever
+# this key is missing OR true; false dismisses it for good.
 onboarding = false
 
 [keys]
@@ -90,14 +88,12 @@ type = "shell"
 command = "herdr-next-blocked.sh"
 description = "jump to next blocked agent (needs input)"
 
-# prefix+' jumps to the pane behind the LAST emitted notification - whatever most
-# recently toasted, whether it went blocked (needs input) or finished (working->idle),
-# in any background workspace. herdr's built-in open_notification_target is dead in 0.7.3
-# (resolves no target, and has no socket API to drive it), so this runs
-# herdr-activity-tracker.py: a small poll daemon that records the most recent background
-# notification and focuses its pane via pane.focus. Distinct from prefix+i, which only
-# cycles BLOCKED agents. The daemon lazy-starts on first press (and eagerly from
-# dot_zshrc when HERDR_WORKSPACE_ID is set), so a toast fired before it started is missed.
+# prefix+' jumps to the pane behind the LAST emitted notification (blocked OR finished,
+# any background workspace). herdr's built-in open_notification_target is dead in 0.7.3
+# (no target, no socket API), so herdr-activity-tracker.py polls for the most recent
+# background notification and focuses its pane via pane.focus. Distinct from prefix+i
+# (blocked only). Daemon lazy-starts on first press, so a toast fired before it started
+# is missed.
 [[keys.command]]
 key = "prefix+'"
 type = "shell"
@@ -177,20 +173,15 @@ type = "pane"
 command = "herdr-sesh.sh"
 description = "sesh-style session picker"
 
-# prefix+f → git-aware file viewer (smarzban/herdr-file-viewer): a read-only tree in a
-# right split with git status glyphs/colors (M/A/D/untracked) on the left, and the right
-# pane auto-picks the view — changed files show a diff, markdown renders, code gets syntax
-# highlighting. This is the "git signs in a sidebar" surface; ctrl+g lazygit stays the
-# full-ops git tool. The plugin's open-file-viewer.sh is a launch-or-focus-or-close toggle
-# scoped to the current tab (repeat press hides it), so it's bound type="shell" as the plugin
-# intends. Inside: f fuzzy-find, v cycle diff/rendered/syntax, b toggle baseline
-# (merge-base vs HEAD), e open in editor, Z fullscreen, ? help.
+# prefix+f → git-aware file viewer (smarzban/herdr-file-viewer): read-only tree with git
+# status glyphs, right pane auto-picks diff/rendered/syntax. Toggle scoped to current tab,
+# so bound type="shell" as the plugin intends. Inside: f find, v cycle view, b toggle
+# baseline, e edit, Z fullscreen, ? help.
 #
 # Requires the plugin installed on whichever host runs the herdr server:
 #   herdr plugin install smarzban/herdr-file-viewer
-# REMOTE CAVEAT: this is a type="shell" binding (unlike the native type="plugin_action"
-# vim-herdr-navigation chords), so over `herdr --remote` it needs --remote-keybindings server
-# and the plugin present on the remote box — same rule as the other shell helpers here.
+# REMOTE CAVEAT: type="shell" binding, so over `herdr --remote` it needs
+# --remote-keybindings server and the plugin present on the remote box.
 [[keys.command]]
 key = "prefix+f"
 type = "shell"

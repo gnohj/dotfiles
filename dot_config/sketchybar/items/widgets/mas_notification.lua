@@ -12,7 +12,7 @@ sbar.add("item", constants.items.MAS_NOTIFICATION, {
 		padding_left = 1,
 		padding_right = 0,
 	},
-	update_freq = 3600, -- Update every hour
+	update_freq = 3600,
 	script = "~/.config/sketchybar/items/widgets/mas_notification.sh",
 	drawing = true,
 })

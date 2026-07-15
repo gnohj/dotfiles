@@ -1,13 +1,11 @@
 #!/bin/bash
 
-# Debug logging
 LOG_DIR="$HOME/.logs/skhd"
 mkdir -p "$LOG_DIR"
 exec 2>"$LOG_DIR/sesh-switcher-debug.log"
 set -x
 date >>"$LOG_DIR/sesh-switcher-called.log"
 
-# Ensure Homebrew is in PATH (for sesh)
 export PATH="/opt/homebrew/bin:$PATH"
 
 # Nix packages (fzf, fd, tmux) are in PATH via nix-daemon.sh

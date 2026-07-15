@@ -12,7 +12,6 @@ PANE_ID="${1:-}"
 # global state, so redrawing it in every session's status line was duplication.
 GITCTX=""
 
-# Session name (check if prefix is pressed)
 SESSION_NAME="$(tmux display-message -p '#S')"
 PREFIX_ACTIVE="$(tmux display-message -p '#{client_prefix}')"
 
@@ -22,7 +21,6 @@ else
   SESSION_COLOR="${gnohj_color04}"
 fi
 
-# Git info for current pane (branch only via gitmux)
 if [ -n "$PANE_ID" ]; then
   DIR=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
 
@@ -45,7 +43,6 @@ if [ -n "$PANE_ID" ]; then
   fi
 fi
 
-# Get all windows
 WINDOWS=$(tmux list-windows -F '#{window_index}:#{window_name}:#{window_active}')
 
 WINDOW_LIST=""

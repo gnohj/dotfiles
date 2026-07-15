@@ -1,8 +1,6 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Get the primary user's home directory
-  # Falls back to /Users/gnohj if not defined
   homeDir = if config ? users && config.users ? users && config.users.users ? ${config.system.primaryUser}
             then config.users.users.${config.system.primaryUser}.home
             else "/Users/${config.system.primaryUser}";
@@ -157,6 +155,33 @@ in
         StartInterval = 900;  # every 15 minutes
         StandardOutPath = "${homeDir}/.logs/sb-agent-refresh/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/sb-agent-refresh/launchagent.err.log";
+      };
+    };
+
+    # herdr-diff morning page — daily 10am. Regenerates the herdr <-> tmux-dash
+    # feature-parity page fresh (headless `/herdr-diff --html-file`, $0 on Claude
+    # Max like sb-agent-refresh) and opens it in the browser, so a parity dashboard
+    # is waiting every morning. Fires a notification only when herdr ships a NEW
+    # upstream release since the last run (the user's chosen trigger). All logic
+    # lives in the wrapper; this just schedules it.
+    herdr-diff-morning = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/herdr-diff
+            export PATH="${homeDir}/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            export HOME="${homeDir}"
+            ${homeDir}/.local/bin/herdr-diff-morning.sh
+          ''
+        ];
+        StartCalendarInterval = [{
+          Hour = 10;
+          Minute = 0;
+        }];
+        StandardOutPath = "${homeDir}/.logs/herdr-diff/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/herdr-diff/launchagent.err.log";
       };
     };
 

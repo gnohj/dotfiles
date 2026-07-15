@@ -28,7 +28,6 @@ toggle_mics() {
 }
 
 if [ "$BUTTON" = "left" ]; then
-  # Attempt to get the current input device name
   MIC_NAME=$(SwitchAudioSource -t input -c)
   # I just want the first word, in case it's too long
   MIC_NAME=$(echo "$MIC_NAME" | awk '{print $1}')
@@ -41,12 +40,9 @@ if [ "$BUTTON" = "left" ]; then
   # Get the current microphone volume
   MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
 
-  # Check if MIC_NAME is not meaningful
   if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
-    # If the mic name is not valid or empty
     sketchybar -m --set mic label="" icon=
   else
-    # Update SketchyBar with the microphone's name and volume
     if [[ $MIC_VOLUME -lt 60 ]]; then
       osascript -e 'set volume input volume 60'
       sketchybar -m --set mic label="$MIC_NAME 60" icon= icon.color="$WHITE" label.color="$WHITE"
@@ -55,7 +51,6 @@ if [ "$BUTTON" = "left" ]; then
       sketchybar -m --set mic label="$MIC_NAME 0" icon= icon.color="$RED" label.color="$RED"
     fi
   fi
-# Check for right-click or shift modifier to show the microphone selection popup
 elif [ "$BUTTON" = "right" ] || [ "$MODIFIER" = "shift" ]; then
   toggle_mics
 fi

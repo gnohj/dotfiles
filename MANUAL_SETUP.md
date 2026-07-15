@@ -25,10 +25,10 @@ This document covers macOS settings that **cannot be automated** through nix-dar
 - [Privacy & Security Permissions (TCC)](#privacy--security-permissions-tcc)
   - [Accessibility](#accessibility)
   - [Full Disk Access](#full-disk-access)
+  - [Input Monitoring](#input-monitoring)
   - [Screen Recording](#screen-recording)
   - [Automation](#automation)
   - [App Management](#app-management)
-  - [Files and Folders](#files-and-folders)
 - [Trackpad Gestures](#trackpad-gestures)
 - [Lock Screen UI](#lock-screen-ui)
 - [Touch ID](#touch-id)
@@ -73,11 +73,9 @@ These apps need to control your computer:
 - ✅ AeroSpace (window management)
 - ✅ BetterDisplay (display management)
 - ✅ borders (4 instances - window decoration)
-- ✅ Flameshot (screenshot tool)
 - ✅ Ghostty (terminal emulator)
 - ✅ Homerow (keyboard navigation)
 - ✅ kanata (keyboard remapper)
-- ✅ karabiner_cli (Karabiner Elements)
 - ✅ kitty (terminal emulator)
 - ✅ Logi Options+ (Logitech device manager)
 - ✅ LogiPluginService (Logitech plugin)
@@ -124,6 +122,8 @@ Terminal emulators need this for shell integration and file system operations:
 These apps need to monitor keyboard/mouse input:
 
 - ✅ kanata (`/opt/homebrew/bin/kanata`) - keyboard remapper
+
+> **Note**: kanata routes its output through the Karabiner-DriverKit-VirtualHIDDevice daemon (v6.2.0), installed automatically by `run_onchange_after_karabiner-driverkit.sh.tmpl` and run via launchd. Karabiner-Elements itself is **not** installed - it ships an incompatible driver that fights kanata for the keyboard.
 
 **How to grant**:
 
@@ -186,10 +186,6 @@ Apps that need to control other applications:
 
 - ✅ System Events
 
-#### Only Switch
-
-- ✅ System Events
-
 #### osascript
 
 - ✅ Finder (for AppleScript automation)
@@ -209,10 +205,6 @@ Apps that need to control other applications:
 
 - ✅ System Events (hotkey system control)
 
-#### Sublime Text
-
-- ✅ Finder (file operations)
-
 #### VLC
 
 - ✅ Spotify (media player integration)
@@ -223,7 +215,6 @@ Apps that need to control other applications:
 
 Apps that can update or delete other applications:
 
-- ✅ Latest (app updater)
 - ✅ Raycast (app uninstall features)
 - ✅ System Events
 
@@ -231,12 +222,6 @@ Apps that can update or delete other applications:
 
 1. Open System Settings → Privacy & Security → App Management
 2. Toggle the switch for each app
-
----
-
-### Files and Folders
-
-**Path**: System Settings → Privacy & Security → Files and Folders
 
 ---
 
@@ -615,11 +600,12 @@ AlDente allows you to set a charge limit to prolong battery lifespan.
 
 After running through this guide, verify:
 
-- [ ] All Accessibility permissions granted (17 apps)
-- [ ] Full Disk Access granted to terminal apps (3 apps)
+- [ ] All Accessibility permissions granted (14 apps)
+- [ ] Full Disk Access granted to terminal apps (2 apps)
+- [ ] Input Monitoring granted to kanata
 - [ ] Screen Recording permissions granted (2 apps)
-- [ ] Automation permissions configured (11 apps with various targets)
-- [ ] App Management permissions granted (5 apps)
+- [ ] Automation permissions configured (8 apps with various targets)
+- [ ] App Management permissions granted (2 apps)
 - [ ] Trackpad gestures configured (7 settings)
 - [ ] Lock Screen UI options configured (4 settings)
 - [ ] Touch ID fingerprints added
@@ -684,4 +670,4 @@ tccutil reset Accessibility com.bundle.identifier
 
 ---
 
-**Last Updated**: 2025-01-23 **macOS Version**: Sequoia and later **nix-darwin Version**: See flake.lock
+**Last Updated**: 2026-07-15 **macOS Version**: Sequoia and later **nix-darwin Version**: See flake.lock

@@ -1,8 +1,6 @@
 #!/bin/bash
-# Open yazi in a tmux window. If the currently-focused tmux pane is running
-# nvim and its per-pane RPC socket is up, seed yazi with the active buffer's
-# path so it lands on the file you were just editing. Otherwise, fall back
-# to the pane's cwd.
+# Open yazi in a tmux window. If the focused pane is nvim (per-pane RPC socket up),
+# seed yazi with the active buffer's path; otherwise fall back to the pane cwd.
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
@@ -20,7 +18,6 @@ PANE_ID=$(tmux display-message -p '#{pane_id}' 2>/dev/null | tr -d '%')
 
 TARGET="$PANE_PATH"
 
-# If active pane is nvim, ask it for the current buffer path via its socket.
 if [[ "$PANE_CMD" =~ ^n?vim$ ]] && [ -n "$PANE_ID" ]; then
   SOCKET="/tmp/nvim-${PANE_ID}.sock"
   if [ -S "$SOCKET" ]; then

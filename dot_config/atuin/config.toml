@@ -1,18 +1,9 @@
-#   █████╗ ████████╗██╗   ██╗██╗███╗   ██╗
-#  ██╔══██╗╚══██╔══╝██║   ██║██║████╗  ██║
-#  ███████║   ██║   ██║   ██║██║██╔██╗ ██║
-#  ██╔══██║   ██║   ██║   ██║██║██║╚██╗██║
-#  ██║  ██║   ██║   ╚██████╔╝██║██║ ╚████║
-#  ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝╚═╝  ╚═══╝
-#
-#  Atuin replaces your existing shell history with a SQLite database
-#  https://github.com/atuinsh/atuin
+# Atuin - SQLite-backed shell history: https://github.com/atuinsh/atuin
 
 sync_frequency = "1h"
 style = "auto"
 
-## Defaults to true. If enabled, upon hitting enter Atuin will immediately execute the command. Press tab to return to the shell and edit.
-# This applies for new installs. Old installs will keep the old behaviour unless configured otherwise.
+# On enter, execute immediately; press tab to return to the shell and edit.
 enter_accept = true
 # keymap_mode = "vim-normal"
 
@@ -33,7 +24,4 @@ history_filter = [
 ]
 
 [sync]
-# Enable sync v2 by default
-# This ensures that sync v2 is enabled for new installs only
-# In a later release it will become the default across the board
 records = true

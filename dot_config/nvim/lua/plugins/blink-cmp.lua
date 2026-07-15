@@ -11,7 +11,6 @@ return {
     },
     opts = function(_, opts)
       opts.enabled = function()
-        -- Get the current buffer's filetype
         local filetype = vim.bo[0].filetype
         if filetype == "minifiles" or filetype == "snacks_picker_input" then
           return false
@@ -175,7 +174,7 @@ return {
       }
 
       opts.snippets = {
-        preset = "luasnip", -- Use LuaSnip as the snippet engine
+        preset = "luasnip",
       }
 
       -- https://cmp.saghen.dev/configuration/keymap.html#default

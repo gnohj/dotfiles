@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Log Cleanup Script
-# Cleans up old log files from ~/.logs directory
-# Keeps logs from current month and previous month only
+# Cleans up old log files from ~/.logs; keeps current + previous month only.
 
 LOG_DIR="$HOME/.logs"
 CLEANUP_LOG_DIR="$LOG_DIR/cleanup"
@@ -18,14 +16,11 @@ log_message() {
 
 log_message "Starting log cleanup..."
 
-# Get current month and previous month in YYYYMM format
 CURRENT_MONTH=$(date '+%Y%m')
 PREVIOUS_MONTH=$(date -v-1m '+%Y%m')
 
 log_message "Keeping logs from: $PREVIOUS_MONTH and $CURRENT_MONTH"
 
-# Find all log files with YYYYMM pattern that are older than previous month
-# This will match files like: spotify_202501.log, autopush_202501.log, etc.
 DELETED_COUNT=0
 KEPT_COUNT=0
 TRUNCATED_COUNT=0
@@ -55,11 +50,9 @@ while IFS= read -r -d '' logfile; do
     continue   # skip mtime/filename rules below
   fi
 
-  # Extract YYYYMM pattern from filename if it exists
   if [[ "$logfile" =~ _([0-9]{6})\.log$ ]]; then
     FILE_MONTH="${BASH_REMATCH[1]}"
 
-    # Keep if it's current month or previous month
     if [[ "$FILE_MONTH" == "$CURRENT_MONTH" || "$FILE_MONTH" == "$PREVIOUS_MONTH" ]]; then
       KEPT_COUNT=$((KEPT_COUNT + 1))
       log_message "KEEP: $logfile (month: $FILE_MONTH)"

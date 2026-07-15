@@ -2,7 +2,6 @@
 
 KITTY_CONFIG="$HOME/.config/kitty/kitty.conf"
 
-# Check current transparency state
 if grep -q "^background_opacity " "$KITTY_CONFIG" 2>/dev/null; then
   current_opacity=$(grep "^background_opacity " "$KITTY_CONFIG" | grep -v "^background_opacity background_opacity" | head -n1 | awk '{print $2}')
   # If empty or invalid, default to 1.0
@@ -13,7 +12,6 @@ else
   current_opacity="1.0"
 fi
 
-# Check if there's a commented previous value
 if grep -q "^# background_opacity " "$KITTY_CONFIG" 2>/dev/null; then
   previous_opacity=$(grep "^# background_opacity " "$KITTY_CONFIG" | head -n1 | awk '{print $2}')
   # If empty or invalid, use default
@@ -48,8 +46,6 @@ fi
 echo "background_opacity $new_opacity" >>"$KITTY_CONFIG"
 echo "# background_opacity $comment_opacity" >>"$KITTY_CONFIG"
 
-# Send SIGUSR1 to kitty to reload config
-# Find all kitty processes and send reload signal
 pkill -USR1 -x kitty 2>/dev/null || true
 
 tmux display-message "$MSG" 2>/dev/null || echo "$MSG"

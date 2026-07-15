@@ -6,14 +6,12 @@ local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
 
--- Setup logging
 local LOG_DIR = os.getenv("HOME") .. "/.logs/sketchybar"
 local LOG_FILE = LOG_DIR .. "/spotify_" .. os.date("%Y%m") .. ".log"
 
 local function log_message(level, message)
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
 	local log_entry = string.format("[%s] [%s] [SPOTIFY] %s\n", timestamp, level, message)
-	-- Write directly to file
 	local file = io.open(LOG_FILE, "a")
 	if file then
 		file:write(log_entry)
@@ -21,14 +19,12 @@ local function log_message(level, message)
 	end
 end
 
--- Register the Spotify playback state changed event
 -- Delay event registration to avoid deadlock during init
 sbar.exec("sleep 0.1 && sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
 
 log_message("INFO", "Initializing Spotify widget")
 local initialPosition = "left"
 
--- Album artwork widget (appears on left)
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	position = initialPosition,
 	padding_left = 1,
@@ -50,7 +46,6 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	},
 })
 
--- Main text widget (without play/pause icon)
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	position = initialPosition,
 	scroll_texts = true,
@@ -59,10 +54,9 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	drawing = false, -- start hidden (like .icon/.play) so an empty slot isn't
 	-- reserved before the first update / when Spotify isn't running
 	updates = true,
-	update_freq = 3,  -- Poll every 3 seconds
+	update_freq = 3,
 })
 
--- Separate play/pause icon widget (can be positioned independently)
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
 	position = initialPosition,
 	y_offset = -1.75,
@@ -75,19 +69,18 @@ local function updateSpotifyInfo()
 	-- Quick check first - avoid AppleScript if Spotify isn't running
 	sbar.exec("pgrep -x Spotify", function(result)
 		if result == "" then
-			if isSpotifyRunning then -- Only update if state changed
+			if isSpotifyRunning then
 				spotify:set({ drawing = false })
 				spotifyIcon:set({ drawing = false })
 				playIcon:set({ drawing = false })
 				isSpotifyRunning = false
-				lastTrackInfo = "" -- Reset cache
+				lastTrackInfo = ""
 			end
 			return
 		end
 
 		isSpotifyRunning = true
 
-		-- Only run AppleScript if Spotify is actually running
 		local spotifyScript = [[
 			tell application "System Events"
 				if exists (processes where name is "Spotify") then
@@ -125,19 +118,18 @@ local function updateSpotifyInfo()
 		]]
 
 		sbar.exec(timeoutCmd, function(_result)
-			local status = _result:match("^[^\n]*") -- Get first line, remove newlines
+			local status = _result:match("^[^\n]*")
 
-			-- Handle timeout or errors gracefully
 			if status == "not_running" or status == "stopped" or status == "" or status == nil then
 				if status == nil or status == "" then
 					log_message("WARN", "AppleScript timed out or returned empty result")
 				end
-				if isSpotifyRunning then -- Only update if state changed
+				if isSpotifyRunning then
 					spotify:set({ drawing = false })
 					spotifyIcon:set({ drawing = false })
 					playIcon:set({ drawing = false })
 					isSpotifyRunning = false
-					lastTrackInfo = "" -- Reset cache
+					lastTrackInfo = ""
 				end
 				return
 			end
@@ -161,7 +153,6 @@ local function updateSpotifyInfo()
 			local albumName = parts[4] or ""
 			local artworkUrl = parts[5] or ""
 
-			-- Create unique identifier for current state
 			local currentTrackInfo = trackName
 				.. "|"
 				.. artistName
@@ -172,13 +163,11 @@ local function updateSpotifyInfo()
 				.. "|"
 				.. artworkUrl
 
-			-- Only update UI if something actually changed
 			if currentTrackInfo ~= lastTrackInfo then
 				lastTrackInfo = currentTrackInfo
 
 				isPlaying = playerState == "playing"
 
-				-- Handle podcast vs music display logic
 				-- Podcasts have empty artist name
 				local displayText
 				local isPodcast = (artistName == "" or artistName == nil)
@@ -197,11 +186,9 @@ local function updateSpotifyInfo()
 					print("Music detected: " .. displayText .. " | Artwork: " .. artworkStatus)
 				end
 				local playIconString = isPlaying and "⏸" or "▶"
-				local playIconSize = isPlaying and "20.0" or "18.0" -- Larger pause icon
+				local playIconSize = isPlaying and "20.0" or "18.0"
 				local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
 
-				-- Show icon based on content type (podcast or music)
-				-- Will be updated with artwork if available, otherwise fallback icon
 				local hasArtwork = artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing")
 				local iconString = (isPodcast and not hasArtwork) and "🎙" or "􀑬"
 				spotifyIcon:set({
@@ -219,16 +206,11 @@ local function updateSpotifyInfo()
 					},
 				})
 
-				-- Update icon with album cover if available
-				-- Check for valid URL (not empty and not "none" or "missing value")
 				if artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing") then
-					-- Create a unique file path for the artwork based on URL hash
 					local urlHash = string.gsub(artworkUrl, "[^%w]", "")
 					local artworkPath = "/tmp/spotify_" .. urlHash .. ".jpg"
 
-					-- Download the artwork
 					sbar.exec("curl -s -L -o '" .. artworkPath .. "' '" .. artworkUrl .. "'", function()
-						-- Check if file exists and has content
 						sbar.exec("ls -la '" .. artworkPath .. "'", function(lsResult)
 							if lsResult ~= "" and not lsResult:match("No such file") then
 								spotifyIcon:set({
@@ -251,7 +233,6 @@ local function updateSpotifyInfo()
 					end)
 				end
 
-				-- Update main widget (now shows only text)
 				spotify:set({
 					drawing = true,
 					icon = {
@@ -262,11 +243,10 @@ local function updateSpotifyInfo()
 						max_chars = 20,
 					},
 					label = {
-						string = "", -- No label on main widget
+						string = "",
 					},
 				})
 
-				-- Update separate play icon widget
 				playIcon:set({
 					drawing = true,
 					icon = {
@@ -282,19 +262,16 @@ local function updateSpotifyInfo()
 	end)
 end
 
--- Subscribe to Spotify playback state change event (event-driven, no polling)
 spotify:subscribe("spotify_change", function(env)
 	log_message("INFO", "Event triggered: spotify_change - Spotify playback state changed")
 	updateSpotifyInfo()
 end)
 
--- Subscribe to polling event
 spotify:subscribe("spotify_poll", function()
 	log_message("DEBUG", "Event triggered: spotify_poll - Manual poll requested")
 	updateSpotifyInfo()
 end)
 
--- Also subscribe to system wake event to refresh state
 spotify:subscribe("system_woke", function()
 	log_message("INFO", "Event triggered: system_woke - Refreshing state")
 	updateSpotifyInfo()
@@ -345,7 +322,6 @@ playIcon:subscribe("mouse.clicked", function()
 	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
 end)
 
--- Group Spotify widgets together using a bracket
 sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
 	constants.items.SPOTIFY .. ".icon",
 	constants.items.SPOTIFY,

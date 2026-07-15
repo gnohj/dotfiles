@@ -1,18 +1,3 @@
---[[
-██╗  ██╗███████╗██╗   ██╗███╗   ███╗ █████╗ ██████╗ ███████╗
-██║ ██╔╝██╔════╝╚██╗ ██╔╝████╗ ████║██╔══██╗██╔══██╗██╔════╝
-█████╔╝ █████╗   ╚████╔╝ ██╔████╔██║███████║██████╔╝███████╗
-██╔═██╗ ██╔══╝    ╚██╔╝  ██║╚██╔╝██║██╔══██║██╔═══╝ ╚════██║
-██║  ██╗███████╗   ██║   ██║ ╚═╝ ██║██║  ██║██║     ███████║
-╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝
---]]
-
--- [[ Basic Keymaps ]]
---  See `:help vim.keymap.set()`
--- Keymaps are automatically loaded on the VeryLazy event
--- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
--- Add any additional keymaps here
-
 local keymap = vim.keymap.set
 
 -- Disable LazyVim's ; and , bindings (restore native vim f/t repeat behavior)
@@ -28,20 +13,17 @@ keymap("n", "gd", function()
   require("snacks").picker.lsp_definitions()
 end, { desc = "Go to Definition" })
 
--- Quit Neovim instance with save and quit all
 keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
 
 -- Restart Neovim (nvim 0.12+)
 keymap("n", "<leader>qr", "<cmd>restart<cr>", { desc = "[P]Restart Neovim" })
 
--- Toggle relative line numbers (both number and relativenumber)
 keymap("n", "<leader>tn", function()
   local current = vim.opt.number:get()
   vim.opt.number = not current
   vim.opt.relativenumber = not current
 end, { desc = "[P]Toggle relative line numbers" })
 
--- Toggle absolute line numbers only (no relative)
 keymap("n", "<leader>tN", function()
   vim.opt.number = not vim.opt.number:get()
 
@@ -51,7 +33,6 @@ end, { desc = "[P]Toggle absolute line numbers" })
 keymap("n", "<M-o>", "<C-o>", { desc = "[P]Jump backward in jump list" })
 keymap("n", "<M-i>", "<C-i>", { desc = "[P]Jump forward in jump list" })
 
--- delete without yanking
 keymap(
   { "n", "v" },
   "<leader>dd",
@@ -79,7 +60,6 @@ keymap(
   { desc = "[P]Move line up in visual mode" }
 )
 
--- Set highlight on search, but clear on pressing <Esc> in normal mode
 keymap(
   "n",
   "<Esc>",
@@ -96,17 +76,15 @@ keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 -- end, { desc = "[P]Toggle Zen Mode (manual)" })
 
 local function insertFullPath()
-  local full_path = vim.fn.expand("%:p") -- Get the full file path
+  local full_path = vim.fn.expand("%:p")
   local display_path
 
-  -- Check if this is a codediff buffer
   -- Format: codediff:///repo/path///commit_hash/relative/path
   if full_path:match("^codediff://") then
     -- Extract path after ///commit_hash/ (40 hex chars)
     local relative_path = full_path:match("///[a-f0-9]+/(.+)$")
     display_path = relative_path or full_path
   else
-    -- Normal file - replace $HOME with ~
     display_path = full_path:gsub(vim.fn.expand("$HOME"), "~")
   end
 
@@ -123,16 +101,14 @@ keymap(
 
 -- Open file from clipboard path (pairs with <leader>fy for codediff workflow)
 keymap("n", "<leader>fY", function()
-  local path = vim.fn.getreg("+"):gsub("%s+", "") -- trim whitespace
+  local path = vim.fn.getreg("+"):gsub("%s+", "")
   if path == "" then
     vim.notify("Clipboard is empty", vim.log.levels.WARN)
     return
   end
 
-  -- Expand ~ to home directory
   local expanded = path:gsub("^~", vim.fn.expand("$HOME"))
 
-  -- Try to find the file relative to cwd first, then as absolute
   local cwd = vim.fn.getcwd()
   local try_paths = {
     cwd .. "/" .. path, -- relative to cwd
@@ -180,9 +156,7 @@ local function lazygit_open()
 end
 keymap("n", "<leader>gg", lazygit_open, { desc = "Lazygit" })
 
--------------------------------------------------------------------------------
---                           Grugfar
--------------------------------------------------------------------------------
+-- Grugfar
 keymap(
   { "v" },
   "<leader>s1",
@@ -190,11 +164,7 @@ keymap(
   { noremap = true, silent = true }
 )
 
--------------------------------------------------------------------------------
---                           Package Info
--------------------------------------------------------------------------------
-
--- package-info keymaps
+-- Package Info
 keymap(
   "n",
   "<leader>cpt",
@@ -230,10 +200,7 @@ keymap(
   }
 )
 
--------------------------------------------------------------------------------
---                           GitHub Browse (Upstream Branch)
--------------------------------------------------------------------------------
-
+-- GitHub Browse (Upstream Branch)
 -- Helper function to get upstream/origin default branch with fallbacks
 local function get_default_branch()
   local repo = require("snacks").git.get_root()
@@ -459,10 +426,7 @@ keymap("n", "<leader>gX", function()
   vim.ui.open(target)
 end, { desc = "[P]Open link under cursor / current file externally" })
 
--------------------------------------------------------------------------------
---                           Toggle Copilot Virtual Text
--------------------------------------------------------------------------------
-
+-- Toggle Copilot Virtual Text
 keymap(
   "n",
   "<leader>a",
@@ -474,9 +438,7 @@ keymap(
   }
 )
 
--------------------------------------------------------------------------------
---                           Obsidian
--------------------------------------------------------------------------------
+-- Obsidian
 -- strip date from note title and replace dashes with spaces
 -- must have cursor on title
 keymap(
@@ -485,16 +447,13 @@ keymap(
   ":s/\\(# \\)[^_]*_/\\1/ | s/-/ /g<cr>",
   { desc = "[P]Obsidian: Format note title" }
 )
---
 -- for review workflow
--- move file in current buffer to publish folder
 keymap(
   "n",
   "<M-k>",
   ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Notes-Publish/<cr>:bd<cr>",
   { desc = "[P]Obsidian: Move file to Notes-Publish" }
 )
--- delete file in current buffer
 keymap(
   "n",
   "<M-p>",
@@ -533,12 +492,10 @@ end, { desc = "LSP Workspace Symbols" })
 --   <leader>ca → code actions (e.g. create note from unresolved [[ref]])
 -- Custom <leader>zl / <leader>zb kept for muscle memory + snacks-picker UI.
 
--- Follow [[wikilink]] under cursor
 keymap("n", "<leader>zl", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local line = vim.api.nvim_get_current_line()
   local col = vim.api.nvim_win_get_cursor(0)[2] + 1
-  -- Find [[...]] around cursor
   local s, e, link = nil, 0, nil
   while true do
     s, e, link = line:find("%[%[([^%]]+)%]%]", e + 1)
@@ -556,7 +513,6 @@ keymap("n", "<leader>zl", function()
   end
   -- Strip any alias (e.g. [[file|alias]])
   link = link:match("^([^|]+)") or link
-  -- Search vault for matching file
   local results = vim.fn.globpath(vault, "**/" .. link .. ".md", false, true)
   if #results == 0 then
     vim.notify("Note not found: " .. link, vim.log.levels.WARN)
@@ -571,10 +527,9 @@ keymap("n", "<leader>zl", function()
   end
 end, { desc = "[P]Obsidian: Follow [[wikilink]]" })
 
--- Show all backlinks to current file
 keymap("n", "<leader>zb", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local name = vim.fn.expand("%:t:r") -- filename without extension
+  local name = vim.fn.expand("%:t:r")
   local pattern = "\\[\\[" .. name .. "\\]\\]"
   local results = vim.fn.systemlist(
     "rg -l '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
@@ -649,7 +604,6 @@ local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
   end
 end
 
--- Search vault by hub (filing category) in frontmatter
 keymap("n", "<leader>zh", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
@@ -669,7 +623,6 @@ keymap("n", "<leader>zh", function()
   end)
 end, { desc = "[P]Obsidian: Find notes by hub" })
 
--- Search vault by tag (topic) in frontmatter.
 -- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zt", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
@@ -691,7 +644,6 @@ keymap("n", "<leader>zt", function()
   end)
 end, { desc = "[P]Obsidian: Find notes by tag" })
 
--- Strip AVAILABLE hint comments from frontmatter
 keymap("n", "<leader>zc", function()
   -- Delete whole-line AVAILABLE comments (above-field format)
   vim.cmd([[silent! g/^\s*#\s*AVAILABLE:/d]])
@@ -717,7 +669,6 @@ keymap("n", "<leader>zr", function()
   require("config.obsidian").review_inbox()
 end, { desc = "[P]Obsidian: Review inbox (created notes only)" })
 
--- Move current inbox buffer to Notes-Publish/ and close it
 keymap("n", "<leader>zk", function()
   require("config.obsidian").move_to_publish()
 end, { desc = "[P]Obsidian: Move buffer to Notes-Publish/" })
@@ -817,7 +768,6 @@ keymap({ "n", "i" }, "<leader>zi", function()
   })
 end, { desc = "[P]Obsidian: Insert image embed from Notes-Assets" })
 
--- Copy hub name to clipboard (for pasting into frontmatter)
 keymap("n", "<leader>zH", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
@@ -836,7 +786,6 @@ keymap("n", "<leader>zH", function()
   end)
 end, { desc = "[P]Obsidian: Copy hub to clipboard" })
 
--- Copy tag name to clipboard (for pasting into frontmatter).
 -- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zT", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
@@ -858,21 +807,18 @@ keymap("n", "<leader>zT", function()
   end)
 end, { desc = "[P]Obsidian: Copy tag to clipboard" })
 
--- Search vault by date in frontmatter
 keymap("n", "<leader>zd", function()
   vault_frontmatter_search("date", "Date (YYYY-MM-DD): ", function(q)
     return "^date:\\n  - " .. q
   end, true)
 end, { desc = "[P]Obsidian: Find notes by date" })
 
--- Search vault by URL in frontmatter
 keymap("n", "<leader>zu", function()
   vault_frontmatter_search("url", "URL contains: ", function(q)
     return "^urls:\\n  - .*" .. q
   end, true)
 end, { desc = "[P]Obsidian: Find notes by URL" })
 
--- Grep within a vault tag folder or hub
 keymap("n", "<leader>zs", function()
   local vault = vim.fn.expand("~/Obsidian/second-brain")
   local dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
@@ -893,19 +839,12 @@ keymap("n", "<leader>zs", function()
   end)
 end, { desc = "[P]Obsidian: Scoped grep by tag/hub" })
 
--------------------------------------------------------------------------------
---                           Folding section
--------------------------------------------------------------------------------
+-- Folding section
 
 -- HACK: Fold markdown headings in Neovim with a keymap
 -- https://youtu.be/EYczZLNEnIY
---
--- Use <CR> to fold when in normal mode
--- To see help about folds use `:help fold`
 keymap("n", "<CR>", function()
-  -- Get the current line number
   local line = vim.fn.line(".")
-  -- Get the fold level of the current line
   local foldlevel = vim.fn.foldlevel(line)
   if foldlevel == 0 then
     vim.notify("No fold found", vim.log.levels.INFO)

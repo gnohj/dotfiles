@@ -2,7 +2,7 @@ local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
--- Function to get CPU usage percentage (matching iStats calculation)
+-- CPU usage percentage (matching iStats calculation)
 local function get_cpu_percentage(callback)
 	sbar.exec([[top -l 2 -n 0 -s 0 | grep "CPU usage" | tail -1 | awk '{
       user = $3
@@ -48,5 +48,4 @@ end
 
 cpu:subscribe({ "routine", "forced", "system_woke" }, update)
 
--- Initial update
 update()

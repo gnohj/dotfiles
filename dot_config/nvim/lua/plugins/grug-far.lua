@@ -3,9 +3,7 @@ return {
     "MagicDuck/grug-far.nvim",
     cmd = "GrugFar",
     opts = {
-      -- Disable folding.
       folding = { enabled = false },
-      -- Don't numerate the result list.
       resultLocation = { showNumberLabel = false },
       -- showCompactInputs = true,
     },
@@ -21,10 +19,8 @@ return {
           if current_file:match("^minifiles://") then
             path = current_file:match("^minifiles://%d+/(.+)$")
           elseif current_file ~= "" then
-            -- Use current file's directory if buffer has a file
             path = vim.fn.fnamemodify(current_file, ":h")
           else
-            -- Fallback to current working directory
             path = vim.fn.getcwd()
           end
 

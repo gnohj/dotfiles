@@ -52,16 +52,13 @@ echo "Configuring macOS system preferences..."
 osascript -e 'tell application "System Preferences" to quit' 2>/dev/null
 osascript -e 'tell application "System Settings" to quit' 2>/dev/null
 
-# Create Developer directory
 echo "Creating ~/Developer directory..."
 mkdir -p "$HOME/Developer"
 
-# Create Obsidian directory
 echo "Creating ~/Obsidian directory..."
 mkdir -p "$HOME/Obsidian"
 
 echo "Configuring login items"
-# List of applications to add to login items
 # NOTE: Only apps that exist in /Applications (GUI apps only, not LaunchAgents)
 loginItems=(
   "AeroSpace"
@@ -90,12 +87,8 @@ echo "  - System Preferences > Keyboard > Keyboard Shortcuts > Disable additiona
 echo "  - Add global git ignore file to home directory - ~/.gitignore_global"
 echo "  - Install apps from App Store"
 echo "  - Clone personal/private repos"
-echo "  - System Settings → General → Login Items → Allow in the background: AeroSpace, Bjango Pty Ltd, Borders, Caddy, github-auto-push, Homerow.app, iStats Menus, iStats Menus.app, Karabiner Elements Non Privileged App, Karabiner Elements Priviledged Daemon, Logi Options+, Logitech.inc, sketchybar, skhd"
-echo "  - Applications to add to Accessibility permissions: AeroSpace, AEServer, BetterDisplay, borders, Ghostty, Homerow, Logi Options+, Raycast, sketchybar, skhd, Visual Studio Code, WezTerm"
-echo "  - Applications to add to Automation permissions: AeroSpace, Ghostty, Only Switch, osascript, Raycast, sketchybar, Sublime Text, Visual Studio Code, VLC, WezTerm"
-echo "  - Applications to add to Input Monitoring permissions: AeroSpace, Discord, karabiner_grabber, karabiner_observer, Karabiner-EventViewer, Logi Options+"
-echo "  - Applications to add to App Management permissions: Raycast"
-echo "  - Applications to add to Full Disk Access permissions: Ghostty"
+echo "  - System Settings → General → Login Items → Allow in the background: AeroSpace, Bjango Pty Ltd, Borders, Caddy, github-auto-push, Homerow.app, iStats Menus, Logi Options+, Logitech.inc, sketchybar, skhd"
+echo "  - TCC permissions (Accessibility, Full Disk Access, Input Monitoring, Screen Recording, Automation, App Management): see MANUAL_SETUP.md for the full per-app list"
 
 #-------------------------------------------------------------------------------
 #--                      Gatekeeper Bypass for Specific Apps

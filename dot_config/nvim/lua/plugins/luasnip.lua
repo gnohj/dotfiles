@@ -11,12 +11,10 @@ return {
       ls.snippet, ls.text_node, ls.insert_node, ls.function_node
     local fmt = require("luasnip.extras.fmt").fmt
 
-    -- Compute today's date for the frontmatter `date:` field.
     local function today()
       return os.date("%Y-%m-%d")
     end
 
-    -- Read available hubs from Notes-Meta/_hubs.md
     local function read_hubs()
       local path = vim.fn.expand("~/Obsidian/second-brain/Notes-Meta/_hubs.md")
       if vim.fn.filereadable(path) == 0 then
@@ -32,7 +30,6 @@ return {
       return hubs
     end
 
-    -- Read available tags from Notes-Meta/*.md filenames
     local function read_tags()
       local files = vim.fn.globpath(
         vim.fn.expand("~/Obsidian/second-brain/Notes-Meta"),

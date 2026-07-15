@@ -12,10 +12,10 @@ sbar.add("item", constants.items.MISE_NOTIFICATION, {
 		padding_left = 1,
 		padding_right = 0,
 	},
-	update_freq = 3600, -- Update every hour
+	update_freq = 3600,
 	script = "~/.config/sketchybar/items/widgets/mise_notification.sh",
 	drawing = true,
-	updates = true, -- Enable updates on events
+	updates = true,
 })
 
 sbar.subscribe(constants.items.MISE_NOTIFICATION, "mise_update")

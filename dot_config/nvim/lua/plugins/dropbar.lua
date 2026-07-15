@@ -22,7 +22,6 @@ return {
     local bar = require("dropbar.bar")
     local colors = require("config.colors")
 
-    -- Create custom highlight groups for mode indicator with fg color only
     vim.api.nvim_set_hl(0, "DropbarModeNormal", {
       fg = colors["gnohj_color03"],
       bold = true,
@@ -44,13 +43,11 @@ return {
       bold = true,
     })
 
-    -- Custom highlight for dimmed path
     vim.api.nvim_set_hl(0, "DropbarPathDim", {
       fg = colors["gnohj_color04"],
       italic = true,
     })
 
-    -- Mode indicator source
     local mode_source = {
       get_symbols = function(buf, win, cursor)
         local mode_map = {
@@ -119,7 +116,6 @@ return {
       end,
     }
 
-    -- Diagnostics source
     local diagnostics_source = {
       get_symbols = function(buf, win, cursor)
         local diagnostics = vim.diagnostic.get(buf)
@@ -135,7 +131,6 @@ return {
         local symbols = {}
         local icons = require("lazyvim.config").icons.diagnostics
 
-        -- Add diagnostics counts with proper colors
         if counts[1] > 0 then -- Error
           table.insert(
             symbols,
@@ -258,21 +253,17 @@ return {
           -- Custom path source that shows path first, then filename
           local custom_path = {
             get_symbols = function(buff, win, cursor)
-              -- Get the full file path
               local file_path = vim.api.nvim_buf_get_name(buff)
               if file_path == "" then
                 return {}
               end
 
-              -- Get home directory
               local home = vim.fn.expand("~")
 
-              -- Expand file_path if it starts with ~
               if file_path:sub(1, 1) == "~" then
                 file_path = home .. file_path:sub(2)
               end
 
-              -- Check if we're in a git repository
               local git_root = vim.fn.system(
                 "cd "
                   .. vim.fn.shellescape(vim.fn.fnamemodify(file_path, ":h"))
@@ -281,7 +272,6 @@ return {
               git_root = git_root:gsub("\n", "")
               local is_git_repo = git_root ~= "" and vim.v.shell_error == 0
 
-              -- If in git repo, use git root as base path
               local base_path = ""
               local relative_path = ""
 
@@ -289,7 +279,6 @@ return {
                 base_path = git_root
                 relative_path = file_path:gsub("^" .. vim.pesc(git_root), "")
               else
-                -- Check if path is in home directory
                 local is_home_path = file_path:find("^" .. vim.pesc(home))
                 if is_home_path then
                   base_path = home
@@ -299,11 +288,9 @@ return {
                 end
               end
 
-              -- Build symbols
               local bar = require("dropbar.bar")
               local symbols = {}
 
-              -- Get the default path symbols for file icon
               local default_path_symbols =
                 sources.path.get_symbols(buff, win, cursor)
               local file_symbol = default_path_symbols
@@ -314,7 +301,6 @@ return {
                 -- For git repos: show path without repo name
                 local components = {}
 
-                -- Remove leading slash from relative_path
                 local clean_path = relative_path:gsub("^/", "")
 
                 for component in clean_path:gmatch("[^/]+") do
@@ -322,10 +308,8 @@ return {
                 end
 
                 if #components > 0 then
-                  -- Build path without repo name, starting from first subdirectory
                   if #components > 1 then
                     local folder_path = ""
-                    -- Build path from all components except the filename
                     for i = 1, #components - 1 do
                       if i > 1 then
                         folder_path = folder_path .. "/"
@@ -344,7 +328,6 @@ return {
                     )
                   end
 
-                  -- Add filename with icon
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
@@ -369,15 +352,12 @@ return {
                 end
 
                 if #components > 0 then
-                  -- Build the folder path string from home (dimmed, no icon) - FIRST
                   if #components > 1 then
                     local folder_path = "~"
-                    -- Add all folders except the filename
                     for i = 1, #components - 1 do
                       folder_path = folder_path .. "/" .. components[i]
                     end
 
-                    -- Path with folder icon, dimmed
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
@@ -389,11 +369,9 @@ return {
                     )
                   end
 
-                  -- Filename with appropriate icon (second)
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
-                    -- Fallback if no symbol available
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
@@ -413,7 +391,6 @@ return {
                 end
 
                 if #components > 0 then
-                  -- Build full path except filename (dimmed, no icon) - FIRST
                   if #components > 1 then
                     local folder_path = ""
                     if file_path:sub(1, 1) == "/" then
@@ -427,7 +404,6 @@ return {
                       folder_path = folder_path .. components[i]
                     end
 
-                    -- Path with folder icon, dimmed
                     if folder_path ~= "" then
                       table.insert(
                         symbols,
@@ -441,11 +417,9 @@ return {
                     end
                   end
 
-                  -- Filename with appropriate icon (second)
                   if file_symbol then
                     table.insert(symbols, file_symbol)
                   else
-                    -- Fallback if no symbol available
                     table.insert(
                       symbols,
                       bar.dropbar_symbol_t:new({
@@ -465,19 +439,16 @@ return {
 
           return { custom_path, diagnostics_source, gitsigns_stats }
         end,
-        -- Enable dropbar for all file types
         enable = function(buf, win, _)
           -- DISABLED: Testing zen.nvim (sand4rt) instead of snacks zen
           -- local auto_zen = require("config.auto-zen")
           -- local is_zen_win = auto_zen.is_zen_window(win)
           local is_zen_win = false
 
-          -- Disable for codediff windows and explorer
           if vim.bo[buf].ft == "codediff-explorer" then
             return false
           end
 
-          -- Check if we're in a codediff tab (session-based check)
           local lifecycle = package.loaded["codediff.ui.lifecycle"]
           if lifecycle then
             local tabpage = vim.api.nvim_win_get_tabpage(win)
@@ -500,7 +471,6 @@ return {
           if stat and stat.size > 1024 * 1024 then
             return false
           end
-          -- Enable for all other files
           return true
         end,
       },

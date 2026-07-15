@@ -1,4 +1,3 @@
--- Ok
 return {
   "dmtrKovalenko/fff.nvim",
   build = function()

@@ -68,12 +68,12 @@ open_hunk() {
 
 open_claude_hunk() {
   "$mux" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; /opt/homebrew/bin/claude --dangerously-skip-permissions "/hunk-review '"$pr"' pane=$HUNK_PANE"'
+    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/hunk-review '"$pr"' pane=$HUNK_PANE"'
 }
 
 open_claude_review() {
   "$mux" "🤖 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; /opt/homebrew/bin/claude --dangerously-skip-permissions "/review '"$pr"'"'
+    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions "/review '"$pr"'"'
 }
 
 open_enhance() {

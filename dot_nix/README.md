@@ -4,8 +4,7 @@ Cross-platform Nix configuration for macOS (nix-darwin) and future Linux (Arch/U
 
 ## Important: What is nix-darwin?
 
-**nix-darwin is NOT a replacement for macOS.** It's a declarative package and
-settings manager that runs ON TOP of macOS.
+**nix-darwin is NOT a replacement for macOS.** It's a declarative package and settings manager that runs ON TOP of macOS.
 
 - **NixOS**: Full Linux OS replacement (like Arch/Ubuntu), controls bootloader to packages
 - **nix-darwin**: Package/settings manager on top of macOS (what you're using)
@@ -13,8 +12,7 @@ settings manager that runs ON TOP of macOS.
 
 ### What nix-darwin Controls
 
-✅ System packages (via Nix) ✅ Homebrew packages/casks (declaratively) ✅ macOS
-system settings (`defaults write` equivalents) ✅ LaunchDaemons/LaunchAgents
+✅ System packages (via Nix) ✅ Homebrew packages/casks (declaratively) ✅ macOS system settings (`defaults write` equivalents) ✅ LaunchDaemons/LaunchAgents
 
 ### What nix-darwin Does NOT Control
 
@@ -28,16 +26,19 @@ system settings (`defaults write` equivalents) ✅ LaunchDaemons/LaunchAgents
 ~/.nix/
 ├── flake.nix                    # Main entry point
 ├── nix-darwin/                  # macOS configuration
-│   ├── darwin/
-│   │   └── default.nix          # macOS main configuration
+│   ├── default-silicon.nix      # macOS main configuration (Apple Silicon)
 │   └── modules/
 │       ├── system-settings.nix  # macOS system preferences (Dock, Finder, etc.)
 │       ├── homebrew.nix         # Homebrew packages/casks
-│       └── packages.nix         # macOS-specific packages (if any)
-├── nix-linux/                   # Future: Nix on Arch/Ubuntu (NOT NixOS)
-│   └── home.nix                 # Using home-manager for packages
+│       ├── packages.nix         # macOS-specific packages
+│       ├── launchd-services.nix # LaunchDaemons (kanata, karabiner-vhid, etc.)
+│       └── local-dev-auth.nix   # Local dev auth helpers
 └── common/                      # Shared packages for all platforms
-    └── packages.nix             # CLI tools (bat, fzf, ripgrep, etc.)
+    ├── packages.nix             # CLI tools (bat, fzf, ripgrep, etc.)
+    ├── no-mistakes.nix          # no-mistakes pipeline package
+    └── treehouse.nix            # treehouse worktree tooling
+
+# nix-linux/ (Nix on Arch/Ubuntu, NOT NixOS) is a future plan - not yet present.
 ```
 
 ## Usage

@@ -18,7 +18,6 @@
     package = pkgs.nix;
 
     settings = {
-      # Enable flakes and new nix command
       experimental-features = [ "nix-command" "flakes" ];
 
       # Allow unfree packages (like Obsidian, Discord, etc.)
@@ -27,7 +26,6 @@
       # Note: This doesn't affect Homebrew packages
     };
 
-    # Optimize storage automatically
     optimise.automatic = true;
 
     # Garbage collection - keep system clean
@@ -64,7 +62,6 @@
   programs.zsh.enable = true;
   programs.bash.enable = true;
 
-  # Set your hostname
   networking.hostName = "macbook";
   networking.computerName = "macbook";
 

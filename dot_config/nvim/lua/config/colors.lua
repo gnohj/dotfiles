@@ -1,11 +1,9 @@
 -- load the colors once when the module is required and then expose the colors
 -- directly. This avoids the need to call load_colors() in every file
 
--- Function to load colors from the external file
 local function load_colors()
   local colors = {}
   local active_file = os.getenv("HOME") .. "/.config/nvim/lua/config/active-colorscheme.sh"
-  -- print("active_file", active_file)
 
   local file = io.open(active_file, "r")
   if not file then
@@ -25,15 +23,12 @@ local function load_colors()
   return colors
 end
 
--- Load colors when the module is required
 local colors = load_colors()
 
--- Check if the 'vim' global exists (i.e., if running in Neovim)
 if _G.vim then
   for name, hex in pairs(colors) do
     vim.api.nvim_set_hl(0, name, { fg = hex })
   end
 end
 
--- Return the colors table for external usage
 return colors

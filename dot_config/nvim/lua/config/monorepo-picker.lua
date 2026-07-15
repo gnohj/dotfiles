@@ -26,7 +26,6 @@ local function is_cache_valid(repo_root)
   return (os.time() - entry.timestamp) < CACHE_TTL
 end
 
--- Escape Lua pattern special characters
 local function escape_pattern(str)
   return str:gsub("([%-%+%.%*%?%^%$%(%)%[%]%%])", "%%%1")
 end
@@ -35,7 +34,6 @@ local function discover_packages(repo_root)
   local packages = {}
   local repo_root_escaped = escape_pattern(repo_root .. "/")
 
-  -- Check for common monorepo patterns (including nested)
   local patterns = {
     "/packages/*/package.json",
     "/packages/*/*/package.json",
@@ -66,7 +64,6 @@ local function discover_packages(repo_root)
       if not seen[pkg_dir] then
         seen[pkg_dir] = true
         local pkg_name = vim.fn.fnamemodify(pkg_dir, ":t")
-        -- Get relative path from repo root for proper display
         local relative_path = pkg_dir:gsub(repo_root_escaped, "")
         -- Category is the top-level directory (apps, packages, etc.)
         local category = relative_path:match("^([^/]+)")
@@ -80,7 +77,6 @@ local function discover_packages(repo_root)
     end
   end
 
-  -- Add special directories if they exist
   local special_dirs =
     { ".github", ".changeset", ".fastly-vcl", ".scripts", ".husky" }
   for _, dir in ipairs(special_dirs) do
@@ -95,7 +91,6 @@ local function discover_packages(repo_root)
     end
   end
 
-  -- Also check for pnpm workspaces or yarn workspaces
   local pnpm_workspace = repo_root .. "/pnpm-workspace.yaml"
   if vim.fn.filereadable(pnpm_workspace) == 1 and #packages == 0 then
     -- Fallback: find all package.json files (excluding node_modules)

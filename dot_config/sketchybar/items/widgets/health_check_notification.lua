@@ -1,6 +1,5 @@
 local colors = require("config.colors")
 
--- Health check notification widget
 local health_check = sbar.add("item", "widgets.health_check_notification", {
 	position = "right",
 	padding_right = 12,

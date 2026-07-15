@@ -33,14 +33,12 @@ tmux display-popup -E -w 28% -h 40% -b none "
 
   SELECTED=\$(echo \"\$SELECTED\" | awk '{print \$2}')
 
-  # Get worktreeTargetDir for selected repo
   WORKTREE_DIR=\$(awk -v repo=\"\$SELECTED\" '
     \$0 ~ \"^  \" repo \":\$\" { found=1; next }
     found && /^  [a-zA-Z]/ { found=0 }
     found && /worktreeTargetDir:/ { gsub(/.*worktreeTargetDir: */, \"\"); print; exit }
   ' \"\$CONFIG_FILE\")
 
-  # Get bareRepoName (usually .bare)
   BARE_NAME=\$(awk -v repo=\"\$SELECTED\" '
     \$0 ~ \"^  \" repo \":\$\" { found=1; next }
     found && /^  [a-zA-Z]/ { found=0 }

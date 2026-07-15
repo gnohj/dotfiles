@@ -13,9 +13,6 @@ in
   # Note: Cross-platform CLI tools are in ../../common/packages.nix
 
   environment.systemPackages = with pkgs; [
-    # macOS-specific packages only
-    # Most packages are in common/packages.nix for cross-platform use
-
     # Security tools (macOS-specific)
     pinentry_mac  # Password entry dialog for rbw/GPG on macOS
 
@@ -23,10 +20,6 @@ in
     # Includes lua-cjson and luaposix (with broken flag overridden)
     # This enables direct socket communication with AeroSpace to prevent freezing
     sketchybarLua
-
-    # Add other macOS-only tools here if needed:
-    # - darwin-specific utilities
-    # - macOS-only development tools
   ];
 
   # Migration Note:
