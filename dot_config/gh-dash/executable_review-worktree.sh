@@ -119,15 +119,8 @@ acquire() {
   local pr="$1" state_file="$STATE_DIR/$1" existing wt
   mkdir -p "$STATE_DIR"
 
-  # Auto-release is DISABLED (release is manual via gh-dash `R` → reclaim). The
-  # herdr close-event sweep daemon (herdr-review-sweep.py) is intentionally NOT
-  # started: besides herdr close-events it ran a 60s PERIODIC `review-worktree.sh
-  # sweep`, which — decoupled from any tmux hook — kept killing live reviews on
-  # its timer. Leaving it unstarted is the other half of disabling the tmux
-  # window-unlinked sweep (see agentic.conf). Reclaim idle slots by hand with `R`.
-  # if [ "$(mux_kind)" = herdr ]; then
-  #   "$HOME/.local/bin/herdr-review-sweep.py" ensure >/dev/null 2>&1 || true
-  # fi
+  # Auto-release is DISABLED (release is manual via gh-dash `R` → reclaim), for both
+  # tmux and herdr. Reclaim idle slots by hand with `R`.
 
   if [ -f "$state_file" ]; then
     existing="$(cat "$state_file")"

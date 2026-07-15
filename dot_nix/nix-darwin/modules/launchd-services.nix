@@ -158,33 +158,6 @@ in
       };
     };
 
-    # herdr-diff morning page — daily 10am. Regenerates the herdr <-> tmux-dash
-    # feature-parity page fresh (headless `/herdr-diff --html-file`, $0 on Claude
-    # Max like sb-agent-refresh) and opens it in the browser, so a parity dashboard
-    # is waiting every morning. Fires a notification only when herdr ships a NEW
-    # upstream release since the last run (the user's chosen trigger). All logic
-    # lives in the wrapper; this just schedules it.
-    herdr-diff-morning = {
-      serviceConfig = {
-        ProgramArguments = [
-          "/bin/bash"
-          "-c"
-          ''
-            mkdir -p ${homeDir}/.logs/herdr-diff
-            export PATH="${homeDir}/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-            export HOME="${homeDir}"
-            ${homeDir}/.local/bin/herdr-diff-morning.sh
-          ''
-        ];
-        StartCalendarInterval = [{
-          Hour = 10;
-          Minute = 0;
-        }];
-        StandardOutPath = "${homeDir}/.logs/herdr-diff/launchagent.out.log";
-        StandardErrorPath = "${homeDir}/.logs/herdr-diff/launchagent.err.log";
-      };
-    };
-
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only

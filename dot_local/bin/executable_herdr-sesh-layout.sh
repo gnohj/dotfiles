@@ -57,10 +57,6 @@ pen=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
 tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 [ -n "$ws" ] && [ -n "$pen" ] || { echo "workspace create failed"; exit 1; }
 
-# Keep numbered tab labels position-correct as tabs open/close (herdr has no
-# native renumber). Lazy-start the renumber daemon; it persists per session.
-"$HOME/.local/bin/herdr-tab-renumber.py" ensure >/dev/null 2>&1 || true
-
 # herdr tabs default their label to their own number (that's why untouched tabs
 # read "1", "2" … in the bar); a custom emoji label replaces it, dropping the
 # number. Re-prefix "<number>." to match tmux's `1.🖋️` window style — the number

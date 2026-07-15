@@ -475,37 +475,13 @@ td() {
 alias tn='tmux -f ~/.config/tmux/native.conf'
 alias th='tmux -L herdr -f ~/.config/tmux/herdr.conf'
 
-# herdr launch wrapper — two jobs, both about making the custom keybindings work:
-#
-#  1. Bare local `herdr` (client on the local server): start the pane-tracker daemon
-#     that powers the within-workspace last-pane toggle (prefix+b), and the
-#     activity-tracker daemon that powers the last-notification jump (prefix+'). Starting
-#     the latter here (not just lazily on first press) means it's up before the first
-#     toast, so the very first prefix+' can catch it. Not for subcommands (`herdr agent
-#     list`, `herdr server`, ...) — those just pass through. Both daemons self-terminate
-#     ~20s after herdr is unreachable, so they never orphan.
-#
-#  2. `herdr --remote <host>`: force --remote-keybindings server so our type=shell
-#     helpers (prefix+b/enter/i) run ON THE REMOTE server, where the panes and socket
-#     live. herdr's default is `local`, which would run them on this laptop against the
-#     wrong/absent socket. type=pane binds (lazygit/yazi/prefix+u) are server-side
-#     regardless, so this only fixes the shell ones. Over --remote the pane-tracker
-#     daemon lazy-starts server-side on first prefix+b, so we do NOT ensure it locally.
+# herdr launch wrapper — force --remote-keybindings server on `herdr --remote <host>`
+# so our type=shell helpers (prefix+=, prefix+f) run ON THE REMOTE server, where the
+# panes and socket live. herdr's default is `local`, which would run them on this
+# laptop against the wrong/absent socket. type=pane binds (lazygit/yazi/sesh) are
+# server-side regardless. Bare `herdr` and subcommands pass straight through.
 herdr() {
-  if [[ $# -eq 0 ]]; then
-    herdr-pane-tracker.py ensure >/dev/null 2>&1
-    herdr-activity-tracker.py ensure >/dev/null 2>&1
-    # tab-renumber daemon: keep every tab's "<n>." prefix at its bar position as
-    # tabs open/close (herdr has no native renumber). Started here so it covers
-    # ALL tabs in ALL workspaces, not just gh-dash/sesh-created ones.
-    herdr-tab-renumber.py ensure >/dev/null 2>&1
-    # workspace-git daemon: append gitmux SYMBOLS (no branch) to each workspace's
-    # label so the sidebar shows working-tree status inline with the name. herdr
-    # renders the label in the agents panel too (accepted leak); it restores clean
-    # labels on exit. Symbols-only keeps it short regardless of long worktree branches.
-    herdr-workspace-git.py ensure >/dev/null 2>&1
-    command herdr
-  elif [[ $1 == --remote && " $* " != *" --remote-keybindings "* ]]; then
+  if [[ $1 == --remote && " $* " != *" --remote-keybindings "* ]]; then
     command herdr --remote-keybindings server "$@"
   else
     command herdr "$@"

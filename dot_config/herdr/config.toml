@@ -12,14 +12,10 @@ onboarding = false
 # so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
 prefix = "ctrl+a"
 
-# prefix+b is a TRUE last-pane toggle (A<->B bounce), scoped to the current workspace -
-# see the herdr-pane-tracker.py [[keys.command]] block below. herdr's native last_pane
-# is global (changelog #287, "across workspaces and tabs") and its only workspace-scoped
-# option is cycle_pane_next (a cycle, not a toggle), so neither fit. prefix+shift+tab is
-# kept as a plain sequential pane walk within the tab.
+# prefix+shift+tab is a plain sequential pane walk within the tab.
 cycle_pane_previous = "prefix+shift+tab"
 
-# Sidebar toggle, relocated off its default prefix+b (now the last-pane toggle) to prefix+B.
+# Sidebar toggle, relocated off its default prefix+b to prefix+B.
 toggle_sidebar = "prefix+shift+b"
 
 # prefix+a cycles through ALL agents in sidebar order (herdr's native next_agent) -
@@ -39,7 +35,7 @@ previous_workspace = "prefix+shift+s"
 settings = "prefix+,"
 
 # Unbind prefix+o (herdr's native open_notification_target). An empty string
-# disables the action, freeing the key.
+# disables the action, freeing the key. (Dead in 0.7.3 anyway — no target.)
 open_notification_target = ""
 
 # Single-chord window/tab nav (ctrl+1..9) is handled by PREFIX-EXPANSION at the
@@ -59,81 +55,6 @@ key = "prefix+="
 type = "shell"
 command = "herdr pane split --current --direction down --focus"
 description = "horizontal split (alias of prefix+minus)"
-
-# prefix+b: true "last pane" toggle (tmux-style A<->B bounce) scoped to the current
-# workspace, so it never crosses into another workspace (that's prefix+enter's job).
-# herdr has no native equivalent - last_pane is global and cycle_pane_next only cycles.
-# herdr-pane-tracker.py runs a tiny daemon that subscribes to pane.focused events over
-# the socket API and records each workspace's previous pane; this toggle focuses it via
-# pane.focus (the only by-id focus, reachable only over the raw socket). The daemon is
-# lazy-started on first press, so the very first toggle in a fresh herdr session may
-# no-op until one focus change has been recorded.
-[[keys.command]]
-key = "prefix+b"
-type = "shell"
-command = "herdr-pane-tracker.py toggle"
-description = "toggle to last-focused pane (within workspace)"
-
-# prefix+i jumps to the next BLOCKED agent (waiting on input) - the herdr analog of
-# the tmux-dash split-view `i` jump. herdr's native next_agent cycles ALL agents in
-# sidebar order (blocked, working, idle, done) even with agent_panel_sort="priority",
-# so it's a browse-the-queue key, not a jump-to-attention key. This `type = "shell"`
-# binding runs herdr-next-blocked.sh, which re-scans the live agent list each press
-# and focuses only blocked agents (wrapping through multiples) - so a re-blocked agent
-# reappears immediately. prefix+' (below) is the reactive companion: it jumps to the
-# pane behind the LAST emitted notification (blocked OR finished), not just blocked.
-[[keys.command]]
-key = "prefix+i"
-type = "shell"
-command = "herdr-next-blocked.sh"
-description = "jump to next blocked agent (needs input)"
-
-# prefix+' jumps to the pane behind the LAST emitted notification (blocked OR finished,
-# any background workspace). herdr's built-in open_notification_target is dead in 0.7.3
-# (no target, no socket API), so herdr-activity-tracker.py polls for the most recent
-# background notification and focuses its pane via pane.focus. Distinct from prefix+i
-# (blocked only). Daemon lazy-starts on first press, so a toast fired before it started
-# is missed.
-[[keys.command]]
-key = "prefix+'"
-type = "shell"
-command = "herdr-activity-tracker.py jump"
-description = "jump to the pane behind the last emitted notification"
-
-# prefix+u jumps to the last user prompt ("❯ ") in a Claude/agent pane - herdr analog
-# of the tmux `bind u` copy-mode search (agentic.conf). herdr has no copy-mode or
-# scroll-to API, so instead of scrolling the live pane, herdr-last-prompt.sh captures
-# the agent pane's scrollback (herdr agent read) and opens it read-only in an nvim
-# overlay positioned at the last ❯; n = earlier prompt, N = later, q closes. type="pane"
-# (not shell) so it runs server-side and works over --remote just like ctrl+g/ctrl+y.
-[[keys.command]]
-key = "prefix+u"
-type = "pane"
-command = "herdr-last-prompt.sh"
-description = "jump to last user prompt (❯) in the agent pane"
-
-# prefix+enter toggles to the most-recently-used WORKSPACE (workspace-level sibling
-# of last_pane above, and of tmux's `bind Space switch-client -l`). herdr has no
-# native last_workspace/alternate_workspace action as of 0.7.3 (feature request
-# ogulcancelik/herdr#1327 was auto-closed to Discussions, not planned), so this is a
-# `type = "shell"` binding that runs the MRU-tracking helper detached on the host.
-# previous_workspace/next_workspace navigate in fixed order; this one is recency-based.
-[[keys.command]]
-key = "prefix+enter"
-type = "shell"
-command = "herdr-last-workspace.sh"
-description = "toggle to last-used workspace (MRU)"
-
-# prefix+0 → close every tab to the RIGHT of the first, keeping only the leftmost
-# tab in the current workspace (tmux "close all other windows" feel). Closes by
-# stable tab_id in tab-bar order. Single-chord ctrl+0 reaches this via terminal
-# prefix-expansion (ctrl+0 → prefix 0), matching tmux's prefix 0 kill-others.
-# prefix+1..9 (and ctrl+1..9 via expansion) remain tab switches.
-[[keys.command]]
-key = "prefix+0"
-type = "shell"
-command = "herdr-close-tabs-right.sh"
-description = "close all tabs right of the first (keep leftmost)"
 
 # lazygit as a real herdr pane (runs server-side, where the repo lives — works
 # local AND --remote). Direct chord ctrl+g for single-motion (;-hold + g).
@@ -219,8 +140,8 @@ show_agent_labels_on_pane_borders = true
 
 # Order the Agents panel as an attention queue (blocked/needs-input first) instead
 # of the default "spaces" (grouped by workspace), so the sidebar visually surfaces
-# blocked agents at the top. The prefix+i jump itself is driven by herdr-next-blocked.sh
-# (a shell keybinding), not this sort - this just keeps the panel readable at a glance.
+# blocked agents at the top - keeps the panel readable at a glance. Use herdr's
+# native next_agent (prefix+a) to walk the queue.
 agent_panel_sort = "priority"
 
 # Active/focused split-pane border + nav highlight. This `accent` line and the
@@ -231,15 +152,11 @@ agent_panel_sort = "priority"
 # it has to live here under [ui].
 accent = "#a7cfbd"
 
-# Background notification popups. "herdr" renders an in-app toast (bottom-right)
-# instead of handing off to the OS notification service. In-app toasts are what
-# prefix+' (open_notification_target) resolves its jump target from — with the
-# prior "system" delivery the toast went to macOS Notification Center, leaving
-# prefix+' with nothing to focus, so it silently no-op'd. "herdr" keeps the toast
-# inside herdr so prefix+' can focus the pane behind the latest notification.
-# Tradeoff: agent done / needs-attention popups no longer surface at the OS level
-# when herdr isn't the focused app. Kept last in the [ui] block so this subtable
-# doesn't swallow the bare keys above.
+# Background notification popups. "herdr" renders an in-app toast (top-right)
+# instead of handing off to the OS notification service, keeping agent
+# done / needs-attention popups inside herdr. Tradeoff: they no longer surface at
+# the OS level when herdr isn't the focused app. Kept last in the [ui] block so
+# this subtable doesn't swallow the bare keys above.
 [ui.toast]
 delivery = "herdr"
 
