@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 
+# Inherently macOS: toggles a LOCAL Ghostty GUI terminal's transparency and asks
+# it to reload via an osascript Cmd+Shift+, keystroke. No local GUI terminal on a
+# headless Linux VPS — no-op cleanly.
+[[ "$OSTYPE" == darwin* ]] || exit 0
+
 GHOSTTY_CONFIG="$HOME/.config/ghostty/config"
 
-# Check current transparency state
 if grep -q "^background-opacity" "$GHOSTTY_CONFIG" 2>/dev/null; then
   current_opacity=$(grep "^background-opacity" "$GHOSTTY_CONFIG" | cut -d'=' -f2 | tr -d ' ')
 else
   current_opacity="1.0"
 fi
 
-# Check if there's a commented previous value
 if grep -q "^# background-opacity" "$GHOSTTY_CONFIG" 2>/dev/null; then
   previous_opacity=$(grep "^# background-opacity" "$GHOSTTY_CONFIG" | cut -d'=' -f2 | tr -d ' ')
 else

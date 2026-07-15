@@ -30,7 +30,7 @@ log "=== START $CURRENT_WORKTREE ==="
 # active and pnpm warns about engine mismatch. Put mise shims first on PATH
 # so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
 # .tool-versions in the worktree.
-export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # ~/.zsh_gnohj_env is the user's full environment file (bash-safe) — it
 # exports PNPM_HOME, GIT_AUTHOR_*, XDG paths, and chains into the secrets
@@ -179,7 +179,7 @@ elif [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
   else
     log "✗ sesh connect failed"
   fi
-elif command -v pbcopy &>/dev/null; then
+elif command -v pbcopy &>/dev/null || command -v wl-copy &>/dev/null; then
   # Use the path relative to ~/Developer/ so the folder bucket survives.
   # ~/Developer/web/infra/test-test → "web/infra/test-test"
   # basename(...) would give just "test-test"; prepending REPO_NAME loses
@@ -187,9 +187,12 @@ elif command -v pbcopy &>/dev/null; then
   # because sesh auto-derives names from the zoxide cwd (which uses the
   # full relative path); we match that here so new sessions look identical.
   CLIPBOARD_VALUE="${CURRENT_WORKTREE#$HOME/Developer/}"
-  printf '%s' "$CLIPBOARD_VALUE" | pbcopy 2>>"$LOGFILE" &&
-    log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)" ||
-    log "✗ pbcopy failed"
+  # macOS: pbcopy. Linux: wl-copy fallback (both absent → the else branch above).
+  if printf '%s' "$CLIPBOARD_VALUE" | { pbcopy || wl-copy; } 2>>"$LOGFILE"; then
+    log "✓ session name copied to clipboard ($CLIPBOARD_VALUE)"
+  else
+    log "✗ clipboard copy failed"
+  fi
 else
   log "· no \$TMUX and no pbcopy; user must navigate manually"
 fi

@@ -14,6 +14,10 @@
 # Usage: claude-desktop [personal|work]   (default: personal)
 set -euo pipefail
 
+# Inherently macOS: launches the Claude Desktop .app via `open -na` + `osascript`.
+# There is no such app on a headless Linux VPS — no-op cleanly.
+[[ "$OSTYPE" == darwin* ]] || exit 0
+
 account="${1:-personal}"
 support="$HOME/Library/Application Support"
 default="$support/Claude"

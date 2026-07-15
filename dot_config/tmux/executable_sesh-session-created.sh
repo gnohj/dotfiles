@@ -18,7 +18,9 @@
 #
 # Arg 1: session name (#{hook_session_name}).
 
-export PATH="/opt/homebrew/bin:$PATH"
+# /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
+# (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
+export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 SESSION="$1"

@@ -5,7 +5,7 @@
 # that session, then clears all displayed banners.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 STATE_FILE="/tmp/notify-idle.latest"
 ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
@@ -40,7 +40,7 @@ vault\|*)
   # would otherwise hide the earlier ones from `rctrl + '`. Single-slot
   # state is preserved — picker only opens when COUNT > 1.
   RECENT_NOTES=$(find "$VAULT_INBOX" -maxdepth 1 -name '*Worktree-*.md' -mmin -60 -type f 2>/dev/null \
-    | xargs -I{} stat -f '%m %N' {} 2>/dev/null \
+    | xargs -I{} sh -c 'stat -f "%m %N" "$1" 2>/dev/null || stat -c "%Y %n" "$1" 2>/dev/null' _ {} \
     | sort -rn \
     | awk '{$1=""; sub(/^ /, ""); print}')
 
@@ -68,7 +68,7 @@ vault\|*)
       [ -z "$path" ] && continue
       base=$(basename "$path" .md)
       # base format: YYYY-MM-DD_Worktree-<entry-point>-<outcome>-<slug>
-      mtime=$(stat -f '%Sm' -t '%H:%M' "$path" 2>/dev/null)
+      mtime=$(stat -f '%Sm' -t '%H:%M' "$path" 2>/dev/null || date -d "@$(stat -c %Y "$path" 2>/dev/null)" '+%H:%M' 2>/dev/null)
       stripped=${base#*_Worktree-}
       # Entry-point matches the WORKTREE_LOG_TAG family: "worktree-<X>"
       entry=$(printf '%s' "$stripped" | sed -E 's|^(worktree-[a-z]+)-.*|\1|')

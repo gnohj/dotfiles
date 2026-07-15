@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 2   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 5   (bump to force a re-run on `chezmoi apply`)
 #
-# Slim toolchain for a Linux VPS running herdr --remote. Installs the FOUNDATION
-# (mise, herdr, zinit, apt basics) + a best-effort core CLI set via mise. Nix is
-# NOT used on Linux — this is the deliberately-slim, non-Nix path. Skipped on
-# macOS via .chezmoiignore.
-#
-# Every step is best-effort (|| true / guarded) so a network hiccup never aborts
-# `chezmoi apply`.
+# Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
+# live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
+# the foundation (mise, herdr, zinit, apt basics, node/pnpm) + a best-effort core CLI set.
+# Skipped on macOS via .chezmoiignore. The agent-tmux-web service and interactive
+# `tailscale up`/`serve` are separate one-time manual steps.
+# Every step is best-effort (|| true / guarded) so a hiccup never aborts `chezmoi apply`.
 set -uo pipefail
 
-echo "==> Linux slim toolchain bootstrap"
+echo "==> Linux slim toolchain bootstrap (tmux + agent-tmux-web)"
 
 # 1. mise — runtimes + (via ubi/aqua/cargo backends) most CLIs.
 if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
@@ -19,9 +18,10 @@ if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
 fi
 MISE="$(command -v mise 2>/dev/null || echo "$HOME/.local/bin/mise")"
 
-# 2. herdr — the agent multiplexer / --remote server.
+# 2. herdr — agent multiplexer. NOT the primary path (tmux is), installed for
+#    experimenting with `herdr --remote`. Best-effort; failure never blocks tmux below.
 if ! command -v herdr >/dev/null 2>&1; then
-  echo "==> installing herdr"
+  echo "==> installing herdr (optional — for experimenting; tmux is the primary path)"
   curl -fsSL https://herdr.dev/install.sh | sh || echo "!! herdr install failed — see https://herdr.dev"
 fi
 
@@ -33,42 +33,84 @@ if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
 fi
 
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
-# python3: required by herdr-pane-tracker.py (the prefix+b last-pane daemon) so herdr
-# keybinding scripts work over --remote, not just locally. Usually preinstalled on
-# Ubuntu/Debian, listed here to guarantee it on a minimal VPS.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3"
+#    tmux holds the agent sessions; mosh gives roaming laptop attach; python3 is an
+#    nvim/tooling dep; wl-clipboard is a best-effort no-op on a headless VPS.
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 tmux mosh"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
     sudo -n apt-get update -y >/dev/null 2>&1 || true
     sudo -n apt-get install -y $APT_PKGS >/dev/null 2>&1 || true
+    # linger: keep tmux + user services alive after logout. Without it logind reaps
+    # user processes on last-session-close and "sessions survive" fails. THE key knob.
+    echo "==> enabling user linger (services survive logout)"
+    sudo -n loginctl enable-linger "$(id -un)" >/dev/null 2>&1 || true
   else
-    echo "==> skip apt (no passwordless sudo). Run once yourself:"
+    echo "==> skip apt + linger (no passwordless sudo). Run once yourself:"
     echo "    sudo apt-get update && sudo apt-get install -y $APT_PKGS"
+    echo "    sudo loginctl enable-linger $(id -un)"
   fi
 fi
 
-# 5. Core CLIs via mise (best-effort per tool; adjust to taste). These mirror the
-#    Mac toolchain so nvim + shell feel identical over --remote.
+# 5. Tailscale — private mesh the PWA + laptop reach this box over. Installs binary +
+#    daemon only; `tailscale up`/`serve` are interactive one-time steps (see NEXT below).
+if ! command -v tailscale >/dev/null 2>&1; then
+  echo "==> installing tailscale"
+  curl -fsSL https://tailscale.com/install.sh | sh || echo "!! tailscale install failed — see https://tailscale.com/download"
+fi
+
+# 6. Core CLIs via mise (best-effort) — mirror the Mac toolchain so nvim + shell feel
+#    identical over mosh/ssh.
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   echo "==> mise: core CLIs"
-  # gh is here because aic (@kkidd/aicommit, the lazygit <c-e>/<c-s> AI-commit
-  # tool) authenticates via `gh auth token` — dot_aicommitrc.tmpl reads that token
-  # at chezmoi-apply time. Installing gh is not enough: `gh auth login` is a
-  # one-time interactive step (can't be scripted) — see the reminder at the end.
+  # gh: aic (lazygit <c-e>/<c-s> AI-commit) authenticates via `gh auth token`, read
+  # by dot_aicommitrc.tmpl at apply time. Needs a one-time `gh auth login` (see end).
   for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship yazi jq gh; do
     "$MISE" use -g "$tool" >/dev/null 2>&1 || echo "   (skip $tool — check name with 'mise registry')"
   done
   # gitmux + sesh via ubi/aqua backends (no first-party mise registry entry).
   "$MISE" use -g "ubi:arl/gitmux" >/dev/null 2>&1 || echo "   (skip gitmux — install manually)"
   "$MISE" use -g "aqua:joshmedeski/sesh" >/dev/null 2>&1 || echo "   (skip sesh — install manually)"
+  # node + pnpm — runtime to build & run the agent-tmux-web server (needs Node 22+).
+  "$MISE" use -g node@22 pnpm >/dev/null 2>&1 || echo "   (skip node/pnpm — install manually; agent-tmux-web needs them)"
 fi
 
-# 6. aic — AI commit-message tool behind lazygit's <c-e> (gitmoji) / <c-s> (plain)
-#    customCommands. `setup-global-tools` runs `bun add -g @kkidd/aicommit`; bun is
-#    a mise [tools] entry, so `mise run` auto-installs it first (settings.auto_install).
-#    Only the fast `aic` path is provisioned here — the large-diff `claude -p`
-#    fallback stays Mac-only (nix-darwin homebrew "claude-code" + per-machine OAuth).
+# 7. Agent CLIs (claude / codex / gemini) — run in tmux and invoked BY NAME by
+#    agent-tmux-web's launcher. Via mise's npm backend so shims land on PATH; needs
+#    node@22 from step 6, so it runs after.
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  echo "==> mise: agent CLIs (claude / codex / gemini)"
+  for pkg in "npm:@anthropic-ai/claude-code" "npm:@openai/codex" "npm:@google/gemini-cli"; do
+    "$MISE" use -g "$pkg" >/dev/null 2>&1 || echo "   (skip $pkg — install manually: mise use -g $pkg)"
+  done
+fi
+
+# 8. Custom tools not in the mise registry — agent HUD + PR-review/worktree stack.
+#    treehouse/no-mistakes/treekanga ship release binaries → ubi; atuin → mise registry;
+#    tmux-dash is a personal Rust repo with no binaries → cargo build from source.
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  echo "==> mise: custom tools (treehouse / no-mistakes / treekanga / atuin)"
+  "$MISE" use -g "ubi:kunchenguid/treehouse" >/dev/null 2>&1 || echo "   (skip treehouse — mise use -g ubi:kunchenguid/treehouse)"
+  "$MISE" use -g "ubi:kunchenguid/no-mistakes" >/dev/null 2>&1 || echo "   (skip no-mistakes — mise use -g ubi:kunchenguid/no-mistakes)"
+  "$MISE" use -g "ubi:garrettkrohn/treekanga" >/dev/null 2>&1 || echo "   (skip treekanga — mise use -g ubi:garrettkrohn/treekanga)"
+  "$MISE" use -g atuin >/dev/null 2>&1 || "$MISE" use -g "aqua:atuinsh/atuin" >/dev/null 2>&1 || echo "   (skip atuin — mise use -g atuin)"
+
+  # tmux-dash: PERSONAL, PRIVATE repo, manually built (Rust, no release binaries). Needs a
+  # rust toolchain + repo AUTH on the box (a GitHub SSH key, or `gh auth login` + `gh auth
+  # setup-git`). On a fresh box that auth isn't set up yet, so this is best-effort and will
+  # fall to the manual step below on first apply — expected for a private repo. Uses the SSH
+  # URL so it rides your GitHub SSH key once present (see MANUAL_VPS_SETUP.md § tmux-dash).
+  if ! command -v tmux-dash >/dev/null 2>&1; then
+    echo "==> building tmux-dash from source (Rust, PRIVATE repo — needs repo auth first)"
+    "$MISE" use -g rust >/dev/null 2>&1 || echo "   (rust toolchain missing — needed to build tmux-dash)"
+    "$MISE" exec -- cargo install --git ssh://git@github.com/gnohj/tmux-dash --locked >/dev/null 2>&1 \
+      || echo "   (tmux-dash is PRIVATE — build by hand once authed: git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .)"
+  fi
+fi
+
+# 9. aic — AI commit-message tool behind lazygit's <c-e>/<c-s>. `setup-global-tools`
+#    runs `bun add -g @kkidd/aicommit` (bun auto-installs via mise). Only the fast `aic`
+#    path is provisioned; the large-diff `claude -p` fallback stays Mac-only.
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   echo "==> mise: aic (AI commit tool)"
   "$MISE" run setup-global-tools >/dev/null 2>&1 \
@@ -76,7 +118,10 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
 fi
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise herdr git zsh nvim rg fd lazygit yazi jq gh aic"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh aic"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
+echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
+echo "    then clone+build agent-tmux-web (audited, pinned) and expose it tailnet-only via"
+echo "    'tailscale serve --bg http://127.0.0.1:6174'."
 echo "    ONE-TIME for lazygit AI-commit (<c-e>/<c-s>): run 'gh auth login', then"
 echo "    'mise run setup-global-tools' + 'chezmoi apply' (so ~/.aicommitrc gets the token)."
