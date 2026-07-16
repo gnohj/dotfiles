@@ -6,6 +6,7 @@ require("items.widgets.cpu")
 require("items.widgets.volume")
 require("items.widgets.mic")
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
+require("items.widgets.dev_context") -- Dev-context (local<->vps) indicator+toggle — Model A
 require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle
 require("items.widgets.rbw_lock") -- rbw (Bitwarden) vault-lock indicator
 require("items.widgets.health_check_notification") -- Service health check

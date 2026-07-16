@@ -617,6 +617,8 @@ export EDITOR="nvim"
 # Atuin Script Shortcuts
 alias iheart-token="atuin scripts run iheart-token"
 alias fastly-debug="atuin scripts run fastly-debug"
+alias vps="atuin scripts run vps"       # ssh → sets dev-context=vps (see `atuin scripts get vps`)
+alias devctx='dev-context get'          # print current dev-context (local|vps)
 
 # Git Shorcuts
 alias gamend="g commit --amend --date=now --no-edit"
