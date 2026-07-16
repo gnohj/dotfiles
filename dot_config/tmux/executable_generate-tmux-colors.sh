@@ -9,7 +9,7 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null || t
 # the active palette is momentarily unavailable (e.g. mid `chezmoi apply` on a
 # fresh box). Keeps the generated file from emitting empty `fg=`/`bg=` styles.
 : "${gnohj_color01:=#c0aed2}" "${gnohj_color02:=#b7ce97}" "${gnohj_color03:=#a7cfbd}" "${gnohj_color06:=#dc988e}"
-: "${gnohj_color04:=#a3b8c6}" "${gnohj_color05:=#dab183}" "${gnohj_color09:=#9fb7a4}"
+: "${gnohj_color04:=#a3b8c6}" "${gnohj_color05:=#dab183}" "${gnohj_color08:=#505e62}" "${gnohj_color09:=#9fb7a4}"
 : "${gnohj_color10:=#0f1419}" "${gnohj_color11:=#da858e}" "${gnohj_color13:=#536571}"
 : "${gnohj_color14:=#b8c9d3}" "${gnohj_color17:=#40474b}" "${gnohj_color24:=#a7cfaf}"
 
@@ -44,6 +44,10 @@ inactive_border_fmt="fg=${gnohj_color13}"
 # solid, heavier band like tubular's "extra bold"; too heavy here.)
 active_border_fmt="fg=${active_border_color}"
 
+# Window list rendered natively (`#{W:inactive,active}`) so the highlight repaints on select-window instead of lagging behind the `#()` job. Each entry keeps a `range=window|<idx>` marker for click-to-select; 2-space separator leads every entry except window 1. Active: mint (gnohj_color03) + `*`; inactive: slate (gnohj_color08).
+win_sep="#{?#{==:#{window_index},1},,  }"
+window_list_fmt="#{W:${win_sep}#[range=window|#{window_index}]#[fg=${gnohj_color08}]#{window_index}:#{window_name}#[norange],${win_sep}#[range=window|#{window_index}]#[fg=${gnohj_color03}]#{window_index}:#{window_name}*#[norange]}"
+
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
 # Generated at: $(date)
@@ -53,8 +57,8 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Use status-format for complete control - everything centered as one unit
-set -g status-format[0] "#[align=centre]#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')"
+# Use status-format for complete control - git/session is the cached #() job, window list is native (#{W:...}) so the highlight is instant.
+set -g status-format[0] "#[align=centre]#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}"
 
 # Empty status-left and status-right since we're using status-format
 set -g status-left ""
