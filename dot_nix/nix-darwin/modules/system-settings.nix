@@ -143,4 +143,26 @@
     remapCapsLockToEscape = false;
   };
 
+  # Disable Mission Control "Switch to Desktop N" (symbolic hotkeys 118-127), which grab control+<digit> above the terminal and broke tmux window nav (the "control+3 wall").
+  # Uses `defaults -dict-add` (MERGE) NOT system.defaults.CustomUserPreferences, which would rewrite the whole AppleSymbolicHotKeys dict and WIPE the ~65 other hotkeys.
+  # keycodes: 1=18 2=19 3=20 4=21 5=23 6=22 7=26 8=28 9=25 0=29 ; control mod = 262144
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    echo "⌨️  Freeing control+1..0 from Mission Control (Switch to Desktop)..." >&2
+    disable_desktop_hotkey() {
+      sudo -u ${config.system.primaryUser} defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys \
+        -dict-add "$1" "<dict><key>enabled</key><integer>0</integer><key>value</key><dict><key>parameters</key><array><integer>65535</integer><integer>$2</integer><integer>262144</integer></array><key>type</key><string>standard</string></dict></dict>" || true
+    }
+    disable_desktop_hotkey 118 18   # control+1
+    disable_desktop_hotkey 119 19   # control+2
+    disable_desktop_hotkey 120 20   # control+3
+    disable_desktop_hotkey 121 21   # control+4
+    disable_desktop_hotkey 122 23   # control+5
+    disable_desktop_hotkey 123 22   # control+6
+    disable_desktop_hotkey 124 26   # control+7
+    disable_desktop_hotkey 125 28   # control+8
+    disable_desktop_hotkey 126 25   # control+9
+    disable_desktop_hotkey 127 29   # control+0
+    sudo -u ${config.system.primaryUser} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
+  '';
+
 }

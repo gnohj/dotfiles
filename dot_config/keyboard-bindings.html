@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keyboard Bindings — gnohj</title>
+<style>
+  :root {
+    --bg: #0f1419; --bg2: #151b23; --bg3: #1c2430; --fg: #c5d0dc; --dim: #7a8899;
+    --line: #263041; --accent: #b7ce97; --blue: #6cb6ff; --orange: #f0a45d;
+    --purple: #c3a6ff; --pink: #ff9ec4; --red: #ff7b72; --green: #8ddb8c;
+    --kbd-bg: #222c3a; --kbd-line: #3a4658;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 22px 96px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 19px; margin: 44px 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--line); letter-spacing: -0.01em; }
+  h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 26px 0 8px; }
+  p { margin: 8px 0; }
+  a { color: var(--blue); }
+  .sub { color: var(--dim); font-size: 13px; margin-top: 0; }
+  code, kbd, .mono { font-family: "SF Mono", "Hasklug Nerd Font Mono", ui-monospace, Menlo, monospace; }
+  kbd {
+    display: inline-block; background: var(--kbd-bg); border: 1px solid var(--kbd-line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-size: 12.5px;
+    color: #e6edf3; white-space: nowrap; margin: 1px 0;
+  }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 2px 7px; border-radius: 20px; vertical-align: middle; }
+  .b-global   { background: rgba(240,164,93,.15);  color: var(--orange); border: 1px solid rgba(240,164,93,.35); }
+  .b-terminal { background: rgba(108,182,255,.13); color: var(--blue);   border: 1px solid rgba(108,182,255,.32); }
+  .b-tmuxroot { background: rgba(183,206,151,.14); color: var(--accent); border: 1px solid rgba(183,206,151,.35); }
+  .b-tmuxpfx  { background: rgba(141,219,140,.12); color: var(--green);  border: 1px solid rgba(141,219,140,.3); }
+  .b-nvim     { background: rgba(195,166,255,.14); color: var(--purple); border: 1px solid rgba(195,166,255,.34); }
+  .b-aero     { background: rgba(255,158,196,.12); color: var(--pink);   border: 1px solid rgba(255,158,196,.3); }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 4px; font-size: 13.5px; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  tr:hover td { background: var(--bg2); }
+  td.k { white-space: nowrap; }
+  .desc { color: var(--dim); }
+  .card { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 14px 0; }
+  .stack { display: flex; flex-direction: column; gap: 0; margin: 14px 0; }
+  .layer { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg2);
+    border: 1px solid var(--line); border-left-width: 3px; }
+  .layer:first-child { border-radius: 10px 10px 0 0; }
+  .layer:last-child { border-radius: 0 0 10px 10px; }
+  .layer .n { font-family: "SF Mono", monospace; font-size: 11px; color: var(--dim); width: 20px; flex: none; }
+  .layer .t { font-weight: 600; flex: none; width: 150px; }
+  .layer .d { color: var(--dim); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 8px; margin: 10px 0; }
+  .chip { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; font-size: 13px; }
+  .chip .key { font-family: "SF Mono", monospace; color: var(--accent); font-weight: 600; }
+  .free { color: var(--green); }
+  .taken { color: var(--dim); }
+  .note { border-left: 3px solid var(--orange); background: rgba(240,164,93,.06); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13.5px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+  .legend > div { font-size: 12.5px; color: var(--dim); }
+  .matrix td.k { font-family: "SF Mono", monospace; color: var(--accent); font-weight: 600; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+  .foot { color: var(--dim); font-size: 12px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>⌨️ Keyboard Bindings</h1>
+<p class="sub">Cross-layer reference for ctrl / alt / cmd / hyper across kanata → skhd → terminal → tmux → nvim. Manual snapshot from the chezmoi source (<code>dot_config/keyboard-bindings.html</code>). Update alongside <code>skhdrc</code> / <code>tmux/*.conf</code> / <code>ghostty/config</code> / <code>kitty.conf</code>.</p>
+
+<h2>How a keypress is resolved (precedence)</h2>
+<p class="sub">Each layer sees the key <em>before</em> the one below and can consume it. This is what makes a binding "global" vs "app-specific".</p>
+<div class="stack">
+  <div class="layer" style="border-left-color:var(--dim)"><span class="n">1</span><span class="t">kanata</span><span class="d">Remaps physical keys → homerow mods &amp; layers. The only layer that knows left vs right ctrl.</span></div>
+  <div class="layer" style="border-left-color:var(--orange)"><span class="n">2</span><span class="t">skhd <span class="badge b-global">global</span></span><span class="d">macOS event tap. Grabs <kbd>rctrl</kbd>/<kbd>lalt</kbd>/<kbd>cmd</kbd>/<kbd>hyper</kbd> combos in <em>any</em> app. Can tell rctrl from lctrl.</span></div>
+  <div class="layer" style="border-left-color:var(--blue)"><span class="n">3</span><span class="t">terminal <span class="badge b-terminal">ghostty / kitty</span></span><span class="d">Keybinds fire before byte-encoding. Side-blind (both ctrls). Only when a terminal is focused.</span></div>
+  <div class="layer" style="border-left-color:var(--accent)"><span class="n">4</span><span class="t">tmux <span class="badge b-tmuxroot">root</span> / <span class="badge b-tmuxpfx">prefix</span></span><span class="d">Root binds (<code>bind -n</code>) fire on any key; prefix binds need <kbd>C-a</kbd> first. Only inside tmux.</span></div>
+  <div class="layer" style="border-left-color:var(--purple)"><span class="n">5</span><span class="t">nvim / shell <span class="badge b-nvim">pane app</span></span><span class="d">Whatever the focused pane program does with the key that survived every layer above.</span></div>
+</div>
+<div class="note"><strong>Remote (Tailscale SSH → VPS tmux):</strong> only layers 3–5 travel over SSH (they're bytes in the PTY). Layers 1–2 (kanata, skhd) are macOS-local and drive nothing remote. That's why single-chord nav was migrated off skhd into terminal/tmux binds.</div>
+
+<h2>What the modifiers physically are (kanata)</h2>
+<p class="sub">The MacBook keyboard has no dedicated modifier keys for these — they're homerow / thumb holds. Tap = the letter, hold = the modifier.</p>
+<div class="scroll"><table>
+  <tr><th>Modifier</th><th>Held key(s)</th><th>Notes</th></tr>
+  <tr><td class="k"><kbd>lctl</kbd> left ctrl</td><td class="k">hold <kbd>caps</kbd> (grave pos)</td><td class="desc">Reaches pane apps (nvim ctrl-maps).</td></tr>
+  <tr><td class="k"><kbd>rctl</kbd> right ctrl</td><td class="k">hold <kbd>;</kbd> or <kbd>backspace</kbd></td><td class="desc">What skhd's <code>rctrl</code> binds catch. Handedness only exists here + kanata.</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd> left alt</td><td class="k">hold <kbd>esc</kbd>/<kbd>[</kbd> or <kbd>enter</kbd></td><td class="desc">Drives Aerospace.</td></tr>
+  <tr><td class="k"><kbd>ralt</kbd> right alt</td><td class="k">hold <kbd>tab</kbd></td><td class="desc">Tap tab = Tab; hold = ralt.</td></tr>
+  <tr><td class="k"><kbd>cmd</kbd></td><td class="k">hold <kbd>'</kbd> (quote)</td><td class="desc">lmet / lgui.</td></tr>
+  <tr><td class="k"><kbd>hyper</kbd></td><td class="k">hold <kbd>/</kbd> (slash)</td><td class="desc">= cmd+shift+alt+ctrl. ⚠ leaks a bare hyper when chorded → macOS beep; don't use as a chord trigger.</td></tr>
+  <tr><td class="k"><kbd>ly1</kbd> layer 1</td><td class="k">hold thumb</td><td class="desc">Numbers + symbols (the real digits live here; the number row types letters).</td></tr>
+  <tr><td class="k"><kbd>ly2</kbd> layer 2</td><td class="k">hold thumb</td><td class="desc">Browser tabs + media controls.</td></tr>
+</table></div>
+
+<h2>Ctrl — the busy modifier</h2>
+<div class="legend">
+  <div><span class="badge b-global">global</span> skhd, any app (rctrl only)</div>
+  <div><span class="badge b-terminal">terminal</span> ghostty/kitty, both ctrls</div>
+  <div><span class="badge b-tmuxroot">tmux root</span> any tmux pane</div>
+  <div><span class="badge b-tmuxpfx">tmux prefix</span> after <kbd>C-a</kbd></div>
+  <div><span class="badge b-nvim">nvim</span> inside nvim</div>
+</div>
+
+<h3>Global — skhd <kbd>rctrl</kbd> (right ctrl only)</h3>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Action</th><th></th></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>tmux <code>select-window :1…:9</code></td><td><span class="badge b-global">global</span> <span class="desc">pending migration (ctrl+digit "wall")</span></td></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>0</kbd></td><td>tmux <code>kill-window -a</code> (keep :1)</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>i</kbd></td><td>tmux-dash next-input jump</td><td><span class="badge b-global">global</span> <span class="desc">kept: nvim uses C-i (jumplist)</span></td></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>'</kbd></td><td>notify-idle smart-switch</td><td><span class="badge b-global">global</span> <span class="desc">macOS-only (banners)</span></td></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>esc</kbd></td><td>clear all notifications</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>shift</kbd>+<kbd>esc</kbd></td><td>worktree-abort</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>rctrl</kbd>+<kbd>s</kbd></td><td>kitty ql quake terminal</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>rctrl</kbd>+<kbd>y</kbd></td><td>kitty yazi quake</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>rctrl</kbd>+<kbd>k</kbd></td><td>kitty plain quake</td><td><span class="badge b-global">global</span></td></tr>
+</table></div>
+
+<h3>Terminal — ghostty / kitty (both ctrls, prefix-expansion → tmux)</h3>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Sends</th><th>Action</th><th></th></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>`</kbd></td><td class="mono">C-a p</td><td>previous-window</td><td><span class="badge b-terminal">terminal</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>tab</kbd></td><td class="mono">C-a n</td><td>next-window</td><td><span class="badge b-terminal">terminal</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>space</kbd></td><td class="mono">C-a Space</td><td>last-window (toggle)</td><td><span class="badge b-terminal">terminal</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>enter</kbd></td><td class="mono">C-a L</td><td>switch-client -l (session toggle)</td><td><span class="badge b-terminal">terminal</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>.</kbd></td><td class="mono">C-a g</td><td>tmux-dash popup</td><td><span class="badge b-terminal">terminal</span> <span class="desc">was ctrl+/ (beeped)</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>;</kbd></td><td class="mono">C-a a</td><td>tmux-dash popup (table)</td><td><span class="badge b-terminal">terminal</span></td></tr>
+</table></div>
+<p class="sub">Also non-ctrl terminal keys: <kbd>cmd</kbd>+<kbd>r</kbd> reload · <kbd>cmd</kbd>+<kbd>i</kbd> inspector/env · <kbd>cmd</kbd>+<kbd>k</kbd> clear (kitty) · <kbd>cmd</kbd>+<kbd>shift</kbd>+<kbd>s</kbd> secure-input (ghostty) · <kbd>shift</kbd>+<kbd>enter</kbd> newline.</p>
+
+<h3>tmux root — <kbd>bind -n</kbd> (fires in any pane, side-blind)</h3>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Action</th><th></th></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>g</kbd></td><td>lazygit</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>y</kbd></td><td>yazi</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>b</kbd></td><td>smart dual-split switch</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">nvim C-b freed</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>e</kbd></td><td>focus tmux-dash sidebar</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">nvim C-e freed</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>t</kbd></td><td>sesh switcher</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>h</kbd></td><td>nvim-aware sidebar / split nav</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">agentic.conf</span></td></tr>
+  <tr><td class="k"><kbd>alt</kbd>+<kbd>k</kbd></td><td>smart clear (shell) / <code>C-l</code> (TUI)</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
+</table></div>
+
+<h3>tmux prefix — after <kbd>ctrl</kbd>+<kbd>a</kbd></h3>
+<p class="sub"><kbd>ctrl</kbd>+<kbd>a</kbd> is the tmux <strong>prefix</strong> (globally reserved inside tmux). Press it, then:</p>
+<div class="scroll"><table>
+  <tr><th>Key</th><th>Action</th><th>Key</th><th>Action</th></tr>
+  <tr><td class="k"><kbd>1</kbd>–<kbd>9</kbd></td><td>select-window (base-index 1)</td><td class="k"><kbd>0</kbd></td><td>kill other windows</td></tr>
+  <tr><td class="k"><kbd>-</kbd> / <kbd>=</kbd></td><td>split vertical</td><td class="k"><kbd>|</kbd> / <kbd>v</kbd></td><td>split horizontal</td></tr>
+  <tr><td class="k"><kbd>c</kbd></td><td>new window (🐠)</td><td class="k"><kbd>x</kbd></td><td>kill pane</td></tr>
+  <tr><td class="k"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></td><td>resize (one-shot)</td><td class="k"><kbd>r</kbd></td><td>sticky resize mode</td></tr>
+  <tr><td class="k"><kbd>m</kbd></td><td>zoom pane</td><td class="k"><kbd>Space</kbd></td><td>last-window</td></tr>
+  <tr><td class="k"><kbd>g</kbd></td><td>tmux-dash popup</td><td class="k"><kbd>a</kbd></td><td>tmux-dash table popup</td></tr>
+  <tr><td class="k"><kbd>y</kbd> / <kbd>u</kbd></td><td>copy-mode</td><td class="k"><kbd>s</kbd></td><td>session tree</td></tr>
+  <tr><td class="k"><kbd>L</kbd></td><td>switch-client -l</td><td class="k"><kbd>C-t</kbd></td><td>theme selector</td></tr>
+  <tr><td class="k"><kbd>T</kbd></td><td>toggle transparency</td><td class="k"><kbd>C-a</kbd></td><td>send literal C-a</td></tr>
+</table></div>
+
+<h3>nvim — <kbd>ctrl</kbd>+key inside nvim (survives all layers above)</h3>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Action</th><th></th></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>i</kbd></td><td>jump forward (jumplist); also <kbd>alt</kbd>+<kbd>i</kbd></td><td><span class="badge b-nvim">nvim</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>o</kbd></td><td>jump backward; also <kbd>alt</kbd>+<kbd>o</kbd></td><td><span class="badge b-nvim">nvim</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>q</kbd></td><td>save &amp; quit all</td><td><span class="badge b-nvim">nvim</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>f</kbd></td><td>blink: scroll docs down</td><td><span class="badge b-nvim">nvim</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>p</kbd> / <kbd>n</kbd></td><td>blink: select prev / next</td><td><span class="badge b-nvim">nvim</span></td></tr>
+  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>space</kbd> / <kbd>b</kbd> / <kbd>e</kbd></td><td><span class="desc">FREED — now grabbed by terminal/tmux above (never reach nvim)</span></td><td><span class="badge b-nvim">nvim</span></td></tr>
+</table></div>
+
+<h2>Alt — <kbd>lalt</kbd> drives Aerospace <span class="badge b-aero">aerospace</span></h2>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Action</th><th>Chord</th><th>Action</th></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>h</kbd>/<kbd>l</kbd></td><td>focus left / right</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>h</kbd>/<kbd>l</kbd></td><td>move left / right</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>&lt;letter&gt;</kbd></td><td>jump to workspace (A–Z*)</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>&lt;letter&gt;</kbd></td><td>move node → workspace</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>/</kbd></td><td>layout tiles</td><td class="k"><kbd>lalt</kbd>+<kbd>,</kbd></td><td>layout accordion</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>-</kbd>/<kbd>=</kbd></td><td>resize ∓50</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd></td><td>native fullscreen</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>tab</kbd></td><td>workspace back-and-forth</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>tab</kbd></td><td>move workspace → monitor</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>;</kbd></td><td>service mode</td><td class="k"><kbd>lalt</kbd>+<kbd>i n o p r u y</kbd></td><td class="desc">blocked (no-op, both w/ shift)</td></tr>
+</table></div>
+<p class="sub">*Workspace letters in use: <span class="mono">A B C D E F G J K M Q R S T V W X Z</span>. Free: <span class="free mono">H I L N O P U Y</span> (H/L are focus, I/N/O/P/U/Y are blocked).</p>
+
+<h2>Cmd &amp; Hyper</h2>
+<div class="scroll"><table>
+  <tr><th>Chord</th><th>Action</th><th></th></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>shift</kbd>+<kbd>q</kbd></td><td>quit frontmost app</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>m</kbd></td><td class="desc">disabled (no minimize)</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>cmd</kbd>+<kbd>h</kbd></td><td class="desc">disabled (no hide)</td><td><span class="badge b-global">global</span></td></tr>
+  <tr><td class="k"><kbd>hyper</kbd>+<kbd>x</kbd> <span class="desc">(hold <kbd>/</kbd>)</span></td><td>screenshot → save + copy path</td><td><span class="badge b-global">global</span></td></tr>
+</table></div>
+
+<h2>Ctrl availability map</h2>
+<p class="sub">Who claims each <kbd>ctrl</kbd>+key. Blank = free for a new binding (mind the layer you'd add it at).</p>
+<div class="scroll"><table class="matrix">
+  <tr><th>ctrl+</th><th>claimed by</th><th>ctrl+</th><th>claimed by</th><th>ctrl+</th><th>claimed by</th></tr>
+  <tr><td class="k">a</td><td>tmux prefix</td><td class="k">b</td><td>tmux root</td><td class="k">c</td><td class="desc">SIGINT (reserved)</td></tr>
+  <tr><td class="k">d</td><td class="free">free* (shell EOF)</td><td class="k">e</td><td>tmux root</td><td class="k">f</td><td>nvim</td></tr>
+  <tr><td class="k">g</td><td>tmux root</td><td class="k">h</td><td>tmux root</td><td class="k">i</td><td>skhd + nvim</td></tr>
+  <tr><td class="k">j</td><td class="free">free*</td><td class="k">k</td><td class="desc">alt+k used; ctrl+k free*</td><td class="k">l</td><td class="desc">clear (readline)</td></tr>
+  <tr><td class="k">m</td><td class="desc">= Enter (reserved)</td><td class="k">n</td><td>nvim</td><td class="k">o</td><td>nvim</td></tr>
+  <tr><td class="k">p</td><td>nvim</td><td class="k">q</td><td>nvim</td><td class="k">r</td><td class="desc">history/redo</td></tr>
+  <tr><td class="k">s</td><td class="free">free*</td><td class="k">t</td><td>tmux root</td><td class="k">u</td><td class="desc">scroll/kill-line</td></tr>
+  <tr><td class="k">v</td><td class="free">free*</td><td class="k">w</td><td class="desc">delete-word</td><td class="k">x</td><td class="free">free*</td></tr>
+  <tr><td class="k">y</td><td>tmux root</td><td class="k">z</td><td class="desc">SIGTSTP</td><td class="k">space</td><td>terminal</td></tr>
+  <tr><td class="k">`</td><td>terminal</td><td class="k">tab</td><td>terminal</td><td class="k">enter</td><td>terminal</td></tr>
+  <tr><td class="k">.</td><td>terminal</td><td class="k">;</td><td>terminal</td><td class="k">1–0</td><td>skhd (rctrl)</td></tr>
+  <tr><td class="k">'</td><td>skhd (rctrl)</td><td class="k">/</td><td class="desc">avoid (hyper beep)</td><td class="k">,</td><td class="free">free*</td></tr>
+</table></div>
+<p class="sub">*"free" = no binding in <em>your</em> configs, but may have a default shell/readline/vim behavior. Adding a terminal or tmux-root bind there overrides that behavior in that context.</p>
+
+<h2>Migration &amp; gotchas</h2>
+<div class="card">
+  <p><strong>Remote-safe (survive Tailscale SSH → VPS tmux):</strong> everything under <span class="badge b-terminal">terminal</span> and <span class="badge b-tmuxroot">tmux root</span> / <span class="badge b-tmuxpfx">prefix</span>. They're PTY bytes.</p>
+  <p><strong>Local-only:</strong> everything under <span class="badge b-global">global</span> (skhd) and <span class="badge b-aero">aerospace</span> — macOS event layer, drives nothing remote.</p>
+  <p><strong>Still on skhd, pending migration:</strong> <kbd>ctrl</kbd>+<kbd>1…9/0</kbd> (the "ctrl+digit wall" — digits come from kanata's ly1 layer) and <kbd>rctrl</kbd>+<kbd>i</kbd> (kept so nvim keeps <kbd>ctrl</kbd>+<kbd>i</kbd>).</p>
+  <p><strong>Chord-trigger rule:</strong> never route a binding through a kanata key whose <em>hold</em> is a big modifier-combo (<kbd>/</kbd>=hyper, <kbd>tab</kbd>, <kbd>caps</kbd>/<kbd>grave</kbd>) — it leaks a stray modifier → macOS beep. Use plain keys (that's why popup is <kbd>ctrl</kbd>+<kbd>.</kbd> not <kbd>ctrl</kbd>+<kbd>/</kbd>).</p>
+  <p><strong>Nesting:</strong> don't <code>ssh</code> from inside a local tmux — the outer tmux eats <kbd>C-a</kbd>. Open a bare ghostty window → ssh → remote tmux.</p>
+</div>
+
+<p class="foot">Sources: <code>dot_config/skhd/skhdrc</code> · <code>dot_config/tmux/{base,agentic}.conf</code> · <code>dot_config/ghostty/config</code> · <code>dot_config/kitty/kitty.conf</code> · <code>dot_config/kanata/macos.kbd</code> · nvim keymaps. Regenerate this file whenever those change.</p>
+
+</div>
+</body>
+</html>
