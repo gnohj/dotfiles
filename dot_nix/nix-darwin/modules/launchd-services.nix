@@ -77,6 +77,24 @@ in
       };
     };
 
+    # Dev-context reset on login: RunAtLoad + no KeepAlive fires once per session load (safety net for abnormal exits; the vps atuin script's trap EXIT handles normal in-session reverts).
+    dev-context-reset = {
+      serviceConfig = {
+        # bash -c wrapper: launchd doesn't auto-create StandardOut/ErrPath parent dirs, so `mkdir -p` keeps the service from failing silently.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/dev-context
+            ${homeDir}/.local/bin/dev-context set local
+          ''
+        ];
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/dev-context/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/dev-context/launchagent.err.log";
+      };
+    };
+
     # SketchyBar Watchdog
     # Monitors sketchybar health and kills it if frozen (LaunchAgent will restart)
     sketchybar-watchdog = {

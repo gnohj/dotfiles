@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# dev-context — single source of truth (~/.local/state/dev-context = local|vps) read/written by the vps atuin script, sketchybar widget, and launchers; changes fire `dev_context_change` and only affect the next launch.
+set -euo pipefail
+
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/dev-context"
+DEFAULT="local"
+
+_notify() { command -v sketchybar >/dev/null 2>&1 && sketchybar --trigger dev_context_change 2>/dev/null || true; }
+
+_get() {
+  local v
+  v="$(cat "$STATE_FILE" 2>/dev/null || true)"
+  case "$v" in
+    local | vps) printf '%s\n' "$v" ;;
+    *) printf '%s\n' "$DEFAULT" ;;
+  esac
+}
+
+_set() {
+  case "${1:-}" in
+    local | vps) ;;
+    *)
+      printf 'dev-context: invalid context %q (want local|vps)\n' "${1:-}" >&2
+      exit 2
+      ;;
+  esac
+  mkdir -p "$(dirname "$STATE_FILE")"
+  printf '%s\n' "$1" >"$STATE_FILE"
+  _notify
+}
+
+case "${1:-get}" in
+  get) _get ;;
+  set) _set "${2:-}" ;;
+  toggle)
+    if [ "$(_get)" = vps ]; then _set local; else _set vps; fi
+    _get
+    ;;
+  is) [ "$(_get)" = "${2:-}" ] ;;
+  *)
+    printf 'usage: dev-context [get|set <local|vps>|toggle|is <local|vps>]\n' >&2
+    exit 1
+    ;;
+esac
