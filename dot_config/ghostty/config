@@ -91,7 +91,6 @@ macos-option-as-alt = right
 # ghosty specific keybinds only
 keybind = super+i=inspector:toggle
 keybind = super+r=reload_config
-keybind = super+k=clear_screen
 keybind = super+shift+s=toggle_secure_input
 
 # clipboard
@@ -110,6 +109,25 @@ shell-integration = detect
 # shell-integration-features merged into line 51
 
 keybind = shift+enter=text:\n
+
+# hijack key events before encoding (ghosty cant encode modern keys, so it swallows/clobbers)
+keybind = ctrl+backquote=text:\x01p
+keybind = ctrl+tab=text:\x01n
+keybind = ctrl+space=text:\x01\x20
+keybind = ctrl+enter=text:\x01L
+keybind = ctrl+period=text:\x01g
+keybind = ctrl+semicolon=text:\x01a
+# ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding
+keybind = ctrl+physical:one=text:\x01\x31
+keybind = ctrl+physical:two=text:\x01\x32
+keybind = ctrl+physical:three=text:\x01\x33
+keybind = ctrl+physical:four=text:\x01\x34
+keybind = ctrl+physical:five=text:\x01\x35
+keybind = ctrl+physical:six=text:\x01\x36
+keybind = ctrl+physical:seven=text:\x01\x37
+keybind = ctrl+physical:eight=text:\x01\x38
+keybind = ctrl+physical:nine=text:\x01\x39
+keybind = ctrl+physical:zero=text:\x01\x30
 
 # background - https://wallhaven.cc/
 # background-blur-radius = 40

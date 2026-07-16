@@ -1,54 +1,23 @@
-# On MacOS, you need to add Aerospace via 'enable allows applications to monitor keyboard input' in Privacy & Security
-# Make sure that aerospace path is the pointing to the correct binary (Depending on your installation method)
-
-# Available keys - rctrl -
-
-# Terminal cancel shortcut - Ctrl+Space sends Ctrl+C
-lctrl - space : skhd -k "ctrl - c"
-
 # Disable minimize/hide
 cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true' -e 'tell application frontApp to quit'
 cmd - m : :
 cmd - h : :
-
-# Tmux window navigation
-rctrl - 0x32 : /opt/homebrew/bin/tmux previous-window # shift + grave for previous
-# toggle last two; fall back to the other window when only 2 exist and no jump history yet
-rctrl - space : /opt/homebrew/bin/tmux last-window 2>/dev/null || { [ "$(/opt/homebrew/bin/tmux list-windows | wc -l)" -eq 2 ] && /opt/homebrew/bin/tmux next-window; } 
-rctrl - 0x24 : /opt/homebrew/bin/tmux switch-client -l
-
-# Tmux window selection by number (base-index 1 → rctrl-1 = first window).
-# Back in skhd after the terminal ctrl+digit prefix-expansion approach hit an
-# unresolved ctrl+3 wall in the kanata/number-layer path.
-rctrl - 1 : /opt/homebrew/bin/tmux select-window -t :1
-rctrl - 2 : /opt/homebrew/bin/tmux select-window -t :2
-rctrl - 3 : /opt/homebrew/bin/tmux select-window -t :3
-rctrl - 4 : /opt/homebrew/bin/tmux select-window -t :4
-rctrl - 5 : /opt/homebrew/bin/tmux select-window -t :5
-rctrl - 6 : /opt/homebrew/bin/tmux select-window -t :6
-rctrl - 7 : /opt/homebrew/bin/tmux select-window -t :7
-rctrl - 8 : /opt/homebrew/bin/tmux select-window -t :8
-rctrl - 9 : /opt/homebrew/bin/tmux select-window -t :9
-rctrl - 0 : /opt/homebrew/bin/tmux kill-window -a -t :1
-
-# Tmux smart dual split switching (remembers Neovim buffers)
-rctrl - b : ~/.config/skhd/smart-tmux-dual-split-switch.sh
 
 # Global Kitty Quake Terminals
 cmd + rctrl - s : ~/.config/skhd/kitty-ql-quake.sh
 cmd + rctrl - y : ~/.config/skhd/kitty-yazi-quake.sh
 cmd + rctrl - k : ~/.config/skhd/kitty-quake.sh
 
-# Global tmux-dash
-rctrl - e : /usr/bin/pkill -USR1 -x tmux-dash # focus tmux-dash sidebar — lands on agents, j/k flows into git (one list)
-rctrl - 0x2C : "$HOME/.local/bin/tmux-dash" popup # tmux-dash agent dashboard (forward slash) — opens the view in a tmux popup on the *focused* server (tmux-dash infers it), so one key works across default/personal/work. Table of agents; enter switches, i jumps to next input, q/escape closes
-rctrl - 0x29 : "$HOME/.local/bin/tmux-dash" popup table # semicolon — tmux-dash agent dashboard, table view (treekanga moved into tmux-dash: press `w` in the view)
+# Needs to work local / remote
+   # Global tmux-dash go to next input
 rctrl - i : ~/.config/skhd/mux-passthrough.sh i
+   # Tmux Dash Os Notification Close & Enter
 rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
-
-# OS Notifications
+   # Global OS Notifications
 rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
 rctrl + shift - escape : ~/.local/bin/worktree-abort # abort the most recent worktree-runner in flight
+   # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
+hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
 
 # Aerospace - Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
@@ -106,21 +75,19 @@ lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
 lalt + shift - a : /opt/homebrew/bin/aerospace move-node-to-workspace A
 lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 
-
-
 # Aerospace - Fullscreen and navigation
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
 
-# toggle back and forth between workspaces
+# Aerospace - toggle back and forth between workspaces
 lalt - tab : /opt/homebrew/bin/aerospace workspace-back-and-forth
 
-# wrap around
+# Aerospace - wrap around
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
 
 # Aerospace - Service mode
 lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
-# Block unused lalt keys
+# Block unused lalt keys. skhd is first-wins on duplicate hotkeys, so this MUST stay below the workspace bindings above or these no-ops shadow them.
 lalt - i : :
 lalt - n : :
 lalt - o : :
@@ -137,7 +104,4 @@ lalt + shift - p : :
 lalt + shift - r : :
 lalt + shift - u : :
 lalt + shift - y : :
-
-# Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
-hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
 

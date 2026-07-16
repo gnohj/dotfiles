@@ -2,8 +2,6 @@
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-eval "$(mise activate bash)" 2>/dev/null || true
-
 EMOJI="$1"
 TYPE="$2" # reserved positional (was a window-type flag nothing read; callers still pass it)
 CMD="$3"
