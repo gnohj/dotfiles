@@ -147,6 +147,12 @@ mac-notify -t "$START_TITLE" -m "$START_MESSAGE" -g "$WORKTREE_GROUP" -T "$TIMEO
 TMUX_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-tmux.XXXXXX")
 tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
 
+# Snapshot all git worktrees under ~/Developer before claude runs; the new one is the set difference afterward - an authoritative detector that doesn't depend on claude printing the path. Sorted for `comm` in the diff below.
+WT_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-wt.XXXXXX")
+for _r in "$HOME"/Developer/*/; do
+  git -C "$_r" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'
+done | sort -u > "$WT_SNAPSHOT"
+
 # Stage WORKTREE_LOG_HEADER as a tmpfile so multi-line content + special
 # chars don't have to survive an outer-shell expansion inside the
 # heredoc below.
@@ -261,7 +267,7 @@ cleanup() {
   # recreated by >> append, leaving partial bg-only content). /var/
   # folders/…/T is auto-cleaned by macOS, so leaking the per-run log
   # is harmless and useful for debugging.
-  rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
+  rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$WT_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
 }
 trap cleanup EXIT
 
@@ -454,18 +460,35 @@ if [ -z "\$WORKTREE_PATH" ]; then
   # primary grep above returns empty, WORKTREE_PATH stays unset, the
   # rescue + claude-only fallbacks (both gated on WORKTREE_PATH) never
   # fire, and a present, registered worktree is misreported as failed.
-  if [ -z "\$CLAUDE_PATH" ]; then
+  CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
+  # Gate the /Developer/ fallback on "no existing dir yet" (not string-emptiness), so a relative "**Worktree path:**" hit can't block the absolute "**Worktree:**" line.
+  if [ ! -d "\$CLAUDE_PATH" ]; then
     CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" \\
       | grep -oE '\`[^\`]*/Developer/[^\`]+\`' \\
       | tail -1 | tr -d '\`')
+    CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
   fi
   if [ -n "\$CLAUDE_PATH" ]; then
-    CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
     if [ -d "\$CLAUDE_PATH" ]; then
       WORKTREE_PATH="\$CLAUDE_PATH"
       REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
       SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
     fi
+  fi
+fi
+
+# Step B-diff — authoritative path detection: diff current git worktrees against the pre-claude snapshot; the new one is ours. Only trusts a UNIQUE new worktree so concurrent runners can't cross-attribute.
+if [ -z "\$WORKTREE_PATH" ] && [ -f "$WT_SNAPSHOT" ]; then
+  WT_NEW=\$(
+    for _r in "\$HOME"/Developer/*/; do
+      git -C "\$_r" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print \$2}'
+    done | sort -u | comm -13 "$WT_SNAPSHOT" -
+  )
+  if [ "\$(printf '%s\n' "\$WT_NEW" | grep -c .)" = "1" ] && [ -d "\$WT_NEW" ]; then
+    WORKTREE_PATH="\$WT_NEW"
+    REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+    SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+    echo "[\$(date +%H:%M:%S)] path via git-worktree-list diff: \$WORKTREE_PATH" >> $LOGFILE
   fi
 fi
 
