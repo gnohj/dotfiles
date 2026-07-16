@@ -5,6 +5,8 @@ local padding <const> = {
   bar = 13,
   item = 18,
   popup = 8,
+  -- Flex-gap for the right-side icon run: widgets use leading 0 + trailing = gap, so neighbours sit `gap` apart. Single knob.
+  gap = 10,
 }
 
 local graphics <const> = {
