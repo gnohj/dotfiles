@@ -588,7 +588,7 @@ generate_borders_config() {
 options=(
   width=5
   hidpi=on
-  active_color=0xff${gnohj_color03#\#}
+  active_color=0xff${gnohj_color04#\#}
   inactive_color=0x33${gnohj_color09#\#}
 )
 /opt/homebrew/bin/borders "\${options[@]}"
