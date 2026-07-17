@@ -9,13 +9,12 @@ cmd + rctrl - y : ~/.config/skhd/kitty-yazi-quake.sh
 cmd + rctrl - k : ~/.config/skhd/kitty-quake.sh
 
 # Needs to work local / remote
-   # Global tmux-dash go to next input
-rctrl - i : ~/.config/skhd/mux-passthrough.sh i
-   # Tmux Dash Os Notification Close & Enter
-rctrl - 0x27 : ~/.local/bin/notify-idle-switch.sh # single quote — smart switch: tmux-attach to latest banner's session + clear
-   # Global OS Notifications
-rctrl - escape : /opt/homebrew/bin/terminal-notifier -remove ALL >/dev/null 2>&1; killall NotificationCenter usernotificationsd; rm -f /tmp/notify-idle.latest # clear stuck banners + state
-rctrl + shift - escape : ~/.local/bin/worktree-abort # abort the most recent worktree-runner in flight
+   # MIGRATED to ghostty/kitty prefix-expansion → tmux server-side binds (work local + VPS):
+   #   next-input     → ctrl+;  (C-a ,)   mux-passthrough.sh now orphaned  (ctrl+, → tmux-dash summary/table)
+   #   notify-switch  → ctrl+'  (C-a ')
+   #   worktree-abort → ctrl+/  (C-a /)
+   # Only clear-notifications stays skhd-triggered (still calls the portable script):
+rctrl - escape : ~/.local/bin/notify-idle-clear.sh # clear stuck banners + state (uname-branched: Darwin dismisses banners, Linux clears the marker)
    # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
 hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
 
