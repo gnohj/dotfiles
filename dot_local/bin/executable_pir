@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Pi resume. Two modes:
+#   pir <session-id>  resume that session directly in this pane (pi --session).
+#   pir               open nvim -> Pi Sessions picker; on pick, quit nvim and
+#                     resume that session in THIS SAME pane (AI_PICK_FILE
+#                     handoff). Selecting nothing just leaves you in nvim.
+
+if [ "$#" -gt 0 ]; then
+  exec pi --session "$@"
+fi
+
+sel=$(mktemp -t pir-pick.XXXXXX)
+AI_PICK_FILE="$sel" nvim -c "lua vim.schedule(function() require('plugins.snacks.ai_sessions').pi() end)"
+id=$(cat "$sel" 2>/dev/null)
+rm -f "$sel"
+[ -n "$id" ] && exec pi --session "$id"
