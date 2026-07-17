@@ -7,9 +7,12 @@ set -euo pipefail
 
 echo "Secret list changed, fetching from Bitwarden..."
 
+# exit 0 (not 1) so a fresh box without rbw doesn't abort `chezmoi apply`.
+# This script sorts alphabetically before linux-bootstrap; a non-zero exit
+# here would kill the whole run before the bootstrap installs anything.
 if ! command -v rbw &> /dev/null; then
-  echo "Error: rbw not found. Install via nix-darwin."
-  exit 1
+  echo "rbw not found - skipping secret fetch (install via nix-darwin on macOS)."
+  exit 0
 fi
 
 # Check if vault is unlocked - exit 0 (not 1) so chezmoi apply doesn't fail.
