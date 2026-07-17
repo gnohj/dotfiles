@@ -24,6 +24,13 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 0
 fi
 
+# Claim the session against the sesh-session-created hook (which ALSO builds the
+# dev layout via dev.sh and gates on @nvim_fast_done). We're past the git check
+# and about to run dev.sh, so claim now: if the hook hasn't set the flag yet, this
+# makes it defer at its once-guard instead of building a duplicate fish window.
+# Symmetric with the hook's early claim — whichever wins, the other backs off.
+tmux set-option -t "$SESSION_NAME" @nvim_fast_done 1
+
 if [[ "$SESSION_PATH" =~ $WORKTREE_PATTERN ]]; then
   ~/.config/sesh/dev.sh '' "$SESSION_PATH"
   exit 0

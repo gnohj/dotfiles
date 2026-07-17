@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 6   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 7   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -36,7 +36,10 @@ fi
 #    tmux holds the agent sessions; mosh gives roaming laptop attach; python3 is an
 #    nvim/tooling dep; wl-clipboard is a best-effort no-op on a headless VPS.
 # pinentry-curses drives rbw's headless master-password unlock (see step 6b).
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 tmux mosh pinentry-curses"
+# perl: the tmux status-line git-cache refresher (status-git-refresh.sh) strips
+# trailing style codes with `perl -pe`; perl-base is essential on Debian/Ubuntu
+# anyway, but declare it so a stripped image doesn't leave the git segment blank.
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"

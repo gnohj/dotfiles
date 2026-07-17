@@ -10,7 +10,10 @@
 #
 # First parameter is an unused placeholder (''); second is the working dir.
 
-export PATH="/opt/homebrew/bin:$PATH"
+# /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
+# (linuxbrew / mise shims / ~/.local/bin) are appended so nvim/gitmux/sesh resolve
+# on a headless Linux VPS too (matches sesh-session-created.sh / status-git-refresh.sh).
+export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 # Diagnostic: set to 1 to flash how long from spawn until window 0's shell is
