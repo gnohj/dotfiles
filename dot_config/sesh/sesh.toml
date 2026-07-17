@@ -109,6 +109,11 @@ path = "~/Developer/agents"
 startup_command = "git status"
 
 [[session]]
+name = "skills"
+path = "~/Developer/agents/shared/skills"
+startup_command = "nvim -c \"lua vim.schedule(function() require('lazy').load({plugins={'fff.nvim'}}); require('fff').find_files() end)\""
+
+[[session]]
 name = "claude"
 path = "~/.claude"
 
