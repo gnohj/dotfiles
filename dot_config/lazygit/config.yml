@@ -6,8 +6,11 @@ notARepository: "quit"
 quitOnTopLevelReturn: true
 git:
   overrideGpg: true
-  autoFetch: true
+  autoFetch: false
   fetchAll: false # fetch origin only — faster than --all on large repos
+  log:
+    order: default
+    showGraph: when-maximised
   paging:
     colorArg: always
     pager: delta --dark --paging=never
