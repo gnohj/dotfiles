@@ -34,6 +34,13 @@ fi
 
 sel=$(mktemp -t cr-pick.XXXXXX)
 AI_PICK_FILE="$sel" nvim -c "lua vim.schedule(function() require('plugins.snacks.ai_sessions').claude() end)"
-id=$(cat "$sel" 2>/dev/null)
+# Line 1: session id. Line 2 (optional): the account it belongs to, so a
+# cross-account pick resumes under the right account. CLAUDE_ACCOUNT is the top
+# of claude-account's precedence, so it drives both the config dir and token in
+# _claude_env. Absent line 2 -> fall back to the default (cwd/pin) resolution.
+{ IFS= read -r id; IFS= read -r acct; } <"$sel" 2>/dev/null
 rm -f "$sel"
-[ -n "$id" ] && _resume "$id"
+if [ -n "$id" ]; then
+  [ -n "$acct" ] && export CLAUDE_ACCOUNT="$acct"
+  _resume "$id"
+fi
