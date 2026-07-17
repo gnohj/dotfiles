@@ -1,5 +1,5 @@
 [features]
-git_source = true
+git_source = false
 ai_activity = true
 hooks = true
 pane_name = true
@@ -9,6 +9,8 @@ pane_name_model = false
 pane_name_harness = false
 harness_model = false
 preview = false
+auto_pane_rename = true
+auto_pane_rename_words = 3
 
 [features.sidebar]
 jira = true
