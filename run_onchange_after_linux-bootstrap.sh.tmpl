@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 5   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 6   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -35,7 +35,8 @@ fi
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
 #    tmux holds the agent sessions; mosh gives roaming laptop attach; python3 is an
 #    nvim/tooling dep; wl-clipboard is a best-effort no-op on a headless VPS.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 tmux mosh"
+# pinentry-curses drives rbw's headless master-password unlock (see step 6b).
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 tmux mosh pinentry-curses"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
@@ -73,6 +74,21 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   "$MISE" use -g "aqua:joshmedeski/sesh" >/dev/null 2>&1 || echo "   (skip sesh — install manually)"
   # node + pnpm — runtime to build & run the agent-tmux-web server (needs Node 22+).
   "$MISE" use -g node@22 pnpm >/dev/null 2>&1 || echo "   (skip node/pnpm — install manually; agent-tmux-web needs them)"
+fi
+
+# 6b. rbw — Bitwarden CLI that run_onchange_after_bitwarden.sh.tmpl reads to populate
+#     ~/.zsh_gnohj_env.secrets. No reliable release binary → cargo build (needs a rust
+#     toolchain + build-essential from step 4). pinentry-curses (step 4) drives the
+#     interactive unlock. NOTE: bitwarden sorts before linux-bootstrap, so on the FIRST
+#     apply it self-skips (rbw absent) and rbw only lands here; run a one-time
+#     `rbw login && rbw unlock && chezmoi apply` afterward to actually populate secrets.
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  if ! command -v rbw >/dev/null 2>&1; then
+    echo "==> installing rbw (Bitwarden CLI — secret provisioning)"
+    "$MISE" use -g rust >/dev/null 2>&1 || echo "   (rust toolchain missing — needed to build rbw)"
+    "$MISE" use -g "cargo:rbw" >/dev/null 2>&1 \
+      || echo "   (skip rbw — build by hand once rust is present: cargo install rbw)"
+  fi
 fi
 
 # 7. Agent CLIs (claude / codex / gemini) — run in tmux and invoked BY NAME by
@@ -118,10 +134,12 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
 fi
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh aic"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh aic rbw"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
 echo "    then clone+build agent-tmux-web (audited, pinned) and expose it tailnet-only via"
 echo "    'tailscale serve --bg http://127.0.0.1:6174'."
 echo "    ONE-TIME for lazygit AI-commit (<c-e>/<c-s>): run 'gh auth login', then"
 echo "    'mise run setup-global-tools' + 'chezmoi apply' (so ~/.aicommitrc gets the token)."
+echo "    ONE-TIME for secrets: 'rbw login' then 'rbw unlock && chezmoi apply' (populates"
+echo "    ~/.zsh_gnohj_env.secrets — empty until this runs since rbw installs here)."

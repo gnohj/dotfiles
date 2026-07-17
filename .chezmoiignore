@@ -49,6 +49,14 @@ dot_config/borders/
 dot_config/skhd/
 dot_config/sketchybar/
 
+# macOS-desktop-only configs (inert dead weight on a headless VPS)
+dot_config/kanata/
+dot_config/raycast/
+dot_config/launcher/
+dot_config/ghosttyfetch/
+dot_config/fastfetch/
+dot_config/private_spicetify/
+
 # Nix-Darwin installation
 dot_nix/nix-darwin
 
