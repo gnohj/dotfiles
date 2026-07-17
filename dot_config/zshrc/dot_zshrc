@@ -488,6 +488,28 @@ herdr() {
   fi
 }
 
+# btop CPU view — derive a throwaway config from the mem-sorted btop.conf,
+# overriding only proc_sorting, so theme/boxes/update_ms stay in sync and the
+# managed config never gets dirtied (btop rewrites the temp copy on exit).
+_btop_cpu_conf() {
+  local tmp="${TMPDIR:-/tmp}/btop-cpu.conf"
+  sed -E 's/^proc_sorting = .*/proc_sorting = "cpu lazy"/' \
+    ~/.config/btop/btop.conf >"$tmp"
+  print -r -- "$tmp"
+}
+# btopc — single btop instance sorted by CPU
+btopc() { command btop -c "$(_btop_cpu_conf)" "$@"; }
+# btop2 — mem-sorted btop on the left, cpu-sorted on the right (tmux split)
+btop2() {
+  if [[ -z "$TMUX" ]]; then
+    echo "btop2 needs tmux; run 'btop' and 'btopc' in separate splits instead"
+    return 1
+  fi
+  tmux split-window -h "btop -c '$(_btop_cpu_conf)'"
+  tmux select-pane -L
+  command btop
+}
+
 # Github Dash
 alias ghd='gh-dash'
 
