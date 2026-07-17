@@ -94,19 +94,8 @@ customCommands:
   # all interacted poorly with lazygit's customCommand wait/output:log
   # plumbing, leaving the spinner stuck.
   - key: "<c-o>"
-    command: 'printf "%s" "{{.SelectedFile.Name}}" | pbcopy && lazygit-nvim-edit "{{.SelectedFile.Name}}"'
+    command: 'printf "%s" "{{.SelectedFile.Name}}" | { pbcopy 2>/dev/null || wl-copy 2>/dev/null || true; }; lazygit-nvim-edit "{{.SelectedFile.Name}}"'
     context: "files"
-    description: "Copy path + open in host nvim"
-    output: log
-
-  # Same as above, but for the commit-files panel (when you drill into a
-  # commit and select one of its files). That panel is the `commitFiles`
-  # context, where the template var is `.SelectedCommitFile.Name` — the
-  # `files`-context binding above never fires here. Opens the working-tree
-  # copy of the path (lazygit-nvim-edit resolves it against $PWD).
-  - key: "<c-o>"
-    command: 'printf "%s" "{{.SelectedCommitFile.Name}}" | pbcopy && lazygit-nvim-edit "{{.SelectedCommitFile.Name}}"'
-    context: "commitFiles"
     description: "Copy path + open in host nvim"
     output: log
 
