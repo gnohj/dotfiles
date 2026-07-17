@@ -7,7 +7,8 @@
 # `claude -p` (1M context, slower but uncapped).
 
 set -uo pipefail
-export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 DIFF_CHAR_THRESHOLD=28000
 

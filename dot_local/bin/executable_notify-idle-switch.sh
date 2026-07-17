@@ -5,7 +5,8 @@
 # that session, then clears all displayed banners.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 STATE_FILE="/tmp/notify-idle.latest"
 ENTRY=$(cat "$STATE_FILE" 2>/dev/null)

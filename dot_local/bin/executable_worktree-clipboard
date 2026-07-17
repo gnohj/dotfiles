@@ -24,7 +24,8 @@ set -euo pipefail
 
 # skhd spawns this with a minimal PATH. Pin a sensible PATH so tmux,
 # pngpaste, pbpaste, terminal-notifier, etc. resolve.
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # When fired by skhd we run OUTSIDE any tmux client context — the
 # `tmux display-popup` call below then has no client to host on and
