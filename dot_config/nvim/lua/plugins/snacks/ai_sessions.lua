@@ -18,7 +18,8 @@
 --     never destroys the editor or dashboard pane.
 --
 -- Per-agent storage (all keyed to the current working directory):
---   Claude    ~/.claude/projects/<cwd with / and . -> ->/<uuid>.jsonl
+--   Claude    ~/.claude*/projects/<cwd with / and . -> ->/<uuid>.jsonl  (EVERY
+--             account root: ~/.claude = personal, ~/.claude-work = work, …)
 --   Pi        ~/.pi/agent/sessions/--<cwd sans leading /, / -> ->--/<ts>_<uuid>.jsonl
 --   opencode  ~/.local/share/opencode/storage/session/global/ses_*.json
 --             (all projects in one dir; filtered by the session's .directory)
@@ -50,7 +51,23 @@ local function transform(item)
   return item
 end
 
--- spec: { title, icon, cmd, args, preview_cmd, resume(id) }
+-- Claude's batch carries an extra account column (personal/work), since its
+-- history spans multiple config roots. Same shape otherwise.
+local function claude_transform(item)
+  local id, mtime, file, account, title = item.text:match("^(.-)\t(.-)\t(.-)\t(.-)\t(.*)$")
+  if not id then
+    return false
+  end
+  item.id = id
+  item.mtime = tonumber(mtime) or 0
+  item.file = file
+  item.account = account
+  item.title = title
+  item.text = title
+  return item
+end
+
+-- spec: { title, icon, cmd, args, preview_cmd, resume(item), transform? }
 local function pick(spec)
   Snacks.picker.pick({
     title = spec.title,
@@ -60,17 +77,23 @@ local function pick(spec)
           cmd = spec.cmd,
           args = spec.args,
           notify = false,
-          transform = transform,
+          transform = spec.transform or transform,
         }),
         ctx
       )
     end,
     format = function(item)
-      return {
+      local out = {
         { spec.icon, virtual = true },
         { item.title or "", "SnacksPickerLabel" },
         { " " .. age(item.mtime or 0), "SnacksPickerComment" },
       }
+      -- Claude rows carry an account (personal/work); tag them so multi-account
+      -- results are distinguishable. Other agents leave it nil → no chip.
+      if item.account then
+        out[#out + 1] = { "  " .. item.account, "SnacksPickerSpecial" }
+      end
+      return out
     end,
     preview = function(ctx)
       -- Parse each transcript once, then cache; large sessions make the shell
@@ -94,10 +117,14 @@ local function pick(spec)
       end
       local handoff = vim.env.AI_PICK_FILE
       if handoff and handoff ~= "" then
-        vim.fn.writefile({ item.id }, handoff)
+        -- Line 1: session id. Line 2: account (Claude only; empty otherwise), so
+        -- the terminal wrapper (cr) can pin CLAUDE_ACCOUNT and resume a
+        -- cross-account pick under the right account. Old wrappers reading only
+        -- line 1 keep working.
+        vim.fn.writefile({ item.id, item.account or "" }, handoff)
         vim.cmd("qa!")
       else
-        require("config.mux").agent_split(spec.resume(item.id))
+        require("config.mux").agent_split(spec.resume(item))
       end
     end,
   })
@@ -122,10 +149,27 @@ done
 
 local claude_label = require("plugins.snacks.claude_label")
 
+-- Multi-account: args are alternating "<dir> <account>" pairs (one per config
+-- root that has history for this cwd). Gather every session across them, sort
+-- globally newest-first, then derive labels — emitting the account as a 5th
+-- column so resume can authenticate as the right one.
 local claude_batch = claude_label .. [==[
-session_id() { basename "$1" .jsonl; }
-session_label() { claude_label "$1"; }
-]==] .. jsonl_batch_tail
+{
+  while [ "$#" -ge 2 ]; do
+    dir="$1"; acct="$2"; shift 2
+    for f in "$dir"/*.jsonl; do
+      [ -f "$f" ] || continue
+      mt="$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null)"
+      printf '%s\t%s\t%s\n' "$mt" "$f" "$acct"
+    done
+  done
+} | sort -rn -k1,1 | while IFS="$(printf '\t')" read -r mt f acct; do
+  id="$(basename "$f" .jsonl)"
+  lbl="$(claude_label "$f" | tr '\t\n' '  ')"
+  [ -z "$lbl" ] && lbl="Untitled (${id:0:8})"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$mt" "$f" "$acct" "$lbl"
+done
+]==]
 
 local claude_preview = [[
 jq -r 'select(.type == "user" or .type == "assistant")
@@ -135,15 +179,32 @@ jq -r 'select(.type == "user" or .type == "assistant")
 ]]
 
 function M.claude()
-  local dir = vim.fs.joinpath(vim.fn.expand("~/.claude/projects"), (vim.fn.getcwd():gsub("[/.]", "-")))
+  local encoded = vim.fn.getcwd():gsub("[/.]", "-")
+  -- Every ~/.claude* config root that has history for this cwd, each tagged with
+  -- its account (~/.claude → personal, ~/.claude-work → work). Discovered by
+  -- glob, not hardcoded, so a third account just works.
+  local args = { "-c", claude_batch, "claude" }
+  for _, root in ipairs(vim.fn.glob(vim.fn.expand("~") .. "/.claude*/projects", true, true)) do
+    local proj = vim.fs.joinpath(root, encoded)
+    if vim.fn.isdirectory(proj) == 1 then
+      local suffix = root:match("/%.claude([^/]*)/projects$") or ""
+      local account = suffix == "" and "personal" or suffix:gsub("^%-", "")
+      table.insert(args, proj)
+      table.insert(args, account)
+    end
+  end
   pick({
     title = "Claude Conversations",
     icon = "💬 ",
     cmd = "bash",
-    args = { "-c", claude_batch, "claude", dir },
+    args = args,
+    transform = claude_transform,
     preview_cmd = claude_preview,
-    resume = function(id)
-      return "cr " .. id
+    resume = function(item)
+      -- Pin the session's account so `cr` injects the right config dir + OAuth
+      -- token (claude-account honors CLAUDE_ACCOUNT above cwd auto-detection) -
+      -- else resuming a personal session from a work repo authenticates wrong.
+      return "env CLAUDE_ACCOUNT=" .. (item.account or "personal") .. " cr " .. item.id
     end,
   })
 end
@@ -177,8 +238,8 @@ function M.pi()
     cmd = "bash",
     args = { "-c", pi_batch, "pi", dir },
     preview_cmd = pi_preview,
-    resume = function(id)
-      return "pir " .. id
+    resume = function(item)
+      return "pir " .. item.id
     end,
   })
 end
@@ -216,8 +277,8 @@ function M.opencode()
     cmd = "bash",
     args = { "-c", opencode_batch, "oc", vim.fn.getcwd(), dir },
     preview_cmd = opencode_preview,
-    resume = function(id)
-      return "ocr " .. id
+    resume = function(item)
+      return "ocr " .. item.id
     end,
   })
 end
