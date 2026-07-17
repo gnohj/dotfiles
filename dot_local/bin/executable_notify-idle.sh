@@ -1,21 +1,9 @@
 #!/usr/bin/env bash
-# Agent idle notifier. Emits a macOS banner when an AI agent finishes a turn.
-# Wired into Claude Code via the `Stop` hook in ~/.claude/settings.json. The
-# agent name (used in the banner title) is detected by walking up the process
-# tree — opencode is also recognized for future re-enablement.
-#
-# Uses terminal-notifier (own bundle id, registered with NSUserNotification)
-# rather than alerter+facetime spoof. Click opens Terminal.app and attaches
-# to the tmux session. `rctrl - '` remains the primary attach path; banner
-# click is the secondary "I just want to grab this from anywhere" path.
-#
-# The notification thumbnail (-contentImage) reflects the terminal hosting
-# the tmux session (Ghostty / kitty / Terminal.app / etc). icns assets are
-# converted to png on first use via `sips` and cached under
-# ~/.cache/notify-idle/ for reuse.
+
+# Agent-idle notifier + rctrl-' marker (Claude `Stop` hook). uname-branched: Mac fires the banner locally; Linux writes the marker then reverse-SSHes the banner to the Mac (Track A). Marker written FIRST so rctrl-' works even when the banner can't be delivered.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 # Log every invocation with caller info so we can spot rogue triggers.
 LOG_DIR="$HOME/.logs"
@@ -27,47 +15,24 @@ mkdir -p "$LOG_DIR"
 } >> "$LOG_DIR/notify-idle.log" 2>&1
 
 SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
-# The STABLE id (%N) of the pane the agent runs in. The Stop hook inherits
-# TMUX_PANE from the agent process, so display-message resolves the agent's OWN
-# pane — this lets rctrl - ' land on the precise pane even when one session hosts
-# several agents. A pane id (not session:window.pane) is drift-proof: it never
-# changes when panes/windows renumber between the banner and the keypress. Empty
-# (→ bare session) if it can't be resolved.
+# Stable pane id (%N) of the agent's own pane (the Stop hook inherits TMUX_PANE), so rctrl-' lands on the exact pane even when a session hosts several agents.
 PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
 BRANCH="$(git -C "$PWD" branch --show-current 2>/dev/null)"
 
-# Only notify when both tmux session and git branch exist — otherwise the
-# notification is noise (Claude was run outside the normal tmux+git workflow).
+# Only notify inside the normal tmux+git workflow; otherwise it's noise.
 if [ -z "$SESSION" ] || [ -z "$BRANCH" ]; then
   exit 0
 fi
 
-# Track the most recent agent PANE to fire a banner so the smart-switch binding
-# (rctrl - ') can read it and focus that exact pane — not just its session, which
-# would be ambiguous when a session hosts multiple agents. Falls back to the bare
-# session when the pane couldn't be resolved.
+# Marker for rctrl-' — written FIRST and on every OS, so the jump works even if the banner delivery below fails.
 echo "${PANE_ID:-$SESSION}" > /tmp/notify-idle.latest 2>/dev/null || true
 
-# Detect host terminal. Inside tmux we MUST use `#{client_termtype}` —
-# tmux's server inherits TERM from the first client that started it and
-# keeps that value forever, so $TERM in long-lived shells reflects the
-# original launching terminal, not whichever terminal is currently attached.
+# Terminal hosting the session (for the banner icon). Inside tmux use client_termtype, not $TERM (the server keeps the first client's TERM forever).
 TERM_ID=""
-if [ -n "$SESSION" ]; then
-  TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
-fi
+[ -n "$SESSION" ] && TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
 TERM_ID="${TERM_ID:-${TERM:-}}"
 
-# Resolve content-image PNG via the shared helper. Cache lives in
-# ~/.cache/notify-idle/. Some apps (kitty) ship a usable PNG directly;
-# others (Ghostty, Terminal.app, iTerm) only ship .icns and the helper
-# converts + caches via sips on first use.
-ICON_PNG=$(resolve-term-icon "$TERM_ID" 2>/dev/null || true)
-
-# Detect which agent fired the hook by walking up the process tree. Claude
-# Code spawns the hook as a direct child (PPID = claude), but opencode
-# plugins spawn through a zx shell (PPID = bash, grandparent = opencode), so
-# we walk up to 5 levels looking for a known agent binary.
+# Which agent fired the hook — walk up the process tree (claude = direct child; opencode = zx-shell grandparent).
 AGENT="Agent"
 _pid=$PPID
 for _ in 1 2 3 4 5; do
@@ -81,26 +46,20 @@ for _ in 1 2 3 4 5; do
   _pid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ')
 done
 
-TITLE="$AGENT"
-MSG="$SESSION"
-TIMEOUT_SECONDS=12
-
-# Click handler dispatches to whichever terminal is currently running
-# (ghostty → kitty → Terminal.app fallback). Helper lives in ~/.local/bin/
-# and is deployed by chezmoi from private_Scripts/executable_open-tmux-attach.sh.
-EXECUTE_CMD="$HOME/.local/bin/open-tmux-attach.sh '$SESSION'"
-
-# Fire the banner via the unified mac-notify helper. mac-notify owns
-# the terminal-notifier vs osascript fallback, so this script doesn't
-# need to branch on tool availability.
-notify_args=(
-  -t "$TITLE"
-  -m "$MSG"
-  -g "agent-idle-$SESSION"
-  -T "$TIMEOUT_SECONDS"
-  -e "$EXECUTE_CMD"
-)
-if [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ]; then
-  notify_args+=( -i "$ICON_PNG" )
-fi
-mac-notify "${notify_args[@]}"
+case "$(uname)" in
+  Darwin)
+    # Agent runs on the Mac — fire the banner locally; click attaches to the session.
+    "$HOME/.local/bin/notify-idle-emit.sh" "$AGENT" "$SESSION" "$TERM_ID" \
+      "$HOME/.local/bin/open-tmux-attach.sh '$SESSION'"
+    ;;
+  Linux)
+    # Agent on the VPS: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Host from $NOTIFY_MAC_SSH or ~/.config/notify-idle/mac-ssh-host; unset → marker-only.
+    MAC_HOST="${NOTIFY_MAC_SSH:-$(cat "$HOME/.config/notify-idle/mac-ssh-host" 2>/dev/null || true)}"
+    [ -n "$MAC_HOST" ] || exit 0
+    # Strip single quotes so the payload can't break out of the single-quoted remote command (defense-in-depth).
+    AGENT_S=${AGENT//\'} SESSION_S=${SESSION//\'} TERM_S=${TERM_ID//\'}
+    ssh -o ConnectTimeout=2 -o BatchMode=yes "$MAC_HOST" \
+      "\$HOME/.local/bin/notify-idle-emit.sh '$AGENT_S' '$SESSION_S' '$TERM_S'" \
+      >/dev/null 2>&1 &
+    ;;
+esac
