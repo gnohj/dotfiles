@@ -116,7 +116,10 @@ keybind = ctrl+tab=text:\x01n
 keybind = ctrl+space=text:\x01\x20
 keybind = ctrl+enter=text:\x01L
 keybind = ctrl+period=text:\x01g
-keybind = ctrl+semicolon=text:\x01a
+keybind = ctrl+semicolon=text:\x01\x2c
+keybind = ctrl+comma=text:\x01a
+keybind = ctrl+apostrophe=text:\x01\x27
+keybind = ctrl+slash=text:\x01\x2f
 # ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding
 keybind = ctrl+physical:one=text:\x01\x31
 keybind = ctrl+physical:two=text:\x01\x32
