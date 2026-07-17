@@ -29,14 +29,31 @@ SESSION="$1"
 # --- sesh-only gate: require a fresh @sesh_spawn stamp (protocol: sesh-spawn.sh)
 "$HOME/.config/sesh/sesh-spawn.sh" fresh || exit 0
 
-# --- run once per session -----------------------------------------------------
+# --- run once per session + claim the session AGAINST startup.sh --------------
+# Claim IMMEDIATELY (before the slow git/awk work below), not just before the
+# window build. sesh runs the default startup_command (startup.sh -> dev.sh) for
+# this same session, and dev.sh ALSO builds the fish window. Both gate on
+# @nvim_fast_done; if we set it late (after the sesh.toml awk) startup.sh can read
+# it unset in the gap and build a SECOND fish window (the "3 windows" bug). Setting
+# it here shrinks the race to the two adjacent tmux calls. Safe to claim before the
+# git/explicit-startup checks: a non-git or explicit-startup session needs no
+# dev.sh fallback anyway (dev.sh self-skips non-git; explicit sessions run their
+# own command), so blocking startup.sh for them costs nothing.
 [ "$(tmux show-options -qv -t "$SESSION" @nvim_fast_done)" = "1" ] && exit 0
+tmux set-option -t "$SESSION" @nvim_fast_done 1
 
 DIR=$(tmux display-message -p -t "$SESSION" '#{session_path}' 2>/dev/null)
 [ -n "$DIR" ] || exit 0
 
 # --- git repo AND not an explicit-startup session in sesh.toml ----------------
 git -C "$DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+
+# Pre-warm the gitmux status cache in parallel with the window build below, so the
+# status bar shows branch/status the instant this brand-new session first paints
+# instead of blank-until-the-next-tick. Same writer the status #() job uses, so
+# the mkdir-lock coalesces if a tick fires mid-warm.
+"$HOME/.config/tmux/status-git-refresh.sh" "$DIR" >/dev/null 2>&1 &
+
 SESH_TOML="$HOME/.config/sesh/sesh.toml"
 if [ -f "$SESH_TOML" ] && awk -v w="$SESSION" '
     /^\[\[session\]\]/ { nm=""; next }
@@ -47,7 +64,8 @@ if [ -f "$SESH_TOML" ] && awk -v w="$SESSION" '
   exit 0
 fi
 
-tmux set-option -t "$SESSION" @nvim_fast_done 1
+# @nvim_fast_done already claimed at the top (before the git/awk work) so the
+# concurrent startup.sh -> dev.sh defers instead of building a duplicate window.
 
 # --- pen window (window 1): fast, surviving nvim ------------------------------
 # base-index 1 (base.conf) → the session's first window is :1, not :0.

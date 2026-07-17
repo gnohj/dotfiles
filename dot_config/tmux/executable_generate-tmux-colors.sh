@@ -48,6 +48,12 @@ active_border_fmt="fg=${active_border_color}"
 win_sep="#{?#{==:#{window_index},1},,  }"
 window_list_fmt="#{W:${win_sep}#[range=window|#{window_index}]#[fg=${gnohj_color08}]#{window_index}:#{window_name}#[norange],${win_sep}#[range=window|#{window_index}]#[fg=${gnohj_color03}]#{window_index}:#{window_name}*#[norange]}"
 
+# Session cell rendered NATIVELY (#S + prefix-aware color) so it repaints the instant you switch sessions - same reason the window list is native. Previously the session name lived inside the #() job (a tmux display-message for #S), so it couldn't update until the whole script re-ran on the next status-interval tick. Only the git segment (glyph + gitmux) stays in the #() below, lazy-loaded. Keeps the `range=user|sesh` click target for the sesh picker; prefix-active tints via #{?client_prefix,...}.
+session_cell_fmt="#{?client_prefix,#[fg=${gnohj_color21}],#[fg=${gnohj_color04}]}#[range=user|sesh]#S#[norange] "
+
+# Git-context glyph (🌿 checkout / 🌳 worktree) rendered NATIVELY from the pane option @git_ctx that generate-status-line.sh publishes. Native so it sits BEFORE the session name (order: 🌿 session git) and repaints instantly on revisit (the option persists per pane). Empty when the pane isn't a git repo, so this collapses to nothing.
+glyph_cell_fmt="#[fg=${gnohj_color03},nobold]#{@git_ctx}"
+
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
 # Generated at: $(date)
@@ -57,8 +63,8 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Use status-format for complete control - git/session is the cached #() job, window list is native (#{W:...}) so the highlight is instant.
-set -g status-format[0] "#[align=centre]#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}"
+# Use status-format for complete control - session name + window list are NATIVE (#S / #{W:...}) so they repaint instantly on switch; only the git segment (context glyph + gitmux status) is the cached #() job, lazy-loaded stale-while-revalidate.
+set -g status-format[0] "#[align=centre]${glyph_cell_fmt}${session_cell_fmt}#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}"
 
 # Empty status-left and status-right since we're using status-format
 set -g status-left ""
