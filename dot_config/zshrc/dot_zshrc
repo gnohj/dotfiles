@@ -1332,6 +1332,10 @@ fi
 
 # Cached integrations (regenerate if binary updates)
 command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+# Seed git worktrees into zoxide once per shell, detached so it never blocks
+# startup. Keeps sesh's default view + `z` complete for worktrees created
+# outside treekanga (the sesh picker also refreshes this on each open).
+command -v wtsync &>/dev/null && wtsync &!
 command -v fzf &>/dev/null && _evalcache fzf fzf --zsh
 # Atuin needs direct eval (caching breaks widget registration)
 command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"

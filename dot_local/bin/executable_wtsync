@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Seed every git worktree (as enumerated by ~/.local/bin/worktree-list) into
+# zoxide, so sesh's default view and the `z` command surface worktrees even
+# when they were never manually cd'd into (e.g. created by Claude Code's
+# worktree isolation, a bare `git worktree add`, or an agent tool). treekanga
+# already seeds at creation time; this is the catch-all for everything else.
+#
+# Meant to run DETACHED (`wtsync &!`) — the scan is ~1s, but nothing waits on
+# it. Called from ~/.config/zshrc/.zshrc (startup) and ~/.config/tmux/
+# sesh-popup.sh (each picker open, so the NEXT open is fresh).
+
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
+command -v zoxide >/dev/null 2>&1 || exit 0
+
+# Match the interactive shell's custom DB location ($ZDOTDIR). Without this,
+# non-interactive runs write to zoxide's default DB (~/.local/share/zoxide),
+# which the user's `z` never reads — so the entries would silently vanish.
+export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
+
+# Add ONLY worktrees not already in the DB. `zoxide add` bumps a path's
+# frecency score on every call, so bulk-adding existing entries on each shell
+# start / picker open would inflate worktree ranks over dirs actually visited.
+# Genuine visits (the sesh-popup ctrl-w connect) still add unconditionally —
+# there the score bump is the whole point.
+# LC_ALL=C so `sort` and `comm` agree on byte-order collation on both macOS
+# (BSD) and Linux (GNU) — a locale mismatch between the two would make comm
+# mis-detect which paths are new.
+new=$(LC_ALL=C comm -23 \
+  <(worktree-list 2>/dev/null | cut -f2 | LC_ALL=C sort -u) \
+  <(zoxide query -l 2>/dev/null | LC_ALL=C sort -u))
+[ -n "$new" ] && printf '%s\n' "$new" | tr '\n' '\0' | xargs -0 zoxide add
