@@ -1,14 +1,39 @@
 #!/usr/bin/env bash
-# Claude Code: resume the most recent session with the vault available.
+# Claude Code resume. Two modes:
+#   cr <session-id>  resume that session directly in this pane (native --resume).
+#   cr               open nvim -> Claude Conversations picker; on pick, quit nvim
+#                    and resume that session in THIS SAME pane (AI_PICK_FILE
+#                    handoff). Selecting nothing just leaves you in nvim.
 # Account follows the default (claude-account): config dir + OAuth token are
 # injected here so the right account authenticates. Override per-pane by
 # exporting CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN before calling.
-_dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
-[ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
-_tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
-[ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
-exec claude \
-  --dangerously-skip-permissions \
-  --resume \
-  --add-dir "$HOME/Obsidian/second-brain" \
-  "$@"
+
+_claude_env() {
+  _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+  [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
+  _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+  [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+}
+
+# The session id must sit immediately after --resume, or --resume takes no value
+# and reopens the native picker.
+_resume() {
+  _claude_env
+  id="$1"
+  shift
+  exec claude \
+    --dangerously-skip-permissions \
+    --resume "$id" \
+    --add-dir "$HOME/Obsidian/second-brain" \
+    "$@"
+}
+
+if [ "$#" -gt 0 ]; then
+  _resume "$@"
+fi
+
+sel=$(mktemp -t cr-pick.XXXXXX)
+AI_PICK_FILE="$sel" nvim -c "lua vim.schedule(function() require('plugins.snacks.ai_sessions').claude() end)"
+id=$(cat "$sel" 2>/dev/null)
+rm -f "$sel"
+[ -n "$id" ] && _resume "$id"

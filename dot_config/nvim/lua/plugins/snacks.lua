@@ -505,6 +505,27 @@ return {
       desc = "Find Config Files (~/.config)",
     },
     {
+      "<leader>fa",
+      function()
+        require("plugins.snacks.ai_sessions").claude()
+      end,
+      desc = "Find Claude Conversations",
+    },
+    {
+      "<leader>fo",
+      function()
+        require("plugins.snacks.ai_sessions").opencode()
+      end,
+      desc = "Find Opencode Sessions",
+    },
+    {
+      "<leader>fI",
+      function()
+        require("plugins.snacks.ai_sessions").pi()
+      end,
+      desc = "Find Pi Sessions",
+    },
+    {
       "<leader>gs",
       function()
         require("snacks").picker({
@@ -911,7 +932,7 @@ return {
               return not is_vault_context()
             end,
             action = function()
-              agent_split("cr")
+              require("plugins.snacks.ai_sessions").claude()
             end,
           },
           {
@@ -933,9 +954,7 @@ return {
               return not is_vault_context()
             end,
             action = function()
-              -- pi -r → "Select a session to resume" (interactive picker;
-              -- direct equivalent of claude --resume).
-              agent_split("pi -r")
+              require("plugins.snacks.ai_sessions").pi()
             end,
           },
           {
@@ -952,15 +971,12 @@ return {
           {
             icon = "ø ",
             key = "N",
-            desc = "Opencode (Continue)",
+            desc = "Opencode (Sessions)",
             enabled = function()
               return not is_vault_context()
             end,
             action = function()
-              -- opencode has no interactive session picker at the CLI
-              -- (only --session <id>). `-c` continues the LAST session,
-              -- closest analog to claude --resume / pi -r.
-              agent_split("opencode -c")
+              require("plugins.snacks.ai_sessions").opencode()
             end,
           },
         },
