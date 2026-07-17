@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Emit one row per git worktree for the sesh picker's ctrl-w source
+# (see ~/.config/tmux/sesh-popup.sh). Rows are TAB-delimited:
+#
+#     🌳 <display-name>\t<absolute-path>
+#
+# fzf shows field 1 (--with-nth=1) and the caller connects to field 2.
+#
+# Scan roots:
+#   - every repo under ~/Developer (via its .bare when bare-based, else the
+#     repo dir itself). `git worktree list` from a repo already includes that
+#     repo's treehouse pool worktrees under ~/.treehouse, so they come along
+#     for free.
+#   - any ~/.treehouse tree whose repo is NOT under ~/Developer (e.g. the
+#     chezmoi pool tree) — found by locating its .git entry directly.
+#
+# Only repos that actually USE worktrees are listed: a repo must have >1
+# non-bare worktree for its trees to appear, so plain single-checkout repos
+# (their lone main dir) are filtered out. Seeds are grouped by git-common-dir
+# so every worktree of a repo — including its treehouse trees — is counted
+# together and the repo is scanned once.
+#
+# Per-repo `git worktree list` calls run in parallel; the union is deduped by
+# absolute path with `sort -u`, so treehouse worktrees reported by both a
+# Developer repo and a treehouse seed collapse to one row.
+
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
+format_name() {
+  local p="$1"
+  case "$p" in
+    "$HOME/Developer/"*) printf '%s' "${p#"$HOME"/Developer/}" ;;
+    "$HOME/.treehouse/"*) printf 'treehouse/%s' "${p#"$HOME"/.treehouse/}" ;;
+    "$HOME/"*) printf '~/%s' "${p#"$HOME"/}" ;;
+    *) printf '%s' "$p" ;;
+  esac
+}
+
+collect_seeds() {
+  local d
+  for d in "$HOME"/Developer/*/; do
+    if [ -d "${d}.bare" ]; then
+      printf '%s\n' "${d}.bare"
+    else
+      printf '%s\n' "$d"
+    fi
+  done
+  if [ -d "$HOME/.treehouse" ] && command -v fd &>/dev/null; then
+    fd -H -a --max-depth 5 -E node_modules '^\.git$' "$HOME/.treehouse" 2>/dev/null |
+      while IFS= read -r gitentry; do
+        printf '%s\n' "$(dirname "$gitentry")"
+      done
+  fi
+}
+
+TAB=$(printf '\t')
+
+collect_seeds |
+  sort -u |
+  xargs -P8 -I{} sh -c '
+    common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+    printf "%s\t%s\n" "$common" "$1"
+  ' _ {} |
+  sort -u -t"$TAB" -k1,1 |
+  cut -f2 |
+  xargs -P8 -I{} sh -c '
+    wts=$(git -C "$1" worktree list --porcelain 2>/dev/null | sed -n "s/^worktree //p" | grep -v "/\.bare$")
+    [ "$(printf "%s\n" "$wts" | grep -c .)" -gt 1 ] || exit 0
+    printf "%s\n" "$wts"
+  ' _ {} |
+  sort -u |
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    [ -d "$p" ] || continue
+    printf '🌳 %s\t%s\n' "$(format_name "$p")" "$p"
+  done
