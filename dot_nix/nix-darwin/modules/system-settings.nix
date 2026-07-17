@@ -163,6 +163,17 @@
     disable_desktop_hotkey 126 25   # control+9
     disable_desktop_hotkey 127 29   # control+0
     sudo -u ${config.system.primaryUser} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
+
+    # Accessibility (TCC) can't be granted declaratively (SIP-protected TCC.db; only MDM/PPPC can) - this marker-gated reminder just makes the manual grant unmissable on a fresh machine. macos-mcp/Cowork spun 2 cores because uv (not Claude.app) makes the AX calls and was ungranted.
+    ACCESSIBILITY_MARKER="${config.users.users.${config.system.primaryUser}.home}/.config/.accessibility-granted"
+    if [ ! -f "$ACCESSIBILITY_MARKER" ]; then
+      echo "🔓 Grant Accessibility in System Settings → Privacy & Security → Accessibility to:" >&2
+      echo "   Claude, uv, Ghostty, kitty, kanata, karabiner_cli, skhd, sketchybar, borders," >&2
+      echo "   Homerow, Mouseless, Raycast, Logi Options+, macshot, OpenSuperWhisper" >&2
+      echo "   (uv is the one that broke macos-mcp/Cowork - it makes the AX calls, not Claude)" >&2
+      sudo -u ${config.system.primaryUser} open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" || true
+      echo "   When done: touch $ACCESSIBILITY_MARKER  # silences this reminder" >&2
+    fi
   '';
 
 }
