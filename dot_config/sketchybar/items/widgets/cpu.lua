@@ -2,9 +2,9 @@ local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
--- CPU usage percentage (matching iStats calculation)
+-- CPU usage percentage (matching btop: proper 1s sample window, not back-to-back)
 local function get_cpu_percentage(callback)
-	sbar.exec([[top -l 2 -n 0 -s 0 | grep "CPU usage" | tail -1 | awk '{
+	sbar.exec([[top -l 2 -n 0 -s 1 | grep "CPU usage" | tail -1 | awk '{
       user = $3
       sys = $5
       gsub(/%/, "", user)
@@ -23,7 +23,7 @@ end
 
 local cpu = sbar.add("item", constants.items.CPU, {
 	position = "right",
-	update_freq = 30,
+	update_freq = 10,
 	icon = {
 		string = "",
 		color = colors.light_blue,
