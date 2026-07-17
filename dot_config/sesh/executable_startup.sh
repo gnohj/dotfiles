@@ -13,7 +13,7 @@ cd "$SESSION_PATH" || exit 0
 SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null)
 
 # If the fast session-created hook (sesh-session-created.sh) already claimed this
-# session, do NOT also run dev.sh (would duplicate the fish window / relaunch
+# session, do NOT also run dev.sh (would duplicate the dev windows / relaunch
 # nvim the slow way). dev.sh stays as a graceful fallback for sesh sessions the
 # hook skipped (e.g. an entry point missing the @sesh_spawn stamp).
 if [[ "$(tmux show-options -qv -t "$SESSION_NAME" @nvim_fast_done 2>/dev/null)" == "1" ]]; then
@@ -27,7 +27,7 @@ fi
 # Claim the session against the sesh-session-created hook (which ALSO builds the
 # dev layout via dev.sh and gates on @nvim_fast_done). We're past the git check
 # and about to run dev.sh, so claim now: if the hook hasn't set the flag yet, this
-# makes it defer at its once-guard instead of building a duplicate fish window.
+# makes it defer at its once-guard instead of building a duplicate set of dev windows.
 # Symmetric with the hook's early claim — whichever wins, the other backs off.
 tmux set-option -t "$SESSION_NAME" @nvim_fast_done 1
 

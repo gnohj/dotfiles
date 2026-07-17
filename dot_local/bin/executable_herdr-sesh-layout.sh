@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # herdr-sesh-layout.sh — open a directory as a herdr workspace with the sesh dev
-# layout: pen (🖋️ nvim, focused) + fish (🐠, 3 EVEN shells, backgrounded). The
-# herdr-native replacement for dev.sh + dev-window.sh (which were tmux-only). Shared
+# layout: pen (🖋️ nvim, focused) + robot (🤖 AI) + hammer (🔨 dev), each a 3-EVEN
+# -shell tab, backgrounded. The herdr-native replacement for dev.sh + dev-window.sh
+# (which were tmux-only). Shared
 # by the herdr-sesh.sh picker AND the treekanga worktree bridge, so the layout lives
 # in one place. Pure herdr CLI → runs server-side, works local and over --remote.
 #
@@ -34,9 +35,9 @@ fi
 # Honor the sesh entry's startup_command. sesh runs an explicit per-session
 # startup_command in a SINGLE window (it overrides the default dev layout), so
 # web/review + inferno/review (startup_command = "ghd") open one gh-dash window,
-# not pen/fish. Mirror that below. Entries with no explicit startup_command
+# not the dev layout. Mirror that below. Entries with no explicit startup_command
 # (StartupCommand empty) — plus zoxide/treekanga dirs not in sesh config — fall
-# through to the pen/fish dev layout.
+# through to the pen/robot/hammer dev layout.
 startup_cmd=""
 if command -v sesh >/dev/null 2>&1; then
   startup_cmd=$(sesh list -c -j 2>/dev/null | jq -r --arg d "$dir" \
@@ -64,11 +65,11 @@ tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 pen_n=$(printf '%s' "$out" | jq -r '.result.tab.number // empty')
 
 # startup_command session (e.g. web/review → "ghd"): sesh opens ONE window running
-# that command, no second tab. Run it in the root pane and stop. Label the tab
-# "<number>.🐠" (fish) so it matches the styled "1.🖋️"/"2.🐠" tabs instead of
-# herdr's bare default number badge.
+# that command, no extra tabs. Run it in the root pane and stop. Label the tab
+# "<number>.🐚" (shell) so it matches the styled dev tabs instead of herdr's bare
+# default number badge.
 if [ -n "$startup_cmd" ]; then
-  "$herdr" tab rename "$tab" "${pen_n:+$pen_n.}🐠" >/dev/null 2>&1
+  "$herdr" tab rename "$tab" "${pen_n:+$pen_n.}🐚" >/dev/null 2>&1
   "$herdr" pane run "$pen" "$startup_cmd" >/dev/null 2>&1
   exit 0
 fi
@@ -78,16 +79,24 @@ fi
 "$herdr" tab rename "$tab" "${pen_n:+$pen_n.}🖋️" >/dev/null 2>&1
 "$herdr" pane run "$pen" "nvim" >/dev/null 2>&1
 
-# fish tab (backgrounded so focus stays on nvim): 3 EVEN shells. herdr --ratio is
-# the fraction the TARGET pane keeps, so 1/3 then 1/2 yields even thirds — the
-# dev-window.sh `even-horizontal` equivalent (herdr's default 0.5 gives 50/25/25).
-ftab=$("$herdr" tab create --workspace "$ws" --label "🐠" --no-focus 2>/dev/null)
-froot=$(printf '%s' "$ftab" | jq -r '.result.root_pane.pane_id // empty')
-ftab_id=$(printf '%s' "$ftab" | jq -r '.result.tab.tab_id // empty')
-fish_n=$(printf '%s' "$ftab" | jq -r '.result.tab.number // empty')
-[ -n "$ftab_id" ] && "$herdr" tab rename "$ftab_id" "${fish_n:+$fish_n.}🐠" >/dev/null 2>&1
-if [ -n "$froot" ]; then
-  p2=$("$herdr" pane split "$froot" --direction right --ratio 0.3333 --no-focus 2>/dev/null \
-        | jq -r '.result.pane.pane_id // empty')
-  [ -n "$p2" ] && "$herdr" pane split "$p2" --direction right --ratio 0.5 --no-focus >/dev/null 2>&1
-fi
+# Build one backgrounded 3-EVEN-shell tab labeled with <emoji> (--no-focus keeps
+# focus on the pen/nvim tab). herdr --ratio is the fraction the TARGET pane keeps,
+# so 1/3 then 1/2 yields even thirds — the dev-window.sh `even-horizontal`
+# equivalent (herdr's default 0.5 gives 50/25/25).
+make_shell_tab() {
+  local emoji="$1" out root id num p2
+  out=$("$herdr" tab create --workspace "$ws" --label "$emoji" --no-focus 2>/dev/null)
+  root=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
+  id=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
+  num=$(printf '%s' "$out" | jq -r '.result.tab.number // empty')
+  [ -n "$id" ] && "$herdr" tab rename "$id" "${num:+$num.}$emoji" >/dev/null 2>&1
+  if [ -n "$root" ]; then
+    p2=$("$herdr" pane split "$root" --direction right --ratio 0.3333 --no-focus 2>/dev/null \
+          | jq -r '.result.pane.pane_id // empty')
+    [ -n "$p2" ] && "$herdr" pane split "$p2" --direction right --ratio 0.5 --no-focus >/dev/null 2>&1
+  fi
+}
+
+# robot (AI) then hammer (dev), so they land as tabs 2 and 3 after the pen tab (1).
+make_shell_tab "🤖"
+make_shell_tab "🔨"

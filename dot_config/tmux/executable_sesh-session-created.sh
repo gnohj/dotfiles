@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # tmux `session-created` hook handler (wired in tmux.conf).
 #
-# Launches nvim FAST for git-repo sesh sessions and builds the 3-pane shell
-# ("fish") window in the background.
+# Launches nvim FAST for git-repo sesh sessions and builds the two background
+# 3-pane shell windows — robot (AI) and hammer (dev).
 #
 # GATED TO SESH LAUNCHES ONLY: every sesh entry point stamps @sesh_spawn with
 # the current epoch immediately before `sesh connect`. We require that stamp to
@@ -20,7 +20,8 @@
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
-export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 SESSION="$1"
@@ -32,9 +33,9 @@ SESSION="$1"
 # --- run once per session + claim the session AGAINST startup.sh --------------
 # Claim IMMEDIATELY (before the slow git/awk work below), not just before the
 # window build. sesh runs the default startup_command (startup.sh -> dev.sh) for
-# this same session, and dev.sh ALSO builds the fish window. Both gate on
+# this same session, and dev.sh ALSO builds the dev windows. Both gate on
 # @nvim_fast_done; if we set it late (after the sesh.toml awk) startup.sh can read
-# it unset in the gap and build a SECOND fish window (the "3 windows" bug). Setting
+# it unset in the gap and build a duplicate set of dev windows. Setting
 # it here shrinks the race to the two adjacent tmux calls. Safe to claim before the
 # git/explicit-startup checks: a non-git or explicit-startup session needs no
 # dev.sh fallback anyway (dev.sh self-skips non-git; explicit sessions run their
@@ -72,5 +73,5 @@ fi
 tmux respawn-window -k -t "${SESSION}:1" "zsh -i -c 'cd \"$DIR\"; nvim; exec zsh'"
 mark_window "${SESSION}:1" pen
 
-# --- fish window: 3 background panes (-d keeps focus on nvim) ------------------
-create_fish_window "$SESSION" "$DIR"
+# --- robot (AI) + hammer (dev) windows: 3 background panes each (-d keeps focus on nvim)
+create_dev_windows "$SESSION" "$DIR"

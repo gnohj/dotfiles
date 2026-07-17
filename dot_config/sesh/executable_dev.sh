@@ -2,18 +2,19 @@
 # Shared sesh startup body for git/worktree sessions.
 #
 # The session's original window (window 0) becomes the nvim ("pen") window and
-# stays focused the entire time. The 3-pane shell ("fish") window is created in
-# the BACKGROUND (tmux new-window -d) so its shells boot while you're already in
-# nvim - the spawn lands straight in nvim with no focus flash, yet both windows
-# show in the status bar immediately and the fish shells are warm by the time
-# you navigate to them.
+# stays focused the entire time. The two 3-pane shell windows — robot (AI) and
+# hammer (dev) — are created in the BACKGROUND (tmux new-window -d) so their
+# shells boot while you're already in nvim - the spawn lands straight in nvim
+# with no focus flash, yet all windows show in the status bar immediately and the
+# shells are warm by the time you navigate to them.
 #
 # First parameter is an unused placeholder (''); second is the working dir.
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (linuxbrew / mise shims / ~/.local/bin) are appended so nvim/gitmux/sesh resolve
 # on a headless Linux VPS too (matches sesh-session-created.sh / status-git-refresh.sh).
-export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 # Diagnostic: set to 1 to flash how long from spawn until window 0's shell is
@@ -45,5 +46,5 @@ else
 fi
 tmux send-keys -t "${SESSION_NAME}:${WINDOW_INDEX}" "$LAUNCH" Enter
 
-# Create the 3-pane fish window in the background (-d keeps focus on nvim).
-create_fish_window "$SESSION_NAME" "$WORKING_DIR"
+# Create the robot (AI) + hammer (dev) 3-pane windows in the background (-d keeps focus on nvim).
+create_dev_windows "$SESSION_NAME" "$WORKING_DIR"
