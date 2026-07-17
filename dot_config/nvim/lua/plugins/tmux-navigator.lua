@@ -25,9 +25,9 @@ return {
     },
     keys = {
       -- Left is special: at nvim's leftmost split, defer to tmux instead of
-      -- christoomey's default `select-pane -L` (which wraps at the edge). If the
-      -- pane is also the leftmost tmux pane, focus the tmux-dash sidebar via
-      -- SIGUSR1; otherwise move to the tmux pane on the left.
+      -- christoomey's default `select-pane -L` (which wraps at the edge). Move to
+      -- the tmux pane on the left; at the true leftmost pane this is a no-op. The
+      -- tmux-dash sidebar is reached only via C-e, never C-h.
       {
         "<c-h>",
         function()
@@ -39,19 +39,10 @@ return {
           vim.cmd("wincmd h")
           if vim.fn.winnr() == cur then
             local pane = vim.env.TMUX_PANE or ""
-            vim.fn.jobstart({
-              "tmux",
-              "if-shell",
-              "-F",
-              "-t",
-              pane,
-              "#{pane_at_left}",
-              'run-shell "pkill -USR1 -x tmux-dash"',
-              "select-pane -t " .. pane .. " -L",
-            })
+            vim.fn.jobstart({ "tmux", "select-pane", "-t", pane, "-L" })
           end
         end,
-        desc = "Navigate left, or focus tmux-dash sidebar at the leftmost edge",
+        desc = "Navigate left",
       },
       { "<c-j>", "<cmd>TmuxNavigateDown<cr>", desc = "Navigate down" },
       { "<c-k>", "<cmd>TmuxNavigateUp<cr>", desc = "Navigate up" },
