@@ -3,26 +3,17 @@ local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
--- Memory usage percentage (matching iStats calculation)
+-- Memory usage percentage (matching btop: used = active + wired, over hw.memsize)
 local function get_memory_percentage(callback)
-	sbar.exec([[vm_stat | awk '
+	sbar.exec([[total=$(sysctl -n hw.memsize); vm_stat | awk -v total="$total" '
     /page size/ {pagesize=$8}
-    /Pages free/ {free=$3}
     /Pages active/ {active=$3}
-    /Pages inactive/ {inactive=$3}
-    /Pages speculative/ {spec=$3}
     /Pages wired/ {wired=$4}
-    /Pages occupied by compressor/ {compressed=$5}
     END {
-      # Remove trailing colons and convert to numbers
-      gsub(/:/, "", free); gsub(/:/, "", active); gsub(/:/, "", inactive)
-      gsub(/:/, "", spec); gsub(/:/, "", wired); gsub(/:/, "", compressed)
+      gsub(/:/, "", active); gsub(/:/, "", wired)
 
-      free = free + spec
-      used = (active + inactive + wired + compressed)
-      total = free + used
+      used = (active + wired) * pagesize
 
-      # Calculate percentage - this should match iStats better
       if (total > 0) {
         printf "%.0f", (used/total)*100
       } else {
@@ -41,7 +32,7 @@ end
 local memory = sbar.add("item", constants.items.MEMORY, {
 	position = "right",
 	padding_left = -5,
-	update_freq = 30,
+	update_freq = 10,
 	icon = {
 		string = "",
 		color = colors.light_blue,
