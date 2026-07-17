@@ -78,16 +78,16 @@ pagedown = "scroll_preview_half_page_down"
 pageup = "scroll_preview_half_page_up"
 
 # Data operations
-ctrl-y = "copy_entry_to_clipboard"
+alt-y = "copy_entry_to_clipboard"
 ctrl-r = "reload_source"
 ctrl-s = "cycle_sources"
 
 # UI Features
-ctrl-t = "toggle_remote_control"
+alt-t = "toggle_remote_control"
 ctrl-o = "toggle_preview"
-ctrl-h = "toggle_help"
+alt-h = "toggle_help"
 f12 = "toggle_status_bar"
-ctrl-l = "toggle_layout"
+alt-l = "toggle_layout"
 
 # Input field actions
 backspace = "delete_prev_char"
@@ -97,9 +97,9 @@ delete = "delete_next_char"
 left = "go_to_prev_char"
 right = "go_to_next_char"
 home = "go_to_input_start"
-ctrl-a = "go_to_input_start"
+alt-a = "go_to_input_start"
 end = "go_to_input_end"
-ctrl-e = "go_to_input_end"
+alt-e = "go_to_input_end"
 
 # Event bindings (non-keyboard events -> actions)
 [events]
