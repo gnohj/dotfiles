@@ -30,7 +30,8 @@ log "=== START $CURRENT_WORKTREE ==="
 # active and pnpm warns about engine mismatch. Put mise shims first on PATH
 # so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
 # .tool-versions in the worktree.
-export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # ~/.zsh_gnohj_env is the user's full environment file (bash-safe) — it
 # exports PNPM_HOME, GIT_AUTHOR_*, XDG paths, and chains into the secrets

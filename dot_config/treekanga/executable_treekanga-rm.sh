@@ -12,7 +12,8 @@
 
 set -uo pipefail
 
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 CONFIG_FILE="$HOME/.config/treekanga/treekanga.yml"
 # Use a temp dir on the same filesystem as $HOME so `mv` is an inode rename

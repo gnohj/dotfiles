@@ -16,7 +16,8 @@
 # a non-zero hook — but we stay defensive regardless.
 
 set -uo pipefail
-export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 # Align PNPM_HOME (store path) with interactive zsh so the next `pn i` doesn't
 # detect a layout mismatch and nuke the node_modules we just installed.
 [ -f "$HOME/.zsh_gnohj_env" ] && . "$HOME/.zsh_gnohj_env" 2>/dev/null

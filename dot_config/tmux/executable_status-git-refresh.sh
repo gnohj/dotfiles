@@ -14,8 +14,11 @@
 # Arg 1: directory. Always exits 0-ish (best-effort; never blocks a caller).
 
 # Match the login PATH so gitmux/perl resolve when called from a hook (macOS
-# homebrew first; linuxbrew/mise/~ .local appended for a headless Linux VPS).
-export PATH="/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+# homebrew first; mise/~ .local appended). linuxbrew is added ONLY on Linux - on
+# macOS /home is autofs, so stat'ing a /home/linuxbrew PATH entry on every cut/
+# cksum/git lookup triggers automountd+opendirectoryd storms (~10ms per stat).
+export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 DIR="${1:-}"
 [ -d "$DIR" ] || exit 0
