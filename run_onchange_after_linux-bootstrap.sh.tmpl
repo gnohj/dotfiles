@@ -122,9 +122,11 @@ fi
 # 6b. rbw — Bitwarden CLI that run_onchange_after_bitwarden.sh.tmpl reads to populate
 #     ~/.zsh_gnohj_env.secrets. No reliable release binary → cargo build (needs a rust
 #     toolchain + build-essential from step 4). pinentry-curses (step 4) drives the
-#     interactive unlock. NOTE: bitwarden sorts before linux-bootstrap, so on the FIRST
-#     apply it self-skips (rbw absent) and rbw only lands here; run a one-time
-#     `rbw login && rbw unlock && chezmoi apply` afterward to actually populate secrets.
+#     interactive unlock IF you ever use it. NOTE: bitwarden sorts before linux-bootstrap,
+#     so on the FIRST apply it self-skips (rbw absent) and rbw only lands here. The binary
+#     is installed for parity, but on the VPS you do NOT unlock the vault - secrets come
+#     from scoped tokens in ~/.zsh_gnohj_env.local. A full `rbw unlock` is reserved for the
+#     trusted Mac (see MANUAL_VPS_SETUP.md security model).
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   if ! command -v rbw >/dev/null 2>&1; then
     echo "==> installing rbw (Bitwarden CLI — secret provisioning)"

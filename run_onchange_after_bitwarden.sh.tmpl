@@ -19,7 +19,11 @@ fi
 # Secrets simply won't be populated; run 'eval $(rbw unlock) && chezmoi apply' to retry.
 if ! rbw unlocked &> /dev/null; then
   echo "Bitwarden vault is locked - skipping secret fetch."
+{{- if eq .chezmoi.os "darwin" }}
   echo "To populate secrets: eval \$(rbw unlock) && chezmoi apply"
+{{- else }}
+  echo "VPS: put ONLY scoped tokens in ~/.zsh_gnohj_env.local - a full 'rbw unlock' is reserved for the Mac (see MANUAL_VPS_SETUP.md security model)."
+{{- end }}
   exit 0
 fi
 
