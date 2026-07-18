@@ -324,6 +324,11 @@ local text <const> = {
 			on = "󰦝",
 			off = "󰦞",
 		},
+		tailscale = {
+			-- nf-fa-connectdevelop mesh glyph
+			on = "",
+			off = "",
+		},
 		media = {
 			back = "",
 			forward = "",
