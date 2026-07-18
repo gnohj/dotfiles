@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 7   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 8   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -99,7 +99,7 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   echo "==> mise: core CLIs"
   # gh: aic (lazygit <c-e>/<c-s> AI-commit) authenticates via `gh auth token`, read
   # by dot_aicommitrc.tmpl at apply time. Needs a one-time `gh auth login` (see end).
-  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship yazi jq gh; do
+  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship yazi jq gh btop; do
     "$MISE" use -g "$tool" >/dev/null 2>&1 || echo "   (skip $tool — check name with 'mise registry')"
   done
   # gitmux + sesh via ubi/aqua backends (no first-party mise registry entry).
@@ -167,7 +167,7 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
 fi
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh aic rbw"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop aic rbw"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
