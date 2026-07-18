@@ -68,11 +68,13 @@ if [ "$(id -u)" -eq 0 ]; then
   echo "$TARGET_USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$TARGET_USER"
   chmod 440 "/etc/sudoers.d/$TARGET_USER"
 
-  # 4. Harden sshd. Validate with `sshd -t` BEFORE restart so a bad config can
-  #    never lock you out; the existing root session survives a restart anyway.
+  # 4. Harden sshd. Validate before restart so a bad config can't lock you out.
+  SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
   printf 'PasswordAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/hardening.conf
-  if sshd -t; then
-    systemctl restart ssh
+  if "$SSHD_BIN" -t; then
+    # Ubuntu 24.04 may socket-activate ssh; restart the socket when it's the active unit.
+    systemctl restart ssh.socket 2>/dev/null || true
+    systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
     print_success "sshd hardened (key-only, no root login)"
     print_warning "Verify '$TARGET_USER' login in a SECOND terminal before you disconnect root."
   else
@@ -126,8 +128,10 @@ Full detail in MANUAL_VPS_SETUP.md:
         gh auth login
         claude   |   codex   |   gemini      # once each for OAuth
 
-  [3] Secrets (Bitwarden → ~/.zsh_gnohj_env.secrets):
-        rbw login && rbw unlock && chezmoi apply
+  [3] Secrets — put ONLY the tokens THIS box needs into ~/.zsh_gnohj_env.local
+      (gitignored, auto-sourced; var names listed in ~/.config/bitwarden/vars.txt).
+      Your Bitwarden master password never touches the VPS (MANUAL_VPS_SETUP.md
+      §Security-4). A full `rbw unlock` is reserved for your trusted Mac.
 
   [4] tmux-dash (private repo — build from source once GitHub auth is set):
         git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .
