@@ -2,8 +2,6 @@
 
 The **interactive / secret-touching** steps that `chezmoi` + `run_onchange_after_linux-bootstrap.sh` can't script. Distinct from `MANUAL_SETUP.md` (which is the macOS/nix path).
 
-Visual runbook: https://claude.ai/code/artifact/dbfc0d27-48d0-4561-8324-68d856a60d2c Roadmap + decisions: `tasks/main.md`
-
 What's automated (don't do by hand): the bootstrap installs the toolchain, agent CLIs (claude/codex/gemini), custom tools (treehouse/no-mistakes/treekanga/atuin, tmux-dash from source), tailscale binary, and `enable-linger`. Everything below is the manual remainder.
 
 ---
@@ -23,7 +21,7 @@ These are non-negotiable; the rest of the doc assumes them.
 
 ## 1. Provision (Vultr, Ubuntu 24.04, Dallas)
 
-Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale + the commit-vs-trial provider matrix: `tasks/vps-tailscale-migration.md` Phase 1 + vault `Notes-Inbox/2026-07-17_VPS-Provider-Decision.md`.
+Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale: 16 GB comfortably runs the full agent stack in the trial; bump to 32 GB only if monitoring (§8b) shows an OOM kill or sustained swap/pressure.
 
 ## Fast path — one command does §2–§4
 
@@ -151,7 +149,7 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 
 ## 9. (Optional, later) VPS → Mac dispatcher
 
-Tailnet-bound + token-gated + **named-actions-only** + argv-exec + optional Tailscale ACL limiting the VPS to just the dispatcher port. Details in runbook Phase 9 — build it deliberately; it points a cloud box at an executor on your personal Mac.
+Tailnet-bound + token-gated + **named-actions-only** + argv-exec + optional Tailscale ACL limiting the VPS to just the dispatcher port. Build it deliberately - it points a cloud box at an executor on your personal Mac.
 
 ---
 
