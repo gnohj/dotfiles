@@ -39,7 +39,9 @@ fi
 # perl: the tmux status-line git-cache refresher (status-git-refresh.sh) strips
 # trailing style codes with `perl -pe`; perl-base is essential on Debian/Ubuntu
 # anyway, but declare it so a stripped image doesn't leave the git segment blank.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses"
+# sysstat + atop: record CPU/mem/swap time-series for the 16-vs-32 GB trial verdict.
+# sysstat = CSV-exportable sar history (vps-usage-export.sh); atop = per-process replay.
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
@@ -49,10 +51,38 @@ if command -v apt-get >/dev/null 2>&1; then
     # user processes on last-session-close and "sessions survive" fails. THE key knob.
     echo "==> enabling user linger (services survive logout)"
     sudo -n loginctl enable-linger "$(id -un)" >/dev/null 2>&1 || true
+
+    # 4b. Monitoring — turn on the recorders installed above. sysstat is shipped
+    #     DISABLED on Debian/Ubuntu and defaults to 10-min sampling; enable it and
+    #     tighten to 5-min so short LSP/build spikes register. atop defaults to a
+    #     10-min log interval; drop it to 60s for per-process spike forensics.
+    #     All best-effort — a missing config file or unit never aborts the apply.
+    if [ -f /etc/default/sysstat ]; then
+      echo "==> enabling sysstat collection (sar time-series)"
+      sudo -n sed -i 's/^ENABLED=.*/ENABLED="true"/' /etc/default/sysstat >/dev/null 2>&1 || true
+      # tighten sampling 10m -> 5m: systemd timer on 24.04, cron.d on older releases
+      if systemctl list-unit-files 2>/dev/null | grep -q sysstat-collect.timer; then
+        sudo -n mkdir -p /etc/systemd/system/sysstat-collect.timer.d >/dev/null 2>&1 || true
+        printf '[Timer]\nOnCalendar=\nOnCalendar=*:0/5\n' \
+          | sudo -n tee /etc/systemd/system/sysstat-collect.timer.d/override.conf >/dev/null 2>&1 || true
+        sudo -n systemctl daemon-reload >/dev/null 2>&1 || true
+      elif [ -f /etc/cron.d/sysstat ]; then
+        sudo -n sed -i 's#5-55/10#*/5#' /etc/cron.d/sysstat >/dev/null 2>&1 || true
+      fi
+      sudo -n systemctl enable --now sysstat >/dev/null 2>&1 || true
+      sudo -n systemctl enable --now sysstat-collect.timer >/dev/null 2>&1 || true
+    fi
+    if [ -f /etc/default/atop ]; then
+      echo "==> configuring atop (60s per-process log interval)"
+      sudo -n sed -i 's/^LOGINTERVAL=.*/LOGINTERVAL=60/' /etc/default/atop >/dev/null 2>&1 || true
+      sudo -n systemctl enable --now atop >/dev/null 2>&1 || true
+    fi
   else
-    echo "==> skip apt + linger (no passwordless sudo). Run once yourself:"
+    echo "==> skip apt + linger + monitoring (no passwordless sudo). Run once yourself:"
     echo "    sudo apt-get update && sudo apt-get install -y $APT_PKGS"
     echo "    sudo loginctl enable-linger $(id -un)"
+    echo "    sudo sed -i 's/^ENABLED=.*/ENABLED=\"true\"/' /etc/default/sysstat && sudo systemctl enable --now sysstat sysstat-collect.timer"
+    echo "    sudo sed -i 's/^LOGINTERVAL=.*/LOGINTERVAL=60/' /etc/default/atop && sudo systemctl enable --now atop"
   fi
 fi
 
@@ -139,6 +169,7 @@ fi
 echo "==> bootstrap done."
 echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh aic rbw"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
+echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
 echo "    then clone+build agent-tmux-web (audited, pinned) and expose it tailnet-only via"
 echo "    'tailscale serve --bg http://127.0.0.1:6174'."

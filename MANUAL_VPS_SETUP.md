@@ -21,9 +21,19 @@ These are non-negotiable; the rest of the doc assumes them.
 
 ---
 
-## 1. Provision (Hetzner CPX41, Ubuntu 24.04, Ashburn)
+## 1. Provision (Vultr, Ubuntu 24.04, Dallas)
 
-Add Server → Ashburn → Ubuntu 24.04 → **CPX41** (8 vCPU / 16 GB / 240 GB) → paste your SSH **public** key → create. Note the public IP.
+Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale + the commit-vs-trial provider matrix: `tasks/vps-tailscale-migration.md` Phase 1 + vault `Notes-Inbox/2026-07-17_VPS-Provider-Decision.md`.
+
+## Fast path — one command does §2–§4
+
+`linux-setup.sh` scripts the whole root-prep + bootstrap: it creates the user, copies the SSH key, sets passwordless sudo, hardens sshd, installs Tailscale, waits out cloud-init, then runs the chezmoi bootstrap. Run it as **root** on the fresh box:
+
+```
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash
+```
+
+(`... | bash -s -- myuser` for a different username; `TS_AUTHKEY=tskey-... ... | bash` to bring Tailscale up unattended.) It's idempotent, and it prints the interactive remainder (§5–§7) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
 
 ## 2. User + SSH hardening
 
@@ -119,6 +129,26 @@ tmux new -s claude -c ~/work    # then run: claude   (Ctrl-b d to detach)
 
 Laptop: `ssh gnohj@<box>.ts.net` (or `mosh`) → `tmux attach`. Phone: open the tokenized URL, Add to Home Screen.
 
+## 8b. Monitoring — trial data for the 16-vs-32 GB verdict
+
+The bootstrap already installs + enables the **lightweight, file-based recorders** (near-zero RAM, so they don't skew the memory measurement you're taking): `sysstat` (sar time-series, sampling every 5 min) and `atop` (per-process log every 60 s). Nothing to install by hand. To use them:
+
+```
+vps-usage-export.sh              # today's sar data → ~/vps-usage/*.csv + verdict signals
+vps-usage-export.sh --all        # every retained day
+atop -r                          # interactive replay — scroll to any spike, see which agent
+cat /proc/pressure/memory        # live bottleneck oracle (nonzero 'some' = mem-constrained)
+```
+
+The CSVs (semicolon-delimited, `sadf -d` format) import straight into a spreadsheet / chart tool. The **verdict**: any OOM kill or sustained swap/pressure under the full stack → 32 GB; comfortable with no swap and low pressure → 16 GB is enough.
+
+**netdata (optional, add LATER — not during the trial):** once sizing is decided you can add a live web dashboard. It costs ~150-250 MB RAM, which is why it's kept out of the trial measurement. Install and browse it **tailnet-only** (never `funnel`/public):
+
+```
+bash <(curl -Ss https://my-netdata.io/kickstart.sh)
+# then browse over Tailscale: http://dev-box.<tailnet>.ts.net:19999
+```
+
 ## 9. (Optional, later) VPS → Mac dispatcher
 
 Tailnet-bound + token-gated + **named-actions-only** + argv-exec + optional Tailscale ACL limiting the VPS to just the dispatcher port. Details in runbook Phase 9 — build it deliberately; it points a cloud box at an executor on your personal Mac.
@@ -135,3 +165,4 @@ Tailnet-bound + token-gated + **named-actions-only** + argv-exec + optional Tail
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives
 - [ ] **No service bound to `0.0.0.0`**; public port 22 closed; `.env` is `chmod 600`
 - [ ] OSC52 clipboard works over SSH (yank in nvim → paste on the Mac)
+- [ ] Monitoring live: `systemctl status sysstat atop` active; `vps-usage-export.sh` writes CSVs to `~/vps-usage/`
