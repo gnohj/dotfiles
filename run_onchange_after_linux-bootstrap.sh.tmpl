@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 10   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 11   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -30,6 +30,16 @@ ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
 if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
   echo "==> cloning zinit"
   git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || true
+fi
+
+# 3b. Ghostty terminfo — SSHing from Ghostty sends TERM=xterm-ghostty, which a
+#     fresh Ubuntu has no entry for, so `clear`/nvim/lazygit error "unknown terminal
+#     type". tic the bundled source (dot_local/share/terminfo-src) into ~/.terminfo
+#     so every session just works, no per-box `infocmp | ssh | tic` dance.
+TIC_SRC="$HOME/.local/share/terminfo-src/xterm-ghostty.ti"
+if [ -f "$TIC_SRC" ] && command -v tic >/dev/null 2>&1 && ! infocmp xterm-ghostty >/dev/null 2>&1; then
+  echo "==> installing xterm-ghostty terminfo"
+  tic -x "$TIC_SRC" 2>/dev/null || true
 fi
 
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
@@ -101,54 +111,21 @@ if ! command -v tailscale >/dev/null 2>&1; then
   curl -fsSL https://tailscale.com/install.sh | sh || echo "!! tailscale install failed — see https://tailscale.com/download"
 fi
 
-# 6. Core CLIs via mise (best-effort) — mirror the Mac toolchain so nvim + shell feel
-#    identical over mosh/ssh.
+# 6. The whole CLI toolchain (nvim, ripgrep, lazygit, agent CLIs, gitmux/sesh,
+#    gh-dash, treehouse/no-mistakes/treekanga, atuin, node/pnpm, …) is DECLARED in
+#    the Linux block of ~/.config/mise/config.toml and installed declaratively by
+#    run_onchange_after_mise-install.sh (`mise install`), which mise retries — not a
+#    best-effort `mise use -g` loop that silently skips a tool on a GitHub blip.
+#    rbw is deliberately absent (option B: scoped tokens in ~/.zsh_gnohj_env.local;
+#    a full `rbw unlock` stays Mac-only — MANUAL_VPS_SETUP.md security model).
+
+# 6b. tmux-dash — PERSONAL PRIVATE repo with no release binaries, so it can't be a
+#     declarative mise entry; cargo-built from source (rust comes from the mise
+#     config). Needs GitHub repo AUTH on the box first (SSH key, or `gh auth login`
+#     + `gh auth setup-git`), so on a fresh box it falls to the manual step below.
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  echo "==> mise: core CLIs"
-  # gh: aic (lazygit <c-e>/<c-s> AI-commit) authenticates via `gh auth token`, read
-  # by dot_aicommitrc.tmpl at apply time. Needs a one-time `gh auth login` (see end).
-  for tool in neovim ripgrep fd fzf lazygit bat eza zoxide starship yazi jq gh btop delta yq television lazydocker; do
-    "$MISE" use -g "$tool" >/dev/null 2>&1 || echo "   (skip $tool — check name with 'mise registry')"
-  done
-  # gitmux + sesh via ubi/aqua backends (no first-party mise registry entry).
-  "$MISE" use -g "ubi:arl/gitmux" >/dev/null 2>&1 || echo "   (skip gitmux — install manually)"
-  "$MISE" use -g "aqua:joshmedeski/sesh" >/dev/null 2>&1 || echo "   (skip sesh — install manually)"
-  # gh-dash: no first-party mise registry entry — install from GitHub releases via ubi.
-  "$MISE" use -g "ubi:dlvhdr/gh-dash" >/dev/null 2>&1 || echo "   (skip gh-dash — install manually)"
-  # node + pnpm — runtime to build & run the agent-tmux-web server (needs Node 22+).
-  "$MISE" use -g node@22 pnpm >/dev/null 2>&1 || echo "   (skip node/pnpm — install manually; agent-tmux-web needs them)"
-fi
-
-# 6b. rbw is intentionally NOT installed on the VPS (option B): secrets come from scoped tokens in ~/.zsh_gnohj_env.local, so a Bitwarden CLI here is pure attack surface + a slow cargo build. run_onchange_after_bitwarden.sh self-skips when rbw is absent; a full `rbw unlock` stays Mac-only (MANUAL_VPS_SETUP.md security model).
-
-# 7. Agent CLIs (claude / codex / gemini) — run in tmux and invoked BY NAME by
-#    agent-tmux-web's launcher. Via mise's npm backend so shims land on PATH; needs
-#    node@22 from step 6, so it runs after.
-if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  echo "==> mise: agent CLIs (claude / codex / gemini)"
-  for pkg in "npm:@anthropic-ai/claude-code" "npm:@openai/codex" "npm:@google/gemini-cli"; do
-    "$MISE" use -g "$pkg" >/dev/null 2>&1 || echo "   (skip $pkg — install manually: mise use -g $pkg)"
-  done
-fi
-
-# 8. Custom tools not in the mise registry — agent HUD + PR-review/worktree stack.
-#    treehouse/no-mistakes/treekanga ship release binaries → ubi; atuin → mise registry;
-#    tmux-dash is a personal Rust repo with no binaries → cargo build from source.
-if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  echo "==> mise: custom tools (treehouse / no-mistakes / treekanga / atuin)"
-  "$MISE" use -g "ubi:kunchenguid/treehouse" >/dev/null 2>&1 || echo "   (skip treehouse — mise use -g ubi:kunchenguid/treehouse)"
-  "$MISE" use -g "ubi:kunchenguid/no-mistakes" >/dev/null 2>&1 || echo "   (skip no-mistakes — mise use -g ubi:kunchenguid/no-mistakes)"
-  "$MISE" use -g "ubi:garrettkrohn/treekanga" >/dev/null 2>&1 || echo "   (skip treekanga — mise use -g ubi:garrettkrohn/treekanga)"
-  "$MISE" use -g atuin >/dev/null 2>&1 || "$MISE" use -g "aqua:atuinsh/atuin" >/dev/null 2>&1 || echo "   (skip atuin — mise use -g atuin)"
-
-  # tmux-dash: PERSONAL, PRIVATE repo, manually built (Rust, no release binaries). Needs a
-  # rust toolchain + repo AUTH on the box (a GitHub SSH key, or `gh auth login` + `gh auth
-  # setup-git`). On a fresh box that auth isn't set up yet, so this is best-effort and will
-  # fall to the manual step below on first apply — expected for a private repo. Uses the SSH
-  # URL so it rides your GitHub SSH key once present (see MANUAL_VPS_SETUP.md § tmux-dash).
   if ! command -v tmux-dash >/dev/null 2>&1; then
     echo "==> building tmux-dash from source (Rust, PRIVATE repo — needs repo auth first)"
-    "$MISE" use -g rust >/dev/null 2>&1 || echo "   (rust toolchain missing — needed to build tmux-dash)"
     "$MISE" exec -- cargo install --git ssh://git@github.com/gnohj/tmux-dash --locked >/dev/null 2>&1 \
       || echo "   (tmux-dash is PRIVATE — build by hand once authed: git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .)"
   fi
