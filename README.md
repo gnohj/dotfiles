@@ -11,9 +11,10 @@ My personal dotfiles for macOS.
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
 - **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace) (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
+- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace) (tiling WM), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (window borders), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty)
+- **Launcher**: [Raycast](https://www.raycast.com/)
+- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (primary), [Kitty](https://github.com/kovidgoyal/kitty) (kept at config parity)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient), [Atuin](https://github.com/atuinsh/atuin) (shell history)
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with [Sesh](https://github.com/joshmedeski/sesh) session management
