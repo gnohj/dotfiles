@@ -451,7 +451,7 @@ keymap(
 keymap(
   "n",
   "<M-k>",
-  ":!mv '%:p' /Users/gnohj/Obsidian/second-brain/Notes-Publish/<cr>:bd<cr>",
+  ":!mv '%:p' ~/Obsidian/second-brain/Notes-Publish/<cr>:bd<cr>",
   { desc = "[P]Obsidian: Move file to Notes-Publish" }
 )
 keymap(

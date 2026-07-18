@@ -698,12 +698,16 @@ fi
 exit 0
 EOF
 
-# Launch macOS Terminal.app in the background.
-# - `-g`     no foregrounding (keeps focus on caller)
-# - `-n`     new instance
-# - `--env`  explicitly inject SKIP_FETCH so zsh's login init skips
-#            ghosttyfetch (which spawns a `tmux` child and creates an
-#            unnamed numeric session). LaunchServices filters out
-#            custom env vars from the calling shell, so `--env` is the
-#            only reliable way to get them through.
-open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
+# Spawn the staged session script. macOS: a background Terminal.app window.
+# Linux/VPS (headless): a tmux window (or a detached session when not already
+# inside tmux), reachable over SSH/mosh. SKIP_FETCH makes zsh's login init skip
+# ghosttyfetch (which spawns a `tmux` child + an unnamed numeric session).
+# On macOS `--env` is required because LaunchServices strips custom env vars
+# from the calling shell; on Linux the tmux `-e` flag carries it instead.
+if [ "$(uname)" = Darwin ]; then
+  open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
+elif [ -n "${TMUX:-}" ]; then
+  tmux new-window -e SKIP_FETCH=1 -n "$WORKTREE_GROUP" "$TMPSCRIPT"
+else
+  tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
+fi

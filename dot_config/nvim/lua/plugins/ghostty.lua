@@ -2,5 +2,6 @@
 return {
   "ghostty",
   dir = "/Applications/Ghostty.app/Contents/Resources/vim/vimfiles/",
+  cond = vim.fn.has("mac") == 1,
   lazy = false,
 }
