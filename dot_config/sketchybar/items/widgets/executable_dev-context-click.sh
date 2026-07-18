@@ -24,7 +24,52 @@ fi
 
 CUR="$(dev-context get 2>/dev/null || echo local)"
 
-# Menu was closed: enumerate rows and open.
+# --- gather data before emitting, so we can tell whether CUR is representable ---
+
+ssh_hosts="$(awk 'tolower($1)=="host"{for(n=2;n<=NF;n++) if($n !~ /[*?]/ && $n != "github.com") print $n}' "$HOME/.ssh/config" 2>/dev/null | awk '!seen[$0]++')"
+
+# Tailnet nodes (Self + online peers), cached 60s and timeout-capped so a slow daemon can't stall the popup.
+CACHE="${TMPDIR:-/tmp}/dev-context-ts-nodes.cache"
+now="$(date +%s)"
+mtime=0
+[ -f "$CACHE" ] && mtime="$(stat -f %m "$CACHE" 2>/dev/null || echo 0)"
+if [ -s "$CACHE" ] && [ $((now - mtime)) -lt 60 ]; then
+  ts_nodes="$(cat "$CACHE")"
+else
+  TS="$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)"
+  TIMEOUT="$(command -v timeout || command -v gtimeout || true)"
+  if [ -n "$TIMEOUT" ]; then
+    raw="$("$TIMEOUT" 3 "$TS" status --json 2>/dev/null)"
+  else
+    raw="$("$TS" status --json 2>/dev/null)"
+  fi
+  # Emit "name<TAB>OS<TAB>isSelf". iOS reports HostName "localhost", so prefer the first DNSName label.
+  ts_nodes="$(printf '%s' "$raw" | jq -r '([.Self + {__self: true}] + [.Peer[]? | select(.Online==true)]) | .[] | (((.DNSName // "") | split(".")[0]) // .HostName) as $n | select($n != "" and $n != "localhost") | "\($n)\t\(.OS)\t\(.__self // false)"' 2>/dev/null | awk '!seen[$0]++')"
+  printf '%s\n' "$ts_nodes" >"$CACHE"
+fi
+
+# Is CUR one of the rows we'll render below? Bare `ssh <ip>` to an un-aliased host is not.
+is_listed() {
+  [ "$CUR" = "local" ] && return 0
+  case "$CUR" in
+    ssh:*) printf '%s\n' "$ssh_hosts" | grep -Fxq -- "${CUR#ssh:}" && return 0 ;;
+    ts:*)
+      while IFS=$'\t' read -r host os self; do
+        [ "$self" = "true" ] && continue
+        case "$os" in iOS | iPadOS | android | tvOS) continue ;; esac
+        [ "$host" = "${CUR#ts:}" ] && return 0
+      done <<<"$ts_nodes" ;;
+  esac
+  return 1
+}
+
+# Compact a long target (e.g. a full IPv6) so it doesn't blow out the popup width.
+shorten() {
+  local s="$1"
+  if [ "${#s}" -gt 20 ]; then printf '%s…%s' "${s:0:8}" "${s: -4}"; else printf '%s' "$s"; fi
+}
+
+# --- emit rows ---
 args=(--remove "/${NAME}.opt\.*/" --set "$NAME" popup.drawing=on)
 i=0
 
@@ -52,32 +97,19 @@ add_info() { # text
 
 add_option "local" "$GLYPH_LOCAL  Local" "$WHITE"
 
-ssh_hosts="$(awk 'tolower($1)=="host"{for(n=2;n<=NF;n++) if($n !~ /[*?]/ && $n != "github.com") print $n}' "$HOME/.ssh/config" 2>/dev/null | awk '!seen[$0]++')"
+# Active session with no row of its own (bare `ssh <ip>`): surface it so the picker shows where you actually are.
+if ! is_listed; then
+  case "$CUR" in
+    ts:*) add_header "SESSION"; add_option "$CUR" "$GLYPH_TS  $(shorten "${CUR#ts:}")" "$MAGENTA" ;;
+    ssh:*) add_header "SESSION"; add_option "$CUR" "$GLYPH_SSH  $(shorten "${CUR#ssh:}")" "$MAGENTA" ;;
+  esac
+fi
+
 if [ -n "$ssh_hosts" ]; then
   add_header "SSH"
   while IFS= read -r host; do
     [ -n "$host" ] && add_option "ssh:$host" "$GLYPH_SSH  $host" "$BLUE"
   done <<<"$ssh_hosts"
-fi
-
-# Tailnet nodes (Self + online peers), cached 60s and timeout-capped so a slow daemon can't stall the popup.
-CACHE="${TMPDIR:-/tmp}/dev-context-ts-nodes.cache"
-now="$(date +%s)"
-mtime=0
-[ -f "$CACHE" ] && mtime="$(stat -f %m "$CACHE" 2>/dev/null || echo 0)"
-if [ -s "$CACHE" ] && [ $((now - mtime)) -lt 60 ]; then
-  ts_nodes="$(cat "$CACHE")"
-else
-  TS="$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)"
-  TIMEOUT="$(command -v timeout || command -v gtimeout || true)"
-  if [ -n "$TIMEOUT" ]; then
-    raw="$("$TIMEOUT" 3 "$TS" status --json 2>/dev/null)"
-  else
-    raw="$("$TS" status --json 2>/dev/null)"
-  fi
-  # Emit "name<TAB>OS<TAB>isSelf". iOS reports HostName "localhost", so prefer the first DNSName label.
-  ts_nodes="$(printf '%s' "$raw" | jq -r '([.Self + {__self: true}] + [.Peer[]? | select(.Online==true)]) | .[] | (((.DNSName // "") | split(".")[0]) // .HostName) as $n | select($n != "" and $n != "localhost") | "\($n)\t\(.OS)\t\(.__self // false)"' 2>/dev/null | awk '!seen[$0]++')"
-  printf '%s\n' "$ts_nodes" >"$CACHE"
 fi
 
 if [ -n "$ts_nodes" ]; then
