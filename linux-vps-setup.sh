@@ -10,7 +10,7 @@
 #                 toolchain bootstrap (mise, apt pkgs, monitoring, agent CLIs, …).
 #
 # Usage — run as ROOT on a fresh box (over the provider's IP / console):
-#   curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 #   # custom username:        ... | bash -s -- myuser
 #   # unattended Tailscale:    TS_AUTHKEY=tskey-... ... | bash
 #
@@ -102,7 +102,7 @@ if [ "$(id -u)" -eq 0 ]; then
   #    script as $TARGET_USER, which falls through to the user phase below).
   print_info "› Handing off to $TARGET_USER for chezmoi + toolchain…"
   exec sudo -u "$TARGET_USER" -i bash -c \
-    "curl -fsSL https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-setup.sh | bash"
+    "curl -fsSL https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-vps-setup.sh | bash"
 fi
 
 # =====================================================================
@@ -136,7 +136,11 @@ Full detail in MANUAL_VPS_SETUP.md:
   [4] tmux-dash (private repo — build from source once GitHub auth is set):
         git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .
 
-  [5] agent-tmux-web (security-sensitive — audit the pinned SHA first):
+  [5] agents monorepo (CLAUDE.md / skills / prompts — so on-box agents read your real config):
+        git clone git@github.com:gnohj/agents ~/Developer/agents
+        python3 ~/Developer/agents/setup_symlinks.py
+
+  [6] agent-tmux-web (security-sensitive — audit the pinned SHA first):
         see MANUAL_VPS_SETUP.md §7
 
 EOF

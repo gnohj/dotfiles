@@ -89,17 +89,17 @@ The Linux counterpart to the macOS flow. There is no Nix layer on Linux, so a si
 ### One command (run as root on a fresh box)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
 Run it inside `tmux`/`mosh` so a dropped SSH link doesn't kill the long cargo builds. Variants:
 
 ```bash
 # custom username (default: gnohj)
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash -s -- myuser
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash -s -- myuser
 
 # bring Tailscale up unattended with an auth key
-TS_AUTHKEY=tskey-... bash -c "$(curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh)"
+TS_AUTHKEY=tskey-... bash -c "$(curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh)"
 ```
 
 This will:

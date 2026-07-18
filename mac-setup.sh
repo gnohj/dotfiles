@@ -3,7 +3,7 @@
 #
 # Platform Support:
 #   - macOS: Uses nix-darwin for system configuration (this script)
-#   - Linux: see linux-setup.sh (user + hardening + Tailscale + chezmoi bootstrap)
+#   - Linux (headless VPS): see linux-vps-setup.sh (user + hardening + Tailscale + chezmoi bootstrap)
 #
 # Usage: ./mac-setup.sh [FLAKE_NAME]
 #   FLAKE_NAME: Optional flake configuration name (default: macbook_silicon)
