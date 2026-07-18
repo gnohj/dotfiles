@@ -169,7 +169,7 @@ function update_starship_env() {
     elif [[ "$repo_name" == "web" ]]; then
       export AWS_PROFILE="ihr-prod"
     fi
-    local radio_ctl_prompt=$(get_rc)
+    local radio_ctl_prompt=$(typeset -f get_rc >/dev/null && get_rc || echo 1)
     if [[ $radio_ctl_prompt != 1 ]]; then
       export RADIO_CTL="$radio_ctl_prompt"
     else
