@@ -32,6 +32,17 @@ return {
         if file then
           file:write(content)
           file:close()
+          -- Tell git to skip our patched file in the plugin's worktree so lazy
+          -- stops flagging it as "local changes" (which blocks updates). Same
+          -- reason a fresh box showed it failed while the Mac didn't.
+          vim.fn.system({
+            "git",
+            "-C",
+            vim.fn.stdpath("data") .. "/lazy/fold-imports.nvim",
+            "update-index",
+            "--skip-worktree",
+            "lua/fold_imports.lua",
+          })
         end
       end
     end,
