@@ -1,5 +1,13 @@
 { config, pkgs, lib, ... }:
 
+let
+  # users.users.<primaryUser> is not declared in this config, so accessing
+  # .home directly throws "attribute missing". Guard + fall back to the
+  # conventional path, matching launchd-services.nix.
+  homeDir = if config ? users && config.users ? users && config.users.users ? ${config.system.primaryUser}
+            then config.users.users.${config.system.primaryUser}.home
+            else "/Users/${config.system.primaryUser}";
+in
 {
   # macOS System Settings
   # All settings are documented at:
@@ -165,7 +173,7 @@
     sudo -u ${config.system.primaryUser} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
 
     # Accessibility (TCC) can't be granted declaratively (SIP-protected TCC.db; only MDM/PPPC can) - this marker-gated reminder just makes the manual grant unmissable on a fresh machine. macos-mcp/Cowork spun 2 cores because uv (not Claude.app) makes the AX calls and was ungranted.
-    ACCESSIBILITY_MARKER="${config.users.users.${config.system.primaryUser}.home}/.config/.accessibility-granted"
+    ACCESSIBILITY_MARKER="${homeDir}/.config/.accessibility-granted"
     if [ ! -f "$ACCESSIBILITY_MARKER" ]; then
       echo "🔓 Grant Accessibility in System Settings → Privacy & Security → Accessibility to:" >&2
       echo "   Claude, uv, Ghostty, kitty, kanata, karabiner_cli, skhd, sketchybar, borders," >&2
