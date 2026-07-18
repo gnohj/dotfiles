@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 9   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 10   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -119,22 +119,7 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   "$MISE" use -g node@22 pnpm >/dev/null 2>&1 || echo "   (skip node/pnpm — install manually; agent-tmux-web needs them)"
 fi
 
-# 6b. rbw — Bitwarden CLI that run_onchange_after_bitwarden.sh.tmpl reads to populate
-#     ~/.zsh_gnohj_env.secrets. No reliable release binary → cargo build (needs a rust
-#     toolchain + build-essential from step 4). pinentry-curses (step 4) drives the
-#     interactive unlock IF you ever use it. NOTE: bitwarden sorts before linux-bootstrap,
-#     so on the FIRST apply it self-skips (rbw absent) and rbw only lands here. The binary
-#     is installed for parity, but on the VPS you do NOT unlock the vault - secrets come
-#     from scoped tokens in ~/.zsh_gnohj_env.local. A full `rbw unlock` is reserved for the
-#     trusted Mac (see MANUAL_VPS_SETUP.md security model).
-if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  if ! command -v rbw >/dev/null 2>&1; then
-    echo "==> installing rbw (Bitwarden CLI — secret provisioning)"
-    "$MISE" use -g rust >/dev/null 2>&1 || echo "   (rust toolchain missing — needed to build rbw)"
-    "$MISE" use -g "cargo:rbw" >/dev/null 2>&1 \
-      || echo "   (skip rbw — build by hand once rust is present: cargo install rbw)"
-  fi
-fi
+# 6b. rbw is intentionally NOT installed on the VPS (option B): secrets come from scoped tokens in ~/.zsh_gnohj_env.local, so a Bitwarden CLI here is pure attack surface + a slow cargo build. run_onchange_after_bitwarden.sh self-skips when rbw is absent; a full `rbw unlock` stays Mac-only (MANUAL_VPS_SETUP.md security model).
 
 # 7. Agent CLIs (claude / codex / gemini) — run in tmux and invoked BY NAME by
 #    agent-tmux-web's launcher. Via mise's npm backend so shims land on PATH; needs
@@ -179,7 +164,7 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
 fi
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker aic rbw"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker aic"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
