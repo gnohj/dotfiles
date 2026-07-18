@@ -5,7 +5,9 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	updates = true,
 	update_freq = 10,
 	padding_right = 4,
-	-- padding_left = -10,
+	icon = {
+		padding_left = 0,
+	},
 	label = {
 		drawing = true,
 		padding_left = -8,
