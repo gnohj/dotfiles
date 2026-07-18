@@ -52,6 +52,13 @@ if command -v apt-get >/dev/null 2>&1; then
     echo "==> enabling user linger (services survive logout)"
     sudo -n loginctl enable-linger "$(id -un)" >/dev/null 2>&1 || true
 
+    # zsh as default login shell (mirrors user-setup.sh Phase 3) — else every SSH lands in bash.
+    ZSH_BIN="$(command -v zsh || true)"
+    if [ -n "$ZSH_BIN" ] && [ "$(getent passwd "$(id -un)" | cut -d: -f7)" != "$ZSH_BIN" ]; then
+      echo "==> setting zsh as default login shell"
+      sudo -n chsh -s "$ZSH_BIN" "$(id -un)" >/dev/null 2>&1 || echo "   (chsh failed — run: sudo chsh -s $ZSH_BIN $(id -un))"
+    fi
+
     # 4b. Monitoring — turn on the recorders installed above. sysstat is shipped
     #     DISABLED on Debian/Ubuntu and defaults to 10-min sampling; enable it and
     #     tighten to 5-min so short LSP/build spikes register. atop defaults to a
@@ -81,6 +88,7 @@ if command -v apt-get >/dev/null 2>&1; then
     echo "==> skip apt + linger + monitoring (no passwordless sudo). Run once yourself:"
     echo "    sudo apt-get update && sudo apt-get install -y $APT_PKGS"
     echo "    sudo loginctl enable-linger $(id -un)"
+    echo "    sudo chsh -s \$(command -v zsh) $(id -un)"
     echo "    sudo sed -i 's/^ENABLED=.*/ENABLED=\"true\"/' /etc/default/sysstat && sudo systemctl enable --now sysstat sysstat-collect.timer"
     echo "    sudo sed -i 's/^LOGINTERVAL=.*/LOGINTERVAL=60/' /etc/default/atop && sudo systemctl enable --now atop"
   fi
