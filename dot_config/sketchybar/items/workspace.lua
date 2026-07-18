@@ -61,6 +61,7 @@ local spaceConfigs = {
 	["M"] = { name = "Texting", app = "Messages" },
 	["K"] = { name = "Settings", apps = { "System Settings", "OpenSuperWhisper" } },
 	["Z"] = { name = "Brave", app = "Zen" },
+	["U"] = { name = "Tailscale", app = "Tailscale" },
 }
 
 local function getAppForWorkspace(workspace, focusedApp)
