@@ -15,7 +15,7 @@ _dev_window_emoji() {
   case "$1" in
     pen) printf '🖊️' ;;
     robot) printf '🤖' ;;
-    hammer) printf '🔨' ;;
+    hammer) printf '🛠️' ;;
     *) printf '❔' ;;
   esac
 }
