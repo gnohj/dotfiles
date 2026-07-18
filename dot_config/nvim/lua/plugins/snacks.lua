@@ -45,6 +45,9 @@ local function render_figlet(name, font)
     end
   end
 
+  if vim.fn.executable("figlet") == 0 then
+    return nil
+  end
   local figlet = vim.fn.system({ "figlet", "-w", "1000", "-f", font, name })
   if vim.v.shell_error ~= 0 then
     return nil
