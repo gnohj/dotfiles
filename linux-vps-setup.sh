@@ -132,9 +132,17 @@ BINDIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init -
 print_success "=========================================="
 print_success "Linux bootstrap complete"
 print_success "=========================================="
+print_warning ""
+print_warning "▶ SWITCH TO '$TARGET_USER' FIRST. The toolchain, dotfiles, and shell all"
+print_warning "  installed under '$TARGET_USER' — root sees NONE of it, and this shell drops"
+print_warning "  back to root when the script exits (a piped bootstrap can't hand you an"
+print_warning "  interactive shell as another user). Run every step below AS '$TARGET_USER':"
+print_warning "      su - $TARGET_USER            # or reconnect: ssh $TARGET_USER@<box-ip>"
+print_warning "  (root SSH login is now disabled, so your next ssh is '$TARGET_USER' anyway.)"
 cat <<'EOF'
 
 Remaining MANUAL steps (interactive / secret-touching — can't be piped).
+Run these AS the target user (su - <user> or ssh <user>@<box>).
 Full detail in MANUAL_VPS_SETUP.md:
 
   [1] Tailscale onto the tailnet (skip if you passed TS_AUTHKEY):
