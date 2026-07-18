@@ -6,30 +6,19 @@ My personal dotfiles for macOS.
 
 ## Key Tools & Configurations
 
-- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin)
-  (declarative macOS settings + packages)
+- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin) (declarative macOS settings + packages)
 - **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
-- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via
-  [rbw](https://github.com/doy/rbw) (hash-based caching)
+- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace)
-  (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status
-  bar)
+- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace) (tiling WM), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty)
-- **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient),
-  [Atuin](https://github.com/atuinsh/atuin) (shell history)
+- **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient), [Atuin](https://github.com/atuinsh/atuin) (shell history)
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
-- **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with
-  [Sesh](https://github.com/joshmedeski/sesh) session management
-- **Version Control**: Git worktrees with
-  [Treekanga](https://github.com/garrettkrohn/treekanga) CLI,
-  [Delta](https://github.com/dandavison/delta) pager,
-  [Lazygit](https://github.com/jesseduffield/lazygit) TUI
-- **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping),
-  custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) &
-  [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
+- **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with [Sesh](https://github.com/joshmedeski/sesh) session management
+- **Version Control**: Git worktrees with [Treekanga](https://github.com/garrettkrohn/treekanga) CLI, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
 
 ## Bootstrap New Mac (Apple Silicon)
 
@@ -38,8 +27,7 @@ My personal dotfiles for macOS.
 
 ### Step 1: System setup (Nix + nix-darwin)
 
-Installs Nix package manager, nix-darwin system configuration, and Homebrew
-packages:
+Installs Nix package manager, nix-darwin system configuration, and Homebrew packages:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/mac-setup.sh | bash
@@ -52,8 +40,7 @@ This will:
 - Install nix-darwin for declarative macOS configuration
 - Install all packages defined in `~/.nix/` (Nix packages + Homebrew apps)
 
-**Note:** You'll be prompted for your password once at the start for sudo
-access.
+**Note:** You'll be prompted for your password once at the start for sudo access.
 
 ### Step 2: User setup (dotfiles + development tools)
 
@@ -70,6 +57,52 @@ This will:
 - Install language runtimes via mise (Node, Python, Go, Rust, etc.)
 - Set up environment secrets from Bitwarden (API keys, tokens)
 - Set up shell configuration
+
+</details>
+
+## Bootstrap New Linux VPS (Ubuntu, amd64)
+
+<details>
+<summary>Click to expand bootstrap instructions</summary>
+
+The Linux counterpart to the macOS flow. There is no Nix layer on Linux, so a single script does both the system prep and the user/toolchain setup.
+
+### One command (run as root on a fresh box)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash
+```
+
+Run it inside `tmux`/`mosh` so a dropped SSH link doesn't kill the long cargo builds. Variants:
+
+```bash
+# custom username (default: gnohj)
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash -s -- myuser
+
+# bring Tailscale up unattended with an auth key
+TS_AUTHKEY=tskey-... bash -c "$(curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh)"
+```
+
+This will:
+
+- **Root phase:** create the user, copy your SSH key, set passwordless sudo, harden sshd (key-only, no root login, validated with `sshd -t`), install Tailscale, wait out cloud-init.
+- **User phase:** install chezmoi + `chezmoi init --apply` → run the Linux toolchain bootstrap (mise runtimes, apt packages, sysstat/atop monitoring, agent CLIs, custom tools).
+
+Idempotent - safe to re-run. It prints the interactive remainder at the end.
+
+### Remaining manual steps (interactive - can't be piped)
+
+- **Tailscale onto the tailnet:** `sudo tailscale up --ssh`, then enable MagicDNS + HTTPS in the admin console (skip if you passed `TS_AUTHKEY`).
+- **GitHub + agents:** `gh auth login`, then `claude` / `codex` / `gemini` once each for OAuth.
+- **Secrets:** put ONLY the tokens this box needs into `~/.zsh_gnohj_env.local` (auto-sourced; var names in `~/.config/bitwarden/vars.txt`). Your Bitwarden master password never touches the VPS.
+- **tmux-dash** (private repo, build from source) and **agent-tmux-web** (audit the pinned SHA first).
+
+### Security model (differs from the Mac on purpose)
+
+- **No SSH identity key on the box.** Use agent forwarding (`ForwardAgent yes` in the `dev-box` SSH block) + `gh auth login` - your primary `~/.ssh/id_ed25519` never lands on a cloud machine.
+- **No full Bitwarden unlock on the box.** Only the minimum scoped tokens go into `~/.zsh_gnohj_env.local`; a box compromise costs a token rotation, not your whole vault.
+
+Full detail, hardening, and the agent-tmux-web audit steps: **`MANUAL_VPS_SETUP.md`**.
 
 </details>
 
@@ -150,8 +183,7 @@ chezmoi update
 
 **Refresh secrets from Bitwarden:**
 
-Secrets are automatically refreshed when the secret list changes. To force a
-refresh after changing a password value:
+Secrets are automatically refreshed when the secret list changes. To force a refresh after changing a password value:
 
 ```bash
 rbw sync && chezmoi apply --force
