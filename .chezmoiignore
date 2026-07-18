@@ -38,33 +38,34 @@ tasks
 .local-dev-auth/**
 
 # macOS-specific files (skip on Linux/NixOS)
+# NOTE: .chezmoiignore matches the TARGET path (.config/foo), NOT the source
+# name (dot_config/foo) — source-style patterns silently match nothing.
 {{- if ne .chezmoi.os "darwin" }}
-# macOS system scripts
-run_onchange_before_mac_system.sh.tmpl
-run_onchange_after_mac_dotfiles.sh.tmpl
+# macOS system scripts (stripped target names)
+mac_system.sh
+mac_dotfiles.sh
+karabiner-driverkit.sh
+claude-desktop-launchers.sh
 
 # macOS LaunchAgents/Daemons
-private_Library/
+Library/
 
 # macOS window management & system utilities
-dot_config/aerospace/
-dot_config/borders/
-dot_config/skhd/
-dot_config/sketchybar/
+.config/aerospace/
+.config/borders/
+.config/skhd/
+.config/sketchybar/
 
 # macOS-desktop-only configs (inert dead weight on a headless VPS)
-dot_config/kanata/
-dot_config/raycast/
-dot_config/launcher/
-dot_config/ghosttyfetch/
-dot_config/fastfetch/
-dot_config/private_spicetify/
+.config/kanata/
+.config/raycast/
+.config/launcher/
+.config/ghosttyfetch/
+.config/fastfetch/
+.config/spicetify/
 
-# Nix-Darwin installation
-dot_nix/nix-darwin
-
-# Nix-Darwin configuration
-dot_nix/nix-darwin/
+# Nix-Darwin
+.nix/nix-darwin/
 {{- end }}
 
 # Linux-only files (skip on macOS)
