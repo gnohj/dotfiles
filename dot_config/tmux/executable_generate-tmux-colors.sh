@@ -54,6 +54,14 @@ session_cell_fmt="#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]
 # Git-context glyph (🌿 checkout / 🌳 worktree) rendered NATIVELY from the pane option @git_ctx that generate-status-line.sh publishes. Native so it sits BEFORE the session name (order: 🌿 session git) and repaints instantly on revisit (the option persists per pane). Empty when the pane isn't a git repo, so this collapses to nothing.
 glyph_cell_fmt="#[fg=${gnohj_color03},nobold]#{@git_ctx}"
 
+# Host cell (right-anchored, native — no #() job). Resolves against the client's ACTIVE pane, so it tracks the pane you're looking at:
+#   • pane running ssh/mosh → the REMOTE host, parsed from #{pane_title} ("user@host: cwd" → host), tinted salmon so a remote pane visibly stands out.
+#   • otherwise             → the tmux SERVER host (#{host_short}), calm tint.
+# #{host_short} alone always reads "macbook" because the server never leaves the Mac even when a pane SSHes out; the pane_current_command/pane_title pair is what actually knows you're remote. #{pane_title} carries the remote name because the remote shell sets its xterm title (verified: ssh pane title = "gnohj@dev-box: ~").
+is_remote="#{||:#{==:#{pane_current_command},ssh},#{==:#{pane_current_command},mosh-client}}"
+remote_host="#{s/:.*//:#{s/.*@//:#{pane_title}}}"
+host_cell_fmt="#{?${is_remote},#[fg=${gnohj_color06}]󰒋 ${remote_host},#[fg=${gnohj_color05}]󰒋 #[fg=${gnohj_color14}]#{host_short}} "
+
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
 # Generated at: $(date)
@@ -63,8 +71,8 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Use status-format for complete control - session name + window list are NATIVE (#S / #{W:...}) so they repaint instantly on switch; only the git segment (context glyph + gitmux status) is the cached #() job, lazy-loaded stale-while-revalidate.
-set -g status-format[0] "#[align=centre]${glyph_cell_fmt}${session_cell_fmt}#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}"
+# Use status-format for complete control - session name + window list are NATIVE (#S / #{W:...}) so they repaint instantly on switch; only the git segment (context glyph + gitmux status) is the cached #() job, lazy-loaded stale-while-revalidate. Main cluster is LEFT-aligned; the host cell is a separate #[align=right] region pinned to the far edge.
+set -g status-format[0] "#[align=left]${glyph_cell_fmt}${session_cell_fmt}#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}#[align=right]${host_cell_fmt}"
 
 # Empty status-left and status-right since we're using status-format
 set -g status-left ""

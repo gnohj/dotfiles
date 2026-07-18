@@ -140,6 +140,7 @@
 
       # VPN & Security
       "private-internet-access"
+      "tailscale-app"
 
       # Fonts
       "font-sf-pro"
