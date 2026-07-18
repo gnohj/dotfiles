@@ -64,8 +64,8 @@ Library/
 .config/fastfetch/
 .config/spicetify/
 
-# Nix-Darwin
-.nix/nix-darwin/
+# Nix (Mac-only — no nix layer on the VPS, so flake.nix + common/ are inert there)
+.nix/
 {{- end }}
 
 # Linux-only files (skip on macOS)
