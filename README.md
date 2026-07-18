@@ -17,6 +17,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with [Sesh](https://github.com/joshmedeski/sesh) session management
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Version Control**: Git worktrees with [Treekanga](https://github.com/garrettkrohn/treekanga) CLI, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; the VPS adds sysstat/atop as background recorders)
 
 ### macOS desktop
 
