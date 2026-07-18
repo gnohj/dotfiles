@@ -1,6 +1,6 @@
 {
   "provider": "openai-compatible",
-  "apiKey": "{{ output "gh" "auth" "token" | trim }}",
+  "apiKey": "{{ if lookPath "gh" }}{{ output "sh" "-c" "gh auth token 2>/dev/null || true" | trim }}{{ end }}",
   "model": "gpt-4o",
   "endpoint": "https://models.inference.ai.azure.com",
   "maxTokens": 256,
