@@ -1,6 +1,10 @@
 README.md
 MANUAL_SETUP.md
 MANUAL_VPS_SETUP.md
+
+# gh writes its OAuth token into hosts.yml at runtime — never manage it (chezmoi
+# would strip the token on apply) and never `chezmoi add` it (would commit a secret).
+.config/gh/hosts.yml
 system-setup.sh
 system-utils.sh
 user-setup.sh
