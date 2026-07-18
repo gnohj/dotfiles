@@ -25,10 +25,10 @@ Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** →
 
 ## Fast path — one command does §2–§4
 
-`linux-setup.sh` scripts the whole root-prep + bootstrap: it creates the user, copies the SSH key, sets passwordless sudo, hardens sshd, installs Tailscale, waits out cloud-init, then runs the chezmoi bootstrap. Run it as **root** on the fresh box:
+`linux-vps-setup.sh` scripts the whole root-prep + bootstrap: it creates the user, copies the SSH key, sets passwordless sudo, hardens sshd, installs Tailscale, waits out cloud-init, then runs the chezmoi bootstrap. Run it as **root** on the fresh box:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
 (`... | bash -s -- myuser` for a different username; `TS_AUTHKEY=tskey-... ... | bash` to bring Tailscale up unattended.) It's idempotent, and it prints the interactive remainder (§5–§7) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.

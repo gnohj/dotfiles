@@ -4,6 +4,9 @@ MANUAL_VPS_SETUP.md
 system-setup.sh
 system-utils.sh
 user-setup.sh
+mac-setup.sh
+linux-setup.sh
+linux-vps-setup.sh
 tasks
 
 # Generated at runtime by generate-tmux-colors.sh (run-shell on tmux start,
