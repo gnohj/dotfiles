@@ -176,6 +176,31 @@ in
       };
     };
 
+    # Usage Sampler — records CPU/mem/swap/pressure every 5 min to
+    # ~/.local/state/usage/YYYY-MM.csv, building the historical trend behind the
+    # "can I downgrade the MacBook once dev work lives on the dev-box" decision.
+    # View with `usage-report.sh`. Cheap (vm_stat + sysctl, no `top`). The CSV
+    # persists (under state, NOT ~/.logs) so it survives the log-cleanup sweep.
+    usage-sampler = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/usage
+            ${homeDir}/.local/bin/usage-sample.sh
+          ''
+        ];
+        StartInterval = 300;  # every 5 minutes
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+        };
+        StandardOutPath = "${homeDir}/.logs/usage/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/usage/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
