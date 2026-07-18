@@ -1,10 +1,12 @@
 Host github.com
-  # UseKeychain is macOS-only; IgnoreUnknown lets Linux ssh parse this file
-  # without erroring on the keyword.
-  IgnoreUnknown UseKeychain
   AddKeysToAgent yes
+{{- if eq .chezmoi.os "darwin" }}
+  # macOS: sign with the keychain-held identity key. On the VPS this block is
+  # omitted — no private key on the box, git rides the forwarded agent instead.
+  IgnoreUnknown UseKeychain
   UseKeychain yes
   IdentityFile ~/.ssh/id_ed25519
+{{- end }}
 
 # dev-box VPS (uncomment + set HostName once the box exists). Agent
 # forwarding lets `git push` from the box sign with the key held in the Mac's
