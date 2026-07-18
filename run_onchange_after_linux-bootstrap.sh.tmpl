@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 11   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 12   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -51,7 +51,7 @@ fi
 # anyway, but declare it so a stripped image doesn't leave the git segment blank.
 # sysstat + atop: record CPU/mem/swap time-series for the 16-vs-32 GB trial verdict.
 # sysstat = CSV-exportable sar history (vps-usage-export.sh); atop = per-process replay.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop"
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop figlet"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
