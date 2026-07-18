@@ -1,10 +1,13 @@
 #!/bin/bash
-# Toggle macOS Do Not Disturb via Shortcuts based on current state.
-# Expects two user-created Shortcuts:
-#   FocusOn  — Set Focus → Turn On Do Not Disturb (until Turned Off)
-#   FocusOff — Set Focus → Turn Off Do Not Disturb
+# Toggle Focus via the FocusOn/FocusOff Shortcuts. Cache decides direction because the DoNotDisturb DB is TCC-walled from sketchybar.
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+source "$HOME/.config/sketchybar/config/colors.sh"
+
+NAME="${NAME:-widgets.dnd}"
+STATE_FILE="$HOME/.cache/sketchybar/dnd_state"
+mkdir -p "$(dirname "$STATE_FILE")"
 
 LOG="$HOME/.logs/sketchybar/dnd_click.log"
 mkdir -p "$(dirname "$LOG")"
@@ -12,8 +15,7 @@ ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
 echo "[$(ts)] click fired" >>"$LOG"
 
-# Single-instance lock (atomic mkdir; macOS doesn't ship `flock`). Stale locks
-# older than 10 seconds are auto-cleared.
+# Single-instance lock (atomic mkdir; macOS has no flock). Stale locks >10s auto-clear.
 LOCK="/tmp/sketchybar-dnd-click.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
   if [ -z "$(find "$LOCK" -newermt '-10 seconds' 2>/dev/null)" ]; then
@@ -26,32 +28,30 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-ASSERTIONS_FILE="$HOME/Library/DoNotDisturb/DB/Assertions.json"
 state="off"
-if [ -r "$ASSERTIONS_FILE" ]; then
-  state=$(plutil -convert json -o - "$ASSERTIONS_FILE" 2>/dev/null \
-    | jq -r '(.data[0].storeAssertionRecords // []) | if length > 0 then "on" else "off" end')
-  state="${state:-off}"
-fi
+[ -r "$STATE_FILE" ] && state="$(cat "$STATE_FILE" 2>/dev/null)"
+state="${state:-off}"
 
 if [ "$state" = "on" ]; then
   TARGET_SHORTCUT="FocusOff"
+  new_state="off"
+  new_color="$YELLOW"
 else
   TARGET_SHORTCUT="FocusOn"
+  new_state="on"
+  new_color="$MAGENTA"
 fi
 
 echo "[$(ts)] state=$state, running $TARGET_SHORTCUT" >>"$LOG"
 
 if ! shortcuts run "$TARGET_SHORTCUT" 2>>"$LOG"; then
   echo "[$(ts)] $TARGET_SHORTCUT failed (create FocusOn + FocusOff in Shortcuts.app)" >>"$LOG"
-  sketchybar --trigger dnd_changed
   exit 0
 fi
 
-# Poll a few times so the icon settles to the new color promptly.
-for _ in 1 2 3 4 5; do
-  sleep 0.4
-  sketchybar --trigger dnd_changed
-done
+# Marker makes dnd.sh trust this cache briefly while Control Center's pref catches up.
+echo "$new_state" >"$STATE_FILE"
+touch "$(dirname "$STATE_FILE")/dnd_click_ts"
+sketchybar --set "$NAME" icon.color="$new_color"
 
-echo "[$(ts)] click finished" >>"$LOG"
+echo "[$(ts)] click finished — now $new_state" >>"$LOG"
