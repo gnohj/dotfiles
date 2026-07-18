@@ -161,7 +161,8 @@ Full detail in MANUAL_VPS_SETUP.md:
         claude   |   codex   |   gemini      # once each for OAuth
 
   [3] Secrets — put ONLY the tokens THIS box needs into ~/.zsh_gnohj_env.local
-      (gitignored, auto-sourced; var names listed in ~/.config/bitwarden/vars.txt).
+      (gitignored, auto-sourced). Scaffold it from the var list, then fill in:
+        env-local-scaffold > ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
       Your Bitwarden master password never touches the VPS (MANUAL_VPS_SETUP.md
       §Security-4). A full `rbw unlock` is reserved for your trusted Mac.
 
