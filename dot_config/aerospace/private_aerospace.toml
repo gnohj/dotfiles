@@ -203,14 +203,10 @@ run = "move-node-to-workspace F"
 if.app-id = 'com.apple.Photos'
 run = "move-node-to-workspace F"
 
-# System Settings is non-resizable since macOS Ventura — no WM can
-# stretch it. Float and call center-window.sh because aerospace has no
-# native command to set absolute coordinates on a floating window
-# (`move-mouse window-lazy-center` moves the cursor, not the window).
+# System Settings is non-resizable (Ventura+); float it in place so a permission prompt pops centered here instead of teleporting the view. center-window.sh sets coords since aerospace can't position floats.
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
 run = [
-   'move-node-to-workspace K',
    'layout floating',
    'exec-and-forget ~/.config/aerospace/center-window.sh "System Settings"',
 ]
