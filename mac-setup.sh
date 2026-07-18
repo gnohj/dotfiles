@@ -2,14 +2,14 @@
 # System setup script - Installs Nix and system configuration
 #
 # Platform Support:
-#   - macOS: Uses nix-darwin for system configuration
-#   - Linux: TODO
+#   - macOS: Uses nix-darwin for system configuration (this script)
+#   - Linux: see linux-setup.sh (user + hardening + Tailscale + chezmoi bootstrap)
 #
-# Usage: ./system-setup.sh [FLAKE_NAME]
+# Usage: ./mac-setup.sh [FLAKE_NAME]
 #   FLAKE_NAME: Optional flake configuration name (default: macbook_silicon)
 #   Examples:
-#     ./system-setup.sh                    # Uses default: macbook_silicon
-#     ./system-setup.sh macbook_intel      # For Intel Macs
+#     ./mac-setup.sh                    # Uses default: macbook_silicon
+#     ./mac-setup.sh macbook_intel      # For Intel Macs
 
 set -euo pipefail
 
@@ -93,7 +93,7 @@ else
   print_success "Nix installed successfully"
   echo ""
   print_warning "Please open a NEW terminal window and re-run this script:"
-  print_info "  ./system-setup.sh"
+  print_info "  ./mac-setup.sh"
   echo ""
   print_info "This is required for Nix to be available in your shell PATH."
   exit 0
@@ -158,7 +158,7 @@ else
   print_info "  source ~/.zshrc"
   print_info ""
   print_info "Then re-run this script to continue with Phase 4:"
-  print_info "  ./system-setup.sh"
+  print_info "  ./mac-setup.sh"
   echo ""
   exit 0
 fi

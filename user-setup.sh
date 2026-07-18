@@ -2,7 +2,7 @@
 # User setup script - Configures user-level dotfiles and development tools
 
 # Prerequisites:
-#   - Nix and nix-darwin should be installed (run system-setup.sh first)
+#   - Nix and nix-darwin should be installed (run mac-setup.sh first)
 #   - This script handles: chezmoi dotfiles, mise (languages only), SSH keys
 
 set -euo pipefail
@@ -49,8 +49,8 @@ print_info "› Phase 1: Verifying prerequisites..."
 
 if ! command -v nix &>/dev/null; then
   print_warning "Nix is not installed!"
-  print_info "Please run system-setup.sh first:"
-  echo "  curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/system-setup.sh | bash"
+  print_info "Please run mac-setup.sh first:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/mac-setup.sh | bash"
   exit 1
 fi
 
