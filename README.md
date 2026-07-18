@@ -42,7 +42,7 @@ Installs Nix package manager, nix-darwin system configuration, and Homebrew
 packages:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/system-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/mac-setup.sh | bash
 ```
 
 This will:

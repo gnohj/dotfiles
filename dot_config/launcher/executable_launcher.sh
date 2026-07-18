@@ -66,7 +66,7 @@ ACTIONS=(
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
 
-  "🔧 System|🔧 System Setup|act_system_setup|Run system-setup.sh (brew, nix, packages)"
+  "🔧 System|🔧 System Setup|act_system_setup|Run mac-setup.sh (brew, nix, packages)"
   "🔧 System|⬆️ System Update|act_system_update|nix flake update + darwin-rebuild switch"
   "🔧 System|👤 User Setup|act_system_usersetup|Run user-setup.sh (dotfiles, configs)"
   "🔧 System|🎯 All (update + setup + user-setup)|act_system_all|Run all three setup steps in sequence with one sudo prompt"
@@ -647,10 +647,10 @@ act_sync_autopush() {
 }
 
 act_system_setup() {
-  if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
-    cd "$HOME/.local/share/chezmoi" && ./system-setup.sh
+  if [ -f "$HOME/.local/share/chezmoi/mac-setup.sh" ]; then
+    cd "$HOME/.local/share/chezmoi" && ./mac-setup.sh
   else
-    echo "system-setup.sh not found"
+    echo "mac-setup.sh not found"
     sleep 2
   fi
 }
@@ -694,11 +694,11 @@ act_system_all() {
   trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null' RETURN
 
   echo "\n▶ [1/3] System Setup..."
-  if [ -f "$HOME/.local/share/chezmoi/system-setup.sh" ]; then
-    (cd "$HOME/.local/share/chezmoi" && ./system-setup.sh) ||
-      echo "(system-setup.sh exited non-zero — continuing)"
+  if [ -f "$HOME/.local/share/chezmoi/mac-setup.sh" ]; then
+    (cd "$HOME/.local/share/chezmoi" && ./mac-setup.sh) ||
+      echo "(mac-setup.sh exited non-zero — continuing)"
   else
-    echo "system-setup.sh not found (skipping)"
+    echo "mac-setup.sh not found (skipping)"
   fi
 
   echo "\n▶ [2/3] User Setup..."

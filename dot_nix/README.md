@@ -45,10 +45,10 @@ Cross-platform Nix configuration for macOS (nix-darwin) and future Linux (Arch/U
 
 ### Initial Setup
 
-Run the system-setup.sh script from the root of the dotfiles repo:
+Run the mac-setup.sh script from the root of the dotfiles repo:
 
 ```bash
-bash ~/.local/share/chezmoi/system-setup.sh
+bash ~/.local/share/chezmoi/mac-setup.sh
 ```
 
 ### Apply Configuration
