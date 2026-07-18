@@ -1,25 +1,38 @@
 # Dotfiles
 
-My personal dotfiles for macOS.
+My personal dotfiles for macOS and Linux.
 
 <img width="2557" height="1440" alt="ghostty-current" src="https://github.com/user-attachments/assets/dbe927ed-fda1-4d92-958a-d92d1220b9ee" />
 
 ## Key Tools & Configurations
 
-- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin) (declarative macOS settings + packages)
-- **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
+macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/editor/CLI core as a remote dev box over Tailscale.
+
+### Shared core (macOS + Linux)
+
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
-- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace) (tiling WM), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (window borders), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
-- **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Launcher**: [Raycast](https://www.raycast.com/)
-- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (primary), [Kitty](https://github.com/kovidgoyal/kitty) (kept at config parity)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient), [Atuin](https://github.com/atuinsh/atuin) (shell history)
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with [Sesh](https://github.com/joshmedeski/sesh) session management
+- **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Version Control**: Git worktrees with [Treekanga](https://github.com/garrettkrohn/treekanga) CLI, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+
+### macOS desktop
+
+- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin) (declarative macOS settings + packages)
+- **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
+- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
+- **Window Management**: [Aerospace](https://github.com/nikitabobko/AeroSpace) (tiling WM), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (window borders), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
+- **Launcher**: [Raycast](https://www.raycast.com/)
+- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (primary), [Kitty](https://github.com/kovidgoyal/kitty) (kept at config parity)
 - **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
+
+### Linux VPS (remote dev box)
+
+- **Networking**: [Tailscale](https://tailscale.com/) mesh (the only way in - no public SSH), [Mosh](https://mosh.org/) for roaming attach
+- **Secrets Management**: scoped tokens in `~/.zsh_gnohj_env.local` (no full Bitwarden unlock on the box)
+- **Monitoring**: [sysstat](https://github.com/sysstat/sysstat) + [atop](https://www.atoptool.nl/) (file-based, near-zero RAM)
 
 ## Bootstrap New Mac (Apple Silicon)
 
