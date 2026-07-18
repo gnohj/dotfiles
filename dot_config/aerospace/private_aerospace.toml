@@ -186,6 +186,14 @@ run = "move-node-to-workspace W"
 if.app-id = 'com.bitwarden.desktop'
 run = "move-node-to-workspace V"
 
+[[on-window-detected]]
+if.app-id = 'io.tailscale.ipn.macsys'
+run = "move-node-to-workspace U"
+
+[[on-window-detected]]
+if.app-id = 'bobko.aerospace'
+run = "move-node-to-workspace U"
+
 
 [[on-window-detected]]
 if.app-id = 'com.apple.finder'
