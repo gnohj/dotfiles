@@ -237,3 +237,70 @@ mas upgrade <app-id>
 ```
 
 </details>
+
+## Update Existing Linux VPS (Ubuntu, amd64)
+
+<details>
+<summary>Click to expand update instructions</summary>
+
+There is no Nix, Homebrew, or App Store layer on the VPS - the update surface is `apt` + `chezmoi` + `mise`, plus the tools built from source.
+
+### 1. System packages (apt)
+
+The base packages (tmux, mosh, python3, monitoring, etc.) come from apt:
+
+```bash
+sudo apt-get update && sudo apt-get upgrade -y
+
+# clean up
+sudo apt-get autoremove -y && sudo apt-get clean
+```
+
+### 2. Chezmoi (Dotfiles Management)
+
+**Apply latest dotfiles:**
+
+```bash
+chezmoi apply
+```
+
+**Update from remote and apply** (re-runs the toolchain bootstrap when it changes):
+
+```bash
+chezmoi update
+```
+
+Secrets on the VPS are NOT managed by `rbw`/Bitwarden - they live in `~/.zsh_gnohj_env.local` (see `MANUAL_VPS_SETUP.md`). Edit that file directly to rotate a token.
+
+### 3. Mise (Language/Environment Management)
+
+Same as the Mac:
+
+```bash
+mise outdated        # list outdated runtimes/CLIs
+mise install         # install/update everything from config
+mise upgrade         # upgrade all to latest
+mise upgrade node    # upgrade a specific runtime
+```
+
+### 4. Tailscale + from-source tools
+
+**Tailscale** self-updates via its apt repo (installed by the bootstrap), so it rides along with `apt-get upgrade` above. To force it:
+
+```bash
+sudo tailscale update
+```
+
+**herdr:**
+
+```bash
+curl -fsSL https://herdr.dev/install.sh | sh
+```
+
+**tmux-dash** (private repo, built with cargo):
+
+```bash
+cd ~/tmux-dash && git pull && cargo install --path .
+```
+
+</details>
