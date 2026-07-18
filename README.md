@@ -17,7 +17,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 - **Multiplexer**: [Tmux](https://github.com/tmux/tmux) with [Sesh](https://github.com/joshmedeski/sesh) session management
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Version Control**: Git worktrees with [Treekanga](https://github.com/garrettkrohn/treekanga) CLI, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
-- **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; the VPS adds sysstat/atop as background recorders)
+- **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; each platform also runs a lightweight background recorder - see below)
 
 ### macOS desktop
 
@@ -28,6 +28,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 - **Launcher**: [Raycast](https://www.raycast.com/)
 - **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (primary), [Kitty](https://github.com/kovidgoyal/kitty) (kept at config parity)
 - **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
+- **Monitoring**: `usage-sampler` LaunchAgent records CPU/mem/swap/pressure every 5 min to `~/.local/state/usage/*.csv` (trend via `usage-report.sh`) - the macOS analog to the VPS's sysstat/atop
 
 ### Linux VPS (remote dev box)
 
