@@ -851,11 +851,13 @@ alias c='clear'
 # also hands back the matching config dir + OAuth token. `claude`, `cs`, `cr`, and
 # the nvim dashboard all go through it, so just `cd` into a repo and launch.
 # Force a different account for THIS shell with `cw` (toggle) / `cauto` (clear).
-CLAUDE_BIN="$(command -v claude 2>/dev/null || echo /opt/homebrew/bin/claude)"
-
 claude() {
-	local dir tok
+	local dir tok claude_bin
 	local -a mode
+	# Resolve the real binary at call time (whence -p skips this function), not at
+	# load time — on Linux the mise `claude` shim isn't on PATH until mise activates
+	# later in this file, so a load-time lookup fell back to a Mac-only homebrew path.
+	claude_bin="$(whence -p claude 2>/dev/null || echo claude)"
 	dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
 	tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
 	# settings.json sets permissions.defaultMode = "bypassPermissions" so herdr's
@@ -874,7 +876,7 @@ claude() {
 	(
 		[ -n "$dir" ] && export CLAUDE_CONFIG_DIR="$dir"
 		[ -n "$tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$tok"
-		exec "$CLAUDE_BIN" "${mode[@]}" "$@"
+		exec "$claude_bin" "${mode[@]}" "$@"
 	)
 }
 
