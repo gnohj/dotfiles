@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Print an empty ~/.zsh_gnohj_env.local scaffold from the bitwarden var list.
+# On the VPS you fill these in by hand (scoped tokens, no rbw unlock); the Mac
+# gets them from rbw → ~/.zsh_gnohj_env.secrets instead. Single source of truth
+# is ~/.config/bitwarden/vars.txt, so this never goes stale.
+#
+# Usage:
+#   env-local-scaffold                       # print scaffold to stdout (copy/paste)
+#   env-local-scaffold > ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
+set -euo pipefail
+
+VARS="${XDG_CONFIG_HOME:-$HOME/.config}/bitwarden/vars.txt"
+[ -f "$VARS" ] || { echo "env-local-scaffold: no vars.txt at $VARS" >&2; exit 1; }
+
+echo "# ~/.zsh_gnohj_env.local — scoped secrets for THIS box (gitignored, chmod 600)."
+echo "# Fill in ONLY the tokens this box actually needs; leave the rest empty/removed."
+echo "# Sourced at the end of ~/.zsh_gnohj_env (dot_zsh_gnohj_env.tmpl)."
+while IFS= read -r v; do
+  [ -n "$v" ] && printf 'export %s=""\n' "$v"
+done < "$VARS"
