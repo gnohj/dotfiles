@@ -30,6 +30,9 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 
 ### Linux VPS (remote dev box)
 
+Headless, so the desktop categories above collapse into CLI equivalents: `apt` + Mise replace Nix-Darwin/Homebrew, tmux + Sesh do the windowing/launching, and the terminal and keyboard remapping stay on the Mac client.
+
+- **System & Packages**: [apt](https://wiki.debian.org/apt) base + [Mise](https://mise.jdx.dev/) (ubi/aqua/cargo/npm backends) - no Nix; a chezmoi-run bootstrap provisions the toolchain
 - **Networking**: [Tailscale](https://tailscale.com/) mesh (the only way in - no public SSH), [Mosh](https://mosh.org/) for roaming attach
 - **Secrets Management**: scoped tokens in `~/.zsh_gnohj_env.local` (no full Bitwarden unlock on the box)
 - **Monitoring**: [sysstat](https://github.com/sysstat/sysstat) + [atop](https://www.atoptool.nl/) (file-based, near-zero RAM)
