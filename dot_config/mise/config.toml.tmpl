@@ -17,6 +17,38 @@ zig = 'latest'          # used for GhosttyFetch
 
 "npm:prettier" = "latest"
 "npm:codeburn" = "latest"
+{{- if ne .chezmoi.os "darwin" }}
+
+# Linux VPS: no Nix layer, so mise owns the whole CLI toolchain (on macOS these come from nix-darwin/Homebrew). Declarative so `mise install` fetches them all with retries, instead of a best-effort `mise use -g` loop that silently skips a tool when a GitHub lookup blips.
+neovim = "latest"
+ripgrep = "latest"
+fd = "latest"
+fzf = "latest"
+lazygit = "latest"
+bat = "latest"
+eza = "latest"
+zoxide = "latest"
+starship = "latest"
+yazi = "latest"
+jq = "latest"
+gh = "latest"
+btop = "latest"
+delta = "latest"
+yq = "latest"
+television = "latest"
+lazydocker = "latest"
+pnpm = "latest"
+atuin = "latest"
+"ubi:arl/gitmux" = "latest"
+"aqua:joshmedeski/sesh" = "latest"
+"ubi:dlvhdr/gh-dash" = "latest"
+"ubi:kunchenguid/treehouse" = "latest"
+"ubi:kunchenguid/no-mistakes" = "latest"
+"ubi:garrettkrohn/treekanga" = "latest"
+"npm:@anthropic-ai/claude-code" = "latest"
+"npm:@openai/codex" = "latest"
+"npm:@google/gemini-cli" = "latest"
+{{- end }}
 
 [tasks]
 # aic is configured via chezmoi template at ~/.aicommitrc (see dot_aicommitrc.tmpl);
