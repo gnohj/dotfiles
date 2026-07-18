@@ -32,7 +32,7 @@ end
 -- caller can fall back to plain text. Bump CACHE_VERSION whenever the font file,
 -- figlet behavior, or post-processing below changes — it's part of the cache key,
 -- so a bump orphans every prior entry at once and forces a clean re-render.
-local CACHE_VERSION = 1
+local CACHE_VERSION = 2
 local function render_figlet(name, font)
   local cache_dir = vim.fn.stdpath("cache") .. "/dashboard_figlet"
   local key = ("v" .. CACHE_VERSION .. "_" .. font .. "_" .. name):gsub("[^%w%-]", "_")
@@ -48,7 +48,15 @@ local function render_figlet(name, font)
   if vim.fn.executable("figlet") == 0 then
     return nil
   end
-  local figlet = vim.fn.system({ "figlet", "-w", "1000", "-f", font, name })
+  -- Prefer the bundled font dir so contributed fonts (larry3d) work on Linux,
+  -- where apt figlet ships only the base font set.
+  local args = { "figlet", "-w", "1000" }
+  local fontdir = vim.fn.expand("~/.local/share/figlet-fonts")
+  if vim.fn.isdirectory(fontdir) == 1 then
+    vim.list_extend(args, { "-d", fontdir })
+  end
+  vim.list_extend(args, { "-f", font, name })
+  local figlet = vim.fn.system(args)
   if vim.v.shell_error ~= 0 then
     return nil
   end
