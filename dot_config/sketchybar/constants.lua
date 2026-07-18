@@ -18,6 +18,7 @@ local items <const> = {
 	VOLUME = "widgets.volume",
 	WIFI = "widgets.wifi",
 	VPN = "widgets.vpn",
+	TAILSCALE = "widgets.tailscale",
 	MEMORY = "widgets.memory",
 	CPU = "widgets.cpu",
 	GITHUB_NOTIFICATION = "widgets.github_notification",
