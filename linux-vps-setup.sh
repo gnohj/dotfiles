@@ -156,6 +156,7 @@ Full detail in MANUAL_VPS_SETUP.md:
       Then enable MagicDNS + HTTPS Certificates in the admin console.
 
   [2] GitHub + agents:
+        unset GITHUB_TOKEN          # if you passed one — else gh login is non-interactive
         gh auth login
         claude   |   codex   |   gemini      # once each for OAuth
 
