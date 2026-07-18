@@ -47,5 +47,5 @@ tmux display-popup -E -w 28% -h 40% -b none "
 
   BARE_REPO_PATH=\"\$HOME/\$WORKTREE_DIR/\${BARE_NAME:-.bare}\"
 
-  tmux new-window -n '🌳' -c \"\$BARE_REPO_PATH\" 'export PATH=\"/opt/homebrew/bin:\$PATH\"; /opt/homebrew/bin/treekanga tui'
+  tmux new-window -n '🌳' -c \"\$BARE_REPO_PATH\" 'export PATH=\"/opt/homebrew/bin:\$PATH\"; treekanga tui'
 "

@@ -15,6 +15,6 @@ esac
 case "$1" in
   # Jump straight to the next agent that needs you — no dashboard UI. Input
   # (blocked) agents first, then Done (finished) as a last tier.
-  i) exec "$HOME/.config/skhd/tmux-dash-next-input.sh" ;;
+  i) exec "$HOME/.local/bin/tmux-dash-next-input.sh" ;;
   *) exit 0 ;;
 esac

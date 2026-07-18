@@ -4,7 +4,7 @@
 
 export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:$PATH"
 
-/opt/homebrew/bin/tmux display-popup -E -w 90% -h 90% -d "$PANE_PATH" -B "
+tmux display-popup -E -w 90% -h 90% -d "$PANE_PATH" -B "
   export PATH=\"/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:\$PATH\"
   export LAZYGIT_NEW_DIR_FILE=\"$HOME/.lazygit/newdir\"
   export LAZYGIT_HOST_PANE=\"$LAZYGIT_HOST_PANE\"
@@ -14,7 +14,7 @@ export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:$PATH"
   /usr/bin/git rev-parse --is-inside-work-tree >/dev/null 2>&1 && HUSKY=0 LG_CONFIG_FILE=\"\$LG_CFG\" lazygit
   if [ -f \"$HOME/.lazygit/newdir\" ]; then
     NEW_DIR=\$(cat \"$HOME/.lazygit/newdir\"); rm -f \"$HOME/.lazygit/newdir\"
-    [ -n \"\$NEW_DIR\" ] && [ \"\$NEW_DIR\" != \"$PANE_PATH\" ] && /opt/homebrew/bin/tmux send-keys -t \"$LAZYGIT_HOST_PANE\" \"cd '\$NEW_DIR'\" Enter
+    [ -n \"\$NEW_DIR\" ] && [ \"\$NEW_DIR\" != \"$PANE_PATH\" ] && tmux send-keys -t \"$LAZYGIT_HOST_PANE\" \"cd '\$NEW_DIR'\" Enter
   fi
 "
 

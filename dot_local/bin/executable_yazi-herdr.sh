@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# herdr-native yazi launcher — the herdr counterpart of dot_config/skhd/yazi-launch.sh.
+# herdr-native yazi launcher — the herdr counterpart of dot_local/bin/yazi-launch.sh.
 # Runs as a herdr pane command (type=pane) opened by a herdr keybind. Discovers the
 # sibling pane in this tab running (n)vim; if that nvim is up on its per-pane RPC
 # socket (named by init.lua: /tmp/nvim-herdr-<sanitized pane id>.sock), seed yazi

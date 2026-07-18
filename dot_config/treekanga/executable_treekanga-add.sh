@@ -5,7 +5,7 @@
 #   - `tka` alias in .zshrc
 #   - "🌳 Add Worktree" entry in the launcher (ql / launcher)
 #
-# rctrl-semi uses ~/.config/skhd/treekanga-selector.sh, which wraps the same
+# rctrl-semi uses ~/.local/bin/treekanga-selector.sh, which wraps the same
 # flow in `tmux display-popup` because skhd launches outside of tmux.
 
 set -euo pipefail
