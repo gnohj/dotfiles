@@ -4,6 +4,7 @@
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
+source "$HOME/.config/sketchybar/items/widgets/dev-context-lib.sh"
 
 NAME="${NAME:-widgets.dev_context}"
 
@@ -48,20 +49,9 @@ else
   printf '%s\n' "$ts_nodes" >"$CACHE"
 fi
 
-# Is CUR one of the rows we'll render below? Bare `ssh <ip>` to an un-aliased host is not.
-is_listed() {
-  [ "$CUR" = "local" ] && return 0
-  case "$CUR" in
-    ssh:*) printf '%s\n' "$ssh_hosts" | grep -Fxq -- "${CUR#ssh:}" && return 0 ;;
-    ts:*)
-      while IFS=$'\t' read -r host os self; do
-        [ "$self" = "true" ] && continue
-        case "$os" in iOS | iPadOS | android | tvOS) continue ;; esac
-        [ "$host" = "${CUR#ts:}" ] && return 0
-      done <<<"$ts_nodes" ;;
-  esac
-  return 1
-}
+# Live ssh sessions (most-recent first) so SESSION reflects reality and the SSH/TAILSCALE sections can drop already-connected targets.
+active_tokens="$(dc_active_tokens)"
+is_active() { printf '%s\n' "$active_tokens" | grep -Fxq -- "$1"; }
 
 # Compact a long target (e.g. a full IPv6) so it doesn't blow out the popup width.
 shorten() {
@@ -97,35 +87,44 @@ add_info() { # text
 
 add_option "local" "$GLYPH_LOCAL  Local" "$WHITE"
 
-# Active session with no row of its own (bare `ssh <ip>`): surface it so the picker shows where you actually are.
-if ! is_listed; then
-  case "$CUR" in
-    ts:*) add_header "SESSION"; add_option "$CUR" "$GLYPH_TS  $(shorten "${CUR#ts:}")" "$MAGENTA" ;;
-    ssh:*) add_header "SESSION"; add_option "$CUR" "$GLYPH_SSH  $(shorten "${CUR#ssh:}")" "$MAGENTA" ;;
-  esac
+# SESSION: every live ssh connection (most-recent first); the selected route highlights magenta, the rest white, names compacted.
+if [ -n "$active_tokens" ]; then
+  add_header "SESSION"
+  while IFS= read -r tok; do
+    case "$tok" in
+      ts:*) add_option "$tok" "$GLYPH_TS  $(shorten "${tok#ts:}")" "$WHITE" ;;
+      ssh:*) add_option "$tok" "$GLYPH_SSH  $(shorten "${tok#ssh:}")" "$WHITE" ;;
+    esac
+  done <<<"$active_tokens"
 fi
 
-if [ -n "$ssh_hosts" ]; then
-  add_header "SSH"
-  while IFS= read -r host; do
-    [ -n "$host" ] && add_option "ssh:$host" "$GLYPH_SSH  $host" "$BLUE"
-  done <<<"$ssh_hosts"
-fi
+# SSH / TAILSCALE: pickable targets you're NOT already connected to (live ones are in SESSION above); header deferred until a non-live row is emitted.
+printed=0
+while IFS= read -r host; do
+  [ -z "$host" ] && continue
+  is_active "ssh:$host" && continue
+  [ "$printed" = 0 ] && add_header "SSH" && printed=1
+  add_option "ssh:$host" "$GLYPH_SSH  $host" "$BLUE"
+done <<<"$ssh_hosts"
 
-if [ -n "$ts_nodes" ]; then
-  add_header "TAILSCALE"
-  while IFS=$'\t' read -r host os self; do
-    [ -z "$host" ] && continue
-    # Self is this machine (== Local) and mobile/appliance OSes aren't dev targets: both are dimmed info.
-    if [ "$self" = "true" ]; then
-      add_info "$host"
-    else
-      case "$os" in
-        iOS | iPadOS | android | tvOS) add_info "$host" ;;
-        *) add_option "ts:$host" "$GLYPH_TS  $host" "$GREEN" ;;
-      esac
-    fi
-  done <<<"$ts_nodes"
-fi
+printed=0
+while IFS=$'\t' read -r host os self; do
+  [ -z "$host" ] && continue
+  is_active "ts:$host" && continue
+  # Self is this machine (== Local) and mobile/appliance OSes aren't dev targets: both are dimmed info.
+  if [ "$self" = "true" ]; then
+    [ "$printed" = 0 ] && add_header "TAILSCALE" && printed=1
+    add_info "$host"
+  else
+    case "$os" in
+      iOS | iPadOS | android | tvOS)
+        [ "$printed" = 0 ] && add_header "TAILSCALE" && printed=1
+        add_info "$host" ;;
+      *)
+        [ "$printed" = 0 ] && add_header "TAILSCALE" && printed=1
+        add_option "ts:$host" "$GLYPH_TS  $host" "$GREEN" ;;
+    esac
+  fi
+done <<<"$ts_nodes"
 
 sketchybar -m "${args[@]}" >/dev/null

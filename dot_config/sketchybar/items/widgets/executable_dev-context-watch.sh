@@ -3,56 +3,13 @@
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
+source "$HOME/.config/sketchybar/items/widgets/dev-context-lib.sh"
+
 MARKER="${XDG_STATE_HOME:-$HOME/.local/state}/dev-context.auto"
-TS="$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)"
-TSJSON="$([ -x "$TS" ] && "$TS" status --json 2>/dev/null)"
-
-# Peer name for a Tailscale IP (100.x / fd7a:), or "" if not a tailnet address.
-ts_name_for_ip() {
-  [ -n "$TSJSON" ] || return 0
-  printf '%s' "$TSJSON" | jq -r --arg ip "$1" \
-    '.Peer[]? | select(any(.TailscaleIPs[]?; . == $ip)) | (.DNSName // "" | split(".")[0]) | select(. != "")' \
-    2>/dev/null | head -1
-}
-
-# Destination host of an ssh process (first non-option arg), user@ stripped.
-ssh_dest_for_pid() {
-  local args need_arg=0 tok
-  args="$(ps -p "$1" -o args= 2>/dev/null)"
-  # shellcheck disable=SC2086
-  set -- $args
-  shift # drop "ssh"
-  for tok in "$@"; do
-    if [ "$need_arg" = 1 ]; then need_arg=0; continue; fi
-    case "$tok" in
-      -b | -c | -D | -E | -e | -F | -I | -i | -J | -L | -l | -m | -O | -o | -p | -Q | -R | -S | -W | -w) need_arg=1 ;;
-      -*) : ;;
-      *) printf '%s\n' "${tok##*@}"; return 0 ;;
-    esac
-  done
-}
-
-# Map an established ssh session (ip + typed dest) to a dev-context token.
-token_for() { # ip dest
-  local name="$(ts_name_for_ip "$1")"
-  [ -z "$name" ] && case "$2" in *.ts.net) name="${2%%.*}" ;; esac
-  if [ -n "$name" ]; then printf 'ts:%s\n' "$name"
-  elif [ -n "$2" ]; then printf 'ssh:%s\n' "$2"
-  fi
-}
 
 # Live dev-context tokens, most-recently-opened first, de-duplicated.
 ACTIVE=()
-while IFS=$'\t' read -r pid ip; do
-  [ -z "$pid" ] && continue
-  tok="$(token_for "$ip" "$(ssh_dest_for_pid "$pid")")"
-  [ -z "$tok" ] && continue
-  dup=0
-  for x in "${ACTIVE[@]}"; do [ "$x" = "$tok" ] && dup=1 && break; done
-  [ "$dup" = 0 ] && ACTIVE+=("$tok")
-done < <(lsof -nP -iTCP:22 -sTCP:ESTABLISHED 2>/dev/null \
-  | awk '$1 ~ /^ssh/ { name=$9; sub(/.*->\[?/, "", name); sub(/\]?:22$/, "", name); print $2 "\t" name }' \
-  | sort -rn -k1) # highest pid (most recent) first
+while IFS= read -r tok; do [ -n "$tok" ] && ACTIVE+=("$tok"); done < <(dc_active_tokens)
 
 first="${ACTIVE[0]:-}"
 n="${#ACTIVE[@]}"
