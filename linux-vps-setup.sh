@@ -109,8 +109,25 @@ fi
 # USER PHASE — chezmoi install + apply (runs the linux-bootstrap)
 # =====================================================================
 print_info "› User phase: chezmoi init --apply ($USER)"
+
+# Preflight: github.com is IPv4-only, and the whole toolchain (chezmoi clone, mise
+# tool downloads) pulls from it. A Vultr box on a CGNAT/shared IPv4 (100.64.0.0/10)
+# has no outbound IPv4 and every github fetch dies with a 1ms "couldn't connect".
+# Fail loudly HERE with the real cause instead of a cryptic clone error 50 lines down.
+if ! curl -4 -fsS --connect-timeout 8 -o /dev/null https://github.com 2>/dev/null; then
+  print_error "No outbound IPv4 to github.com — this box can't provision."
+  print_warning "github.com is IPv4-only. This usually means the instance got a CGNAT/shared"
+  print_warning "IPv4 (100.64.0.0/10) with no outbound route (common when a datacenter is"
+  print_warning "IPv4-exhausted). Check the assigned IP: a real public IPv4 is NOT 100.64-127.x."
+  print_warning "Fix: redeploy with a real Public IPv4 (try another datacenter if it recurs),"
+  print_warning "or as a stopgap point DNS at a NAT64 resolver. Full detail: MANUAL_VPS_SETUP.md."
+  exit 1
+fi
+
+# BINDIR so chezmoi lands on PATH (~/.local/bin), not the default ~/bin which the
+# zsh config never adds — otherwise `chezmoi` isn't runnable after bootstrap.
 print_info "Installing chezmoi and applying dotfiles (this runs the Linux toolchain bootstrap)…"
-sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init --apply "$GITHUB_USER"
+BINDIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init --apply "$GITHUB_USER"
 
 print_success "=========================================="
 print_success "Linux bootstrap complete"
