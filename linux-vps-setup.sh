@@ -100,9 +100,15 @@ if [ "$(id -u)" -eq 0 ]; then
 
   # 7. Hand off to the user for the chezmoi/toolchain phase (re-runs this same
   #    script as $TARGET_USER, which falls through to the user phase below).
+  #    Forward GITHUB_TOKEN across the sudo -i env reset so mise's toolchain
+  #    install authenticates (5000/hr) instead of hitting the 60/hr anonymous
+  #    GitHub API rate limit — the difference between a one-shot install and a
+  #    partial one on a busy IP.
   print_info "› Handing off to $TARGET_USER for chezmoi + toolchain…"
+  GH_TOKEN_FWD=""
+  [ -n "${GITHUB_TOKEN:-}" ] && GH_TOKEN_FWD="export GITHUB_TOKEN='${GITHUB_TOKEN}'; "
   exec sudo -u "$TARGET_USER" -i bash -c \
-    "curl -fsSL https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-vps-setup.sh | bash"
+    "${GH_TOKEN_FWD}curl -fsSL https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-vps-setup.sh | bash"
 fi
 
 # =====================================================================
