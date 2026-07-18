@@ -45,8 +45,9 @@ atuin = "latest"
 "ubi:kunchenguid/treehouse" = "latest"
 "ubi:kunchenguid/no-mistakes" = "latest"
 "ubi:garrettkrohn/treekanga" = "latest"
-"npm:@anthropic-ai/claude-code" = "latest"
-"npm:@openai/codex" = "latest"
+# claude-code + codex ship a platform-native binary via a postinstall script; mise's npm backend passes --ignore-scripts=true by default, so opt back in for these two or `claude`/`codex` install the JS wrapper but not the native binary.
+"npm:@anthropic-ai/claude-code" = { version = "latest", npm_args = "--ignore-scripts=false" }
+"npm:@openai/codex" = { version = "latest", npm_args = "--ignore-scripts=false" }
 "npm:@google/gemini-cli" = "latest"
 {{- end }}
 
