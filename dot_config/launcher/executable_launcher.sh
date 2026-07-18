@@ -31,23 +31,26 @@ FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,f
 # Registry — the only thing you edit to add/rename entries
 #===============================================================================
 
-# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler
+# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope
 #   leaf_provider  static (leaves from ACTIONS) | fn emitting labels at runtime
 #   submenu_fn     generic | custom fn (themes drilldown, aerospace header)
 #   leaf_handler   static (label→ACTIONS fn)    | fn called as `fn "<label>"`
+#   scope          omitted = local | context (follows dev-context: runs on the ssh
+#                  target when connected). Renders a trailing 󰛳 badge in the menus.
+#                  A category's scope is inherited by its leaves unless a leaf sets its own.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
   "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace"
   "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
-  "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static"
-  "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static"
+  "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static|context"
+  "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static|context"
   "SYSTEM|🔧 System|🔧 System ›|System|System > |static|generic|static"
   "THEMES|🎨 Themes|🎨 Themes ›|Themes|Theme > |provide_themes|themes_menu|handle_theme"
-  "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static"
+  "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static|context"
 )
 
-# Static leaves — prefix|label|function|description
+# Static leaves — prefix|label|function|description|scope (scope optional; omitted inherits the category)
 ACTIONS=(
   "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
@@ -55,7 +58,7 @@ ACTIONS=(
   "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work"
 
   "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
-  "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim"
+  "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim|context"
   "🔗 Open|🎫 Open Jira|act_browser_jira|Open the Jira ticket for the current branch in browser"
 
   "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub"
@@ -80,13 +83,13 @@ ACTIONS=(
   "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
-# Top-level actions with no submenu — label|function|description
+# Top-level actions with no submenu — label|function|description|scope (scope optional)
 SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
-  "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs"
-  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
-  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
-  "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
+  "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs|context"
+  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|context"
+  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|context"
+  "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes|context"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
 
@@ -106,16 +109,58 @@ PREVIEW_CMD="\"$SELF\" --preview {}"
 # Engine — derives all three views from the registry
 #===============================================================================
 
-# Populate REC0..REC7 with a category's fields by id; 1 if unknown.
+# Populate REC0..REC8 with a category's fields by id; 1 if unknown.
 get_cat() {
   local rec
   for rec in "${CATEGORIES[@]}"; do
     case "$rec" in
     "$1|"*)
-      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 <<<"$rec"
+      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 REC8 <<<"$rec"
       return 0
       ;;
     esac
+  done
+  return 1
+}
+
+#===============================================================================
+# Scope badges — mark entries that follow dev-context (run on the ssh target when
+# connected) with a trailing 󰛳. The badge is appended after a TAB sentinel so it
+# never collides with a label; strip_scope() removes it before any dispatch match.
+#===============================================================================
+SCOPE_GLYPH="󰛳"
+
+strip_scope() { printf '%s' "${1%%$'\t'*}"; }
+
+# Category scope by prefix (field 2 of CATEGORIES). Echoes "context" or "local".
+cat_scope_by_prefix() {
+  local rec id prefix pointer header prompt provider submenu handler scope
+  for rec in "${CATEGORIES[@]}"; do
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
+    [ "$prefix" = "$1" ] && { printf '%s' "${scope:-local}"; return; }
+  done
+  printf 'local'
+}
+
+# Is a static leaf context? An explicit ACTION scope wins; otherwise inherit the category.
+leaf_is_context() { # prefix label
+  local rec p l f desc scope
+  for rec in "${ACTIONS[@]}"; do
+    IFS='|' read -r p l f desc scope <<<"$rec"
+    if [ "$p" = "$1" ] && [ "$l" = "$2" ]; then
+      [ -n "$scope" ] && { [ "$scope" = context ]; return; }
+      break
+    fi
+  done
+  [ "$(cat_scope_by_prefix "$1")" = context ]
+}
+
+# Is a simple action context?
+simple_is_context() { # label
+  local rec lbl fn desc scope
+  for rec in "${SIMPLE_ACTIONS[@]}"; do
+    IFS='|' read -r lbl fn desc scope <<<"$rec"
+    [ "$lbl" = "$1" ] && { [ "$scope" = context ]; return; }
   done
   return 1
 }
@@ -186,11 +231,17 @@ handle_aerospace() {
 
 # NORMAL mode: clean pointer list interleaved with standalone simple actions.
 build_top_level_items() {
-  local tok
+  local tok lbl
   for tok in "${TOP_LEVEL_ORDER[@]}"; do
     case "$tok" in
-    cat:*) get_cat "${tok#cat:}" && printf '%s\n' "$REC2" ;;
-    simple:*) printf '%s\n' "${tok#simple:}" ;;
+    cat:*)
+      get_cat "${tok#cat:}" || continue
+      if [ "${REC8:-local}" = context ]; then printf '%s\t%s\n' "$REC2" "$SCOPE_GLYPH"; else printf '%s\n' "$REC2"; fi
+      ;;
+    simple:*)
+      lbl="${tok#simple:}"
+      if simple_is_context "$lbl"; then printf '%s\t%s\n' "$lbl" "$SCOPE_GLYPH"; else printf '%s\n' "$lbl"; fi
+      ;;
     esac
   done
 }
@@ -198,23 +249,29 @@ build_top_level_items() {
 # INSERT mode: breadcrumb-prefixed leaves so fuzzy-typing any partial name
 # ("tokyo", "laptop", "open pr") resolves in one shot.
 build_flattened_leaves() {
-  local rec id prefix pointer header prompt provider submenu handler leaf
+  local rec id prefix pointer header prompt provider submenu handler scope leaf
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
     while IFS= read -r leaf; do
-      [ -n "$leaf" ] && printf '%s › %s\n' "$prefix" "$leaf"
+      [ -n "$leaf" ] || continue
+      if leaf_is_context "$prefix" "$leaf"; then
+        printf '%s › %s\t%s\n' "$prefix" "$leaf" "$SCOPE_GLYPH"
+      else
+        printf '%s › %s\n' "$prefix" "$leaf"
+      fi
     done < <(leaves_of "$prefix" "$provider")
   done
 }
 
 # Emit preview content for a selected line. Called via --preview mode.
 do_preview() {
-  local line="$1"
+  local line
+  line="$(strip_scope "$1")"
 
   # Category pointer (e.g. "🌳 Worktrees ›") — list its leaves.
-  local rec id prefix pointer header prompt provider submenu handler
+  local rec id prefix pointer header prompt provider submenu handler scope
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
     if [ "$line" = "$pointer" ]; then
       printf '%s\n\n' "$header"
       leaves_of "$prefix" "$provider" | while IFS= read -r leaf; do
@@ -227,7 +284,7 @@ do_preview() {
   # INSERT breadcrumb (e.g. "🌳 Worktrees › 🌳 Add Worktree") or bare leaf label.
   local p l f desc
   for rec in "${ACTIONS[@]}"; do
-    IFS='|' read -r p l f desc <<<"$rec"
+    IFS='|' read -r p l f desc scope <<<"$rec"
     if [ "$line" = "$p › $l" ] || [ "$line" = "$l" ]; then
       printf '%s\n' "$desc"
       return 0
@@ -237,7 +294,7 @@ do_preview() {
   # Simple action.
   local lbl fn
   for rec in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn desc <<<"$rec"
+    IFS='|' read -r lbl fn desc scope <<<"$rec"
     if [ "$line" = "$lbl" ]; then
       printf '%s\n' "$desc"
       return 0
@@ -250,16 +307,20 @@ do_preview() {
 # Generic drilldown for static categories: list leaves + Back, then dispatch.
 # $1 prefix $2 header $3 prompt $4 leaf_provider $5 leaf_handler.
 generic_submenu() {
-  local choice rc=0
+  local choice leaf rc=0
   choice=$(
     {
-      leaves_of "$1" "$4"
+      while IFS= read -r leaf; do
+        [ -n "$leaf" ] || continue
+        if leaf_is_context "$1" "$leaf"; then printf '%s\t%s\n' "$leaf" "$SCOPE_GLYPH"; else printf '%s\n' "$leaf"; fi
+      done < <(leaves_of "$1" "$4")
       printf "← Back\n"
     } | ~/.local/bin/fzf-vim.sh --height="${LAUNCHER_SUBMENU_HEIGHT:-40%}" --header="$2" --prompt="$3" --ansi $FZF_COLORS \
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left'
   ) || rc=$?
   quit_on_interrupt "$rc"
   clear
+  choice="$(strip_scope "$choice")"
   case "$choice" in
   "← Back" | "") back_to_root ;;
   *) run_leaf "$1" "$choice" "$5" ;;
@@ -288,9 +349,10 @@ main_menu() {
 }
 
 dispatch_root() {
-  local choice="$1" rec id prefix pointer header prompt provider submenu handler
+  local choice rec id prefix pointer header prompt provider submenu handler scope
+  choice="$(strip_scope "$1")"
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
     case "$choice" in
     "$prefix › "*)
       run_leaf "$prefix" "${choice#"$prefix › "}" "$handler"
@@ -308,7 +370,7 @@ dispatch_root() {
   done
   local s lbl fn desc
   for s in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn desc <<<"$s"
+    IFS='|' read -r lbl fn desc scope <<<"$s"
     [ "$choice" = "$lbl" ] && { run_action "$fn"; return; }
   done
   return 0
