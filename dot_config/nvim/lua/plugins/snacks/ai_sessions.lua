@@ -21,8 +21,9 @@
 --   Claude    ~/.claude*/projects/<cwd with / and . -> ->/<uuid>.jsonl  (EVERY
 --             account root: ~/.claude = personal, ~/.claude-work = work, …)
 --   Pi        ~/.pi/agent/sessions/--<cwd sans leading /, / -> ->--/<ts>_<uuid>.jsonl
---   opencode  ~/.local/share/opencode/storage/session/global/ses_*.json
---             (all projects in one dir; filtered by the session's .directory)
+--   opencode  ~/.local/share/opencode/opencode.db (SQLite; session/message/part
+--             tables) - opencode >=1.x abandoned the old JSON storage/ tree, so
+--             sessions are read via `sqlite3 -readonly`, filtered by .directory
 
 local M = {}
 
@@ -246,36 +247,43 @@ end
 
 -- ---- opencode --------------------------------------------------------------
 
--- opencode stores every project's sessions in one global dir with a real title
--- and directory on each, so filter by cwd and skip child (sub-agent) sessions.
--- @tsv emits the same id/mtime/file/label columns as the jsonl agents (file is
--- the session id, which the preview pass expands into its message dir).
+-- opencode >=1.x keeps sessions in a SQLite DB (the old JSON storage/ tree is no
+-- longer written), so read them with `sqlite3 -readonly`: filter by the
+-- session's own directory (= cwd) and skip child (sub-agent) sessions. Emit the
+-- same id/mtime/file/label columns as the jsonl agents (file is the session id,
+-- which the preview pass expands into its DB messages).
 local opencode_batch = [==[
-jq -sr --arg cwd "$1" '
-  [.[] | select(.directory == $cwd and (has("parentID") | not))]
-  | sort_by(.time.updated) | reverse | .[]
-  | [.id, ((.time.updated / 1000) | floor | tostring), .id, (.title // "Untitled")] | @tsv
-' "$2"/*.json 2>/dev/null
+db="$HOME/.local/share/opencode/opencode.db"
+[ -f "$db" ] || exit 0
+cwd="${1//\'/\'\'}"
+sqlite3 -readonly "$db" "
+  SELECT s.id || char(9) || (s.time_updated/1000) || char(9) || s.id || char(9)
+         || CASE WHEN trim(s.title) = '' THEN 'Untitled (' || substr(s.id,1,8) || ')'
+                 ELSE replace(replace(s.title, char(9), ' '), char(10), ' ') END
+  FROM session s
+  WHERE s.directory = '$cwd' AND s.parent_id IS NULL
+  ORDER BY s.time_updated DESC;
+" 2>/dev/null
 ]==]
 
 local opencode_preview = [[
+db="$HOME/.local/share/opencode/opencode.db"
 sid="$1"
-base="$HOME/.local/share/opencode/storage"
-for md in $(ls -tr "$base/message/$sid"/msg_*.json 2>/dev/null); do
-  mid=$(basename "$md" .json)
-  role=$(jq -r '.role // "?"' "$md" 2>/dev/null)
-  txt=$(cat "$base/part/$mid"/prt_*.json 2>/dev/null | jq -rs 'map(select(.type == "text").text) | join("\n")' 2>/dev/null)
-  [ -n "$txt" ] && printf -- '-- %s --\n%s\n' "$role" "$txt"
-done | tail -120
+sqlite3 -readonly -json "$db" "
+  SELECT json_extract(m.data,'\$.role') AS role,
+         json_extract(p.data,'\$.text') AS text
+  FROM message m JOIN part p ON p.message_id = m.id
+  WHERE m.session_id = '$sid' AND json_extract(p.data,'\$.type') = 'text'
+  ORDER BY m.time_created, p.time_created;
+" 2>/dev/null | jq -r '.[] | "-- \(.role) --\n\(.text)\n"' 2>/dev/null | tail -120
 ]]
 
 function M.opencode()
-  local dir = vim.fn.expand("~/.local/share/opencode/storage/session/global")
   pick({
     title = "Opencode Sessions",
     icon = " ",
     cmd = "bash",
-    args = { "-c", opencode_batch, "oc", vim.fn.getcwd(), dir },
+    args = { "-c", opencode_batch, "oc", vim.fn.getcwd() },
     preview_cmd = opencode_preview,
     resume = function(item)
       return "ocr " .. item.id
