@@ -12,6 +12,11 @@ fi
 
 echo "Mise config changed, running mise trust and install..."
 
+# mise's npm backend reshims by calling bare `mise`, so mise's own bin dir must be
+# on PATH — during a fresh bootstrap it isn't (minimal env), so npm-backend tools
+# (claude/codex/gemini/prettier) failed reshim with "mise: command not found".
+export PATH="{{ .chezmoi.homeDir }}/.local/bin:$PATH"
+
 # Authenticate the github/ubi backends when possible so the toolchain install
 # doesn't hit GitHub's 60-req/hr unauthenticated API rate limit. Absent on a
 # truly fresh box — then a rate-limited tool just re-runs after `gh auth login`.
