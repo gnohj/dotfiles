@@ -16,6 +16,17 @@ GIT_INFO=""
 if [ -n "$PANE_ID" ]; then
   DIR=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_path}')
 
+  # SSH indicator: when the pane's foreground program is ssh/mosh, publish the remote host as the @ssh_host pane option so status-format renders it NATIVELY (same pattern as @git_ctx). The name comes from #{pane_title} (the remote shell's own \h — friendly "dev-box"), NOT the ssh arg, which is a raw Tailscale IPv6. Parsed in bash because tmux's format regex can't match ':'. Handles both "user@host: cwd" and bare "host" titles. Guarded so we only set-option (and trigger a redraw) on change; cleared to empty on ssh exit so the format falls back to #{host_short}.
+  SSH_HOST=""
+  PCMD=$(tmux display-message -t "$PANE_ID" -p '#{pane_current_command}')
+  if [ "$PCMD" = "ssh" ] || [ "$PCMD" = "mosh-client" ]; then
+    TITLE=$(tmux display-message -t "$PANE_ID" -p '#{pane_title}')
+    SSH_HOST="${TITLE##*@}"
+    SSH_HOST="${SSH_HOST%%:*}"
+    SSH_HOST="${SSH_HOST%% *}"
+  fi
+  [ "$(tmux show-option -pqv -t "$PANE_ID" @ssh_host 2>/dev/null)" != "$SSH_HOST" ] && tmux set-option -p -t "$PANE_ID" @ssh_host "$SSH_HOST" 2>/dev/null
+
   if [ -d "$DIR" ]; then
     # One rev-parse resolves all three states: empty output → not a git repo
     # (GITCTX stays blank); git-dir == git-common-dir → main checkout (🌿);

@@ -54,13 +54,8 @@ session_cell_fmt="#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]
 # Git-context glyph (🌿 checkout / 🌳 worktree) rendered NATIVELY from the pane option @git_ctx that generate-status-line.sh publishes. Native so it sits BEFORE the session name (order: 🌿 session git) and repaints instantly on revisit (the option persists per pane). Empty when the pane isn't a git repo, so this collapses to nothing.
 glyph_cell_fmt="#[fg=${gnohj_color03},nobold]#{@git_ctx}"
 
-# Host cell (right-anchored, native — no #() job). Resolves against the client's ACTIVE pane, so it tracks the pane you're looking at:
-#   • pane running ssh/mosh → the REMOTE host, parsed from #{pane_title} ("user@host: cwd" → host), tinted salmon so a remote pane visibly stands out.
-#   • otherwise             → the tmux SERVER host (#{host_short}), calm tint.
-# #{host_short} alone always reads "macbook" because the server never leaves the Mac even when a pane SSHes out; the pane_current_command/pane_title pair is what actually knows you're remote. #{pane_title} carries the remote name because the remote shell sets its xterm title (verified: ssh pane title = "gnohj@dev-box: ~").
-is_remote="#{||:#{==:#{pane_current_command},ssh},#{==:#{pane_current_command},mosh-client}}"
-remote_host="#{s/:.*//:#{s/.*@//:#{pane_title}}}"
-host_cell_fmt="#{?${is_remote},#[fg=${gnohj_color06}]󰒋 ${remote_host},#[fg=${gnohj_color05}]󰒋 #[fg=${gnohj_color14}]#{host_short}} "
+# Host cell (right-anchored, native — no #() job) tracking the client's ACTIVE pane: orange 󰒋 + blue host — the REMOTE @ssh_host that generate-status-line.sh publishes when the pane is SSHed out (#{host_short} alone always reads the Mac since the tmux server never leaves it), else #{host_short}.
+host_cell_fmt="#[fg=${gnohj_color05}]󰒋 #[fg=${gnohj_color14}]#{?@ssh_host,#{@ssh_host},#{host_short}} "
 
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
