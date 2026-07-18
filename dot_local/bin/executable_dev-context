@@ -1,44 +1,75 @@
 #!/usr/bin/env bash
-# dev-context — single source of truth (~/.local/state/dev-context = local|vps) read/written by the vps atuin script, sketchybar widget, and launchers; changes fire `dev_context_change` and only affect the next launch.
+# dev-context: source of truth for where new dev sessions land. State token is `local`, `ssh:<alias>`, or `ts:<host>`; read via `kind`/`target`, and any `set` fires dev_context_change for the sketchybar widget.
 set -euo pipefail
 
 STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/dev-context"
+LAST_FILE="$STATE_FILE.last" # remembers the last non-local target so `toggle` can restore it
 DEFAULT="local"
 
 _notify() { command -v sketchybar >/dev/null 2>&1 && sketchybar --trigger dev_context_change 2>/dev/null || true; }
 
-_get() {
-  local v
-  v="$(cat "$STATE_FILE" 2>/dev/null || true)"
-  case "$v" in
-    local | vps) printf '%s\n' "$v" ;;
-    *) printf '%s\n' "$DEFAULT" ;;
+# A token is valid if it's `local` or a non-empty `ssh:`/`ts:` payload.
+_valid() {
+  case "${1:-}" in
+    local | ssh:?* | ts:?*) return 0 ;;
+    *) return 1 ;;
   esac
 }
 
+_get() {
+  local v
+  v="$(cat "$STATE_FILE" 2>/dev/null || true)"
+  if _valid "$v"; then printf '%s\n' "$v"; else printf '%s\n' "$DEFAULT"; fi
+}
+
 _set() {
-  case "${1:-}" in
-    local | vps) ;;
-    *)
-      printf 'dev-context: invalid context %q (want local|vps)\n' "${1:-}" >&2
-      exit 2
-      ;;
-  esac
+  if ! _valid "${1:-}"; then
+    printf 'dev-context: invalid token %q (want local | ssh:<alias> | ts:<host>)\n' "${1:-}" >&2
+    exit 2
+  fi
   mkdir -p "$(dirname "$STATE_FILE")"
   printf '%s\n' "$1" >"$STATE_FILE"
+  [ "$1" != local ] && printf '%s\n' "$1" >"$LAST_FILE"
   _notify
+}
+
+_kind() {
+  case "$(_get)" in
+    ssh:*) printf 'ssh\n' ;;
+    ts:*) printf 'tailscale\n' ;;
+    *) printf 'local\n' ;;
+  esac
+}
+
+# The bare ssh destination (alias or tailscale host); empty when local.
+_target() {
+  local v
+  v="$(_get)"
+  case "$v" in
+    ssh:*) printf '%s\n' "${v#ssh:}" ;;
+    ts:*) printf '%s\n' "${v#ts:}" ;;
+    *) : ;;
+  esac
 }
 
 case "${1:-get}" in
   get) _get ;;
   set) _set "${2:-}" ;;
+  kind) _kind ;;
+  target) _target ;;
   toggle)
-    if [ "$(_get)" = vps ]; then _set local; else _set vps; fi
+    if [ "$(_get)" = local ]; then
+      last="$(cat "$LAST_FILE" 2>/dev/null || true)"
+      if _valid "$last" && [ "$last" != local ]; then _set "$last"; fi
+    else
+      _set local
+    fi
     _get
     ;;
   is) [ "$(_get)" = "${2:-}" ] ;;
   *)
-    printf 'usage: dev-context [get|set <local|vps>|toggle|is <local|vps>]\n' >&2
+    printf 'usage: dev-context [get | set <token> | kind | target | toggle | is <token>]\n' >&2
+    printf '  token = local | ssh:<alias> | ts:<host>\n' >&2
     exit 1
     ;;
 esac
