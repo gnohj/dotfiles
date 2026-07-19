@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 14   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 15   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -30,6 +30,15 @@ ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
 if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
   echo "==> cloning zinit"
   git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || true
+fi
+
+# 3c. tpm — tmux plugin manager (zinit's tmux analogue). Clone it so the
+#     `run tpm` at the bottom of base.conf doesn't return 127 on a fresh box.
+#     Install the plugins once with tmux `prefix + I` (interactive, can't script).
+TPM_DIR="$HOME/.config/tmux/plugins/tpm"
+if [ ! -e "$TPM_DIR/tpm" ] && command -v git >/dev/null 2>&1; then
+  echo "==> cloning tpm (tmux plugin manager)"
+  git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR" >/dev/null 2>&1 || true
 fi
 
 # 3a. Pre-seed GitHub's SSH host key so `git clone`/`ssh -T git@github.com` don't
