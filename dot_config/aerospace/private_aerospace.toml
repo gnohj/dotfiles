@@ -98,11 +98,11 @@ run = "move-node-to-workspace D"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Notes'
-run = "move-node-to-workspace R"
+run = "move-node-to-workspace Y"
 
 [[on-window-detected]]
 if.app-id = 'md.obsidian'
-run = "move-node-to-workspace R"
+run = "move-node-to-workspace Y"
 [[on-window-detected]]
 
 if.app-id = 'com.spotify.client'
@@ -130,7 +130,7 @@ run = "move-node-to-workspace C"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.reminders'
-run = "move-node-to-workspace R"
+run = "move-node-to-workspace Y"
 
 [[on-window-detected]]
 if.app-id = 'com.whimsical.desktop'
@@ -166,7 +166,7 @@ run = "move-node-to-workspace T"
 
 [[on-window-detected]]
 if.app-id = 'net.kovidgoyal.kitty'
-run = "move-node-to-workspace Y"
+run = "move-node-to-workspace R"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Terminal'
