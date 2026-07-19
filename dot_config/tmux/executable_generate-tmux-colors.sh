@@ -55,7 +55,7 @@ session_cell_fmt="#{?client_prefix,#[fg=${gnohj_color06}],#[fg=${gnohj_color04}]
 glyph_cell_fmt="#[fg=${gnohj_color03},nobold]#{@git_ctx}"
 
 # Host cell (leads the left cluster, native — no #() job) tracking the client's ACTIVE pane: 🖥️ + blue host — the REMOTE @ssh_host that generate-status-line.sh publishes when the pane is SSHed out (#{host_short} alone always reads the Mac since the tmux server never leaves it), else #{host_short}.
-host_cell_fmt="#[fg=${gnohj_color05}]🖥️ #[fg=${gnohj_color14}]#{?@ssh_host,#{@ssh_host},#{host_short}#{?@host_city,@#{@host_city},}} "
+host_cell_fmt="#[fg=${gnohj_color05}]🖥️#[fg=${gnohj_color14}]#{?@ssh_host,#{@ssh_host},#{host_short}#{?@host_city,@#{@host_city},}} "
 
 cat >"$OUTPUT_FILE" <<EOF
 # Auto-generated tmux colors from active colorscheme
