@@ -31,8 +31,10 @@ if [[ "$PANE_CMD" =~ ^n?vim$ ]] && [ -n "$PANE_ID" ]; then
   fi
 fi
 
-# Resolve yazi to an absolute path here (this script's PATH has the mise shims);
-# a fresh `bash -l` in the new window does NOT activate mise on Linux, so a bare
-# `yazi` was "command not found" → the window opened and closed instantly.
-YAZI_BIN="$(command -v yazi 2>/dev/null || echo yazi)"
+# Resolve yazi to its REAL binary. `command -v yazi` finds the mise SHIM first
+# (shims are on PATH above), and the shim re-resolves through mise at run time —
+# which dies in the bare new-window env, so the window never appears. `mise which`
+# returns the actual install-dir binary; macOS (yazi from nix, not mise) yields
+# nothing and falls back to command -v.
+YAZI_BIN="$(mise which yazi 2>/dev/null || command -v yazi 2>/dev/null || echo yazi)"
 tmux new-window -n "$EMOJI" -c "$PANE_PATH" "$YAZI_BIN $(printf %q "$TARGET")"
