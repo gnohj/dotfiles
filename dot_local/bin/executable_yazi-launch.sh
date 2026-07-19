@@ -9,7 +9,7 @@
 # ~/.local/bin there, so it still resolves via /run/current-system or homebrew).
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 
-EMOJI="📂"
+EMOJI="🗄️"
 SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)
 
 # Reuse an existing yazi window if one already exists in this session.
