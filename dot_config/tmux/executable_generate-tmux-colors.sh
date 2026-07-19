@@ -66,8 +66,8 @@ set -g status-style "bg=default,fg=${gnohj_color14}"
 set -g status-left-style "fg=${gnohj_color04},bg=default"
 set -g status-right-style "fg=${gnohj_color09},bg=default"
 
-# Use status-format for complete control - session name + window list are NATIVE (#S / #{W:...}) so they repaint instantly on switch; only the git segment (context glyph + gitmux status) is the cached #() job, lazy-loaded stale-while-revalidate. Main cluster is LEFT-aligned; the host cell is a separate #[align=right] region pinned to the far edge.
-set -g status-format[0] "#[align=left]${glyph_cell_fmt}${session_cell_fmt}#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}#[align=right]${host_cell_fmt}"
+# Use status-format for complete control - session name + window list are NATIVE (#S / #{W:...}) so they repaint instantly on switch; only the git segment (context glyph + gitmux status) is the cached #() job, lazy-loaded stale-while-revalidate. Host cell leads the LEFT-aligned cluster, followed by glyph + session + gitmux + window list.
+set -g status-format[0] "#[align=left]${host_cell_fmt}${glyph_cell_fmt}${session_cell_fmt}#($HOME/.config/tmux/generate-status-line.sh '#{pane_id}')${window_list_fmt}"
 
 # Empty status-left and status-right since we're using status-format
 set -g status-left ""
