@@ -20,11 +20,17 @@ if [ -f "$CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL"
 fi
 
 # ip-api.com returns the state ABBREV in .region (e.g. TX), which is what we want.
+# Parse with sed (NOT jq): jq is a mise tool that isn't on PATH in tmux's bare
+# run-shell env on a fresh box, so a jq pipe silently yields an empty city. curl
+# lives in /usr/bin on both platforms, so this only depends on that.
 resp="$(curl -s --max-time 4 'http://ip-api.com/json/?fields=status,city,region' 2>/dev/null || true)"
-city="$(printf '%s' "$resp" \
-  | jq -r 'select(.status=="success") | "\(.city)-\(.region)"' 2>/dev/null \
-  | tr '[:upper:] ' '[:lower:]-' \
-  | tr -cd 'a-z0-9-')"
+val() { printf '%s' "$resp" | sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
+city=""
+if [ "$(val status)" = "success" ]; then
+  city="$(printf '%s-%s' "$(val city)" "$(val region)" \
+    | tr '[:upper:] ' '[:lower:]-' \
+    | tr -cd 'a-z0-9-')"
+fi
 
 if [ -n "$city" ] && [ "$city" != "-" ]; then
   mkdir -p "$(dirname "$CACHE")"
