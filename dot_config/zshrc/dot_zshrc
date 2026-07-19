@@ -1092,6 +1092,11 @@ alias treehouse-prune-global='treehouse prune --global'
 
 alias fman="compgen -c | fzf | xargs man"
 
+# Colorscheme picker (fzf) → regenerates all theme files + rebuilds bat cache via
+# colorscheme-set.sh. Normally launched from the macOS launcher; this alias runs
+# it directly (e.g. over SSH on the VPS where the launcher isn't wired up).
+alias theme='~/.config/colorscheme/colorscheme-selector.sh'
+
 #-------------------------------------------------------------------------------
 #                  Paths
 #-------------------------------------------------------------------------------
