@@ -544,7 +544,7 @@ if [ ! -s "$HOME/.local/state/claude/work-email" ]; then
 fi
 
 # Atuin sync login
-if command -v atuin &>/dev/null && [ ! -f "$HOME/.local/share/atuin/session" ]; then
+if command -v atuin &>/dev/null && ! atuin status 2>/dev/null | grep -qF '[Remote]'; then
   PENDING=$((PENDING + 1))
   echo "[$PENDING] Atuin shell history not synced"
   echo "      atuin login"
