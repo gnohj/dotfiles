@@ -110,9 +110,16 @@ account_dir() {
   esac
 }
 
-# OAuth token for the resolved account from its Keychain slot (empty if none).
+# OAuth token for the resolved account: the macOS Keychain slot, or a 0600 file
+# on Linux (no Keychain there — same scoped-token model as ~/.zsh_gnohj_env.local).
+# Empty if none stored.
 account_token() {
-  security find-generic-password -a "$USER" -s "claude-oauth-$(resolve_account)" -w 2>/dev/null || true
+  local acct; acct="$(resolve_account)"
+  if [ "$(uname)" = "Darwin" ]; then
+    security find-generic-password -a "$USER" -s "claude-oauth-$acct" -w 2>/dev/null || true
+  else
+    cat "$HOME/.local/state/claude/oauth-$acct" 2>/dev/null || true
+  fi
 }
 
 store_token() {
@@ -125,10 +132,16 @@ store_token() {
   if [ -z "$token" ]; then
     echo "✗ No valid token found on input (expected sk-ant-oat…)." >&2
     echo "  Run \`claude setup-token\` on its own, copy the printed token, then:" >&2
-    echo "    pbpaste | claude-account set-token $account" >&2
+    echo "    claude-account set-token $account   (paste the token, then Ctrl-D)" >&2
     return 1
   fi
-  security add-generic-password -U -a "$USER" -s "claude-oauth-$account" -w "$token"
+  if [ "$(uname)" = "Darwin" ]; then
+    security add-generic-password -U -a "$USER" -s "claude-oauth-$account" -w "$token"
+  else
+    local f="$HOME/.local/state/claude/oauth-$account"
+    mkdir -p "$(dirname "$f")"
+    (umask 077; printf '%s' "$token" >"$f")
+  fi
   echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | shasum | cut -c1-12))"
 }
 
