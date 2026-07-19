@@ -176,8 +176,8 @@ Full detail in MANUAL_VPS_SETUP.md:
   [6] agent-tmux-web (security-sensitive — audit the pinned SHA first):
         see MANUAL_VPS_SETUP.md §7
 
-  [7] atuin history sync (needs the encryption key from another machine):
-        atuin login -u <username>        # password + key (run `atuin key` on your Mac)
-        atuin sync
+  [7] atuin history sync (classic server api.atuin.sh, NOT Atuin Hub):
+        atuin login -u <username> -k "<key from 'atuin key' on another machine>"   # -k skips the Hub browser redirect; prompts for password
+        atuin sync -f
 
 EOF
