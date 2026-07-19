@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 12   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 13   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -30,6 +30,15 @@ ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
 if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
   echo "==> cloning zinit"
   git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || true
+fi
+
+# 3a. Pre-seed GitHub's SSH host key so `git clone`/`ssh -T git@github.com` don't
+#     prompt for host-key verification on a fresh box (one interactive `yes` gone).
+if command -v ssh-keyscan >/dev/null 2>&1; then
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  if ! grep -q '^github.com ' "$HOME/.ssh/known_hosts" 2>/dev/null; then
+    ssh-keyscan -t ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+  fi
 fi
 
 # 3b. Ghostty terminfo — SSHing from Ghostty sends TERM=xterm-ghostty, which a
