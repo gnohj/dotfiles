@@ -42,7 +42,7 @@ if [ -n "$PANE_ID" ]; then
     fi
 
     # Publish the glyph as a pane option so status-format renders it NATIVELY (instant, and positioned BEFORE the session name → order stays 🌿 session git) instead of via this laggy #() job. A pane's git-context is fixed, so it's written once then persists → instant on revisit. Guarded so we only set-option (and trigger a redraw) when it actually changes, not every tick.
-    NEWCTX="${GITCTX:+$GITCTX }"
+    NEWCTX="${GITCTX:+$GITCTX}"
     [ "$(tmux show-option -pqv -t "$PANE_ID" @git_ctx 2>/dev/null)" != "$NEWCTX" ] && tmux set-option -p -t "$PANE_ID" @git_ctx "$NEWCTX" 2>/dev/null
 
     # gitmux is a full git status (slow on big repos), so serve the last cached value instantly and refresh in the background - stale-while-revalidate keeps session/window switches from blocking on it. The refresh (mkdir-lock + gitmux + cache write) lives in status-git-refresh.sh, shared with sesh-session-created.sh which pre-warms the cache on session creation.
