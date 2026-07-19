@@ -88,6 +88,25 @@ if [[ "$OSTYPE" != darwin* ]]; then
   if ! command -v open >/dev/null 2>&1; then
     open() { xdg-open "$@" >/dev/null 2>&1 & }
   fi
+
+  # `up` - Linux equivalent of the macOS darwin-rebuild+chezmoi launcher: upgrade every layer in one command, sequential, each step banner'd and failure-tolerant.
+  up() {
+    print -P "%F{cyan}==> apt: system packages%f"
+    sudo apt update && sudo apt full-upgrade -y
+
+    print -P "%F{cyan}==> mise: self-update + toolchain (respects pins in config.toml)%f"
+    mise self-update -y 2>/dev/null || true
+    mise upgrade || true
+
+    print -P "%F{cyan}==> chezmoi: pull dotfiles + apply (re-fires bootstrap on version bump)%f"
+    chezmoi update || true
+
+    print -P "%F{cyan}==> tpm: tmux plugins%f"
+    [ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ] && \
+      "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
+
+    print -P "%F{green}==> up: done%f"
+  }
 fi
 
 #-------------------------------------------------------------------------------
