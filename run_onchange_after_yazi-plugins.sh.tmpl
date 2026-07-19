@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# yazi-plugins version: 1   (bump to force a re-run on `chezmoi apply`)
+# package hash: {{ include "dot_config/yazi/package.toml" | sha256sum }}
+#
+# Install the yazi plugins declared in ~/.config/yazi/package.toml via `ya pkg`.
+# init.lua does `require("git"):setup()`, so a missing git.yazi crashes yazi on
+# every launch (the window opens and closes). git/toggle-pane/system-clipboard are
+# fetched by ya, NOT committed, so a fresh box has none until this runs.
+#
+# Cross-platform (ya ships with yazi on nix AND mise). Acts ONLY when a declared
+# plugin is absent, so an already-provisioned machine (e.g. the Mac) is never
+# re-churned - satisfies the "shared change works on both, disturbs neither" rule.
+
+set -uo pipefail
+
+YA="$(command -v ya 2>/dev/null || true)"
+[ -z "$YA" ] && { echo "ya (yazi CLI) not found - skipping plugin install"; exit 0; }
+
+PKG="{{ .chezmoi.homeDir }}/.config/yazi/package.toml"
+[ -f "$PKG" ] || { echo "no yazi package.toml - skipping"; exit 0; }
+
+# Declared plugin dir names = last '/' or ':' segment of each `use = "..."`, + .yazi
+missing=0
+for name in $(grep -oE 'use = "[^"]+"' "$PKG" | sed -E 's/.*[/:]([a-zA-Z0-9_-]+)".*/\1/'); do
+  [ -d "{{ .chezmoi.homeDir }}/.config/yazi/plugins/${name}.yazi" ] || missing=1
+done
+
+if [ "$missing" -eq 1 ]; then
+  echo "==> installing yazi plugins (ya pkg install)"
+  "$YA" pkg install || echo "   (ya pkg install failed - retry by hand: ya pkg install)"
+else
+  echo "yazi plugins already present - skipping"
+fi
