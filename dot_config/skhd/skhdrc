@@ -48,6 +48,7 @@ lalt - q : /opt/homebrew/bin/aerospace workspace Q
 lalt - r : /opt/homebrew/bin/aerospace workspace R
 lalt - s : /opt/homebrew/bin/aerospace workspace S
 lalt - t : /opt/homebrew/bin/aerospace workspace T
+lalt - y : /opt/homebrew/bin/aerospace workspace T                              # alias for T (terminal / kitty)
 lalt - u : /opt/homebrew/bin/aerospace workspace U
 lalt - v : /opt/homebrew/bin/aerospace workspace V
 lalt - w : /opt/homebrew/bin/aerospace workspace W
@@ -95,7 +96,6 @@ lalt - o : :
 lalt - p : :
 lalt - r : :
 lalt - u : :
-lalt - y : :
 
 # Block unused lalt + shift letter combinations
 lalt + shift - i : :
