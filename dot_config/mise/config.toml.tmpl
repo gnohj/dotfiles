@@ -20,7 +20,12 @@ zig = 'latest'          # used for GhosttyFetch
 {{- if ne .chezmoi.os "darwin" }}
 
 # Linux VPS: no Nix layer, so mise owns the whole CLI toolchain (on macOS these come from nix-darwin/Homebrew). Declarative so `mise install` fetches them all with retries, instead of a best-effort `mise use -g` loop that silently skips a tool when a GitHub lookup blips.
-neovim = "latest"
+# Two-tier pinning: config-format-sensitive tools pinned to the macOS/nix minor line (a breaking bump can't silently land on the VPS and desync the shared dotfiles; partial pins still let patches flow via `mise upgrade`); plain CLIs stay "latest". Bump a pin, then run `up` on each box.
+neovim = "0.12"         # nvim config/API can break across minors
+starship = "1"          # starship.toml format stable across v1
+yazi = "26.5"           # yazi keymap/theme format breaks across minors
+"ubi:arl/gitmux" = "0.11.5"          # pre-1.0; exact (ubi partial-match unreliable)
+"aqua:joshmedeski/sesh" = "2.27.0"   # exact (aqua partial-match unreliable)
 ripgrep = "latest"
 fd = "latest"
 fzf = "latest"
@@ -28,8 +33,6 @@ lazygit = "latest"
 bat = "latest"
 eza = "latest"
 zoxide = "latest"
-starship = "latest"
-yazi = "latest"
 jq = "latest"
 gh = "latest"
 btop = "latest"
@@ -39,8 +42,6 @@ television = "latest"
 lazydocker = "latest"
 pnpm = "latest"
 atuin = "latest"
-"ubi:arl/gitmux" = "latest"
-"aqua:joshmedeski/sesh" = "latest"
 "ubi:dlvhdr/gh-dash" = "latest"
 "ubi:kunchenguid/treehouse" = "latest"
 "ubi:kunchenguid/no-mistakes" = "latest"
