@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 15   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 16   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -156,15 +156,29 @@ fi
 #    rbw is deliberately absent (option B: scoped tokens in ~/.zsh_gnohj_env.local;
 #    a full `rbw unlock` stays Mac-only — MANUAL_VPS_SETUP.md security model).
 
+# 6a. Node 22 for Neovim Copilot — copilot.lua pins the interpreter at
+#     ~/.local/share/mise/installs/node/22/bin/node (it needs Node 22+); the primary
+#     `node` stays lts. Installing 22 is what creates that version-alias path.
+if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
+  if [ ! -x "$HOME/.local/share/mise/installs/node/22/bin/node" ]; then
+    echo "==> installing node@22 (Neovim Copilot interpreter)"
+    "$MISE" install node@22 >/dev/null 2>&1 \
+      || echo "   (node@22 install failed — Copilot needs it: mise install node@22)"
+  fi
+fi
+
 # 6b. tmux-dash — PERSONAL PRIVATE repo with no release binaries, so it can't be a
 #     declarative mise entry; cargo-built from source (rust comes from the mise
 #     config). Needs GitHub repo AUTH on the box first (SSH key, or `gh auth login`
 #     + `gh auth setup-git`), so on a fresh box it falls to the manual step below.
 if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  if ! command -v tmux-dash >/dev/null 2>&1; then
+  # The tmux popup binds call the absolute ~/.local/bin/tmux-dash (matches macOS), so
+  # install there via --root instead of cargo's default ~/.cargo/bin, and gate on that
+  # exact path so an older box that built to ~/.cargo/bin gets re-placed on next apply.
+  if [ ! -x "$HOME/.local/bin/tmux-dash" ]; then
     echo "==> building tmux-dash from source (Rust, PRIVATE repo — needs repo auth first)"
-    "$MISE" exec -- cargo install --git ssh://git@github.com/gnohj/tmux-dash --locked >/dev/null 2>&1 \
-      || echo "   (tmux-dash is PRIVATE — build by hand once authed: git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .)"
+    "$MISE" exec -- cargo install --git ssh://git@github.com/gnohj/tmux-dash --locked --root "$HOME/.local" >/dev/null 2>&1 \
+      || echo "   (tmux-dash is PRIVATE — build by hand once authed: git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path . --root ~/.local)"
   fi
 fi
 
