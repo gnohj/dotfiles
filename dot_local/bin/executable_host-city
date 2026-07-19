@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Prints "city-stateabbrev" (e.g. austin-tx) from the machine's public-IP
+# geolocation, for the tmux host cell (host_short@city). Fully dynamic: when a
+# box relocates (Dallas -> Atlanta) its public IP changes and this re-resolves
+# on its own — nothing to edit. Cached ~1h so the status bar never forks a
+# network call per refresh; on a network failure it prints the last known value.
+# Cross-platform (macOS + Linux).
+
+set -uo pipefail
+
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
+TTL=3600
+
+file_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+
+# Fresh cache -> print it, skip the network entirely.
+if [ -f "$CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
+  cat "$CACHE"
+  exit 0
+fi
+
+# ip-api.com returns the state ABBREV in .region (e.g. TX), which is what we want.
+resp="$(curl -s --max-time 4 'http://ip-api.com/json/?fields=status,city,region' 2>/dev/null || true)"
+city="$(printf '%s' "$resp" \
+  | jq -r 'select(.status=="success") | "\(.city)-\(.region)"' 2>/dev/null \
+  | tr '[:upper:] ' '[:lower:]-' \
+  | tr -cd 'a-z0-9-')"
+
+if [ -n "$city" ] && [ "$city" != "-" ]; then
+  mkdir -p "$(dirname "$CACHE")"
+  printf '%s' "$city" >"$CACHE"
+  printf '%s' "$city"
+elif [ -f "$CACHE" ]; then
+  cat "$CACHE"   # network failed -> last known location
+fi
