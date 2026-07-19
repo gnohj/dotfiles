@@ -88,9 +88,21 @@ if [[ "$OSTYPE" != darwin* ]]; then
   if ! command -v open >/dev/null 2>&1; then
     open() { xdg-open "$@" >/dev/null 2>&1 & }
   fi
+fi
 
-  # `up` - Linux equivalent of the macOS darwin-rebuild+chezmoi launcher: upgrade every layer in one command, sequential, each step banner'd and failure-tolerant.
-  up() {
+# `up` - one OS-aware command to bring the machine fully up to date. macOS: nix flake update + darwin-rebuild + chezmoi apply + brew. Linux: apt + mise + chezmoi. tpm on both; each step banner'd + failure-tolerant.
+up() {
+  if [[ "$OSTYPE" == darwin* ]]; then
+    print -P "%F{cyan}==> nix: flake update + darwin-rebuild switch%f"
+    nix flake update --flake ~/.nix || true
+    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
+
+    print -P "%F{cyan}==> chezmoi: apply%f"
+    chezmoi apply || true
+
+    print -P "%F{cyan}==> brew: upgrade%f"
+    command -v brew >/dev/null 2>&1 && brew upgrade || true
+  else
     print -P "%F{cyan}==> apt: system packages%f"
     sudo apt update && sudo apt full-upgrade -y
 
@@ -100,14 +112,14 @@ if [[ "$OSTYPE" != darwin* ]]; then
 
     print -P "%F{cyan}==> chezmoi: pull dotfiles + apply (re-fires bootstrap on version bump)%f"
     chezmoi update || true
+  fi
 
-    print -P "%F{cyan}==> tpm: tmux plugins%f"
-    [ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ] && \
-      "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
+  print -P "%F{cyan}==> tpm: tmux plugins%f"
+  [ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ] && \
+    "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
 
-    print -P "%F{green}==> up: done%f"
-  }
-fi
+  print -P "%F{green}==> up: done%f"
+}
 
 #-------------------------------------------------------------------------------
 #--                      Nix Package Manager
