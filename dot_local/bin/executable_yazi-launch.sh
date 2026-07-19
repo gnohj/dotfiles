@@ -31,4 +31,8 @@ if [[ "$PANE_CMD" =~ ^n?vim$ ]] && [ -n "$PANE_ID" ]; then
   fi
 fi
 
-tmux new-window -n "$EMOJI" -c "$PANE_PATH" "bash -l -c 'yazi $(printf %q "$TARGET")'"
+# Resolve yazi to an absolute path here (this script's PATH has the mise shims);
+# a fresh `bash -l` in the new window does NOT activate mise on Linux, so a bare
+# `yazi` was "command not found" → the window opened and closed instantly.
+YAZI_BIN="$(command -v yazi 2>/dev/null || echo yazi)"
+tmux new-window -n "$EMOJI" -c "$PANE_PATH" "$YAZI_BIN $(printf %q "$TARGET")"
