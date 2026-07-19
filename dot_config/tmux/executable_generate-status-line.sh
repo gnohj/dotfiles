@@ -7,10 +7,10 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 PANE_ID="${1:-}"
 
 # Git-context glyph for the current pane's directory:
-#   🌳 linked git worktree · 🌿 normal git checkout · (blank) not a git repo.
+#   🌳 linked git worktree · 🌿 normal git checkout · 📁 not a git repo.
 # The rbw vault-lock indicator that used to live here moved to sketchybar — it's
 # global state, so redrawing it in every session's status line was duplication.
-GITCTX=""
+GITCTX="📁"
 GIT_INFO=""
 
 if [ -n "$PANE_ID" ]; then
