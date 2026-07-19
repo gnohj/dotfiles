@@ -33,3 +33,7 @@ else
   echo "!! some mise tools failed (often GitHub API rate limit on a fresh box)."
   echo "   Finish authenticated: gh auth login && GITHUB_TOKEN=\$(gh auth token) mise install"
 fi
+
+# Compile the custom bat theme into bat's cache so bat/delta don't warn "Unknown
+# theme gnohj-theme" on a fresh box (colorscheme-set.sh owns this on theme switches).
+$MISE_BIN_PATH exec -- bat cache --build >/dev/null 2>&1 || true
