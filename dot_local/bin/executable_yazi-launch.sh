@@ -2,7 +2,12 @@
 # Open yazi in a tmux window. If the focused pane is nvim (per-pane RPC socket up),
 # seed yazi with the active buffer's path; otherwise fall back to the pane cwd.
 
-export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+# Insert ~/.local/bin (+ mise shims) BEFORE /usr/bin so the source-built
+# ~/.local/bin/tmux (3.6b) beats apt's /usr/bin/tmux (3.4) on Linux — a
+# client/server version mismatch otherwise makes every `tmux` call here fail
+# ("server exited unexpectedly"). macOS order is unchanged (no tmux lives in
+# ~/.local/bin there, so it still resolves via /run/current-system or homebrew).
+export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 
 EMOJI="📂"
 SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)
