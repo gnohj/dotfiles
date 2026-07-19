@@ -23,7 +23,9 @@
 #   open-tmux-attach.sh <session-name>
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
+# ~/.local/bin (+ mise shims) BEFORE /usr/bin so ~/.local/bin/tmux (3.6b) beats
+# apt's /usr/bin/tmux (3.4) on Linux; macOS order preserved (no tmux there).
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 
 SESSION="${1:-}"
 if [ -z "$SESSION" ]; then
