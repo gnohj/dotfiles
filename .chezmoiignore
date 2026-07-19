@@ -25,6 +25,16 @@ tasks
 # colorscheme-set.sh is the sole owner (same pattern as tmux-colors.conf above).
 .config/ghostty/ghostty-theme
 .config/kitty/kitty-theme.conf
+# Same story: colorscheme-set.sh (generate_lazygit/gitmux/btop/starship_config)
+# does a full `cat >` overwrite of each on every theme switch, re-resolving colors
+# from the active colorscheme. Tracking them as source = perpetual `chezmoi diff`
+# drift (each has a "do not edit directly" header). Standalone configs, so a fresh
+# box just uses tool defaults until the first `theme` run regenerates them.
+.config/lazygit/config.yml
+.config/gitmux/gitmux.yml
+.config/btop/themes/btop-theme.theme
+.config/starship/starship.toml
+.config/starship/starship-infra.toml
 
 # Python bytecode caches — CPython rewrites these .pyc files (embedding source
 # hash + mtime) whenever a Python helper runs, so tracking them as source
