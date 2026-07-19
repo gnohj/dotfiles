@@ -1,5 +1,8 @@
 # Atuin - SQLite-backed shell history: https://github.com/atuinsh/atuin
 
+# Classic sync server (not Atuin Hub) - pin so `atuin login` doesn't default to the Hub browser flow (a different account namespace).
+sync_address = "https://api.atuin.sh"
+
 sync_frequency = "1h"
 style = "auto"
 
