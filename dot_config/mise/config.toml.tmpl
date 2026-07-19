@@ -24,7 +24,7 @@ zig = 'latest'          # used for GhosttyFetch
 neovim = "0.12"         # nvim config/API can break across minors
 starship = "1"          # starship.toml format stable across v1
 yazi = "26.5"           # yazi keymap/theme format breaks across minors
-"ubi:arl/gitmux" = "0.11.5"          # pre-1.0; exact (ubi partial-match unreliable)
+"github:arl/gitmux" = "0.11.5"       # pre-1.0; exact (github backend partial-match unreliable)
 "aqua:joshmedeski/sesh" = "2.27.0"   # exact (aqua partial-match unreliable)
 ripgrep = "latest"
 fd = "latest"
@@ -42,10 +42,10 @@ television = "latest"
 lazydocker = "latest"
 pnpm = "latest"
 atuin = "latest"
-"ubi:dlvhdr/gh-dash" = "latest"
-"ubi:kunchenguid/treehouse" = "latest"
-"ubi:kunchenguid/no-mistakes" = "latest"
-"ubi:garrettkrohn/treekanga" = "latest"
+"github:dlvhdr/gh-dash" = "latest"
+"github:kunchenguid/treehouse" = "latest"
+"github:kunchenguid/no-mistakes" = "latest"
+"github:garrettkrohn/treekanga" = "latest"
 # claude-code + codex ship a platform-native binary via a postinstall script; mise's npm backend passes --ignore-scripts=true by default, so opt back in for these two or `claude`/`codex` install the JS wrapper but not the native binary.
 "npm:@anthropic-ai/claude-code" = { version = "latest", npm_args = "--ignore-scripts=false" }
 "npm:@openai/codex" = { version = "latest", npm_args = "--ignore-scripts=false" }
