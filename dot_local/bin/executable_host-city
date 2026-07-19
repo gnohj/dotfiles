@@ -11,7 +11,17 @@ set -uo pipefail
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
 TTL=3600
 
-file_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+# GNU stat first: its -f means "filesystem", not "format", so the BSD probe
+# `stat -f %m` does NOT fail cleanly on Linux - it prints filesystem info
+# ("File: ...") to stdout AND exits 1, so the || fallback appended a valid
+# mtime to that garbage and the caller's $(( )) blew up under set -u. BSD stat
+# has no -c at all, so it errors silently to stderr and falls through.
+file_mtime() {
+  local m
+  m="$(stat -c %Y "$1" 2>/dev/null)" || m="$(stat -f %m "$1" 2>/dev/null)" || m=0
+  case "$m" in '' | *[!0-9]*) m=0 ;; esac
+  printf '%s' "$m"
+}
 
 # Fresh cache -> print it, skip the network entirely.
 if [ -f "$CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
@@ -28,7 +38,7 @@ val() { printf '%s' "$resp" | sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
 city=""
 if [ "$(val status)" = "success" ]; then
   city="$(printf '%s-%s' "$(val city)" "$(val region)" \
-    | tr '[:upper:] ' '[:lower:]-' \
+    | tr 'A-Z ' 'a-z-' \
     | tr -cd 'a-z0-9-')"
 fi
 
