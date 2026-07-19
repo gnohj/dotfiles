@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 13   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 14   (bump to force a re-run on `chezmoi apply`)
 #
 # Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
 # live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
@@ -60,7 +60,7 @@ fi
 # anyway, but declare it so a stripped image doesn't leave the git segment blank.
 # sysstat + atop: record CPU/mem/swap time-series for the 16-vs-32 GB trial verdict.
 # sysstat = CSV-exportable sar history (vps-usage-export.sh); atop = per-process replay.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop figlet"
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop figlet libevent-dev libncurses-dev bison pkg-config"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
@@ -111,6 +111,25 @@ if command -v apt-get >/dev/null 2>&1; then
     echo "    sudo sed -i 's/^ENABLED=.*/ENABLED=\"true\"/' /etc/default/sysstat && sudo systemctl enable --now sysstat sysstat-collect.timer"
     echo "    sudo sed -i 's/^LOGINTERVAL=.*/LOGINTERVAL=60/' /etc/default/atop && sudo systemctl enable --now atop"
   fi
+fi
+
+# 4c. tmux 3.6b from source — match the Mac EXACTLY. apt ships 3.4, which lacks the
+#     extended-keys/CSI-u encoding the ctrl-digit bindings depend on. Build to
+#     ~/.local/bin so it wins on PATH; the apt 3.4 stays as a fallback if the build
+#     fails. Deps (libevent-dev/libncurses-dev/bison/pkg-config) came in via apt above.
+TMUX_WANT="3.6b"
+if [ "$("$HOME/.local/bin/tmux" -V 2>/dev/null)" != "tmux $TMUX_WANT" ] && command -v make >/dev/null 2>&1; then
+  echo "==> building tmux $TMUX_WANT from source (matching the Mac)"
+  (
+    td="$(mktemp -d)" && cd "$td" || exit 0
+    curl -fsSL "https://github.com/tmux/tmux/releases/download/${TMUX_WANT}/tmux-${TMUX_WANT}.tar.gz" -o t.tgz \
+      && tar xzf t.tgz && cd "tmux-${TMUX_WANT}" \
+      && ./configure --prefix="$HOME/.local" >/dev/null 2>&1 \
+      && make -j"$(nproc 2>/dev/null || echo 2)" >/dev/null 2>&1 \
+      && make install >/dev/null 2>&1 \
+      && echo "   tmux $TMUX_WANT → ~/.local/bin/tmux"
+    cd / && rm -rf "$td"
+  ) || echo "   (tmux $TMUX_WANT build failed — apt 3.4 stays as fallback; the config's %if guard keeps it working)"
 fi
 
 # 5. Tailscale — private mesh the PWA + laptop reach this box over. Installs binary +
