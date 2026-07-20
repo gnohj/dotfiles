@@ -5,3 +5,11 @@
 .local/bin/agent-sidebar-dashboard.sh
 .local/bin/dashboard-shims
 .config/ghostty/dashboard-wrapper.sh
+.config/sketchybar/items/widgets/runaway_notification.sh
+.config/sketchybar/items/widgets/runaway_notification.lua
+.config/sketchybar/items/widgets/runaway-click.sh
+.config/sketchybar/items/widgets/orphan_notification.sh
+.config/sketchybar/items/widgets/orphan_notification.lua
+.config/sketchybar/items/widgets/orphan-click.sh
+.config/sketchybar/items/widgets/health_check_notification.sh
+.config/sketchybar/items/widgets/health_check_notification.lua

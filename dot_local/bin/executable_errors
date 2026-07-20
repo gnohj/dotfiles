@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# errors [<pid>] — service-log errors + orphaned processes (ppid 1) with kill commands; <pid> for full detail. Portable mac/linux.
+set -uo pipefail
+
+TREEHOUSE="$HOME/.treehouse"
+CPU_MIN="${ERRORS_CPU_MIN:-30}"   # cpu-bucket floor (keeps idle launchd agents out)
+
+proc_cwd() { # pid -> cwd ("" if unknown)
+  if [[ -r /proc/$1/cwd ]]; then readlink "/proc/$1/cwd" 2>/dev/null
+  else lsof -a -d cwd -p "$1" -Fn 2>/dev/null | awk '/^n/{print substr($0,2);exit}'; fi
+}
+proc_argv() { ps -ww -o command= -p "$1" 2>/dev/null; }        # full command line
+proc_env() { # pid -> KEY=VAL per line (how it was initiated)
+  if [[ -r /proc/$1/environ ]]; then tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  else ps -Eww -o command= -p "$1" 2>/dev/null | tr ' ' '\n' | grep -E '^[A-Z_]+=' ; fi
+}
+tilde() { case "$1" in "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;; *) printf '%s' "$1" ;; esac; }
+
+# ps etime "[[DD-]HH:]MM:SS" -> "4d 0h 28m 57s" (drops leading zero units).
+humanize_age() {
+  local e="$1" d=0 h=0 m=0 s=0 rest out=""
+  if [[ "$e" == *-* ]]; then d=${e%%-*}; rest=${e#*-}; else rest="$e"; fi
+  local IFS=:; set -- $rest
+  if [[ $# == 3 ]]; then h=$1 m=$2 s=$3; elif [[ $# == 2 ]]; then m=$1 s=$2; else s=$1; fi
+  d=$((10#$d)) h=$((10#$h)) m=$((10#$m)) s=$((10#${s:-0}))
+  ((d)) && out+="${d}d "
+  { ((d)) || ((h)); } && out+="${h}h "
+  { ((d)) || ((h)) || ((m)); } && out+="${m}m "
+  printf '%s%ds' "$out" "$s"
+}
+
+if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+  pid="$1"
+  read -r ppid pgid pcpu rss etime lstart < <(
+    ps -o ppid=,pgid=,%cpu=,rss=,etime=,lstart= -p "$pid" 2>/dev/null | awk '{print $1,$2,$3,$4,$5,$6" "$7" "$8" "$9" "$10}'
+  ) || true
+  [[ -z "${ppid:-}" ]] && { echo "pid $pid: not found"; exit 1; }
+  cwd=$(proc_cwd "$pid")
+  printf 'pid       %s\n' "$pid"
+  printf 'orphaned  %s\n' "$([[ $ppid == 1 ]] && echo 'yes — parent died, reparented to pid 1 (original parent unrecoverable)' || echo "no — live parent pid $ppid")"
+  printf 'pgid      %s\n' "$pgid"
+  printf 'cpu/mem   %s%%  ·  %sM\n' "$pcpu" "$((rss / 1024))"
+  printf 'age       %s   (started %s)\n' "$(humanize_age "$etime")" "$lstart"
+  printf 'cwd       %s\n' "$(tilde "${cwd:-n/a}")"
+  printf 'command   %s\n' "$(proc_argv "$pid")"
+  printf 'kill      kill %s   (kill -9 %s if it ignores TERM)\n' "$pid" "$pid"
+  echo   'env (launch context):'
+  # redact token/secret-shaped vars so the tool never prints credentials
+  proc_env "$pid" |
+    grep -Ei '^(TMUX|TERM_PROGRAM|PWD|OLDPWD|SSH_CONNECTION|SSH_TTY|SSH_CLIENT|WORKTREE|TREEKANGA|SESH|HERDR|NVIM|SHLVL)=' |
+    sed -E 's/^([^=]*(TOKEN|SECRET|KEY|PASS|CRED)[^=]*)=.*/\1=<redacted>/I' |
+    sed 's/^/  /'
+  exit 0
+fi
+
+fff=(); tree=(); gen=()
+while IFS='|' read -r pid ppid pcpu rss etime comm cmd; do
+  [[ "$ppid" == 1 ]] || continue
+  [[ "$cmd" == *.app/Contents/MacOS/* ]] && continue
+  case "$cmd" in /System/* | /usr/libexec/* | /usr/sbin/* | /sbin/* | /Library/Apple/*) continue ;; esac
+  base=${comm##*/}
+  cwd=$(proc_cwd "$pid")
+  row="$pid|$pcpu|$((rss / 1024))|$etime|$base|$(tilde "${cwd:-n/a}")|$cmd"
+  if [[ "$base" == nvim ]]; then
+    fff+=("$row")
+  elif [[ "$cwd" == "$TREEHOUSE"/* ]]; then
+    tree+=("$row")
+  elif awk -v c="$pcpu" -v m="$CPU_MIN" 'BEGIN{exit !(c+0>=m)}'; then
+    gen+=("$row")
+  fi
+done < <(
+  ps -axo pid=,ppid=,%cpu=,rss=,etime=,comm=,command= |
+    awk '{pid=$1;pp=$2;pc=$3;rs=$4;et=$5;cm=$6;$1=$2=$3=$4=$5=$6="";sub(/^ +/,"");print pid"|"pp"|"pc"|"rs"|"et"|"cm"|"$0}'
+)
+
+print_bucket() { # title subtitle rows...
+  local title="$1" sub="$2"; shift 2
+  (($# == 0)) && return
+  printf '\n\033[1m%s\033[0m  \033[2m%s\033[0m\n' "$title" "$sub"
+  local r pid pcpu mem etime base cwd cmd
+  for r in "$@"; do
+    IFS='|' read -r pid pcpu mem etime base cwd cmd <<<"$r"
+    printf '  \033[33m[%s]\033[0m %s  ·  %s%% cpu  ·  %sM mem  ·  age %s\n' "$pid" "$base" "$pcpu" "$mem" "$(humanize_age "$etime")"
+    printf '      cwd  %s\n' "$cwd"
+    printf '      \033[2mrun\033[0m  \033[1mkill %s\033[0m   (kill -9 %s if stubborn · errors %s for full detail)\n' "$pid" "$pid" "$pid"
+  done
+}
+
+# service-log errors from the sketchybar monitor's state (matches the badge)
+svc=()
+ERRSTATE="$HOME/.local/state/errors/current"
+[[ -f "$ERRSTATE" ]] && while IFS='|' read -r ct src; do
+  [[ "$ct" == error ]] && svc+=("$src")
+done <"$ERRSTATE"
+
+total=$((${#svc[@]} + ${#fff[@]} + ${#tree[@]} + ${#gen[@]}))
+if ((total == 0)); then
+  echo "✓ all clear — no errors, no orphans"
+  exit 0
+fi
+
+if ((${#svc[@]})); then
+  printf '\n\033[1mSERVICE ERRORS\033[0m  \033[2mrecent errors in ~/.logs\033[0m\n'
+  for s in "${svc[@]}"; do printf '  \033[31m✗ %s\033[0m\n' "$s"; done
+fi
+print_bucket "FFF-ORPHANS" "orphaned nvim — each pins an fff.nvim LMDB reader slot" "${fff[@]}"
+print_bucket "TREEHOUSE-ORPHANS" "orphaned procs under ~/.treehouse" "${tree[@]}"
+print_bucket "CPU-ORPHANS" "high-CPU orphans (≥${CPU_MIN}%)" "${gen[@]}"
+
+kills=(); for r in "${fff[@]}" "${tree[@]}" "${gen[@]}"; do kills+=("${r%%|*}"); done
+((${#kills[@]})) && printf '\n\033[2m%d orphan(s) · kill all: kill %s\033[0m\n' "${#kills[@]}" "${kills[*]}"
