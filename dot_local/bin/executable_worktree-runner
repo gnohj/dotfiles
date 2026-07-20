@@ -37,6 +37,9 @@
 #                          CLAUDE_INPUT.
 #
 # Optional env:
+#   WORKTREE_CLAUDE_ACCOUNT   Account for the raw `claude -p` ("work"|"personal");
+#                             worktree-jira pins work. Empty → claude-account's
+#                             cwd rule. Runner injects its config dir + OAuth token.
 #   WORKTREE_CLAUDE_MODEL     Model name passed to `claude --model`.
 #                             Default: sonnet. Set "haiku" for Mode A
 #                             (URL / bare ticket key) or Mode B (3-token
@@ -99,6 +102,8 @@ START_TITLE="${WORKTREE_START_TITLE:-Creating worktree…}"
 START_MESSAGE="${WORKTREE_START_MESSAGE:-$DEFAULT_LABEL}"
 FALLBACK_LABEL="${WORKTREE_FALLBACK_LABEL:-$START_MESSAGE}"
 CLAUDE_MODEL="${WORKTREE_CLAUDE_MODEL:-sonnet}"
+# Account name for the raw claude (worktree-jira pins work); baked into the inner script, which resolves the token live via claude-account so no secret hits disk.
+CLAUDE_ACCOUNT_NAME="${WORKTREE_CLAUDE_ACCOUNT:-}"
 
 # Heartbeat banner shows the trimmed user input alongside the elapsed
 # timer, so when multiple worktree creations are in flight you can tell
@@ -304,6 +309,13 @@ export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
 # herdr launcher actions and baked here so it survives the open→Terminal boundary;
 # claude → treekanga → postScript inherits it. Empty (the tmux path) is a no-op.
 export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
+
+# Inject account creds like the interactive claude() function does — raw \`claude -p\` skips it and would otherwise use the stale shared Keychain login ("Not logged in"). Exported so the backgrounded /sb-ticket-capture inherits it too.
+export CLAUDE_ACCOUNT="$CLAUDE_ACCOUNT_NAME"
+_wt_cfg=\$(claude-account dir 2>/dev/null || true)
+_wt_tok=\$(claude-account token 2>/dev/null || true)
+[ -n "\$_wt_cfg" ] && export CLAUDE_CONFIG_DIR="\$_wt_cfg"
+[ -n "\$_wt_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="\$_wt_tok"
 
 START_TS=\$(date +%s)
 fmt_duration() {
