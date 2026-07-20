@@ -519,26 +519,58 @@ herdr() {
   fi
 }
 
-# btop CPU view — derive a throwaway config from the mem-sorted btop.conf,
-# overriding only proc_sorting, so theme/boxes/update_ms stay in sync and the
-# managed config never gets dirtied (btop rewrites the temp copy on exit).
-_btop_cpu_conf() {
-  local tmp="${TMPDIR:-/tmp}/btop-cpu.conf"
-  sed -E 's/^proc_sorting = .*/proc_sorting = "cpu lazy"/' \
+# btopc / btopm: proc-only fullscreen tables, cpu- or memory-sorted ("cpu direct" is a strict live top-to-bottom sort; "cpu lazy" smooths order over time and looks unsorted).
+_btop_proc_conf() {
+  local sort="$1" tag="${1// /-}"
+  local tmp="${TMPDIR:-/tmp}/btop-proc-${tag}.conf"
+  sed -E -e "s/^proc_sorting = .*/proc_sorting = \"$sort\"/" \
+         -e 's/^shown_boxes = .*/shown_boxes = "proc"/' \
     ~/.config/btop/btop.conf >"$tmp"
   print -r -- "$tmp"
 }
-# btopc — single btop instance sorted by CPU
-btopc() { command btop -c "$(_btop_cpu_conf)" "$@"; }
-# btop2 — mem-sorted btop on the left, cpu-sorted on the right (tmux split)
+btopc() { command btop -c "$(_btop_proc_conf 'cpu direct')" "$@"; }
+btopm() { command btop -c "$(_btop_proc_conf memory)" "$@"; }
+# btop2 — btopm (memory) left, btopc (cpu) right, proc-only, side by side
 btop2() {
   if [[ -z "$TMUX" ]]; then
-    echo "btop2 needs tmux; run 'btop' and 'btopc' in separate splits instead"
+    echo "btop2 needs tmux; run btopm and btopc in separate splits instead"
     return 1
   fi
-  tmux split-window -h "btop -c '$(_btop_cpu_conf)'"
+  tmux split-window -h "btop -c '$(_btop_proc_conf 'cpu direct')'"
   tmux select-pane -L
-  command btop
+  command btop -c "$(_btop_proc_conf memory)"
+}
+
+# pwhere: locate a process (pid or program-name matching the full command line) - walks the PID's parent chain to the owning tmux session/pane and prints its cwd. Usage: pwhere <pid|name>
+pwhere() {
+  emulate -L zsh
+  [[ -z "$1" ]] && { print -u2 'usage: pwhere <pid|name>'; return 1 }
+
+  local -a pids
+  if [[ "$1" == <-> ]]; then
+    pids=("$1")
+  else
+    pids=(${(f)"$(pgrep -f -- "$1")"})
+    (( ${#pids} )) || { print -u2 "no process matches: $1"; return 1 }
+  fi
+
+  typeset -A pane
+  local pp loc win
+  while IFS=$'\t' read -r pp loc win; do
+    pane[$pp]="$loc ($win)"
+  done < <(tmux list-panes -a -F $'#{pane_pid}\t#{session_name}:#{window_index}.#{pane_index}\t#{window_name}' 2>/dev/null)
+
+  local pid anc comm home cwd
+  for pid in $pids; do
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null); comm=${comm:t}
+    home=''; anc=$pid
+    while [[ -n "$anc" && "$anc" != 0 ]]; do
+      [[ -n "${pane[$anc]}" ]] && { home=${pane[$anc]}; break }
+      anc=$(ps -o ppid= -p "$anc" 2>/dev/null); anc=${anc// /}
+    done
+    cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | awk '/^n/{print substr($0,2); exit}')
+    printf '%-7s %-18s  tmux: %-22s  cwd: %s\n' "$pid" "${comm:--}" "${home:--}" "${cwd:--}"
+  done
 }
 
 # Github Dash
