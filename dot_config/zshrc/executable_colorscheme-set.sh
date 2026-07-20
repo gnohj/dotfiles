@@ -1602,7 +1602,6 @@ prepend_exts = [
 ]
 prepend_conds = [
 	# Special files
-	# Special files
 	{ if = "orphan", text = "", fg = "$gnohj_color14" },
 	{ if = "link", text = "", fg = "$gnohj_color09" },
 	{ if = "block", text = "", fg = "$gnohj_color05" },
