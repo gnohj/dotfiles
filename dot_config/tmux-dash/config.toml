@@ -1,5 +1,5 @@
 [features]
-git_source = false
+git_source = true
 ai_activity = true
 hooks = true
 pane_name = true
