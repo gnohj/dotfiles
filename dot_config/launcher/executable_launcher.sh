@@ -465,7 +465,7 @@ aliases_menu() {
       --header="Aliases (select to copy) - Type to search" --prompt="Alias > " $FZF_COLORS) || rc=$?
   quit_on_interrupt "$rc"
   if [[ -n "$selected" ]]; then
-    echo -n "${selected%%=*}" | pbcopy
+    echo -n "${selected%%=*}" | clip
     echo "Copied to clipboard: ${selected%%=*}"
     sleep 1
   fi
@@ -532,6 +532,15 @@ focused_pane_path() {
   fi
 
   printf '%s' "$path"
+}
+
+# Copy stdin to clipboard portably: pbcopy on macOS, else OSC52 (lands on the SSH client's clipboard); base64 newlines stripped, \a terminates.
+clip() {
+  if command -v pbcopy >/dev/null 2>&1; then
+    pbcopy
+  else
+    printf '\033]52;c;%s\a' "$(base64 | tr -d '\n')"
+  fi
 }
 
 # Transient message. tmux mode uses the tmux status line; standalone prints inline.
@@ -714,7 +723,7 @@ act_fzf_env() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
   value=$(tv env)
   if [ -n "$value" ]; then
-    printf '%s' "$value" | pbcopy
+    printf '%s' "$value" | clip
     echo "Copied to clipboard"
   fi
   sleep 1
@@ -844,7 +853,7 @@ act_copy_branch() {
   pane_path=$(focused_pane_path)
   branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null) || branch=""
   if [ -n "$branch" ]; then
-    printf '%s' "$branch" | pbcopy
+    printf '%s' "$branch" | clip
     echo "Copied branch: $branch"
   else
     echo "Not in a git repository"
@@ -867,7 +876,7 @@ act_copy_pane_address() {
     addr=$(tmux display-message -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
   fi
   if [ -n "$addr" ]; then
-    printf '%s' "$addr" | pbcopy
+    printf '%s' "$addr" | clip
     echo "Copied pane address: $addr"
   else
     echo "No tmux pane context"
