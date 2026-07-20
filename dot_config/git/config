@@ -35,6 +35,15 @@
 [core]
 	pager = delta
   excludesfile = ~/.gitignore_global
+	# untrackedCache: cache per-directory untracked-file state keyed on mtime so
+	# `git status` skips re-scanning unchanged dirs. Big speedup in the web
+	# monorepo and it shrinks the index-refresh window (shorter index.lock hold,
+	# fewer collisions). Set globally so every clone/worktree on every machine
+	# inherits it — reproducible on the Linux vbox too. Caveat: on filesystems
+	# with unreliable mtime (e.g. a VirtualBox vboxsf shared-folder mount) this
+	# can go stale; clone into the VM's native fs, or `git config core.untrackedCache
+	# false` in that one repo if you see phantom untracked entries.
+	untrackedCache = true
 
 [interactive]
 	diffFilter = delta --color-only
