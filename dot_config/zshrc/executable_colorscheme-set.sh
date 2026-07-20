@@ -162,11 +162,11 @@ theme[title]="$gnohj_color14"
 # Highlight color for keyboard shortcuts
 theme[hi_fg]="$gnohj_color02"
 
-# Background color of selected item in processes box
-theme[selected_bg]="$gnohj_color04"
+# Background color of selected item in processes box (match tmux copy selection)
+theme[selected_bg]="$gnohj_color13"
 
-# Foreground color of selected item in processes box
-theme[selected_fg]="$gnohj_color14"
+# Foreground color of selected item in processes box (match tmux copy selection)
+theme[selected_fg]="$gnohj_color02"
 
 # Color of inactive/disabled text
 theme[inactive_fg]="$gnohj_color09"
