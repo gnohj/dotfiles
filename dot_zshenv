@@ -31,3 +31,15 @@ export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 # PR-review worktrees; ~/.local/share/chezmoi: the dotfiles source itself, so mise
 # loads its own config there cleanly instead of warning/erroring.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi"
+
+# GIT_OPTIONAL_LOCKS=0: stop background git tooling from fighting over index.lock.
+# Without it, every `git status`/`git diff` may refresh + REWRITE the index, each
+# write grabbing <gitdir>/index.lock. In the web bare+worktree monorepo (huge tree,
+# no fsmonitor) that write is slow, so the lock is held long enough that overlapping
+# readers — starship prompt (per pane), gitsigns (per buffer), lazygit autoFetch,
+# and any concurrent agent — collide with "Unable to create '.../index.lock'".
+# Setting it to 0 makes git SKIP the lock for operations where it's optional (all
+# read-only status/diff refreshes); mandatory writes (commit/add/checkout) still
+# lock normally. Set in .zshenv (not .zshrc) so non-interactive tool subprocesses
+# inherit it too. Portable: plain env var, identical behavior on macOS + Linux.
+export GIT_OPTIONAL_LOCKS=0
