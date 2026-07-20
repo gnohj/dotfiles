@@ -27,20 +27,27 @@ LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
 # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
 FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
 
+# Current OS — drives the `os` gate below. darwin on macOS, linux everywhere else.
+case "$(uname -s)" in Darwin) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
+
 #===============================================================================
 # Registry — the only thing you edit to add/rename entries
 #===============================================================================
 
-# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope
+# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope|os
 #   leaf_provider  static (leaves from ACTIONS) | fn emitting labels at runtime
 #   submenu_fn     generic | custom fn (themes drilldown, aerospace header)
 #   leaf_handler   static (label→ACTIONS fn)    | fn called as `fn "<label>"`
 #   scope          omitted = local | context (follows dev-context: runs on the ssh
 #                  target when connected). Renders a trailing 󰛳 badge in the menus.
 #                  A category's scope is inherited by its leaves unless a leaf sets its own.
+#   os             omitted = all | darwin | linux. Entry only shows on the matching
+#                  OS (filtered at every derivation path, so it can't be dispatched
+#                  off-OS either). scope is field 9; os is field 10 — set an empty
+#                  scope (||) when an entry needs os but not context.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
-  "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace"
+  "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace||darwin"
   "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
   "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static|context"
@@ -50,12 +57,13 @@ CATEGORIES=(
   "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static|context"
 )
 
-# Static leaves — prefix|label|function|description|scope (scope optional; omitted inherits the category)
+# Static leaves — prefix|label|function|description|scope|os (scope+os optional; scope
+# omitted inherits the category; os omitted = all — set an empty scope || to reach os)
 ACTIONS=(
   "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
-  "🤖 AI|👤 Claude Desktop (personal)|act_ai_claude_personal|Launch the Claude Desktop app signed into personal"
-  "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work"
+  "🤖 AI|👤 Claude Desktop (personal)|act_ai_claude_personal|Launch the Claude Desktop app signed into personal||darwin"
+  "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work||darwin"
 
   "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
   "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim|context"
@@ -69,10 +77,8 @@ ACTIONS=(
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
 
-  "🔧 System|🔧 System Setup|act_system_setup|Run mac-setup.sh (brew, nix, packages)"
-  "🔧 System|⬆️ System Update|act_system_update|nix flake update + darwin-rebuild switch"
-  "🔧 System|👤 User Setup|act_system_usersetup|Run user-setup.sh (dotfiles, configs)"
-  "🔧 System|🎯 All (update + setup + user-setup)|act_system_all|Run all three setup steps in sequence with one sudo prompt"
+  "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+mise; then chezmoi + tpm|context"
+  "🔧 System|🎯 All (provision: setup + user-setup + rebuild)|act_system_all|Fresh-machine provision: mac-setup.sh + user-setup.sh + nix rebuild, one sudo prompt||darwin"
 
   "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
   "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
@@ -83,13 +89,15 @@ ACTIONS=(
   "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
-# Top-level actions with no submenu — label|function|description|scope (scope optional)
+# Top-level actions with no submenu — label|function|description|scope|os (scope+os optional)
 SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs|context"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|context"
   "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|context"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes|context"
+  "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands|context"
+  "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)|context"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
 
@@ -97,8 +105,8 @@ SIMPLE_ACTIONS=(
 TOP_LEVEL_ORDER=(
   "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
-  "simple:[tmux] 📋 Copy Pane Address"
-  "simple:🧼 Dirty Repos" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
+  "simple:🔀 GitHub PRs" "simple:[tmux] 📋 Copy Pane Address"
+  "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
 
@@ -115,7 +123,7 @@ get_cat() {
   for rec in "${CATEGORIES[@]}"; do
     case "$rec" in
     "$1|"*)
-      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 REC8 <<<"$rec"
+      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 REC8 REC9 <<<"$rec"
       return 0
       ;;
     esac
@@ -124,19 +132,32 @@ get_cat() {
 }
 
 #===============================================================================
-# Scope badges — mark entries that follow dev-context (run on the ssh target when
-# connected) with a trailing 󰛳. The badge is appended after a TAB sentinel so it
-# never collides with a label; strip_scope() removes it before any dispatch match.
+# Scope badges + OS gate — scope marks entries that follow dev-context (run on the
+# ssh target when connected) with a trailing 󰛳; os hides entries that don't match
+# the current OS. The badge is appended after a TAB sentinel so it never collides
+# with a label; strip_scope() removes it before any dispatch match.
 #===============================================================================
 SCOPE_GLYPH="󰛳"
 
 strip_scope() { printf '%s' "${1%%$'\t'*}"; }
 
+# OS gate: 0 (show) when the os field is empty/all or matches the current OS.
+os_match() { case "${1:-}" in "" | all | "$LAUNCHER_OS") return 0 ;; *) return 1 ;; esac; }
+
+# os field of a simple action by label ("" if none).
+simple_os() {
+  local rec lbl fn desc scope os
+  for rec in "${SIMPLE_ACTIONS[@]}"; do
+    IFS='|' read -r lbl fn desc scope os <<<"$rec"
+    [ "$lbl" = "$1" ] && { printf '%s' "$os"; return; }
+  done
+}
+
 # Category scope by prefix (field 2 of CATEGORIES). Echoes "context" or "local".
 cat_scope_by_prefix() {
-  local rec id prefix pointer header prompt provider submenu handler scope
+  local rec id prefix pointer header prompt provider submenu handler scope os
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope os <<<"$rec"
     [ "$prefix" = "$1" ] && { printf '%s' "${scope:-local}"; return; }
   done
   printf 'local'
@@ -144,9 +165,9 @@ cat_scope_by_prefix() {
 
 # Is a static leaf context? An explicit ACTION scope wins; otherwise inherit the category.
 leaf_is_context() { # prefix label
-  local rec p l f desc scope
+  local rec p l f desc scope os
   for rec in "${ACTIONS[@]}"; do
-    IFS='|' read -r p l f desc scope <<<"$rec"
+    IFS='|' read -r p l f desc scope os <<<"$rec"
     if [ "$p" = "$1" ] && [ "$l" = "$2" ]; then
       [ -n "$scope" ] && { [ "$scope" = context ]; return; }
       break
@@ -157,9 +178,9 @@ leaf_is_context() { # prefix label
 
 # Is a simple action context?
 simple_is_context() { # label
-  local rec lbl fn desc scope
+  local rec lbl fn desc scope os
   for rec in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn desc scope <<<"$rec"
+    IFS='|' read -r lbl fn desc scope os <<<"$rec"
     [ "$lbl" = "$1" ] && { [ "$scope" = context ]; return; }
   done
   return 1
@@ -168,10 +189,10 @@ simple_is_context() { # label
 # Emit leaf labels (no prefix). $1=prefix $2=leaf_provider.
 leaves_of() {
   if [ "$2" = static ]; then
-    local rec p l f desc
+    local rec p l f desc scope os
     for rec in "${ACTIONS[@]}"; do
-      IFS='|' read -r p l f desc <<<"$rec"
-      [ "$p" = "$1" ] && printf '%s\n' "$l"
+      IFS='|' read -r p l f desc scope os <<<"$rec"
+      [ "$p" = "$1" ] && os_match "$os" && printf '%s\n' "$l"
     done
   else
     "$2"
@@ -236,10 +257,12 @@ build_top_level_items() {
     case "$tok" in
     cat:*)
       get_cat "${tok#cat:}" || continue
+      os_match "${REC9:-}" || continue
       if [ "${REC8:-local}" = context ]; then printf '%s\t%s\n' "$REC2" "$SCOPE_GLYPH"; else printf '%s\n' "$REC2"; fi
       ;;
     simple:*)
       lbl="${tok#simple:}"
+      os_match "$(simple_os "$lbl")" || continue
       if simple_is_context "$lbl"; then printf '%s\t%s\n' "$lbl" "$SCOPE_GLYPH"; else printf '%s\n' "$lbl"; fi
       ;;
     esac
@@ -249,9 +272,10 @@ build_top_level_items() {
 # INSERT mode: breadcrumb-prefixed leaves so fuzzy-typing any partial name
 # ("tokyo", "laptop", "open pr") resolves in one shot.
 build_flattened_leaves() {
-  local rec id prefix pointer header prompt provider submenu handler scope leaf
+  local rec id prefix pointer header prompt provider submenu handler scope os leaf
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope os <<<"$rec"
+    os_match "$os" || continue
     while IFS= read -r leaf; do
       [ -n "$leaf" ] || continue
       if leaf_is_context "$prefix" "$leaf"; then
@@ -708,33 +732,6 @@ act_sync_autopush() {
   sleep 1
 }
 
-act_system_setup() {
-  if [ -f "$HOME/.local/share/chezmoi/mac-setup.sh" ]; then
-    cd "$HOME/.local/share/chezmoi" && ./mac-setup.sh
-  else
-    echo "mac-setup.sh not found"
-    sleep 2
-  fi
-}
-
-act_system_update() {
-  echo "Updating nix flake inputs..."
-  nix flake update --flake ~/.nix
-  echo "Rebuilding system with updated packages..."
-  sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon
-  echo "\nSystem update complete. Press any key to continue..."
-  read -k1
-}
-
-act_system_usersetup() {
-  if [ -f "$HOME/.local/share/chezmoi/user-setup.sh" ]; then
-    cd "$HOME/.local/share/chezmoi" && ./user-setup.sh
-  else
-    echo "user-setup.sh not found"
-    sleep 2
-  fi
-}
-
 act_system_all() {
   # Pre-auth sudo once and refresh in the background so the flow never
   # re-prompts. ORDER MATTERS: darwin-rebuild runs LAST — its activation
@@ -784,6 +781,13 @@ act_system_all() {
 
   echo "\n✓ All complete. Press any key to continue..."
   read -k1
+}
+
+# Unified cross-platform update. Delegates to the `up` function in zshrc so macOS
+# (nix+darwin+brew) and Linux (apt+mise) share one entry — runs in a zsh subshell
+# so `up`'s zsh-only builtins (print -P) and the read pause behave.
+act_system_up() {
+  zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
 
 # Kick off an AI-worktree capture script, per host:
@@ -874,6 +878,17 @@ act_copy_pane_address() {
 act_dirty_repos() {
   # `;` not `&&` so the prompt fires even if `dirty` exits non-zero.
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; dirty; echo; echo 'Press any key to continue...'; read -k1"
+}
+
+# errors is a self-contained bin script — no zshrc source needed; `;` so the pause
+# fires regardless of exit code.
+act_errors() {
+  zsh -c "$HOME/.local/bin/errors; echo; echo 'Press any key to continue...'; read -k1"
+}
+
+# ghpr is a zshrc function, so source zshrc (in a zsh subshell, matching dirty).
+act_ghpr() {
+  zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; ghpr; echo; echo 'Press any key to continue...'; read -k1"
 }
 
 act_toggle_transparency() {
