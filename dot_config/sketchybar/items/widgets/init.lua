@@ -12,6 +12,7 @@ require("items.widgets.dev_context_watch") -- Invisible poller: bare `ssh` sessi
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
 require("items.widgets.rbw_lock") -- rbw (Bitwarden) vault-lock indicator
 require("items.widgets.health_check_notification") -- Service health check
+require("items.widgets.runaway_notification") -- Runaway/escaped-pane high-CPU process alert
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
 require("items.widgets.github_notification")
