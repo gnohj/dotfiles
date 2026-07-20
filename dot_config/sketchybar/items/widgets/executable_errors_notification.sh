@@ -1,5 +1,5 @@
 #!/bin/bash
-# errors monitor -> sketchybar "errors" badge: service-log errors + ppid-1 orphans (fff/treehouse/cpu). Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ERRORS_AUTOKILL.
+# errors monitor -> sketchybar "errors" badge: service-log errors + ppid-1 orphans (fff/treehouse/cpu). Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70).
 shopt -s nullglob
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
@@ -138,25 +138,6 @@ for r in "${new[@]}"; do
     -g "orphan-$pid" -s Basso -T 0 --sender com.gnohj.orphan-alert \
     -e "$HOME/.config/sketchybar/items/widgets/errors-click.sh" 2>/dev/null || true
 done
-
-# Reaper (opt-in ERRORS_AUTOKILL): SIGTERM whitelisted orphans present >=2 cycles, SIGKILL if they survive it. POSIX signals -> identical on macOS + Linux.
-if [[ -n "${ERRORS_AUTOKILL:-}" ]]; then
-  KILL_RE="${ERRORS_AUTOKILL_CMDS:-^(claude|node)$}"
-  declare -A was_termed
-  [[ -f "$STATE_DIR/termed" ]] && while read -r p; do was_termed[$p]=1; done <"$STATE_DIR/termed"
-  : >"$STATE_DIR/termed"
-  for pid in "${!detected[@]}"; do
-    IFS='|' read -r _ _ _ base _ <<<"${detected[$pid]}"
-    [[ "$base" =~ $KILL_RE ]] || continue
-    [[ -n "${prev_line[$pid]}" ]] || continue
-    if [[ -n "${was_termed[$pid]}" ]]; then
-      kill -KILL "$pid" 2>/dev/null && log "REAP SIGKILL $pid $base (survived SIGTERM)"
-    else
-      kill -TERM "$pid" 2>/dev/null && log "REAP SIGTERM $pid $base"
-      echo "$pid" >>"$STATE_DIR/termed"
-    fi
-  done
-fi
 
 if command -v sketchybar >/dev/null 2>&1; then
   source "$HOME/.config/sketchybar/config/colors.sh" 2>/dev/null
