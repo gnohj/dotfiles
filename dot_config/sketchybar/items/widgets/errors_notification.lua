@@ -20,7 +20,7 @@ local errors = sbar.add("item", "widgets.errors_notification", {
 	},
 	update_freq = 60,
 	popup = { align = "center" },
-	script = "ERRORS_AUTOKILL=1 ~/.config/sketchybar/items/widgets/errors_notification.sh",
+	script = "~/.config/sketchybar/items/widgets/errors_notification.sh",
 	click_script = "~/.config/sketchybar/items/widgets/errors-click.sh",
 })
 
