@@ -56,6 +56,7 @@ TIMEOUT=6
 SOUND=""
 ICON=""
 EXECUTE=""
+SENDER=""
 AUTO_ICON=1
 
 while [ $# -gt 0 ]; do
@@ -68,6 +69,7 @@ while [ $# -gt 0 ]; do
     -i|--icon)     ICON="${2:-}"; AUTO_ICON=0; shift 2 ;;
     --no-icon)     AUTO_ICON=0; shift ;;
     -e|--execute)  EXECUTE="${2:-}"; shift 2 ;;
+    -S|--sender)   SENDER="${2:-}"; shift 2 ;;
     --) shift; break ;;
     *)  echo "mac-notify: unknown arg: $1" >&2; exit 0 ;;
   esac
@@ -103,9 +105,14 @@ if ! command -v terminal-notifier >/dev/null 2>&1; then
   exit 0
 fi
 
-args=( -title "$TITLE" -message "$MESSAGE" -timeout "$TIMEOUT" )
+args=( -title "$TITLE" -message "$MESSAGE" )
+# -T 0 opts out of auto-dismiss — for Alert-style senders that should persist.
+[ -n "$TIMEOUT" ] && [ "$TIMEOUT" != "0" ] && args+=( -timeout "$TIMEOUT" )
 [ -n "$GROUP" ]   && args+=( -group "$GROUP" )
 [ -n "$SOUND" ]   && args+=( -sound "$SOUND" )
+# -sender adopts another app's identity so its notification style (Banner vs
+# Alert) is set independently in System Settings.
+[ -n "$SENDER" ]  && args+=( -sender "$SENDER" )
 [ -n "$ICON" ] && [ -f "$ICON" ] && args+=( -contentImage "$ICON" )
 [ -n "$EXECUTE" ] && args+=( -execute "$EXECUTE" )
 

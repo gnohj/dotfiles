@@ -541,38 +541,6 @@ btop2() {
   command btop -c "$(_btop_proc_conf memory)"
 }
 
-# pwhere: locate a process (pid or program-name matching the full command line) - walks the PID's parent chain to the owning tmux session/pane and prints its cwd. Usage: pwhere <pid|name>
-pwhere() {
-  emulate -L zsh
-  [[ -z "$1" ]] && { print -u2 'usage: pwhere <pid|name>'; return 1 }
-
-  local -a pids
-  if [[ "$1" == <-> ]]; then
-    pids=("$1")
-  else
-    pids=(${(f)"$(pgrep -f -- "$1")"})
-    (( ${#pids} )) || { print -u2 "no process matches: $1"; return 1 }
-  fi
-
-  typeset -A pane
-  local pp loc win
-  while IFS=$'\t' read -r pp loc win; do
-    pane[$pp]="$loc ($win)"
-  done < <(tmux list-panes -a -F $'#{pane_pid}\t#{session_name}:#{window_index}.#{pane_index}\t#{window_name}' 2>/dev/null)
-
-  local pid anc comm home cwd
-  for pid in $pids; do
-    comm=$(ps -o comm= -p "$pid" 2>/dev/null); comm=${comm:t}
-    home=''; anc=$pid
-    while [[ -n "$anc" && "$anc" != 0 ]]; do
-      [[ -n "${pane[$anc]}" ]] && { home=${pane[$anc]}; break }
-      anc=$(ps -o ppid= -p "$anc" 2>/dev/null); anc=${anc// /}
-    done
-    cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | awk '/^n/{print substr($0,2); exit}')
-    printf '%-7s %-18s  tmux: %-22s  cwd: %s\n' "$pid" "${comm:--}" "${home:--}" "${cwd:--}"
-  done
-}
-
 # Github Dash
 alias ghd='gh-dash'
 
