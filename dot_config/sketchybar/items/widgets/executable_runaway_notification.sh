@@ -111,11 +111,15 @@ if dry; then
   exit 0
 fi
 
+# Runaway-only corner alert: posts under the dedicated "Runaway Alert" sender
+# (com.gnohj.runaway-alert) so it can be set to Alert style — same upper-right
+# look as every other banner, but stays until dismissed. -T 0 opts out of
+# auto-dismiss so the Alert persists.
 for r in "${new[@]}"; do
   IFS='|' read -r pid pc short cwd <<<"$r"
   mac-notify -t "⚠️ Runaway process" \
     -m "$short (pid $pid) — ${pc}% of a core, no tmux pane · $cwd" \
-    -g "runaway-$pid" -s Basso -T "${RUNAWAY_BANNER_SECS:-60}" \
+    -g "runaway-$pid" -s Basso -T 0 --sender com.gnohj.runaway-alert \
     -e "$HOME/.config/sketchybar/items/widgets/runaway-click.sh" 2>/dev/null || true
 done
 
