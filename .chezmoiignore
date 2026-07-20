@@ -74,7 +74,6 @@ Library/
 # macOS-desktop-only configs (inert dead weight on a headless VPS)
 .config/kanata/
 .config/raycast/
-.config/launcher/
 .config/ghosttyfetch/
 .config/fastfetch/
 .config/spicetify/
