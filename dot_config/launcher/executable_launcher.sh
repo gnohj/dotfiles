@@ -575,7 +575,7 @@ open_named_window() {
     [ -n "$keepopen" ] && run="$cmd; exec ${SHELL:-/bin/zsh} -l"
     open_window "$emoji" "$run"
   else
-    ~/.config/skhd/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
+    ~/.local/bin/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
   fi
 }
 
@@ -622,7 +622,7 @@ require_tmux() {
 }
 
 act_ai_codeburn() { open_named_window 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true; }
-act_ai_rtk() { open_named_window 📊 rtk "/opt/homebrew/bin/rtk gain --graph"; }
+act_ai_rtk() { open_named_window 📊 rtk "rtk gain --graph"; }
 act_ai_claude_personal() { "$HOME/.local/bin/claude-desktop" personal; }
 act_ai_claude_work() { "$HOME/.local/bin/claude-desktop" work; }
 
