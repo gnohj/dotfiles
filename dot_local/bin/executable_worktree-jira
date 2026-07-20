@@ -90,6 +90,7 @@ fi
 # haiku is ~50% faster on the claude-side latency.
 WORKTREE_CLAUDE_INPUT="$URL" \
 WORKTREE_CLAUDE_MODEL="haiku" \
+WORKTREE_CLAUDE_ACCOUNT="work" \
 WORKTREE_GROUP="worktree-${TICKET}" \
 WORKTREE_LOG_TAG="worktree-jira" \
 WORKTREE_LOG_HEADER="URL: $URL
