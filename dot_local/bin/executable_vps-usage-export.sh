@@ -60,10 +60,21 @@ done
 
 echo
 echo "== 16-vs-32 GB verdict signals =="
-peak="$(sar -r -f "${files[0]}" 2>/dev/null | awk '$0 !~ /Average|Linux|^$/ && $5 ~ /^[0-9.]+$/ {print $5}' | sort -rn | head -1)"
-[ -n "$peak" ] && echo "  peak %memused (first file): ${peak}%"
-swap="$(sar -S -f "${files[0]}" 2>/dev/null | awk '$0 !~ /Average|Linux|^$/ && $3 ~ /^[0-9.]+$/ {print $3}' | sort -rn | head -1)"
-[ -n "$swap" ] && echo "  peak %swpused (first file):  ${swap}%   (any sustained swap → lean 32 GB)"
+
+# Peak of a column looked up by NAME from the sadf CSV header - sar's text columns shift with 12h/24h timestamps, so the old fixed-index parse read raw kB as a percent.
+csv_peak() {
+  local csv="$1" name="$2" idx
+  [ -f "$csv" ] || return 1
+  idx="$(head -1 "$csv" | tr ';' '\n' | grep -nxF "$name" | head -1 | cut -d: -f1)"
+  [ -n "$idx" ] || return 1
+  awk -F';' -v c="$idx" 'NR>1 && $c ~ /^[0-9.]+$/ { if ($c+0 > m) m=$c+0 } END { if (m!="") printf "%.1f", m }' "$csv"
+}
+
+stamp0="$(date +%Y%m)${files[0]##*/sa}"
+mem_peak="$(csv_peak "$OUT/${stamp0}-mem.csv" "%memused")"
+swap_peak="$(csv_peak "$OUT/${stamp0}-swap.csv" "%swpused")"
+echo "  peak %memused (first file): ${mem_peak:-n/a}%"
+echo "  peak %swpused (first file): ${swap_peak:-n/a}%   (any sustained swap → lean 32 GB)"
 echo "  memory pressure (live):     $(awk -F'[= ]' '/some/{print $3}' /proc/pressure/memory 2>/dev/null || echo n/a)"
 echo "  OOM kills (the decider):"
 if command -v journalctl >/dev/null 2>&1; then
