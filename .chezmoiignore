@@ -2,6 +2,16 @@ README.md
 MANUAL_SETUP.md
 MANUAL_VPS_SETUP.md
 
+# Repo-local agent instructions — symlinked into the source root so the chezmoi
+# repo itself has its CLAUDE.md/AGENTS.md (read via ~/.local/share/chezmoi/). They
+# must NOT deploy to ~, where they'd wrongly apply as global home-cwd instructions.
+CLAUDE.md
+AGENTS.md
+
+# Rendered diagram artifact from the global-workflow skill — regenerated on demand,
+# never a source of truth; tracking it as source = perpetual apply prompts.
+global-workflow.png
+
 # gh writes its OAuth token into hosts.yml at runtime — never manage it (chezmoi
 # would strip the token on apply) and never `chezmoi add` it (would commit a secret).
 .config/gh/hosts.yml
