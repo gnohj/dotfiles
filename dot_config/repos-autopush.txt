@@ -11,6 +11,8 @@
 ~/Obsidian/second-brain/Projects/banking
 ~/Obsidian/second-brain/Projects/fitness
 ~/Obsidian/second-brain/Projects/parents-estate
+# NOTE: second-brain-work (work vault) is intentionally NOT autopushed — work commits are
+# deliberate. It is cloned via repos-clone.txt but never auto-committed on any machine.
 ~/Developer/agents
 ~/Developer/colorscheme
 ~/Developer/tmux-dash
