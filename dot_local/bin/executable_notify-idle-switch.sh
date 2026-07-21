@@ -31,9 +31,11 @@ ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
 case "$ENTRY" in
 vault\|*)
   STATE_NOTE="${ENTRY#vault|}"
-  VAULT_DIR="$HOME/Obsidian/second-brain"
+  # Worktree captures are work-context (treekanga worktrees = work tickets), so
+  # they land in the work vault + its session. Resolved via vault-path (no hardcode).
+  VAULT_DIR="$("$HOME/.local/bin/vault-path" --work)"
   VAULT_INBOX="$VAULT_DIR/Notes-Inbox"
-  VAULT_SESSION="second-brain"
+  VAULT_SESSION="$(basename "$VAULT_DIR")"
 
   # If multiple worktree captures landed in the inbox in the last hour,
   # offer an fzf picker so the user can choose which one to open. The

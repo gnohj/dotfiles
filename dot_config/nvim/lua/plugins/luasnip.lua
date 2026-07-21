@@ -16,7 +16,7 @@ return {
     end
 
     local function read_hubs()
-      local path = vim.fn.expand("~/Obsidian/second-brain/Notes-Meta/_hubs.md")
+      local path = require("config.obsidian").vault_root() .. "/Notes-Meta/_hubs.md"
       if vim.fn.filereadable(path) == 0 then
         return {}
       end
@@ -32,7 +32,7 @@ return {
 
     local function read_tags()
       local files = vim.fn.globpath(
-        vim.fn.expand("~/Obsidian/second-brain/Notes-Meta"),
+        require("config.obsidian").vault_root() .. "/Notes-Meta",
         "*.md",
         false,
         true

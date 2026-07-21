@@ -2,7 +2,7 @@
 # Stage B of the deferred-jira flow.
 #
 # Stage A (~/.local/bin/worktree-bug) captured a clipboard payload into
-# `~/Obsidian/second-brain/Notes-Inbox/jira-pending-<path-slug>.md`
+# the active vault's `Notes-Inbox/jira-pending-<path-slug>.md` (resolved via vault-path)
 # alongside the freshly-created worktree. This script — invoked from
 # inside that worktree — looks up the matching pending note and runs a
 # TWO-STEP claude flow with explicit user confirmation BETWEEN steps:
@@ -39,7 +39,6 @@ if [ -z "${TMUX:-}" ] \
   exit 0
 fi
 
-VAULT_INBOX="$HOME/Obsidian/second-brain/Notes-Inbox"
 PROMPT_DETAIL="$HOME/.local/bin/worktree/jira-prompt-company.md"
 LOGFILE="$HOME/.logs/worktree-jira-file.log"
 mkdir -p "$(dirname "$LOGFILE")"
@@ -100,6 +99,9 @@ case "$WORKTREE_PATH" in
     exit 1
     ;;
 esac
+# Resolve the vault from the WORKTREE path — NOT $PWD: the skhd→tmux respawn lands
+# in the tmux server's cwd (~ or /), not the worktree. Work worktree → work vault.
+VAULT_INBOX="$("$HOME/.local/bin/vault-path" "$WORKTREE_PATH")/Notes-Inbox"
 REL="${WORKTREE_PATH#$HOME/Developer/}"
 SLUG="${REL//\//-}"
 NOTE="$VAULT_INBOX/jira-pending-${SLUG}.md"

@@ -57,12 +57,12 @@ startup_command = "ghd"
 
 [[session]]
 name = "second_brain"
-path = "~/Obsidian/second-brain"
+path = "~/Developer/second-brain"
 startup_command = "n"
 
 [[session]]
 name = "second_brain_work"
-path = "~/Obsidian/second-brain-work"
+path = "~/Developer/second-brain-work"
 startup_command = "n"
 
 [[session]]

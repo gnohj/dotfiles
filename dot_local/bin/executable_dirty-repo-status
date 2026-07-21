@@ -7,8 +7,8 @@
 # Discovery sources (deduped at the end):
 #   - ~/.config/repos-clone.txt
 #   - ~/.local/share/chezmoi
-#   - ~/Obsidian/second-brain (vault) + each Projects/<name>/ nested repo
-#   - ~/Developer/* (via fd, max-depth 4, excluding node_modules
+#   - the personal vault (via vault-path --personal) + each Projects/<name>/ repo
+#   - ~/Developer/* (via fd, max-depth 4 — covers the work vault) excluding node_modules
 #     and inferno-monorepo.backup)
 #
 # Used by:
@@ -35,8 +35,10 @@ fi
 # chezmoi
 REPOS+=("$HOME/.local/share/chezmoi")
 
-# vault + each nested Projects/<name>/
-VAULT="$HOME/Obsidian/second-brain"
+# Personal vault + each nested Projects/<name>/. Resolved via vault-path (single
+# source); the work vault is a real dir under ~/Developer, so the scan below
+# already covers it — the personal symlink isn't followed by fd, hence added here.
+VAULT="$("$HOME/.local/bin/vault-path" --personal)"
 REPOS+=("$VAULT")
 if [ -d "$VAULT/Projects" ]; then
   for project_git in "$VAULT/Projects"/*/.git; do

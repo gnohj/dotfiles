@@ -1,0 +1,4 @@
+# `oow` — cd into the WORK second-brain vault (~/Developer/second-brain-work).
+# Sibling of `oo` (personal). Work vault is a real git-only dir, never in iCloud.
+# A `cd` can't live in ~/.local/bin/ (subshell scoping), so it's a zsh function here.
+cd "$HOME/Developer/second-brain-work"

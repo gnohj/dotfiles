@@ -11,12 +11,13 @@
 
 set -uo pipefail
 
-VAULT="$HOME/Obsidian/second-brain"
-
 # Read hook payload from stdin (small JSON, no streaming needed).
 input=$(cat 2>/dev/null || true)
 cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null || true)
 src=$(jq -r '.source // empty' <<<"$input" 2>/dev/null || true)
+
+# Resolve the active vault from cwd: work repo → second-brain-work, else personal (surfaces the right ticket/hot-path notes).
+VAULT="$("$HOME/.local/bin/vault-path" "$cwd")"
 
 # Only fire on fresh sessions / resumes. /clear and /compact already have the
 # trigger's effect baked into the user's expectation that context just changed,

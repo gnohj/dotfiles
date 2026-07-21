@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Obsidian: publish reviewed notes from Notes-Publish/ -> Notes/<hub>/.
-# Hubs are validated against ~/Obsidian/second-brain/Notes-Meta/_hubs.md (the
+# Hubs are validated against the active vault's Notes-Meta/_hubs.md (the
 # source of truth). Notes whose `hubs:` value isn't a known hub get moved
 # to Notes-Meta-Unknown/ for manual review (no Claude required).
 
 set -euo pipefail
 
-VAULT_DIR="$HOME/Obsidian/second-brain"
+# Follow the active vault (work repo → work vault, else personal). Publish is a
+# personal-vault flow, but resolving keeps `op` correct if run from either.
+VAULT_DIR="$("$HOME/.local/bin/vault-path")"
 SOURCE_DIR="Notes-Publish"
 DEST_DIR="Notes"
 QUARANTINE_DIR="Notes-Meta-Unknown"

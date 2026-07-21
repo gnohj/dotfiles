@@ -8,7 +8,7 @@
 #   worktree-retry [<path-to-capture-note.md>]
 #
 # When called with no argument, defaults to the most-recently-modified
-# worktree-bug capture in ~/Obsidian/second-brain/Notes-Inbox/. That's
+# worktree-bug capture in the work vault's Notes-Inbox/ (via vault-path). That's
 # the typical "redo the last bug attempt with refined context" flow.
 # Pass an explicit path to retry an older note.
 #
@@ -35,7 +35,7 @@ notify_error() {
 if [ -z "$NOTE" ]; then
   # No arg → default to the most-recent worktree-bug capture note.
   # Filename pattern is: YYYY-MM-DD_Worktree-worktree-bug-<outcome>-<slug>.md
-  NOTE=$(find "$HOME/Obsidian/second-brain/Notes-Inbox" -maxdepth 1 \
+  NOTE=$(find "$("$HOME/.local/bin/vault-path" --work)/Notes-Inbox" -maxdepth 1 \
     -name '*Worktree-worktree-bug-*.md' -type f 2>/dev/null \
     | xargs -I{} stat -f '%m %N' {} 2>/dev/null \
     | sort -rn \
@@ -93,7 +93,7 @@ if printf '%s' "$ORIGINAL_BLOCK" | grep -q '!\[\['; then
   CLIPBOARD_KIND="image"
   ASSET=$(printf '%s' "$ORIGINAL_BLOCK" | grep -oE '!\[\[[^]]+\]\]' | head -1 \
     | sed -E 's/!\[\[(.*)\]\]/\1/')
-  TMP_IMG="$HOME/Obsidian/second-brain/Notes-Assets/$ASSET"
+  TMP_IMG="${NOTE%/Notes-Inbox/*}/Notes-Assets/$ASSET"
   if [ ! -f "$TMP_IMG" ]; then
     notify_error "Image asset missing: $ASSET (was Notes-Assets purged?)"
     exit 1

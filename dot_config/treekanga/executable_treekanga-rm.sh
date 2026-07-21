@@ -103,7 +103,9 @@ delete_one() {
   local thread_id thread_file vault note already_frozen=0 finish_ok=0
   thread_id=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
   thread_file="$HOME/.local/state/threads/${thread_id}.json"
-  vault="$HOME/Obsidian/second-brain"
+  # Worktrees carry work tickets, so their notes live in the work vault (resolved
+  # via vault-path — never hardcoded).
+  vault="$("$HOME/.local/bin/vault-path" --work)"
 
   if [ "${TKRM_SKIP_FINISH:-0}" != 1 ] && [ -n "$thread_id" ] && [ -f "$thread_file" ]; then
     # Cheap shell-level idempotency check: if the vault note already says
