@@ -14,7 +14,9 @@
 # then prints the verdict signals: peak %memused, any swap use, and OOM kills.
 set -uo pipefail
 
-if [ "$(uname -s)" != "Linux" ]; then
+OS="$("$HOME/.local/bin/machine-identity" os 2>/dev/null)"
+[ -n "$OS" ] || { [ "$(uname -s)" = Linux ] && OS=linux; }
+if [ "$OS" != linux ]; then
   echo "vps-usage-export: Linux/VPS only (no sar history on $(uname -s))." >&2
   exit 0
 fi

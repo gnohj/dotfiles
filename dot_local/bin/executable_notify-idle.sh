@@ -46,15 +46,15 @@ for _ in 1 2 3 4 5; do
   _pid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ')
 done
 
-case "$(uname)" in
-  Darwin)
+case "$("$HOME/.local/bin/machine-identity" os 2>/dev/null || uname)" in
+  darwin | Darwin)
     # Agent runs on the Mac — fire the banner locally; click attaches to the session.
     "$HOME/.local/bin/notify-idle-emit.sh" "$AGENT" "$SESSION" "$TERM_ID" \
       "$HOME/.local/bin/open-tmux-attach.sh '$SESSION'"
     ;;
-  Linux)
-    # Agent on the VPS: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Host from $NOTIFY_MAC_SSH or ~/.config/notify-idle/mac-ssh-host; unset → marker-only.
-    MAC_HOST="${NOTIFY_MAC_SSH:-$(cat "$HOME/.config/notify-idle/mac-ssh-host" 2>/dev/null || true)}"
+  linux | Linux)
+    # Devbox: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Mac host via machine-identity (= $NOTIFY_MAC_SSH / mac-ssh-host); unset → marker-only.
+    MAC_HOST="$("$HOME/.local/bin/machine-identity" mac-host 2>/dev/null)"
     [ -n "$MAC_HOST" ] || exit 0
     # Strip single quotes so the payload can't break out of the single-quoted remote command (defense-in-depth).
     AGENT_S=${AGENT//\'} SESSION_S=${SESSION//\'} TERM_S=${TERM_ID//\'}
