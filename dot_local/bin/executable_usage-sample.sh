@@ -9,14 +9,16 @@
 # are recorded here, not a misleading free-MB number.
 #
 # Output: ~/.local/state/usage/YYYY-MM.csv  (monthly file; ~9k rows/month, tiny)
-# Columns: ts,load1,load5,load15,ncpu,mem_used_gb,mem_total_gb,mem_used_pct,swap_used_mb,pressure
+# Columns: ts,load1,load5,load15,ncpu,mem_used_gb,mem_total_gb,mem_used_pct,swap_used_mb,pressure,orphans,top_proc,top_cpu
 #   pressure = macOS: normal|warn|critical   Linux: memory-PSI some-avg10 (%)
+#   orphans  = PROBLEM orphans (ppid 1, non-.app/system) that `errors` flags: nvim (fff.nvim LMDB leak) or >=30% cpu (raw ppid-1 count is noise).
+#   top_proc/top_cpu = heaviest process + its %cpu at sample time (>100% = multicore burst).
 set -uo pipefail
 
 OUT_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/usage"
 mkdir -p "$OUT_DIR"
 CSV="$OUT_DIR/$(date +%Y-%m).csv"
-HEADER="ts,load1,load5,load15,ncpu,mem_used_gb,mem_total_gb,mem_used_pct,swap_used_mb,pressure"
+HEADER="ts,load1,load5,load15,ncpu,mem_used_gb,mem_total_gb,mem_used_pct,swap_used_mb,pressure,orphans,top_proc,top_cpu"
 [ -f "$CSV" ] || echo "$HEADER" >"$CSV"
 
 ts="$(date +%FT%T)"
@@ -59,6 +61,25 @@ case "$(uname -s)" in
   *) exit 0 ;;
 esac
 
-printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+# Orphan + top-CPU snapshot (one portable `ps` pass). Orphans match `errors`: ppid 1, non-.app/system, only nvim-leak or >=30% cpu. top_cpu >100% = multicore burst.
+read -r orphans top_proc top_cpu < <(
+  ps -axo ppid=,%cpu=,command= 2>/dev/null | awk -v cpumin=30 '
+    {
+      ppid = $1; cpu = $2
+      cmd = ""; for (i = 3; i <= NF; i++) cmd = cmd (i > 3 ? " " : "") $i
+      first = $3; sub(/.*\//, "", first)
+      if (cpu + 0 > mx) { mx = cpu + 0; top = first }
+      if (ppid == 1) {
+        if (cmd ~ /\.app\/Contents\/MacOS\//) next
+        if (cmd ~ /^\/(System|usr\/libexec|usr\/sbin|sbin|Library\/Apple)\//) next
+        if (first == "nvim" || cpu + 0 >= cpumin) orph++
+      }
+    }
+    END { gsub(/,/, "", top); printf "%d %s %.1f", orph + 0, (top == "" ? "na" : top), mx + 0 }'
+)
+orphans="${orphans:-0}"; top_proc="${top_proc:-na}"; top_cpu="${top_cpu:-0}"
+
+printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
   "$ts" "$l1" "$l5" "$l15" "$ncpu" "$mem_used_gb" "$mem_total_gb" "$mem_used_pct" "$swap_used_mb" "$pressure" \
+  "$orphans" "$top_proc" "$top_cpu" \
   >>"$CSV"
