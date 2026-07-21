@@ -12,7 +12,50 @@ INPUT=$(cat)
 extra_args=("$@")
 mode="${FZF_VIM_MODE:-normal}"
 
-trap 'printf "\e[0 q" >/dev/tty 2>/dev/null' EXIT
+# Optional status header, pinned to the top (--header-first). Two opt-in forms;
+# every other picker sets neither and keeps --no-header (unchanged):
+#   FZF_VIM_HEADER_CMD  a command, re-run LIVE: via transform-header on start +
+#                       every focus change, AND on an idle timer (fzf --listen +
+#                       a background poster) — so a status badge (e.g. the active
+#                       mux) stays fresh even when the persistent quake sits idle
+#                       with no interaction. Interval: FZF_VIM_HEADER_POLL (def 5s).
+#   FZF_VIM_HEADER      a static string.
+# transform-header/focus/--listen need fzf >= 0.38 (nix ships current on both OSes).
+_poster_pid=""
+_port_file=""
+if [ -n "${FZF_VIM_HEADER_CMD:-}" ]; then
+  _port_file=$(mktemp -t fzf-vim-port.XXXXXX)
+  header_args=(--header-first --listen
+    --bind "start:transform-header($FZF_VIM_HEADER_CMD)+execute-silent(printf '%s' \"\$FZF_PORT\" >|$_port_file)"
+    --bind "focus:transform-header($FZF_VIM_HEADER_CMD)")
+  # Idle poster: refresh the header on a timer via fzf's --listen HTTP API, even
+  # with zero interaction. Re-reads the port each tick so it follows the current
+  # fzf across mode switches. Best-effort — silently absent without curl.
+  if command -v curl >/dev/null 2>&1; then
+    (
+      set +e # best-effort: a dead port during a mode-switch must not kill the loop
+      interval="${FZF_VIM_HEADER_POLL:-5}"
+      while :; do
+        sleep "$interval"
+        port=$(cat "$_port_file" 2>/dev/null)
+        [ -n "$port" ] && curl -sS -XPOST "localhost:$port" \
+          -d "transform-header($FZF_VIM_HEADER_CMD)" >/dev/null 2>&1
+      done
+    ) &
+    _poster_pid=$!
+  fi
+elif [ -n "${FZF_VIM_HEADER:-}" ]; then
+  header_args=(--header "$FZF_VIM_HEADER" --header-first)
+else
+  header_args=(--no-header)
+fi
+
+# Reset cursor + tear down the idle poster / its port file on exit.
+trap '
+  printf "\e[0 q" >/dev/tty 2>/dev/null
+  [ -n "$_poster_pid" ] && kill "$_poster_pid" 2>/dev/null
+  [ -n "$_port_file" ] && rm -f "$_port_file"
+' EXIT
 
 # Clear screen before first fzf to prevent bleed from previous picker
 printf '\e[2J\e[H' >/dev/tty 2>/dev/null || true
@@ -28,7 +71,7 @@ while true; do
       --reverse --no-clear --no-multi \
       --disabled \
       --bind 'change:clear-query' \
-      --no-header \
+      "${header_args[@]}" \
       --border-label ' NORMAL  j/k  G/g  i→insert  esc→quit ' \
       --expect=enter,i,esc,ctrl-c \
       --bind 'j:down,k:up' \
@@ -45,7 +88,7 @@ while true; do
     fzf_out=$(printf "%s\n" "$insert_input" | fzf \
       "${extra_args[@]}" \
       --reverse --no-clear --no-multi \
-      --no-header \
+      "${header_args[@]}" \
       --tiebreak=index \
       --border-label ' INSERT  type to filter  esc→normal ' \
       --expect=enter,esc,ctrl-c \
