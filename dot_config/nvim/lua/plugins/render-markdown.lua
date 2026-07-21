@@ -10,7 +10,6 @@ return {
   init = function()
     local colorInline_bg = colors["gnohj_color02"]
     local color_fg = colors["gnohj_color26"]
-    print(colors)
     local color_sign = "#ebfafa"
     -- set in ~/.config/colorscheme/colorscheme-vars.sh
     -- set in ~/.config/nvim/init.lua
