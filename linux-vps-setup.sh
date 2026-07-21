@@ -6,12 +6,12 @@
 #   (root phase)  create the target user + copy the SSH key, passwordless sudo,
 #                 harden sshd (key-only, no root login), install Tailscale, wait
 #                 out cloud-init — then hand off to the user.
-#   (user phase)  install chezmoi + `chezmoi init --apply` → runs the Linux
-#                 toolchain bootstrap (mise, apt pkgs, monitoring, agent CLIs, …).
+#   (user phase)  clone dotfiles → install Nix + first home-manager switch (the bulk
+#                 CLI toolchain) → `chezmoi apply` → the Linux bootstrap (apt base,
+#                 monitoring, mise runtimes + agent CLIs). Nix-first, mirroring the Mac.
 #
 # Usage — run as ROOT on a fresh box (over the provider's IP / console):
 #   curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
-#   # custom username:        ... | bash -s -- myuser
 #   # unattended Tailscale:    TS_AUTHKEY=tskey-... ... | bash
 #
 # Idempotent — safe to re-run. Interactive / secret-touching steps stay manual
@@ -21,8 +21,13 @@
 # inside tmux/mosh so a dropped SSH connection doesn't kill it mid-build.
 set -euo pipefail
 
-TARGET_USER="${1:-gnohj}"
+# Pinned: the flake output (gnohj-linux-x86_64) and home-manager/home.nix pin this
+# username, so a different user would fail `home-manager switch`. Single-user repo.
+TARGET_USER="gnohj"
 GITHUB_USER="gnohj"          # dotfiles source: github.com/gnohj/dotfiles
+# home-manager flake target — arch-encoded, mirroring the Mac's macbook_silicon.
+# Override for another arch, e.g. LINUX_FLAKE=gnohj-linux-aarch64 on an ARM VPS.
+LINUX_FLAKE="${LINUX_FLAKE:-gnohj-linux-x86_64}"
 
 # --- shared helpers (print_*, require_linux, detect_platform, command_exists) ---
 UTILS="$(mktemp)"
@@ -114,7 +119,7 @@ fi
 # =====================================================================
 # USER PHASE — chezmoi install + apply (runs the linux-bootstrap)
 # =====================================================================
-print_info "› User phase: chezmoi init --apply ($USER)"
+print_info "› User phase: clone dotfiles → Nix + home-manager → chezmoi apply ($USER)"
 
 # Preflight: github.com is IPv4-only, and the whole toolchain (chezmoi clone, mise
 # tool downloads) pulls from it. A Vultr box on a CGNAT/shared IPv4 (100.64.0.0/10)
@@ -130,10 +135,51 @@ if ! curl -4 -fsS --connect-timeout 8 -o /dev/null https://github.com 2>/dev/nul
   exit 1
 fi
 
-# BINDIR so chezmoi lands on PATH (~/.local/bin), not the default ~/bin which the
-# zsh config never adds — otherwise `chezmoi` isn't runnable after bootstrap.
-print_info "Installing chezmoi and applying dotfiles (this runs the Linux toolchain bootstrap)…"
-BINDIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init --apply "$GITHUB_USER"
+# Nix-first, mirroring mac-setup.sh (nix-darwin installs the toolchain BEFORE
+# dotfiles land). Order: clone source → install Nix → first home-manager switch
+# (bulk CLI toolchain into ~/.nix-profile) → chezmoi apply (dotfiles + the trimmed
+# mise runtimes/AI + the apt/monitoring remainder). Applying dotfiles first would
+# leave the box tool-less in the window before home-manager runs, since the mise
+# config no longer carries the bulk CLIs.
+CHEZMOI="$HOME/.local/bin/chezmoi"
+
+# 1. Clone the dotfiles source only — no apply yet. The flake must exist on disk
+#    before we can build it (mac-setup.sh Phase 2 gets the flake in place first too).
+#    BINDIR lands chezmoi on ~/.local/bin (the default ~/bin is never on PATH here).
+print_info "Cloning dotfiles source (chezmoi init, no apply yet)…"
+BINDIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init "$GITHUB_USER"
+
+# 2. Install Nix — same Determinate installer + idempotency guard as mac-setup.sh
+#    Phase 1. --no-confirm is unattended; the installer escalates via sudo itself.
+if command_exists nix; then
+  print_success "Nix already installed"
+else
+  print_info "Installing Nix (Determinate Systems installer)…"
+  curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm
+fi
+# Put nix on PATH for the rest of THIS piped shell (the profile.d hook isn't sourced here).
+# shellcheck disable=SC1091
+[ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ] \
+  && . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+# 3. First home-manager generation — installs the bulk CLI toolchain into
+#    ~/.nix-profile, the Linux mirror of mac-setup.sh Phase 3's nix-darwin switch.
+#    Points at the chezmoi SOURCE flake (~/.nix doesn't exist until apply), same as
+#    mac-setup.sh references $NIX_CONFIG_DIR. After this the `home-manager` CLI is on
+#    PATH (programs.home-manager.enable) and `up` drives steady-state rebuilds.
+if command_exists home-manager; then
+  print_success "home-manager already installed"
+else
+  print_info "Building the Nix CLI toolchain (first home-manager switch)…"
+  nix run github:nix-community/home-manager -- switch -b backup \
+    --flake "$HOME/.local/share/chezmoi/dot_nix#$LINUX_FLAKE"
+fi
+
+# 4. NOW apply dotfiles — they reference tools Nix just installed; the trimmed mise
+#    config adds only runtimes + AI agents; the run_onchange bootstrap does the
+#    system-config remainder (apt base, sysstat/atop, chsh, swap).
+print_info "Applying dotfiles + Linux toolchain bootstrap (chezmoi apply)…"
+"$CHEZMOI" apply
 
 print_success "=========================================="
 print_success "Linux bootstrap complete"

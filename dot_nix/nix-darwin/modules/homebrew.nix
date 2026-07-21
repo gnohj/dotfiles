@@ -35,10 +35,10 @@
 
     # CLI packages (formulae)
     brews = [
-      # AI Tools
+      # AI Tools — claude-code/codex/gemini/pi/rtk moved to mise (shared, both OSes).
+      # opencode stays: its own installer (~/.opencode/bin) shadows this, and the
+      # anomalyco vs sst forks may differ — left unmerged on purpose.
       "anomalyco/tap/opencode"
-      "pi-coding-agent"
-      "rtk"
 
       # System services & window management
       "FelixKratz/formulae/borders"
@@ -53,10 +53,9 @@
       "atuin" # shell history — 18.17+ needs rustc 1.96.1, newer than nixpkgs
 
       # Terminal & tmux utilities
-      "gitmux"
+      # gitmux, sesh, television → moved to Nix (dot_nix/common/package-list.nix,
+      # shared cross-platform). atuin stays on brew (aarch64 rustc lag).
       "morantron/tmux-fingers/tmux-fingers"
-      "sesh"
-      "television"
       "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
@@ -82,8 +81,7 @@
 
     # GUI applications (casks)
     casks = [
-      # AI Tools
-      "claude-code"
+      # AI Tools — claude-code CLI moved to mise (npm:@anthropic-ai/claude-code, both OSes).
       "opensuperwhisper"
 
       # Browsers
