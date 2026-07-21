@@ -9,7 +9,7 @@
 # final switch-client pins the right client — a backgrounded `run-shell -b` loses
 # its invocation context and would otherwise guess.
 
-export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 td="$HOME/.local/bin/tmux-dash"
 [ -x "$td" ] || exit 0

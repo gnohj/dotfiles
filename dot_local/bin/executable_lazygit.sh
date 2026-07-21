@@ -2,10 +2,10 @@
 
 # C-g run-shell job: LAZYGIT_HOST_PANE (#{pane_id}, lazygit's edit-in-nvim RPC target) and PANE_PATH are injected fork-free via run-shell format expansion; the only spawn here is display-popup, all detection runs in the fast popup pty.
 
-export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/Scripts:$PATH"
 
 tmux display-popup -E -w 90% -h 90% -d "$PANE_PATH" -B "
-  export PATH=\"/opt/homebrew/bin:$HOME/.bun/bin:$HOME/Scripts:\$PATH\"
+  export PATH=\"/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/Scripts:\$PATH\"
   export LAZYGIT_NEW_DIR_FILE=\"$HOME/.lazygit/newdir\"
   export LAZYGIT_HOST_PANE=\"$LAZYGIT_HOST_PANE\"
   mkdir -p \"$HOME/.lazygit\"; rm -f \"$HOME/.lazygit/newdir\"
