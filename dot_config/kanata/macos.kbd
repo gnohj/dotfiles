@@ -51,9 +51,9 @@
   ;; Base layer mod-taps (39 keys only)
   tab-ralt (tap-hold 200 200 tab ralt)     ;; Tab position: tap=tab, hold=ralt
   grv-lctl (tap-hold 200 200 grv lctl)     ;; Caps position: tap=grave, hold=lctl
-  esc-lalt (tap-hold 200 200 esc lalt)     ;; Bracket position: tap=esc, hold=lalt
+  esc-ralt (tap-hold 200 200 esc ralt)     ;; Bracket position: tap=esc, hold=ralt
   sc-rctl (tap-hold 200 200 ; rctl)        ;; Semicolon: tap=;, hold=rctl
-  qu-lgui (tap-hold 200 200 ' lmet)        ;; Quote: tap=', hold=lgui
+  qu-lctl (tap-hold 200 200 ' lctl)        ;; Quote: tap=', hold=lctl
   slash-hypr (tap-hold 200 200 / (multi lmet lsft lalt lctl)) ;; Slash: tap=/, hold=hyper
   ent-lalt (tap-hold 200 200 ret lalt)     ;; Enter: tap=enter, hold=lalt
   bksp-rctl (tap-hold 200 200 bspc rctl)   ;; Backspace: tap=backspace, hold=rctl
@@ -104,8 +104,8 @@
 
 (deflayer base
   XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX       XX
-  @tab-ralt (chord base q) w        e        r        t        y        u        i        o        (chord base p) @esc-lalt XX            XX
-  @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lgui XX       XX
+  @tab-ralt (chord base q) w        e        r        t        y        u        i        o        (chord base p) @esc-ralt XX            XX
+  @grv-lctl a        s        (chord base d) (chord base f) g        h        j        k        l        @sc-rctl @qu-lctl XX       XX
   (chord shifts ls) z x (chord base c) (chord base v) b n (chord base m) (chord base ,) . @slash-hypr (chord shifts rs) (chord shifts rs)
   XX       XX       lmet     @ly1     @ent-lalt @bksp-rctl spc      @ly2     XX       XX       XX       XX
   XX       XX       XX       XX                XX                         XX       XX       XX       XX       XX       XX
