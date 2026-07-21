@@ -61,6 +61,11 @@ path = "~/Obsidian/second-brain"
 startup_command = "n"
 
 [[session]]
+name = "second_brain_work"
+path = "~/Obsidian/second-brain-work"
+startup_command = "n"
+
+[[session]]
 name = "glove80"
 path = "~/Developer/glove80"
 
