@@ -1,20 +1,44 @@
 local colors = require("config.colors")
 
--- True when this nvim instance is "in" the second-brain vault — used to
--- gate vault-only dashboard items in (Open Inbox / Notes) and to hide
--- AI-agent items out (Claude/Pi/Opencode) when working in the vault.
--- Matches either cwd inside ~/Obsidian/second-brain OR a tmux session
--- named after the vault (the figlet header uses session name, so this
--- aligns with what the user perceives as "the second-brain dashboard").
-local function is_vault_context()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
-  local cwd = vim.fn.getcwd():gsub("/$", "")
-  if cwd == vault or cwd:sub(1, #vault + 1) == vault .. "/" then
-    return true
+-- Returns the active second-brain vault root when this nvim instance is "in" a
+-- vault (personal OR work), else nil. Two vaults exist: personal (iCloud, reached
+-- via ~/Obsidian/second-brain or ~/Developer/second-brain) and work
+-- (~/Developer/second-brain-work). Detection resolves symlinks so every path form
+-- + the iCloud real path all match, and also honors the tmux session name.
+local function vault_context()
+  local personal = vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
+  local work = vim.fn.resolve(vim.fn.expand("~/Developer/second-brain-work"))
+  local cwd = vim.fn.resolve((vim.fn.getcwd():gsub("/$", "")))
+  local function inside(root)
+    return cwd == root or cwd:sub(1, #root + 1) == root .. "/"
   end
-  local session = vim.fn.system('tmux display-message -p "#S" 2>/dev/null')
-  session = session:gsub("%s+$", "")
-  return session == "second-brain" or session == "second_brain"
+  if inside(work) then
+    return work
+  end
+  if inside(personal) then
+    return personal
+  end
+  local session = vim.fn.system('tmux display-message -p "#S" 2>/dev/null'):gsub("%s+$", "")
+  if session == "second-brain-work" then
+    return work
+  end
+  if session == "second-brain" or session == "second_brain" then
+    return personal
+  end
+  return nil
+end
+
+-- Any vault (personal or work) — shows Inbox/Notes/Projects navigation.
+local function is_vault_context()
+  return vault_context() ~= nil
+end
+
+-- Personal vault only — restricts the note-taking workflow (Review/Publish, which
+-- use the personal-wired config.obsidian) and hides AI-launch items. The WORK vault
+-- keeps its AI items (you're there to run agents) plus Inbox/Notes navigation.
+local function is_personal_vault()
+  local v = vault_context()
+  return v ~= nil and v == vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
 end
 
 -- Smart multiplexer split for AI agent CLIs (claude, pi, ...). Dispatches to
@@ -129,7 +153,10 @@ local function get_header()
   -- always ends on a complete word (so it can exceed 12 chars). A 12-char cut
   -- that lands exactly on a hyphen keeps the clean break, e.g.
   -- `IHRWEB-24331-...` -> `IHRWEB-24331`.
-  if #name > 12 then
+  -- Exempt the vault names so "second-brain-work" isn't capped to "second-brain"
+  -- (char 13 is the `-`), keeping the two vaults distinguishable in the header.
+  local is_vault_name = name == "second-brain" or name == "second-brain-work"
+  if not is_vault_name and #name > 12 then
     if name:sub(13, 13) == "-" then
       name = name:sub(1, 12)
     else
@@ -819,10 +846,10 @@ return {
             desc = "Second Brain Inbox",
             enabled = is_vault_context,
             action = function()
-              local inbox = vim.fn.expand("~/Obsidian/second-brain/Notes-Inbox")
+              local vault = require("config.obsidian").vault_root()
               require("snacks").picker.files({
                 title = "Inbox",
-                cwd = inbox,
+                cwd = vault .. "/Notes-Inbox",
               })
             end,
           },
@@ -832,10 +859,10 @@ return {
             desc = "Second Brain Notes",
             enabled = is_vault_context,
             action = function()
-              local notes = vim.fn.expand("~/Obsidian/second-brain/Notes")
+              local vault = require("config.obsidian").vault_root()
               require("snacks").picker.files({
                 title = "Notes",
-                cwd = notes,
+                cwd = vault .. "/Notes",
               })
             end,
           },
@@ -843,12 +870,12 @@ return {
             icon = "󰉋 ",
             key = "p",
             desc = "Second Brain Projects",
-            enabled = is_vault_context,
+            enabled = is_personal_vault,
             action = function()
-              local projects = vim.fn.expand("~/Obsidian/second-brain/Projects")
+              local vault = require("config.obsidian").vault_root()
               require("snacks").picker.files({
                 title = "Projects",
-                cwd = projects,
+                cwd = vault .. "/Projects",
               })
             end,
           },
@@ -857,7 +884,7 @@ return {
             key = "S",
             desc = "Second Brain (New)",
             action = function()
-              local vault = vim.fn.expand("~/Obsidian/second-brain")
+              local vault = require("config.obsidian").vault_root()
               vim.cmd("cd " .. vim.fn.fnameescape(vault))
               -- Wipe any active snacks_dashboard buffers so their
               -- bufhidden=wipe + eventignore context doesn't bleed into
@@ -882,7 +909,7 @@ return {
             desc = "Second Brain (Review)",
             enabled = is_vault_context,
             action = function()
-              local vault = vim.fn.expand("~/Obsidian/second-brain")
+              local vault = require("config.obsidian").vault_root()
               vim.cmd("cd " .. vim.fn.fnameescape(vault))
               for _, buf in ipairs(vim.api.nvim_list_bufs()) do
                 if
@@ -902,7 +929,7 @@ return {
             icon = "󰧠 ",
             key = "P",
             desc = "Second Brain (Publish)",
-            enabled = is_vault_context,
+            enabled = is_personal_vault,
             action = function()
               local vault = vim.fn.expand("~/Obsidian/second-brain")
               vim.cmd("cd " .. vim.fn.fnameescape(vault))
@@ -916,7 +943,7 @@ return {
             key = "C",
             desc = "Claude Code (New)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               -- All three Claude entries shell out to the _bin/ wrappers
@@ -929,7 +956,7 @@ return {
             key = "L",
             desc = "Claude Code (Plan)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               agent_split("cs --permission-mode plan")
@@ -940,7 +967,7 @@ return {
             key = "M",
             desc = "Claude Code (Resume)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               require("plugins.snacks.ai_sessions").claude()
@@ -951,7 +978,7 @@ return {
             key = "I",
             desc = "Pi (New)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               agent_split("pi")
@@ -962,7 +989,7 @@ return {
             key = "U",
             desc = "Pi (Sessions)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               require("plugins.snacks.ai_sessions").pi()
@@ -973,7 +1000,7 @@ return {
             key = "O",
             desc = "Opencode (New)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               agent_split("opencode")
@@ -984,7 +1011,7 @@ return {
             key = "N",
             desc = "Opencode (Sessions)",
             enabled = function()
-              return not is_vault_context()
+              return not is_personal_vault()
             end,
             action = function()
               require("plugins.snacks.ai_sessions").opencode()

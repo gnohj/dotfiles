@@ -61,8 +61,11 @@ REASON="${2:-}"
 : "${WORKTREE_CAPTURE_PAYLOAD_FILE:?WORKTREE_CAPTURE_PAYLOAD_FILE required}"
 : "${WORKTREE_CAPTURE_LOG:?WORKTREE_CAPTURE_LOG required}"
 
-VAULT_INBOX="$HOME/Obsidian/second-brain/Notes-Inbox"
-VAULT_ASSETS="$HOME/Obsidian/second-brain/Notes-Assets"
+# Worktree captures belong to the vault of the worktree's repo (work worktree →
+# work vault). Resolve via vault-path from the worktree path (falls back to $PWD).
+VAULT="$("$HOME/.local/bin/vault-path" "${WORKTREE_CAPTURE_WORKTREE_PATH:-$PWD}")"
+VAULT_INBOX="$VAULT/Notes-Inbox"
+VAULT_ASSETS="$VAULT/Notes-Assets"
 mkdir -p "$VAULT_INBOX" "$VAULT_ASSETS"
 
 TODAY=$(date +%Y-%m-%d)

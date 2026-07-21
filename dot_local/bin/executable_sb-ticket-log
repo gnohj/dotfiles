@@ -48,7 +48,8 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Resolve the vault note path
 # ---------------------------------------------------------------------------
-VAULT="$HOME/Obsidian/second-brain"
+# Vault follows cwd: work repo → work vault, else personal (see vault-path).
+VAULT="$("$HOME/.local/bin/vault-path")"
 NOTE=""
 
 THREAD_FILE="$HOME/.local/state/threads/$TICKET.json"

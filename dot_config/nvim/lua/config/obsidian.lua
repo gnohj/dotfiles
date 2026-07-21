@@ -2,9 +2,28 @@
 -- Called from keymaps.lua, the snacks dashboard, and shell scripts in _bin/.
 local M = {}
 
-local VAULT = vim.fn.expand("~/Obsidian/second-brain")
-local INBOX = VAULT .. "/Notes-Inbox"
-local PUBLISH = VAULT .. "/Notes-Publish"
+-- Resolve the ACTIVE second-brain vault root, used by every obsidian binding so
+-- they follow whichever vault you're in. Preference: the vault the current
+-- buffer's file lives in (per-note ops like backlinks/image-paste), else the
+-- vault of cwd (dashboard / new-note), else personal. Two vaults: personal
+-- (iCloud — reached via ~/Obsidian/second-brain or ~/Developer/second-brain) and
+-- work (~/Developer/second-brain-work). Symlinks resolved so all path forms match.
+function M.vault_root()
+  -- Defer to the `vault-path` helper — the SINGLE source of truth shared with the
+  -- shell/tmux-dash tooling: inside a vault → that vault; a work repo (per the
+  -- ~/.config/work-repos.txt whitelist) → work vault; else personal. Prefer the
+  -- current buffer's dir (per-note ops like backlinks/image-paste), else cwd — so
+  -- creating a note while editing code in a work repo lands in the WORK vault.
+  local buf = vim.api.nvim_buf_get_name(0)
+  local dir = (buf ~= "" and vim.fn.filereadable(buf) == 1)
+      and vim.fn.fnamemodify(buf, ":h")
+    or vim.fn.getcwd()
+  local out = vim.trim(vim.fn.system({ vim.fn.expand("~/.local/bin/vault-path"), dir }))
+  if vim.v.shell_error == 0 and out ~= "" then
+    return out
+  end
+  return vim.fn.expand("~/Obsidian/second-brain")
+end
 
 -- A "created note" is a .md file in the inbox whose first non-empty line
 -- is a YAML frontmatter delimiter (`---`). Raw resources (txt dumps,
@@ -36,7 +55,7 @@ local function create_inbox_note(title)
   end
   local date = os.date("%Y-%m-%d")
   local filename = title:gsub(" ", "-")
-  local path = INBOX .. "/" .. date .. "_" .. filename .. ".md"
+  local path = M.vault_root() .. "/Notes-Inbox/" .. date .. "_" .. filename .. ".md"
   if vim.fn.filereadable(path) == 1 then
     vim.notify("Note already exists: " .. path, vim.log.levels.WARN)
     return
@@ -188,7 +207,7 @@ end
 -- If the inbox has no personal notes, we just notify and bail — no point
 -- launching nvim with nothing to review.
 function M.review_inbox()
-  local entries = vim.fn.globpath(INBOX, "*.md", false, true)
+  local entries = vim.fn.globpath(M.vault_root() .. "/Notes-Inbox", "*.md", false, true)
   local notes = {}
   for _, path in ipairs(entries) do
     if is_created_note(path) then

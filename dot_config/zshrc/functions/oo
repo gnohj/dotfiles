@@ -1,3 +1,6 @@
-# `oo` — cd into the Obsidian second-brain vault.
-# A `cd` can't live in _bin/ (subshell scoping), so it's a zsh function here.
-cd "$HOME/Obsidian/second-brain"
+# `oo` — cd into the personal second-brain vault.
+# A `cd` can't live in ~/.local/bin/ (subshell scoping), so it's a zsh function here.
+# Resolves via the vault-path helper (single source of truth) instead of hardcoding
+# a path; --personal always yields ~/Developer/second-brain (a symlink to the iCloud
+# vault on the Mac; absent on the VPS, which is work-vault-only). `oow` → work vault.
+cd "$(vault-path --personal)"

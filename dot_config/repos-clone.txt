@@ -8,9 +8,12 @@
 # Cloning it here would create a duplicate that races with iCloud sync — see MANUAL_SETUP.md.
 #
 # second-brain-work is the work-scoped vault, split out on 2026-07-20. It is NOT in iCloud
-# (deliberately — keeps it off third-party drives); it syncs purely by this git repo, so it
-# is git-cloned here. Lands on the Mac (curation) and the Linux work VPS (where iHeart dev runs).
-git@github.com:gnohj/second-brain-work.git ~/Obsidian/second-brain-work
+# (deliberately — a git repo in iCloud risks corruption, and it must stay off third-party
+# drives); it syncs purely by this git repo. Cloned to ~/Developer (NOT under ~/Obsidian,
+# which is the iCloud symlink). Lands on the Mac and the Linux work VPS (where iHeart dev runs).
+# Personal `second-brain` is reachable at ~/Developer/second-brain too via a local symlink to
+# the iCloud vault (created by user-setup.sh), so both vaults live under ~/Developer.
+git@github.com:gnohj/second-brain-work.git ~/Developer/second-brain-work
 git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 # project-fitness moved into the vault at ~/Obsidian/second-brain/Projects/fitness
 # (delivered via iCloud sync). GitHub remote is preserved for off-machine backup.

@@ -36,6 +36,7 @@ BW_EMAIL="${1:-}"
 DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
 detect_platform
+require_macos
 
 print_info "User Setup for $OS"
 echo "This script will configure:"
@@ -345,6 +346,20 @@ if [ -d "$HOME/Obsidian/second-brain" ]; then
 else
   print_warning "~/Obsidian/second-brain not found. Wait for iCloud sync to complete."
   print_info "  Verify with: ls -la \"$ICLOUD_OBSIDIAN/second-brain\""
+fi
+
+# Personal vault is also reachable under ~/Developer (canonical for vault-path),
+# via a symlink into the iCloud vault — so both second-brains live under ~/Developer
+# (work is the real git clone at ~/Developer/second-brain-work). macOS only; the
+# Linux work VPS never has the personal vault.
+mkdir -p "$HOME/Developer"
+if [ -L "$HOME/Developer/second-brain" ]; then
+  print_success "~/Developer/second-brain symlink exists → $(readlink "$HOME/Developer/second-brain")"
+elif [ -e "$HOME/Developer/second-brain" ]; then
+  print_warning "~/Developer/second-brain exists but is not a symlink — leaving as-is."
+elif [ -d "$ICLOUD_OBSIDIAN/second-brain" ]; then
+  ln -s "$ICLOUD_OBSIDIAN/second-brain" "$HOME/Developer/second-brain"
+  print_success "Created symlink ~/Developer/second-brain → iCloud personal vault"
 fi
 
 # --- PHASE 7: CLONE PRIVATE REPOSITORIES ---

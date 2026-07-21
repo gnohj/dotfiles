@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# vault-path — resolve the active second-brain vault root for a directory.
+#
+# The second brain is split into two vaults, both under ~/Developer on macOS:
+#   ~/Developer/second-brain       personal (symlink → iCloud vault; iCloud-synced)
+#   ~/Developer/second-brain-work  work / iHeart (real dir, git-only; NOT in iCloud)
+#
+# Resolution:
+#   - Work context (cwd matches ~/.config/work-repos.txt — the centralized
+#     whitelist of path roots + git-remote substrings) AND the work vault exists
+#     → work vault.
+#   - Otherwise, if the personal vault exists → personal vault.
+#   - Else whichever single vault exists (e.g. the Linux work VPS has only work).
+#
+# To add/remove a work repo, edit ~/.config/work-repos.txt — nothing else.
+# Always prints exactly one path and exits 0 (callers run under `set -e`).
+#
+#   vault-path [dir]        # dir defaults to $PWD
+
+WORK="$HOME/Developer/second-brain-work"
+PERSONAL="$HOME/Developer/second-brain"
+WORK_REPOS_FILE="${WORK_REPOS_FILE:-$HOME/.config/work-repos.txt}"
+
+# Direct queries so tooling that needs a SPECIFIC vault (not cwd-resolved) still
+# gets it from here — the one place vault locations are defined. Nothing else
+# should hardcode a vault path.
+case "${1:-}" in
+  --work) echo "$WORK"; exit 0 ;;
+  --personal) echo "$PERSONAL"; exit 0 ;;
+esac
+
+dir="${1:-$PWD}"
+
+# Inside a vault already? Resolve to that vault directly.
+case "$dir/" in
+  "$WORK/"*) echo "$WORK"; exit 0 ;;
+  "$PERSONAL/"*) echo "$PERSONAL"; exit 0 ;;
+esac
+
+# Work-repo detection driven entirely by the ~/.config/work-repos.txt whitelist:
+#   <path>          → cwd under this root (covers worktrees).
+#   remote:<substr> → repo whose origin URL contains <substr>.
+is_work_repo() {
+  local d="$1" line root pat url
+  [ -f "$WORK_REPOS_FILE" ] || return 1
+
+  while IFS= read -r line; do
+    case "$line" in '' | \#* | remote:*) continue ;; esac
+    root="${line/#\~/$HOME}"
+    root="${root%/}"
+    case "$d/" in "$root/"*) return 0 ;; esac
+  done < "$WORK_REPOS_FILE"
+
+  url=$(git -C "$d" remote get-url origin 2>/dev/null) || return 1
+  [ -n "$url" ] || return 1
+  while IFS= read -r line; do
+    case "$line" in
+      remote:*)
+        pat="${line#remote:}"
+        pat="${pat%%[[:space:]]*}"
+        [ -n "$pat" ] && case "$url" in *"$pat"*) return 0 ;; esac
+        ;;
+    esac
+  done < "$WORK_REPOS_FILE"
+  return 1
+}
+
+if is_work_repo "$dir" && [ -d "$WORK" ]; then
+  echo "$WORK"
+elif [ -d "$PERSONAL" ]; then
+  echo "$PERSONAL"
+elif [ -d "$WORK" ]; then
+  echo "$WORK"
+else
+  echo "$PERSONAL"
+fi
+
+exit 0

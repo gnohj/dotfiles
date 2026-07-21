@@ -24,7 +24,7 @@ _resume() {
   exec claude \
     --dangerously-skip-permissions \
     --resume "$id" \
-    --add-dir "$HOME/Obsidian/second-brain" \
+    --add-dir "$("$HOME/.local/bin/vault-path")" \
     "$@"
 }
 

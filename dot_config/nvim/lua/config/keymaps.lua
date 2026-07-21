@@ -323,7 +323,7 @@ keymap("n", "<leader>gx", function()
             local url = "https://github.com/"
               .. repo
               .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
-            vim.fn.jobstart({ "open", url }, { detach = true })
+            vim.ui.open(url)
             vim.notify(
               "No PR for branch — opened repo PRs list",
               vim.log.levels.INFO
@@ -448,12 +448,14 @@ keymap(
   { desc = "[P]Obsidian: Format note title" }
 )
 -- for review workflow
-keymap(
-  "n",
-  "<M-k>",
-  ":!mv '%:p' ~/Obsidian/second-brain/Notes-Publish/<cr>:bd<cr>",
-  { desc = "[P]Obsidian: Move file to Notes-Publish" }
-)
+keymap("n", "<M-k>", function()
+  local vault = require("config.obsidian").vault_root()
+  local file = vim.fn.expand("%:p")
+  local dest = vault .. "/Notes-Publish"
+  vim.fn.mkdir(dest, "p")
+  vim.cmd(("silent !mv %s %s"):format(vim.fn.shellescape(file), vim.fn.shellescape(dest .. "/")))
+  vim.cmd("bd")
+end, { desc = "[P]Obsidian: Move file to Notes-Publish" })
 keymap(
   "n",
   "<M-p>",
@@ -493,7 +495,7 @@ end, { desc = "LSP Workspace Symbols" })
 -- Custom <leader>zl / <leader>zb kept for muscle memory + snacks-picker UI.
 
 keymap("n", "<leader>zl", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local line = vim.api.nvim_get_current_line()
   local col = vim.api.nvim_win_get_cursor(0)[2] + 1
   local s, e, link = nil, 0, nil
@@ -528,7 +530,7 @@ keymap("n", "<leader>zl", function()
 end, { desc = "[P]Obsidian: Follow [[wikilink]]" })
 
 keymap("n", "<leader>zb", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local name = vim.fn.expand("%:t:r")
   local pattern = "\\[\\[" .. name .. "\\]\\]"
   local results = vim.fn.systemlist(
@@ -558,7 +560,7 @@ end, { desc = "[P]Obsidian: Show backlinks to this note" })
 
 -- Obsidian frontmatter search helper
 local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
 
   local function run_search(query)
     local pattern = pattern_fn(query)
@@ -605,7 +607,7 @@ local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
 end
 
 keymap("n", "<leader>zh", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
   local hubs = {}
   for _, d in ipairs(hub_dirs) do
@@ -625,7 +627,7 @@ end, { desc = "[P]Obsidian: Find notes by hub" })
 
 -- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zt", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local all_files = vim.fn.globpath(vault .. "/Notes-Meta", "*.md", false, true)
   local tags = {}
   for _, f in ipairs(all_files) do
@@ -687,7 +689,7 @@ end, { desc = "[P]Obsidian: Publish (Notes-Publish -> Notes/<hub>)" })
 -- Greps `- [ ]` (allowing leading whitespace for indented sub-todos) and on
 -- selection opens the file at the matching line. Uses ripgrep + snacks picker.
 keymap("n", "<leader>zo", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local projects_root = vault .. "/Projects"
   if vim.fn.isdirectory(projects_root) ~= 1 then
     vim.notify("No Projects/ directory in vault", vim.log.levels.WARN)
@@ -737,7 +739,7 @@ end, { desc = "[P]Obsidian: Project todos picker" })
 
 -- Pick an image from vault Notes-Assets/ and insert as ![[filename]] at cursor
 keymap({ "n", "i" }, "<leader>zi", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local assets = vault .. "/Notes-Assets"
   local exts = { "png", "jpg", "jpeg", "gif", "webp", "avif", "svg" }
   local items = {}
@@ -769,7 +771,7 @@ keymap({ "n", "i" }, "<leader>zi", function()
 end, { desc = "[P]Obsidian: Insert image embed from Notes-Assets" })
 
 keymap("n", "<leader>zH", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local hub_dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
   local hubs = {}
   for _, d in ipairs(hub_dirs) do
@@ -788,7 +790,7 @@ end, { desc = "[P]Obsidian: Copy hub to clipboard" })
 
 -- Filters out `_*.md` files (e.g. _hubs.md) so only true tag markers appear.
 keymap("n", "<leader>zT", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local all_files = vim.fn.globpath(vault .. "/Notes-Meta", "*.md", false, true)
   local tags = {}
   for _, f in ipairs(all_files) do
@@ -820,7 +822,7 @@ keymap("n", "<leader>zu", function()
 end, { desc = "[P]Obsidian: Find notes by URL" })
 
 keymap("n", "<leader>zs", function()
-  local vault = vim.fn.expand("~/Obsidian/second-brain")
+  local vault = require("config.obsidian").vault_root()
   local dirs = vim.fn.globpath(vault .. "/Notes", "*", false, true)
   table.insert(dirs, 1, vault .. "/Notes-Meta")
   table.insert(dirs, 2, vault .. "/Notes-Meta")

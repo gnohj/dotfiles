@@ -1,0 +1,17 @@
+# Work repos — the single source of truth for "is this cwd a work repo?".
+# Used by `vault-path` to decide work (second-brain-work) vs personal vault.
+#
+# Add a future work repo → add a line here. Remove one → delete its line.
+# Two kinds of entries:
+#   <path>            cwd under this path (~ expanded) → work. Covers worktrees too.
+#   remote:<substr>   any repo whose `git remote get-url origin` contains <substr> → work.
+# Blank lines and lines starting with # are ignored.
+
+# --- path roots ---
+~/Developer/web
+~/Developer/inferno
+~/Developer/actions
+~/Developer/recon
+
+# --- git-remote auto-detect (catches iHeart repos anywhere, incl. new clones) ---
+remote:iheartradio
