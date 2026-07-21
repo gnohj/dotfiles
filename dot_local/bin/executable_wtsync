@@ -9,8 +9,8 @@
 # it. Called from ~/.config/zshrc/.zshrc (startup) and ~/.config/tmux/
 # sesh-popup.sh (each picker open, so the NEXT open is fresh).
 
-export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 command -v zoxide >/dev/null 2>&1 || exit 0
 

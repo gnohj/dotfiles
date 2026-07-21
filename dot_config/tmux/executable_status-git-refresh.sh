@@ -14,8 +14,8 @@
 # Arg 1: directory. Always exits 0-ish (best-effort; never blocks a caller).
 
 # Hook-context PATH (gitmux/perl); linuxbrew added only on Linux - on macOS /home is autofs, so a /home/linuxbrew PATH entry makes every cut/git lookup a ~10ms autofs stat that pegs opendirectoryd.
-export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 DIR="${1:-}"
 [ -d "$DIR" ] || exit 0
