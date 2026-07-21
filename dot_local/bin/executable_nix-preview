@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# nix-preview — which nix packages would change on the next `up`, without touching the live flake.lock. `--cache-only` seeds the sketchybar count.
+export PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/opt/homebrew/bin:$HOME/.nix-profile/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+
+CACHE="$HOME/.cache/sketchybar/nix-preview.count"
+mkdir -p "$(dirname "$CACHE")"
+QUIET=0
+[ "$1" = "--cache-only" ] && QUIET=1
+say() { [ "$QUIET" = 0 ] && printf '%s\n' "$1"; }
+
+command -v nix >/dev/null 2>&1 || { say "nix-preview: nix not installed"; exit 1; }
+
+if [ "$(uname)" = Darwin ]; then
+  SRC="$HOME/.nix"; FLAKE="macbook_silicon"; CUR="/run/current-system"
+else
+  SRC="$HOME/.local/share/chezmoi/dot_nix"; FLAKE="gnohj-linux-x86_64"
+  CUR="$HOME/.local/state/nix/profiles/home-manager"
+fi
+[ -e "$SRC/flake.lock" ] || { say "nix-preview: no flake at $SRC"; exit 1; }
+
+TMP=$(mktemp -d) || exit 1
+trap 'rm -rf "$TMP"' EXIT
+cp -R "$SRC/." "$TMP/" || exit 1
+
+say "==> nix-preview: building updated config in a temp copy (live flake.lock untouched)…"
+( cd "$TMP" && nix flake update >/dev/null 2>&1 )
+if [ "$(uname)" = Darwin ]; then
+  ( cd "$TMP" && darwin-rebuild build --flake ".#$FLAKE" >/dev/null 2>&1 )
+else
+  ( cd "$TMP" && nix build ".#homeConfigurations.$FLAKE.activationPackage" >/dev/null 2>&1 )
+fi
+
+# touch the cache even on failure so the widget's ~daily guard can't retry-storm builds.
+if [ ! -e "$TMP/result" ] || [ ! -e "$CUR" ]; then
+  say "nix-preview: build failed (or no current generation to diff against)"
+  touch "$CACHE" 2>/dev/null
+  exit 1
+fi
+
+DIFF=$(nix store diff-closures "$CUR" "$TMP/result" 2>/dev/null)
+COUNT=$(printf '%s\n' "$DIFF" | grep -c '→')
+printf '%s\n' "${COUNT:-0}" > "$CACHE"
+
+if [ "$QUIET" = 0 ]; then
+  if [ -n "$DIFF" ]; then
+    printf '==> %s package(s) would change on the next `up`:\n\n' "$COUNT"
+    printf '%s\n' "$DIFF"
+  else
+    echo "nix: nothing would change — flake already current."
+  fi
+fi
