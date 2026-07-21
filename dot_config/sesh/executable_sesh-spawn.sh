@@ -11,7 +11,7 @@
 #   sesh-spawn.sh stamp   # record "a sesh spawn is happening now"
 #   sesh-spawn.sh fresh   # exit 0 if a stamp landed within the window, else 1
 
-export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 # 5s leaves margin for a slow sesh resolve (zoxide lookup + new-session) under
 # load; at 3s the gate could expire mid-spawn and the fast path silently skipped.
