@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# THIS machine's identity, so consumers stop re-deriving from bare `uname` (which can't tell the devbox from a future Linux laptop - both Linux). Devbox = a Mac relay is configured (same target notify-idle/to-mac use); a Linux client without one is `linux`.
+# usage: machine-identity {os|role|mac-host|is <role>}   ·   os: darwin|linux   ·   role: mac|devbox|linux   ·   mac-host: the Mac ssh target (empty if none)
+set -uo pipefail
+
+_os() { case "$(uname -s)" in Darwin) echo darwin ;; *) echo linux ;; esac; }
+
+# Mirrors notify-idle: $NOTIFY_MAC_SSH override else the config file; $(...) strips the trailing newline so it's ssh-ready.
+_mac_host() { printf '%s' "${NOTIFY_MAC_SSH:-$(cat "$HOME/.config/notify-idle/mac-ssh-host" 2>/dev/null || true)}"; }
+
+_role() {
+  [ "$(_os)" = darwin ] && { echo mac; return; }
+  [ -n "$(_mac_host)" ] && { echo devbox; return; }
+  echo linux
+}
+
+case "${1:-role}" in
+os) _os ;;
+mac-host) _mac_host ;;
+role) _role ;;
+is) [ "$(_role)" = "${2:-}" ] ;;
+*)
+  echo "usage: machine-identity {os | role | mac-host | is <role>}" >&2
+  exit 2
+  ;;
+esac

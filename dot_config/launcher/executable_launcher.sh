@@ -27,8 +27,10 @@ LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
 # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
 FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
 
-# Current OS — drives the `os` gate below. darwin on macOS, linux everywhere else.
-case "$(uname -s)" in Darwin) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
+# Machine identity from the central resolver, so the os gate and the Mac-relay badge share one source of truth. role: mac->darwin, devbox->linux+mac-relay, linux->plain.
+LAUNCHER_ROLE="$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)"
+case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
+[ "$LAUNCHER_ROLE" = devbox ] && LAUNCHER_IS_DEVBOX=1 || LAUNCHER_IS_DEVBOX=""
 
 #===============================================================================
 # Registry — the only thing you edit to add/rename entries
@@ -38,20 +40,20 @@ case "$(uname -s)" in Darwin) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 #   leaf_provider  static (leaves from ACTIONS) | fn emitting labels at runtime
 #   submenu_fn     generic | custom fn (themes drilldown, aerospace header)
 #   leaf_handler   static (label→ACTIONS fn)    | fn called as `fn "<label>"`
-#   scope          omitted = local | context (follows dev-context: runs on the ssh
-#                  target when connected). Renders a trailing 󰛳 badge in the menus.
-#                  A category's scope is inherited by its leaves unless a leaf sets its own.
+#   scope          omitted = local | mac. `mac` = reaches back to your Mac (clipboard/
+#                  browser/notify); 󰛳 shows only on the devbox (a Mac relay is set). A
+#                  category's scope is inherited by its leaves unless a leaf overrides.
 #   os             omitted = all | darwin | linux. Entry only shows on the matching
 #                  OS (filtered at every derivation path, so it can't be dispatched
 #                  off-OS either). scope is field 9; os is field 10 — set an empty
-#                  scope (||) when an entry needs os but not context.
+#                  scope (||) when an entry needs os but not mac.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
   "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace||darwin"
   "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
   "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static"
-  "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static|context"
+  "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static"
   "SYSTEM|🔧 System|🔧 System ›|System|System > |static|generic|static"
   "THEMES|🎨 Themes|🎨 Themes ›|Themes|Theme > |provide_themes|themes_menu|handle_theme"
   "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static"
@@ -65,20 +67,20 @@ ACTIONS=(
   "🤖 AI|👤 Claude Desktop (personal)|act_ai_claude_personal|Launch the Claude Desktop app signed into personal||darwin"
   "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work||darwin"
 
-  "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
+  "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser|mac"
   "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim"
-  "🔗 Open|🎫 Open Jira|act_browser_jira|Open the Jira ticket for the current branch in browser"
+  "🔗 Open|🎫 Open Jira|act_browser_jira|Open the Jira ticket for the current branch in browser|mac"
 
-  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub"
+  "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub|mac"
 
-  "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases|Browse and copy alias names via fzf"
-  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env|Browse and copy env var values via television"
+  "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases|Browse and copy alias names via fzf|mac"
+  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env|Browse and copy env var values via television|mac"
   "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via television"
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
   "🔁 Sync|🔄 Update Repos|act_sync_update|Pull config repos: chezmoi update + agents + tmux-dash"
 
-  "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+mise; then chezmoi + tpm|context"
+  "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+mise; then chezmoi + tpm"
   "🔧 System|🎯 All (provision: setup + user-setup + rebuild)|act_system_all|Fresh-machine provision: mac-setup.sh + user-setup.sh + nix rebuild, one sudo prompt||darwin"
 
   "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
@@ -94,13 +96,13 @@ ACTIONS=(
 SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs (this machine only)"
-  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
-  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
-  "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes|context"
-  "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands|context"
-  "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)|context"
+  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|mac"
+  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|mac"
+  "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
+  "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands"
+  "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)"
   "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)"
-  "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
+  "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency|mac"
 )
 
 # Exact NORMAL-mode order — cat:<ID> (renders pointer) or simple:<label>.
@@ -135,10 +137,8 @@ get_cat() {
 }
 
 #===============================================================================
-# Scope badges + OS gate — scope marks entries that follow dev-context (run on the
-# ssh target when connected) with a trailing 󰛳; os hides entries that don't match
-# the current OS. The badge is appended after a TAB sentinel so it never collides
-# with a label; strip_scope() removes it before any dispatch match.
+# Mac-relay badge + OS gate — a `mac`-scoped entry reaches back to your Mac (clipboard/browser/notify); the 󰛳 renders only on the devbox (LAUNCHER_IS_DEVBOX), never on the Mac where those are already local. os hides entries off their OS.
+# The badge rides after a TAB sentinel so it never collides with a label; strip_scope() removes it before any dispatch match.
 #===============================================================================
 SCOPE_GLYPH="󰛳"
 
@@ -156,7 +156,7 @@ simple_os() {
   done
 }
 
-# Category scope by prefix (field 2 of CATEGORIES). Echoes "context" or "local".
+# Category scope by prefix (field 2 of CATEGORIES). Echoes "mac" or "local".
 cat_scope_by_prefix() {
   local rec id prefix pointer header prompt provider submenu handler scope os
   for rec in "${CATEGORIES[@]}"; do
@@ -166,25 +166,27 @@ cat_scope_by_prefix() {
   printf 'local'
 }
 
-# Is a static leaf context? An explicit ACTION scope wins; otherwise inherit the category.
-leaf_is_context() { # prefix label
+# Is a static leaf mac-scoped AND are we on the devbox? Explicit ACTION scope wins, else inherit the category. Off the devbox nothing is badged.
+leaf_is_mac() { # prefix label
+  [ -n "$LAUNCHER_IS_DEVBOX" ] || return 1
   local rec p l f desc scope os
   for rec in "${ACTIONS[@]}"; do
     IFS='|' read -r p l f desc scope os <<<"$rec"
     if [ "$p" = "$1" ] && [ "$l" = "$2" ]; then
-      [ -n "$scope" ] && { [ "$scope" = context ]; return; }
+      [ -n "$scope" ] && { [ "$scope" = mac ]; return; }
       break
     fi
   done
-  [ "$(cat_scope_by_prefix "$1")" = context ]
+  [ "$(cat_scope_by_prefix "$1")" = mac ]
 }
 
-# Is a simple action context?
-simple_is_context() { # label
+# Is a simple action mac-scoped AND are we on the devbox?
+simple_is_mac() { # label
+  [ -n "$LAUNCHER_IS_DEVBOX" ] || return 1
   local rec lbl fn desc scope os
   for rec in "${SIMPLE_ACTIONS[@]}"; do
     IFS='|' read -r lbl fn desc scope os <<<"$rec"
-    [ "$lbl" = "$1" ] && { [ "$scope" = context ]; return; }
+    [ "$lbl" = "$1" ] && { [ "$scope" = mac ]; return; }
   done
   return 1
 }
@@ -261,12 +263,12 @@ build_top_level_items() {
     cat:*)
       get_cat "${tok#cat:}" || continue
       os_match "${REC9:-}" || continue
-      if [ "${REC8:-local}" = context ]; then printf '%s\t%s\n' "$REC2" "$SCOPE_GLYPH"; else printf '%s\n' "$REC2"; fi
+      if [ "${REC8:-local}" = mac ] && [ -n "$LAUNCHER_IS_DEVBOX" ]; then printf '%s\t%s\n' "$REC2" "$SCOPE_GLYPH"; else printf '%s\n' "$REC2"; fi
       ;;
     simple:*)
       lbl="${tok#simple:}"
       os_match "$(simple_os "$lbl")" || continue
-      if simple_is_context "$lbl"; then printf '%s\t%s\n' "$lbl" "$SCOPE_GLYPH"; else printf '%s\n' "$lbl"; fi
+      if simple_is_mac "$lbl"; then printf '%s\t%s\n' "$lbl" "$SCOPE_GLYPH"; else printf '%s\n' "$lbl"; fi
       ;;
     esac
   done
@@ -281,7 +283,7 @@ build_flattened_leaves() {
     os_match "$os" || continue
     while IFS= read -r leaf; do
       [ -n "$leaf" ] || continue
-      if leaf_is_context "$prefix" "$leaf"; then
+      if leaf_is_mac "$prefix" "$leaf"; then
         printf '%s › %s\t%s\n' "$prefix" "$leaf" "$SCOPE_GLYPH"
       else
         printf '%s › %s\n' "$prefix" "$leaf"
@@ -339,7 +341,7 @@ generic_submenu() {
     {
       while IFS= read -r leaf; do
         [ -n "$leaf" ] || continue
-        if leaf_is_context "$1" "$leaf"; then printf '%s\t%s\n' "$leaf" "$SCOPE_GLYPH"; else printf '%s\n' "$leaf"; fi
+        if leaf_is_mac "$1" "$leaf"; then printf '%s\t%s\n' "$leaf" "$SCOPE_GLYPH"; else printf '%s\n' "$leaf"; fi
       done < <(leaves_of "$1" "$4")
       printf "← Back\n"
     } | ~/.local/bin/fzf-vim.sh --height="${LAUNCHER_SUBMENU_HEIGHT:-40%}" --header="$2" --prompt="$3" --ansi $FZF_COLORS \
