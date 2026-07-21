@@ -112,8 +112,12 @@ up() {
     sudo apt update && sudo apt full-upgrade -y
 
     print -P "%F{cyan}==> nix: flake update + home-manager switch%f"
-    command -v nix >/dev/null 2>&1 && nix flake update --flake ~/.nix || true
-    command -v home-manager >/dev/null 2>&1 && home-manager switch --flake ~/.nix#gnohj-linux-x86_64 || true
+    # On Linux ~/.nix is gitignored (no nix-darwin), so the flake lives in the chezmoi source.
+    local nixflake="$HOME/.local/share/chezmoi/dot_nix"
+    command -v nix >/dev/null 2>&1 && nix flake update --flake "$nixflake" || true
+    command -v home-manager >/dev/null 2>&1 && home-manager switch --flake "$nixflake#gnohj-linux-x86_64" || true
+    # home-manager doesn't manage the nix daemon; upgrade nix itself (best-effort).
+    command -v nix >/dev/null 2>&1 && sudo -i nix upgrade-nix 2>/dev/null || true
 
     print -P "%F{cyan}==> mise: self-update + toolchain (respects pins in config.toml)%f"
     mise self-update -y 2>/dev/null || true
@@ -1022,6 +1026,7 @@ outdated() {
   local brew_color_hex="${gnohj_color01#\#}"  # Magenta/Purple (brew notification color)
   local mise_color_hex="${gnohj_color03#\#}"  # Blue (mise notification color)
   local mas_color_hex="${gnohj_color12#\#}"   # Yellow (greenish-yellow) (mas notification color)
+  local nix_color_hex="${gnohj_color06#\#}"   # Cyan (nix notification color)
 
   # Convert hex to RGB
   local brew_r=$((16#${brew_color_hex:0:2}))
@@ -1036,8 +1041,28 @@ outdated() {
   local mas_g=$((16#${mas_color_hex:2:2}))
   local mas_b=$((16#${mas_color_hex:4:2}))
 
+  local nix_r=$((16#${nix_color_hex:0:2}))
+  local nix_g=$((16#${nix_color_hex:2:2}))
+  local nix_b=$((16#${nix_color_hex:4:2}))
+
   # brew/mas only exist on macOS; skip them entirely on the Linux VPS
   local first=1
+
+  # nix leads — it owns the bulk toolchain. No per-package outdated; the signal is flake.lock staleness (`up` resets it).
+  if command -v nix >/dev/null 2>&1; then
+    (( first )) && first=0 || echo ""
+    local nix_flake nix_locked nix_age
+    nix_flake="$HOME/.nix"; [ -e "$nix_flake/flake.lock" ] || nix_flake="$HOME/.local/share/chezmoi/dot_nix"
+    nix_locked=$(nix flake metadata "$nix_flake" --json 2>/dev/null | jq -r '.locks.nodes.nixpkgs.locked.lastModified // empty')
+    if [[ -n "$nix_locked" ]]; then
+      nix_age=$(( ($(date +%s) - nix_locked) / 86400 ))
+      if (( nix_age >= ${NIX_STALE_DAYS:-7} )); then
+        echo "\033[38;2;${nix_r};${nix_g};${nix_b}mnix\033[0m flake ${nix_age}d old — run 'up' to bump nixpkgs"
+      else
+        echo "\033[38;2;${nix_r};${nix_g};${nix_b}mnix\033[0m All tools are up to date (${nix_age}d)"
+      fi
+    fi
+  fi
 
   if command -v brew >/dev/null 2>&1; then
     (( first )) && first=0 || echo ""

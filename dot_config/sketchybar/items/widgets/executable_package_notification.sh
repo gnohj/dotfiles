@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/share/mise/shims:$PATH"
+export PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/share/mise/shims:$PATH"
 export HOMEBREW_NO_AUTO_UPDATE="1"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
@@ -54,6 +54,7 @@ run_with_timeout() {
 BREW_COUNT=0
 MAS_COUNT=0
 MISE_COUNT=0
+NIX_COUNT=0
 TIMEOUT_OCCURRED=0
 
 # log_message "INFO" "Checking Homebrew..."
@@ -91,7 +92,29 @@ if [[ -n "$MISE_OUTPUT" && "$MISE_OUTPUT" != "" ]]; then
   log_message "DEBUG" "Mise count: $MISE_COUNT"
 fi
 
-TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT))
+# nix: daily-cached nix-preview count (background-refreshed ~once/day); fall back to flake-lock staleness if no cache yet.
+if command -v nix >/dev/null 2>&1; then
+  NIX_CACHE="$HOME/.cache/sketchybar/nix-preview.count"
+  if [ ! -f "$NIX_CACHE" ] || [ -n "$(find "$NIX_CACHE" -mtime +1 2>/dev/null)" ]; then
+    ("$HOME/.local/bin/nix-preview" --cache-only >/dev/null 2>&1 &)
+  fi
+  if [ -f "$NIX_CACHE" ] && [ -s "$NIX_CACHE" ]; then
+    NIX_COUNT=$(tr -dc '0-9' <"$NIX_CACHE")
+    NIX_COUNT=${NIX_COUNT:-0}
+    log_message "DEBUG" "Nix count (cached preview): $NIX_COUNT"
+  else
+    NIX_FLAKE="$HOME/.nix"
+    [ -e "$NIX_FLAKE/flake.lock" ] || NIX_FLAKE="$HOME/.local/share/chezmoi/dot_nix"
+    NIX_LOCKED=$(run_with_timeout "nix flake metadata '$NIX_FLAKE' --json 2>/dev/null" | jq -r '.locks.nodes.nixpkgs.locked.lastModified // empty' 2>/dev/null)
+    if [[ -n "$NIX_LOCKED" ]]; then
+      NIX_AGE=$(( ($(date +%s) - NIX_LOCKED) / 86400 ))
+      [ "$NIX_AGE" -ge "${NIX_STALE_DAYS:-7}" ] && NIX_COUNT=1
+    fi
+    log_message "DEBUG" "Nix fallback (flake-age) count: $NIX_COUNT"
+  fi
+fi
+
+TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT + NIX_COUNT))
 
 COLOR=$RED
 LABEL="$TOTAL_COUNT"
@@ -121,4 +144,4 @@ sketchybar --set "$NAME" \
   label.color="$COLOR" \
   icon.color="$MAGENTA"
 
-log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT)"
+log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT, Nix: $NIX_COUNT)"
