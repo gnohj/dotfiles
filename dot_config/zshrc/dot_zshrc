@@ -121,6 +121,37 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
+# `update` - pull the config repos onto this machine: chezmoi (dotfiles) + the agents and tmux-dash checkouts. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
+update() {
+  local repo name fails=0
+  if command -v chezmoi >/dev/null 2>&1; then
+    print -P "%F{cyan}==> chezmoi update%f"
+    chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; fails=$((fails + 1)); }
+  else
+    print -P "%F{8}(skip chezmoi - not installed)%f"
+  fi
+  if command -v git >/dev/null 2>&1; then
+    for repo in "$HOME/Developer/agents" "$HOME/Developer/tmux-dash"; do
+      name=${repo:t}
+      if [ ! -d "$repo/.git" ]; then
+        print -P "%F{8}(skip $name - not cloned here)%f"
+        continue
+      fi
+      print -P "%F{cyan}==> git pull: $name%f"
+      git -C "$repo" pull --ff-only --autostash ||
+        { print -P "%F{red}   $name pull failed - left untouched (dirty/diverged?)%f"; fails=$((fails + 1)); }
+    done
+  else
+    print -P "%F{8}(skip git pulls - git not installed)%f"
+  fi
+  if (( fails )); then
+    print -P "%F{yellow}==> update: done with $fails issue(s)%f"
+  else
+    print -P "%F{green}==> update: done%f"
+  fi
+  return 0
+}
+
 #-------------------------------------------------------------------------------
 #--                      Nix Package Manager
 #-------------------------------------------------------------------------------

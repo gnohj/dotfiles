@@ -76,6 +76,7 @@ ACTIONS=(
   "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via television"
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
+  "🔁 Sync|🔄 Update Repos|act_sync_update|Pull config repos: chezmoi update + agents + tmux-dash"
 
   "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+mise; then chezmoi + tpm|context"
   "🔧 System|🎯 All (provision: setup + user-setup + rebuild)|act_system_all|Fresh-machine provision: mac-setup.sh + user-setup.sh + nix rebuild, one sudo prompt||darwin"
@@ -739,6 +740,11 @@ act_sync_autopush() {
   ~/.config/zshrc/github-auto-push.sh --nowait
   echo "GitHub auto-push completed"
   sleep 1
+}
+
+# Reuses the zshrc `update` function (chezmoi update + pull agents/tmux-dash); mirrors the act_dirty_repos wrapper.
+act_sync_update() {
+  zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; update; echo; echo 'Press any key to continue...'; read -k1"
 }
 
 act_system_all() {
