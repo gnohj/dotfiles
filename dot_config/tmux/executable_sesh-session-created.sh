@@ -20,8 +20,8 @@
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
-export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 SESSION="$1"

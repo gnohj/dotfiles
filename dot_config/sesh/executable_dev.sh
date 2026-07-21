@@ -13,8 +13,8 @@
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (linuxbrew / mise shims / ~/.local/bin) are appended so nvim/gitmux/sesh resolve
 # on a headless Linux VPS too (matches sesh-session-created.sh / status-git-refresh.sh).
-export PATH="/opt/homebrew/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 # Diagnostic: set to 1 to flash how long from spawn until window 0's shell is
