@@ -78,9 +78,9 @@ ACTIONS=(
   "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via television"
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
-  "🔁 Sync|🔄 Update Repos|act_sync_update|Pull config repos: chezmoi update + agents + tmux-dash"
+  "🔁 Sync|🔄 Update Repos|act_sync_update|Pull config repos: chezmoi update + agents + tmux-dash||darwin"
 
-  "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+mise; then chezmoi + tpm"
+  "🔧 System|🚀 Full Update (up)|act_system_up|Cross-platform full update - macOS: nix+darwin+brew; Linux: apt+nix/home-manager+mise; then chezmoi + tpm"
   "🔧 System|🎯 All (provision: setup + user-setup + rebuild)|act_system_all|Fresh-machine provision: mac-setup.sh + user-setup.sh + nix rebuild, one sudo prompt||darwin"
 
   "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
@@ -94,7 +94,7 @@ ACTIONS=(
 
 # Top-level actions with no submenu — label|function|description|scope|os (scope+os optional)
 SIMPLE_ACTIONS=(
-  "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
+  "📦 Check Outdated Packages|act_outdated|Check outdated Homebrew (mac) + mise packages; nix refreshes via 'up' (flake.lock), not per-package"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs (this machine only)"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|mac"
   "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|mac"
@@ -364,7 +364,7 @@ main_menu() {
     build_flattened_leaves
   })
   choice=$(build_top_level_items |
-    FZF_VIM_INSERT_INPUT="$insert_corpus" \
+    FZF_VIM_INSERT_INPUT="$insert_corpus" FZF_VIM_HEADER_CMD="\"$SELF\" --mux-badge" \
       ~/.local/bin/fzf-vim.sh --height=100% --prompt="❯ " --ansi $FZF_COLORS \
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || rc=$?
   quit_on_interrupt "$rc"
@@ -558,25 +558,73 @@ notify() {
   fi
 }
 
-# Open <cmd> in a fresh window/tab labeled <label>, optionally rooted at <dir>.
-# tmux mode → new tmux window. herdr mode → new herdr tab in the focused
-# workspace (herdr defaults the new tab to the focused workspace), then run <cmd>
-# in that tab's root pane over the socket API.
+# True only when a herdr SERVER is actually reachable (not merely installed) —
+# the socket answers. herdr counts as "live" only if this passes.
+herdr_reachable() {
+  command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 &&
+    herdr api snapshot >/dev/null 2>&1
+}
+
+# Decide which multiplexer to open INTO — the live one, not whatever
+# LAUNCHER_MODE assumes (the quake is LAUNCHER_MODE=herdr for its own UI, but you
+# may be running tmux). Mirrors focused_pane_path's read-side detection so a note
+# lands where you're actually looking:
+#   * active tmux pane runs `herdr`   → herdr (herdr sitting atop tmux)
+#   * a real tmux pane is active      → tmux
+#   * no tmux around, herdr reachable → herdr
+#   * else whichever server exists    → tmux
+# Prints "herdr", "tmux", or "" (nothing running). The one case this can't
+# disambiguate — two independent muxes in two visible terminals at once — would
+# need a focus-tracker daemon; not built (you run one at a time).
+active_mux() {
+  local cmd
+  cmd=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' \
+    -F '#{pane_current_command}' 2>/dev/null | head -1) || true
+  if [ "$cmd" = herdr ] && herdr_reachable; then
+    echo herdr
+    return
+  fi
+  [ -n "$cmd" ] && { echo tmux; return; }
+  herdr_reachable && { echo herdr; return; }
+  tmux info >/dev/null 2>&1 && echo tmux
+}
+
+# Colored badge for the live multiplexer — shown in the launcher header so you
+# always know where an "open window/tab" action will land.
+mux_indicator() {
+  case "$(active_mux)" in
+    herdr) printf '\033[1;38;5;173m● herdr\033[0m' ;;
+    tmux) printf '\033[1;38;5;108m● tmux\033[0m' ;;
+    *) printf '\033[1;38;5;244m● no mux\033[0m' ;;
+  esac
+}
+
+# Open <cmd> in a fresh window/tab labeled <label>, optionally rooted at <dir>,
+# in the LIVE multiplexer (see active_mux). tmux → new window in the server
+# (works even from the standalone quake). herdr → new tab in the focused
+# workspace, then run <cmd> in its root pane over the socket API.
 open_window() {
   local label="$1" cmd="$2" dir="${3:-}" pane
-  if [ "$LAUNCHER_MODE" = herdr ]; then
-    command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 ||
-      { notify "herdr/jq not available"; return 1; }
-    pane=$(herdr tab create --label "$label" ${dir:+--cwd "$dir"} --focus 2>/dev/null |
-      jq -r '.result.root_pane.pane_id // empty') || pane=""
-    if [ -n "$pane" ]; then
-      herdr pane run "$pane" "$cmd"
-    else
-      notify "herdr: could not open tab"
-    fi
-  else
-    tmux new-window -n "$label" "$cmd" 2>/dev/null || { notify "tmux: could not open window"; return 1; }
-  fi
+  case "$(active_mux)" in
+    herdr)
+      pane=$(herdr tab create --label "$label" ${dir:+--cwd "$dir"} --focus 2>/dev/null |
+        jq -r '.result.root_pane.pane_id // empty') || pane=""
+      if [ -n "$pane" ]; then
+        herdr pane run "$pane" "$cmd"
+      else
+        notify "herdr: could not open tab"
+        return 1
+      fi
+      ;;
+    tmux)
+      tmux new-window -n "$label" ${dir:+-c "$dir"} "$cmd" 2>/dev/null ||
+        { notify "tmux: could not open window"; return 1; }
+      ;;
+    *)
+      notify "no herdr or tmux server to open into"
+      return 1
+      ;;
+  esac
 }
 
 # Open a NAMED command window. tmux mode delegates to tmux-window-simple.sh (which
@@ -584,7 +632,7 @@ open_window() {
 # mode opens a herdr tab running the command (optionally keeping a shell open).
 open_named_window() {
   local emoji="$1" name="$2" cmd="$3" keepopen="${4:-}" run
-  if [ "$LAUNCHER_MODE" = herdr ]; then
+  if [ "$(active_mux)" = herdr ]; then
     run="$cmd"
     [ -n "$keepopen" ] && run="$cmd; exec ${SHELL:-/bin/zsh} -l"
     open_window "$emoji" "$run"
@@ -631,7 +679,8 @@ back_to_root() {
 # Guard for actions still wired only to tmux: in herdr mode, say so and bail
 # instead of aborting the launcher under `set -euo pipefail`.
 require_tmux() {
-  [ "$LAUNCHER_MODE" = herdr ] && { notify "'$1' is tmux-only for now"; return 1; }
+  # Allow whenever tmux is the LIVE mux (even from the quake); block otherwise.
+  [ "$(active_mux)" != tmux ] && { notify "'$1' needs tmux (not the live mux)"; return 1; }
   return 0
 }
 
@@ -699,7 +748,7 @@ act_notes_current() {
   else
     ID=$(basename "${pane_path:-$PWD}")
   fi
-  VAULT="$HOME/Obsidian/second-brain"
+  VAULT="$("$HOME/.local/bin/vault-path" "${pane_path:-$PWD}")"
   MATCHES=$(
     {
       ls "$VAULT/Notes/work/${ID}-"*.md 2>/dev/null
@@ -803,8 +852,8 @@ act_system_all() {
 }
 
 # Unified cross-platform update. Delegates to the `up` function in zshrc so macOS
-# (nix+darwin+brew) and Linux (apt+mise) share one entry — runs in a zsh subshell
-# so `up`'s zsh-only builtins (print -P) and the read pause behave.
+# (nix+darwin+brew) and Linux (apt+nix/home-manager+mise) share one entry — runs in
+# a zsh subshell so `up`'s zsh-only builtins (print -P) and the read pause behave.
 act_system_up() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
@@ -819,7 +868,7 @@ act_system_up() {
 #     postScript), the same channel TREEKANGA_POSTSCRIPT_LOG uses. When the
 #     capture returns, the persistent picker redraws root.
 run_worktree_capture() {
-  if [ "$LAUNCHER_MODE" = herdr ]; then
+  if [ "$(active_mux)" = herdr ]; then
     WORKTREE_OPEN_IN=herdr "$1"
   else
     tmux run-shell -b "$1"
@@ -831,7 +880,7 @@ run_worktree_capture() {
 act_worktree_add() { ~/.config/treekanga/treekanga-add.sh; }
 act_worktree_ai_prompt() { run_worktree_capture "$HOME/.local/bin/worktree-prompt"; }
 act_worktree_jira() {
-  if [ "$LAUNCHER_MODE" = herdr ]; then
+  if [ "$(active_mux)" = herdr ]; then
     WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree-jira
   else
     ~/.local/bin/worktree-jira
@@ -931,6 +980,14 @@ act_toggle_transparency() {
 
 if [[ "${1:-}" == "--preview" ]]; then
   do_preview "${2:-}"
+  exit 0
+fi
+
+# Live mux badge for the header — re-invoked by fzf (start/focus) so the state is
+# polled fresh on every interaction, never cached from launch (matters for the
+# persistent quake, which doesn't respawn).
+if [[ "${1:-}" == "--mux-badge" ]]; then
+  mux_indicator
   exit 0
 fi
 
