@@ -90,7 +90,7 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
-# `up` - one OS-aware command to bring the machine fully up to date. macOS: nix flake update + darwin-rebuild + chezmoi apply + brew. Linux: apt + mise + chezmoi. tpm on both; each step banner'd + failure-tolerant.
+# `up` - one OS-aware command to bring the machine fully up to date. macOS: nix flake update + darwin-rebuild + chezmoi apply + brew + mise. Linux: apt + nix/home-manager + mise + chezmoi. tpm on both; each step banner'd + failure-tolerant.
 up() {
   if [[ "$OSTYPE" == darwin* ]]; then
     print -P "%F{cyan}==> nix: flake update + darwin-rebuild switch%f"
@@ -102,9 +102,18 @@ up() {
 
     print -P "%F{cyan}==> brew: upgrade%f"
     command -v brew >/dev/null 2>&1 && brew upgrade || true
+
+    print -P "%F{cyan}==> mise: self-update + install/upgrade (runtimes + AI agents)%f"
+    mise self-update -y 2>/dev/null || true
+    mise install || true
+    mise upgrade || true
   else
     print -P "%F{cyan}==> apt: system packages%f"
     sudo apt update && sudo apt full-upgrade -y
+
+    print -P "%F{cyan}==> nix: flake update + home-manager switch%f"
+    command -v nix >/dev/null 2>&1 && nix flake update --flake ~/.nix || true
+    command -v home-manager >/dev/null 2>&1 && home-manager switch --flake ~/.nix#gnohj-linux-x86_64 || true
 
     print -P "%F{cyan}==> mise: self-update + toolchain (respects pins in config.toml)%f"
     mise self-update -y 2>/dev/null || true
@@ -155,9 +164,19 @@ update() {
 #-------------------------------------------------------------------------------
 #--                      Nix Package Manager
 #-------------------------------------------------------------------------------
-# Source nix-daemon if installed (added by nix-darwin/Nix installer)
+# Source nix-daemon if installed (added by nix-darwin/Nix installer).
+# This is what puts ~/.nix-profile/bin on PATH (where home-manager's packages
+# land on Linux, same as nix-darwin's systemPackages on macOS).
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
   source '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
+
+# Linux (standalone home-manager): source its session vars for LOCALE_ARCHIVE
+# (stops glibc locale warnings from nix-built binaries), man/info paths, and any
+# home.sessionPath. Absent on macOS (nix-darwin doesn't use home-manager), so
+# the -e guard no-ops there.
+if [ -e "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ]; then
+  source "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
 fi
 
 #-------------------------------------------------------------------------------
@@ -509,8 +528,8 @@ alias ql='~/.config/launcher/launcher-quake.sh'
 # Zinit Status
 alias zstatus='zinit status'
 
-# Obsidian: `oo` (cd) is an autoloaded zsh function in functions/.
-# `on <title>` (new), `or` (review), `op` (publish) live in _bin/.
+# Obsidian: `oo` (personal) + `oow` (work) cd into the two vaults — autoloaded zsh functions in functions/.
+# `on <title>` (new), `or` (review), `op` (publish) live in ~/.local/bin/.
 
 # Chezmoi
 alias cz='chezmoi'
@@ -900,7 +919,7 @@ alias pn="pnpm"
 # clr
 alias c='clear'
 
-# Claude Code: `cs` (start) and `cr` (resume) live in _bin/.
+# Claude Code: `cs` (start) and `cr` (resume) live in ~/.local/bin/.
 
 # ─── Claude Code multi-account ─────────────────────────────────────────────
 # Same binary, different config dirs (sessions + creds are fully isolated):

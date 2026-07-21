@@ -17,43 +17,29 @@ zig = 'latest'          # used for GhosttyFetch
 
 "npm:prettier" = "latest"
 "npm:codeburn" = "latest"
-{{- if ne .chezmoi.os "darwin" }}
 
-# Linux VPS: no Nix layer, so mise owns the whole CLI toolchain (on macOS these come from nix-darwin/Homebrew). Declarative so `mise install` fetches them all with retries, instead of a best-effort `mise use -g` loop that silently skips a tool when a GitHub lookup blips.
-# Two-tier pinning: config-format-sensitive tools pinned to the macOS/nix minor line (a breaking bump can't silently land on the VPS and desync the shared dotfiles; partial pins still let patches flow via `mise upgrade`); plain CLIs stay "latest". Bump a pin, then run `up` on each box.
-neovim = "0.12"         # nvim config/API can break across minors
-starship = "1"          # starship.toml format stable across v1
-yazi = "26.5"           # yazi keymap/theme format breaks across minors
-"github:arl/gitmux" = "0.11.5"       # pre-1.0; exact (github backend partial-match unreliable)
-"aqua:joshmedeski/sesh" = "2.27.0"   # exact (aqua partial-match unreliable)
-ripgrep = "latest"
-fd = "latest"
-fzf = "latest"
-lazygit = "latest"
-bat = "latest"
-eza = "latest"
-zoxide = "latest"
-jq = "latest"
-gh = "latest"
-btop = "latest"
-duf = "latest"          # `disk` alias (duf --sort usage); nix provides it on macOS
-delta = "latest"
-yq = "latest"
-television = "latest"
-lazydocker = "latest"
-pnpm = "latest"
-atuin = "latest"
-"github:dlvhdr/gh-dash" = "latest"
-"github:kunchenguid/treehouse" = "latest"
-"github:kunchenguid/no-mistakes" = "latest"
-"github:garrettkrohn/treekanga" = "latest"
-"github:rtk-ai/rtk" = "latest"          # LLM token-savings proxy; the PreToolUse `rtk hook claude` hook. From Homebrew on macOS
-# claude-code + codex ship a platform-native binary via a postinstall script; mise's npm backend passes --ignore-scripts=true by default, so opt back in for these two or `claude`/`codex` install the JS wrapper but not the native binary.
+# AI coding agents — mise on BOTH OSes now (were brew on macOS; codex+gemini weren't
+# installed on the Mac at all). They ship several times/week, so npm/github is the
+# same-day channel — freshness beats a pin. claude-code + codex ship a native binary
+# via postinstall, so opt npm scripts back in (mise defaults --ignore-scripts=true).
 "npm:@anthropic-ai/claude-code" = { version = "latest", npm_args = "--ignore-scripts=false" }
 "npm:@openai/codex" = { version = "latest", npm_args = "--ignore-scripts=false" }
 "npm:@google/gemini-cli" = "latest"
-"npm:@earendil-works/pi-coding-agent" = "latest"   # Pi coding agent (pure Node CLI; Homebrew on macOS)
-"github:sst/opencode" = "latest"                   # OpenCode (linux-x64 release binary; installer/brew on macOS)
+"npm:@earendil-works/pi-coding-agent" = "latest"
+"github:rtk-ai/rtk" = "latest"                     # PreToolUse `rtk hook claude`; not in nixpkgs
+{{- if ne .chezmoi.os "darwin" }}
+
+# Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
+# mise here owns only what nix deliberately doesn't (AI agents are shared, above):
+#   - pnpm (Mac gets it via corepack); treekanga (not in nixpkgs, brew on macOS)
+#   - opencode: Linux-only — the Mac install is a separate tangle (its own installer
+#     shadows an anomalyco/tap build; sst vs anomalyco forks), left unmerged on purpose.
+# NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.nix#gnohj-linux-x86_64`.
+# Applying the trim without home-manager active would drop nvim/rg/etc. off the box.
+# starship is NOT here: zinit installs it (gh-r binary + prompt init) on BOTH OSes.
+pnpm = "latest"
+"github:garrettkrohn/treekanga" = "latest"          # not in nixpkgs; brew on macOS
+"github:sst/opencode" = "latest"                   # OpenCode (linux-x64 release binary; Mac has its own installer/brew)
 {{- end }}
 
 [tasks]

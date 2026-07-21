@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 16   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 17   (bump to force a re-run on `chezmoi apply`)
 #
-# Slim, non-Nix toolchain for a Linux VPS. PRIMARY path: tmux + agent-tmux-web (agents
-# live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh). Installs
-# the foundation (mise, herdr, zinit, apt basics, node/pnpm) + a best-effort core CLI set.
+# System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
+# tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
+# runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: tmux + agent-tmux-web
+# (agents live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh).
+# This script installs what Nix deliberately doesn't: apt system base + monitoring,
+# zinit, tpm, ghostty terminfo, mise runtimes/AI agents, tmux-dash + agent-tmux-web.
 # Skipped on macOS via .chezmoiignore. The agent-tmux-web service and interactive
 # `tailscale up`/`serve` are separate one-time manual steps.
 # Every step is best-effort (|| true / guarded) so a hiccup never aborts `chezmoi apply`.
 set -uo pipefail
 
-echo "==> Linux slim toolchain bootstrap (tmux + agent-tmux-web)"
+echo "==> Linux system-config + runtime bootstrap (Nix owns the bulk CLIs)"
 
 # 1. mise — runtimes + (via ubi/aqua/cargo backends) most CLIs.
 if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
@@ -61,15 +64,17 @@ if [ -f "$TIC_SRC" ] && command -v tic >/dev/null 2>&1 && ! infocmp xterm-ghostt
 fi
 
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
-#    tmux holds the agent sessions; mosh gives roaming laptop attach; python3 is an
-#    nvim/tooling dep; wl-clipboard is a best-effort no-op on a headless VPS.
+#    mosh gives roaming laptop attach; python3 is an nvim/tooling dep; wl-clipboard
+#    is a best-effort no-op on a headless VPS. tmux itself now comes from Nix
+#    (home-manager), pinned to the Mac's version via flake.lock — so it's no longer an
+#    apt package or a from-source build, and its build deps (libevent/ncurses/bison) are gone.
 # pinentry-curses drives rbw's headless master-password unlock (see step 6b).
 # perl: the tmux status-line git-cache refresher (status-git-refresh.sh) strips
 # trailing style codes with `perl -pe`; perl-base is essential on Debian/Ubuntu
 # anyway, but declare it so a stripped image doesn't leave the git segment blank.
 # sysstat + atop: record CPU/mem/swap time-series for the 16-vs-32 GB trial verdict.
 # sysstat = CSV-exportable sar history (vps-usage-export.sh); atop = per-process replay.
-APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl tmux mosh pinentry-curses sysstat atop figlet libevent-dev libncurses-dev bison pkg-config"
+APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl mosh pinentry-curses sysstat atop figlet pkg-config"
 if command -v apt-get >/dev/null 2>&1; then
   if sudo -n true 2>/dev/null; then
     echo "==> apt: $APT_PKGS"
@@ -122,24 +127,10 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
 fi
 
-# 4c. tmux 3.6b from source — match the Mac EXACTLY. apt ships 3.4, which lacks the
-#     extended-keys/CSI-u encoding the ctrl-digit bindings depend on. Build to
-#     ~/.local/bin so it wins on PATH; the apt 3.4 stays as a fallback if the build
-#     fails. Deps (libevent-dev/libncurses-dev/bison/pkg-config) came in via apt above.
-TMUX_WANT="3.6b"
-if [ "$("$HOME/.local/bin/tmux" -V 2>/dev/null)" != "tmux $TMUX_WANT" ] && command -v make >/dev/null 2>&1; then
-  echo "==> building tmux $TMUX_WANT from source (matching the Mac)"
-  (
-    td="$(mktemp -d)" && cd "$td" || exit 0
-    curl -fsSL "https://github.com/tmux/tmux/releases/download/${TMUX_WANT}/tmux-${TMUX_WANT}.tar.gz" -o t.tgz \
-      && tar xzf t.tgz && cd "tmux-${TMUX_WANT}" \
-      && ./configure --prefix="$HOME/.local" >/dev/null 2>&1 \
-      && make -j"$(nproc 2>/dev/null || echo 2)" >/dev/null 2>&1 \
-      && make install >/dev/null 2>&1 \
-      && echo "   tmux $TMUX_WANT → ~/.local/bin/tmux"
-    cd / && rm -rf "$td"
-  ) || echo "   (tmux $TMUX_WANT build failed — apt 3.4 stays as fallback; the config's %if guard keeps it working)"
-fi
+# 4c. tmux now comes from Nix (home-manager), pinned to the Mac's exact version via
+#     flake.lock. The old apt-3.4 + from-source-3.6b build is gone: home-manager runs
+#     BEFORE this bootstrap (see linux-vps-setup.sh), so ~/.nix-profile/bin/tmux is
+#     already the right version on PATH here — and with apt tmux gone, nothing shadows it.
 
 # 5. Tailscale — private mesh the PWA + laptop reach this box over. Installs binary +
 #    daemon only; `tailscale up`/`serve` are interactive one-time steps (see NEXT below).

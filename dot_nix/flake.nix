@@ -15,9 +15,35 @@
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nixpkgs, darwin, ... }: {
+  outputs = inputs@{ self, nixpkgs, darwin, home-manager, ... }: {
+    # Linux VPS user env (packages only) — Determinate nix + home-manager on
+    # Ubuntu, layered on the OS you install yourself. Mirror of nix-darwin.
+    # Usage: home-manager switch --flake ~/.nix#gnohj-linux-x86_64
+    homeConfigurations = {
+      gnohj-linux-x86_64 = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          config.allowUnfree = true;
+          # Pin gh-dash to 4.23.2 — 4.24.x panics under tmux (dlvhdr/gh-dash#876).
+          # Mirrors the overlay in nix-darwin/default-silicon.nix (x86_64-linux here).
+          overlays = [
+            (final: prev: {
+              gh-dash = inputs.nixpkgs-ghdash.legacyPackages."x86_64-linux".gh-dash;
+            })
+          ];
+        };
+        extraSpecialArgs = { inherit inputs; };
+        modules = [ ./home-manager/home.nix ];
+      };
+    };
+
     darwinConfigurations = {
       # INFO: Main macOS machine (Apple Silicon)
       # Usage: darwin-rebuild switch --flake ~/.nix#macbook_silicon
