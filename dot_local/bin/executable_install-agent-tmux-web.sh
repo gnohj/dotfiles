@@ -9,8 +9,8 @@
 #       - binds 127.0.0.1 ONLY; Tailscale exposes it privately. NEVER 0.0.0.0 / funnel.
 #       - the token is generated here, stored chmod 600, and NEVER printed to stdout/logs
 #         (this script prints the command to fetch it, not the value).
-#       - PIN an audited commit: pass the SHA as $1 (or $AGENT_TMUX_WEB_REF). Read the
-#         server source before trusting a new SHA: src/server/index.ts + tmux.ts.
+#       - PIN an audited commit: pass the SHA as $1 / $AGENT_TMUX_WEB_REF or answer the
+#         prompt (blank skips; unpinned never builds). Read src/server/index.ts + tmux.ts first.
 set -euo pipefail
 
 [ "$(uname)" = "Linux" ] || { echo "This installer targets the Linux VPS (systemd + linger). macOS uses launchd — not applicable."; exit 1; }
@@ -24,7 +24,19 @@ UNIT_DIR="$HOME/.config/systemd/user"
 
 command -v pnpm >/dev/null 2>&1 || { echo "pnpm not found — run 'chezmoi apply' first (bootstrap installs node@22 + pnpm)."; exit 1; }
 
-# 1. Clone or update, pinned to an audited ref.
+# Audited pinned commit required (token = tmux RCE, never build unaudited HEAD): from $1/$AGENT_TMUX_WEB_REF, else prompt; blank skips; type HEAD for the tip.
+if [ -z "$REF" ] && [ -t 0 ]; then
+  echo "agent-tmux-web can run arbitrary commands in your tmux via its token — pin an AUDITED commit."
+  echo "Read src/server/index.ts + tmux.ts on GitHub first, then paste the SHA (blank = skip install):"
+  printf '  SHA> '
+  read -r REF </dev/tty || true
+fi
+if [ -z "$REF" ]; then
+  echo "No audited SHA — skipping agent-tmux-web install. Re-run when ready:  $0 <SHA>"
+  exit 0
+fi
+
+# 1. Clone or update, pinned to the audited ref.
 if [ -d "$DIR/.git" ]; then
   echo "==> updating $DIR"
   git -C "$DIR" fetch --tags --quiet origin
@@ -32,13 +44,8 @@ else
   echo "==> cloning agent-tmux-web"
   git clone --quiet "$REPO" "$DIR"
 fi
-if [ -n "$REF" ]; then
-  git -C "$DIR" checkout --quiet "$REF"
-  echo "==> pinned to $REF"
-else
-  echo "!! No ref pinned — using the current default branch. STRONGLY re-run pinned to an"
-  echo "   audited commit:  $0 <SHA>   (current HEAD: $(git -C "$DIR" rev-parse --short HEAD))"
-fi
+git -C "$DIR" checkout --quiet "$REF"
+echo "==> pinned to $REF"
 
 cd "$DIR"
 

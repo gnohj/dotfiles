@@ -174,7 +174,7 @@ Full detail in MANUAL_VPS_SETUP.md:
         python3 ~/Developer/agents/setup_symlinks.py
 
   [6] agent-tmux-web (security-sensitive — audit the pinned SHA first):
-        see MANUAL_VPS_SETUP.md §7
+        install-agent-tmux-web.sh   # prompts for the audited SHA (read src/server/{index,tmux}.ts); blank = skip
 
   [7] atuin history sync (classic server api.atuin.sh, NOT Atuin Hub):
         atuin login -u <username> -k "<key from 'atuin key' on another machine>"   # -k skips the Hub browser redirect; prompts for password
