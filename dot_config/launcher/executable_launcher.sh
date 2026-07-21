@@ -82,9 +82,9 @@ ACTIONS=(
 
   "🌳 Worktrees|🌳 Add Worktree|act_worktree_add|Create a new git worktree interactively"
   "🌳 Worktrees|✨ AI Add Worktree (prompt → worktree)|act_worktree_ai_prompt|Type free-text; Claude infers the ticket and creates the worktree"
-  "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira|Capture the active Chrome Jira tab and create a worktree"
-  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree"
-  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree"
+  "🌳 Worktrees|🎫 AI Add Worktree (Chrome tab (jira) → worktree)|act_worktree_jira|Capture the active Chrome Jira tab and create a worktree||darwin"
+  "🌳 Worktrees|📋 AI Add Worktree (clipboard → worktree)|act_worktree_clipboard|Use clipboard content (text or image) to create a worktree||darwin"
+  "🌳 Worktrees|🐛 AI Add Worktree (clipboard → Jira bug → worktree)|act_worktree_bug|Classify clipboard as a bug, file Jira ticket, create worktree||darwin"
   "🌳 Worktrees|🔁 AI Retry capture → worktree|act_worktree_retry|Retry the most-recent worktree capture with refined context"
   "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
