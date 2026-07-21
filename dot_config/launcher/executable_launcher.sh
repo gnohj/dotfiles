@@ -50,11 +50,11 @@ CATEGORIES=(
   "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace||darwin"
   "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
-  "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static|context"
+  "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static"
   "SYNC|🔁 Sync|🔁 Sync ›|Sync|Sync > |static|generic|static|context"
   "SYSTEM|🔧 System|🔧 System ›|System|System > |static|generic|static"
   "THEMES|🎨 Themes|🎨 Themes ›|Themes|Theme > |provide_themes|themes_menu|handle_theme"
-  "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static|context"
+  "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static"
 )
 
 # Static leaves — prefix|label|function|description|scope|os (scope+os optional; scope
@@ -66,7 +66,7 @@ ACTIONS=(
   "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work||darwin"
 
   "🔗 Open|🔗 Open PR|act_browser_pr|Open the GitHub PR for the current branch in browser"
-  "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim|context"
+  "🔗 Open|📂 Open Note|act_notes_current|Open the Obsidian vault note for this ticket in nvim"
   "🔗 Open|🎫 Open Jira|act_browser_jira|Open the Jira ticket for the current branch in browser"
 
   "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub"
@@ -93,13 +93,13 @@ ACTIONS=(
 # Top-level actions with no submenu — label|function|description|scope|os (scope+os optional)
 SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check for outdated Homebrew, mise, and nix packages"
-  "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs|context"
-  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|context"
-  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|context"
+  "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs (this machine only)"
+  "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard"
+  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes|context"
   "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands|context"
   "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)|context"
-  "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)|context"
+  "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
 
