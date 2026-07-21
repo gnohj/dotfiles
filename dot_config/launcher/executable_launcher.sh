@@ -98,6 +98,7 @@ SIMPLE_ACTIONS=(
   "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|context"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes|context"
   "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands|context"
+  "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)|context"
   "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)|context"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency"
 )
@@ -107,7 +108,8 @@ TOP_LEVEL_ORDER=(
   "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
   "simple:🔀 GitHub PRs" "simple:[tmux] 📋 Copy Pane Address"
-  "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
+  "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "simple:📈 Usage Report (cpu/mem)"
+  "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
 )
 
@@ -899,6 +901,15 @@ act_dirty_repos() {
 # fires regardless of exit code.
 act_errors() {
   zsh -c "$HOME/.local/bin/errors; echo; echo 'Press any key to continue...'; read -k1"
+}
+
+# Per-OS usage reader: macOS → usage-report.sh + spike culprits; Linux → vps-usage-export.sh (sar/atop). `;` so the pause fires regardless of exit.
+act_usage_report() {
+  if [ "$LAUNCHER_OS" = linux ]; then
+    zsh -c "$HOME/.local/bin/vps-usage-export.sh; echo; echo 'Press any key to continue...'; read -k1"
+  else
+    zsh -c "$HOME/.local/bin/usage-report.sh; echo; echo '── load-spike culprits ──'; $HOME/.local/bin/usage-report.sh --burst 10; echo; echo 'Press any key to continue...'; read -k1"
+  fi
 }
 
 # ghpr is a zshrc function, so source zshrc (in a zsh subshell, matching dirty).
