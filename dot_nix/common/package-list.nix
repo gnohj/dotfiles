@@ -38,9 +38,8 @@ with pkgs;
 
   # File management
   yazi       # Terminal file manager
-  yaziPlugins.restore  # Undo/recover trashed files
-  yaziPlugins.git      # Show git status in file list
-  trash-cli  # Required for restore plugin
+  # yazi plugins go through `ya pkg` (package.toml), NOT nix: 2+ plugins collide in buildEnv on their shared top-level main.lua.
+  trash-cli  # Required by the restore plugin (recovers trashed files)
   p7zip      # 7zip for archive preview in yazi
   clipboard-jh  # ClipBoard project for yazi system-clipboard plugin
 
