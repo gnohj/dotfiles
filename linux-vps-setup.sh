@@ -149,6 +149,12 @@ CHEZMOI="$HOME/.local/bin/chezmoi"
 print_info "Cloning dotfiles source (chezmoi init, no apply yet)…"
 BINDIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://chezmoi.io/get)" -- init "$GITHUB_USER"
 
+# `chezmoi init` won't update an existing clone, and the flake build below reads the source as git+file (committed HEAD), so force it to origin/main to keep a re-run from rebuilding a stale tree.
+CHEZMOI_SRC="$HOME/.local/share/chezmoi"
+if [ -d "$CHEZMOI_SRC/.git" ]; then
+  git -C "$CHEZMOI_SRC" fetch --quiet origin && git -C "$CHEZMOI_SRC" reset --hard --quiet origin/main
+fi
+
 # 2. Install Nix — same Determinate installer + idempotency guard as mac-setup.sh
 #    Phase 1. --no-confirm is unattended; the installer escalates via sudo itself.
 if command_exists nix; then
