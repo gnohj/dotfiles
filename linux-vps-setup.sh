@@ -201,37 +201,23 @@ print_warning "  Plain 'su $TARGET_USER' (no dash) strands you in /root with a b
 print_warning "  (root SSH login is now disabled, so your next ssh is '$TARGET_USER' anyway.)"
 cat <<'EOF'
 
-Remaining MANUAL steps (interactive / secret-touching — can't be piped).
-Run these AS the target user (su - <user> or ssh <user>@<box>).
-Full detail in MANUAL_VPS_SETUP.md:
+Remaining MANUAL steps live in a PRIVATE repo (vps-linux-provision) — the
+interactive / secret-touching half that can't be piped. Full detail in
+MANUAL_VPS_SETUP.md. Run these AS the target user (su - <user> or ssh <user>@<box>):
 
-  [1] Tailscale onto the tailnet (skip if you passed TS_AUTHKEY):
-        sudo tailscale up --ssh
-      Then enable MagicDNS + HTTPS Certificates in the admin console.
+  [1] gh auth — the ONE thing that can't be automated. Unlocks the private repo
+      and registers the SSH key its private clones need:
+        unset GITHUB_TOKEN                       # bootstrap forwarded it
+        gh auth login -h github.com -p ssh -w
 
-  [2] GitHub + agents:
-        unset GITHUB_TOKEN          # if you passed one — else gh login is non-interactive
-        gh auth login
-        claude   |   codex   |   gemini      # once each for OAuth
+  [2] Clone + run the private post-provision.sh — it scripts everything else
+      (ai OAuth · secrets · atuin · tailscale · repos · tmux-dash · agents · tpm),
+      idempotent, pausing only where a human is genuinely needed:
+        git clone git@github.com:gnohj/vps-linux-provision.git ~/Developer/vps-linux-provision
+        ~/Developer/vps-linux-provision/post-provision.sh
 
-  [3] Secrets — put ONLY the tokens THIS box needs into ~/.zsh_gnohj_env.local
-      (gitignored, auto-sourced). Scaffold it from the var list, then fill in:
-        env-local-scaffold > ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
-      Your Bitwarden master password never touches the VPS (MANUAL_VPS_SETUP.md
-      §Security-4). A full `rbw unlock` is reserved for your trusted Mac.
-
-  [4] tmux-dash (private repo — build from source once GitHub auth is set):
-        git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .
-
-  [5] agents monorepo (CLAUDE.md / skills / prompts — so on-box agents read your real config):
-        git clone git@github.com:gnohj/agents ~/Developer/agents
-        python3 ~/Developer/agents/setup_symlinks.py
-
-  [6] agent-tmux-web (security-sensitive — audit the pinned SHA first):
-        install-agent-tmux-web.sh   # prompts for the audited SHA (read src/server/{index,tmux}.ts); blank = skip
-
-  [7] atuin history sync (classic server api.atuin.sh, NOT Atuin Hub):
-        atuin login -u <username> -k "<key from 'atuin key' on another machine>"   # -k skips the Hub browser redirect; prompts for password
-        atuin sync -f
+  [3] agent-tmux-web — NOT in the script (phone PWA code-exec surface; audit first).
+      Needs Tailscale up. Read src/server/{index,tmux}.ts before trusting a SHA:
+        install-agent-tmux-web.sh   # prompts for the audited SHA; blank = skip
 
 EOF
