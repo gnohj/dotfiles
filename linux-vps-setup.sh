@@ -196,6 +196,8 @@ print_warning "  installed under '$TARGET_USER' — root sees NONE of it, and th
 print_warning "  back to root when the script exits (a piped bootstrap can't hand you an"
 print_warning "  interactive shell as another user). Run every step below AS '$TARGET_USER':"
 print_warning "      su - $TARGET_USER            # or reconnect: ssh $TARGET_USER@<box-ip>"
+print_warning "  USE THE DASH. 'su - $TARGET_USER' loads the login shell (cd to home, full PATH/env)."
+print_warning "  Plain 'su $TARGET_USER' (no dash) strands you in /root with a broken env."
 print_warning "  (root SSH login is now disabled, so your next ssh is '$TARGET_USER' anyway.)"
 cat <<'EOF'
 
