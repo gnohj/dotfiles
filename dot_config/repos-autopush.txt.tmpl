@@ -22,3 +22,7 @@
 ~/Developer/agents
 ~/Developer/colorscheme
 ~/Developer/tmux-dash
+{{- if eq .chezmoi.os "darwin" }}
+# vps-linux-provision: auto-push from the Mac only, never from the VPS itself.
+~/Developer/vps-linux-provision
+{{- end }}
