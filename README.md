@@ -57,7 +57,7 @@ This will:
 - Install Nix package manager (Determinate Systems installer)
 - Clone dotfiles repository via Chezmoi
 - Install nix-darwin for declarative macOS configuration
-- Install all packages defined in `~/.nix/` (Nix packages + Homebrew apps)
+- Install all packages from `~/.nix/` - the shared flake (`common/package-list.nix`, same set the Linux box builds) plus the Homebrew apps/casks
 
 **Note:** You'll be prompted for your password once at the start for sudo access.
 
@@ -76,6 +76,8 @@ This will:
 - Install language runtimes via mise (Node, Python, Go, Rust, etc.)
 - Set up environment secrets from Bitwarden (API keys, tokens)
 - Set up shell configuration
+
+Once set up, keep the machine current with **`up`** (see [Update Existing Mac](#update-existing-mac-apple-silicon)).
 
 </details>
 
@@ -101,130 +103,48 @@ Run it inside `tmux`/`mosh` so a dropped link doesn't kill the long build. It ha
 <details>
 <summary>Click to expand update instructions</summary>
 
-### 1. Nix-Darwin (System Management)
+### The commands you'll actually use
 
-#### Understanding Package Pinning
+- **`up`** - the whole machine current in one shot (each step banner'd, failure-tolerant): `nix flake update` + `darwin-rebuild switch` → `chezmoi apply` → `brew upgrade` → `mise` → `tpm`.
+- **`update`** - pull the latest config repos (chezmoi dotfiles + `agents` + `tmux-dash`); no package upgrades.
+- **`outdated`** - what's pending across nix (flake staleness), brew, mise, mas.
+- **`nix-preview`** - exactly which nix packages would change on the next `up` (diff-closures; live `flake.lock` untouched).
+- **`cza`** - re-add your local dotfile edits back into the chezmoi source after editing a target.
 
-This setup uses a **hybrid approach** for reproducibility:
+`up` covers everything below - the per-surface commands are just for targeted updates.
 
-- **Nix packages** (CLI dev tools): Pinned via `flake.lock`
-  - ✅ Reproducible across machines and time
-  - ✅ Same versions until you explicitly update
+### Nix (CLI toolchain)
 
-- **Homebrew packages** (macOS apps + utilities): Floating versions
-  - ⚠️ Gets latest from Homebrew on install/update
-  - ⚠️ Not reproducible, but always up-to-date
-
-#### Rebuild without updating packages
-
-Uses existing pinned versions from `flake.lock`:
+Pinned via `flake.lock` (reproducible until you bump it - shared with the Linux box). Rebuild on the current pin, or bump nixpkgs:
 
 ```bash
-darwin-rebuild switch --flake ~/.nix
+darwin-rebuild switch --flake ~/.nix#macbook_silicon                                     # rebuild on the current pin
+nix flake update --flake ~/.nix && darwin-rebuild switch --flake ~/.nix#macbook_silicon  # bump to newest nixpkgs
 ```
 
-#### Update Nix packages to latest
+The switch also drives Homebrew declaratively (`brew bundle` installs/removes casks) but leaves versions alone (`onActivation.upgrade = false`); `brew upgrade` bumps them. GC old generations: `nix-collect-garbage -d`.
 
-Updates `flake.lock` to newest nixpkgs snapshot:
+### Homebrew (version bumps)
 
 ```bash
-# Update all flake inputs (nixpkgs + nix-darwin)
-nix flake update ~/.nix
-darwin-rebuild switch --flake ~/.nix
-
-# Or update only nixpkgs
-nix flake update ~/.nix nixpkgs
-darwin-rebuild switch --flake ~/.nix
+brew upgrade          # all formulae
+brew upgrade --cask   # all casks
 ```
 
-#### Update Homebrew packages
-
-Currently `onActivation.upgrade = false`, so manual updates:
+### Mise (runtimes + AI agents)
 
 ```bash
-# Update specific package
-brew upgrade ghostty
-brew upgrade --cask brave-browser
-
-# Update all packages
-brew upgrade
-brew upgrade --cask
+mise outdated         # list          mise install        # install missing from config
+mise upgrade          # bump all      mise upgrade node   # one runtime
 ```
 
-**Clean up old generations:**
+### Chezmoi (dotfiles)
 
-```bash
-nix-collect-garbage -d
-```
+`cz apply` (apply local source) · `cz update` (pull remote + apply) · `cza` (re-add target edits back into source). Secrets refresh from Bitwarden automatically when the list changes; force after a value change: `rbw sync && cz apply --force`.
 
-### 2. Chezmoi (Dotfiles Management)
+### Mac App Store (mas)
 
-**Apply latest dotfiles:**
-
-```bash
-chezmoi apply
-```
-
-**Update from remote and apply:**
-
-```bash
-chezmoi update
-```
-
-**Refresh secrets from Bitwarden:**
-
-Secrets are automatically refreshed when the secret list changes. To force a refresh after changing a password value:
-
-```bash
-rbw sync && chezmoi apply --force
-```
-
-### 3. Mise (Language/Environment Management)
-
-**List outdated languages:**
-
-```bash
-mise outdated
-```
-
-**Install/update all languages from config:**
-
-```bash
-mise install
-```
-
-**Upgrade a specific language runtime:**
-
-```bash
-mise upgrade node@20.2.0
-mise upgrade python
-```
-
-**Upgrade all language runtimes to latest versions:**
-
-```bash
-mise upgrade
-```
-
-### 4. Mac App Store (mas)
-
-**List outdated apps:**
-
-```bash
-mas outdated
-```
-
-**Upgrade all App Store apps:**
-
-```bash
-mas upgrade
-```
-
-**Upgrade a specific app:**
-
-```bash
-mas upgrade <app-id>
-```
+`up` doesn't touch mas - update via the App Store, or `mas outdated` / `mas upgrade`.
 
 </details>
 
@@ -233,73 +153,42 @@ mas upgrade <app-id>
 <details>
 <summary>Click to expand update instructions</summary>
 
-The box mirrors the Mac's update model. The one-shot is **`up`** - it runs apt full-upgrade → `nix flake update` + `home-manager switch` → mise → chezmoi → tpm, each step banner'd and failure-tolerant. There's no Homebrew or App Store layer; the surfaces below are for targeted updates.
+Mirrors the Mac's model - same aliases, minus the Homebrew/App-Store layer.
 
-### 1. System packages (apt)
+- **`up`** - one shot: `apt full-upgrade` → `nix flake update` + `home-manager switch` → `mise` → `chezmoi` → `tpm`.
+- **`update`** - pull config repos (chezmoi + `agents` + `tmux-dash`).
+- **`outdated`** - what's pending across nix (flake staleness) + mise.
+- **`nix-preview`** - which nix packages would change on the next `up`.
 
-The base packages (tmux, mosh, python3, monitoring, etc.) come from apt:
+`up` covers everything below.
+
+### apt (system base)
 
 ```bash
-sudo apt-get update && sudo apt-get upgrade -y
-
-# clean up
-sudo apt-get autoremove -y && sudo apt-get clean
+sudo apt-get update && sudo apt-get full-upgrade -y && sudo apt-get autoremove -y
 ```
 
-### 2. Nix (CLI toolchain, via home-manager)
+### Nix (CLI toolchain, via home-manager)
 
-The bulk CLI toolchain (nvim, ripgrep, fd, lazygit, bat, delta, yazi, …) comes from the same shared flake as the Mac. `up` handles it; manually (on Linux the flake lives in the chezmoi source, since `~/.nix` is gitignored):
+Same shared flake as the Mac. On Linux the flake lives in the chezmoi source (`~/.nix` is gitignored there); `up` also runs `nix upgrade-nix`, since home-manager doesn't manage the nix daemon:
 
 ```bash
 nix flake update --flake ~/.local/share/chezmoi/dot_nix
 home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64
 ```
 
-### 3. Chezmoi (Dotfiles Management)
-
-**Apply latest dotfiles:**
+### Mise (runtimes + AI agents)
 
 ```bash
-chezmoi apply
+mise outdated    # list      mise install   # install missing      mise upgrade   # bump all      mise upgrade node   # one runtime
 ```
 
-**Update from remote and apply** (re-runs the toolchain bootstrap when it changes):
+### Chezmoi (dotfiles)
 
-```bash
-chezmoi update
-```
+`cz apply` · `cz update` (pull + apply; re-runs the toolchain bootstrap when it changes). Secrets live in `~/.zsh_gnohj_env.local` (no rbw/Bitwarden on the box) - edit directly to rotate a token.
 
-Secrets on the VPS are NOT managed by `rbw`/Bitwarden - they live in `~/.zsh_gnohj_env.local` (see `MANUAL_VPS_SETUP.md`). Edit that file directly to rotate a token.
+### Tailscale + from-source tools
 
-### 4. Mise (Language/Environment Management)
-
-Same as the Mac:
-
-```bash
-mise outdated        # list outdated runtimes/CLIs
-mise install         # install/update everything from config
-mise upgrade         # upgrade all to latest
-mise upgrade node    # upgrade a specific runtime
-```
-
-### 5. Tailscale + from-source tools
-
-**Tailscale** self-updates via its apt repo (installed by the bootstrap), so it rides along with `apt-get upgrade` above. To force it:
-
-```bash
-sudo tailscale update
-```
-
-**herdr:**
-
-```bash
-curl -fsSL https://herdr.dev/install.sh | sh
-```
-
-**tmux-dash** (private repo, built with cargo):
-
-```bash
-cd ~/Developer/tmux-dash && git pull && cargo install --path .
-```
+Tailscale rides along with apt (`sudo tailscale update` to force). **herdr:** `curl -fsSL https://herdr.dev/install.sh | sh`. **tmux-dash** (private, cargo): `cd ~/Developer/tmux-dash && git pull && cargo install --path .`.
 
 </details>
