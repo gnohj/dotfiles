@@ -1379,6 +1379,9 @@ reload_prompt() {
 export _ZO_DATA_DIR="$ZDOTDIR"
 export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*"
 
+# opencode: added before mise activate so the mise-pinned opencode stays first on PATH
+export PATH="$HOME/.opencode/bin:$PATH"
+
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)
 #-------------------------------------------------------------------------------
@@ -1501,6 +1504,3 @@ if [[ -x /usr/local/bin/aws_completer ]]; then
   autoload -Uz bashcompinit && bashcompinit
   complete -C /usr/local/bin/aws_completer aws
 fi
-
-# opencode
-export PATH="$HOME/.opencode/bin:$PATH"
