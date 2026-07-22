@@ -184,11 +184,13 @@ fi
 
 # 10. Colorscheme seed — generate starship.toml / active-colorscheme.sh / bat cache
 #     on a fresh box so the prompt + sesh picker match the Mac instead of falling
-#     back to starship's built-in default. Idempotent: skips once an active
-#     colorscheme exists (a later `theme` switch owns it). colorscheme-set.sh is
-#     OS-aware (guards its macOS-only GUI reloads), so it's safe headless.
+#     back to starship's built-in default. Guard on starship.toml (the actual prompt
+#     config), not active-colorscheme.sh: a prior partial crash leaves the latter but
+#     not the former, and guarding on it would skip the reseed forever. A real `theme`
+#     switch writes starship.toml too, so this still won't clobber a chosen theme.
+#     colorscheme-set.sh is OS-aware (guards its macOS-only GUI reloads), safe headless.
 CS_SET="$HOME/.config/zshrc/colorscheme-set.sh"
-if [ ! -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] && [ -x "$CS_SET" ]; then
+if [ ! -f "$HOME/.config/starship/starship.toml" ] && [ -x "$CS_SET" ]; then
   echo "==> seeding default colorscheme (evergarden-winter-mute) → prompt + theme files"
   "$CS_SET" evergarden-winter-mute-colors.sh >/dev/null 2>&1 \
     || echo "   (colorscheme seed failed — set by hand: theme  |  colorscheme-set.sh evergarden-winter-mute-colors.sh)"
