@@ -40,9 +40,9 @@ def handle_result(args, result, target_window_id, boss):
     w = boss.window_id_map.get(target_window_id)
     if w is None:
         return
-    if clipboard_has_image():
+    # Read text FIRST (one fast pbpaste); the slow osascript image-check ran before this, letting a dictation tool restore the clipboard right after Cmd+V and paste the OLD content (OpenSuperWhisper #153).
+    text = clipboard_text()
+    if text:
+        w.paste(text)
+    elif clipboard_has_image():
         w.write_to_child("\x16")
-    else:
-        text = clipboard_text()
-        if text:
-            w.paste(text)
