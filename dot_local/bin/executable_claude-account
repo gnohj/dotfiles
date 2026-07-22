@@ -110,20 +110,22 @@ account_dir() {
   esac
 }
 
-# OAuth token for the resolved account: the macOS Keychain slot, or a 0600 file
-# on Linux (no Keychain there — same scoped-token model as ~/.zsh_gnohj_env.local).
-# Empty if none stored.
+# 0600 mirror path: sole token store on Linux, reboot/resume-proof fallback on macOS.
+token_file() { printf '%s' "$HOME/.local/state/claude/oauth-$1"; }
+
+# macOS: Keychain primary, 0600-mirror fallback when it reads empty transiently (post-reboot / detached spawn) so we don't drop to the expired shared login. Linux: mirror only.
 account_token() {
-  local acct; acct="$(resolve_account)"
+  local acct t; acct="$(resolve_account)"
   if [ "$(uname)" = "Darwin" ]; then
-    security find-generic-password -a "$USER" -s "claude-oauth-$acct" -w 2>/dev/null || true
+    t="$(security find-generic-password -a "$USER" -s "claude-oauth-$acct" -w 2>/dev/null || true)"
+    if [ -n "$t" ]; then printf '%s' "$t"; else cat "$(token_file "$acct")" 2>/dev/null || true; fi
   else
-    cat "$HOME/.local/state/claude/oauth-$acct" 2>/dev/null || true
+    cat "$(token_file "$acct")" 2>/dev/null || true
   fi
 }
 
 store_token() {
-  local account="$1" raw token
+  local account="$1" raw token f
   raw="$(cat)"
   # Extract ONLY the token, even if stdin has surrounding text/ANSI noise.
   # (Don't pipe `claude setup-token` here — it's interactive; its raw TUI output
@@ -135,13 +137,11 @@ store_token() {
     echo "    claude-account set-token $account   (paste the token, then Ctrl-D)" >&2
     return 1
   fi
-  if [ "$(uname)" = "Darwin" ]; then
-    security add-generic-password -U -a "$USER" -s "claude-oauth-$account" -w "$token"
-  else
-    local f="$HOME/.local/state/claude/oauth-$account"
-    mkdir -p "$(dirname "$f")"
-    (umask 077; printf '%s' "$token" >"$f")
-  fi
+  [ "$(uname)" = "Darwin" ] && security add-generic-password -U -a "$USER" -s "claude-oauth-$account" -w "$token"
+  # Always write the 0600 mirror: Linux's only store, and macOS's reboot/resume-proof fallback.
+  f="$(token_file "$account")"
+  mkdir -p "$(dirname "$f")"
+  (umask 077; printf '%s' "$token" >"$f")
   echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | shasum | cut -c1-12))"
 }
 
