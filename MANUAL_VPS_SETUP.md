@@ -31,7 +31,14 @@ Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** →
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-(`... | bash -s -- myuser` for a different username; `TS_AUTHKEY=tskey-... ... | bash` to bring Tailscale up unattended.) It's idempotent, and it prints the interactive remainder (§5–§7) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
+(`... | bash -s -- myuser` for a different username.) To bring Tailscale up unattended and raise the GitHub rate limit, **export the vars first** so the piped `bash` inherits them - `VAR=... curl ... | bash` sets them for `curl` only, not `bash`, so the script sees them unset:
+
+```
+export TS_AUTHKEY=tskey-... GITHUB_TOKEN=ghp-...
+curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
+```
+
+It's idempotent, and it prints the interactive remainder (§5–§7) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
 
 ## 2. User + SSH hardening
 

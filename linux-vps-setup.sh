@@ -12,7 +12,11 @@
 #
 # Usage — run as ROOT on a fresh box (over the provider's IP / console):
 #   curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
-#   # unattended Tailscale:    TS_AUTHKEY=tskey-... ... | bash
+#   # unattended Tailscale + higher GitHub rate limit — EXPORT first, so the piped
+#   # bash inherits them. `VAR=... curl ... | bash` sets the vars for curl only, not
+#   # bash, so the script would see them UNSET:
+#   #   export TS_AUTHKEY=tskey-... GITHUB_TOKEN=ghp-...
+#   #   curl -fsSL .../linux-vps-setup.sh | bash
 #
 # Idempotent — safe to re-run. Interactive / secret-touching steps stay manual
 # and are printed at the end (`tailscale up`, `gh auth login`, rbw secrets, OAuth).
