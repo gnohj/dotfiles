@@ -87,14 +87,36 @@ if [ "$(id -u)" -eq 0 ]; then
     print_error "sshd config invalid — hardening skipped (removed hardening.conf)"
   fi
 
-  # 5. Tailscale — install the binary. `up` is interactive (browser auth) unless
-  #    a TS_AUTHKEY is supplied for unattended provisioning.
+  # 5. Tailscale — install the binary + join the tailnet. `up` is interactive
+  #    (browser auth) unless a TS_AUTHKEY is supplied for unattended provisioning.
   if ! command_exists tailscale; then
     print_info "Installing Tailscale"
     curl -fsSL https://tailscale.com/install.sh | sh
   fi
   if [ -n "${TS_AUTHKEY:-}" ]; then
-    tailscale up --ssh --authkey "$TS_AUTHKEY" && print_success "tailscale up (authkey)"
+    # The installer starts tailscaled, but on a cold box `up` can beat the daemon's
+    # control socket. Ensure it's running and wait for it before `up`, or the key
+    # bring-up fails against a not-yet-ready daemon.
+    systemctl enable --now tailscaled 2>/dev/null || true
+    ts_ready=0
+    for _ in $(seq 1 15); do
+      tailscale status 2>&1 | grep -qiE 'failed to connect|is tailscaled running' || { ts_ready=1; break; }
+      sleep 1
+    done
+    [ "$ts_ready" = 1 ] || print_warning "tailscaled not responding after 15s — 'up' may fail (check: systemctl status tailscaled)"
+    # Do NOT swallow failure: an expired / single-use / invalid key must be LOUD.
+    # Silently continuing leaves the box Logged out — defeating the point of TS_AUTHKEY.
+    if ts_out="$(tailscale up --ssh --authkey "$TS_AUTHKEY" 2>&1)"; then
+      print_success "tailscale up (authkey)"
+    else
+      print_error "TS_AUTHKEY was set but 'tailscale up' FAILED — this box is NOT on the tailnet:"
+      printf '%s\n' "$ts_out" | sed 's/^/    /'
+      print_warning "Usual causes: key expired (default 90d), a single-use key already consumed, or an ephemeral key."
+      print_warning "Fix: mint a fresh REUSABLE key at login.tailscale.com/admin/settings/keys, then on the box:"
+      print_warning "    sudo tailscale up --ssh --authkey tskey-…     (or interactive: sudo tailscale up --ssh)"
+    fi
+  else
+    print_info "No TS_AUTHKEY — join the tailnet later: sudo tailscale up --ssh  (or post-provision.sh tailscale)"
   fi
 
   # 6. Wait out cloud-init so the toolchain bootstrap doesn't race provisioning.
