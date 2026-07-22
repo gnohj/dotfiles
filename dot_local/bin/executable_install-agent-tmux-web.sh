@@ -79,6 +79,8 @@ Type=simple
 WorkingDirectory=%h/.local/share/agent-tmux-web
 EnvironmentFile=%h/.local/share/agent-tmux-web/.env
 Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Fail closed: an empty AGENT_TMUX_WEB_AUTH_TOKEN disables auth entirely (open access to RCE).
+ExecStartPre=/usr/bin/env bash -c 'grep -Eq "^AGENT_TMUX_WEB_AUTH_TOKEN=.+" %h/.local/share/agent-tmux-web/.env || { echo "agent-tmux-web: empty/missing auth token - refusing to start"; exit 1; }'
 ExecStart=$PNPM_BIN start
 Restart=always
 RestartSec=5
