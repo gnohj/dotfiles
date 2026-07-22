@@ -228,14 +228,17 @@ interactive / secret-touching half that can't be piped. Full detail in
 MANUAL_VPS_SETUP.md. Run these AS the target user (su - <user> or ssh <user>@<box>):
 
   [1] gh auth — the ONE thing that can't be automated. Unlocks the private repo
-      and registers the SSH key its private clones need:
+      so it can be cloned. (No -p ssh: that uploads the key titled "GitHub CLI"
+      with no way to rename it. post-provision.sh's step_gh generates + uploads
+      the SSH key with a hostname title instead.):
         unset GITHUB_TOKEN                       # bootstrap forwarded it
-        gh auth login -h github.com -p ssh -w
+        gh auth login -h github.com -w
 
   [2] Clone + run the private post-provision.sh — it scripts everything else
-      (ai OAuth · secrets · atuin · tailscale · repos · tmux-dash · agents · tpm),
-      idempotent, pausing only where a human is genuinely needed:
-        git clone git@github.com:gnohj/vps-linux-provision.git ~/Developer/vps-linux-provision
+      (ssh-key · ai OAuth · secrets · atuin · tailscale · repos · tmux-dash · agents · tpm),
+      idempotent, pausing only where a human is genuinely needed. Clone over HTTPS
+      (gh token) since the SSH key isn't set up until step_gh runs:
+        gh repo clone gnohj/vps-linux-provision ~/Developer/vps-linux-provision
         ~/Developer/vps-linux-provision/post-provision.sh
 
   [3] agent-tmux-web — NOT in the script (phone PWA code-exec surface; audit first).
