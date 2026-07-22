@@ -41,6 +41,7 @@ fi
 
 generate_ghostty_theme() {
   ghostty_conf_file="$HOME/.config/ghostty/ghostty-theme"
+  mkdir -p "$(dirname "$ghostty_conf_file")"
 
   cat >"$ghostty_conf_file" <<EOF
 # Auto-generated ghostty configuration
@@ -83,6 +84,7 @@ EOF
 
 generate_kitty_theme() {
   kitty_conf_file="$HOME/.config/kitty/kitty-theme.conf"
+  mkdir -p "$(dirname "$kitty_conf_file")"
   temp_file=$(mktemp)
 
   cat >"$temp_file" <<EOF
@@ -146,6 +148,7 @@ EOF
 
 generate_btop_theme() {
   btop_conf_file="$HOME/.config/btop/themes/btop-theme.theme"
+  mkdir -p "$(dirname "$btop_conf_file")"
 
   cat >"$btop_conf_file" <<EOF
 
@@ -248,6 +251,7 @@ generate_starship_config() {
   # Define the paths
   starship_conf_file="$HOME/.config/starship/starship.toml"
   starship_infra_conf_file="$HOME/.config/starship/starship-infra.toml"
+  mkdir -p "$HOME/.config/starship" # fresh box lacks it; cat > fails otherwise
 
   # Generate the main Starship configuration file
   cat >"$starship_conf_file" <<EOF
@@ -337,6 +341,7 @@ EOF
 
 generate_lazygit_config() {
   lazygit_conf_file="$HOME/.config/lazygit/config.yml"
+  mkdir -p "$(dirname "$lazygit_conf_file")"
 
   cat >"$lazygit_conf_file" <<EOF
 # LazyGit configuration with custom colors
