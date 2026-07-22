@@ -191,9 +191,13 @@ fi
 #     colorscheme-set.sh is OS-aware (guards its macOS-only GUI reloads), safe headless.
 CS_SET="$HOME/.config/zshrc/colorscheme-set.sh"
 if [ ! -f "$HOME/.config/starship/starship.toml" ] && [ -x "$CS_SET" ]; then
-  echo "==> seeding default colorscheme (evergarden-winter-mute) → prompt + theme files"
-  "$CS_SET" evergarden-winter-mute-colors.sh >/dev/null 2>&1 \
-    || echo "   (colorscheme seed failed — set by hand: theme  |  colorscheme-set.sh evergarden-winter-mute-colors.sh)"
+  echo "==> seeding default colorscheme (evergarden-winter-mute) -> prompt + theme files"
+  if seed_out="$("$CS_SET" evergarden-winter-mute-colors.sh 2>&1)"; then
+    echo "    colorscheme seed OK -> ~/.config/starship/starship.toml written"
+  else
+    echo "    colorscheme seed FAILED (set by hand later: colorscheme-set.sh evergarden-winter-mute-colors.sh):"
+    printf '%s\n' "$seed_out" | sed 's/^/      /'
+  fi
 fi
 
 echo "==> bootstrap done."
