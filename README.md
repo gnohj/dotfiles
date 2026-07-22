@@ -32,9 +32,9 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 
 ### Linux VPS (remote dev box)
 
-Headless, so the desktop categories above collapse into CLI equivalents: `apt` + Mise replace Nix-Darwin/Homebrew, tmux + Sesh do the windowing/launching, and the terminal and keyboard remapping stay on the Mac client.
+Headless, so the desktop categories above collapse into CLI equivalents: the terminal and keyboard remapping stay on the Mac client, tmux + Sesh do the windowing/launching, and the CLI core is the **same Nix toolchain as the Mac**.
 
-- **System & Packages**: [apt](https://wiki.debian.org/apt) base + [Mise](https://mise.jdx.dev/) (ubi/aqua/cargo/npm backends) - no Nix; a chezmoi-run bootstrap provisions the toolchain
+- **System & Packages**: [Nix](https://nixos.org/) via [home-manager](https://github.com/nix-community/home-manager) provides the CLI toolchain from the same `flake.lock` as the Mac (home-manager is the Linux analog to nix-darwin); [apt](https://wiki.debian.org/apt) supplies the thin base (build tools, monitoring, source-built tmux); [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
 - **Networking**: [Tailscale](https://tailscale.com/) mesh (the only way in - no public SSH), [Mosh](https://mosh.org/) for roaming attach
 - **Secrets Management**: scoped tokens in `~/.zsh_gnohj_env.local` (no full Bitwarden unlock on the box)
 - **Monitoring**: [sysstat](https://github.com/sysstat/sysstat) + [atop](https://www.atoptool.nl/) (file-based, near-zero RAM)
@@ -84,7 +84,7 @@ This will:
 <details>
 <summary>Click to expand bootstrap instructions</summary>
 
-The Linux counterpart to the macOS flow. There is no Nix layer on Linux, so a single script does both the system prep and the user/toolchain setup.
+The Linux counterpart to the macOS flow, and now **nix-first like the Mac**: a single script does the system prep, installs Nix + the home-manager toolchain (the same shared flake the Mac uses), then applies dotfiles.
 
 ### One command (run as root on a fresh box)
 
@@ -92,29 +92,32 @@ The Linux counterpart to the macOS flow. There is no Nix layer on Linux, so a si
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-Run it inside `tmux`/`mosh` so a dropped SSH link doesn't kill the long cargo builds. Variants:
+Run it inside `tmux`/`mosh` so a dropped SSH link doesn't kill the long Nix build. To bring Tailscale up unattended, pass an auth key:
 
 ```bash
-# custom username (default: gnohj)
-curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash -s -- myuser
-
-# bring Tailscale up unattended with an auth key
-TS_AUTHKEY=tskey-... bash -c "$(curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh)"
+TS_AUTHKEY=tskey-... curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
 This will:
 
-- **Root phase:** create the user, copy your SSH key, set passwordless sudo, harden sshd (key-only, no root login, validated with `sshd -t`), install Tailscale, wait out cloud-init.
-- **User phase:** install chezmoi + `chezmoi init --apply` → run the Linux toolchain bootstrap (mise runtimes, apt packages, sysstat/atop monitoring, agent CLIs, custom tools).
+- **Root phase:** create the `gnohj` user, copy your SSH key, set passwordless sudo, harden sshd (key-only, no root login, validated with `sshd -t`), install Tailscale, wait out cloud-init, then hand off to the user.
+- **User phase:** clone the dotfiles source → install Nix + first `home-manager switch` (the bulk CLI toolchain, from the shared flake) → `chezmoi apply` → the Linux bootstrap (apt base, sysstat/atop monitoring, mise runtimes + agent CLIs, herdr, a seeded default theme).
 
-Idempotent - safe to re-run. It prints the interactive remainder at the end.
+Idempotent - safe to re-run (a re-run also fast-forwards the source to `origin/main` first, so it always builds the latest). It ends at the root prompt (a piped bootstrap can't switch your shell); continue as the target user with the **dash**: `su - gnohj` (plain `su gnohj` strands you in `/root` with a broken env).
 
-### Remaining manual steps (interactive - can't be piped)
+### Remaining manual steps (interactive / secret-touching - can't be piped)
 
-- **Tailscale onto the tailnet:** `sudo tailscale up --ssh`, then enable MagicDNS + HTTPS in the admin console (skip if you passed `TS_AUTHKEY`).
-- **GitHub + agents:** `gh auth login`, then `claude` / `codex` / `gemini` once each for OAuth.
-- **Secrets:** put ONLY the tokens this box needs into `~/.zsh_gnohj_env.local` (auto-sourced; var names in `~/.config/bitwarden/vars.txt`). Your Bitwarden master password never touches the VPS.
-- **tmux-dash** (private repo, build from source) and **agent-tmux-web** (audit the pinned SHA first).
+Run these as the target user (`su - gnohj`):
+
+1. **`gh auth login`** - the one thing that can't be automated. It unlocks the private provisioning repo and registers the SSH key its private clones need.
+2. **Clone + run the private `post-provision.sh`** - it scripts the rest (AI OAuth, scoped secrets, atuin, Tailscale, repos, tmux-dash, agents, tpm), idempotent, pausing only where a human is genuinely needed:
+
+   ```bash
+   git clone git@github.com:gnohj/vps-linux-provision.git ~/Developer/vps-linux-provision
+   ~/Developer/vps-linux-provision/post-provision.sh
+   ```
+
+3. **agent-tmux-web** - deliberately NOT in the script (phone-PWA code-exec surface). Needs Tailscale up; audit `src/server/{index,tmux}.ts` before trusting a SHA, then `install-agent-tmux-web.sh`.
 
 ### Security model (differs from the Mac on purpose)
 
@@ -262,7 +265,7 @@ mas upgrade <app-id>
 <details>
 <summary>Click to expand update instructions</summary>
 
-There is no Nix, Homebrew, or App Store layer on the VPS - the update surface is `apt` + `chezmoi` + `mise`, plus the tools built from source.
+The box mirrors the Mac's update model. The one-shot is **`up`** - it runs apt full-upgrade → `nix flake update` + `home-manager switch` → mise → chezmoi → tpm, each step banner'd and failure-tolerant. There's no Homebrew or App Store layer; the surfaces below are for targeted updates.
 
 ### 1. System packages (apt)
 
@@ -275,7 +278,16 @@ sudo apt-get update && sudo apt-get upgrade -y
 sudo apt-get autoremove -y && sudo apt-get clean
 ```
 
-### 2. Chezmoi (Dotfiles Management)
+### 2. Nix (CLI toolchain, via home-manager)
+
+The bulk CLI toolchain (nvim, ripgrep, fd, lazygit, bat, delta, yazi, …) comes from the same shared flake as the Mac. `up` handles it; manually (on Linux the flake lives in the chezmoi source, since `~/.nix` is gitignored):
+
+```bash
+nix flake update --flake ~/.local/share/chezmoi/dot_nix
+home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64
+```
+
+### 3. Chezmoi (Dotfiles Management)
 
 **Apply latest dotfiles:**
 
@@ -291,7 +303,7 @@ chezmoi update
 
 Secrets on the VPS are NOT managed by `rbw`/Bitwarden - they live in `~/.zsh_gnohj_env.local` (see `MANUAL_VPS_SETUP.md`). Edit that file directly to rotate a token.
 
-### 3. Mise (Language/Environment Management)
+### 4. Mise (Language/Environment Management)
 
 Same as the Mac:
 
@@ -302,7 +314,7 @@ mise upgrade         # upgrade all to latest
 mise upgrade node    # upgrade a specific runtime
 ```
 
-### 4. Tailscale + from-source tools
+### 5. Tailscale + from-source tools
 
 **Tailscale** self-updates via its apt repo (installed by the bootstrap), so it rides along with `apt-get upgrade` above. To force it:
 
@@ -319,7 +331,7 @@ curl -fsSL https://herdr.dev/install.sh | sh
 **tmux-dash** (private repo, built with cargo):
 
 ```bash
-cd ~/tmux-dash && git pull && cargo install --path .
+cd ~/Developer/tmux-dash && git pull && cargo install --path .
 ```
 
 </details>
