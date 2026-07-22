@@ -31,12 +31,12 @@ if [ ! -f "$active_file" ]; then
   echo "Active colorscheme file not found. Creating '$active_file'."
   cp "$colorscheme_file" "$active_file"
   UPDATED=true
+elif ! diff -q "$active_file" "$colorscheme_file" >/dev/null; then
+  UPDATED=true
+elif [ ! -f "$HOME/.config/starship/starship.toml" ]; then
+  UPDATED=true # outputs missing (fresh box: shipped active matches scheme) - force a rebuild
 else
-  if ! diff -q "$active_file" "$colorscheme_file" >/dev/null; then
-    UPDATED=true
-  else
-    UPDATED=false
-  fi
+  UPDATED=false
 fi
 
 generate_ghostty_theme() {
