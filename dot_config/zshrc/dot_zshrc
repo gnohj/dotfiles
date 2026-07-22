@@ -144,10 +144,17 @@ update() {
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
   if command -v git >/dev/null 2>&1; then
-    for repo in "$HOME/Developer/agents" "$HOME/Developer/tmux-dash"; do
+    for repo in "$HOME/Developer/agents" "$HOME/Developer/tmux-dash" "$HOME/Developer/vps-linux-provision"; do
       name=${repo:t}
       if [ ! -d "$repo/.git" ]; then
-        print -P "%F{8}(skip $name - not cloned here)%f"
+        print -P "%F{cyan}==> cloning $name%f"
+        if command -v gh >/dev/null 2>&1; then
+          gh repo clone "gnohj/$name" "$repo" ||
+            { print -P "%F{red}   $name clone failed (private repo - needs gh auth)%f"; fails=$((fails + 1)); }
+        else
+          git clone "git@github.com:gnohj/$name.git" "$repo" ||
+            { print -P "%F{red}   $name clone failed%f"; fails=$((fails + 1)); }
+        fi
         continue
       fi
       print -P "%F{cyan}==> git pull: $name%f"
