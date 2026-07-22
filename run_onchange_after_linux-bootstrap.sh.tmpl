@@ -182,23 +182,7 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
     || echo "   (skip aic — after 'gh auth login', run: mise run setup-global-tools)"
 fi
 
-# 10. Colorscheme seed — generate starship.toml / active-colorscheme.sh / bat cache
-#     on a fresh box so the prompt + sesh picker match the Mac instead of falling
-#     back to starship's built-in default. Guard on starship.toml (the actual prompt
-#     config), not active-colorscheme.sh: a prior partial crash leaves the latter but
-#     not the former, and guarding on it would skip the reseed forever. A real `theme`
-#     switch writes starship.toml too, so this still won't clobber a chosen theme.
-#     colorscheme-set.sh is OS-aware (guards its macOS-only GUI reloads), safe headless.
-CS_SET="$HOME/.config/zshrc/colorscheme-set.sh"
-if [ ! -f "$HOME/.config/starship/starship.toml" ] && [ -x "$CS_SET" ]; then
-  echo "==> seeding default colorscheme (evergarden-winter-mute) -> prompt + theme files"
-  if seed_out="$("$CS_SET" evergarden-winter-mute-colors.sh 2>&1)"; then
-    echo "    colorscheme seed OK -> ~/.config/starship/starship.toml written"
-  else
-    echo "    colorscheme seed FAILED (set by hand later: colorscheme-set.sh evergarden-winter-mute-colors.sh):"
-    printf '%s\n' "$seed_out" | sed 's/^/      /'
-  fi
-fi
+# Colorscheme seed lives in run_once_after_seed-default-theme.sh, not duplicated here.
 
 echo "==> bootstrap done."
 echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker aic"
