@@ -92,39 +92,7 @@ The Linux counterpart to the macOS flow, and now **nix-first like the Mac**: a s
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-Run it inside `tmux`/`mosh` so a dropped SSH link doesn't kill the long Nix build. To bring Tailscale up unattended, pass an auth key:
-
-```bash
-TS_AUTHKEY=tskey-... curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
-```
-
-This will:
-
-- **Root phase:** create the `gnohj` user, copy your SSH key, set passwordless sudo, harden sshd (key-only, no root login, validated with `sshd -t`), install Tailscale, wait out cloud-init, then hand off to the user.
-- **User phase:** clone the dotfiles source → install Nix + first `home-manager switch` (the bulk CLI toolchain, from the shared flake) → `chezmoi apply` → the Linux bootstrap (apt base, sysstat/atop monitoring, mise runtimes + agent CLIs, herdr, a seeded default theme).
-
-Idempotent - safe to re-run (a re-run also fast-forwards the source to `origin/main` first, so it always builds the latest). It ends at the root prompt (a piped bootstrap can't switch your shell); continue as the target user with the **dash**: `su - gnohj` (plain `su gnohj` strands you in `/root` with a broken env).
-
-### Remaining manual steps (interactive / secret-touching - can't be piped)
-
-Run these as the target user (`su - gnohj`):
-
-1. **`gh auth login`** - the one thing that can't be automated. It unlocks the private provisioning repo and registers the SSH key its private clones need.
-2. **Clone + run the private `post-provision.sh`** - it scripts the rest (AI OAuth, scoped secrets, atuin, Tailscale, repos, tmux-dash, agents, tpm), idempotent, pausing only where a human is genuinely needed:
-
-   ```bash
-   git clone git@github.com:gnohj/vps-linux-provision.git ~/Developer/vps-linux-provision
-   ~/Developer/vps-linux-provision/post-provision.sh
-   ```
-
-3. **agent-tmux-web** - deliberately NOT in the script (phone-PWA code-exec surface). Needs Tailscale up; audit `src/server/{index,tmux}.ts` before trusting a SHA, then `install-agent-tmux-web.sh`.
-
-### Security model (differs from the Mac on purpose)
-
-- **No SSH identity key on the box.** Use agent forwarding (`ForwardAgent yes` in the `dev-box` SSH block) + `gh auth login` - your primary `~/.ssh/id_ed25519` never lands on a cloud machine.
-- **No full Bitwarden unlock on the box.** Only the minimum scoped tokens go into `~/.zsh_gnohj_env.local`; a box compromise costs a token rotation, not your whole vault.
-
-Full detail, hardening, and the agent-tmux-web audit steps: **`MANUAL_VPS_SETUP.md`**.
+Run it inside `tmux`/`mosh` so a dropped link doesn't kill the long build. It hands off to the target user; the post-provision steps (secrets, OAuth, Tailscale, agents, repos) are driven separately, outside this public repo.
 
 </details>
 
