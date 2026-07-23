@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 17   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 18   (bump to force a re-run on `chezmoi apply`)
 #
 # System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
 # tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
@@ -127,10 +127,17 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
 fi
 
-# 4c. tmux now comes from Nix (home-manager), pinned to the Mac's exact version via
-#     flake.lock. The old apt-3.4 + from-source-3.6b build is gone: home-manager runs
-#     BEFORE this bootstrap (see linux-vps-setup.sh), so ~/.nix-profile/bin/tmux is
-#     already the right version on PATH here — and with apt tmux gone, nothing shadows it.
+# 4c. tmux comes from Nix (home-manager), pinned to the Mac's exact version via
+#     flake.lock. apt's /usr/bin/tmux (3.4) can't be removed (ubuntu-server + byobu
+#     depend on it) so it lingers, and a 3.4 client against the 3.7b server dies
+#     ("server exited unexpectedly", and it can crash the whole server). Interactive
+#     shells resolve the Nix tmux fine, but the tmux run-shell binds (sesh-switcher,
+#     yazi-launch, open-tmux-attach, ...) run in a bare PATH where /usr/bin can win.
+#     Shim it: ~/.local/bin/tmux -> the Nix tmux. Every bind already puts ~/.local/bin
+#     ahead of /usr/bin, so the shim beats apt everywhere with one symlink.
+if [ -x "$HOME/.nix-profile/bin/tmux" ]; then
+  ln -sf "$HOME/.nix-profile/bin/tmux" "$HOME/.local/bin/tmux"
+fi
 
 # 5. Tailscale — private mesh the PWA + laptop reach this box over. Installs binary +
 #    daemon only; `tailscale up`/`serve` are interactive one-time steps (see NEXT below).
