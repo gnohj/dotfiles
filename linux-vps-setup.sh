@@ -237,6 +237,7 @@ MANUAL_VPS_SETUP.md. Run these AS the target user (su - <user> or ssh <user>@<bo
       the SSH key with a hostname title instead.):
         unset GITHUB_TOKEN                       # bootstrap forwarded it
         gh auth login -h github.com -w
+        chezmoi apply ~/.config/git/config       # gh setup-git rewrites the helper to gh's abs nix path; re-apply restores the portable !gh template (no drift)
 
   [2] Clone + run the private post-provision.sh — it scripts everything else
       (ssh-key · ai OAuth · secrets · atuin · tailscale · repos · tmux-dash · agents · tpm),
