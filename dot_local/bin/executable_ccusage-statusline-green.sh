@@ -37,3 +37,7 @@ green_sgr="${e}[38;2;${r};${g};${b}m"
 out="$(ccusage statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
 
 [ -n "$out" ] && printf '%s%s%s[0m' "${green_sgr}" "$out" "${e}"
+
+# Second line: pre-rendered plan-usage segment; cat-only render (no keychain/curl/subshell) so it can't block or blank the line, refreshed out of band by the claude-usage-limits agent.
+seg="$HOME/.cache/claude-usage/segment"
+[ -n "$out" ] && [ -s "$seg" ] && { printf '\n'; cat "$seg"; }
