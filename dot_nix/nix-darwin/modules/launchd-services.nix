@@ -201,6 +201,34 @@ in
       };
     };
 
+    # Claude Usage Limits — refreshes the plan-usage statusline segment (5h +
+    # weekly + weekly-fable %) shown under the ccusage line. Calls the undocumented
+    # /api/oauth/usage endpoint (rate limited ~1/hr) and writes a pre-rendered
+    # segment to ~/.cache/claude-usage/segment; the statusline wrapper only cats
+    # that file. The script self-throttles (4-min freshness + retry-after
+    # cooldown), so a 5-min interval yields live-feeling numbers with automatic
+    # backoff after a 429. Token comes from the claude-oauth-personal keychain
+    # item; needs the GUI login keychain, so RunAtLoad + interval (user session).
+    claude-usage-limits = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/claude-usage
+            ${homeDir}/.local/bin/claude-usage-limits.sh
+          ''
+        ];
+        StartInterval = 300;  # every 5 min; self-throttles + backs off on 429
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/share/mise/shims:${homeDir}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+        };
+        StandardOutPath = "${homeDir}/.logs/claude-usage/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/claude-usage/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
