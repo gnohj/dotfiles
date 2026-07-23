@@ -52,6 +52,8 @@ setup-global-tools = "mise run install-aicommit"
 auto_install = true
 experimental = true
 idiomatic_version_file_enable_tools = ["node"]
+# 0 opts out of mise 2026.7.12's new 24h minimum_release_age default (keep fast-shipping AI agents same-day; also dodges a mise fallback bug that resolved gemini-cli's `latest` to a bogus version).
+minimum_release_age = "0"
 # trusted_config_paths intentionally lives in $MISE_TRUSTED_CONFIG_PATHS (~/.zshenv),
 # NOT here. mise honors trusted_config_paths ONLY from the GLOBAL config, but this
 # exact file is ALSO seen as a NON-global (local) config whenever a shell is cd'd
