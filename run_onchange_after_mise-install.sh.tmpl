@@ -34,6 +34,18 @@ else
   echo "   Finish authenticated: gh auth login && GITHUB_TOKEN=\$(gh auth token) mise install"
 fi
 
+# npm-backend tools need an explicit reshim after install to expose their binaries; on a fresh box the download alone can leave e.g. claude uncallable (mise's inline reshim silently no-ops when bare `mise` isn't yet resolvable).
+$MISE_BIN_PATH reshim
+
+# Verify the mise-exclusive AI agents are actually callable on the PATH mise exports (no nix/system binary can mask a failure here); keep this list synced with the AI agents in config.toml. A miss means the relink didn't take.
+eval "$($MISE_BIN_PATH env -s bash 2>/dev/null)"
+missing=""
+for c in claude codex gemini pi; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
+if [ -n "$missing" ]; then
+  echo "!! mise AI agents not callable after reshim:$missing"
+  echo "   repair: mise reshim  (or force a relink: mise install npm:@anthropic-ai/claude-code --force && mise reshim)"
+fi
+
 # Compile the custom bat theme into bat's cache so bat/delta don't warn "Unknown
 # theme gnohj-theme" on a fresh box (colorscheme-set.sh owns this on theme switches).
 $MISE_BIN_PATH exec -- bat cache --build >/dev/null 2>&1 || true
