@@ -26,6 +26,10 @@ export PATH="$HOME/.local/bin/herdr-scripts:$PATH"
 # the server's env comes from this login chain. Needs a herdr server restart to apply.
 export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 
+# Here, not .zshrc: the herdr server's `zsh -l -c` chain never reads .zshrc, so $EDITOR was unset and its scrollback fell back to plain vi.
+export EDITOR="nvim"
+export VISUAL="nvim"
+
 # mise: directory trees mise trusts without a per-repo `mise trust` prompt (each
 # path also trusts everything beneath it, so a parent dir acts as a wildcard).
 # Set HERE, not in mise's config.toml, on purpose: mise honors trusted_config_paths
