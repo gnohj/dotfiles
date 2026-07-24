@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Enable the herdr server systemd user unit so the server is boot-resident and no longer
+# parented to an SSH session scope. Linux/systemd only — the uname guard makes it a clean
+# no-op on macOS (where this would be a launchd job instead).
+#
+# run_onchange: the embedded unit hash makes chezmoi re-run this whenever the unit file
+# changes, so `daemon-reload` picks up edits.
+#
+# DELIBERATELY NO try-restart (unlike enable-herdr-git-status.sh.tmpl): every pane and
+# agent lives inside this unit's cgroup, so restarting it would destroy live work on any
+# `chezmoi apply` that touched the unit. Adopting a changed unit is a manual, deliberate
+# act — see the message printed below.
+#
+# unit sha256: {{ include "dot_config/systemd/user/herdr-server.service" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+
+# `enable` without --now: starting here would collide with a server already spawned by
+# autodetect (the socket is taken), and the running one owns live panes. The unit takes
+# over at the next reboot, or manually at a moment of your choosing.
+systemctl --user enable herdr-server.service
+
+if ! systemctl --user is-active --quiet herdr-server.service; then
+  echo "herdr-server.service enabled (starts at boot)."
+  echo "To adopt it now — THIS KILLS EVERY RUNNING PANE AND AGENT:"
+  echo "  herdr server stop && systemctl --user start herdr-server.service"
+fi
