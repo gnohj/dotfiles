@@ -6,7 +6,7 @@
 #
 # It reuses `sesh list -c -z --icons` verbatim, so config entries come straight from
 # sesh.toml (⚙️ gear) and recent dirs from the zoxide DB (📁 folder) — LIVE, no
-# re-authoring. On top it pins herdr's currently-OPEN workspaces (⚡), queried fresh
+# re-authoring. On top it pins herdr's OPEN workspaces (🌳/🌿/📁 glyph, else ⚡), queried fresh
 # each open. Theme matches the tmux sesh popup (dot_config/tmux/sesh-popup.sh).
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
@@ -271,10 +271,9 @@ def prio(ie):
     if en[0] == "cfg": return (1, i)                            # curated sesh.toml entries
     return (2 if sym.get(en[3], ("", 0, False))[2] else 3, i)  # real working-tree changes else rest
 
-# Render: <icon> <deco> name ❯ path ❯ symbols. icon/deco/name/path padded to fixed DISPLAY
-# widths so columns align; the wide git glyphs go last where their width cannot shift anything.
+# Render: <emoji> name ❯ path ❯ symbols — one emoji per row (label glyph else kind icon), DISPLAY-width padded so columns align.
 sep = "%s%s%s" % (dim, SEP, RESET)
-DECO_W = 3   # emoji (2 cols) + separating space
+ICON_W = 2   # one emoji, 2 display columns
 
 def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
     i = 0
@@ -286,15 +285,14 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     deco, name = split_label(label)
     icol = accent if active else dim
     ncol = (BOLD + fg) if active else fg
-    ic = "%s%s%s" % (icol, dpad(icon, 2), RESET)
-    dc = "%s%s%s" % (icol, dpad(deco, DECO_W), RESET)
+    ic = "%s%s%s" % (icol, dpad(deco or icon, ICON_W), RESET)
     # Symbols claim their width first; the name clips into what is left so status is never cut.
-    budget = NAME_W - DECO_W - (sw + 1 if sw else 0)
+    budget = NAME_W - (sw + 1 if sw else 0)
     lab = dclip(name, max(budget, 1))
-    used = DECO_W + dwidth(lab) + (sw + 1 if sw else 0)
+    used = dwidth(lab) + (sw + 1 if sw else 0)
     nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    rows.append("%s %s%s  %s  %s" % (ic, dc, nm, sep, pth) + TAB + target)
+    rows.append("%s %s  %s  %s" % (ic, nm, sep, pth) + TAB + target)
 
 print("\n".join(rows))
 '
