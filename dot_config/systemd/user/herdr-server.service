@@ -1,0 +1,35 @@
+# herdr server — anchored in its own unit instead of riding an SSH session scope.
+# chezmoi-managed (config stays in chezmoi; Nix is packages-only per home.nix).
+# Linux only: on macOS this would be a launchd job (not created).
+#
+# WHY THIS EXISTS: without it the server is spawned lazily by `herdr` autodetect as a
+# child of whatever shell attached, landing in user-1001.slice/session-<id>.scope. It
+# then survives disconnect ONLY because logind's KillUserProcesses defaults to no — an
+# unpinned distro default (upstream systemd defaults to YES). This unit moves it into
+# app.slice, where Linger=yes carries it across every logout and into boot.
+[Unit]
+Description=herdr terminal workspace server
+Documentation=https://herdr.dev/docs/configuration/
+After=default.target
+
+[Service]
+Type=simple
+# Via `zsh -l -c` on purpose. A systemd unit starts with a near-empty environment, but
+# the server needs the login chain: PATH (config.toml invokes helper scripts by BARE
+# name — herdr-sesh.sh, yazi-herdr.sh, the hack-herdr-* pair) and
+# HERDR_NAV_PASSTHROUGH_RE (read at keypress time to pass ctrl+j/k into fzf). Both are
+# exported from ~/.zshenv, which -l sources; .zshrc is interactive-only and is skipped.
+# There is no .zprofile/.zlogin, so this stays cheap. `exec` replaces zsh so systemd
+# tracks herdr's real PID rather than supervising a wrapper.
+ExecStart=/usr/bin/zsh -l -c 'exec %h/.local/bin/herdr server'
+# on-failure, NOT always: every pane and agent lives in this unit's cgroup, and a
+# deliberate `herdr server stop` or `herdr update --handoff` must be allowed to stick.
+# Restart=always would fight both, reviving a server the user just asked to go away.
+Restart=on-failure
+RestartSec=5
+# Stopping this unit tears down every agent pane with it. Give herdr room to checkpoint
+# session state (resume_agents_on_restore replays it) before SIGKILL lands.
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
