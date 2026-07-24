@@ -30,6 +30,12 @@ export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 export EDITOR="nvim"
 export VISUAL="nvim"
 
+# Same reason: ~/.zsh_gnohj_env sets these from .zshrc, so the server fell back to ~/Library/Application Support.
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_STATE_HOME="$HOME/.local/state"
+
 # mise: directory trees mise trusts without a per-repo `mise trust` prompt (each
 # path also trusts everything beneath it, so a parent dir acts as a wildcard).
 # Set HERE, not in mise's config.toml, on purpose: mise honors trusted_config_paths
