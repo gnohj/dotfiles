@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # herdr-config-reload version: 1   (bump to force a re-run on `chezmoi apply`)
 #
-# config.toml hash: {{ include "dot_config/herdr/config.toml" | sha256sum }}
+# config.toml hash: {{ includeTemplate "dot_config/herdr/config.toml.tmpl" . | sha256sum }}
 #
 # Reload the RUNNING herdr server after chezmoi rewrites config.toml. herdr reads
 # keybindings into memory ONCE at startup, so on-disk changes silently drift on the
