@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Enable the herdr focus-tracker via PATH ACTIVATION: herdr-focus-tracker.path starts
+# the .service whenever the herdr socket exists, and the daemon exits when it's gone —
+# so the tracker runs only while herdr is up, never spinning against a dead socket.
+# (We key off the socket, not herdr-server.service, since the real server is usually
+# lazy-spawned via `herdr --remote`.)
+#
+# run_onchange: the unit hashes below re-run this whenever either unit changes, so
+# daemon-reload + the migration below pick up edits. Linux/systemd only — the uname
+# guard makes it a clean no-op on macOS (launchd there).
+#
+# service sha256: {{ include "dot_config/systemd/user/herdr-focus-tracker.service" | sha256sum }}
+# path    sha256: {{ include "dot_config/systemd/user/herdr-focus-tracker.path" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+# Migrate off any prior direct .service enablement (default.target / herdr-server.wants).
+systemctl --user disable herdr-focus-tracker.service 2>/dev/null || true
+systemctl --user enable --now herdr-focus-tracker.path
+# Pick up an ExecStart/daemon change on an already-running instance.
+systemctl --user try-restart herdr-focus-tracker.service 2>/dev/null || true
