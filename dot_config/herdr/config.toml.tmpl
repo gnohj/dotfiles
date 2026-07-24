@@ -245,6 +245,12 @@ type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
 description = "pluck: copy a visible token (URL/path/SHA) via hints"
 
+[terminal]
+# Linux only: the systemd-spawned server inherits SHELL=/bin/bash; macOS needs no pin and has no /usr/bin/zsh.
+{{- if ne .chezmoi.os "darwin" }}
+default_shell = "/usr/bin/zsh"
+{{- end }}
+
 [theme]
 # Match the tokyonight scheme without needing the macOS colorscheme tooling.
 name = "terminal"

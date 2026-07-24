@@ -22,6 +22,8 @@ Type=simple
 # There is no .zprofile/.zlogin, so this stays cheap. `exec` replaces zsh so systemd
 # tracks herdr's real PID rather than supervising a wrapper.
 ExecStart=/usr/bin/zsh -l -c 'exec %h/.local/bin/herdr server'
+# systemd's user env carries SHELL=/bin/bash and `zsh -l -c` won't override it; herdr spawns pane shells from it.
+Environment=SHELL=/usr/bin/zsh
 # on-failure, NOT always: every pane and agent lives in this unit's cgroup, and a
 # deliberate `herdr server stop` or `herdr update --handoff` must be allowed to stick.
 # Restart=always would fight both, reviving a server the user just asked to go away.
