@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Set up repos as a bare-repo + worktree layout under ~/Developer (.bare + `gitdir: .bare` + a primary worktree), so treekanga/worktree-list/wtsync/dev-window work on a fresh box.
+# Idempotent: skips repos already bare, never clobbers a plain clone. Reads a PRIVATE manifest kept out of the public repo: ~/.config/worktree-repos.local
+# Manifest line: <git-url> <dest-dir> <primary-branch>   e.g. git@github.com:org/repo.git ~/Developer/repo main
+set -uo pipefail
+
+MANIFEST="${WORKTREE_REPOS_FILE:-$HOME/.config/worktree-repos.local}"
+
+if [ ! -f "$MANIFEST" ]; then
+  echo "No worktree manifest at $MANIFEST — nothing to set up."
+  echo "Create it (private, gitignored) with lines: <git-url> <dest-dir> <primary-branch>"
+  exit 0
+fi
+
+setup_one() {
+  local url="$1" dest primary="$3"
+  dest="${2/#\~/$HOME}"
+  if [ -d "$dest/.bare" ]; then
+    echo "✓ already bare-worktree: $dest"
+    return 0
+  fi
+  if [ -e "$dest" ]; then
+    echo "!! $dest exists but is not a bare-worktree layout — leaving as-is; remove it manually to convert." >&2
+    return 1
+  fi
+  echo "→ $dest: bare clone of $url"
+  mkdir -p "$dest"
+  if ! git clone --bare "$url" "$dest/.bare"; then
+    echo "!! clone failed for $url (SSH access to the org?)" >&2
+    rmdir "$dest" 2>/dev/null || true
+    return 1
+  fi
+  printf 'gitdir: .bare\n' >"$dest/.git"
+  git -C "$dest" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  git -C "$dest" fetch origin
+  git -C "$dest" worktree add "$primary" "$primary"
+  git -C "$dest" worktree add -b "_$primary" review "$primary"
+  echo "✓ $dest ready (worktrees: $primary, review→_$primary)"
+}
+
+rc=0
+while IFS= read -r line; do
+  case "$line" in '' | \#*) continue ;; esac
+  # shellcheck disable=SC2086
+  set -- $line
+  [ "$#" -ge 3 ] || {
+    echo "!! bad manifest line (need <url> <dest> <branch>): $line" >&2
+    rc=1
+    continue
+  }
+  setup_one "$1" "$2" "$3" || rc=1
+done <"$MANIFEST"
+exit "$rc"

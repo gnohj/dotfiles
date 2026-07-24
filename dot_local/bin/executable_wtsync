@@ -27,7 +27,8 @@ export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
 # LC_ALL=C so `sort` and `comm` agree on byte-order collation on both macOS
 # (BSD) and Linux (GNU) — a locale mismatch between the two would make comm
 # mis-detect which paths are new.
+# Candidates: every git worktree + ~/Developer and its immediate subdirs (so `z web`/`z agents`/`z dev` work on a fresh box before any worktree exists).
 new=$(LC_ALL=C comm -23 \
-  <(worktree-list 2>/dev/null | cut -f2 | LC_ALL=C sort -u) \
+  <( { worktree-list 2>/dev/null | cut -f2; find -L "$HOME/Developer" -maxdepth 1 -type d 2>/dev/null; } | LC_ALL=C sort -u) \
   <(zoxide query -l 2>/dev/null | LC_ALL=C sort -u))
 [ -n "$new" ] && printf '%s\n' "$new" | tr '\n' '\0' | xargs -0 zoxide add
