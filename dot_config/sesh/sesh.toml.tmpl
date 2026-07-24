@@ -1,3 +1,4 @@
+{{- /* One OS-split file, not a second sesh-vps.toml: sesh reads only ~/.config/sesh/sesh.toml unless every caller passes -C. */ -}}
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
 startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
@@ -6,12 +7,12 @@ startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
 name = "home"
 path = "~/"
 startup_command = "c"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "bin"
 path = "~/_bin"
 startup_command = "ls"
-
+{{ end }}
 [[session]]
 name = "config"
 path = "~/.config"
@@ -30,7 +31,7 @@ startup_command = "git status"
 name = "developer"
 path = "~/Developer"
 startup_command = "ls"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "downloads"
 path = "~/Downloads"
@@ -45,7 +46,7 @@ startup_command = "ls"
 name = "inferno/bare"
 path = "~/Developer/inferno/"
 startup_command = "treekanga tui"
-
+{{ end }}
 [[session]]
 name = "inferno/develop"
 path = "~/Developer/inferno/develop"
@@ -53,18 +54,20 @@ path = "~/Developer/inferno/develop"
 [[session]]
 name = "inferno/review"
 path = "~/Developer/inferno/review"
+{{- if eq .chezmoi.os "darwin" }}
 startup_command = "ghd"
-
+{{- end }}
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "second_brain"
 path = "~/Developer/second-brain"
 startup_command = "n"
-
+{{ end }}
 [[session]]
 name = "second_brain_work"
 path = "~/Developer/second-brain-work"
 startup_command = "n"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "glove80"
 path = "~/Developer/glove80"
@@ -81,7 +84,7 @@ path = "~/Developer/toucan-corne42"
 name = "web/bare"
 path = "~/Developer/web/"
 startup_command = "treekanga tui"
-
+{{ end }}
 [[session]]
 name = "web/master"
 path = "~/Developer/web/master"
@@ -89,19 +92,21 @@ path = "~/Developer/web/master"
 [[session]]
 name = "web/review"
 path = "~/Developer/web/review"
+{{- if eq .chezmoi.os "darwin" }}
 startup_command = "ghd"
+{{- end }}
 
 [[session]]
 name = "yazi"
 path = "~/."
 startup_command = "y"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "radioctl"
 path = "~/."
 startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
-
+{{ end }}
 [[session]]
 name = "radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
@@ -129,7 +134,7 @@ path = "~/.pi/agent"
 [[session]]
 name = "opencode"
 path = "~/.config/opencode"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "gnohj-monorepo"
 path = "~/Developer/gnohj-monorepo"
@@ -141,11 +146,11 @@ path = "~/Developer/feed"
 [[session]]
 name = "GhosttyFetch"
 path = "~/Developer/GhosttyFetch"
-
+{{ end }}
 [[session]]
 name = "tmux-dash"
 path = "~/Developer/tmux-dash"
-
+{{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "actions"
 path = "~/Developer/actions"
@@ -153,10 +158,14 @@ path = "~/Developer/actions"
 [[session]]
 name = "sre-iam-management"
 path = "~/Developer/sre-iam-management"
-
+{{ else }}
+[[session]]
+name = "vps-linux-provision"
+path = "~/Developer/vps-linux-provision"
+startup_command = "git status"
+{{ end }}
 [[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
 startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
-
