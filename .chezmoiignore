@@ -97,4 +97,13 @@ Library/
 # Slim non-Nix toolchain bootstrap — only runs on a Linux VPS. .chezmoiignore
 # matches the TARGET name (source run_onchange_after_linux-bootstrap.sh.tmpl).
 linux-bootstrap.sh
+
+# herdr systemd user services + .path activation units — Linux/systemd only (macOS
+# would be launchd jobs). The enable scripts (run_onchange_after_enable-herdr-*.sh.tmpl)
+# self-guard on uname, so only the unit files need skipping here.
+.config/systemd/user/herdr-git-status.service
+.config/systemd/user/herdr-git-status.path
+.config/systemd/user/herdr-focus-tracker.service
+.config/systemd/user/herdr-focus-tracker.path
+.config/systemd/user/herdr-server.service
 {{- end }}

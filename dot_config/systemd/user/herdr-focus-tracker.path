@@ -1,0 +1,15 @@
+# Path activation for the herdr focus-tracker: run it only while the herdr socket
+# exists. When the socket appears (herdr server up), systemd starts
+# herdr-focus-tracker.service; the daemon exits when the socket disappears, and this
+# unit restarts it the next time the socket reappears. This is the Linux counterpart
+# of the macOS launchd `KeepAlive.PathState` on the same socket. Keying off the socket
+# (not herdr-server.service) is deliberate — the server is usually lazy-spawned, so
+# that unit isn't a reliable anchor.
+[Unit]
+Description=Run herdr-focus-tracker only while the herdr socket exists
+
+[Path]
+PathExists=%h/.config/herdr/herdr.sock
+
+[Install]
+WantedBy=default.target

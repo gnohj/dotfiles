@@ -1,0 +1,22 @@
+# herdr focus-tracker — event-driven MRU state for ctrl+b (last pane in tab),
+# ctrl+space (last tab in workspace) and ctrl+enter (last workspace). chezmoi-managed
+# (config stays in chezmoi; Nix is packages-only per home.nix). Linux only: on macOS
+# this is a launchd agent (dot_nix/nix-darwin/modules/launchd-services.nix).
+#
+# Path-activated: herdr-focus-tracker.path starts this when the herdr socket exists,
+# and the daemon exits when the socket disappears — so it runs ONLY while herdr is up.
+# We key off the socket, NOT herdr-server.service: the real server is usually lazy-
+# spawned (attaching `herdr --remote` from the Mac), so that unit sits failing
+# "already running" and can't be a lifecycle anchor. The socket is the true signal.
+# Stdlib-only Python via /usr/bin/python3 → no PATH/mise setup needed.
+[Unit]
+Description=herdr focus-tracker (MRU state for last-pane / last-tab / last-workspace jumps)
+Documentation=https://herdr.dev/docs/configuration/
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/bin/herdr-scripts/herdr-focus-tracker.py
+# on-failure only: a clean exit(0) means the socket vanished (herdr down) — stay stopped
+# and let the .path unit restart us when it returns. Restart just covers an actual crash.
+Restart=on-failure
+RestartSec=5

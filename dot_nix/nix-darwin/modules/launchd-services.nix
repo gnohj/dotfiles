@@ -229,6 +229,45 @@ in
       };
     };
 
+    # herdr focus-tracker — event-driven MRU state for ctrl+space (last tab) and
+    # ctrl+enter (last workspace). herdr has no native last_tab/last_workspace and its
+    # snapshot carries no focus history, but its socket streams focus events; this
+    # daemon subscribes and writes the jump targets the ctrl+space/ctrl+enter wrappers
+    # read. It BLOCKS on the socket (no polling) so it must run wherever the herdr
+    # SERVER runs — this is the Mac-local counterpart to the Linux systemd unit
+    # (dot_config/systemd/user/herdr-focus-tracker.service), so it works when herdr
+    # runs locally on the Mac, not only under `herdr --remote` (VPS server). Stdlib-only
+    # Python via /usr/bin/python3 → no PATH/mise dependency. KeepAlive revives it if
+    # herdr restarts and the socket drops (the daemon also self-reconnects).
+    herdr-focus-tracker = {
+      serviceConfig = {
+        # bash -c + exec: launchd doesn't create StandardOut/ErrPath parent dirs, so
+        # mkdir -p first; exec replaces bash with python so KeepAlive supervises the
+        # daemon itself, not a bash parent.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/herdr-focus-tracker
+            exec /usr/bin/python3 ${homeDir}/.local/bin/herdr-scripts/herdr-focus-tracker.py
+          ''
+        ];
+        # Lifecycle-bound to the herdr server via the socket file (launchd's analog of
+        # the Linux unit's BindsTo=herdr-server.service): launchd runs the agent only
+        # while the socket exists, and stops it when herdr goes away — so it never spins
+        # against a dead socket. Same path the daemon itself defaults to; if herdr's
+        # socket lives elsewhere on this Mac, update both.
+        KeepAlive = {
+          PathState = {
+            "${homeDir}/.config/herdr/herdr.sock" = true;
+          };
+        };
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/herdr-focus-tracker/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/herdr-focus-tracker/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
