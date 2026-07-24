@@ -112,12 +112,12 @@ keybind = shift+enter=text:\n
 
 # hijack key events before encoding (ghosty cant encode modern keys, so it swallows/clobbers)
 keybind = ctrl+backquote=text:\x01p
-keybind = ctrl+tab=text:\x01n
+keybind = ctrl+tab=text:\x01o
 keybind = ctrl+space=text:\x01\x20
 keybind = ctrl+enter=text:\x01L
 keybind = ctrl+period=text:\x01g
 keybind = ctrl+semicolon=text:\x01\x2c
-keybind = ctrl+comma=text:\x01a
+keybind = ctrl+comma=text:\x01i
 keybind = ctrl+apostrophe=text:\x01\x27
 keybind = ctrl+slash=text:\x01\x2f
 # ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding
