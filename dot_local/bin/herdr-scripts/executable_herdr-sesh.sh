@@ -264,16 +264,15 @@ for p in paths:
     hit = cache.get(p)
     if hit: sym[p] = (hit[1], hit[2], hit[3] if len(hit) > 3 else False)
 
-# Sort: active workspaces first, then repos with REAL changes, then the rest. A stash-only repo
-# does NOT count as changed (has_changes strips the stash bucket), so it stays in the base group.
+# Sort: active, sesh.toml config, repos with REAL changes (stash-only is not one), rest — fzf tiebreaks on this input index.
 def prio(ie):
     i, en = ie
     if en[5]: return (0, i)                                     # active
-    return (1 if sym.get(en[3], ("", 0, False))[2] else 2, i)  # real working-tree changes else rest
+    if en[0] == "cfg": return (1, i)                            # curated sesh.toml entries
+    return (2 if sym.get(en[3], ("", 0, False))[2] else 3, i)  # real working-tree changes else rest
 
 # Render: <icon> <deco> name ❯ path ❯ symbols. icon/deco/name/path padded to fixed DISPLAY
 # widths so columns align; the wide git glyphs go last where their width cannot shift anything.
-# A leading label emoji sits in its own deco cell, never inline: --tiebreak=begin ranks by RUNE offset, and a wide emoji is 1 rune vs the 2 of an idle blank cell, so the ⚡ row matches earliest and wins.
 sep = "%s%s%s" % (dim, SEP, RESET)
 DECO_W = 3   # emoji (2 cols) + separating space
 
@@ -354,9 +353,9 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0
 
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
 while true; do
-  # tiebreak=begin, not --no-sort: every row carries ~/Developer in its path column, so an unranked list left a typed name buried under the pinned rows. Empty query still preserves build_list order, so the ⚡ pinning is intact on open.
+  # Sorted (not --no-sort: every row carries ~/Developer in its path column, so an unranked list left a typed name buried under the pinned rows), tiebreak=index (NOT begin): fzf already scores a name-column hit above a path hit (whitespace boundary beats a "/" one), and begin ranked by RUNE offset instead, where a 2-rune ⚙️ lost to a 1-rune 📁 and every config entry sank below its zoxide twins. index falls back to build_list order, so ⚡ active then ⚙️ config win their ties. Empty query keeps that order too.
   OUT=$(build_list | fzf \
-    --no-border --ansi --layout=reverse --list-border --tiebreak=begin \
+    --no-border --ansi --layout=reverse --list-border --tiebreak=index \
     --prompt '⚡ ' --gutter=' ' --color "$color_string" \
     --input-border --header-border \
     --delimiter='\t' --with-nth=1 \
