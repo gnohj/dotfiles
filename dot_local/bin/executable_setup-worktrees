@@ -23,18 +23,20 @@ setup_one() {
     echo "!! $dest exists but is not a bare-worktree layout — leaving as-is; remove it manually to convert." >&2
     return 1
   fi
-  echo "→ $dest: bare clone of $url"
+  echo "→ $dest: bare setup of $url"
   mkdir -p "$dest"
-  if ! git clone --bare "$url" "$dest/.bare"; then
-    echo "!! clone failed for $url (SSH access to the org?)" >&2
-    rmdir "$dest" 2>/dev/null || true
+  git init --bare -q "$dest/.bare"
+  printf 'gitdir: .bare\n' >"$dest/.git"
+  git -C "$dest" remote add origin "$url"
+  git -C "$dest" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  # init+fetch (not `clone --bare`) so every remote branch lands only as origin/*; local heads stay just the worktree branches ($primary + _$primary).
+  if ! git -C "$dest" fetch -q origin; then
+    echo "!! fetch failed for $url (SSH access to the org?)" >&2
+    rm -rf "$dest"
     return 1
   fi
-  printf 'gitdir: .bare\n' >"$dest/.git"
-  git -C "$dest" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-  git -C "$dest" fetch origin
-  git -C "$dest" worktree add "$primary" "$primary"
-  git -C "$dest" worktree add -b "_$primary" review "$primary"
+  git -C "$dest" worktree add -q "$primary" "$primary"
+  git -C "$dest" worktree add -q -b "_$primary" review "$primary"
   echo "✓ $dest ready (worktrees: $primary, review→_$primary)"
 }
 
