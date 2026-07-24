@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
-# herdr-next-priority-agent.sh — jump to the next agent that needs you, in priority
-# order (blocked/needs-input first, then done), cycling through them on repeat. herdr's
-# native next_agent walks ALL agents (including working/idle); this narrows to the ones
-# actually demanding attention. Bound to ctrl+; (mirrors the tmux-dash-next-input jump).
+# herdr-next-priority-agent.sh — jump/cycle to the next BLOCKED agent (one needing input).
+# Bound to ctrl+;. herdr's native next_agent walks ALL agents (working/idle too); this
+# narrows to just the blocked ones and cycles through them on repeat.
 #
-# Reads `herdr agent list` (JSON), builds the priority queue (blocked then done), and
-# focuses the entry AFTER the currently-focused one (cyclic) — or the first entry if
-# focus isn't on a priority agent. herdr's status enum is idle|working|blocked|done
-# (per `agent wait --status`); "blocked" is the needs-input state. Pure CLI, so it runs
-# server-side and is remote-safe.
+# BLOCKED-ONLY on purpose: herdr has no "done" CLI status. Source (src/ui/sidebar.rs) shows
+# "done" is a sidebar-only label = (Idle, seen=false), and the `seen` flag is NOT exposed by
+# `herdr agent list` / `api snapshot`. So the only attention state a script can target is the
+# real enum value "blocked". (For done/idle coverage, use native next_agent on prefix+a.)
+#
+# Reads `herdr agent list` (JSON), cycles to the blocked agent AFTER the focused one, and —
+# instead of silently jumping to itself or doing nothing — NOTIFIES when you're already on the
+# only blocked agent, or when none are blocked. Pure CLI → server-side, remote-safe.
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 
-target=$("$herdr" agent list 2>/dev/null | jq -r '
+result=$("$herdr" agent list 2>/dev/null | jq -r '
   (.result.agents // .result // []) as $a
-  | ([ $a[] | select(.agent_status == "blocked") ]
-     + [ $a[] | select(.agent_status == "done") ]) as $q
+  | [ $a[] | select(.agent_status == "blocked") ] as $q
   | ($q | length) as $n
-  | if $n == 0 then empty
+  | ([ $a[] | select(.focused == true) | .pane_id ][0] // "") as $cur
+  | if $n == 0 then "NONE"
     else
-      (([ $q | to_entries[] | select(.value.focused == true) | .key ] | first) // -1) as $i
-      | $q[ (($i + 1) % $n) ].pane_id
+      (([ $q | to_entries[] | select(.value.focused == true) | .key ][0]) // -1) as $i
+      | ($q[ (($i + 1) % $n) ].pane_id) as $t
+      | (if $t == $cur then "SELF" else $t end)
     end
 ')
 
-[ -n "$target" ] || exit 0
-exec "$herdr" agent focus "$target" >/dev/null 2>&1
+case "$result" in
+  NONE) exec "$herdr" notification show "No blocked agents" --body "nothing needs input right now" >/dev/null 2>&1 ;;
+  SELF) exec "$herdr" notification show "Only blocked agent" --body "you're already on the one that needs input" >/dev/null 2>&1 ;;
+  "")   exit 0 ;;
+  *)    exec "$herdr" agent focus "$result" >/dev/null 2>&1 ;;
+esac
