@@ -12,11 +12,22 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
+# `git worktree add <path> <branch>` DWIMs the local head from origin/* but writes no tracking config, so lazygit's fast-forward and a bare `git pull` both fail with "no upstream". Runs on every invocation, so it also repairs heads added later by treekanga or an agent.
+ensure_upstreams() {
+  local dest="$1" branch
+  while IFS= read -r branch; do
+    git -C "$dest" rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null || continue
+    git -C "$dest" rev-parse --abbrev-ref "$branch@{upstream}" >/dev/null 2>&1 && continue
+    git -C "$dest" branch -q --set-upstream-to="origin/$branch" "$branch" && echo "  ↳ upstream: $branch → origin/$branch"
+  done < <(git -C "$dest" for-each-ref --format='%(refname:short)' refs/heads)
+}
+
 setup_one() {
   local url="$1" dest primary="$3"
   dest="${2/#\~/$HOME}"
   if [ -d "$dest/.bare" ]; then
     echo "✓ already bare-worktree: $dest"
+    ensure_upstreams "$dest"
     return 0
   fi
   if [ -e "$dest" ]; then
@@ -37,6 +48,7 @@ setup_one() {
   fi
   git -C "$dest" worktree add -q "$primary" "$primary"
   git -C "$dest" worktree add -q -b "_$primary" review "$primary"
+  ensure_upstreams "$dest"
   echo "✓ $dest ready (worktrees: $primary, review→_$primary)"
 }
 
