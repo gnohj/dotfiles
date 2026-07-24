@@ -23,7 +23,8 @@ _evalcache() {
   local cache="$ZDOTDIR/.zsh_cache/$name.zsh"
   shift
   [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache"
-  if [[ ! -s "$cache" || "$(which $1)" -nt "$cache" ]]; then
+  # ~/.zshenv too: `mise activate` bakes the live PATH in, so a PATH edit there must bust this cache.
+  if [[ ! -s "$cache" || "$(which $1)" -nt "$cache" || "$HOME/.zshenv" -nt "$cache" ]]; then
     "$@" > "$cache" 2>/dev/null
   fi
   [[ -s "$cache" ]] && source "$cache"
