@@ -271,20 +271,31 @@ def prio(ie):
     if en[5]: return (0, i)                                     # active
     return (1 if sym.get(en[3], ("", 0, False))[2] else 2, i)  # real working-tree changes else rest
 
-# Render: <icon> name ❯ path ❯ symbols. icon/name/path padded to fixed DISPLAY widths so
-# columns align; the wide git glyphs go last where their width cannot shift anything.
+# Render: <icon> <deco> name ❯ path ❯ symbols. icon/deco/name/path padded to fixed DISPLAY
+# widths so columns align; the wide git glyphs go last where their width cannot shift anything.
+# A leading label emoji sits in its own deco cell, never inline: --tiebreak=begin ranks by RUNE offset, and a wide emoji is 1 rune vs the 2 of an idle blank cell, so the ⚡ row matches earliest and wins.
 sep = "%s%s%s" % (dim, SEP, RESET)
+DECO_W = 3   # emoji (2 cols) + separating space
+
+def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
+    i = 0
+    while i < len(s) and not (s[i].isalnum() or s[i] in "._-/~"): i += 1
+    return s[:i].strip(), (s[i:] or s)
+
 for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerate(entries), key=prio)]:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
+    deco, name = split_label(label)
     icol = accent if active else dim
     ncol = (BOLD + fg) if active else fg
     ic = "%s%s%s" % (icol, dpad(icon, 2), RESET)
+    dc = "%s%s%s" % (icol, dpad(deco, DECO_W), RESET)
     # Symbols claim their width first; the name clips into what is left so status is never cut.
-    lab = dclip(label, max(NAME_W - (sw + 1), 1)) if sw else dclip(label, NAME_W)
-    used = dwidth(lab) + (sw + 1 if sw else 0)
+    budget = NAME_W - DECO_W - (sw + 1 if sw else 0)
+    lab = dclip(name, max(budget, 1))
+    used = DECO_W + dwidth(lab) + (sw + 1 if sw else 0)
     nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    rows.append("%s %s  %s  %s" % (ic, nm, sep, pth) + TAB + target)
+    rows.append("%s %s%s  %s  %s" % (ic, dc, nm, sep, pth) + TAB + target)
 
 print("\n".join(rows))
 '
