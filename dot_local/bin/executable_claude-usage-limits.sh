@@ -40,10 +40,10 @@ if [ -r "$history" ]; then
   [ "$fh" = "null" ] && fh=""
   [ "$sd" = "null" ] && sd=""
   if [ -n "$lt" ] && [ "$lt" != "null" ]; then
-    age=$(( now - lt / 1000 )); [ "$age" -lt 0 ] && age=0
-    if [ "$age" -ge 3600 ]; then updated="$(( age / 3600 ))h"
-    elif [ "$age" -ge 60 ]; then updated="$(( age / 60 ))m"
-    else updated="${age}s"; fi
+    ts=$(( lt / 1000 ))
+    clock="$(date -r "$ts" +"%I:%M%p" 2>/dev/null || date -d "@$ts" +"%I:%M%p" 2>/dev/null)"
+    zone="$(date -r "$ts" +"%Z" 2>/dev/null || date -d "@$ts" +"%Z" 2>/dev/null)"
+    updated="$(printf '%s' "${clock#0}" | tr 'APM' 'apm') $zone"
   fi
 fi
 
@@ -64,12 +64,15 @@ if [ "$need_api" = 1 ] && [ "$cooling" = 0 ]; then
       -H "Authorization: Bearer $tok" -H "anthropic-beta: oauth-2025-04-20" \
       "$endpoint" 2>/dev/null)"
     if [ "$code" = "200" ] && jq -e '.five_hour' "$tmp" >/dev/null 2>&1; then
-      mv -f "$tmp" "$apidata"; rm -f "$cooldown"
+      mv -f "$tmp" "$apidata"; rm -f "$cooldown" "$dir/failcount"
     else
       rm -f "$tmp"
       if [ "$code" = "429" ]; then
         retry="$(grep -i '^retry-after:' "$hdr" 2>/dev/null | tr -dc '0-9')"; [ -z "$retry" ] && retry=3600
-        echo $(( now + retry )) > "$cooldown"
+        n="$(cat "$dir/failcount" 2>/dev/null || echo 0)"; n=$(( n + 1 )); echo "$n" > "$dir/failcount"
+        pow=$(( n > 4 ? 3 : n - 1 )); [ "$pow" -lt 0 ] && pow=0
+        backoff=$(( retry * (1 << pow) )); [ "$backoff" -gt 43200 ] && backoff=43200
+        echo $(( now + backoff )) > "$cooldown"
       fi
     fi
     rm -f "$hdr"
@@ -104,7 +107,7 @@ fi
 seg="5h ${fh:-0}%"; [ -n "$r5h" ] && seg="$seg ⟳$r5h"
 seg="$seg · 7d ${sd:-0}%"; [ -n "$r7d" ] && seg="$seg ⟳$r7d"
 seg="$seg · fable ${fable}%"
-[ -n "$updated" ] && seg="$seg · $updated ago"
+[ -n "$updated" ] && seg="$seg · $updated"
 
 green="#a7cfbd"
 active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
