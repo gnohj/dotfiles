@@ -37,6 +37,7 @@ zig = 'latest'          # used for GhosttyFetch
 pnpm = "latest"
 "github:garrettkrohn/treekanga" = "latest"          # not in nixpkgs; brew on macOS
 "github:sst/opencode" = "latest"                   # OpenCode (linux-x64 release binary; Mac has its own installer/brew)
+"npm:hunkdiff" = { version = "latest", allow_builds = ["hunkdiff"] }   # hunk: gh-dash PR review viewer (native binary; Mac gets it via brew)
 {{- end }}
 
 [tasks]
