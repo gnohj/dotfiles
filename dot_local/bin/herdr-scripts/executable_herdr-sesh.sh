@@ -64,14 +64,11 @@ rows = []
 # the ACTIVE workspace (⚡) rows — never the ~100 zoxide/config rows (running gitmux on
 # all of them would stall the picker). Degrades gracefully: no gitmux/git -> just name + path.
 #
-# Layout: ⚡ name │ path │ symbols. name + path are pure ASCII (exact width), so padding
-# them aligns the columns perfectly; the git glyphs (wide emoji + ambiguous-width nerd
-# symbols whose rendered width is terminal-dependent) go LAST, where their width can'"'"'t
-# throw off any column. Each section is clipped to a fixed DISPLAY width with "…".
+# Layout: ⚡ name+symbols │ path. Glyphs sit INLINE in the name column (name clips to NAME_W - sw - 1 so status stays visible); they are ambiguous-width, so a row measured wrong now shifts ITS path cell.
 import re as _re, subprocess, unicodedata
 GITMUX_CFG = os.path.expanduser("~/.config/gitmux/gitmux.yml")
 TMUX_CODE = _re.compile(r"(#\[[^]]*\])")
-NAME_W, PATH_W, SYM_W = 16, 40, 28  # per-section clip thresholds (columns)
+NAME_W, PATH_W, SYM_W = 38, 40, 28  # per-section clip thresholds (columns); NAME_W now holds name + inline symbols
 NAMED = {"black":30,"red":31,"green":32,"yellow":33,"blue":34,"magenta":35,"cyan":36,"white":37}
 
 def dwidth(s):
@@ -282,10 +279,12 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     icol = accent if active else dim
     ncol = (BOLD + fg) if active else fg
     ic = "%s%s%s" % (icol, dpad(icon, 2), RESET)
-    nm = "%s%s%s" % (ncol, dpad(dclip(label, NAME_W), NAME_W), RESET)
+    # Symbols claim their width first; the name clips into what is left so status is never cut.
+    lab = dclip(label, max(NAME_W - (sw + 1), 1)) if sw else dclip(label, NAME_W)
+    used = dwidth(lab) + (sw + 1 if sw else 0)
+    nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    tail = "  %s %s" % (sep, scol) if sw else ""
-    rows.append("%s %s  %s  %s%s" % (ic, nm, sep, pth, tail) + TAB + target)
+    rows.append("%s %s  %s  %s" % (ic, nm, sep, pth) + TAB + target)
 
 print("\n".join(rows))
 '
@@ -342,22 +341,51 @@ color_string="list-border:6,input-border:6,header-bg:-1,header-border:6,bg+:${gn
 command -v fzf     >/dev/null 2>&1 || { echo "fzf required";     sleep 1; exit 0; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0; }
 
-SELECTED=$(build_list | fzf \
-  --no-border --ansi --layout=reverse --list-border --no-sort \
-  --prompt '⚡ ' --gutter=' ' --color "$color_string" \
-  --input-border --header-border \
-  --delimiter='\t' --with-nth=1 \
-  --bind 'tab:down,btab:up' \
-  --bind 'ctrl-j:down,ctrl-k:up' \
-  --bind 'ctrl-b:abort' \
-  --bind "ctrl-d:execute-silent($SELF --delete {-1})+reload($SELF --list)")
+# Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
+while true; do
+  # tiebreak=begin, not --no-sort: every row carries ~/Developer in its path column, so an unranked list left a typed name buried under the pinned rows. Empty query still preserves build_list order, so the ⚡ pinning is intact on open.
+  OUT=$(build_list | fzf \
+    --no-border --ansi --layout=reverse --list-border --tiebreak=begin \
+    --prompt '⚡ ' --gutter=' ' --color "$color_string" \
+    --input-border --header-border \
+    --delimiter='\t' --with-nth=1 \
+    --expect=ctrl-w \
+    --bind 'tab:down,btab:up' \
+    --bind 'ctrl-j:down,ctrl-k:up' \
+    --bind 'ctrl-b:abort' \
+    --bind "ctrl-d:execute-silent($SELF --delete {-1})+reload($SELF --list)")
 
-[ -z "$SELECTED" ] && exit 0
+  # With --expect, line 1 is the pressed key (blank on plain enter) and line 2 the selection; on esc both come back empty.
+  KEY=$(printf '%s' "$OUT" | head -1)
+  SELECTED=$(printf '%s\n' "$OUT" | sed -n '2p')
 
-TARGET="${SELECTED##*$'\t'}"
-case "$TARGET" in
-  ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
-  cfg:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
-  zox:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
-  *)             exit 0 ;;
-esac
+  if [ "$KEY" = "ctrl-w" ]; then
+    # 🌳 worktrees scanned live from git; worktree-list emits "🌳 <name>\t<abs-path>".
+    WT=$(worktree-list | fzf \
+      --no-border --ansi --layout=reverse --list-border --tiebreak=begin \
+      --prompt '🌳 ' --gutter=' ' --color "$color_string" \
+      --input-border --header-border \
+      --delimiter='\t' --with-nth=1 \
+      --bind 'tab:down,btab:up' \
+      --bind 'ctrl-j:down,ctrl-k:up' \
+      --bind 'ctrl-b:abort')
+    if [ -n "$WT" ]; then
+      WT_PATH="${WT##*$'\t'}"
+      # Seed zoxide on entry (_ZO_DATA_DIR is exported above) so the worktree shows in the default view immediately - the chpwd hook only fires on a later cd.
+      zoxide add "$WT_PATH" 2>/dev/null
+      exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$WT_PATH"
+    fi
+    # esc in the worktree view → fall through and re-show the default picker.
+    continue
+  fi
+
+  [ -z "$SELECTED" ] && exit 0
+
+  TARGET="${SELECTED##*$'\t'}"
+  case "$TARGET" in
+    ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
+    cfg:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
+    zox:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
+    *)             exit 0 ;;
+  esac
+done
