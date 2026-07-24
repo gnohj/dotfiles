@@ -18,12 +18,9 @@ zig = 'latest'          # used for GhosttyFetch
 "npm:prettier" = "latest"
 "npm:codeburn" = "latest"
 
-# AI coding agents — mise on BOTH OSes now (were brew on macOS; codex+gemini weren't
-# installed on the Mac at all). They ship several times/week, so npm/github is the
-# same-day channel — freshness beats a pin. claude-code + codex ship a native binary
-# via postinstall, so opt npm scripts back in (mise defaults --ignore-scripts=true).
-"npm:@anthropic-ai/claude-code" = { version = "latest", npm_args = "--ignore-scripts=false" }
-"npm:@openai/codex" = { version = "latest", npm_args = "--ignore-scripts=false" }
+# AI agents on mise `latest` for same-day updates; claude-code + codex are native-binary CLIs needing allow_builds (runs the postinstall that swaps the binary in) + the npm backend (aube's node-shim can't exec a native bin; see npm.package_manager below).
+"npm:@anthropic-ai/claude-code" = { version = "latest", allow_builds = ["@anthropic-ai/claude-code"] }
+"npm:@openai/codex" = { version = "latest", allow_builds = ["@openai/codex"] }
 "npm:@google/gemini-cli" = "latest"
 "npm:@earendil-works/pi-coding-agent" = "latest"
 "github:rtk-ai/rtk" = "latest"                     # PreToolUse `rtk hook claude`; not in nixpkgs
@@ -49,6 +46,8 @@ install-aicommit = "bun add -g @kkidd/aicommit"
 setup-global-tools = "mise run install-aicommit"
 
 [settings]
+# aube (mise's default npm installer) wraps every npm bin in a `node` shim that can't exec a native-binary CLI (claude-code, codex); the npm backend makes a direct symlink instead.
+npm.package_manager = "npm"
 auto_install = true
 experimental = true
 idiomatic_version_file_enable_tools = ["node"]
