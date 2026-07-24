@@ -2345,7 +2345,13 @@ mauve = "#c2f0db"
 green = "$gnohj_color05"
 yellow = "$gnohj_color04"
 red = "$gnohj_color11"
-blue = "$gnohj_color04"
+# blue = the sidebar $git status line (herdr renders the custom git metadata token
+# in its blue token - verified via diagnostic: recoloring blue changed ONLY the git
+# signs, not names/branches/borders). Pointed at gnohj_color02 (green) so the git
+# signs read green, matching the tmux-dash git-status glyphs. The workspace NAME uses
+# subtext0 and the branch uses overlay0 (shared with borders/headers), so neither of
+# those can be recolored independently - blue is the one git-isolated token.
+blue = "$gnohj_color02"
 teal = "$gnohj_color03"
 peach = "$gnohj_color06"
 # Copy-mode (visual selection) highlight - herdr's src/selection.rs reads these

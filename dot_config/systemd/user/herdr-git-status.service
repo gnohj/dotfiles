@@ -1,0 +1,21 @@
+# herdr sidebar git-status poller — feeds the $git metadata token. chezmoi-managed
+# (config stays in chezmoi; Nix is packages-only per home.nix). Linux only: on macOS
+# this would be a launchd job (not created). The script self-exports a full PATH, so
+# systemd's minimal env still resolves herdr/gitmux/jq/python3.
+#
+# Path-activated (herdr-git-status.path): starts when the herdr socket exists; the
+# --loop guard exits when the socket disappears, so it runs ONLY while herdr is up
+# instead of polling a dead socket forever. Keyed off the socket, NOT
+# herdr-server.service (the real server is usually lazy-spawned via `herdr --remote`,
+# so that unit sits failing "already running").
+[Unit]
+Description=herdr sidebar git-status poller (feeds the $git metadata token)
+Documentation=https://herdr.dev/docs/configuration/
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/herdr-scripts/herdr-git-status.sh --loop
+# on-failure only: the loop exits(0) when the socket is gone (herdr down) — stay stopped
+# and let the .path unit restart it when the socket returns. Restart covers a crash.
+Restart=on-failure
+RestartSec=5
