@@ -12,11 +12,15 @@ onboarding = false
 # so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
 prefix = "ctrl+a"
 
-# Sequential pane walk within the tab. ASYMMETRIC on purpose:
-# ctrl+shift+tab is NOT hijacked by ghostty/kitty, so it arrives as a real shift+tab key and
-# matches prefix+shift+tab (herdr's default). ctrl+tab IS hijacked, and a raw 0x09 Tab byte is
-# indistinguishable from ctrl+i, so it can't match prefix+tab - the hijack sends `prefix o`
-# instead. prefix+o is free because open_notification_target is unbound below.
+# ctrl+tab / ctrl+shift+tab -> next / previous TAB. ghostty/kitty forward them as
+# prefix+n / prefix+p (the \x01n / \x01p sequences), which are ALSO tmux's native
+# next-window / previous-window - so one chord works in both the herdr and tmux worlds.
+# ctrl+tab can't ride a bare Tab (0x09 is indistinguishable from ctrl+i), hence the forward.
+next_tab = "prefix+n"
+previous_tab = "prefix+p"
+
+# Manual within-tab pane walk (no longer on ctrl+tab, which is now next_tab above).
+# prefix+o is free because open_notification_target is unbound below.
 cycle_pane_next = "prefix+o"
 cycle_pane_previous = "prefix+shift+tab"
 
@@ -66,6 +70,9 @@ settings = "prefix+s"
 # disables the action, freeing the key. (Dead in 0.7.3 anyway — no target.)
 # Load-bearing: cycle_pane_next now claims prefix+o.
 open_notification_target = ""
+
+# Unbound: the built-in ran `${EDITOR:-vi} <tmpfile>` opaque at line 1; the prefix+e [[keys.command]] below replaces it.
+edit_scrollback = ""
 
 # Single-chord window/tab nav (ctrl+1..9) is handled by PREFIX-EXPANSION at the
 # terminal, NOT here: ghostty/kitty translate ctrl+N into `prefix N`, so it lands
@@ -139,30 +146,46 @@ width = "70%"
 height = "70%"
 description = "sesh-style session picker"
 
-# prefix+n → new glyph-aware workspace rooted at the focused pane's cwd. herdr's
-# native new_workspace (default prefix+shift+n) labels with the bare basename and
-# skips the 🌳/🌿/📁 glyph, which lives only in herdr-sesh-layout.sh. This routes
-# through herdr-new-workspace.sh → that layout script, so a keybind-created workspace
-# reads the same as a ctrl+t-picker one (glyph + pen/robot/hammer dev layout).
-# Overrides herdr's default next_tab on prefix+n (unused here — tab nav is ctrl+1..9).
+# prefix+e/u → the ported tmux scrollback popup (isolated baleia nvim, transparent): e opens at the bottom, u on the last "^❯ " prompt with `n` walking back.
+[[keys.command]]
+key = "prefix+e"
+type = "popup"
+command = "herdr-scrollback.sh"
+width = "90%"
+height = "90%"
+description = "scrollback (bottom)"
+
+[[keys.command]]
+key = "prefix+u"
+type = "popup"
+command = "herdr-scrollback-jump.sh"
+width = "90%"
+height = "90%"
+description = "scrollback at last user prompt"
+
+# prefix+shift+n → new glyph-aware workspace rooted at the focused pane's cwd. Takes
+# herdr's native new_workspace slot (prefix+shift+n), replacing its bare-basename label
+# with the 🌳/🌿/📁 glyph via herdr-new-workspace.sh → herdr-sesh-layout.sh, so a
+# keybind-created workspace reads the same as a ctrl+t-picker one (glyph + dev layout).
+# Moved off prefix+n so that key is free for next_tab (ctrl+tab) above.
 # type="shell" runs server-side; REMOTE needs the script present + --remote-keybindings server.
 [[keys.command]]
-key = "prefix+n"
+key = "prefix+shift+n"
 type = "shell"
 command = "herdr-new-workspace.sh"
 description = "new glyphed workspace at focused cwd (dev layout)"
 
-# ctrl+, → focus the next agent that needs you, in priority order (blocked/needs-input
-# first, then done), cycling on repeat. The wrapper narrows herdr's next_agent (which
-# walks ALL agents incl. working/idle) to just the ones demanding attention. Mirrors
-# the tmux-dash next-input jump. Bound as prefix+i, NOT a direct ctrl chord: ghostty/kitty
-# hijack ctrl+, and re-emit it as `prefix i`, so herdr never sees the raw chord. prefix+a
-# was unavailable (next_agent), hence i (= "input needed").
+# ctrl+; → cycle the priority queue: agents that need you, advancing on each press
+# (blocked/needs-input first, then done). Deliberately ONLY those attention states -
+# never idle/working. The wrapper narrows herdr's next_agent (which walks every agent)
+# to just blocked+done. Bound as prefix+, because ghostty/kitty re-emit ctrl+; as
+# \x01\x2c = `prefix ,`, free now that settings is back on prefix+s. The same chord hits
+# tmux's `bind ,` (tmux-dash-next-input), so ctrl+; cycles the queue in both worlds.
 [[keys.command]]
-key = "prefix+i"
+key = "prefix+,"
 type = "shell"
 command = "herdr-next-priority-agent.sh"
-description = "focus next agent needing attention (blocked→done)"
+description = "cycle agents needing attention (blocked/input -> done)"
 
 # ctrl+space → best-effort "last tab" toggle within the current workspace. HACK: herdr
 # has no last_tab and no focus-history, so hack-herdr-last-tab.sh fakes MRU via a state
