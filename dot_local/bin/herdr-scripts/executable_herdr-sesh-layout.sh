@@ -17,19 +17,59 @@ dir="${dir/#\~/$HOME}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 [ -d "$dir" ] || { echo "not a directory: $dir"; exit 1; }
 
-# Workspace label: for a git repo/worktree use the REPO name (basename of the repo
-# root above the shared git dir) so every worktree of a repo reads as "web",
-# "inferno", "chezmoi" — herdr then shows the branch/worktree on its own second
-# sidebar line. This matches how herdr labels its native worktrees, instead of the
-# bare basename (which for web/fix/IHRWEB-… would be the long ticket slug). Non-git
-# dirs keep the basename (today's behavior). An explicit $2 always wins.
+# Workspace label: match tmux-dash's sidebar naming (its state.rs
+# session_display_name -> cwd_logical_path -> shorten_segments), so a worktree reads
+# the SAME in herdr as in tmux-dash. The name is DIRECTORY-derived, home-relative:
+#   ~/Developer/<repo>/<worktree>        -> "<repo>/<worktree>"  (web/master, web/review)
+#   ~/Developer/<repo>/<bucket>/<branch> -> "<branch>"           (bucket in fix|feat|ui|…)
+#   ~/<other>/…/<leaf>  (>=3 segments)   -> "<leaf>"
+#   anything else                        -> basename
+# herdr still shows the real git branch on its own second sidebar line, so a review
+# worktree checked out on _master reads "web/review" over "_master". Pure prefix
+# expansion (no arrays / negative indices), so it stays bash-3.2 safe on macOS.
+#
+# A type glyph is prepended to the derived name so the sidebar reads its kind at a
+# glance: 🌳 linked git worktree, 🌿 plain git repo (a branch checkout), 📁 non-git
+# dir. Detection is nesting-safe (rev-parse, not a .git probe): a linked worktree's
+# git-dir differs from the shared common-dir (e.g. web/.bare/worktrees/review vs
+# web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
 label="${2:-}"
 if [ -z "$label" ]; then
-  if command -v git >/dev/null 2>&1 && git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    common=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)
-    [ -n "$common" ] && label=$(basename "$(dirname "$common")")
-  fi
+  case "$dir" in
+    "$HOME"/Developer/*)
+      rel="${dir#"$HOME"/Developer/}"; rel="${rel%/}"
+      s1="${rel%%/*}"
+      rest="${rel#"$s1"}"; rest="${rest#/}"
+      s2="${rest%%/*}"
+      after2="${rest#"$s2"}"; after2="${after2#/}"
+      s3="${after2%%/*}"
+      case "$s2" in
+        fix|feat|ui|infra|refactor|perf|test|chore|spike|orch|work)
+          [ -n "$s3" ] && label="$s3" || label="$s1${s2:+/$s2}" ;;
+        *)
+          label="$s1${s2:+/$s2}" ;;
+      esac
+      ;;
+    "$HOME"/*)
+      rel="${dir#"$HOME"/}"; rel="${rel%/}"
+      if [ -n "$rel" ]; then
+        if [ "$(printf '%s' "$rel" | awk -F/ '{print NF}')" -ge 3 ]; then
+          label="${rel##*/}"
+        else
+          label="$rel"
+        fi
+      fi
+      ;;
+  esac
   [ -n "$label" ] || label=$(basename "$dir")
+
+  glyph="📁"
+  if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    gd=$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)
+    gcd=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)
+    if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then glyph="🌳"; else glyph="🌿"; fi
+  fi
+  label="$glyph $label"
 fi
 
 # Honor the sesh entry's startup_command. sesh runs an explicit per-session
@@ -48,6 +88,7 @@ fi
 existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" \
   '[.result.panes[] | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
 if [ -n "$existing" ]; then
+  ( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
   exec "$herdr" workspace focus "$existing" >/dev/null 2>&1
 fi
 
@@ -57,6 +98,11 @@ ws=$(printf '%s' "$out" | jq -r '.result.workspace.workspace_id // empty')
 pen=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
 tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 [ -n "$ws" ] && [ -n "$pen" ] || { echo "workspace create failed"; exit 1; }
+
+# Ensure the git-status poller is running (it feeds the sidebar `$git` token) and do
+# an immediate pass so the new workspace's working-tree signs show without waiting for
+# the next poll cycle. Detached so it never blocks this script or dies with it.
+( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
 
 # herdr tabs default their label to their own number (that's why untouched tabs
 # read "1", "2" … in the bar); a custom emoji label replaces it, dropping the

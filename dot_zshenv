@@ -11,7 +11,13 @@ export ZDOTDIR=$HOME/.config/zshrc
 # typeset -U keeps PATH duplicate-free; .zshrc re-prepends it to preserve the
 # original front-precedence for interactive shells without adding a second entry.
 typeset -U path PATH
+# nix-profile (home-manager pkgs: lazygit, yazi) - needed by the non-interactive herdr server, same reason as .local/bin below
+export PATH="$HOME/.nix-profile/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
+# herdr helper scripts live in a subfolder (can't be named `herdr` - that's the binary).
+# Still needs to be on PATH: herdr's config.toml invokes them by bare name. Needs a full
+# herdr server restart, not just reload-config, for the daemon to inherit this.
+export PATH="$HOME/.local/bin/herdr-scripts:$PATH"
 
 # vim-herdr-navigation: forward ctrl+h/j/k/l to these TUIs (matched on the lower-cased
 # foreground process) instead of moving herdr's pane focus — so ctrl+j/k navigate

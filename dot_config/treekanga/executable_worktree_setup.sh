@@ -167,7 +167,7 @@ if [ "${WORKTREE_OPEN_IN:-}" = "herdr" ] && command -v herdr &>/dev/null; then
   # dir is already open, and labels it by the inferred repo name. The signal env var
   # is set by the herdr worktree actions in launcher.sh (and threaded through the
   # worktree-runner headless flow, which otherwise strips custom env).
-  if "$HOME/.local/bin/herdr-sesh-layout.sh" "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
+  if "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
     log "✓ herdr workspace opened ($CURRENT_WORKTREE)"
   else
     log "✗ herdr-sesh-layout.sh failed"

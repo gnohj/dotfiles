@@ -13,3 +13,14 @@
 .config/sketchybar/items/widgets/orphan-click.sh
 .config/sketchybar/items/widgets/health_check_notification.sh
 .config/sketchybar/items/widgets/health_check_notification.lua
+
+# herdr helper scripts moved into .local/bin/herdr-scripts/ (the folder can't be named
+# `herdr` — that's the herdr binary). Remove the flat copies so they don't shadow.
+.local/bin/hack-herdr-last-tab.sh
+.local/bin/hack-herdr-last-workspace.sh
+.local/bin/herdr-git-status.sh
+.local/bin/herdr-new-workspace.sh
+.local/bin/herdr-next-priority-agent.sh
+.local/bin/herdr-sesh-layout.sh
+.local/bin/herdr-sesh.sh
+.local/bin/yazi-herdr.sh
