@@ -39,5 +39,8 @@ out="$(ccusage statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
 [ -n "$out" ] && printf '%s%s%s[0m' "${green_sgr}" "$out" "${e}"
 
 # Second line: pre-rendered plan-usage segment; cat-only render (no keychain/curl/subshell) so it can't block or blank the line, refreshed out of band by the claude-usage-limits agent.
-seg="$HOME/.cache/claude-usage/segment"
-[ -n "$out" ] && [ -s "$seg" ] && { printf '\n'; cat "$seg"; }
+# Personal sessions only (work has no usage API); independent of $out so an empty render can't hide it.
+acct="${CLAUDE_ACCOUNT:-}"
+[ -z "$acct" ] && case "$PWD" in */Developer/web*|*/Developer/inferno*|*/Developer/actions*|*/.treehouse/*) acct=work ;; *) acct=personal ;; esac
+seg="$HOME/.cache/claude-usage/segment-personal"
+if [ "$acct" = personal ] && [ -s "$seg" ]; then [ -n "$out" ] && printf '\n'; cat "$seg"; fi
