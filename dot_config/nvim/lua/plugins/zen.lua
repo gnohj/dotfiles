@@ -119,26 +119,59 @@ local function is_side_panel_window(win)
   return false
 end
 
--- True when this nvim is being rendered inside tmux-dash. tmux-dash sets the
--- global `@dash` user option on its server while running (and clears it on
--- exit), so any pane in that tmux server can detect the dashboard viewport and
--- skip zen centering: the sidebar already claims horizontal space, so centering
--- the editor on top of it just wastes columns.
+-- Resolve the herdr binary robustly: pane shells don't always export
+-- HERDR_BIN_PATH, and nvim's $PATH at system() time may miss the nix dir where
+-- herdr lives (same rationale as mux.lua / herdr-navigator.lua).
+local function herdr_bin()
+  local h = vim.env.HERDR_BIN_PATH
+  if h and h ~= "" then
+    return h
+  end
+  local p = vim.fn.exepath("herdr")
+  if p ~= "" then
+    return p
+  end
+  return "herdr"
+end
+
+-- True when a dashboard sidebar is claiming horizontal space, so centering the
+-- editor on top of the reduced viewport just wastes the columns next to the
+-- sidebar and zen should skip centering. Two multiplexers, two signals:
+--   tmux-dash sets the global `@dash` option on its server while running.
+--   herdr reserves a left column band for its sidebar; `api snapshot` then
+--   reports every tab layout's `area.x > 0` (x is 0 when the sidebar is hidden).
+-- herdr is checked first because it also runs inside the `th` tmux wrapper, so
+-- TMUX is set too (same herdr-wins precedence as mux.lua).
 --
--- Cached, since it's read on every width recompute. The marker only changes when
--- tmux-dash starts/stops, and attaching/detaching it resizes the client — so
--- VimResized invalidates the cache (see config()), keeping detection live.
-local tmux_dash_cache = nil
-local function in_tmux_dash()
-  if tmux_dash_cache ~= nil then
-    return tmux_dash_cache
+-- Cached, since it's read on every width recompute. Both markers only change on
+-- a viewport resize (dashboard attach/detach, herdr `prefix+shift+b` sidebar
+-- toggle), which fires VimResized — so the cache invalidates there (see
+-- config()), keeping detection live.
+local dash_sidebar_cache = nil
+local function in_dash_sidebar()
+  if dash_sidebar_cache ~= nil then
+    return dash_sidebar_cache
   end
   local result = false
-  if vim.env.TMUX and vim.env.TMUX ~= "" then
+  if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
+    local out = vim.fn.system({ herdr_bin(), "api", "snapshot" })
+    if vim.v.shell_error == 0 then
+      local ok, decoded = pcall(vim.json.decode, out)
+      local snap = ok and decoded and decoded.result and decoded.result.snapshot
+      if snap and type(snap.layouts) == "table" then
+        for _, layout in ipairs(snap.layouts) do
+          if layout.tab_id == snap.focused_tab_id and layout.area then
+            result = (layout.area.x or 0) > 0
+            break
+          end
+        end
+      end
+    end
+  elseif vim.env.TMUX and vim.env.TMUX ~= "" then
     local out = vim.fn.system({ "tmux", "show-option", "-gv", "@dash" })
     result = vim.v.shell_error == 0 and vim.trim(out) == "1"
   end
-  tmux_dash_cache = result
+  dash_sidebar_cache = result
   return result
 end
 
@@ -155,14 +188,14 @@ local ZEN_MIN_COLUMNS = 100
 local function zen_target_width()
   -- Returning the full column count makes zen.nvim's own `columns <= width` gate
   -- trip, so its built-in activation declines too (not just the manual paths).
-  if vim.o.columns <= ZEN_MIN_COLUMNS or in_tmux_dash() then
+  if vim.o.columns <= ZEN_MIN_COLUMNS or in_dash_sidebar() then
     return vim.o.columns
   end
   return math.min(ZEN_MAX_WIDTH, vim.o.columns - 8)
 end
 
 local function zen_should_activate()
-  return vim.o.columns > ZEN_MIN_COLUMNS and not in_tmux_dash()
+  return vim.o.columns > ZEN_MIN_COLUMNS and not in_dash_sidebar()
 end
 
 local original_win_separator = nil
@@ -334,15 +367,15 @@ return {
 
     local group = vim.api.nvim_create_augroup("ZenNvimFixes", { clear = true })
 
-    -- Invalidate the tmux-dash detection cache when the client resizes, since
-    -- attaching/detaching the dashboard (which sets/clears the @dash marker)
-    -- changes the viewport width and thus fires VimResized.
+    -- Invalidate the dash-sidebar detection cache when the client resizes: a
+    -- tmux-dash attach/detach (@dash marker) or a herdr sidebar toggle (area.x
+    -- shift) both change the viewport width and thus fire VimResized.
     vim.api.nvim_create_autocmd("VimResized", {
       group = group,
       callback = function()
-        tmux_dash_cache = nil
+        dash_sidebar_cache = nil
       end,
-      desc = "Re-check tmux-dash marker on resize",
+      desc = "Re-check dash-sidebar marker on resize",
     })
 
     -- PATCH 0: Style ALL zen windows aggressively
