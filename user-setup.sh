@@ -425,6 +425,12 @@ else
   print_warning "No repos-clone.txt found at $REPOS_FILE, skipping"
 fi
 
+# Bare-worktree repos (web/inferno) from the PRIVATE ~/.config/worktree-repos.local manifest (kept out of the public repo); no-ops when absent.
+if [ -x "$HOME/.local/bin/setup-worktrees" ]; then
+  print_info "› Setting up bare-worktree repos (private manifest, if present)..."
+  "$HOME/.local/bin/setup-worktrees" || print_warning "Some bare-worktree repos failed (see above)."
+fi
+
 # --- PHASE 8: INSTALL RUST TOOLS FROM SOURCE ---
 print_info "› Phase 8: Installing Rust tools from source..."
 
