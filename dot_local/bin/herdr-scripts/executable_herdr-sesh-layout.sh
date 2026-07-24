@@ -65,8 +65,9 @@ if [ -z "$label" ]; then
 
   glyph="📁"
   if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    gd=$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)
-    gcd=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)
+    # Both sides physical (pwd -P): a logical pwd made every symlinked repo read as a worktree.
+    gd=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)
+    gcd=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)
     if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then glyph="🌳"; else glyph="🌿"; fi
   fi
   label="$glyph $label"
