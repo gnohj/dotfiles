@@ -278,15 +278,9 @@ agent_panel_sort = "priority"
 # it has to live here under [ui].
 accent = "#a7cfbd"
 
-# Background notification popups. "system" hands agent done / needs-attention
-# popups to the OS notification service, so they surface at the OS level even when
-# herdr isn't the focused app (the point of desktop notifications). The alternative
-# "herdr" keeps toasts in-app but they're invisible when herdr is unfocused. The
-# [ui.toast.herdr] position below only applies under "herdr" - harmless, kept for a
-# quick flip back. Kept last in the [ui] block so this subtable doesn't swallow the
-# bare keys above.
+# Agent done/needs-attention popups: "herdr" = in-app toasts (positioned below), "system" = OS-level and visible when herdr is unfocused, the reach given up here. Kept last so this subtable doesn't swallow the bare keys above.
 [ui.toast]
-delivery = "system"
+delivery = "herdr"
 
 # In-app toast position. Default is bottom-right; top-right keeps popups up out of
 # the way of the shell prompt / agent input at the bottom of a pane.
