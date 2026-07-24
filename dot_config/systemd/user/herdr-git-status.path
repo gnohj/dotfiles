@@ -1,0 +1,12 @@
+# Path activation for the herdr git-status poller: run it only while the herdr socket
+# exists. systemd starts herdr-git-status.service when the socket appears; the poller's
+# --loop guard exits when the socket disappears, and this unit restarts it when the
+# socket reappears. Same socket-keyed lifecycle as the focus-tracker.
+[Unit]
+Description=Run herdr-git-status poller only while the herdr socket exists
+
+[Path]
+PathExists=%h/.config/herdr/herdr.sock
+
+[Install]
+WantedBy=default.target
