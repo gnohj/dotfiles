@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Single source of Claude Code account auth: every launcher (zsh `claude`, cs, cr, herdr, systemd) goes through here, so a non-interactive spawn authenticates exactly like an interactive one.
+set -euo pipefail
+
+# Resolve the REAL binary, never this wrapper: mise owns the install and only .zshrc adds its bin dir, so a bare PATH lookup fails outside an interactive zsh.
+_self="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
+
+_real_claude() {
+  local c d
+  if command -v mise >/dev/null 2>&1; then
+    c="$(mise which claude 2>/dev/null || true)"
+    [ -n "$c" ] && [ -x "$c" ] && {
+      printf '%s' "$c"
+      return
+    }
+  fi
+  c="$HOME/.local/share/mise/shims/claude"
+  [ -x "$c" ] && {
+    printf '%s' "$c"
+    return
+  }
+  local IFS=:
+  for d in $PATH; do
+    [ -n "$d" ] || continue
+    c="$d/claude"
+    [ -x "$c" ] || continue
+    [ "$(cd "$d" && pwd -P)/claude" = "$_self" ] && continue
+    printf '%s' "$c"
+    return
+  done
+}
+
+_bin="$(_real_claude)"
+if [ -z "$_bin" ]; then
+  echo "claude: no Claude Code binary found (tried mise, mise shims, PATH)" >&2
+  exit 127
+fi
+
+# Already-exported values win, so a pinned pane (cw / CLAUDE_ACCOUNT) keeps its account.
+_dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+[ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
+_tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+[ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+claude-account seed-config
+
+exec "$_bin" "$@"
