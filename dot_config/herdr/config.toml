@@ -12,8 +12,16 @@ onboarding = false
 # so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
 prefix = "ctrl+a"
 
-# prefix+shift+tab is a plain sequential pane walk within the tab.
+# Sequential pane walk within the tab. ASYMMETRIC on purpose:
+# ctrl+shift+tab is NOT hijacked by ghostty/kitty, so it arrives as a real shift+tab key and
+# matches prefix+shift+tab (herdr's default). ctrl+tab IS hijacked, and a raw 0x09 Tab byte is
+# indistinguishable from ctrl+i, so it can't match prefix+tab - the hijack sends `prefix o`
+# instead. prefix+o is free because open_notification_target is unbound below.
+cycle_pane_next = "prefix+o"
 cycle_pane_previous = "prefix+shift+tab"
+
+# ctrl+b → previous pane in the CURRENT TAB (see the [[keys.command]] below). Not
+# herdr's native last_pane: that one is global and leaks across workspaces/tabs.
 
 # Sidebar toggle, relocated off its default prefix+b to prefix+B.
 toggle_sidebar = "prefix+shift+b"
@@ -24,18 +32,39 @@ toggle_sidebar = "prefix+shift+b"
 next_agent = "prefix+a"
 previous_agent = "prefix+shift+a"
 
-# prefix+s cycles forward through spaces/workspaces; prefix+S (shift+s) cycles back -
-# mirrors the prefix+a / prefix+A agent pair. Displaces herdr's default prefix+s
-# (settings), which moves to prefix+, below.
-next_workspace = "prefix+s"
-previous_workspace = "prefix+shift+s"
+# prefix+w cycles forward through spaces/workspaces; prefix+W (shift+w) cycles back -
+# mirrors the prefix+a / prefix+A agent pair. Moved off prefix+s so settings can go
+# back to its herdr default there (below). prefix+w was herdr's native workspace_picker,
+# unused here since the ctrl+t picker (herdr-sesh.sh) covers picking.
+next_workspace = "prefix+w"
+previous_workspace = "prefix+shift+w"
 
-# prefix+, opens settings, moved off its default prefix+s (now next_workspace) - the
-# comma matches the near-universal "preferences" shortcut convention.
-settings = "prefix+,"
+# prefix+$ renames the focused workspace - herdr's rename_workspace, moved off its
+# default prefix+shift+w onto the tmux rename-session muscle memory ($ = shift+4).
+# Uses the literal token (same pattern as prefix+= above); if a reload rejects it,
+# fall back to "prefix+shift+4". Run `herdr config check` after apply to confirm.
+rename_workspace = "prefix+$"
+
+# prefix+% renames the focused TAB - herdr's rename_tab (the 1.🖋️/2.🤖/3.🔨 top-bar
+# items), moved off its default prefix+shift+t. Pairs with rename_workspace on
+# prefix+$ above (% = shift+5 sits right next to $ = shift+4). Literal token, same
+# pattern as prefix+= / prefix+$; if a reload rejects it, fall back to "prefix+shift+5".
+rename_tab = "prefix+%"
+
+# prefix+^ renames the focused PANE - herdr's rename_pane, moved off its default
+# prefix+shift+p. Completes the rename ladder on adjacent shifted number keys:
+# $ (shift+4) workspace, % (shift+5) tab, ^ (shift+6) pane. Literal token, same
+# pattern as above; if a reload rejects it, fall back to "prefix+shift+6".
+rename_pane = "prefix+^"
+
+# settings on herdr's default prefix+s. prefix+, is intentionally left FREE so the
+# ghostty ctrl+; forward (→ prefix+,) lands on nothing — ctrl+; no longer opens
+# settings (an unwanted accidental trigger, since ;-hold IS the ctrl key here).
+settings = "prefix+s"
 
 # Unbind prefix+o (herdr's native open_notification_target). An empty string
 # disables the action, freeing the key. (Dead in 0.7.3 anyway — no target.)
+# Load-bearing: cycle_pane_next now claims prefix+o.
 open_notification_target = ""
 
 # Single-chord window/tab nav (ctrl+1..9) is handled by PREFIX-EXPANSION at the
@@ -56,15 +85,23 @@ type = "shell"
 command = "herdr pane split --current --direction down --focus"
 description = "horizontal split (alias of prefix+minus)"
 
-# lazygit as a real herdr pane (runs server-side, where the repo lives — works
-# local AND --remote). Direct chord ctrl+g for single-motion (;-hold + g).
+# lazygit in a session-modal floating popup (herdr's display-popup), matching the
+# tmux ctrl+g lazygit popup instead of the old full-screen zoom pane. Runs
+# server-side, where the repo lives — works local AND --remote. 90% for parity with
+# the tmux popup (lazygit is a dense full-screen TUI). Direct chord ctrl+g for
+# single-motion (;-hold + g).
 # NOTE: ctrl+g is thereby taken from pane apps (nvim "show file info", readline
 # abort) — switch to "ctrl+alt+g" if that bites. (prefix+shift+g was wrong: it's
 # herdr's built-in new_worktree.)
+# CWD: relies on new_cwd = "follow" so the popup opens on the focused pane's repo.
+# If lazygit opens in $HOME instead, popups don't inherit pane cwd — revert to
+# type = "pane" for this binding.
 [[keys.command]]
 key = "ctrl+g"
-type = "pane"
+type = "popup"
 command = "lazygit"
+width = "90%"
+height = "90%"
 description = "lazygit (server-side, on the pane's repo)"
 
 # yazi seeded from the sibling nvim's current buffer (or its cwd) — herdr
@@ -74,25 +111,91 @@ description = "lazygit (server-side, on the pane's repo)"
 # readline (yank), same tradeoff as ctrl+g.
 [[keys.command]]
 key = "ctrl+y"
-type = "pane"
+type = "popup"
 command = "yazi-herdr.sh"
+width = "90%"
+height = "90%"
 description = "yazi (seeded from the sibling nvim buffer / cwd)"
 
 # ctrl+t → herdr-sesh.sh, the sesh-style session picker (herdr-native replacement
-# for the tmux sesh popup). type=pane = full-screen zoom overlay like ctrl+g/ctrl+y,
-# and runs server-side so it works over --remote. Reuses `sesh list -c -z --icons`
-# so config entries come live from sesh.toml (⚙) and recent dirs from zoxide (📁),
-# with herdr's OPEN workspaces pinned at top (⚡). Select an open workspace → focus;
-# select a dir → herdr-sesh-layout.sh opens it (pen nvim + fish shells), attaching to
-# an existing workspace if one's already there. Direct chord ;-hold + t. skhd's
-# rctrl-t is freed so ctrl+t reaches herdr; tmux mirrors -n C-t → the tmux sesh popup
-# for the plain-tmux world (same wiring as ctrl+g lazygit / ctrl+y yazi). zoxide is
-# folded into this one picker, so there is no separate prefix+t binding anymore.
+# for the tmux sesh popup). type=popup = a session-modal floating overlay (herdr's
+# own display-popup) that leaves the tab layout untouched, mirroring the tmux sesh
+# display-popup rather than the old full-screen zoom pane. Still runs server-side so
+# it works over --remote. Reuses `sesh list -c -z --icons` so config entries come
+# live from sesh.toml (⚙) and recent dirs from zoxide (📁), with herdr's OPEN
+# workspaces pinned at top (⚡). Select an open workspace → focus; select a dir →
+# herdr-sesh-layout.sh opens it (pen nvim + fish shells), attaching to an existing
+# workspace if one's already there. Direct chord ;-hold + t. skhd's rctrl-t is freed
+# so ctrl+t reaches herdr; tmux mirrors -n C-t → the tmux sesh popup for the
+# plain-tmux world (same wiring as ctrl+g lazygit / ctrl+y yazi). zoxide is folded
+# into this one picker, so there is no separate prefix+t binding anymore.
+# 70% keeps the ⚡name│path│git columns (~90 cols) uncramped while staying clearly
+# floating, not fullscreen; tune width/height to taste.
 [[keys.command]]
 key = "ctrl+t"
-type = "pane"
+type = "popup"
 command = "herdr-sesh.sh"
+width = "70%"
+height = "70%"
 description = "sesh-style session picker"
+
+# prefix+n → new glyph-aware workspace rooted at the focused pane's cwd. herdr's
+# native new_workspace (default prefix+shift+n) labels with the bare basename and
+# skips the 🌳/🌿/📁 glyph, which lives only in herdr-sesh-layout.sh. This routes
+# through herdr-new-workspace.sh → that layout script, so a keybind-created workspace
+# reads the same as a ctrl+t-picker one (glyph + pen/robot/hammer dev layout).
+# Overrides herdr's default next_tab on prefix+n (unused here — tab nav is ctrl+1..9).
+# type="shell" runs server-side; REMOTE needs the script present + --remote-keybindings server.
+[[keys.command]]
+key = "prefix+n"
+type = "shell"
+command = "herdr-new-workspace.sh"
+description = "new glyphed workspace at focused cwd (dev layout)"
+
+# ctrl+, → focus the next agent that needs you, in priority order (blocked/needs-input
+# first, then done), cycling on repeat. The wrapper narrows herdr's next_agent (which
+# walks ALL agents incl. working/idle) to just the ones demanding attention. Mirrors
+# the tmux-dash next-input jump. Bound as prefix+i, NOT a direct ctrl chord: ghostty/kitty
+# hijack ctrl+, and re-emit it as `prefix i`, so herdr never sees the raw chord. prefix+a
+# was unavailable (next_agent), hence i (= "input needed").
+[[keys.command]]
+key = "prefix+i"
+type = "shell"
+command = "herdr-next-priority-agent.sh"
+description = "focus next agent needing attention (blocked→done)"
+
+# ctrl+space → best-effort "last tab" toggle within the current workspace. HACK: herdr
+# has no last_tab and no focus-history, so hack-herdr-last-tab.sh fakes MRU via a state
+# file (bounces to the tab you last pressed ctrl+space from). Mirrors the tmux ctrl+space
+# last-window toggle. Bound as prefix+space because ghostty/kitty re-emit ctrl+space as
+# `prefix space` - the raw chord never reaches herdr.
+[[keys.command]]
+key = "prefix+space"
+type = "shell"
+command = "hack-herdr-last-tab.sh"
+description = "last tab toggle (best-effort MRU)"
+
+# ctrl+enter → best-effort "last workspace" toggle. HACK: herdr has no last_workspace
+# and no focus-history, so hack-herdr-last-workspace.sh fakes MRU via a state file
+# (bounces to the workspace you last pressed ctrl+enter from). Mirrors the tmux
+# switch-client -l session jump. Bound as prefix+shift+l because ghostty/kitty re-emit
+# ctrl+enter as `prefix L` - the raw chord never reaches herdr.
+[[keys.command]]
+key = "prefix+shift+l"
+type = "shell"
+command = "hack-herdr-last-workspace.sh"
+description = "last workspace toggle (best-effort MRU)"
+
+# ctrl+b → previous pane in the current tab. Replaces herdr's native last_pane (global,
+# leaks across workspaces/tabs) with a tab-scoped toggle: the herdr-focus-tracker daemon
+# keeps per-tab pane MRU from the socket's pane.focused stream, and hack-herdr-last-pane.sh
+# jumps to it (via `agent focus <pane_id>`, since herdr has no `pane focus <id>`). Direct
+# chord — ghostty doesn't intercept ctrl+b, and prefix is ctrl+a so ctrl+b is free.
+[[keys.command]]
+key = "ctrl+b"
+type = "shell"
+command = "hack-herdr-last-pane.sh"
+description = "last pane in current tab (isolated toggle)"
 
 # prefix+f → git-aware file viewer (smarzban/herdr-file-viewer): read-only tree with git
 # status glyphs, right pane auto-picks diff/rendered/syntax. Toggle scoped to current tab,
@@ -152,13 +255,15 @@ agent_panel_sort = "priority"
 # it has to live here under [ui].
 accent = "#a7cfbd"
 
-# Background notification popups. "herdr" renders an in-app toast (top-right)
-# instead of handing off to the OS notification service, keeping agent
-# done / needs-attention popups inside herdr. Tradeoff: they no longer surface at
-# the OS level when herdr isn't the focused app. Kept last in the [ui] block so
-# this subtable doesn't swallow the bare keys above.
+# Background notification popups. "system" hands agent done / needs-attention
+# popups to the OS notification service, so they surface at the OS level even when
+# herdr isn't the focused app (the point of desktop notifications). The alternative
+# "herdr" keeps toasts in-app but they're invisible when herdr is unfocused. The
+# [ui.toast.herdr] position below only applies under "herdr" - harmless, kept for a
+# quick flip back. Kept last in the [ui] block so this subtable doesn't swallow the
+# bare keys above.
 [ui.toast]
-delivery = "herdr"
+delivery = "system"
 
 # In-app toast position. Default is bottom-right; top-right keeps popups up out of
 # the way of the shell prompt / agent input at the bottom of a pane.
@@ -170,6 +275,15 @@ position = "top-right"
 # Toasts still render (see [ui.toast] above); this only mutes the audio.
 [ui.sound]
 enabled = false
+
+# Sidebar space rows: name, then a gitmux status line on its OWN line, then branch.
+# herdr's built-in `git_status` token carries NO working-tree signs (its data model
+# has branch but no dirty/ahead/behind - verified against `herdr api schema`), so the
+# middle line is a CUSTOM `$git` token fed by herdr-git-status.sh, which runs the same
+# gitmux.yml as the tmux status line and pushes it via `herdr workspace
+# report-metadata --token git=…`. That poller is what keeps this line live.
+[ui.sidebar.spaces]
+rows = [["state_icon", "workspace"], ["$git"], ["branch"]]
 
 [session]
 resume_agents_on_restore = true
@@ -247,7 +361,13 @@ mauve = "#c2f0db"
 green = "#dab183"
 yellow = "#a3b8c6"
 red = "#da858e"
-blue = "#a3b8c6"
+# blue = the sidebar  status line (herdr renders the custom git metadata token
+# in its blue token - verified via diagnostic: recoloring blue changed ONLY the git
+# signs, not names/branches/borders). Pointed at gnohj_color02 (green) so the git
+# signs read green, matching the tmux-dash git-status glyphs. The workspace NAME uses
+# subtext0 and the branch uses overlay0 (shared with borders/headers), so neither of
+# those can be recolored independently - blue is the one git-isolated token.
+blue = "#b7ce97"
 teal = "#a7cfbd"
 peach = "#dc988e"
 # Copy-mode (visual selection) highlight - herdr's src/selection.rs reads these
