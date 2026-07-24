@@ -6,9 +6,13 @@ sync_address = "https://api.atuin.sh"
 sync_frequency = "1h"
 style = "auto"
 
+# Hide the full-command preview pane at the bottom of the search TUI.
+show_preview = false
+
 # On enter, execute immediately; press tab to return to the shell and edit.
 enter_accept = true
-# keymap_mode = "vim-normal"
+keymap_mode = "vim-normal"
+keymap_cursor = { emacs = "blink-block", vim_insert = "blink-bar", vim_normal = "steady-block" }
 
 history_filter = [
   "^n$",
@@ -28,3 +32,17 @@ history_filter = [
 
 [sync]
 records = true
+
+# any [keymap.*] section makes atuin ignore [keys], so scroll-past-edge exit is dropped via the j/down rebinds below.
+
+# jk exits vim-insert back to vim-normal (mirrors zsh-vi-mode); esc still works too.
+[keymap.vim-insert]
+"j k" = "vim-enter-normal"
+"down" = "select-next"
+
+# vim-normal is standalone (no emacs base); re-add mode cyclers, and j/down drop the scroll-past-edge exit.
+[keymap.vim-normal]
+"ctrl-r" = "cycle-filter-mode"
+"ctrl-s" = "cycle-search-mode"
+"j" = "select-next"
+"down" = "select-next"
