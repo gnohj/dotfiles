@@ -22,7 +22,7 @@
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
-export PATH="$HOME/.local/bin:$HOME/.local/bin/herdr-scripts:$HOME/.nix-profile/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/bin/herdr-scripts:$HOME/.nix-profile/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
 SELF="$HOME/.local/bin/herdr-scripts/herdr-sesh.sh"
 
