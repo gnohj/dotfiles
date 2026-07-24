@@ -22,9 +22,9 @@
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/bin/herdr-scripts:$HOME/.nix-profile/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:$PATH"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
-SELF="$HOME/.local/bin/herdr-sesh.sh"
+SELF="$HOME/.local/bin/herdr-scripts/herdr-sesh.sh"
 
 build_list() {
   # Keep gitmux off the render path: fire a detached background pass to refresh the git
@@ -357,7 +357,7 @@ SELECTED=$(build_list | fzf \
 TARGET="${SELECTED##*$'\t'}"
 case "$TARGET" in
   ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
-  cfg:*)         exec "$HOME/.local/bin/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
-  zox:*)         exec "$HOME/.local/bin/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
+  cfg:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
+  zox:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
   *)             exit 0 ;;
 esac
