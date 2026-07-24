@@ -268,6 +268,55 @@ in
       };
     };
 
+    # Feeds the sidebar's $git token; macOS has no flock/setsid so the script's own nohup daemon dies with its parent.
+    herdr-git-status = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/herdr-git-status
+            exec ${homeDir}/.local/bin/herdr-scripts/herdr-git-status.sh --loop
+          ''
+        ];
+        # Socket-bound like herdr-focus-tracker: launchd's equivalent of the Linux .path unit.
+        KeepAlive = {
+          PathState = {
+            "${homeDir}/.config/herdr/herdr.sock" = true;
+          };
+        };
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/herdr-git-status/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/herdr-git-status/launchagent.err.log";
+      };
+    };
+
+    # `zsh -l -c` reads ~/.zshenv but not ~/.zshrc, so a stale mise PATH snapshot can't poison the server (as the Linux unit does).
+    herdr-server = {
+      serviceConfig = {
+        # Probe first: a hand-started server already holds the socket, and racing it would exit non-zero and retry forever.
+        ProgramArguments = [
+          "/bin/zsh"
+          "-l"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/herdr-server
+            herdr workspace list >/dev/null 2>&1 && exit 0
+            exec herdr server
+          ''
+        ];
+        # Not plain `true`: a deliberate `herdr server stop` / `update --handoff` must stick. Mirrors Restart=on-failure.
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        RunAtLoad = true;
+        # Give a crash-loop room to breathe rather than hammering the socket.
+        ThrottleInterval = 10;
+        StandardOutPath = "${homeDir}/.logs/herdr-server/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/herdr-server/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
