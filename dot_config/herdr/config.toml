@@ -118,7 +118,7 @@ description = "lazygit (server-side, on the pane's repo)"
 # readline (yank), same tradeoff as ctrl+g.
 [[keys.command]]
 key = "ctrl+y"
-# type=pane, not popup: popups swallow the Kitty graphics stream, so image previews render blank.
+# type=pane, not popup: the popup surface never draws the Kitty graphics stream, so previews render blank.
 type = "pane"
 command = "yazi-herdr.sh"
 description = "yazi (seeded from the sibling nvim buffer / cwd)"
@@ -135,13 +135,12 @@ description = "yazi (seeded from the sibling nvim buffer / cwd)"
 # so ctrl+t reaches herdr; tmux mirrors -n C-t → the tmux sesh popup for the
 # plain-tmux world (same wiring as ctrl+g lazygit / ctrl+y yazi). zoxide is folded
 # into this one picker, so there is no separate prefix+t binding anymore.
-# 70% keeps the ⚡name│path│git columns (~90 cols) uncramped while staying clearly
-# floating, not fullscreen; tune width/height to taste.
+# Rows render ~90 cols (NAME_W 38 + PATH_W 40 + icon/deco/sep), so 48% fits them on a ~200-col screen; 70% left a third empty.
 [[keys.command]]
 key = "ctrl+t"
 type = "popup"
 command = "herdr-sesh.sh"
-width = "70%"
+width = "48%"
 height = "70%"
 description = "sesh-style session picker"
 
