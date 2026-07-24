@@ -5,14 +5,14 @@
 # over --remote.
 #
 # It reuses `sesh list -c -z --icons` verbatim, so config entries come straight from
-# sesh.toml (⚙ gear) and recent dirs from the zoxide DB (📁 folder) — LIVE, no
+# sesh.toml (⚙️ gear) and recent dirs from the zoxide DB (📁 folder) — LIVE, no
 # re-authoring. On top it pins herdr's currently-OPEN workspaces (⚡), queried fresh
 # each open. Theme matches the tmux sesh popup (dot_config/tmux/sesh-popup.sh).
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
 #   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close an open
-#             workspace (⚡), remove a zoxide dir (📁); ⚙ config is left alone (it
+#             workspace (⚡), remove a zoxide dir (📁); ⚙️ config is left alone (it
 #             lives in sesh.toml). The list reloads in place.
 #   ctrl-b  → abort
 #
@@ -177,7 +177,7 @@ for pn in (load("PANES") or {}).get("result", {}).get("panes", []):
     if w and c and w not in wscwd: wscwd[w] = c
 
 # Collect every entry uniformly: (kind, icon, name, path, target, active).
-#   ws  ⚡ open herdr workspaces      cfg ⚙ sesh config dirs      zox 📁 zoxide dirs
+#   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths = set()
 for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
@@ -196,7 +196,7 @@ for e in (load("ENTRIES") or []):
     if not p or p in active_paths or p in seen: continue
     seen.add(p)
     if p in cfg_paths:
-        kind, icon, name = "cfg", "⚙", (e.get("Name") or os.path.basename(p))  # nice config name
+        kind, icon, name = "cfg", "⚙️", (e.get("Name") or os.path.basename(p))  # nice config name
     else:
         kind, icon, name = "zox", "📁", (os.path.basename(p) or p)              # dir basename, not full path
     entries.append((kind, icon, name, p, kind + ":" + p, False))
