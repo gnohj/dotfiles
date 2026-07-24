@@ -1447,11 +1447,30 @@ fi
 # child that creates an unnamed numeric session. The bundle id check
 # closes that loophole.
 if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
-    if [[ "$__CFBundleIdentifier" == "com.mitchellh.ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
-        ~/.config/ghosttyfetch/ghosttyfetch
-    elif command -v fastfetch &>/dev/null; then
-        fastfetch
+    _show_fetch=1
+    # herdr spawns every pane as a fresh SHLVL=1 shell outside $TMUX, so the
+    # guard above would fire the fetch in each pane. Restrict it to the first
+    # pane per herdr launch via a sentinel keyed on the socket's start time
+    # (zstat is portable across macOS/Linux; the mtime rotates each restart).
+    if [[ -n "$HERDR_ENV" ]]; then
+        zmodload -F zsh/stat b:zstat 2>/dev/null
+        _herdr_start=$(zstat +mtime "$HERDR_SOCKET_PATH" 2>/dev/null)
+        _herdr_ff_flag="${XDG_RUNTIME_DIR:-/tmp}/herdr-fastfetch-${_herdr_start:-0}"
+        if [[ -e "$_herdr_ff_flag" ]]; then
+            _show_fetch=
+        else
+            : > "$_herdr_ff_flag"
+        fi
+        unset _herdr_start _herdr_ff_flag
     fi
+    if [[ -n "$_show_fetch" ]]; then
+        if [[ "$__CFBundleIdentifier" == "com.mitchellh.ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
+            ~/.config/ghosttyfetch/ghosttyfetch
+        elif command -v fastfetch &>/dev/null; then
+            fastfetch
+        fi
+    fi
+    unset _show_fetch
 fi
 
 #-------------------------------------------------------------------------------
