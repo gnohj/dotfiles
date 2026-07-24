@@ -186,6 +186,16 @@ env)
   [ -n "$_d" ] && printf 'export CLAUDE_CONFIG_DIR=%q\n' "$_d"
   [ -n "$_t" ] && printf 'export CLAUDE_CODE_OAUTH_TOKEN=%q\n' "$_t"
   ;;
+# Seed onboarding-done + per-cwd folder-trust into the resolved account's .claude.json (only when a token exists), so a headless/fresh box skips claude's login + "trust this folder" prompts. Idempotent + read-guarded so a large .claude.json isn't rewritten each launch; no-op without jq/token.
+seed-config)
+  _t="$(account_token)"; [ -n "$_t" ] || exit 0
+  command -v jq >/dev/null 2>&1 || exit 0
+  _d="$(account_dir)"; _cj="${_d:-$HOME}/.claude.json"
+  if [ -f "$_cj" ] && [ "$(jq -r --arg p "$PWD" '(.hasCompletedOnboarding == true) and (.projects[$p].hasTrustDialogAccepted == true)' "$_cj" 2>/dev/null)" = "true" ]; then exit 0; fi
+  [ -f "$_cj" ] || { mkdir -p "$(dirname "$_cj")"; printf '{}' >"$_cj"; }
+  _tmp="$(mktemp)"
+  jq --arg p "$PWD" '.hasCompletedOnboarding = true | .projects[$p].hasTrustDialogAccepted = true' "$_cj" >"$_tmp" 2>/dev/null && mv "$_tmp" "$_cj" || rm -f "$_tmp"
+  ;;
 set-token)
   case "${2:-}" in
   personal | work) store_token "$2" ;;
@@ -215,7 +225,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|pin [<a>]|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|pin [<a>]|seed-config|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
