@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code: start a new session, attaching the cwd's active vault (work repo → second-brain-work, else personal; see vault-path).
-# Account follows the default (claude-account): config dir + OAuth token are
-# injected here so the right account authenticates. Override per-pane by
-# exporting CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN before calling.
-_dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
-[ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
-_tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
-[ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
-claude-account seed-config
-exec claude \
+# Account (config dir + token) comes from the ~/.local/bin/claude wrapper; export CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN first to override per-pane.
+exec "$HOME/.local/bin/claude" \
   --dangerously-skip-permissions \
   --add-dir "$("$HOME/.local/bin/vault-path")" \
   "$@"

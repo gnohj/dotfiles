@@ -944,15 +944,9 @@ alias c='clear'
 # also hands back the matching config dir + OAuth token. `claude`, `cs`, `cr`, and
 # the nvim dashboard all go through it, so just `cd` into a repo and launch.
 # Force a different account for THIS shell with `cw` (toggle) / `cauto` (clear).
+# Account/token injection lives in the ~/.local/bin/claude wrapper, called by ABSOLUTE path: mise activate prepends its node bin ahead of ~/.local/bin, so a bare name resolves to the unwrapped binary.
 claude() {
-	local dir tok claude_bin
 	local -a mode
-	# Resolve the real binary at call time (whence -p skips this function), not at
-	# load time — on Linux the mise `claude` shim isn't on PATH until mise activates
-	# later in this file, so a load-time lookup fell back to a Mac-only homebrew path.
-	claude_bin="$(whence -p claude 2>/dev/null || echo claude)"
-	dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
-	tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
 	# settings.json sets permissions.defaultMode = "bypassPermissions" so herdr's
 	# flagless session-resume (resume_agents_on_restore) comes back in bypass mode
 	# after a reboot instead of a locked-down pane. A fresh interactive `claude`
@@ -963,14 +957,7 @@ claude() {
 		*" -r "*|*" --resume "*|*" -c "*|*" --continue "*) ;;
 		*) mode=(--permission-mode default) ;;
 	esac
-	# Subshell so the conditional exports don't leak into the parent shell.
-	# Personal leaves CLAUDE_CONFIG_DIR unset (native default config); only work
-	# sets it. Token is injected when one is stored for the resolved account.
-	(
-		[ -n "$dir" ] && export CLAUDE_CONFIG_DIR="$dir"
-		[ -n "$tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$tok"
-		exec "$claude_bin" "${mode[@]}" "$@"
-	)
+	"$HOME/.local/bin/claude" "${mode[@]}" "$@"
 }
 
 # Per-shell account override (exported so cs/cr/claude children inherit it).
