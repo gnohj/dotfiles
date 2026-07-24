@@ -7,6 +7,7 @@ _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
 [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
 _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
 [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+claude-account seed-config
 exec claude \
   --dangerously-skip-permissions \
   --add-dir "$("$HOME/.local/bin/vault-path")" \

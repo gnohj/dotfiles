@@ -13,6 +13,7 @@ _claude_env() {
   [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
   _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
   [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+  claude-account seed-config
 }
 
 # The session id must sit immediately after --resume, or --resume takes no value
