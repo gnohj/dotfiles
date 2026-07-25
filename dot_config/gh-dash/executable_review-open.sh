@@ -14,7 +14,7 @@
 #   claude     A        Claude /review
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
-# That detachment is the whole point: the first `mux-window.sh` call runs
+# That detachment is the whole point: the first `mux window` call runs
 # `tmux new-window` (no -d), which steals the active window away from gh-dash
 # while gh-dash is still running the keybind command. gh-dash then tears that
 # command down with SIGTERM (`exit status 143`) before the chain finishes.
@@ -42,7 +42,7 @@ notify_fail() {
   local rc=$?
   [ "$rc" -eq 0 ] && return 0
   local msg="review-open: $mode PR $pr failed (exit $rc) — see $LOG"
-  case "$("$HOME/.local/bin/mux-kind.sh")" in
+  case "$("$HOME/.local/bin/mux/mux" kind)" in
     herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$msg" --sound request >/dev/null 2>&1 || true ;;
     tmux) tmux display-message -d 6000 "$msg" 2>/dev/null || true ;;
   esac
@@ -50,7 +50,8 @@ notify_fail() {
 trap notify_fail EXIT
 
 # MUX is overridable so the command strings can be dry-run with `MUX=echo`.
-mux="${MUX:-$HOME/.local/bin/mux-window.sh}"
+mux_bin="${MUX:-$HOME/.local/bin/mux/mux}"
+mux() { if [ "$mux_bin" = echo ]; then echo "$@"; else "$mux_bin" window "$@"; fi; }
 wt_script="$HOME/.config/gh-dash/review-worktree.sh"
 
 cd "$repo_path"
@@ -61,25 +62,25 @@ head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 open_octo() {
   local cwd="$1" auto="$2" extra=""
   [ "$auto" = 1 ] && extra=' --cmd "let g:octo_auto_review=1"'
-  "$mux" "🐙 #$pr" "$cwd" "nvim --cmd \"let g:zen_disabled=1\"$extra -c \":silent Octo pr edit $pr\""
+  mux "🐙 #$pr" "$cwd" "nvim --cmd \"let g:zen_disabled=1\"$extra -c \":silent Octo pr edit $pr\""
 }
 
 open_hunk() {
-  "$mux" --print-pane "🔀 #$pr" "$1" "hunk diff $2"
+  mux --print-pane "🔀 #$pr" "$1" "hunk diff $2"
 }
 
 open_claude_hunk() {
-  "$mux" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
+  mux --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/hunk-review '"$pr"' pane=$HUNK_PANE"'
 }
 
 open_claude_review() {
-  "$mux" "🤖 #$pr" "$1" \
+  mux "🤖 #$pr" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions "/review '"$pr"'"'
 }
 
 open_enhance() {
-  "$mux" "✨ #$pr" "$1" "ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
+  mux "✨ #$pr" "$1" "ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
 }
 
 case "$mode" in

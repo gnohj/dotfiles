@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Unified macOS notification helper. Single source of truth for the
 # `terminal-notifier ... || osascript ...` pattern that was duplicated
-# across worktree-runner, worktree-* entry points, worktree-abort,
-# worktree-retry, worktree-capture, and notify-idle.sh.
+# across the worktree dispatcher (runner, capture, abort, retry and every
+# capture entry point) and notify-idle.sh.
 #
 # Usage:
 #   mac-notify --title "T" --message "M" [opts]

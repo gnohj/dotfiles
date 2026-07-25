@@ -67,8 +67,8 @@ _mtime() {
 
 # Which multiplexer are we under? gh-dash review windows live in tmux windows on
 # the Mac (off-herdr) and in herdr tabs under herdr; window/tab enumeration for
-# release + sweep must follow suit. Shared detector; see mux-kind.sh.
-mux_kind() { "$HOME/.local/bin/mux-kind.sh"; }
+# release + sweep must follow suit. Shared detector; see mux kind.
+mux_kind() { "$HOME/.local/bin/mux/mux" kind; }
 
 # All open herdr tabs as "<tab_id>\t<label>" lines across every workspace (herdr
 # tab list is per-workspace, so iterate). Best-effort: never aborts the caller.

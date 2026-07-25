@@ -286,7 +286,7 @@ add-zsh-hook chpwd update_starship_env
 # branches off `origin/HEAD` — `treekanga add … -b origin/HEAD`,
 # lazygit, manual `git checkout -b … origin/master` — sees the latest
 # remote without the user thinking about it. The AI flows
-# (worktree-prompt fast-path, /worktree skill) already fetch before
+# (`worktree prompt` fast-path, /worktree skill) already fetch before
 # branching; this hook covers manual TUI usage of lazygit/treekanga.
 #
 # Behavior:
@@ -1436,7 +1436,7 @@ fi
 # Ghostty: animated ghosttyfetch, Other terminals: fastfetch
 # Only run on first shell level outside tmux. Skipped when SKIP_FETCH=1
 # is set by callers that spawn fresh Ghostty windows for one-off tasks
-# (e.g. ~/.local/bin/jira-worktree).
+# (e.g. `worktree jira`).
 #
 # Use $__CFBundleIdentifier (set by macOS per-app, can't be falsified by
 # env inheritance) as the source of truth for which terminal is hosting.
