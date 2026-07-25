@@ -196,6 +196,19 @@ type = "shell"
 command = "hack-herdr-last-tab.sh"
 description = "last tab toggle (best-effort MRU)"
 
+# ctrl+0 → close every tab but the first in the CURRENT workspace (the gh-dash review
+# sweep). HACK: herdr has no "close other tabs" action and its native switch_tab is
+# 1-indexed 1..9 only, so prefix+0 lands on nothing by default — that's why ctrl+0 felt
+# broken under herdr while working fine in tmux. hack-herdr-close-other-tabs.sh reads
+# `herdr tab list` and closes the siblings by id. Bound as prefix+0 because ghostty/kitty
+# re-emit ctrl+0 as `prefix 0` (\x01\x30) - the raw chord never reaches herdr. Same chord
+# hits tmux's `bind 0 kill-window -a -t :=1`, so ctrl+0 sweeps in both worlds.
+[[keys.command]]
+key = "prefix+0"
+type = "shell"
+command = "hack-herdr-close-other-tabs.sh"
+description = "close all tabs but the first (current workspace)"
+
 # ctrl+enter → best-effort "last workspace" toggle. HACK: herdr has no last_workspace
 # and no focus-history, so hack-herdr-last-workspace.sh fakes MRU via a state file
 # (bounces to the workspace you last pressed ctrl+enter from). Mirrors the tmux
