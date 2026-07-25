@@ -2,7 +2,9 @@
 # Re-run setup-worktrees so existing boxes pick up bare-worktree fixes without a full user-setup.sh.
 # Its ensure_upstreams() repairs local heads that `git worktree add` left with no tracking config
 # (the "Cannot fast-forward a branch with no upstream" lazygit error). Already-bare repos do zero
-# network here — ref reads + config writes only — so this is cheap enough for every apply.
+# network here — ref reads + config writes only — so this is cheap enough for every apply. Its
+# repair_worktree() pass is stamp-guarded (one stat per worktree) and only ever runs codegen
+# locally, so it stays offline too; the network work (pnpm install) is fresh-clone-only.
 #
 # run_onchange: the hash below re-runs this whenever the script itself changes. Cross-platform;
 # no-ops when the private manifest is absent (fresh box before ~/.config/worktree-repos.local).
