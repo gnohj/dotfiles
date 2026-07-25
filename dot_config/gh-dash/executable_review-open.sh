@@ -29,7 +29,7 @@ repo="${3:?review-open: missing <repo-name>}"
 repo_path="${4:?review-open: missing <repo-path>}"
 
 # Detached from gh-dash's terminal, so send our own output to a log and surface
-# failures (e.g. treehouse pool exhausted) via a tmux status message instead of
+# failures (e.g. treehouse pool exhausted) as a multiplexer message instead of
 # swallowing them. The log MUST live outside the review-worktree state dir
 # (~/.local/state/gh-review-worktrees), which `review-worktree.sh sweep`
 # iterates as one-file-per-PR — a log file in there is mistaken for a lease.
@@ -41,9 +41,11 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') mode=$mode PR $pr ($repo) ==="
 notify_fail() {
   local rc=$?
   [ "$rc" -eq 0 ] && return 0
-  if [ -n "${TMUX:-}" ]; then
-    tmux display-message -d 6000 "review-open: $mode PR $pr failed (exit $rc) — see $LOG" 2>/dev/null || true
-  fi
+  local msg="review-open: $mode PR $pr failed (exit $rc) — see $LOG"
+  case "$("$HOME/.local/bin/mux-kind.sh")" in
+    herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$msg" --sound request >/dev/null 2>&1 || true ;;
+    tmux) tmux display-message -d 6000 "$msg" 2>/dev/null || true ;;
+  esac
 }
 trap notify_fail EXIT
 

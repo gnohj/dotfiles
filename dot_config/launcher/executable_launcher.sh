@@ -889,8 +889,7 @@ act_worktree_jira() {
 act_worktree_clipboard() { run_worktree_capture "$HOME/.local/bin/worktree-clipboard"; }
 act_worktree_bug() { run_worktree_capture "$HOME/.local/bin/worktree-bug"; }
 act_worktree_retry() { run_worktree_capture "$HOME/.local/bin/worktree-retry"; }
-# Removal runs in both hosts (treekanga-rm.sh's tmux session-kill is guarded). In
-# herdr mode it won't auto-close the herdr workspace yet — minor follow-up.
+# treekanga-rm.sh sweeps both tmux sessions and herdr workspaces in the worktree.
 act_worktree_delete() { ~/.config/treekanga/treekanga-rm.sh; }
 
 act_outdated() {

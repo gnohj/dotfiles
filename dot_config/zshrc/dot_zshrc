@@ -594,12 +594,24 @@ btopc() { command btop -c "$(_btop_proc_conf 'cpu direct')" "$@"; }
 btopm() { command btop -c "$(_btop_proc_conf memory)" "$@"; }
 # btop2 — btopm (memory) left, btopc (cpu) right, proc-only, side by side
 btop2() {
-  if [[ -z "$TMUX" ]]; then
-    echo "btop2 needs tmux; run btopm and btopc in separate splits instead"
+  local cpu_conf="$(_btop_proc_conf 'cpu direct')"
+  if [[ -n "$HERDR_SOCKET_PATH" ]]; then
+    # herdr splits right, so cpu goes there and memory stays here; --ratio is what we keep.
+    local pane
+    pane=$("${HERDR_BIN_PATH:-herdr}" pane split --current --direction right \
+      --ratio 0.5 --no-focus 2>/dev/null | jq -r '.result.pane.pane_id // empty' 2>/dev/null)
+    if [[ -z "$pane" ]]; then
+      echo "btop2: could not split the herdr pane; run btopm and btopc separately"
+      return 1
+    fi
+    "${HERDR_BIN_PATH:-herdr}" pane run "$pane" "btop -c '$cpu_conf'; exit" >/dev/null 2>&1
+  elif [[ -n "$TMUX" ]]; then
+    tmux split-window -h "btop -c '$cpu_conf'"
+    tmux select-pane -L
+  else
+    echo "btop2 needs tmux or herdr; run btopm and btopc in separate splits instead"
     return 1
   fi
-  tmux split-window -h "btop -c '$(_btop_proc_conf 'cpu direct')'"
-  tmux select-pane -L
   command btop -c "$(_btop_proc_conf memory)"
 }
 

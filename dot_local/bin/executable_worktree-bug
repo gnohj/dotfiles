@@ -38,9 +38,10 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bi
 # display-popup fails → set -e kills script silently before any
 # notification fires). Same pattern as worktree-prompt /
 # worktree-jira-file.
+# Only when tmux is the LIVE multiplexer; under herdr the capture runs inline.
 if [ -z "${TMUX:-}" ] \
    && [ -z "${WORKTREE_BUG_RESPAWNED:-}" ] \
-   && command -v tmux >/dev/null 2>&1 \
+   && [ "$("$HOME/.local/bin/mux-kind.sh")" = tmux ] \
    && tmux ls >/dev/null 2>&1; then
   WORKTREE_BUG_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-bug"
   exit 0
@@ -187,7 +188,8 @@ read -e -p "context > " ctx
 echo "\$ctx" > "$INPUT_FILE"
 EOF
 
-tmux display-popup -E -w 70% -h 35% "$POPUP_SH"
+# `|| true`: a cancel exits non-zero and `set -e` would abort before the check.
+"$HOME/.local/bin/mux-popup.sh" --width 70% --height 35% "$POPUP_SH" || true
 
 CONTEXT=$(cat "$INPUT_FILE" 2>/dev/null || true)
 rm -f "$INPUT_FILE" "$POPUP_SH"

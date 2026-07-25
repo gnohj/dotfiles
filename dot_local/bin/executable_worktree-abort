@@ -114,9 +114,16 @@ for f in "${ALIVE[@]}"; do
     "${TAG:-?}" "$(fmt_age "$age")" "${GROUP:-?}" "$f" >> "$LIST_FILE"
 done
 
-tmux display-popup -E -w 80% -h 40% \
-  "fzf --reverse --delimiter=$'\t' --with-nth=1 --prompt='abort > ' < '$LIST_FILE' > '$PICK_FILE'" \
-  2>/dev/null || true
+# Staged as a script so mux-popup.sh can exec it inline under herdr (no popup CLI).
+PICK_SH=$(mktemp -t worktree-abort-popup.XXXXXX.sh)
+chmod +x "$PICK_SH"
+trap 'rm -f "$LIST_FILE" "$PICK_FILE" "$PICK_SH"' EXIT
+cat > "$PICK_SH" <<EOF
+#!/usr/bin/env bash
+fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='abort > ' < '$LIST_FILE' > '$PICK_FILE'
+EOF
+
+"$HOME/.local/bin/mux-popup.sh" --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
 
 PICK=$(cat "$PICK_FILE" 2>/dev/null || true)
 
