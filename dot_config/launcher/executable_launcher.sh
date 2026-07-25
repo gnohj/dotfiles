@@ -864,31 +864,32 @@ act_system_up() {
 #     server schedules it for after THIS popup closes.
 #   herdr mode (ql) — run the capture inline in the quake (no tmux), signaling
 #     worktree_setup.sh to open the result as a herdr workspace. WORKTREE_OPEN_IN
-#     rides worktree-runner's env chain (open→Terminal, then claude→treekanga→
+#     rides the worktree runner's env chain (open→Terminal, then claude→treekanga→
 #     postScript), the same channel TREEKANGA_POSTSCRIPT_LOG uses. When the
 #     capture returns, the persistent picker redraws root.
 run_worktree_capture() {
+  local verb="$1"
   if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr "$1"
+    WORKTREE_OPEN_IN=herdr "$HOME/.local/bin/worktree/worktree" "$verb"
   else
-    tmux run-shell -b "$1"
+    tmux run-shell -b "$HOME/.local/bin/worktree/worktree $verb"
   fi
 }
 
 # treekanga-add.sh self-detects its host: tmux → new tmux window, herdr/quake →
 # new herdr tab running `treekanga tui`. Runs in both modes.
 act_worktree_add() { ~/.config/treekanga/treekanga-add.sh; }
-act_worktree_ai_prompt() { run_worktree_capture "$HOME/.local/bin/worktree-prompt"; }
+act_worktree_ai_prompt() { run_worktree_capture prompt; }
 act_worktree_jira() {
   if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree-jira
+    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree/worktree jira
   else
-    ~/.local/bin/worktree-jira
+    ~/.local/bin/worktree/worktree jira
   fi
 }
-act_worktree_clipboard() { run_worktree_capture "$HOME/.local/bin/worktree-clipboard"; }
-act_worktree_bug() { run_worktree_capture "$HOME/.local/bin/worktree-bug"; }
-act_worktree_retry() { run_worktree_capture "$HOME/.local/bin/worktree-retry"; }
+act_worktree_clipboard() { run_worktree_capture clipboard; }
+act_worktree_bug() { run_worktree_capture bug; }
+act_worktree_retry() { run_worktree_capture retry; }
 # treekanga-rm.sh sweeps both tmux sessions and herdr workspaces in the worktree.
 act_worktree_delete() { ~/.config/treekanga/treekanga-rm.sh; }
 

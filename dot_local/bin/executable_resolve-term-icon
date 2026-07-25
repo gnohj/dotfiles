@@ -49,7 +49,7 @@ case "$id" in
     fi
     ;;
   chrome|*Chrome*|*google-chrome*)
-    # Not a terminal — kept here so callers like jira-worktree can use
+    # Not a terminal — kept here so callers like `worktree jira` can use
     # the same cache + conversion path for Chrome's app icon when
     # reporting "wrong tab" errors.
     if icns_to_png "/Applications/Google Chrome.app/Contents/Resources/app.icns" \

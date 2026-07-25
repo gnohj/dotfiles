@@ -7,7 +7,7 @@
 # GATED TO SESH LAUNCHES ONLY: every sesh entry point stamps @sesh_spawn with
 # the current epoch immediately before `sesh connect`. We require that stamp to
 # be fresh (a few seconds). A manual `tmux new-session` — or a tool like
-# worktree-runner that calls `tmux new-session -d` directly — never sets the
+# the worktree runner that calls `tmux new-session -d` directly — never sets the
 # stamp, so it's skipped. That's the leak fix. On top of that: only git
 # repos/worktrees that aren't explicit-startup sessions in sesh.toml qualify.
 #

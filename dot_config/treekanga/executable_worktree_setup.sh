@@ -7,7 +7,7 @@ CURRENT_WORKTREE="$(pwd)"
 # treekanga v2 captures the postScript's stdout/stderr via shell.CmdWithDir
 # and discards the result, so anything we `echo` from here is invisible to
 # the calling terminal (kitty window, tmux pane, etc.). Mirror every status
-# line into a log file so callers (e.g. ~/.local/bin/worktree-runner and
+# line into a log file so callers (e.g. ~/.local/bin/worktree (runner verb) and
 # the worktree-* entry points) can tail it post-hoc and surface what
 # actually happened.
 #
@@ -96,9 +96,9 @@ fi
 # Behavior is split based on `$TMUX`:
 #   - TMUX set  →  TUI / manual flow (user already in tmux). Auto-attach
 #                  via sesh — matches v1 `add -s` behavior.
-#   - TMUX unset → headless wrapper flow (worktree-runner spawned a
-#                  fresh Terminal via worktree-jira / worktree-prompt /
-#                  worktree-clipboard / worktree-bug). Don't switch
+#   - TMUX unset → headless wrapper flow (the worktree runner spawned a
+#                  fresh Terminal via worktree jira / prompt /
+#                  clipboard / bug). Do not switch
 #                  anyone's client;
 #                  pbcopy the session name so the user can paste it into
 #                  their preferred switcher.
@@ -166,7 +166,7 @@ if [ "${WORKTREE_OPEN_IN:-}" = "herdr" ] && command -v herdr &>/dev/null; then
   # quake window too (no $TMUX). herdr-sesh-layout.sh attaches if a workspace for this
   # dir is already open, and labels it by the inferred repo name. The signal env var
   # is set by the herdr worktree actions in launcher.sh (and threaded through the
-  # worktree-runner headless flow, which otherwise strips custom env).
+  # worktree-runner headless flow (now `worktree runner`), which otherwise strips custom env).
   if "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
     log "✓ herdr workspace opened ($CURRENT_WORKTREE)"
   else
@@ -329,7 +329,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     final_msg="⚠️ $WORKTREE_NAME setup completed with errors — check ~/.logs/treekanga-postscript.log"
     notify_title="⚠️ Background setup had errors"
   fi
-  "$HOME/.local/bin/mux-notify.sh" --title "$notify_title" --duration 8000 "$final_msg" 2>/dev/null || true
+  "$HOME/.local/bin/mux/mux" notify --title "$notify_title" --duration 8000 "$final_msg" 2>/dev/null || true
   if command -v mac-notify >/dev/null 2>&1; then
     mac-notify -t "$notify_title" -m "$WORKTREE_NAME" -T 6 -g "worktree-bg-$WORKTREE_NAME" 2>/dev/null
   fi
@@ -338,7 +338,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 
 # Fast-path final notification: tell the user the worktree dir is
 # ready (sync part done); the bg subshell fires again when deps + codegen finish.
-"$HOME/.local/bin/mux-notify.sh" --title "🌳 worktree ready" --duration 5000 \
+"$HOME/.local/bin/mux/mux" notify --title "🌳 worktree ready" --duration 5000 \
   "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null || true
 
 # Close the '🌳' treekanga selector (rctrl-semi) in both muxes; herdr labels prefix a number.

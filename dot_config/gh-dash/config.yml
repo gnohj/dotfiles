@@ -54,21 +54,21 @@ defaults:
         width: 20
         hidden: true
   refetchIntervalMinutes: 30
-# Every window is spawned via ~/.local/bin/mux-window.sh, which detects the live
+# Every window is spawned via ~/.local/bin/mux/mux window, which detects the live
 # multiplexer and dispatches: tmux new-window on the Mac (off-herdr), or
 # `herdr tab create` + `pane run` under herdr (where panes have no backing tmux
 # server, so a bare `tmux new-window` silently fails). Backward compatible with
-# both. See mux-window.sh for the tmux-vs-herdr command model.
+# both. See mux window for the tmux-vs-herdr command model.
 keybindings:
   issues:
     - key: e
       name: 🐙 Edit issue in Octo (new window)
       command: >
-        nohup $HOME/.local/bin/mux-window.sh "🐙 Issue #{{.IssueNumber}}" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"' </dev/null >/dev/null 2>&1 &
+        nohup $HOME/.local/bin/mux/mux window "🐙 Issue #{{.IssueNumber}}" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue edit {{.IssueNumber}}"' </dev/null >/dev/null 2>&1 &
     - key: i
       name: 🐙 Create issue in Octo (popup)
       command: >
-        $HOME/.local/bin/mux-window.sh --popup "🐙 New Issue" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
+        $HOME/.local/bin/mux/mux window --popup "🐙 New Issue" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
     - key: P
       name: 🤖 Review PR - Octo + hunk + agent notes + ENHANCE

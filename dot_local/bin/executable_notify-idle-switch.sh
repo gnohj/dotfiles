@@ -43,7 +43,7 @@ herdr_focus_workspace_named() {
 # State file format:
 #   "<session_name>"           — bare session name (claude-idle banners)
 #   "<session_name>|<path>"    — session may not exist yet, create at path
-#                                (worktree-runner success banners)
+#                                (worktree runner success banners)
 #   "vault|<note-path>"        — most recent worktree attempt failed or
 #                                was deliberately skipped (NOT_BUG); the
 #                                runner captured it to the second-brain
@@ -110,14 +110,14 @@ vault\|*)
       printf '%s │ %-9s │ %-18s │ %s\t%s\n' "$mtime" "$outcome" "$entry" "$slug" "$path"
     done <<< "$RECENT_NOTES" > "$PICK_LIST"
 
-    # Staged as a script so mux-popup.sh can draw it or exec it inline under herdr.
+    # Staged as a script so mux popup can draw it or exec it inline under herdr.
     PICK_SH=$(mktemp -t notify-idle-picker.XXXXXX.sh)
     chmod +x "$PICK_SH"
     cat > "$PICK_SH" <<EOF
 #!/usr/bin/env bash
 fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='capture > ' < '$PICK_LIST' > '$PICK_OUT'
 EOF
-    "$HOME/.local/bin/mux-popup.sh" --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
+    "$HOME/.local/bin/mux/mux" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
     rm -f "$PICK_SH"
 
     PICK=$(cat "$PICK_OUT" 2>/dev/null || true)
@@ -134,12 +134,12 @@ EOF
 
   # Focus the vault session, creating if absent; note opens in a FRESH tab.
   # printf %q on NOTE_PATH: a filename with a quote would otherwise inject a command.
-  if [ "$("$HOME/.local/bin/mux-kind.sh")" = herdr ]; then
+  if [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
     # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
     herdr_focus_workspace_named "$VAULT_SESSION" ||
       "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$VAULT_DIR" >/dev/null 2>&1 || true
     if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
-      "$HOME/.local/bin/mux-window.sh" "📝" "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" >/dev/null 2>&1 || true
+      "$HOME/.local/bin/mux/mux" window "📝" "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" >/dev/null 2>&1 || true
     fi
   else
     if tmux has-session -t "$VAULT_SESSION" 2>/dev/null; then
@@ -185,7 +185,7 @@ EOF
   fi
 
   if [ -z "$HANDLED" ] && [ -n "$WORKTREE_PATH" ] &&
-    [ "$("$HOME/.local/bin/mux-kind.sh")" = herdr ]; then
+    [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
     # Deferred creation, herdr side: attach to the workspace at this path or build it.
     "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$WORKTREE_PATH" >/dev/null 2>&1 || true
     HANDLED=1
