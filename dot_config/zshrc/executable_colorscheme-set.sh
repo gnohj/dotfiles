@@ -2310,7 +2310,13 @@ generate_herdr_config() {
   # colors pass via env so the perl expressions need no shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
   local herdr_target="$HOME/.config/herdr/config.toml"
+  # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
   local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
+  local herdr_source_tmpl="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml.tmpl"
+  # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
+  local herdr_rows
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$git", fg = "%s" }], ["branch"], [{ token = "$sys", fg = "%s" }]]' \
+    "$gnohj_color02" "$gnohj_color46")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2345,12 +2351,7 @@ mauve = "#c2f0db"
 green = "$gnohj_color05"
 yellow = "$gnohj_color04"
 red = "$gnohj_color11"
-# blue = the sidebar $git status line (herdr renders the custom git metadata token
-# in its blue token - verified via diagnostic: recoloring blue changed ONLY the git
-# signs, not names/branches/borders). Pointed at gnohj_color02 (green) so the git
-# signs read green, matching the tmux-dash git-status glyphs. The workspace NAME uses
-# subtext0 and the branch uses overlay0 (shared with borders/headers), so neither of
-# those can be recolored independently - blue is the one git-isolated token.
+# blue = fallback for custom metadata tokens; \$git/\$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "$gnohj_color02"
 teal = "$gnohj_color03"
 peach = "$gnohj_color06"
@@ -2360,7 +2361,7 @@ EOF
   )"
 
   local herdr_file
-  for herdr_file in "$herdr_target" "$herdr_source"; do
+  for herdr_file in "$herdr_target" "$herdr_source" "$herdr_source_tmpl"; do
     [ -f "$herdr_file" ] || continue
 
     # 1) [ui] accent: retarget an existing line, else inject under [ui]. The
@@ -2374,6 +2375,10 @@ EOF
       HERDR_ACCENT="$herdr_accent" perl -i -pe \
         'if (/^\[ui\]\s*$/) { $_ .= "accent = \"$ENV{HERDR_ACCENT}\"\n" }' "$herdr_file"
     fi
+
+    # 1b) rows: matched on $git + token= so only the styled spaces row is touched.
+    HERDR_ROWS="$herdr_rows" perl -i -pe \
+      'if (/^rows\s*=/ && /\$git/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
 
     # 2) [theme.custom] palette: strip any prior managed block (idempotent), then
     #    re-append the freshly-interpolated one at EOF.

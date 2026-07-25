@@ -318,8 +318,9 @@ enabled = false
 # report-metadata --token git=…`. That poller is what keeps this line live.
 #
 # The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - ogulcancelik/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
+# Inline per-token fg (0.7.5), retargeted by generate_herdr_config. ONE $git token on purpose: more get joined by herdr's " · " - see the /herdr-upgrade watchlist.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], ["$git"], ["branch"], ["$sys"]]
+rows = [["state_icon", "workspace"], [{ token = "$git", fg = "#b7ce97" }], ["branch"], [{ token = "$sys", fg = "#7a90a0" }]]
 
 [session]
 resume_agents_on_restore = true
