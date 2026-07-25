@@ -1,0 +1,2321 @@
+#!/usr/bin/env bash
+# worktree — one entry point for "capture something, turn it into a git worktree"; run `worktree help` for the verbs.
+set -euo pipefail
+
+SELF="$HOME/.local/bin/worktree/worktree"
+WT_DIR="$HOME/.local/bin/worktree"
+MUX="$HOME/.local/bin/mux/mux"
+
+# Callers (skhd, launcher popups, gh-dash) spawn with a minimal PATH, so pin one that resolves claude/git/treekanga/notifier/clipboard tools.
+export PATH="$HOME/.local/bin:$HOME/.local/bin/mux:$WT_DIR:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
+die() { printf 'worktree: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+cmd_help() {
+  cat <<'EOF'
+worktree — capture something, turn it into a git worktree.
+
+  worktree prompt            free-text popup → /worktree
+  worktree jira              active browser tab (Jira URL) → /worktree
+  worktree clipboard         clipboard text/image → /worktree
+  worktree bug               clipboard → /worktree, Jira filing deferred
+  worktree retry [<note>]    re-fire a captured bug note from the vault
+  worktree jira-file         Stage B — file the pending Jira ticket for $PWD
+  worktree abort             kill an in-flight runner (picker when ≥2)
+  worktree help
+
+Internal (invoked by the verbs above, not by hand):
+  worktree runner            shared backend; reads WORKTREE_* env
+  worktree capture <outcome> [reason]
+                             write the vault inbox note for a run
+
+Sibling scripts kept standalone: worktree-list, setup-worktrees.
+EOF
+}
+
+#-------------------------------------------------------------------------------
+# Shared helpers
+#-------------------------------------------------------------------------------
+
+# terminal-notifier (a registered bundle id) reliably shows banners on Sequoia,
+# unlike `osascript -e 'display notification'` which Apple drops for unregistered
+# CLI tools. mac-notify owns that fallback plus icon resolution.
+notify_error() {
+  local tag="$1" msg="$2" icon="${3:-}"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    mac-notify -t "$tag" -m "$msg" -T 6 -g "${tag}-error" -i "$icon"
+  else
+    mac-notify -t "$tag" -m "$msg" -T 6 -g "${tag}-error"
+  fi
+}
+
+# 12s / 2m30s / 1h05m
+fmt_secs() {
+  local s="$1"
+  if [ "$s" -lt 60 ]; then
+    printf '%ds' "$s"
+  elif [ "$s" -lt 3600 ]; then
+    printf '%dm%02ds' "$((s / 60))" "$((s % 60))"
+  else
+    printf '%dh%02dm' "$((s / 3600))" "$(((s % 3600) / 60))"
+  fi
+}
+
+# Fired by skhd, these verbs run OUTSIDE any tmux client, so `tmux display-popup`
+# has no client to host on and the script appears to "just close" (under set -e,
+# before any banner fires). Re-enter the tmux server context so the popup renders.
+# Only when tmux is the LIVE multiplexer: on the Mac a tmux server exists even
+# while you're on herdr, where the capture runs inline in the quake instead.
+respawn_into_tmux() {
+  local verb="$1"
+  [ -z "${TMUX:-}" ] || return 1
+  [ -z "${WORKTREE_RESPAWNED:-}" ] || return 1
+  [ "$("$MUX" kind)" = tmux ] || return 1
+  tmux ls >/dev/null 2>&1 || return 1
+  WORKTREE_RESPAWNED=1 tmux run-shell -b "$SELF $verb"
+  return 0
+}
+
+# WARNING: under herdr's inline popup the staged script shares this process's stdio — so the header must stay a positional arg (stdin would leave `read` on a drained heredoc) and the answer must come back in a global (a command substitution would swallow the prompt).
+popup_read() {
+  local w="$1" h="$2" label="$3" header="$4" sh out hdr
+  out=$(mktemp -t worktree-popup-input.XXXXXX)
+  sh=$(mktemp -t worktree-popup.XXXXXX.sh)
+  # SAFETY: the header carries clipboard text, so the script cats it from its own file — inlined as a heredoc, a payload line matching the delimiter would close it and run the rest as shell.
+  hdr=$(mktemp -t worktree-popup-header.XXXXXX)
+  printf '%s\n' "$header" > "$hdr"
+  chmod +x "$sh"
+  {
+    echo '#!/usr/bin/env bash'
+    echo 'clear'
+    printf 'cat %q\n' "$hdr"
+    printf 'read -e -p %q ans\n' "$label"
+    printf 'printf %%s "$ans" > %q\n' "$out"
+  } > "$sh"
+  # A cancel exits non-zero and set -e would abort before the caller can check.
+  "$MUX" popup --width "$w" --height "$h" "$sh" || true
+  POPUP_ANSWER=$(cat "$out" 2>/dev/null || true)
+  rm -f "$out" "$sh" "$hdr"
+}
+
+# Detect what's on the clipboard. Sets CLIPBOARD_KIND (image|text), CLIP, TMP_IMG.
+# Returns 1 on an empty clipboard. Image wins — pngpaste is authoritative.
+#
+# BSD mktemp only substitutes TRAILING X's, so `.png` can't be part of the
+# template; make the temp file then rename to the extension claude's Read needs.
+detect_clipboard() {
+  local prefix="$1" base p resolved=""
+  CLIPBOARD_KIND=""; CLIP=""; TMP_IMG=""
+  base=$(mktemp "${TMPDIR:-/tmp}/${prefix}-image.XXXXXX")
+  TMP_IMG="${base}.png"
+  mv "$base" "$TMP_IMG"
+
+  # $TMP_IMG must survive past the exec — the spawned claude session reads it.
+  # /tmp is auto-cleaned by the OS, so no manual cleanup.
+  if pngpaste "$TMP_IMG" 2>/dev/null && [ -s "$TMP_IMG" ]; then
+    CLIPBOARD_KIND="image"
+    return 0
+  fi
+
+  rm -f "$TMP_IMG"
+  TMP_IMG=""
+  CLIP=$(pbpaste 2>/dev/null || wl-paste 2>/dev/null || true)
+  [ -n "$CLIP" ] || return 1
+  # claude's CLI panics on stray non-UTF-8 bytes (e.g. the \xCA MacRoman NBSP
+  # Slack-on-macOS injects between display name and message).
+  CLIP=$(printf '%s' "$CLIP" | clipboard-sanitize)
+
+  # Path-to-image fallback: Cmd-C on a screenshot *file* in Finder/iCloud puts
+  # the path on the clipboard as text, not raw image bytes, so pngpaste missed it.
+  case "$CLIP" in
+    *$'\n'*) ;;  # multiline → not a path
+    *)
+      p="${CLIP#"${CLIP%%[![:space:]]*}"}"
+      p="${p%"${p##*[![:space:]]}"}"
+      case "$p" in
+        \"*\") p="${p#\"}"; p="${p%\"}" ;;
+        \'*\') p="${p#\'}"; p="${p%\'}" ;;
+      esac
+      p="${p#file://}"
+      p="${p/#\~/$HOME}"
+      if [ -f "$p" ]; then
+        case "$p" in
+          *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.gif|*.GIF|*.webp|*.WEBP|*.heic|*.HEIC|*.bmp|*.BMP)
+            resolved="$p" ;;
+        esac
+      fi
+      ;;
+  esac
+  if [ -n "$resolved" ]; then
+    TMP_IMG="$resolved"
+    CLIP=""
+    CLIPBOARD_KIND="image"
+  else
+    CLIPBOARD_KIND="text"
+  fi
+}
+
+# "📋 <first 200 chars, newlines collapsed>" for a popup header.
+text_preview() {
+  local text="$1" out
+  out=$(printf '%s' "$text" | tr '\n' ' ' | head -c 200)
+  [ "${#text}" -gt 200 ] && out="${out}…"
+  printf '📋 %s' "$out"
+}
+
+# haiku for Mode A (Jira URL / bare ticket key) and Mode B (3-token input whose
+# middle token carries digits — a structured branch like IHRWEB-1234); those are
+# lookups, and haiku is ~50% faster. sonnet only for Mode C free-text inference.
+#
+# `loose` matches a payload that merely starts with a URL/ticket key; `strict` needs the whole payload to be one, since a paste opening with a key is usually still prose.
+pick_model() {
+  local text="$1" mode="${2:-loose}" toks
+  case "$mode" in
+    loose)
+      [[ "$text" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/|[A-Z]+-[0-9]+) ]] && { printf haiku; return 0; }
+      ;;
+    strict)
+      [[ "$text" =~ ^[[:space:]]*[A-Z]+-[0-9]+[[:space:]]*$ ]] && { printf haiku; return 0; }
+      ;;
+  esac
+  read -r -a toks <<< "$text"
+  if [ "${#toks[@]}" -eq 3 ] && [[ "${toks[1]}" =~ [0-9] ]]; then
+    printf haiku
+    return 0
+  fi
+  printf sonnet
+}
+
+# Folder buckets a worktree may live under, shared by the Mode-B rewrite, the
+# fast-path validator and the "did you mean?" suggester.
+WT_BUCKETS="fix feat ui infra refactor perf test chore spike"
+is_bucket() {
+  local b
+  for b in $WT_BUCKETS; do [ "$1" = "$b" ] && return 0; done
+  return 1
+}
+
+# Canonical repo allowlist from repos.conf (gitignored, employer-specific).
+# Falls back to "web inferno" so a fresh machine still works. Blank lines and
+# `#` comments are stripped. Portable parsing (no mapfile): macOS system bash is
+# 3.2 and skhd's minimal PATH resolves `env bash` to /bin/bash.
+load_valid_repos() {
+  local conf="$WT_DIR/repos.conf" line
+  VALID_REPOS=()
+  if [ -s "$conf" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%%#*}"
+      line=$(echo "$line" | tr -d '[:space:]')
+      [ -n "$line" ] && VALID_REPOS+=( "$line" )
+    done < "$conf"
+  fi
+  [ "${#VALID_REPOS[@]}" -eq 0 ] && VALID_REPOS=( web inferno )
+  return 0
+}
+is_valid_repo() {
+  local r
+  for r in "${VALID_REPOS[@]}"; do [ "$1" = "$r" ] && return 0; done
+  return 1
+}
+
+# Strip non-alphanumerics so a label is safe across every interpolation site.
+slugify() {
+  echo "$1" | tr -c '[:alnum:]_-' '-' | sed 's/-\{2,\}/-/g; s/^-\|-$//g' | head -c 40
+}
+
+# The two prompt files worktree-bug / worktree-retry feed to claude: a committed
+# generic scaffold plus the gitignored per-employer detail.
+read_jira_conventions() {
+  local scaffold="$WT_DIR/jira-prompt.md" detail="$WT_DIR/jira-prompt-company.md"
+  if [ ! -s "$scaffold" ] || [ ! -s "$detail" ]; then
+    return 1
+  fi
+  cat "$scaffold" "$detail"
+}
+
+#-------------------------------------------------------------------------------
+# runner — shared backend for every capture verb.
+#
+# Capture verbs reduce user input to a single string, then exec into this with:
+#
+# Required env:
+#   WORKTREE_GROUP         terminal-notifier banner group id, so the start banner
+#                          is replaced by the final ready/failed banner.
+#   WORKTREE_LOG_TAG       basename for the per-run log + tmpfiles.
+#
+# Required (one of, in precedence order):
+#   WORKTREE_RAW_COMMAND   direct shell command, no claude. ~25-30s faster for
+#                          canonical inputs that need no inference.
+#   WORKTREE_RAW_PROMPT    full claude prompt, replacing the constructed
+#                          "/worktree …". Use when the verb chains pre-steps
+#                          (classify, hydrate a Slack thread, read an image).
+#   WORKTREE_CLAUDE_INPUT  token(s) appended to "/worktree … --yes".
+#
+# Optional env:
+#   WORKTREE_CLAUDE_ACCOUNT  "work"|"personal"; empty → claude-account's cwd rule.
+#   WORKTREE_CLAUDE_MODEL    default sonnet.
+#   WORKTREE_LOG_HEADER      multi-line block written into the log.
+#   WORKTREE_START_TITLE     "creating…" banner title.
+#   WORKTREE_START_MESSAGE   "creating…" banner message.
+#   WORKTREE_FALLBACK_LABEL  banner message when SESSION couldn't be derived.
+#   WORKTREE_OPEN_IN         where worktree_setup.sh should open the result.
+#
+# Vault capture (default: failures + NOT_BUG decisions get an inbox note):
+#   WORKTREE_CAPTURE_PAYLOAD   original input; "image:<path>" for image payloads.
+#   WORKTREE_CAPTURE_CONTEXT   user-typed context from the verb's popup.
+#   WORKTREE_CAPTURE_ALWAYS    1 → capture successes too.
+#   WORKTREE_DEFER_JIRA        1 → capture success as outcome=pending-jira, with
+#                              a path-derived filename Stage B can look up.
+#-------------------------------------------------------------------------------
+cmd_runner() {
+  : "${WORKTREE_GROUP:?WORKTREE_GROUP required}"
+  : "${WORKTREE_LOG_TAG:?WORKTREE_LOG_TAG required}"
+  if [ -z "${WORKTREE_CLAUDE_INPUT:-}" ] && [ -z "${WORKTREE_RAW_PROMPT:-}" ] && [ -z "${WORKTREE_RAW_COMMAND:-}" ]; then
+    die "WORKTREE_CLAUDE_INPUT, WORKTREE_RAW_PROMPT, or WORKTREE_RAW_COMMAND required"
+  fi
+
+  EXEC_MODE="claude"
+  [ -n "${WORKTREE_RAW_COMMAND:-}" ] && EXEC_MODE="bash"
+
+  DEFAULT_LABEL="${WORKTREE_CLAUDE_INPUT:-Running custom prompt}"
+  START_TITLE="${WORKTREE_START_TITLE:-Creating worktree…}"
+  START_MESSAGE="${WORKTREE_START_MESSAGE:-$DEFAULT_LABEL}"
+  FALLBACK_LABEL="${WORKTREE_FALLBACK_LABEL:-$START_MESSAGE}"
+  CLAUDE_MODEL="${WORKTREE_CLAUDE_MODEL:-sonnet}"
+  # Baked into the inner script, which resolves the token live via claude-account
+  # so no secret hits disk.
+  CLAUDE_ACCOUNT_NAME="${WORKTREE_CLAUDE_ACCOUNT:-}"
+
+  # Heartbeat banner carries the trimmed input beside the elapsed timer, so with
+  # several creations in flight you can tell which one is still running.
+  HB_INPUT_TRIMMED=$(printf '%s' "$START_MESSAGE" | tr '\n' ' ' | head -c 50)
+  [ "${#START_MESSAGE}" -gt 50 ] && HB_INPUT_TRIMMED="${HB_INPUT_TRIMMED}…"
+
+  # Resolve the REAL user terminal BEFORE unsetting TERM_PROGRAM below: inside the
+  # spawned Terminal.app it resolves to "Apple_Terminal", so auto-detected banner
+  # icons would always show Terminal's. Bake the icon through to every banner site.
+  USER_TERM_HINT="${TERM_PROGRAM:-}"
+  if [ -z "$USER_TERM_HINT" ] && command -v tmux >/dev/null 2>&1; then
+    USER_TERM_HINT=$(tmux display-message -p '#{client_termtype}' 2>/dev/null || true)
+  fi
+  ICON_PNG=$(resolve-term-icon "${USER_TERM_HINT:-terminal}" 2>/dev/null || true)
+
+  # `open -na Terminal` propagates TERM_* and TMUX but filters custom vars. When
+  # the caller is inside tmux + Ghostty, TERM_PROGRAM=ghostty propagates and
+  # tricks Terminal's zshrc into firing ghosttyfetch, which spawns its own tmux
+  # child and creates an unnamed numeric session. Unsetting it is the only fix.
+  unset TERM_PROGRAM TERM_PROGRAM_VERSION
+  export SKIP_FETCH=1
+
+  TIMEOUT_SECONDS=12     # start banner — replaced by heartbeats / final
+  FINAL_TIMEOUT=30       # outcome banner — sticks longer so it isn't missed
+
+  mac-notify -t "$START_TITLE" -m "$START_MESSAGE" -g "$WORKTREE_GROUP" -T "$TIMEOUT_SECONDS"
+
+  # Snapshot tmux sessions BEFORE Terminal.app opens — Terminal/shell init
+  # occasionally spawns an unnamed numeric session as a side effect and we need to
+  # know it wasn't ours. Snapshotting inside the inner script is too late.
+  TMUX_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-tmux.XXXXXX")
+  tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+
+  # Snapshot all git worktrees under ~/Developer before claude runs; the new one is
+  # the set difference afterward - an authoritative detector that doesn't depend on
+  # claude printing the path. Sorted for `comm` in the diff below.
+  WT_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-wt.XXXXXX")
+  for _r in "$HOME"/Developer/*/; do
+    git -C "$_r" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'
+  done | sort -u > "$WT_SNAPSHOT"
+
+  # Stage the log header + prompt as tmpfiles so multi-line content and special
+  # chars don't have to survive an outer-shell expansion inside the heredoc below.
+  LOG_HEADER_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-header.XXXXXX")
+  if [ -n "${WORKTREE_LOG_HEADER:-}" ]; then
+    printf '%s\n' "$WORKTREE_LOG_HEADER" > "$LOG_HEADER_FILE"
+  fi
+
+  PROMPT_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-prompt.XXXXXX")
+  if [ -n "${WORKTREE_RAW_COMMAND:-}" ]; then
+    printf '%s' "$WORKTREE_RAW_COMMAND" > "$PROMPT_FILE"
+  elif [ -n "${WORKTREE_RAW_PROMPT:-}" ]; then
+    printf '%s' "$WORKTREE_RAW_PROMPT" > "$PROMPT_FILE"
+  else
+    printf '/worktree %s --yes' "$WORKTREE_CLAUDE_INPUT" > "$PROMPT_FILE"
+  fi
+
+  # Always create the capture files (empty when capture isn't requested) so the
+  # inner trap can clean a uniform set of paths.
+  CAPTURE_PAYLOAD_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-payload.XXXXXX")
+  CAPTURE_CONTEXT_FILE=$(mktemp -t "${WORKTREE_LOG_TAG}-context.XXXXXX")
+  CAPTURE_IMAGE_SRC=""
+  if [ -n "${WORKTREE_CAPTURE_PAYLOAD:-}" ]; then
+    # "image:<path>" identifies a clipboard image: the capture helper copies it
+    # into Notes-Assets and the payload file keeps a marker for slug derivation.
+    if [[ "$WORKTREE_CAPTURE_PAYLOAD" =~ ^image:(.+)$ ]]; then
+      CAPTURE_IMAGE_SRC="${BASH_REMATCH[1]}"
+      printf 'image: %s\n' "$CAPTURE_IMAGE_SRC" > "$CAPTURE_PAYLOAD_FILE"
+    else
+      printf '%s' "$WORKTREE_CAPTURE_PAYLOAD" > "$CAPTURE_PAYLOAD_FILE"
+    fi
+    printf '%s' "${WORKTREE_CAPTURE_CONTEXT:-}" > "$CAPTURE_CONTEXT_FILE"
+  fi
+
+  # Per-run postScript log. treekanga's worktree_setup.sh honors
+  # TREEKANGA_POSTSCRIPT_LOG, which the inner script exports before invoking
+  # claude, so each runner reads its own file — no cross-contamination.
+  #
+  # Fallback: if the var fails to propagate from claude's Bash tool through to
+  # treekanga's postScript subprocess (claude's tooling sometimes scrubs env), the
+  # per-run log is empty and the inner script falls back to byte-offset accounting
+  # against the global log. The single-runner case still detects success; the
+  # concurrent case can mis-attribute under that fallback, but no detection at all
+  # is worse than the rare race.
+  PS_LOG_PER_RUN=$(mktemp -t "${WORKTREE_LOG_TAG}-ps.XXXXXX.log")
+  PS_LOG_GLOBAL="$HOME/.logs/treekanga-postscript.log"
+  PS_LOG_GLOBAL_SIZE_BEFORE=$(wc -c < "$PS_LOG_GLOBAL" 2>/dev/null || echo 0)
+
+  # SAFETY: these three carry clipboard/prompt text into the generated script below, so pre-quote them — an unquoted payload containing `"` or `$(…)` would otherwise execute there.
+  HB_MSG_Q=$(printf '%q' "${WORKTREE_LOG_TAG}: $HB_INPUT_TRIMMED")
+  FALLBACK_Q=$(printf '%q' "$FALLBACK_LABEL")
+  IMAGE_SRC_Q=$(printf '%q' "$CAPTURE_IMAGE_SRC")
+
+  # Stage the run-script in a tmp file so we don't have to wrestle with
+  # `open --args` quoting. The trap inside cleans it up after claude exits.
+  TMPSCRIPT=$(mktemp -t "${WORKTREE_LOG_TAG}.XXXXXX.sh")
+  chmod +x "$TMPSCRIPT"
+  LOGFILE="\$HOME/.logs/${WORKTREE_LOG_TAG}.log"
+  cat > "$TMPSCRIPT" <<EOF
+#!/usr/bin/env bash
+# Cleanup runs on EVERY exit path — normal completion, abort SIGTERM, claude
+# crash, error. Moving the Terminal-quit watcher in here (instead of at the end
+# of the script) stops abandoned worktree windows piling up when the script
+# doesn't reach its tail — most commonly because the abort hotkey sent SIGTERM
+# mid-claude.
+#
+# Order matters:
+#   1. pkill -P \$\$  — kill children (heartbeat). The watcher we're about to
+#                       spawn isn't a child yet, so it's safe.
+#   2. ( bash -c '…' & )  — double-fork the watcher: the outer subshell forks,
+#                            backgrounds and exits, so the watcher's PPID becomes
+#                            init. Immune to any later pkill -P on our PID, and
+#                            survives even if we were killed by SIGTERM.
+#   3. rm -f …  — clean tmpfiles + per-PID state file.
+cleanup() {
+  pkill -P \$\$ 2>/dev/null
+  # Capture our tty BEFORE the watcher subshell — once we exit, /dev/tty is gone.
+  # AppleScript matches the Terminal window owning this tty and closes it
+  # explicitly, rather than relying on Terminal's "When shell exits" preference
+  # (which varies, and shipped wrong on at least one machine — leaving piles of
+  # orphan windows visible in workspace J).
+  local our_tty
+  our_tty=\$(tty 2>/dev/null)
+  ( ( sleep 1; osascript -e 'on run argv
+    set targetTTY to item 1 of argv
+    tell application "Terminal"
+      repeat with w in windows
+        try
+          if (tty of selected tab of w) is targetTTY then
+            close w saving no
+            exit repeat
+          end if
+        end try
+      end repeat
+      if (count of windows) is 0 then quit
+    end tell
+  end run' "\$our_tty" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
+  # Note: $PS_LOG_PER_RUN is NOT removed here. The bg subshell postScript spawns
+  # keeps writing pnpm install + codegen + hook output to it AFTER this script
+  # (and treekanga, and claude) has exited. Removing it would race with those
+  # writes. /var/folders/…/T is auto-cleaned by macOS, so leaking the per-run log
+  # is harmless and useful for debugging.
+  rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$WT_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
+}
+trap cleanup EXIT
+
+# State file for the abort hotkey (→ \`worktree abort\`). One file per concurrent
+# runner — the name includes \$\$ so two runners in flight don't clobber each
+# other. The abort verb scans /tmp/worktree-runner-*.state and shows an fzf
+# picker when ≥2 are alive.
+cat > /tmp/worktree-runner-\$\$.state <<-STATE
+PID=\$\$
+GROUP=$WORKTREE_GROUP
+TAG=$WORKTREE_LOG_TAG
+STARTED=\$(date +%s)
+STATE
+
+# Strip TMUX env so the postScript's \`[ -n "\$TMUX" ]\` branch correctly reads this
+# as a non-tmux (headless wrapper) flow. Without it, \`open -na Terminal\`
+# propagates the launcher popup's tmux env and the postScript hijacks the user's
+# tmux client via sesh connect.
+unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
+
+# Terminal.app's spawn env lacks the user's full PATH. Restore enough for claude
+# + git + treekanga + pnpm to resolve.
+export PATH="\$HOME/.local/bin:\$HOME/.local/bin/mux:\$HOME/.local/bin/worktree:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export SKIP_FETCH=1
+# Point treekanga's postScript at OUR per-run file instead of the global log:
+# claude inherits this env → treekanga inherits from claude → postScript reads it.
+export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+# Where worktree_setup.sh should open the new worktree (herdr workspace vs sesh vs
+# clipboard). Rides the SAME env chain, set by the ql / herdr launcher actions and
+# baked here so it survives the open→Terminal boundary. Empty (tmux) is a no-op.
+export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
+
+# Inject account creds like the interactive claude() function does — raw
+# \`claude -p\` skips it and would otherwise use the stale shared Keychain login
+# ("Not logged in"). Exported so the backgrounded /sb-ticket-capture inherits it.
+export CLAUDE_ACCOUNT="$CLAUDE_ACCOUNT_NAME"
+_wt_cfg=\$(claude-account dir 2>/dev/null || true)
+_wt_tok=\$(claude-account token 2>/dev/null || true)
+[ -n "\$_wt_cfg" ] && export CLAUDE_CONFIG_DIR="\$_wt_cfg"
+[ -n "\$_wt_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="\$_wt_tok"
+
+START_TS=\$(date +%s)
+fmt_duration() {
+  local s=\$1
+  if [ "\$s" -lt 60 ]; then
+    printf '%ds' "\$s"
+  elif [ "\$s" -lt 3600 ]; then
+    printf '%dm%02ds' "\$((s/60))" "\$((s%60))"
+  else
+    printf '%dh%02dm' "\$((s/3600))" "\$(((s%3600)/60))"
+  fi
+}
+
+mkdir -p "\$(dirname $LOGFILE)"
+echo "=== \$(date) ===" >> $LOGFILE
+[ -s "$LOG_HEADER_FILE" ] && cat "$LOG_HEADER_FILE" >> $LOGFILE
+if [ "$EXEC_MODE" = "bash" ]; then
+  echo "Running raw command (no claude)..." | tee -a $LOGFILE
+else
+  echo "Running claude -p ($CLAUDE_MODEL)..." | tee -a $LOGFILE
+fi
+
+# Heartbeat: replace the "Creating…" banner with "running… Xs elapsed" at growing
+# intervals while claude works. Same notification group so each beat REPLACES the
+# previous. The EXIT trap pkill's all children of \$\$ — that catches this subshell
+# whether claude finishes naturally or the user fires the abort hotkey.
+(
+  HB_ELAPSED=0
+  for HB_INTERVAL in 30 30 30 60 60 120; do
+    sleep "\$HB_INTERVAL"
+    HB_ELAPSED=\$((HB_ELAPSED + HB_INTERVAL))
+    mac-notify \\
+      -t "Worktree running… \${HB_ELAPSED}s" \\
+      -m $HB_MSG_Q \\
+      -g "$WORKTREE_GROUP" \\
+      -T 60
+  done
+) &
+HEARTBEAT_PID=\$!
+
+# NOTE: RAW_COMMAND mode currently still goes through claude — the \`bash -c\`
+# short-circuit the header above advertises was never wired up here. Carried over
+# as-is from worktree-runner rather than changed during the consolidation.
+claude --dangerously-skip-permissions --model $CLAUDE_MODEL -p "\$(< "$PROMPT_FILE")" 2>&1 | tee -a $LOGFILE
+
+# Stop the heartbeat the moment the work returns. SIGKILL the subshell AND any
+# \`terminal-notifier\` GRANDCHILD it may have spawned milliseconds earlier
+# (heartbeat → mac-notify → terminal-notifier). pkill -P only reaches direct
+# children, so an already-running terminal-notifier could still submit its banner
+# AFTER our final one and clobber it via same-group replacement. Killing by
+# command-line pattern reaps any in-flight attempt.
+kill -9 "\$HEARTBEAT_PID" 2>/dev/null || true
+pkill -9 -P "\$HEARTBEAT_PID" 2>/dev/null || true
+pkill -9 -f "terminal-notifier.*${WORKTREE_GROUP}" 2>/dev/null || true
+wait 2>/dev/null || true
+sleep 0.5
+echo
+
+# treekanga -x discards the postScript's stdout/stderr, so claude can't see (and
+# won't faithfully report) what actually happened. The postScript writes its own
+# per-run log; print it here so the Terminal window shows authoritative ✓/✗ status.
+PS_LOG="$PS_LOG_PER_RUN"
+SESSION=""
+WORKTREE_PATH=""
+OUTCOME="failed"
+REASON=""
+
+# Slice $LOGFILE to JUST this run. The log is append-only across runs (each starts
+# with "=== <date> ==="), so a naive grep would match prior runs and misclassify
+# this one. awk resets buf on each "=== " header — END leaves the latest block.
+#
+# Concrete bug this prevents: a run whose log has no NOT_BUG line still matched a
+# NOT_BUG from a much earlier run in the same logfile, tagging the new run as
+# "not-a-bug" and writing the wrong vault note. Same hazard for the
+# **Worktree:** path grep below — both read \$LATEST_RUN_LOG, not \$LOGFILE.
+LATEST_RUN_LOG=\$(awk '/^=== / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }' $LOGFILE 2>/dev/null)
+
+# Step A — claude may carry an explicit NOT_BUG marker (a deliberate skip from
+# \`worktree bug\` when the clipboard isn't a reproducible bug). Wins over the
+# postScript check: if claude bailed before /worktree, postScript output wouldn't
+# exist anyway.
+if printf '%s' "\$LATEST_RUN_LOG" | grep -qE '^NOT_BUG:'; then
+  OUTCOME="not-a-bug"
+  REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -m1 -E '^NOT_BUG:' | sed 's/^NOT_BUG:[[:space:]]*//' | head -c 200)
+fi
+
+# Step B — read this run's postScript output. Per-run log first (concurrency-safe
+# when TREEKANGA_POSTSCRIPT_LOG propagated); else a byte-offset slice of the
+# global log. awk extracts the LATEST "=== START …" block, which works for both.
+PS_LOG_NEW=""
+if [ -s "\$PS_LOG" ]; then
+  PS_LOG_NEW=\$(cat "\$PS_LOG")
+elif [ -f "$PS_LOG_GLOBAL" ]; then
+  CURRENT_SIZE=\$(wc -c < "$PS_LOG_GLOBAL" 2>/dev/null || echo 0)
+  if [ "\$CURRENT_SIZE" -gt $PS_LOG_GLOBAL_SIZE_BEFORE ]; then
+    PS_LOG_NEW=\$(tail -c \$((CURRENT_SIZE - $PS_LOG_GLOBAL_SIZE_BEFORE)) "$PS_LOG_GLOBAL")
+  fi
+fi
+if [ -n "\$PS_LOG_NEW" ]; then
+  echo "── postScript output (this run) ──"
+  LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
+  printf '%s' "\$LATEST_RUN"
+  echo "──"
+
+  WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
+  REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+  WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
+  # Session name = path relative to ~/Developer/ so the folder bucket (infra/,
+  # fix/, feat/, …) survives. basename() would drop it and yield "web/test-test"
+  # for ~/Developer/web/infra/test-test; we want "web/infra/test-test" to match
+  # sesh's zoxide-derived names.
+  SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+
+  if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
+    OUTCOME="success"
+  fi
+fi
+
+# Step B-fallback — postScript marker absent BUT claude's natural-language output
+# says it created a worktree: parse the path from the "**Worktree:**" line. A
+# stepping stone to the rescue below — once we have the path and confirm it
+# exists, we can run postScript manually if treekanga's invocation skipped it.
+if [ -z "\$WORKTREE_PATH" ]; then
+  CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '\*\*Worktree( path)?:\*\*' \\
+    | tail -1 \\
+    | sed -E 's/.*\`([^\`]+)\`.*/\1/')
+  # Secondary — any backtick-wrapped path under /Developer/. Covers claude
+  # phrasings that skip the "**Worktree:**" marker entirely. The concrete miss
+  # this fixes: when the worktree ALREADY EXISTS, haiku replies conversationally
+  # ("Great news! The worktree already exists") and emits the path as
+  # "**Path**: \`~/Developer/web/infra/…\`" with no Worktree: line — the primary
+  # grep returns empty, the rescue + claude-only fallbacks never fire, and a
+  # present, registered worktree is misreported as failed.
+  CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
+  # Guard the /Developer/ fallback on "no existing dir yet" (not string-emptiness)
+  # so a relative "**Worktree path:**" hit can't block the absolute one.
+  if [ ! -d "\$CLAUDE_PATH" ]; then
+    CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" \\
+      | grep -oE '\`[^\`]*/Developer/[^\`]+\`' \\
+      | tail -1 | tr -d '\`')
+    CLAUDE_PATH="\${CLAUDE_PATH/#\~/\$HOME}"
+  fi
+  if [ -n "\$CLAUDE_PATH" ]; then
+    if [ -d "\$CLAUDE_PATH" ]; then
+      WORKTREE_PATH="\$CLAUDE_PATH"
+      REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+      SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+    fi
+  fi
+fi
+
+# Step B-diff — authoritative path detection: diff current git worktrees against
+# the pre-claude snapshot; the new one is ours. Only trusts a UNIQUE new worktree
+# so concurrent runners can't cross-attribute.
+if [ -z "\$WORKTREE_PATH" ] && [ -f "$WT_SNAPSHOT" ]; then
+  WT_NEW=\$(
+    for _r in "\$HOME"/Developer/*/; do
+      git -C "\$_r" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print \$2}'
+    done | sort -u | comm -13 "$WT_SNAPSHOT" -
+  )
+  if [ "\$(printf '%s\n' "\$WT_NEW" | grep -c .)" = "1" ] && [ -d "\$WT_NEW" ]; then
+    WORKTREE_PATH="\$WT_NEW"
+    REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
+    SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
+    echo "[\$(date +%H:%M:%S)] path via git-worktree-list diff: \$WORKTREE_PATH" >> $LOGFILE
+  fi
+fi
+
+# Step B-rescue — postScript log empty AND we know the path AND the dir exists.
+# Treekanga created the worktree but its postScript hook silently didn't fire
+# (likely claude omitted -x). Run worktree_setup.sh manually so sesh/zoxide
+# registration + pnpm install + .env copy + per-repo postcreate hooks still
+# happen, then re-read the per-run log for the "complete!" marker.
+if [ "\$OUTCOME" = "failed" ] \\
+   && [ -z "\$PS_LOG_NEW" ] \\
+   && [ -n "\$WORKTREE_PATH" ] \\
+   && [ -d "\$WORKTREE_PATH" ]; then
+  echo "[\$(date +%H:%M:%S)] postScript didn't fire via treekanga — running manually as rescue at \$WORKTREE_PATH" >> $LOGFILE
+  (
+    cd "\$WORKTREE_PATH"
+    export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+    export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
+    bash "\$HOME/.config/treekanga/worktree_setup.sh"
+  ) >> $LOGFILE 2>&1
+  if [ -s "\$PS_LOG" ]; then
+    PS_LOG_NEW=\$(cat "\$PS_LOG")
+    if printf '%s' "\$PS_LOG_NEW" | grep -q "worktree setup complete!"; then
+      OUTCOME="success"
+      echo "[\$(date +%H:%M:%S)] rescue succeeded — postScript ran, marker found" >> $LOGFILE
+    fi
+  fi
+fi
+
+# Step B-claude-only-fallback — last resort. Even rescue couldn't get the marker
+# (postScript itself errored), but the worktree dir exists. Treat it as success at
+# the surface level so the switch hotkey takes you there. Setup is partial (no
+# install / no codegen) but you can run those manually.
+if [ "\$OUTCOME" = "failed" ] && [ -n "\$WORKTREE_PATH" ] && [ -d "\$WORKTREE_PATH" ]; then
+  OUTCOME="success"
+  echo "[\$(date +%H:%M:%S)] success via claude-output fallback (no postScript marker — partial setup): \$WORKTREE_PATH" >> $LOGFILE
+fi
+
+# Step C — one-line failure reason from THIS run's log (same per-run scoping
+# rationale as Steps A/B: old errors shouldn't leak into the current banner).
+if [ "\$OUTCOME" = "failed" ]; then
+  REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '^(Error|error|✗|FAIL)' | tail -n 1 | head -c 200)
+  [ -z "\$REASON" ] && REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | tail -n 1 | head -c 200)
+fi
+
+END_TS=\$(date +%s)
+DURATION_FMT=\$(fmt_duration \$((END_TS - START_TS)))
+
+echo "[\$(date +%H:%M:%S)] outcome=\$OUTCOME duration=\$DURATION_FMT session=\${SESSION:-(none)} path=\${WORKTREE_PATH:-(none)}" >> $LOGFILE
+
+# Step D — outcome-driven banner + state file.
+case "\$OUTCOME" in
+  success)
+    TITLE="Worktree ready · \$DURATION_FMT"
+    MSG=\${SESSION:-$FALLBACK_Q}
+    # Defer session creation to switch time. Pre-creating here causes a brief
+    # gitmux/status-bar flicker on the current session, because tmux new-session
+    # -d fires the global session-created hook which briefly affects what tmux's
+    # "current" pointer resolves to. Write "<name>|<path>" instead so
+    # notify-idle-switch.sh can create-and-attach on demand.
+    if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
+      echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
+    fi
+    ;;
+  not-a-bug)
+    TITLE="🤔 Skipped: not a bug · \$DURATION_FMT"
+    MSG="\${REASON:-(no reason given)}"
+    ;;
+  failed)
+    TITLE="❌ Worktree FAILED · \$DURATION_FMT"
+    MSG="\${REASON:-(check ${WORKTREE_LOG_TAG}.log)}"
+    ;;
+esac
+
+# Step E — vault capture.
+#   Default: non-success outcomes only (failure / not-a-bug → inbox note so the
+#   user can retry or audit later).
+#   WORKTREE_CAPTURE_ALWAYS=1 → success ALSO captured (audit trail).
+#   WORKTREE_DEFER_JIRA=1 → success captured as outcome=pending-jira with a
+#   path-derived filename, so \`worktree jira-file\` (Stage B) can look it up by
+#   \$PWD later. The capture helper writes the inbox note + copies any image
+#   asset; on non-success it also stamps /tmp/notify-idle.latest with
+#   "vault|<note-path>". On success the runner already pointed that state file at
+#   the new worktree session, so capture must NOT clobber it → SKIP_STATE_FILE.
+CAPTURE_SHOULD_RUN=0
+CAPTURE_OUTCOME="\$OUTCOME"
+if [ -s "$CAPTURE_PAYLOAD_FILE" ]; then
+  if [ "\$OUTCOME" != "success" ]; then
+    CAPTURE_SHOULD_RUN=1
+  elif [ "${WORKTREE_DEFER_JIRA:-0}" = "1" ]; then
+    CAPTURE_SHOULD_RUN=1
+    CAPTURE_OUTCOME="pending-jira"
+  elif [ "${WORKTREE_CAPTURE_ALWAYS:-0}" = "1" ]; then
+    CAPTURE_SHOULD_RUN=1
+  fi
+fi
+if [ "\$CAPTURE_SHOULD_RUN" = "1" ]; then
+  CAPTURE_NOTE=\$(
+    WORKTREE_LOG_TAG="${WORKTREE_LOG_TAG}" \\
+    WORKTREE_CAPTURE_PAYLOAD_FILE="$CAPTURE_PAYLOAD_FILE" \\
+    WORKTREE_CAPTURE_LOG="$LOGFILE" \\
+    WORKTREE_CAPTURE_IMAGE_SRC=$IMAGE_SRC_Q \\
+    WORKTREE_CAPTURE_CONTEXT="\$(cat $CAPTURE_CONTEXT_FILE 2>/dev/null)" \\
+    WORKTREE_CAPTURE_WORKTREE_PATH="\$WORKTREE_PATH" \\
+    WORKTREE_CAPTURE_SKIP_STATE_FILE="\$([ "\$OUTCOME" = "success" ] && echo 1 || echo 0)" \\
+    \$HOME/.local/bin/worktree/worktree capture "\$CAPTURE_OUTCOME" "\$REASON" 2>/dev/null
+  )
+  if [ -n "\$CAPTURE_NOTE" ]; then
+    if [ "\$CAPTURE_OUTCOME" = "pending-jira" ]; then
+      MSG="\${MSG} · Jira pending"
+    else
+      MSG="\${MSG} · captured to \$(basename \"\$CAPTURE_NOTE\")"
+    fi
+  fi
+fi
+
+# Step E.5 — Jira ticket capture into the vault. On success + a branch carrying a
+# JIRA-style key, queue a backgrounded \`/sb-ticket-capture\` from inside the new
+# worktree. The skill auto-detects the ticket from the branch, fetches Jira (+
+# linked Confluence) via Atlassian Rovo MCP, and writes
+# \`Notes-Inbox/<TICKET>-<slug>.md\`. Double-forked so it outlives this
+# Terminal.app window (the EXIT trap closes it ~5s after the final banner, while
+# capture typically takes ~15-25s).
+#
+# The user still has to \`/sb-ingest-mine\` to move the note into \`Notes/work/\`;
+# the 📝 badge glob looks in both, so it appears either way. For unticketed Mode-C
+# worktrees (\`release-automation\` etc.) the regex fails and we skip.
+if [ "\$OUTCOME" = "success" ] && [ -n "\$WORKTREE_PATH" ] && [ -d "\$WORKTREE_PATH" ]; then
+  CAPTURE_BRANCH=\$(git -C "\$WORKTREE_PATH" branch --show-current 2>/dev/null || true)
+  if [[ "\$CAPTURE_BRANCH" =~ [A-Z]+-[0-9]+ ]]; then
+    (
+      ( ( cd "\$WORKTREE_PATH" && \
+          nohup claude --dangerously-skip-permissions --model haiku \
+            -p '/sb-ticket-capture --yes' \
+            >> "${LOGFILE}.ticket-capture" 2>&1 \
+        ) </dev/null >/dev/null 2>&1 & \
+      ) 2>/dev/null
+    )
+    echo "[\$(date +%H:%M:%S)] queued background /sb-ticket-capture for \$CAPTURE_BRANCH" >> $LOGFILE
+  fi
+fi
+
+# Defensive sweep before the final banner: a heartbeat-spawned terminal-notifier
+# can still be in flight even after we SIGKILLED the subshell. Reap any whose
+# command line references our group — it would otherwise clobber our final banner
+# via same-group replacement.
+pkill -9 -f "terminal-notifier.*${WORKTREE_GROUP}" 2>/dev/null || true
+sleep 0.2
+
+# Final banner in the same group — replaces the start banner, with a longer
+# timeout so the result isn't missed. Outcome-specific sound. The click handler
+# runs notify-idle-switch.sh (success → switch to the worktree session,
+# non-success → open the captured vault note).
+#
+# Build the args as a bash ARRAY, not \${SOUND:+-s "\$SOUND"} — that substitution
+# leaves literal quote chars in the token after word-splitting, which
+# terminal-notifier rejects silently, so the sound vanishes and the banner
+# sometimes doesn't fire at all.
+notify_args=(
+  -t "\$TITLE"
+  -m "\$MSG"
+  -g "$WORKTREE_GROUP"
+  -T $FINAL_TIMEOUT
+  -e "\$HOME/.local/bin/notify-idle-switch.sh"
+)
+case "\$OUTCOME" in
+  success)   notify_args+=( -s Glass ) ;;
+  failed)    notify_args+=( -s Basso ) ;;
+  not-a-bug) notify_args+=( -s Pop )   ;;
+esac
+mac-notify "\${notify_args[@]}"
+echo "[\$(date +%H:%M:%S)] mac-notify exit: \$?" >> $LOGFILE
+
+# Brief pause so the notification actually posts before the window closes.
+sleep 1
+
+# Kill any new unnamed (numeric) tmux session that appeared during our run.
+TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
+if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
+  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
+    | grep -E '^[0-9]+\$' \
+    | while read -r stale; do
+        tmux kill-session -t "\$stale" 2>/dev/null || true
+      done
+fi
+
+# The Terminal-quit watcher is spawned by the EXIT trap above, so one fires
+# regardless of how we exit — completion, abort SIGTERM, claude crash, error.
+exit 0
+EOF
+
+  # Spawn the staged session script. macOS: a background Terminal.app window.
+  # Linux/VPS: a tab in the live multiplexer. A bare `tmux new-window` would spin
+  # up an invisible tmux server on the herdr VPS, stranding the session where
+  # herdr can't reach it.
+  if [ "$(uname)" = Darwin ]; then
+    open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
+  elif [ "$("$MUX" kind)" != none ]; then
+    # $HOME, not $PWD: the origin worktree may be gone, and a bad --cwd fails tab create.
+    "$MUX" window --env SKIP_FETCH=1 "$WORKTREE_GROUP" "$HOME" "$TMPSCRIPT"
+  else
+    tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+# capture — vault-note helper, invoked by the runner.
+#
+# Writes a structured note into the second-brain inbox, copies any image payload
+# into Notes-Assets, and stamps /tmp/notify-idle.latest with `vault|<note-path>`
+# so the next switch hotkey opens the captured note instead of a (non-existent)
+# worktree session.
+#
+# Privacy: the original clipboard content is written verbatim into the vault.
+# Don't bind the parent hotkeys if your clipboard ever holds secrets.
+#
+# Args: $1 = outcome (not-a-bug | failed | pending-jira), $2 = one-line reason.
+# Stdout: the path of the note written.
+#-------------------------------------------------------------------------------
+cmd_capture() {
+  local OUTCOME="${1:?outcome arg required}" REASON="${2:-}"
+
+  : "${WORKTREE_LOG_TAG:?WORKTREE_LOG_TAG required}"
+  : "${WORKTREE_CAPTURE_PAYLOAD_FILE:?WORKTREE_CAPTURE_PAYLOAD_FILE required}"
+  : "${WORKTREE_CAPTURE_LOG:?WORKTREE_CAPTURE_LOG required}"
+
+  # A worktree capture belongs to the vault of the worktree's repo (work worktree
+  # → work vault). Resolve from the worktree path, falling back to $PWD.
+  local VAULT VAULT_INBOX VAULT_ASSETS TODAY TIMESTAMP
+  VAULT="$("$HOME/.local/bin/vault-path" "${WORKTREE_CAPTURE_WORKTREE_PATH:-$PWD}")"
+  VAULT_INBOX="$VAULT/Notes-Inbox"
+  VAULT_ASSETS="$VAULT/Notes-Assets"
+  mkdir -p "$VAULT_INBOX" "$VAULT_ASSETS"
+
+  TODAY=$(date +%Y-%m-%d)
+  TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+  # Filename strategy depends on outcome:
+  #   pending-jira  → path-derived slug, `jira-pending-<slug>.md` with no date or
+  #                   log-tag prefix. Stage B looks the note up by deriving the
+  #                   same slug from $PWD, so it must be reproducible from the
+  #                   worktree path alone.
+  #   anything else → payload-preview slug + date prefix, so captures stay
+  #                   sortable by date and labeled by outcome.
+  local WORKTREE_BRANCH="" SLUG NOTE_FILE REL PAYLOAD_PREVIEW
+  if [ "$OUTCOME" = "pending-jira" ]; then
+    : "${WORKTREE_CAPTURE_WORKTREE_PATH:?WORKTREE_CAPTURE_WORKTREE_PATH required for pending-jira}"
+    REL="${WORKTREE_CAPTURE_WORKTREE_PATH#"$HOME"/Developer/}"
+    SLUG="${REL//\//-}"
+    NOTE_FILE="$VAULT_INBOX/jira-pending-${SLUG}.md"
+    # Record the real branch for frontmatter — a cross-check signal for Stage B
+    # even if the worktree dir gets renamed or moved.
+    WORKTREE_BRANCH=$(git -C "$WORKTREE_CAPTURE_WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  else
+    # LC_ALL=C — without it, tr -c errors with "Illegal byte sequence" on any
+    # non-UTF-8 byte in the payload (e.g. Slack's MacRoman NBSP \xCA). The C
+    # locale treats input as opaque bytes so the pipeline never fails, which
+    # guarantees a capture note gets written even when sanitization missed
+    # something upstream.
+    PAYLOAD_PREVIEW=$(LC_ALL=C bash -c '
+      head -c 200 "$1" 2>/dev/null \
+        | tr "\n" " " \
+        | tr -c "[:alnum:]_-" "-" \
+        | sed "s/-\{2,\}/-/g; s/^-\|-\$//g" \
+        | head -c 40
+    ' _ "$WORKTREE_CAPTURE_PAYLOAD_FILE")
+    SLUG="${PAYLOAD_PREVIEW:-payload}"
+    NOTE_FILE="$VAULT_INBOX/${TODAY}_Worktree-${WORKTREE_LOG_TAG}-${OUTCOME}-${SLUG}.md"
+  fi
+
+  local IMAGE_REF="" ASSET_NAME
+  if [ -n "${WORKTREE_CAPTURE_IMAGE_SRC:-}" ] && [ -f "$WORKTREE_CAPTURE_IMAGE_SRC" ]; then
+    if [ "$OUTCOME" = "pending-jira" ]; then
+      ASSET_NAME="jira-pending-${SLUG}.png"
+    else
+      ASSET_NAME="${TODAY}_${WORKTREE_LOG_TAG}-${OUTCOME}-${SLUG}.png"
+    fi
+    cp "$WORKTREE_CAPTURE_IMAGE_SRC" "$VAULT_ASSETS/$ASSET_NAME" 2>/dev/null || true
+    IMAGE_REF="![[$ASSET_NAME]]"
+  fi
+
+  # pending-jira gets structured frontmatter so Stage B can yq-read worktree_path
+  # / branch without parsing markdown. Other outcomes use the raw-capture layout.
+  if [ "$OUTCOME" = "pending-jira" ]; then
+    {
+      cat <<FRONT
+---
+type: pending-jira
+worktree_path: $WORKTREE_CAPTURE_WORKTREE_PATH
+branch: ${WORKTREE_BRANCH:-(unknown)}
+created: $TIMESTAMP
+hubs:
+  - work
+tags:
+  - pending-jira
+---
+
+# Pending Jira — \`${SLUG}\`
+
+Worktree was created from clipboard payload below. Run the \`worktree jira-file\`
+hotkey from inside the worktree to file the Jira ticket using these inputs.
+
+**Worktree path:** \`$WORKTREE_CAPTURE_WORKTREE_PATH\`
+**Branch:** \`${WORKTREE_BRANCH:-(unknown)}\`
+**Captured:** $TIMESTAMP
+
+## Clipboard payload
+
+FRONT
+
+      if [ -n "$IMAGE_REF" ]; then
+        printf '%s\n' "$IMAGE_REF"
+      else
+        printf '```\n'
+        cat "$WORKTREE_CAPTURE_PAYLOAD_FILE" 2>/dev/null || true
+        printf '\n```\n'
+      fi
+
+      cat <<TAIL
+
+## User-provided context
+
+${WORKTREE_CAPTURE_CONTEXT:-(none)}
+TAIL
+    } > "$NOTE_FILE"
+  else
+    {
+      cat <<FRONT
+---
+date:
+  - $TODAY
+hubs:
+  - work
+---
+
+# Worktree capture — $OUTCOME
+
+**Entry point:** \`$WORKTREE_LOG_TAG\`
+**Time:** $TIMESTAMP
+**Outcome:** \`$OUTCOME\`${REASON:+ — $REASON}
+
+## Original input
+
+FRONT
+
+      if [ -n "$IMAGE_REF" ]; then
+        printf '%s\n' "$IMAGE_REF"
+      else
+        printf '```\n'
+        cat "$WORKTREE_CAPTURE_PAYLOAD_FILE" 2>/dev/null || true
+        printf '\n```\n'
+      fi
+
+      cat <<MID
+
+## Additional context
+
+${WORKTREE_CAPTURE_CONTEXT:-(none)}
+
+## Claude reasoning (this run only)
+
+\`\`\`
+MID
+      # Slice the run log to the LATEST "=== <date> ===" block. Without this,
+      # tail -n 80 of the append-only logfile would show mostly old runs,
+      # drowning out the actionable content. The runner's outcome detection uses
+      # the same slicing — keeps capture and detection consistent.
+      awk '/^=== / { buf = $0 "\n"; next } { buf = buf $0 "\n" } END { printf "%s", buf }' \
+        "$WORKTREE_CAPTURE_LOG" 2>/dev/null \
+        | tail -n 80
+      printf '\n```\n'
+    } > "$NOTE_FILE"
+  fi
+
+  # State file for the switch hotkey. Skipped on success (the runner already
+  # wrote "<session>|<path>" pointing at the new worktree).
+  if [ "${WORKTREE_CAPTURE_SKIP_STATE_FILE:-0}" != "1" ]; then
+    echo "vault|$NOTE_FILE" > /tmp/notify-idle.latest 2>/dev/null || true
+  fi
+
+  printf '%s\n' "$NOTE_FILE"
+}
+
+#-------------------------------------------------------------------------------
+# jira — browser tab → Jira ticket → /worktree.
+#
+# Reads the active tab from Chrome (preferred), Helium, or Brave; if it's an
+# atlassian.net URL with a ticket key, hands off to the runner. Helium ships no
+# static .sdef but responds to the Chrome-style scripting terms at runtime, so
+# the same read path works unchanged.
+#-------------------------------------------------------------------------------
+cmd_jira() {
+  # `exists process` first — without it, asking a closed browser for its URL
+  # launches it.
+  read_active_tab_url() {
+    local app="$1"
+    osascript <<APPLESCRIPT 2>/dev/null
+tell application "System Events"
+  if not (exists process "${app}") then return ""
+end tell
+tell application "${app}"
+  if (count of windows) is 0 then return ""
+  return URL of active tab of front window
+end tell
+APPLESCRIPT
+  }
+
+  local browser_icon
+  browser_icon=$(resolve-term-icon chrome 2>/dev/null || true)
+
+  # Track LAST_URL across browsers so the not-a-Jira warning can name the browser
+  # the user was actually looking at, rather than just "no tab".
+  local URL="" TICKET="" LAST_URL="" LAST_SOURCE="" app candidate short
+  for app in "Google Chrome" "Helium" "Brave Browser"; do
+    candidate=$(read_active_tab_url "$app" || true)
+    [ -z "$candidate" ] && continue
+    case "$app" in
+      "Google Chrome") short="Chrome" ;;
+      "Helium") short="Helium" ;;
+      "Brave Browser") short="Brave" ;;
+    esac
+    LAST_URL="$candidate"
+    LAST_SOURCE="$short"
+    if [[ "$candidate" =~ ^https://[^/]+\.atlassian\.net/ ]] \
+        && [[ "$candidate" =~ ([A-Z]+-[0-9]+) ]]; then
+      URL="$candidate"
+      TICKET="${BASH_REMATCH[1]}"
+      break
+    fi
+  done
+
+  if [ -z "$LAST_URL" ]; then
+    notify_error "worktree-jira" "No active tab in Chrome, Helium, or Brave" "$browser_icon"
+    exit 1
+  fi
+
+  if [ -z "$URL" ]; then
+    if [[ ! "$LAST_URL" =~ ^https://[^/]+\.atlassian\.net/ ]]; then
+      notify_error "worktree-jira" "Active $LAST_SOURCE tab is not a Jira URL — open a ticket and try again" "$browser_icon"
+    else
+      notify_error "worktree-jira" "No Jira ticket key found in the URL — make sure a ticket is selected" "$browser_icon"
+    fi
+    exit 1
+  fi
+
+  # Always Mode A (URL) — haiku is plenty. /worktree's Atlassian-MCP lookup +
+  # repo inference doesn't need sonnet's depth, and haiku is ~50% faster.
+  WORKTREE_CLAUDE_INPUT="$URL" \
+  WORKTREE_CLAUDE_MODEL="haiku" \
+  WORKTREE_CLAUDE_ACCOUNT="work" \
+  WORKTREE_GROUP="worktree-${TICKET}" \
+  WORKTREE_LOG_TAG="worktree-jira" \
+  WORKTREE_LOG_HEADER="URL: $URL
+MODEL: haiku" \
+  WORKTREE_START_TITLE="Creating ${TICKET}…" \
+  WORKTREE_START_MESSAGE="Worktree setup in progress" \
+  WORKTREE_FALLBACK_LABEL="$TICKET" \
+  WORKTREE_CAPTURE_PAYLOAD="$URL" \
+  exec "$SELF" runner
+}
+
+#-------------------------------------------------------------------------------
+# prompt — free-text describe → /worktree.
+#
+# Owns ONLY input capture + Mode-B disambiguation; everything after the handoff
+# is shared with the other capture verbs.
+#-------------------------------------------------------------------------------
+cmd_prompt() {
+  respawn_into_tmux prompt && exit 0
+
+  local INPUT
+  _POPUP_HDR=$(cat <<'EOF'
+Worktree from description (claude infers repo · folder · slug)
+
+Examples:
+  web infra release-automation
+  inferno fix oauth-redirect-bug
+  web feat new-search-ui
+  web spike fastly-edge-rendering
+
+Format: <repo> <folder-hint> <slug>   (space-separated, loose)
+
+(Ctrl-C to cancel · Enter to submit)
+
+EOF
+  )
+  popup_read 70% 30% "> " "$_POPUP_HDR"
+  INPUT="$POPUP_ANSWER"
+  [ -n "$INPUT" ] || exit 0
+
+  # Preserve what the user actually typed for the log — we may rewrite below.
+  local ORIG_INPUT="$INPUT"
+  load_valid_repos
+
+  # Pre-parse the common `<repo> <bucket> <slug>` case deterministically BEFORE
+  # handing off to claude. The /worktree skill on -p sonnet sometimes misclassifies
+  # that 3-token shape as Mode B (positional repo/branch/path) instead of Mode C
+  # (free-text describe with explicit bucket), which puts the worktree at
+  # `<repo>/<slug>` and silently drops the bucket.
+  #
+  # Mode B's third arg accepts `<folder>/<name>` and parses unambiguously, so
+  # rewrite `<repo> <bucket> <slug>` → `<repo> <slug> <bucket>/<slug>`. That one
+  # shape has a single valid parse no matter which mode the LLM picks; the bucket
+  # survives. Free-text descriptions pass through unchanged.
+  local TOKENS REPO BUCKET SLUG SUGGEST
+  read -r -a TOKENS <<< "$INPUT"
+  if [ "${#TOKENS[@]}" -eq 3 ]; then
+    REPO="${TOKENS[0]}"
+    BUCKET="${TOKENS[1]}"
+    SLUG="${TOKENS[2]}"
+    if is_valid_repo "$REPO"; then
+      if is_bucket "$BUCKET"; then
+        # Slug must look like a leaf branch name (no slashes, no spaces).
+        if [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          INPUT="$REPO $SLUG $BUCKET/$SLUG"
+        fi
+      else
+        # Unknown bucket — try a "did you mean?" via Levenshtein distance ≤ 2
+        # against the known list. On a close match, auto-correct AND notify so
+        # the user sees the correction. Falls through silently otherwise (claude
+        # still infers via /worktree's Mode C).
+        SUGGEST=$(awk -v typo="$BUCKET" -v known_list="$WT_BUCKETS" '
+          function min3(a, b, c) {
+            x = a; if (b < x) x = b; if (c < x) x = c; return x
+          }
+          function lev(a, b,    la, lb, i, j, cost) {
+            la = length(a); lb = length(b)
+            for (i = 0; i <= la; i++) m[i,0] = i
+            for (j = 0; j <= lb; j++) m[0,j] = j
+            for (i = 1; i <= la; i++) {
+              for (j = 1; j <= lb; j++) {
+                cost = (substr(a,i,1) == substr(b,j,1)) ? 0 : 1
+                m[i,j] = min3(m[i-1,j]+1, m[i,j-1]+1, m[i-1,j-1]+cost)
+              }
+            }
+            return m[la,lb]
+          }
+          BEGIN {
+            split(known_list, known, " ")
+            best = ""; best_d = 999
+            for (k in known) {
+              d = lev(typo, known[k])
+              if (d < best_d) { best_d = d; best = known[k] }
+            }
+            if (best_d <= 2) print best
+          }')
+        if [ -n "$SUGGEST" ] && [[ "$SLUG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          INPUT="$REPO $SLUG $SUGGEST/$SLUG"
+          mac-notify -t "Auto-corrected bucket" \
+                     -m "'$BUCKET' → '$SUGGEST' (worktree at $REPO/$SUGGEST/$SLUG)" \
+                     -T 5 -g "worktree-prompt-typo"
+        fi
+      fi
+    fi
+  fi
+
+  local LABEL
+  LABEL=$(slugify "$INPUT")
+
+  # FAST PATH — if INPUT is now in canonical Mode-B-rewrite shape
+  # (`<repo> <slug> <bucket>/<slug>`), skip claude entirely and run `treekanga
+  # add` directly. Saves ~25-30s per worktree for the common case of typing
+  # `<repo> <known-bucket> <slug>` at the popup.
+  local FAST_PATH_CMD="" CANON CANON_REPO CANON_SLUG CANON_BUCKET CANON_SLUG2 BARE_REPO
+  read -r -a CANON <<< "$INPUT"
+  if [ "${#CANON[@]}" -eq 3 ] && [[ "${CANON[2]}" =~ ^([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]]; then
+    CANON_REPO="${CANON[0]}"
+    CANON_SLUG="${CANON[1]}"
+    CANON_BUCKET="${BASH_REMATCH[1]}"
+    CANON_SLUG2="${BASH_REMATCH[2]}"
+    BARE_REPO="$HOME/Developer/$CANON_REPO/.bare"
+    if is_valid_repo "$CANON_REPO" \
+       && is_bucket "$CANON_BUCKET" \
+       && [ "$CANON_SLUG" = "$CANON_SLUG2" ] \
+       && [ -d "$BARE_REPO" ]; then
+      # Pattern A (ephemeral worktrees, no permanent default-branch worktree):
+      #   `git fetch origin --quiet` updates remote-tracking refs only — it does
+      #   NOT advance local master/develop, so no INDEX drift in any other
+      #   worktree on those branches.
+      #   `-b origin/HEAD` cuts the branch from the actual upstream default
+      #   (master for web, develop for inferno — git resolves origin/HEAD
+      #   per-repo automatically).
+      #   `-x` runs the postScript hook (sesh/zoxide/install).
+      # Single-quoted args — slug/bucket are already validated as alnum-safe.
+      FAST_PATH_CMD="cd '$BARE_REPO' && git fetch origin --quiet && treekanga add '$CANON_SLUG' -d '../$CANON_BUCKET' -n '$CANON_SLUG' -b origin/HEAD -x"
+    fi
+  fi
+
+  if [ -n "$FAST_PATH_CMD" ]; then
+    WORKTREE_RAW_COMMAND="$FAST_PATH_CMD" \
+    WORKTREE_GROUP="worktree-${LABEL:-describe}" \
+    WORKTREE_LOG_TAG="worktree-prompt" \
+    WORKTREE_LOG_HEADER="USER INPUT:    $ORIG_INPUT
+FAST PATH (no claude):  $FAST_PATH_CMD" \
+    WORKTREE_START_MESSAGE="$ORIG_INPUT (fast-path)" \
+    WORKTREE_FALLBACK_LABEL="$ORIG_INPUT" \
+    WORKTREE_CAPTURE_PAYLOAD="$ORIG_INPUT" \
+    exec "$SELF" runner
+  fi
+
+  local SELECTED_MODEL
+  SELECTED_MODEL=$(pick_model "$ORIG_INPUT" loose)
+
+  WORKTREE_CLAUDE_INPUT="$INPUT" \
+  WORKTREE_CLAUDE_MODEL="$SELECTED_MODEL" \
+  WORKTREE_GROUP="worktree-${LABEL:-describe}" \
+  WORKTREE_LOG_TAG="worktree-prompt" \
+  WORKTREE_LOG_HEADER="USER INPUT:    $ORIG_INPUT
+CLAUDE INPUT:  $INPUT
+MODEL:         $SELECTED_MODEL" \
+  WORKTREE_START_MESSAGE="$ORIG_INPUT" \
+  WORKTREE_FALLBACK_LABEL="$ORIG_INPUT" \
+  WORKTREE_CAPTURE_PAYLOAD="$ORIG_INPUT" \
+  exec "$SELF" runner
+}
+
+#-------------------------------------------------------------------------------
+# clipboard — clipboard (text or image) → /worktree.
+#
+# UX contract: ALWAYS shows the context popup first, regardless of clipboard
+# kind. Inference happens after, so the user gets one chance to add
+# disambiguation (repo hint, bucket, "saw on Safari") before claude routes.
+#
+# Routing (post-popup):
+#   Image                       → RAW_PROMPT (claude reads it, infers, /worktree)
+#   Text + Jira URL + no context → URL pipeline (fast)
+#   Text + Jira URL + context    → RAW_PROMPT with URL + context
+#   Text + Slack URL             → RAW_PROMPT: hydrate via unblocked, /worktree
+#   Text + other                 → describe pipeline with context appended
+#-------------------------------------------------------------------------------
+cmd_clipboard() {
+  respawn_into_tmux clipboard && exit 0
+
+  if ! detect_clipboard worktree-clipboard; then
+    notify_error "worktree-clipboard" "Clipboard is empty"
+    exit 1
+  fi
+
+  local PREVIEW
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    PREVIEW="📋 Image (saved to $TMP_IMG)"
+  else
+    PREVIEW=$(text_preview "$CLIP")
+  fi
+
+  local CONTEXT
+  _POPUP_HDR=$(cat <<EOF
+Worktree from clipboard
+
+$PREVIEW
+
+Add context (helps claude infer repo / bucket / slug).
+Press Enter alone to use clipboard as-is.
+
+(Ctrl-C to cancel · Enter to submit)
+
+EOF
+  )
+  popup_read 70% 30% "context > " "$_POPUP_HDR"
+  CONTEXT="$POPUP_ANSWER"
+
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    WORKTREE_RAW_PROMPT="You are processing a screenshot from my system clipboard for worktree creation.
+
+Read the image at: $TMP_IMG
+
+Additional context from the user: ${CONTEXT:-(none)}
+
+Steps:
+1. Read the image file. It may be a screenshot of a Slack thread, GitHub PR, Jira ticket, terminal output, code snippet, or bug report.
+2. If you find a Jira URL or ticket key in the image, run \`/worktree <full-atlassian-URL> --yes\`.
+3. Otherwise, infer repo + folder bucket + slug from the image content (use the additional context above to disambiguate). Then run \`/worktree <inferred-positional-or-describe-args> --yes\`. Use Mode B if you can extract a clean repo/branch/folder, Mode C describe otherwise. \`--yes\` is REQUIRED — without it the skill prompts for confirmation, which fails silently in -p headless mode.
+
+Be concise. Do not narrate every step — just analyze and call /worktree once with --yes." \
+    WORKTREE_GROUP="worktree-clipboard-image" \
+    WORKTREE_LOG_TAG="worktree-clipboard" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: image at $TMP_IMG
+CONTEXT: ${CONTEXT:-(none)}" \
+    WORKTREE_START_MESSAGE="From clipboard image" \
+    WORKTREE_FALLBACK_LABEL="clipboard image" \
+    WORKTREE_CAPTURE_PAYLOAD="image:$TMP_IMG" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec "$SELF" runner
+  fi
+
+  local URL TICKET SLACK_URL INPUT SELECTED_MODEL
+  if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
+    URL="${BASH_REMATCH[1]}"
+    TICKET="${BASH_REMATCH[2]}"
+
+    if [ -z "$CONTEXT" ]; then
+      # Fast path — pure URL (Mode A). haiku handles the MCP fetch + repo
+      # inference fine and saves ~50% of claude-side latency vs sonnet.
+      WORKTREE_CLAUDE_INPUT="$URL" \
+      WORKTREE_CLAUDE_MODEL="haiku" \
+      WORKTREE_GROUP="worktree-${TICKET}" \
+      WORKTREE_LOG_TAG="worktree-clipboard" \
+      WORKTREE_LOG_HEADER="CLIPBOARD URL: $URL
+MODEL: haiku" \
+      WORKTREE_START_TITLE="Creating ${TICKET}…" \
+      WORKTREE_START_MESSAGE="From clipboard Jira URL" \
+      WORKTREE_FALLBACK_LABEL="$TICKET" \
+      WORKTREE_CAPTURE_PAYLOAD="$URL" \
+      exec "$SELF" runner
+    fi
+
+    # URL + context — RAW_PROMPT so claude can factor the context into the branch
+    # slug or refine the inference. /worktree still reads the ticket via
+    # Atlassian MCP for canonical fields.
+    WORKTREE_RAW_PROMPT="The clipboard contains a Jira ticket URL plus extra context the user wants you to factor into worktree creation.
+
+Jira URL: $URL
+Ticket key: $TICKET
+
+User context: $CONTEXT
+
+Steps:
+1. Run \`/worktree $URL --yes\`. The skill reads the ticket via the Atlassian MCP for canonical repo / folder / slug inference.
+2. If the user's context above suggests a more specific direction (e.g. \"frontend only\", \"prototype with X\", \"split into two PRs\"), pass that hint to /worktree as describe-style refinement OR record it in a local note for follow-up — your call.
+
+Be concise — fetch, infer, run, no narration." \
+    WORKTREE_CLAUDE_MODEL="haiku" \
+    WORKTREE_GROUP="worktree-${TICKET}" \
+    WORKTREE_LOG_TAG="worktree-clipboard" \
+    WORKTREE_LOG_HEADER="CLIPBOARD URL: $URL
+CONTEXT: $CONTEXT
+MODEL: haiku" \
+    WORKTREE_START_TITLE="Creating ${TICKET}…" \
+    WORKTREE_START_MESSAGE="Jira URL + context" \
+    WORKTREE_FALLBACK_LABEL="$TICKET" \
+    WORKTREE_CAPTURE_PAYLOAD="$URL" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec "$SELF" runner
+  fi
+
+  # Slack URL — always RAW_PROMPT; the URL is opaque and needs hydration.
+  if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.slack\.com/archives/[^[:space:]]+) ]]; then
+    SLACK_URL="${BASH_REMATCH[1]}"
+    WORKTREE_RAW_PROMPT="The clipboard contains a Slack message URL — the URL alone is opaque, so hydrate it before deciding what to do.
+
+Slack URL: $SLACK_URL
+
+User context: ${CONTEXT:-(none)}
+
+Step 1: Call \`mcp__unblocked__context_get_urls\` with this URL. Unblocked indexes Slack threads — it will return the message body, channel, who said what, surrounding thread context.
+
+Step 2: From the fetched content (and the user's context, if any), decide which /worktree mode fits:
+- If the thread references a specific Jira ticket URL, run \`/worktree <jira-url> --yes\` (URL mode).
+- Otherwise, infer repo + folder bucket + slug from the thread (channel name, mentioned product/team, problem description) and run \`/worktree <inferred> --yes\` (describe mode).
+
+Step 3: Be concise — fetch, infer, run. No narration, no commentary." \
+    WORKTREE_GROUP="worktree-slack" \
+    WORKTREE_LOG_TAG="worktree-clipboard" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: Slack URL → $SLACK_URL
+CONTEXT: ${CONTEXT:-(none)}" \
+    WORKTREE_START_TITLE="Fetching Slack thread…" \
+    WORKTREE_START_MESSAGE="Slack → /worktree" \
+    WORKTREE_FALLBACK_LABEL="Slack thread" \
+    WORKTREE_CAPTURE_PAYLOAD="$SLACK_URL" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec "$SELF" runner
+  fi
+
+  # Free text → describe pipeline. Append context so /worktree's Mode C has both.
+  if [ -n "$CONTEXT" ]; then
+    INPUT="$CLIP -- $CONTEXT"
+  else
+    INPUT="$CLIP"
+  fi
+  # strict: a paste that merely opens with a ticket key is usually still prose.
+  SELECTED_MODEL=$(pick_model "$CLIP" strict)
+
+  WORKTREE_CLAUDE_INPUT="$INPUT" \
+  WORKTREE_CLAUDE_MODEL="$SELECTED_MODEL" \
+  WORKTREE_GROUP="worktree-clipboard" \
+  WORKTREE_LOG_TAG="worktree-clipboard" \
+  WORKTREE_LOG_HEADER="CLIPBOARD (text):
+$CLIP
+
+CONTEXT: ${CONTEXT:-(none)}
+MODEL: $SELECTED_MODEL" \
+  WORKTREE_START_MESSAGE="From clipboard text" \
+  WORKTREE_FALLBACK_LABEL="clipboard text" \
+  WORKTREE_CAPTURE_PAYLOAD="$CLIP" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec "$SELF" runner
+}
+
+#-------------------------------------------------------------------------------
+# bug — clipboard → /worktree with Jira filing DEFERRED.
+#
+#   Jira URL (or bare key) → /worktree on the URL. The ticket already exists, so
+#     no pending-jira note. Same fast path as `clipboard`, exposed here so you
+#     don't have to remember which hotkey for which URL kind.
+#   Slack URL → claude hydrates the thread via Unblocked, then /worktree. A
+#     pending-jira note captures the URL for Stage B.
+#   Image / free text → /worktree describe-mode; pending-jira note for Stage B.
+#
+# Stage A (here): clipboard → /worktree → vault pending-jira note.
+# Stage B (`worktree jira-file` from inside the worktree): cwd → matching pending
+# note → confirm → file.
+#
+# Why deferred? Filing synchronously alongside worktree creation chains 3+ slow
+# LLM steps (classify → write ticket → /worktree), and when the upfront ticket is
+# wrong you've already burned a Jira number. Deferred lets you start coding
+# immediately, then file once you've actually narrowed the bug.
+#-------------------------------------------------------------------------------
+cmd_bug() {
+  respawn_into_tmux bug && exit 0
+
+  if ! detect_clipboard worktree-bug; then
+    notify_error "worktree-bug" "Clipboard is empty"
+    exit 1
+  fi
+
+  # Distinguish Jira (ticket exists) from Slack (opaque, hydrate first) from
+  # everything else.
+  local JIRA_URL="" JIRA_TICKET="" SLACK_URL=""
+  if [ "$CLIPBOARD_KIND" = "text" ]; then
+    if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
+      JIRA_URL="${BASH_REMATCH[1]}"
+      JIRA_TICKET="${BASH_REMATCH[2]}"
+    elif [[ "$CLIP" =~ ^[[:space:]]*([A-Z]+-[0-9]+)[[:space:]]*$ ]]; then
+      JIRA_TICKET="${BASH_REMATCH[1]}"
+      JIRA_URL="$JIRA_TICKET"  # bare key — the /worktree skill resolves it
+    elif [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.slack\.com/archives/[^[:space:]]+) ]]; then
+      SLACK_URL="${BASH_REMATCH[1]}"
+    fi
+  fi
+
+  local PREVIEW POPUP_HEAD CONTEXT INPUT
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    PREVIEW="📋 Image (saved to $TMP_IMG)"
+  elif [ -n "$JIRA_URL" ]; then
+    PREVIEW="🎫 Jira: $JIRA_TICKET"
+  elif [ -n "$SLACK_URL" ]; then
+    PREVIEW="💬 Slack: $SLACK_URL"
+  else
+    PREVIEW=$(text_preview "$CLIP")
+  fi
+
+  # For a Jira URL the context is just a hint to /worktree's branch slug. For
+  # Slack/text/image it's saved alongside the payload in the pending note.
+  if [ -n "$JIRA_URL" ]; then
+    POPUP_HEAD="🎫 Jira ticket → worktree (no pending-jira note — ticket exists)
+
+$PREVIEW
+
+Optional context (hints /worktree's branch-name choice).
+Press Enter alone to skip."
+  else
+    POPUP_HEAD="🐛 Bug from clipboard → worktree (Jira filing deferred)
+
+$PREVIEW
+
+Add context — saved alongside the payload in the pending-jira inbox note.
+Stage B (\`worktree jira-file\` from inside the worktree) reads both when
+writing the actual Jira ticket later.
+e.g. \"saw this on listen, only on Safari\", \"after deploy of X\"
+
+Press Enter alone to skip context."
+  fi
+
+  _POPUP_HDR=$(cat <<EOF
+$POPUP_HEAD
+
+(Ctrl-C to cancel · Enter to submit)
+
+EOF
+  )
+  popup_read 70% 35% "context > " "$_POPUP_HDR"
+  CONTEXT="$POPUP_ANSWER"
+
+  # Jira URL — ticket exists, so no DEFER_JIRA. Mode A → haiku.
+  if [ -n "$JIRA_URL" ]; then
+    if [ -n "$CONTEXT" ]; then
+      WORKTREE_RAW_PROMPT="The clipboard contained a Jira ticket URL plus extra context the user wants to factor into worktree creation.
+
+Jira URL / key: $JIRA_URL
+Ticket: $JIRA_TICKET
+
+User context: $CONTEXT
+
+Steps:
+1. Run \`/worktree $JIRA_URL --yes\`. The skill reads the ticket via the Atlassian MCP for canonical repo / folder / slug inference.
+2. If the user's context above suggests a more specific direction (e.g. \"frontend only\", \"prototype with X\"), pass that hint to /worktree as describe-style refinement.
+
+Be concise — fetch, infer, run, no narration." \
+      WORKTREE_CLAUDE_MODEL="haiku" \
+      WORKTREE_GROUP="worktree-${JIRA_TICKET}" \
+      WORKTREE_LOG_TAG="worktree-bug" \
+      WORKTREE_LOG_HEADER="CLIPBOARD: Jira URL ($JIRA_TICKET)
+URL/KEY: $JIRA_URL
+CONTEXT: $CONTEXT
+MODEL: haiku" \
+      WORKTREE_START_TITLE="Creating ${JIRA_TICKET}…" \
+      WORKTREE_START_MESSAGE="Jira URL + context" \
+      WORKTREE_FALLBACK_LABEL="$JIRA_TICKET" \
+      WORKTREE_CAPTURE_PAYLOAD="$JIRA_URL" \
+      WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+      exec "$SELF" runner
+    fi
+    WORKTREE_CLAUDE_INPUT="$JIRA_URL" \
+    WORKTREE_CLAUDE_MODEL="haiku" \
+    WORKTREE_GROUP="worktree-${JIRA_TICKET}" \
+    WORKTREE_LOG_TAG="worktree-bug" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: Jira URL ($JIRA_TICKET)
+URL/KEY: $JIRA_URL
+MODEL: haiku" \
+    WORKTREE_START_TITLE="Creating ${JIRA_TICKET}…" \
+    WORKTREE_START_MESSAGE="Jira URL" \
+    WORKTREE_FALLBACK_LABEL="$JIRA_TICKET" \
+    WORKTREE_CAPTURE_PAYLOAD="$JIRA_URL" \
+    exec "$SELF" runner
+  fi
+
+  # Slack URL — claude hydrates via Unblocked, then runs /worktree. DEFER_JIRA=1
+  # so a pending note captures the URL for Stage B (which re-hydrates it to
+  # compose the actual ticket).
+  if [ -n "$SLACK_URL" ]; then
+    WORKTREE_RAW_PROMPT="You are processing a Slack message URL to create a worktree. The Jira ticket will be filed LATER (Stage B); your only job here is to spawn the worktree. Do NOT call any Atlassian MCP tool, do NOT write a Jira ticket.
+
+Slack URL: $SLACK_URL
+
+User context: ${CONTEXT:-(none)}
+
+Step 1: Call \`mcp__unblocked__context_get_urls\` with the Slack URL. Unblocked indexes Slack threads — it returns the message body, channel, who said what, surrounding thread context.
+  • If Unblocked says it's not in the channel: print \"NEEDS_UNBLOCKED: <channel-id>\" on its own line and stop. The user can add Unblocked to the channel and retry, or paste the message contents directly instead of the URL.
+
+Step 2: From the fetched content (and the user's context, if any), infer repo + folder bucket + slug. Bucket should reflect the bug's nature — default \`fix\` for confirmed regressions.
+
+Step 3: Run \`/worktree <inferred-positional-or-describe-args> --yes\`. Use Mode B if you can extract a clean repo/branch/folder, Mode C describe otherwise.
+
+Be concise — fetch, infer, run, stop. Do not narrate." \
+    WORKTREE_DEFER_JIRA=1 \
+    WORKTREE_GROUP="worktree-bug-slack" \
+    WORKTREE_LOG_TAG="worktree-bug" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: Slack URL → $SLACK_URL
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+    WORKTREE_START_TITLE="Hydrating Slack thread…" \
+    WORKTREE_START_MESSAGE="Slack → worktree (Jira deferred)" \
+    WORKTREE_FALLBACK_LABEL="Slack thread" \
+    WORKTREE_CAPTURE_PAYLOAD="$SLACK_URL" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec "$SELF" runner
+  fi
+
+  # Image — claude reads the file, infers repo/bucket/slug, runs /worktree.
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    WORKTREE_RAW_PROMPT="You are processing a clipboard screenshot to create a worktree. The Jira ticket will be filed LATER (Stage B); your only job here is to create the worktree. Do NOT call any Atlassian MCP tool, do NOT write a Jira ticket.
+
+Read the image at: $TMP_IMG
+
+Additional context from the user: ${CONTEXT:-(none)}
+
+Steps:
+1. Read the image. It's typically a screenshot of a Slack thread, GitHub PR comment, terminal output, code snippet, error dialog, or bug report.
+2. Infer repo + folder bucket + slug from the image content (use the additional context above to disambiguate). Bucket reflects the bug's nature: \`fix\` for confirmed regressions, \`spike\` for unclear repros, etc. Default \`fix\`.
+3. Run \`/worktree <inferred-positional-or-describe-args> --yes\`. Mode B if you can extract a clean repo/branch/folder, Mode C describe otherwise.
+
+Be concise — analyze, infer, run /worktree once, stop. Do not narrate." \
+    WORKTREE_DEFER_JIRA=1 \
+    WORKTREE_GROUP="worktree-bug" \
+    WORKTREE_LOG_TAG="worktree-bug" \
+    WORKTREE_LOG_HEADER="CLIPBOARD: image at $TMP_IMG
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+    WORKTREE_START_TITLE="Creating worktree (Jira deferred)…" \
+    WORKTREE_START_MESSAGE="Bug from clipboard image" \
+    WORKTREE_FALLBACK_LABEL="bug from image" \
+    WORKTREE_CAPTURE_PAYLOAD="image:$TMP_IMG" \
+    WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+    exec "$SELF" runner
+  fi
+
+  # Free text — Mode C describe. Append context so /worktree's inference has both
+  # the bug body and the user's hint.
+  if [ -n "$CONTEXT" ]; then
+    INPUT="$CLIP -- $CONTEXT"
+  else
+    INPUT="$CLIP"
+  fi
+
+  WORKTREE_CLAUDE_INPUT="$INPUT" \
+  WORKTREE_DEFER_JIRA=1 \
+  WORKTREE_GROUP="worktree-bug" \
+  WORKTREE_LOG_TAG="worktree-bug" \
+  WORKTREE_LOG_HEADER="CLIPBOARD (text):
+$CLIP
+
+CONTEXT: ${CONTEXT:-(none)}
+DEFER_JIRA: 1" \
+  WORKTREE_START_TITLE="Creating worktree (Jira deferred)…" \
+  WORKTREE_START_MESSAGE="Bug from clipboard text" \
+  WORKTREE_FALLBACK_LABEL="bug from text" \
+  WORKTREE_CAPTURE_PAYLOAD="$CLIP" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  exec "$SELF" runner
+}
+
+#-------------------------------------------------------------------------------
+# retry — re-fire a captured bug from the vault.
+#
+# Reads a Notes-Inbox capture note, extracts the original payload + context +
+# entry point, shows a popup so the user can refine the context, then re-fires
+# the bug pipeline. With no argument, defaults to the most-recently-modified
+# worktree-bug capture in the work vault's Notes-Inbox/.
+#
+# Only worktree-bug captures are supported: the other verbs capture on failure
+# only and rarely benefit from retry.
+#-------------------------------------------------------------------------------
+cmd_retry() {
+  local NOTE="${1:-}"
+
+  if [ -z "$NOTE" ]; then
+    # Filename pattern: YYYY-MM-DD_Worktree-worktree-bug-<outcome>-<slug>.md
+    # `ls -t` rather than stat: BSD wants -f and GNU wants -c, and mtime order is all we need.
+    NOTE=$(ls -t "$("$HOME/.local/bin/vault-path" --work)/Notes-Inbox"/*Worktree-worktree-bug-*.md 2>/dev/null | head -1)
+    if [ -z "$NOTE" ]; then
+      notify_error "worktree-retry" "No worktree-bug capture notes in Notes-Inbox/ — fire one first"
+      exit 1
+    fi
+  fi
+
+  if [ ! -f "$NOTE" ]; then
+    notify_error "worktree-retry" "Note not found: $NOTE"
+    exit 1
+  fi
+
+  # Body of a markdown section: lines after `## <header>` up to the next `## `.
+  extract_section() {
+    local note="$1" header="$2"
+    awk -v h="^## ${header}\$" '
+      $0 ~ h        { in_section=1; next }
+      /^## / && in_section { in_section=0 }
+      in_section    { print }
+    ' "$note"
+  }
+
+  local ENTRY_POINT ORIGINAL_BLOCK OLD_CONTEXT
+  ENTRY_POINT=$(grep -m1 '^\*\*Entry point:\*\*' "$NOTE" 2>/dev/null \
+    | sed -E 's/.*`([^`]+)`.*/\1/')
+
+  if [ -z "$ENTRY_POINT" ]; then
+    notify_error "worktree-retry" "Couldn't read **Entry point:** from note. Is this a capture note?"
+    exit 1
+  fi
+  if [ "$ENTRY_POINT" != "worktree-bug" ]; then
+    notify_error "worktree-retry" "Retry currently only supports worktree-bug captures (this is $ENTRY_POINT)"
+    exit 1
+  fi
+
+  ORIGINAL_BLOCK=$(extract_section "$NOTE" "Original input")
+  OLD_CONTEXT=$(extract_section "$NOTE" "Additional context" \
+    | sed '/^[[:space:]]*$/d' \
+    | head -3)
+
+  local CLIPBOARD_KIND="" TMP_IMG="" CLIP="" ASSET
+  if printf '%s' "$ORIGINAL_BLOCK" | grep -q '!\[\['; then
+    CLIPBOARD_KIND="image"
+    ASSET=$(printf '%s' "$ORIGINAL_BLOCK" | grep -oE '!\[\[[^]]+\]\]' | head -1 \
+      | sed -E 's/!\[\[(.*)\]\]/\1/')
+    TMP_IMG="${NOTE%/Notes-Inbox/*}/Notes-Assets/$ASSET"
+    if [ ! -f "$TMP_IMG" ]; then
+      notify_error "worktree-retry" "Image asset missing: $ASSET (was Notes-Assets purged?)"
+      exit 1
+    fi
+  else
+    CLIPBOARD_KIND="text"
+    # Strip the surrounding ``` fences, then drop leading blank lines. macOS BSD
+    # sed doesn't accept the multi-line `:a;$!{N;ba;}` join idiom GNU sed uses for
+    # trailing-blank stripping; leading-only is enough, since the runner trims
+    # trailing whitespace implicitly when piping the payload through the prompt.
+    CLIP=$(printf '%s' "$ORIGINAL_BLOCK" \
+      | sed -E '/^```/d' \
+      | sed -e '/./,$!d')
+  fi
+
+  if [ "$CLIPBOARD_KIND" = "text" ] && [ -z "$CLIP" ]; then
+    notify_error "worktree-retry" "Couldn't extract text payload from note's '## Original input' section"
+    exit 1
+  fi
+
+  local PREVIEW NOTE_BASENAME CONTEXT NEW_CONTEXT
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    PREVIEW="📋 Image (re-using $TMP_IMG)"
+  else
+    PREVIEW=$(text_preview "$CLIP")
+  fi
+  NOTE_BASENAME=$(basename "$NOTE" .md)
+
+  _POPUP_HDR=$(cat <<EOF
+🔁 Retry capture: $NOTE_BASENAME
+
+$PREVIEW
+
+Previous context: ${OLD_CONTEXT:-(none)}
+
+(Press Enter alone to KEEP the old context, or type new to REPLACE.)
+(Ctrl-C to cancel · Enter to submit)
+
+EOF
+  )
+  popup_read 75% 35% "context > " "$_POPUP_HDR"
+  NEW_CONTEXT="$POPUP_ANSWER"
+
+  if [ -z "$NEW_CONTEXT" ]; then
+    CONTEXT="$OLD_CONTEXT"
+  else
+    CONTEXT="$NEW_CONTEXT"
+  fi
+
+  local CONVENTIONS_BODY PAYLOAD_BLOCK
+  if ! CONVENTIONS_BODY=$(read_jira_conventions); then
+    notify_error "worktree-retry" "Missing prompt scaffold or company detail under $WT_DIR/"
+    exit 1
+  fi
+
+  if [ "$CLIPBOARD_KIND" = "image" ]; then
+    PAYLOAD_BLOCK="The clipboard payload is an image. Read it now:
+
+  Image path: $TMP_IMG
+
+(If the image contains a Jira URL, treat that as the canonical reference for repo/component inference, but you still must classify whether the *content* describes a reproducible bug before creating any ticket.)"
+  else
+    PAYLOAD_BLOCK="The clipboard payload is text:
+
+<clipboard>
+$CLIP
+</clipboard>"
+  fi
+
+  WORKTREE_RAW_PROMPT="You are analyzing a previously-captured worktree-bug payload that the user is RETRYING. The original capture was: $NOTE_BASENAME
+
+# Step 1 — Classify
+
+Read the payload below carefully.
+
+$PAYLOAD_BLOCK
+
+Additional context from the user (refined on retry): ${CONTEXT:-(none)}
+
+Decide: is this a *reproducible* bug? A reproducible bug has:
+- a clear actual-vs-expected behavior gap, AND
+- enough information (or strong implication) to formulate repro steps.
+
+Borderline cases that are NOT bugs for this flow:
+- Feature requests / wishlist items
+- Pure opinions or design discussions in a Slack thread
+- Vague complaints with no surface to point at
+- Code snippets without a stated failure mode
+- Screenshots of correct behavior
+
+If you're unsure, default to NOT_BUG.
+
+# Step 2 — If NOT a bug
+
+Output exactly one line on its own and stop:
+
+    NOT_BUG: <one-line reason — be specific>
+
+Do NOT call any MCP tool. Do NOT run /worktree.
+
+# Step 3 — If reproducible bug
+
+Follow the conventions below to create the Jira ticket, then run /worktree on the new URL.
+
+---
+
+$CONVENTIONS_BODY
+
+---
+
+Begin analysis now. Be concise — do not narrate every step. Just classify, act, and stop." \
+  WORKTREE_GROUP="worktree-bug-retry" \
+  WORKTREE_LOG_TAG="worktree-bug" \
+  WORKTREE_LOG_HEADER="RETRY OF: $NOTE_BASENAME
+CLIPBOARD KIND: $CLIPBOARD_KIND
+NEW CONTEXT: ${CONTEXT:-(none)}
+$([ "$CLIPBOARD_KIND" = "image" ] && echo "IMAGE PATH: $TMP_IMG" || echo "CLIP: $CLIP")" \
+  WORKTREE_START_TITLE="🔁 Retrying bug capture…" \
+  WORKTREE_START_MESSAGE="From $NOTE_BASENAME" \
+  WORKTREE_FALLBACK_LABEL="retry: $NOTE_BASENAME" \
+  WORKTREE_CAPTURE_PAYLOAD="$([ "$CLIPBOARD_KIND" = "image" ] && echo "image:$TMP_IMG" || echo "$CLIP")" \
+  WORKTREE_CAPTURE_CONTEXT="$CONTEXT" \
+  WORKTREE_CAPTURE_ALWAYS=1 \
+  exec "$SELF" runner
+}
+
+#-------------------------------------------------------------------------------
+# jira-file — Stage B of the deferred-Jira flow.
+#
+# Stage A (`worktree bug`) captured a clipboard payload into the active vault's
+# `Notes-Inbox/jira-pending-<path-slug>.md` alongside the fresh worktree. Run
+# from inside that worktree, this looks up the matching pending note and runs a
+# TWO-STEP claude flow with explicit confirmation BETWEEN steps:
+#
+#   1. Dry-run claude — composes the ticket payload. Calls no Atlassian MCP.
+#   2. Popup          — shows the proposal. "yes" files it, anything else
+#                       cancels and the pending note stays put.
+#   3. File claude    — only after an explicit yes. Calls createJiraIssue.
+#   4. Rename+banner  — note becomes `jira-filed-<TICKET>-<slug>.md`, URL copied
+#                       to the clipboard, success banner.
+#-------------------------------------------------------------------------------
+cmd_jira_file() {
+  respawn_into_tmux jira-file && exit 0
+
+  local PROMPT_DETAIL="$WT_DIR/jira-prompt-company.md"
+  local LOGFILE="$HOME/.logs/worktree-jira-file.log"
+  mkdir -p "$(dirname "$LOGFILE")"
+
+  # WARNING: the subshell's stdio must stay detached — the caller reads the pid via `$(start_heartbeat …)`, and a backgrounded child holding that pipe blocks the substitution for the full 240s of sleeps.
+  start_heartbeat() {
+    local group="$1" label="$2"
+    (
+      local elapsed=0 interval
+      for interval in 30 30 60 60 60; do
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+        mac-notify -t "${label}… ${elapsed}s" -m "(claude running)" -g "$group" -T 60
+      done
+    ) >/dev/null 2>&1 &
+    echo $!
+  }
+  kill_heartbeat() {
+    local pid="$1" group="$2"
+    kill -9 "$pid" 2>/dev/null || true
+    pkill -9 -P "$pid" 2>/dev/null || true
+    pkill -9 -f "terminal-notifier.*${group}" 2>/dev/null || true
+    wait 2>/dev/null || true
+    sleep 0.3
+  }
+
+  # Derive the path-slug from the FOCUSED pane's working directory. The
+  # skhd → tmux run-shell respawn lands us in the tmux server's CWD (~ or /), not
+  # the user's pane, so a plain `git rev-parse --show-toplevel` always fails with
+  # "not a git repo". Ask tmux (or herdr's snapshot) where the user actually is.
+  local ACTIVE_PATH="$PWD" FOCUSED_PATH="" herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+    FOCUSED_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
+  fi
+  if [ -z "$FOCUSED_PATH" ] &&
+    command -v "$herdr_bin" >/dev/null 2>&1 &&
+    command -v jq >/dev/null 2>&1; then
+    FOCUSED_PATH=$("$herdr_bin" api snapshot 2>/dev/null | jq -r '
+      .result.snapshot as $s
+      | $s.panes[]? | select(.pane_id == $s.focused_pane_id)
+      | .foreground_cwd // .cwd // empty' 2>/dev/null || true)
+  fi
+  if [ -n "$FOCUSED_PATH" ] && [ -d "$FOCUSED_PATH" ]; then
+    ACTIVE_PATH="$FOCUSED_PATH"
+  fi
+
+  local WORKTREE_PATH VAULT_INBOX REL SLUG NOTE
+  WORKTREE_PATH=$(git -C "$ACTIVE_PATH" rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -z "$WORKTREE_PATH" ]; then
+    notify_error "worktree-jira-file" "Not inside a git repo (active pane: $ACTIVE_PATH) — focus a worktree pane first"
+    exit 1
+  fi
+  case "$WORKTREE_PATH" in
+    "$HOME/Developer/"*) ;;
+    *)
+      notify_error "worktree-jira-file" "Worktree must be under ~/Developer/<repo>/... (got: $WORKTREE_PATH)"
+      exit 1
+      ;;
+  esac
+  # Resolve the vault from the WORKTREE path, NOT $PWD — the respawn lands in the
+  # tmux server's cwd. Work worktree → work vault.
+  VAULT_INBOX="$("$HOME/.local/bin/vault-path" "$WORKTREE_PATH")/Notes-Inbox"
+  REL="${WORKTREE_PATH#"$HOME"/Developer/}"
+  SLUG="${REL//\//-}"
+  NOTE="$VAULT_INBOX/jira-pending-${SLUG}.md"
+
+  # Fall back to an fzf picker over all `jira-pending-*.md` if the path-keyed
+  # lookup misses — a worktree renamed or moved post-capture is the realistic case.
+  if [ ! -f "$NOTE" ]; then
+    local PENDING=() p PICK_INPUT PICK_MENU PICK_SH PICKED
+    while IFS= read -r p; do PENDING+=( "$p" ); done < <(find "$VAULT_INBOX" -maxdepth 1 -name 'jira-pending-*.md' 2>/dev/null | sort)
+
+    if [ "${#PENDING[@]}" -eq 0 ]; then
+      notify_error "worktree-jira-file" "No pending Jira notes in inbox (looked for $(basename "$NOTE"))"
+      exit 1
+    fi
+
+    if [ "${#PENDING[@]}" -eq 1 ]; then
+      NOTE="${PENDING[0]}"
+    else
+      PICK_INPUT=$(mktemp -t worktree-jira-file-pick.XXXXXX)
+      PICK_MENU="${PICK_INPUT}.menu"
+      PICK_SH=$(mktemp -t worktree-jira-file-pick.XXXXXX.sh)
+      chmod +x "$PICK_SH"
+      trap 'rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"' EXIT
+
+      {
+        printf 'Path-keyed lookup failed for: %s\n' "$(basename "$NOTE")"
+        printf 'Pick a pending note to file:\n\n'
+        for p in "${PENDING[@]}"; do printf '%s\n' "$(basename "$p")"; done
+      } > "$PICK_MENU"
+
+      cat > "$PICK_SH" <<EOF
+#!/usr/bin/env bash
+clear
+PICKED=\$(tail -n +4 "$PICK_MENU" | fzf --prompt='pending > ' --height=100% --header="\$(head -2 "$PICK_MENU")" --layout=reverse 2>/dev/null || true)
+echo "\$PICKED" > "$PICK_INPUT"
+EOF
+
+      "$MUX" popup --width 80% --height 60% "$PICK_SH" || true
+
+      PICKED=$(cat "$PICK_INPUT" 2>/dev/null || true)
+      rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"
+      trap - EXIT
+      [ -n "$PICKED" ] || exit 0  # user cancelled — silent
+      NOTE="$VAULT_INBOX/$PICKED"
+    fi
+  fi
+
+  if [ ! -f "$NOTE" ]; then
+    notify_error "worktree-jira-file" "Pending note not found: $NOTE"
+    exit 1
+  fi
+  if [ ! -s "$PROMPT_DETAIL" ]; then
+    notify_error "worktree-jira-file" "Missing $PROMPT_DETAIL (gitignored, per-employer) — populate before filing"
+    exit 1
+  fi
+
+  local BRANCH GROUP COMPANY_BODY NOTE_BODY PROPOSAL_FILE DRYRUN_PROMPT HB_PID
+  BRANCH=$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '(unknown)')
+  GROUP="worktree-jira-file-${SLUG}"
+  COMPANY_BODY=$(cat "$PROMPT_DETAIL")
+  NOTE_BODY=$(cat "$NOTE")
+  PROPOSAL_FILE=$(mktemp -t worktree-jira-file-proposal.XXXXXX)
+
+  DRYRUN_PROMPT="You are composing a Jira ticket payload for review. The user will read your output and decide whether to file. Do NOT call any Atlassian MCP tool yet. Do NOT call /worktree (the worktree already exists at $WORKTREE_PATH).
+
+# Worktree context
+
+- Path: $WORKTREE_PATH
+- Branch: $BRANCH
+- Pending note: $NOTE
+
+# Pending capture note (clipboard payload + user context)
+
+\`\`\`markdown
+$NOTE_BODY
+\`\`\`
+
+# Steps
+
+1. If the captured payload is a Slack URL or other indexed reference, hydrate via \`mcp__unblocked__context_get_urls\` to read the actual thread body. If hydration fails (channel not indexed), continue with the URL + user context as best you can — note the limitation in the proposal.
+
+2. Light codebase investigation in $WORKTREE_PATH (≤45s):
+   - rg with 3-5 distinctive terms from the payload
+   - check git log on the top 1-2 suspect files
+   - capture findings for the Technical Notes field
+
+3. Compose the proposed ticket payload using the company conventions below. Output it as a markdown block the user will read.
+
+4. Print EXACTLY this format and stop:
+
+   PROPOSAL_BEGIN
+   ---
+   summary: <one-line title, ≤80 chars>
+   issueType: Bug
+   ---
+
+   ## Description
+
+   <2-3 short paragraphs>
+
+   ## Technical Notes
+
+   <suspect files / recent commits / regression hint per the company convention>
+
+   ## Custom fields
+
+   - <field-id-or-name>: <value>
+   - …
+   PROPOSAL_END
+
+   Do NOT call createJiraIssue. Do NOT print any other markers.
+
+5. If you cannot compose a meaningful proposal (e.g. payload too vague, hydration failed and context is empty), print EXACTLY:
+
+   PROPOSAL_FAILED: <one-line reason>
+
+   …and stop.
+
+# Company-specific detail
+
+$COMPANY_BODY
+
+Be concise — investigate briefly, compose the proposal, print the markers, stop."
+
+  mac-notify -t "Composing proposal…" -m "$(basename "$NOTE")" -g "$GROUP" -T 12
+
+  {
+    echo "=== $(date) ==="
+    echo "STEP: dry-run"
+    echo "NOTE: $NOTE"
+    echo "WORKTREE: $WORKTREE_PATH"
+  } >> "$LOGFILE"
+
+  HB_PID=$(start_heartbeat "$GROUP" "Composing proposal")
+  claude --dangerously-skip-permissions --model sonnet -p "$DRYRUN_PROMPT" > "$PROPOSAL_FILE" 2>&1 || true
+  kill_heartbeat "$HB_PID" "$GROUP"
+
+  {
+    echo "--- dry-run output ---"
+    cat "$PROPOSAL_FILE"
+    echo "--- end dry-run ---"
+  } >> "$LOGFILE"
+
+  # Tolerant of leading prose claude may emit before PROPOSAL_BEGIN.
+  local PROPOSAL PROPOSAL_FAILED REASON CONFIRM
+  PROPOSAL=$(awk '/^PROPOSAL_BEGIN$/ { capture=1; next } /^PROPOSAL_END$/ { capture=0 } capture' "$PROPOSAL_FILE")
+  PROPOSAL_FAILED=$(grep -m1 '^PROPOSAL_FAILED:' "$PROPOSAL_FILE" 2>/dev/null | sed 's/^PROPOSAL_FAILED:[[:space:]]*//' | head -c 200 || true)
+
+  if [ -z "$PROPOSAL" ]; then
+    REASON="${PROPOSAL_FAILED:-(no PROPOSAL_BEGIN/END markers — check $LOGFILE)}"
+    mac-notify -t "❌ Proposal failed" -m "$REASON" -g "$GROUP" -T 30 -s Basso
+    rm -f "$PROPOSAL_FILE"
+    exit 1
+  fi
+
+  trap 'rm -f "$PROPOSAL_FILE"' EXIT
+  _POPUP_HDR=$(cat <<EOF
+🎫 Review proposed Jira ticket
+
+  Worktree: $WORKTREE_PATH
+  Branch:   $BRANCH
+  Note:     $(basename "$NOTE")
+
+──────────────────────── proposed payload ───────────────────────
+$PROPOSAL
+─────────────────────────────────────────────────────────────────
+
+Type "yes" to FILE this ticket via createJiraIssue.
+Anything else (incl. blank Enter) cancels — pending note stays put.
+
+(Ctrl-C also cancels)
+
+EOF
+  )
+  popup_read 90% 80% "confirm > " "$_POPUP_HDR"
+  CONFIRM="$POPUP_ANSWER"
+  case "$CONFIRM" in
+    y|Y|yes|YES|Yes) ;;
+    *)
+      mac-notify -t "Filing cancelled" -m "Pending note kept at $(basename "$NOTE")" -g "$GROUP" -T 8 -s Pop
+      rm -f "$PROPOSAL_FILE"
+      exit 0
+      ;;
+  esac
+
+  # Single-purpose call — no investigation, no rewriting, just execute the API.
+  local FILE_PROMPT FILE_OUT TICKET URL JIRA_FAIL NEW_NOTE TS
+  FILE_PROMPT="You are filing a Jira ticket. The payload below was already composed in a dry-run step and approved by the user. Your ONLY job is to translate this payload into a \`mcp__claude_ai_Atlassian_Rovo__createJiraIssue\` call.
+
+Do NOT modify the summary or description. Do NOT call /worktree. Do NOT do any further codebase investigation. Just file the ticket.
+
+# Approved payload
+
+$PROPOSAL
+
+# Steps
+
+1. Parse the payload above. Use the company conventions for cloudId / projectKey / customFieldIDs.
+2. Call \`mcp__claude_ai_Atlassian_Rovo__createJiraIssue\` with:
+   - \`summary\`: from payload's frontmatter
+   - \`description\`: the markdown body
+   - \`issueType\`: Bug (per payload)
+   - \`additionalFields\`: per the custom-field map in the company conventions, populated from the \"Custom fields\" section of the payload
+3. After creation, print EXACTLY two lines:
+
+   JIRA_TICKET: <KEY>
+   JIRA_URL: <full atlassian URL>
+
+   Then stop.
+4. If creation fails, print EXACTLY:
+
+   JIRA_FAILED: <one-line reason>
+
+# Company-specific detail (for cloudId / projectKey / customFieldIDs)
+
+$COMPANY_BODY
+
+Be concise — file, print marker, stop."
+
+  mac-notify -t "Filing ticket…" -m "$(basename "$NOTE")" -g "$GROUP" -T 12
+
+  {
+    echo "=== $(date) ==="
+    echo "STEP: file (after user yes)"
+  } >> "$LOGFILE"
+
+  FILE_OUT=$(mktemp -t worktree-jira-file-out.XXXXXX)
+  HB_PID=$(start_heartbeat "$GROUP" "Filing ticket")
+  claude --dangerously-skip-permissions --model sonnet -p "$FILE_PROMPT" > "$FILE_OUT" 2>&1 || true
+  kill_heartbeat "$HB_PID" "$GROUP"
+
+  {
+    echo "--- file output ---"
+    cat "$FILE_OUT"
+    echo "--- end file ---"
+  } >> "$LOGFILE"
+
+  TICKET=$(grep -m1 '^JIRA_TICKET:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_TICKET:[[:space:]]*//' | tr -dc 'A-Z0-9-' | head -c 32 || true)
+  URL=$(grep -m1 '^JIRA_URL:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_URL:[[:space:]]*//' | tr -d ' \t' | head -c 300 || true)
+  JIRA_FAIL=$(grep -m1 '^JIRA_FAILED:' "$FILE_OUT" 2>/dev/null | sed 's/^JIRA_FAILED:[[:space:]]*//' | head -c 200 || true)
+
+  rm -f "$FILE_OUT" "$PROPOSAL_FILE"
+  trap - EXIT
+
+  if [ -n "$TICKET" ]; then
+    NEW_NOTE="$VAULT_INBOX/jira-filed-${TICKET}-${SLUG}.md"
+    TS=$(date '+%Y-%m-%d %H:%M:%S')
+    awk -v ticket="$TICKET" -v url="$URL" -v ts="$TS" '
+      /^---$/ {
+        seen++
+        print
+        if (seen == 1) infm = 1
+        else if (seen == 2) infm = 0
+        next
+      }
+      infm && /^type:[[:space:]]*pending-jira/ { print "type: filed-jira"; next }
+      infm && /^worktree_path:/ {
+        print
+        if (!added) {
+          print "ticket: " ticket
+          print "ticket_url: " url
+          print "filed: " ts
+          added = 1
+        }
+        next
+      }
+      { print }
+    ' "$NOTE" > "${NEW_NOTE}.tmp" && mv "${NEW_NOTE}.tmp" "$NEW_NOTE" && rm -f "$NOTE"
+
+    printf '%s' "$URL" | { pbcopy 2>/dev/null || wl-copy 2>/dev/null || true; }
+
+    mac-notify \
+      -t "✅ $TICKET filed" \
+      -m "URL copied to clipboard · ${URL}" \
+      -g "$GROUP" \
+      -T 30 \
+      -s Glass \
+      -e "$HOME/.local/bin/notify-idle-switch.sh"
+  else
+    REASON="${JIRA_FAIL:-(no JIRA_TICKET marker — check $LOGFILE)}"
+    mac-notify -t "❌ Filing failed" -m "$REASON" -g "$GROUP" -T 30 -s Basso
+  fi
+  echo "[$(date +%H:%M:%S)] outcome ticket=${TICKET:-none}" >> "$LOGFILE"
+  exit 0
+}
+
+#-------------------------------------------------------------------------------
+# abort — kill an in-flight runner.
+#
+# Scans /tmp/worktree-runner-*.state (the runner's inner script writes one per
+# PID at start and removes it on exit):
+#   0 alive  → "No worktree in flight"
+#   1 alive  → kill it, fire "❌ aborted" in its banner group
+#   ≥2 alive → fzf picker (TAG · age · group) with a "Kill all" entry on top
+# Stale state files (dead PID) are cleaned up on every run.
+#-------------------------------------------------------------------------------
+cmd_abort() {
+  # Kill one runner by its state file: source PID/GROUP/TAG, SIGTERM (then KILL
+  # after 0.5s), fire the abort banner in that runner's group, drop the file.
+  kill_runner() {
+    local state_file="$1"
+    unset PID GROUP TAG STARTED
+    # shellcheck disable=SC1090
+    . "$state_file"
+
+    if [ -n "${PID:-}" ] && kill -0 "$PID" 2>/dev/null; then
+      kill -TERM "$PID" 2>/dev/null || true
+      sleep 0.5
+      if kill -0 "$PID" 2>/dev/null; then
+        kill -KILL "$PID" 2>/dev/null || true
+      fi
+    fi
+
+    mac-notify \
+      -t "❌ Worktree aborted" \
+      -m "${TAG:-runner} — by user" \
+      -g "${GROUP:-worktree-runner}" \
+      -T 6 \
+      -s Basso
+
+    rm -f "$state_file"
+  }
+
+  local ALIVE=() f count
+  shopt -s nullglob
+  for f in /tmp/worktree-runner-*.state; do
+    unset PID
+    # shellcheck disable=SC1090
+    . "$f" 2>/dev/null || continue
+    if [ -n "${PID:-}" ] && kill -0 "$PID" 2>/dev/null; then
+      ALIVE+=( "$f" )
+    else
+      rm -f "$f"
+    fi
+  done
+  shopt -u nullglob
+
+  count=${#ALIVE[@]}
+
+  if [ "$count" -eq 0 ]; then
+    mac-notify -t "worktree-abort" -m "No worktree in flight" -T 4 -g "worktree-abort-info"
+    rm -f /tmp/notify-idle.latest
+    exit 0
+  fi
+
+  if [ "$count" -eq 1 ]; then
+    kill_runner "${ALIVE[0]}"
+    rm -f /tmp/notify-idle.latest
+    exit 0
+  fi
+
+  local LIST_FILE PICK_FILE PICK_SH NOW age PICK CHOICE
+  LIST_FILE=$(mktemp -t worktree-abort-list.XXXXXX)
+  PICK_FILE=$(mktemp -t worktree-abort-pick.XXXXXX)
+  PICK_SH=$(mktemp -t worktree-abort-popup.XXXXXX.sh)
+  chmod +x "$PICK_SH"
+  trap 'rm -f "$LIST_FILE" "$PICK_FILE" "$PICK_SH"' EXIT
+
+  NOW=$(date +%s)
+
+  # "Kill all" first — the common case when you just want everything gone.
+  printf '%-22s · %-7s · %s\t__ALL__\n' "✗ Abort ALL $count runs" "" "" >> "$LIST_FILE"
+
+  for f in "${ALIVE[@]}"; do
+    unset PID GROUP TAG STARTED
+    # shellcheck disable=SC1090
+    . "$f" 2>/dev/null || continue
+    age=$((NOW - ${STARTED:-NOW}))
+    printf '%-22s · %-7s · %s\t%s\n' \
+      "${TAG:-?}" "$(fmt_secs "$age")" "${GROUP:-?}" "$f" >> "$LIST_FILE"
+  done
+
+  # Staged as a script so mux popup can exec it inline under herdr (no popup CLI).
+  cat > "$PICK_SH" <<EOF
+#!/usr/bin/env bash
+fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='abort > ' < '$LIST_FILE' > '$PICK_FILE'
+EOF
+
+  "$MUX" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
+
+  PICK=$(cat "$PICK_FILE" 2>/dev/null || true)
+  # User cancelled (Esc / Ctrl-C) — leave everything alone.
+  [ -n "$PICK" ] || exit 0
+
+  CHOICE=$(printf '%s' "$PICK" | awk -F'\t' '{print $2}')
+
+  if [ "$CHOICE" = "__ALL__" ]; then
+    for f in "${ALIVE[@]}"; do
+      kill_runner "$f"
+    done
+    rm -f /tmp/notify-idle.latest
+    exit 0
+  fi
+
+  if [ -n "$CHOICE" ] && [ -f "$CHOICE" ]; then
+    kill_runner "$CHOICE"
+    rm -f /tmp/notify-idle.latest
+  fi
+  exit 0
+}
+
+verb="${1:-help}"
+[ $# -gt 0 ] && shift
+case "$verb" in
+  prompt)         cmd_prompt "$@" ;;
+  jira)           cmd_jira "$@" ;;
+  clipboard)      cmd_clipboard "$@" ;;
+  bug)            cmd_bug "$@" ;;
+  retry)          cmd_retry "$@" ;;
+  jira-file)      cmd_jira_file "$@" ;;
+  abort)          cmd_abort "$@" ;;
+  runner)         cmd_runner "$@" ;;
+  capture)        cmd_capture "$@" ;;
+  help|-h|--help) cmd_help ;;
+  *)              die "unknown verb '$verb' (try: worktree help)" 2 ;;
+esac
