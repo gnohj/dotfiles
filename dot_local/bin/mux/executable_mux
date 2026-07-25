@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# mux — one entry point for "where is the user looking, and put this there".
+# Verb-dispatched; run `mux help` for the list. nvim mirrors kind/session-label
+# in config/mux.lua to avoid a subprocess on dashboard render.
+set -uo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+herdr="${HERDR_BIN_PATH:-herdr}"
+
+die() { printf 'mux: %s\n' "$1" >&2; exit "${2:-1}"; }
+need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for herdr"; }
+
+cmd_help() {
+  cat <<'EOF'
+mux — multiplexer operations against whichever of herdr/tmux is live.
+
+  mux kind                                 herdr | tmux | none
+  mux session-label                        workspace/session name, emoji stripped
+  mux window [OPTS] <name> <cwd> <cmd>     open a command in a new window/tab
+  mux notify [OPTS] <message>              transient message
+  mux popup  [OPTS] <script-path>          run a script modally
+  mux help
+
+window options:
+  --print-pane        print the new pane id (for HUNK_PANE capture)
+  --env KEY=VALUE     set an env var in the new window (repeatable)
+  --popup             prefer a modal popup; herdr has no popup CLI, so it
+                      falls back to a normal focused tab
+  --popup-size WxH    popup size, tmux only (default 80%x90%)
+notify options:
+  --title TEXT        herdr toast title (default "notice")
+  --duration MS       tmux status-line duration, tmux only (default 5000)
+popup options:
+  --width W  --height H    tmux popup size (default 70% x 30%)
+EOF
+}
+
+cmd_kind() {
+  # herdr wins when both are set — a herdr pane can sit atop a tmux session.
+  if [ -n "${HERDR_SOCKET_PATH:-}" ]; then echo herdr; return 0; fi
+  if [ -n "${TMUX:-}" ]; then echo tmux; return 0; fi
+  # No pane env still means a live server: nohup'd reclaims and systemd units have none.
+  if command -v "$herdr" >/dev/null 2>&1 &&
+    "$herdr" status server 2>/dev/null | grep -q '^status: running'; then
+    echo herdr
+    return 0
+  fi
+  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+    echo tmux
+    return 0
+  fi
+  echo none
+}
+
+# herdr numbers its tmux sessions, so `#S` is meaningless there; read the label.
+cmd_session_label() {
+  case "$(cmd_kind)" in
+    herdr)
+      command -v jq >/dev/null 2>&1 || return 0
+      [ -n "${HERDR_WORKSPACE_ID:-}" ] || return 0
+      "$herdr" workspace get "$HERDR_WORKSPACE_ID" 2>/dev/null |
+        jq -r '.result.workspace.label // empty' 2>/dev/null |
+        sed 's/^[^[:alnum:]]*//'
+      ;;
+    tmux) tmux display-message -p '#S' 2>/dev/null || true ;;
+  esac
+}
+
+# tmux runs the command AS the window process so it closes on exit; herdr spawns a
+# persistent shell, so "; exit" is appended to match that close-on-exit contract.
+cmd_window() {
+  local print_pane="" popup="" popup_size="80%x90%" envs=() e
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --print-pane) print_pane=1; shift ;;
+      --popup)      popup=1; shift ;;
+      --popup-size) popup_size="$2"; shift 2 ;;
+      --env)        envs+=("$2"); shift 2 ;;
+      --)           shift; break ;;
+      -*)           die "window: unknown option $1" 2 ;;
+      *)            break ;;
+    esac
+  done
+  local name="${1:?mux window: missing <name>}"
+  local cwd="${2:?mux window: missing <cwd>}"
+  local command="${3:?mux window: missing <command>}"
+  cwd="${cwd/#\~/$HOME}"
+
+  case "$(cmd_kind)" in
+    herdr)
+      need_jq
+      local args=(tab create --cwd "$cwd" --label "$name" --focus)
+      for e in "${envs[@]:-}"; do [ -n "$e" ] && args+=(--env "$e"); done
+      local out pane tab_id num
+      out="$("$herdr" "${args[@]}" 2>/dev/null)"
+      pane="$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty' 2>/dev/null)"
+      [ -n "$pane" ] || die "herdr tab create failed"
+      # A custom label replaces herdr's number badge, so re-add "<number>." to
+      # match the numbered sesh-layout tabs.
+      tab_id="$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty' 2>/dev/null)"
+      num="$(printf '%s' "$out" | jq -r '.result.tab.number // empty' 2>/dev/null)"
+      [ -n "$tab_id" ] && [ -n "$num" ] && "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
+      "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+      [ -n "$print_pane" ] && printf '%s\n' "$pane"
+      return 0
+      ;;
+    tmux)
+      # Modal popup: only meaningful without pane capture.
+      if [ -n "$popup" ] && [ -z "$print_pane" ]; then
+        tmux display-popup -d "$cwd" -w "${popup_size%x*}" -h "${popup_size#*x}" -E "$command"
+        return 0
+      fi
+      local targs=(new-window -n "$name" -c "$cwd")
+      [ -n "$print_pane" ] && targs+=(-P -F '#{pane_id}')
+      for e in "${envs[@]:-}"; do [ -n "$e" ] && targs+=(-e "$e"); done
+      targs+=("$command")
+      tmux "${targs[@]}"
+      ;;
+    none) die "no tmux or herdr session detected" ;;
+  esac
+}
+
+cmd_notify() {
+  local title="notice" duration=5000
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --title) title="$2"; shift 2 ;;
+      --duration) duration="$2"; shift 2 ;;
+      --) shift; break ;;
+      -*) die "notify: unknown option $1" 2 ;;
+      *) break ;;
+    esac
+  done
+  local msg="${1:?mux notify: missing <message>}"
+  case "$(cmd_kind)" in
+    # herdr has no status line, so --duration is tmux-only.
+    herdr) "$herdr" notification show "$title" --body "$msg" >/dev/null 2>&1 || printf '%s\n' "$msg" >&2 ;;
+    tmux)  tmux display-message -d "$duration" "$msg" 2>/dev/null || printf '%s\n' "$msg" >&2 ;;
+    *)     printf '%s\n' "$msg" >&2 ;;
+  esac
+}
+
+# Exit status is the inner script's, so a cancel is distinguishable from a failure.
+cmd_popup() {
+  local width="70%" height="30%"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --width) width="$2"; shift 2 ;;
+      --height) height="$2"; shift 2 ;;
+      --) shift; break ;;
+      -*) die "popup: unknown option $1" 2 ;;
+      *) break ;;
+    esac
+  done
+  local script="${1:?mux popup: missing <script-path>}"
+  [ -x "$script" ] || chmod +x "$script" 2>/dev/null || true
+  case "$(cmd_kind)" in
+    tmux) tmux display-popup -E -w "$width" -h "$height" "$script" ;;
+    # herdr has no popup CLI; in herdr mode these captures already run in the quake.
+    *)    clear 2>/dev/null || true; "$script" ;;
+  esac
+}
+
+verb="${1:-help}"
+[ $# -gt 0 ] && shift
+case "$verb" in
+  kind)          cmd_kind "$@" ;;
+  session-label) cmd_session_label "$@" ;;
+  window)        cmd_window "$@" ;;
+  notify)        cmd_notify "$@" ;;
+  popup)         cmd_popup "$@" ;;
+  help|-h|--help) cmd_help ;;
+  *)             die "unknown verb '$verb' (try: mux help)" 2 ;;
+esac
