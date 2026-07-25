@@ -24,3 +24,18 @@
 .local/bin/herdr-sesh-layout.sh
 .local/bin/herdr-sesh.sh
 .local/bin/yazi-herdr.sh
+
+# mux and the worktree pipeline each collapsed into one dispatcher in its own folder; remove the flat copies so an old absolute path can't still reach them.
+.local/bin/mux-kind.sh
+.local/bin/mux-notify.sh
+.local/bin/mux-popup.sh
+.local/bin/mux-window.sh
+.local/bin/worktree-abort
+.local/bin/worktree-bug
+.local/bin/worktree-capture
+.local/bin/worktree-clipboard
+.local/bin/worktree-jira
+.local/bin/worktree-jira-file
+.local/bin/worktree-prompt
+.local/bin/worktree-retry
+.local/bin/worktree-runner

@@ -18,6 +18,8 @@ export PATH="$HOME/.local/bin:$PATH"
 # Still needs to be on PATH: herdr's config.toml invokes them by bare name. Needs a full
 # herdr server restart, not just reload-config, for the daemon to inherit this.
 export PATH="$HOME/.local/bin/herdr-scripts:$PATH"
+# Same deal for the mux/ and worktree/ dispatcher folders, so bare `mux …` / `worktree …` resolve from these non-interactive chains too.
+export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 # mise owns the herdr binary on both boxes, and mise only activates in .zshrc (interactive),
 # so the bare-name `herdr` these same chains call would be unresolvable. APPENDED, not
 # prepended: nix/system keep front precedence, mise-only tools just become reachable.
