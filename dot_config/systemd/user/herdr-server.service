@@ -21,7 +21,9 @@ Type=simple
 # exported from ~/.zshenv, which -l sources; .zshrc is interactive-only and is skipped.
 # There is no .zprofile/.zlogin, so this stays cheap. `exec` replaces zsh so systemd
 # tracks herdr's real PID rather than supervising a wrapper.
-ExecStart=/usr/bin/zsh -l -c 'exec %h/.local/bin/herdr server'
+# `mise which` resolves the REAL binary (mise owns herdr now), so systemd still tracks
+# herdr's own PID; a bare name would hit the shim, and mise itself only activates in .zshrc.
+ExecStart=/usr/bin/zsh -l -c 'exec "$(mise which herdr)" server'
 # systemd's user env carries SHELL=/bin/bash and `zsh -l -c` won't override it; herdr spawns pane shells from it.
 Environment=SHELL=/usr/bin/zsh
 # on-failure, NOT always: every pane and agent lives in this unit's cgroup, and a

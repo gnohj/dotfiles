@@ -40,9 +40,9 @@ $MISE_BIN_PATH reshim
 # Verify the mise-exclusive AI agents are actually callable on the PATH mise exports (no nix/system binary can mask a failure here); keep this list synced with the AI agents in config.toml. A miss means the relink didn't take.
 eval "$($MISE_BIN_PATH env -s bash 2>/dev/null)"
 missing=""
-for c in claude codex gemini pi; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
+for c in claude codex gemini pi herdr; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
 if [ -n "$missing" ]; then
-  echo "!! mise AI agents not callable after reshim:$missing"
+  echo "!! mise-managed tools not callable after reshim:$missing"
   echo "   repair: mise reshim  (or force a relink: mise install npm:@anthropic-ai/claude-code --force && mise reshim)"
 fi
 

@@ -93,7 +93,6 @@ with pkgs;
 
 # macOS-only — GUI/hardware-bound or sourced elsewhere on Linux.
 ++ lib.optionals pkgs.stdenv.isDarwin [
-  herdr      # AI-agent multiplexer — trialing locally on the Mac
   rbw        # Bitwarden CLI — Linux VPS uses scoped tokens (option B), not rbw
   android-tools  # adb/fastboot for a USB Android phone — pointless headless
   scrcpy         # Mirror a USB Android phone — pointless headless
