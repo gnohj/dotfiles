@@ -18,6 +18,10 @@ export PATH="$HOME/.local/bin:$PATH"
 # Still needs to be on PATH: herdr's config.toml invokes them by bare name. Needs a full
 # herdr server restart, not just reload-config, for the daemon to inherit this.
 export PATH="$HOME/.local/bin/herdr-scripts:$PATH"
+# mise owns the herdr binary on both boxes, and mise only activates in .zshrc (interactive),
+# so the bare-name `herdr` these same chains call would be unresolvable. APPENDED, not
+# prepended: nix/system keep front precedence, mise-only tools just become reachable.
+export PATH="$PATH:$HOME/.local/share/mise/shims"
 
 # vim-herdr-navigation: forward ctrl+h/j/k/l to these TUIs (matched on the lower-cased
 # foreground process) instead of moving herdr's pane focus — so ctrl+j/k navigate

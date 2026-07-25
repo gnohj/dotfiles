@@ -21,12 +21,8 @@ if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
 fi
 MISE="$(command -v mise 2>/dev/null || echo "$HOME/.local/bin/mise")"
 
-# 2. herdr — agent multiplexer. NOT the primary path (tmux is), installed for
-#    experimenting with `herdr --remote`. Best-effort; failure never blocks tmux below.
-if ! command -v herdr >/dev/null 2>&1; then
-  echo "==> installing herdr (optional — for experimenting; tmux is the primary path)"
-  curl -fsSL https://herdr.dev/install.sh | sh || echo "!! herdr install failed — see https://herdr.dev"
-fi
+# 2. herdr now comes from mise (config.toml [tools]), installed by the mise-install
+#    run_onchange that runs after this script — no curl|sh installer here any more.
 
 # 3. zinit — zsh plugin manager (zshrc self-clones too; seed it here).
 ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"

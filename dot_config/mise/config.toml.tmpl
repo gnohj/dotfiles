@@ -24,6 +24,7 @@ zig = 'latest'          # used for GhosttyFetch
 "npm:@google/gemini-cli" = "latest"
 "npm:@earendil-works/pi-coding-agent" = "latest"
 "github:rtk-ai/rtk" = "latest"                     # PreToolUse `rtk hook claude`; not in nixpkgs
+herdr = "latest"                                   # agent multiplexer; on `latest` for same-day releases (nixpkgs lagged, and this replaces the VPS curl|sh installer)
 {{- if ne .chezmoi.os "darwin" }}
 
 # Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
