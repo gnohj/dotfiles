@@ -1,0 +1,34 @@
+# herdr sidebar system-info feeder - pushes the $sys metadata token. chezmoi-managed
+# (config stays in chezmoi; Nix is packages-only per home.nix). This unit is the LINUX
+# lifecycle only; macOS runs the same daemon via `--kick` from herdr-sesh-layout.sh, the
+# same flock-guarded self-daemonize herdr-git-status.sh uses, so there is no launchd twin
+# to keep in sync here either.
+#
+# The format below is the VPS variant: cpu/mem/load alongside host@city, because there
+# herdr is the whole screen with no OS bar behind it. macOS falls through to the script's
+# own default of host@city alone, since sketchybar already carries the metrics globally.
+#
+# Path-activated (herdr-sysinfo.path): starts when the herdr socket exists; the daemon
+# exits when the socket disappears, so it runs ONLY while herdr is up. Keyed off the
+# socket, NOT herdr-server.service (the real server is usually lazy-spawned via
+# `herdr --remote`, so that unit sits failing "already running"). Same lifecycle as
+# herdr-git-status and herdr-focus-tracker.
+#
+# Stdlib-only Python talking straight to the socket - no herdr binary and no PATH lookup,
+# so systemd's minimal environment needs nothing added here.
+[Unit]
+Description=herdr sidebar system-info feeder (feeds the $sys metadata token)
+Documentation=https://herdr.dev/docs/configuration/
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/herdr-scripts/herdr-sysinfo.py
+# Tweak the line here rather than in the script. Fields: host city hostcity cpu mem memp
+# memtot load disk up time. Keep it short - the sidebar is 18-36 columns wide.
+Environment=HERDR_SYSINFO_INTERVAL=5
+Environment=HERDR_SYSINFO_SCOPE=focused
+Environment="HERDR_SYSINFO_FORMAT={hostcity}  {cpu}  {mem}  {load}"
+# on-failure only: the daemon exits(0) when the socket is gone (herdr down) - stay
+# stopped and let the .path unit restart it when the socket returns.
+Restart=on-failure
+RestartSec=5
