@@ -321,9 +321,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     bg_log "· (bg) $HOOK exists but is not executable — chmod +x to enable"
   fi
 
-  # Notify the user that bg setup is done. tmux display-message lands
-  # on the worktree session's status bar (visible if user already
-  # rctrl+'d in). mac-notify catches the case where they haven't yet.
+  # mux-notify reaches whichever multiplexer is live; mac-notify covers not looking.
   if [ "$install_ok" = "1" ]; then
     final_msg="✅ $WORKTREE_NAME setup complete (deps + codegen done)"
     notify_title="✓ Background setup done"
@@ -331,9 +329,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     final_msg="⚠️ $WORKTREE_NAME setup completed with errors — check ~/.logs/treekanga-postscript.log"
     notify_title="⚠️ Background setup had errors"
   fi
-  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    tmux display-message -d 8000 -t "$SESSION_NAME" "$final_msg" 2>/dev/null
-  fi
+  "$HOME/.local/bin/mux-notify.sh" --title "$notify_title" --duration 8000 "$final_msg" 2>/dev/null || true
   if command -v mac-notify >/dev/null 2>&1; then
     mac-notify -t "$notify_title" -m "$WORKTREE_NAME" -T 6 -g "worktree-bg-$WORKTREE_NAME" 2>/dev/null
   fi
@@ -341,20 +337,29 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
 
 # Fast-path final notification: tell the user the worktree dir is
-# ready (sync part done). The bg subshell will fire ANOTHER tmux
-# message + mac-notify when deps + codegen + hook actually finish.
-if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-  tmux display-message -d 5000 -t "$SESSION_NAME" "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null
-fi
+# ready (sync part done); the bg subshell fires again when deps + codegen finish.
+"$HOME/.local/bin/mux-notify.sh" --title "🌳 worktree ready" --duration 5000 \
+  "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null || true
 
-# Close the treekanga selector window if this postScript was launched from it
-# (rctrl-semi opens a window named '🌳' running `treekanga tui`). Killing it
-# here also terminates the parent treekanga process — fine, it has nothing
-# left to do.
+# Close the '🌳' treekanga selector (rctrl-semi) in both muxes; herdr labels prefix a number.
 if command -v tmux &>/dev/null; then
   tmux list-windows -a -F '#{session_name}:#{window_index}|#{window_name}' 2>/dev/null |
     awk -F'|' '$2 == "🌳" { print $1 }' |
     while read -r target; do
       tmux kill-window -t "$target" 2>/dev/null || true
+    done
+fi
+
+if command -v "${HERDR_BIN_PATH:-herdr}" &>/dev/null && command -v jq &>/dev/null; then
+  herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  "$herdr_bin" workspace list 2>/dev/null |
+    jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null |
+    while IFS= read -r ws; do
+      [ -n "$ws" ] || continue
+      "$herdr_bin" tab list --workspace "$ws" 2>/dev/null |
+        jq -r '.result.tabs[]? | select((.label // "") | test("(^|\\.)🌳$")) | .tab_id' 2>/dev/null
+    done |
+    while IFS= read -r tid; do
+      [ -n "$tid" ] && "$herdr_bin" tab close "$tid" >/dev/null 2>&1 || true
     done
 fi

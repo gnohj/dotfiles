@@ -155,7 +155,8 @@ read -e -p "context > " ctx
 echo "\$ctx" > "$INPUT_FILE"
 EOF
 
-tmux display-popup -E -w 75% -h 35% "$POPUP_SH"
+# `|| true`: a cancel exits non-zero and `set -e` would abort before the check.
+"$HOME/.local/bin/mux-popup.sh" --width 75% --height 35% "$POPUP_SH" || true
 
 NEW_CONTEXT=$(cat "$INPUT_FILE" 2>/dev/null || true)
 rm -f "$INPUT_FILE" "$POPUP_SH"

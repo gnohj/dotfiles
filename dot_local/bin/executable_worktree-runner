@@ -711,15 +711,14 @@ exit 0
 EOF
 
 # Spawn the staged session script. macOS: a background Terminal.app window.
-# Linux/VPS (headless): a tmux window (or a detached session when not already
-# inside tmux), reachable over SSH/mosh. SKIP_FETCH makes zsh's login init skip
-# ghosttyfetch (which spawns a `tmux` child + an unnamed numeric session).
-# On macOS `--env` is required because LaunchServices strips custom env vars
-# from the calling shell; on Linux the tmux `-e` flag carries it instead.
+# Linux/VPS: a tab in the live multiplexer. A bare `tmux new-window` would spin up
+# an invisible tmux server on the herdr VPS, stranding the session where herdr can't reach it.
 if [ "$(uname)" = Darwin ]; then
   open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
-elif [ -n "${TMUX:-}" ]; then
-  tmux new-window -e SKIP_FETCH=1 -n "$WORKTREE_GROUP" "$TMPSCRIPT"
+elif [ "$("$HOME/.local/bin/mux-kind.sh")" != none ]; then
+  # $HOME, not $PWD: the origin worktree may be gone, and a bad --cwd fails tab create.
+  "$HOME/.local/bin/mux-window.sh" --env SKIP_FETCH=1 \
+    "$WORKTREE_GROUP" "$HOME" "$TMPSCRIPT"
 else
   tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
 fi

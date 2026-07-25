@@ -25,11 +25,12 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bi
 # context so the popup renders correctly. Mirror that here when we
 # detect we're not inside a tmux client AND a tmux server is up.
 #
+# Only when tmux is LIVE: on the Mac a tmux server exists even when you're on herdr.
 # Re-spawning via `tmux run-shell -b` is fire-and-forget — once it
 # launches the script in tmux's context, this outer process exits.
 if [ -z "${TMUX:-}" ] \
    && [ -z "${WORKTREE_PROMPT_RESPAWNED:-}" ] \
-   && command -v tmux >/dev/null 2>&1 \
+   && [ "$("$HOME/.local/bin/mux-kind.sh")" = tmux ] \
    && tmux ls >/dev/null 2>&1; then
   WORKTREE_PROMPT_RESPAWNED=1 tmux run-shell -b "$HOME/.local/bin/worktree-prompt"
   exit 0
@@ -64,9 +65,9 @@ read -e -p "> " input
 [ -n "\$input" ] && echo "\$input" > "$INPUT_FILE"
 EOF
 
-# `-w 70% -h 30%` sizes generously to fit the example block. -E closes
-# the popup when POPUP_SH exits.
-tmux display-popup -E -w 70% -h 30% "$POPUP_SH"
+# mux-popup.sh draws a tmux popup, or runs inline under herdr (no popup CLI there).
+# `|| true`: a cancel exits non-zero and `set -e` would abort before the check.
+"$HOME/.local/bin/mux-popup.sh" --width 70% --height 30% "$POPUP_SH" || true
 
 INPUT=$(cat "$INPUT_FILE" 2>/dev/null || true)
 # Done with capture tmpfiles; clean now since `exec` won't fire the trap.

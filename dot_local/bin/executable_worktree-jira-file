@@ -79,12 +79,22 @@ kill_heartbeat() {
 #    which pane was active and use its #{pane_current_path}; that's
 #    where the user actually is when they hit the hotkey.
 #-------------------------------------------------------------------------------
+#    Same under herdr: ask its snapshot for the globally-focused pane cwd.
 ACTIVE_PATH="$PWD"
+FOCUSED_PATH=""
 if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-  TMUX_PANE_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
-  if [ -n "$TMUX_PANE_PATH" ] && [ -d "$TMUX_PANE_PATH" ]; then
-    ACTIVE_PATH="$TMUX_PANE_PATH"
-  fi
+  FOCUSED_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
+fi
+if [ -z "$FOCUSED_PATH" ] &&
+  command -v "${HERDR_BIN_PATH:-herdr}" >/dev/null 2>&1 &&
+  command -v jq >/dev/null 2>&1; then
+  FOCUSED_PATH=$("${HERDR_BIN_PATH:-herdr}" api snapshot 2>/dev/null | jq -r '
+    .result.snapshot as $s
+    | $s.panes[]? | select(.pane_id == $s.focused_pane_id)
+    | .foreground_cwd // .cwd // empty' 2>/dev/null || true)
+fi
+if [ -n "$FOCUSED_PATH" ] && [ -d "$FOCUSED_PATH" ]; then
+  ACTIVE_PATH="$FOCUSED_PATH"
 fi
 
 WORKTREE_PATH=$(git -C "$ACTIVE_PATH" rev-parse --show-toplevel 2>/dev/null || true)
@@ -142,7 +152,8 @@ PICKED=\$(tail -n +4 "$PICK_MENU" | fzf --prompt='pending > ' --height=100% --he
 echo "\$PICKED" > "$PICK_INPUT"
 EOF
 
-    tmux display-popup -E -w 80% -h 60% "$PICK_SH"
+    # `|| true`: a cancel exits non-zero and `set -e` would abort before the check.
+    "$HOME/.local/bin/mux-popup.sh" --width 80% --height 60% "$PICK_SH" || true
 
     PICKED=$(cat "$PICK_INPUT" 2>/dev/null || true)
     rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"
@@ -305,7 +316,8 @@ read -e -p "confirm > " ans
 echo "\$ans" > "$INPUT_FILE"
 EOF
 
-tmux display-popup -E -w 90% -h 80% "$POPUP_SH"
+# `|| true`: a cancel exits non-zero and `set -e` would abort before the check.
+"$HOME/.local/bin/mux-popup.sh" --width 90% --height 80% "$POPUP_SH" || true
 
 CONFIRM=$(cat "$INPUT_FILE" 2>/dev/null || true)
 rm -f "$INPUT_FILE" "$POPUP_SH"

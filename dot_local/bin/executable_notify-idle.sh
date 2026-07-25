@@ -14,12 +14,19 @@ mkdir -p "$LOG_DIR"
   echo "  cwd: $PWD"
 } >> "$LOG_DIR/notify-idle.log" 2>&1
 
-SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
-# Stable pane id (%N) of the agent's own pane (the Stop hook inherits TMUX_PANE), so rctrl-' lands on the exact pane even when a session hosts several agents.
-PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
+# Session + pane from whichever multiplexer hosts this agent; herdr's workspace is the session.
+if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
+  SESSION="$("${HERDR_BIN_PATH:-herdr}" workspace get "${HERDR_WORKSPACE_ID:-}" 2>/dev/null \
+    | jq -r '.result.workspace.label // empty' 2>/dev/null | sed 's/^[^[:alnum:]]*//')"
+  PANE_ID="${HERDR_PANE_ID:-}"
+else
+  SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
+  # Stable pane id (%N) of the agent's own pane (the Stop hook inherits TMUX_PANE), so rctrl-' lands on the exact pane even when a session hosts several agents.
+  PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
+fi
 BRANCH="$(git -C "$PWD" branch --show-current 2>/dev/null)"
 
-# Only notify inside the normal tmux+git workflow; otherwise it's noise.
+# Only notify inside the normal multiplexer+git workflow; otherwise it's noise.
 if [ -z "$SESSION" ] || [ -z "$BRANCH" ]; then
   exit 0
 fi
@@ -27,9 +34,10 @@ fi
 # Marker for rctrl-' — written FIRST and on every OS, so the jump works even if the banner delivery below fails.
 echo "${PANE_ID:-$SESSION}" > /tmp/notify-idle.latest 2>/dev/null || true
 
-# Terminal hosting the session (for the banner icon). Inside tmux use client_termtype, not $TERM (the server keeps the first client's TERM forever).
+# Terminal hosting the session (for the banner icon). Inside tmux use client_termtype, not $TERM (the server keeps the first client's TERM forever). herdr has no client-termtype concept, so $TERM is already the right answer there.
 TERM_ID=""
-[ -n "$SESSION" ] && TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
+[ -z "${HERDR_SOCKET_PATH:-}" ] && [ -n "$SESSION" ] &&
+  TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
 TERM_ID="${TERM_ID:-${TERM:-}}"
 
 # Which agent fired the hook — walk up the process tree (claude = direct child; opencode = zx-shell grandparent).
