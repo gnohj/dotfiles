@@ -36,7 +36,7 @@ mkdir -p "$CACHE_DIR"
 
 if [ -f "$CACHE_FILE" ]; then
   CACHED_VALUE=$(cat "$CACHE_FILE")
-  CACHE_AGE=$(($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0)))
+  CACHE_AGE=$(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0)))
 
   if [ -n "$CACHED_VALUE" ]; then
     CACHE_TTL=$CACHE_TTL_WITH_PR

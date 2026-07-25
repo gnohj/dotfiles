@@ -28,7 +28,7 @@ CACHE="$CACHE_DIR/$KEY"
 LOCK="$CACHE_DIR/$KEY.lock"
 
 # Clear a crashed refresher's lock (>30s old) so the cache can't wedge stale forever.
-_age() { local m; m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0)"; echo "$(($(date +%s) - m))"; }
+_age() { local m; m="$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0)"; echo "$(($(date +%s) - m))"; }
 [ -d "$LOCK" ] && [ "$(_age "$LOCK")" -ge 30 ] && rmdir "$LOCK" 2>/dev/null
 
 # mkdir lock coalesces refreshers so only one gitmux runs per dir at a time.

@@ -25,7 +25,7 @@ stale_after=900  # a desktop sample older than 15 min means the app isn't pollin
 
 mkdir -p "$dir" 2>/dev/null
 now="$(date +%s)"
-mt() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+mt() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 
 green="#a7cfbd"
 active="$HOME/.config/colorscheme/active/active-colorscheme.sh"

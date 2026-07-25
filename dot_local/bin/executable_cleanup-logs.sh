@@ -66,7 +66,7 @@ while IFS= read -r -d '' logfile; do
     # Delete if older than 60 days
     if [[ $(uname) == "Darwin" ]]; then
       # macOS find syntax
-      DAYS_OLD=$(( ($(date +%s) - $(stat -f %m "$logfile")) / 86400 ))
+      DAYS_OLD=$(( ($(date +%s) - $(stat -c %Y "$logfile" 2>/dev/null || stat -f %m "$logfile" 2>/dev/null || echo 0)) / 86400 ))
     else
       # Linux find syntax
       DAYS_OLD=$(( ($(date +%s) - $(stat -c %Y "$logfile")) / 86400 ))
