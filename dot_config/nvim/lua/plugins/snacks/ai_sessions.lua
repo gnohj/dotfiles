@@ -139,7 +139,7 @@ dir="$1"
 for f in $(ls -t "$dir"/*.jsonl 2>/dev/null); do
   [ -f "$f" ] || continue
   id="$(session_id "$f")"
-  mt="$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null)"
+  mt="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)"
   lbl="$(session_label "$f" | tr '\t\n' '  ')"
   [ -z "$lbl" ] && lbl="Untitled (${id:0:8})"
   printf '%s\t%s\t%s\t%s\n' "$id" "$mt" "$f" "$lbl"
@@ -160,7 +160,7 @@ local claude_batch = claude_label .. [==[
     dir="$1"; acct="$2"; shift 2
     for f in "$dir"/*.jsonl; do
       [ -f "$f" ] || continue
-      mt="$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null)"
+      mt="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)"
       printf '%s\t%s\t%s\n' "$mt" "$f" "$acct"
     done
   done

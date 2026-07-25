@@ -60,19 +60,15 @@ notify() {
   "$HOME/.local/bin/mac-notify" -t 'gh-dash reclaim' -m "$1" -g gh-dash-reclaim >/dev/null 2>&1 || true
 }
 
-# Epoch seconds of a file's mtime (macOS BSD stat, Linux GNU stat fallback).
+# GNU first: on Linux `stat -f %m FILE` reads FILE as a filesystem and poisons the value.
 _mtime() {
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
 # Which multiplexer are we under? gh-dash review windows live in tmux windows on
 # the Mac (off-herdr) and in herdr tabs under herdr; window/tab enumeration for
-# release + sweep must follow suit. Same signal used by mux-window.sh / mux.lua.
-mux_kind() {
-  if [ -n "${HERDR_SOCKET_PATH:-}" ]; then echo herdr
-  elif [ -n "${TMUX:-}" ]; then echo tmux
-  else echo none; fi
-}
+# release + sweep must follow suit. Shared detector; see mux-kind.sh.
+mux_kind() { "$HOME/.local/bin/mux-kind.sh"; }
 
 # All open herdr tabs as "<tab_id>\t<label>" lines across every workspace (herdr
 # tab list is per-workspace, so iterate). Best-effort: never aborts the caller.

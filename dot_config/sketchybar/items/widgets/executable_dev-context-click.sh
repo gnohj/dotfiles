@@ -33,7 +33,7 @@ ssh_hosts="$(awk 'tolower($1)=="host"{for(n=2;n<=NF;n++) if($n !~ /[*?]/ && $n !
 CACHE="${TMPDIR:-/tmp}/dev-context-ts-nodes.cache"
 now="$(date +%s)"
 mtime=0
-[ -f "$CACHE" ] && mtime="$(stat -f %m "$CACHE" 2>/dev/null || echo 0)"
+[ -f "$CACHE" ] && mtime="$(stat -c %Y "$CACHE" 2>/dev/null || stat -f %m "$CACHE" 2>/dev/null || echo 0)"
 if [ -s "$CACHE" ] && [ $((now - mtime)) -lt 60 ]; then
   ts_nodes="$(cat "$CACHE")"
 else

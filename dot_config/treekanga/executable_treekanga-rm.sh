@@ -61,7 +61,13 @@ list_worktrees() {
   done < <(parse_repos)
 }
 
-# Kill any tmux sessions whose path lives inside the worktree being removed.
+# Close any session rooted in the worktree; sweep both, a stale one is broken either way.
+kill_sessions_for() {
+  local wt="$1"
+  kill_tmux_sessions_for "$wt"
+  kill_herdr_workspaces_for "$wt"
+}
+
 kill_tmux_sessions_for() {
   local wt="$1"
   command -v tmux &>/dev/null || return 0
@@ -69,6 +75,22 @@ kill_tmux_sessions_for() {
     | awk -F'\t' -v p="$wt" 'index($2, p) == 1 { print $1 }' \
     | while read -r sess; do
         [ -n "$sess" ] && tmux kill-session -t "$sess" 2>/dev/null || true
+      done
+}
+
+# herdr has no session_path, so read occupancy from panes; "$wt/" keeps it prefix-safe.
+kill_herdr_workspaces_for() {
+  local wt="$1" herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  command -v "$herdr_bin" &>/dev/null || return 0
+  command -v jq &>/dev/null || return 0
+  "$herdr_bin" pane list 2>/dev/null \
+    | jq -r --arg wt "$wt" '
+        [ .result.panes[]?
+          | select(((.foreground_cwd // .cwd // "") == $wt)
+                or (((.foreground_cwd // .cwd // "") | startswith($wt + "/"))))
+          | .workspace_id ] | unique | .[]' 2>/dev/null \
+    | while read -r ws; do
+        [ -n "$ws" ] && "$herdr_bin" workspace close "$ws" >/dev/null 2>&1 || true
       done
 }
 
@@ -170,7 +192,7 @@ delete_one() {
     return 0
   fi
 
-  kill_tmux_sessions_for "$wt_path"
+  kill_sessions_for "$wt_path"
 
   local trash="$TRASH_BASE/treekanga-$(date +%s)-$$-$(basename "$wt_path")"
   if ! mv "$wt_path" "$trash"; then
@@ -199,7 +221,8 @@ run_picker() {
   records=$(list_worktrees | while IFS='|' read -r repo branch wt_path bare; do
     [ -z "$repo" ] && continue
     if [ -d "$wt_path" ]; then
-      mtime=$(stat -f %m "$wt_path" 2>/dev/null || stat -c %Y "$wt_path" 2>/dev/null || echo 0)
+      # GNU first: on Linux `stat -f %m` reads its arg as a filesystem and poisons the value.
+      mtime=$(stat -c %Y "$wt_path" 2>/dev/null || stat -f %m "$wt_path" 2>/dev/null || echo 0)
     else
       mtime=0
     fi
