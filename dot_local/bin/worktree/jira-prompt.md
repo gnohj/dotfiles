@@ -1,10 +1,10 @@
-# Jira ticket conventions (consumed by `~/.local/bin/worktree-bug`)
+# Jira ticket conventions (consumed by `worktree bug`)
 
 This file is read verbatim into the claude prompt that classifies a clipboard payload and (if it represents a reproducible bug) creates a Jira ticket. It is **gitignored** — swapping employers = rewrite this file, no script changes.
 
 "DRY RUN MODE: do not call createJiraIssue; output the ticket payload you would have created instead, then output TICKET_URL=DRY_RUN and stop." — claude will obey that.
 
-> **Note for the human reader (not the AI):** the _company_ file (`jira-prompt-company.md`) is what's actually gitignored — this scaffold is committed. `worktree-bug` concatenates `jira-prompt.md + jira-prompt-company.md` at runtime and feeds the combined text to claude as a single prompt. Anything below referring to "the company-specific detail section" is satisfied by the appended company file.
+> **Note for the human reader (not the AI):** the _company_ file (`jira-prompt-company.md`) is what's actually gitignored — this scaffold is committed. `worktree bug` concatenates `jira-prompt.md + jira-prompt-company.md` at runtime and feeds the combined text to claude as a single prompt. Anything below referring to "the company-specific detail section" is satisfied by the appended company file.
 
 ---
 
@@ -92,7 +92,7 @@ Once classified as a reproducible bug — and only then — spend ~15–45s doin
 
    ## Captured from
 
-   - clipboard via worktree-bug on <YYYY-MM-DD>
+   - clipboard via `worktree bug` on <YYYY-MM-DD>
    ```
 
    Keep it terse — this is a hint for whoever picks up the ticket, not a full investigation.
@@ -138,4 +138,4 @@ Do NOT write to Jira. Do NOT call `/worktree`.
 
 ## Company-specific detail
 
-(The contents of `jira-prompt-company.md` are appended below at runtime by `worktree-bug`. If you're reading this scaffold directly without running through the script, the section below will be empty — see the sibling company file.)
+(The contents of `jira-prompt-company.md` are appended below at runtime by `worktree bug`. If you're reading this scaffold directly without running through the script, the section below will be empty — see the sibling company file.)
