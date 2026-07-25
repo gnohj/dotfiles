@@ -2354,13 +2354,7 @@ red = "$gnohj_color11"
 blue = "$gnohj_color02"
 teal = "$gnohj_color03"
 peach = "$gnohj_color06"
-# Copy-mode (visual selection) highlight - herdr's src/selection.rs reads these
-# two CustomThemeColors fields. Point them at the exact pair tmux's mode-style
-# uses (generate-tmux-colors.sh: "bg=\$gnohj_color13,fg=\$gnohj_color02") so a
-# selection in a herdr pane reads identically to one in tmux copy-mode: slate
-# bg (color13) under green text (color02).
-selection_background = "$gnohj_color13"
-selection_foreground = "$gnohj_color02"
+# No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 $herdr_end
 EOF
   )"
