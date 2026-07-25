@@ -9,6 +9,8 @@
 # (no rebuilds). A released tag downloads a prebuilt GitHub asset; an unreleased commit falls back
 # to a local Cargo build if Rust is present.
 #
+# Since 0.7.5 the registry is per-USER and install works with no server running, so this is safe on a fresh box.
+#
 # Bindings that need these (dot_config/herdr/config.toml):
 #   prefix+f       → herdr-file-viewer   (git-aware file viewer)
 #   prefix+shift+f → herdr-pluck         (tmux-fingers-style token copy)

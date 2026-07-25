@@ -11,6 +11,13 @@ set -uo pipefail
 # Fresh box: herdr may not be installed yet. Exit 0 (config is on disk; first start reads it).
 command -v herdr >/dev/null 2>&1 || { echo "herdr not on PATH yet; skipping config reload"; exit 0; }
 
+# Since 0.7.5 `config check` names unknown keys instead of ignoring them. Reported, not fatal.
+check="$(herdr config check 2>&1)"
+case "$check" in
+  *"config: ok"*) ;;
+  *) printf 'herdr: config check reported issues\n%s\n' "$check" ;;
+esac
+
 # reload-config is a client->server RPC; tolerate failure when no server is live.
 if herdr server reload-config >/dev/null 2>&1; then
   echo "herdr: reloaded running server config"
