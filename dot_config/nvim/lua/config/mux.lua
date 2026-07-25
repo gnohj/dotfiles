@@ -55,7 +55,7 @@ end
 -- `false` = probed and found nothing; memoized so every keypress isn't 2 subprocesses.
 local probed = nil
 
--- Mirrors mux-kind.sh: own pane first (herdr wins), then the live probe.
+-- Mirrors mux kind: own pane first (herdr wins), then the live probe.
 function M.kind()
   if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
     return "herdr"
