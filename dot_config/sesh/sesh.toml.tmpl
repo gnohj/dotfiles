@@ -54,9 +54,7 @@ path = "~/Developer/inferno/develop"
 [[session]]
 name = "inferno/review"
 path = "~/Developer/inferno/review"
-{{- if eq .chezmoi.os "darwin" }}
 startup_command = "ghd"
-{{- end }}
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "second_brain"
@@ -92,9 +90,7 @@ path = "~/Developer/web/master"
 [[session]]
 name = "web/review"
 path = "~/Developer/web/review"
-{{- if eq .chezmoi.os "darwin" }}
 startup_command = "ghd"
-{{- end }}
 
 [[session]]
 name = "yazi"
