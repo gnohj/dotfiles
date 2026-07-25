@@ -4,7 +4,7 @@ local colors = require("config.colors")
 -- vault (personal OR work), else nil. Two vaults exist: personal (iCloud, reached
 -- via ~/Obsidian/second-brain or ~/Developer/second-brain) and work
 -- (~/Developer/second-brain-work). Detection resolves symlinks so every path form
--- + the iCloud real path all match, and also honors the tmux session name.
+-- + the iCloud real path all match, and also honors the session name via config.mux.
 local function vault_context()
   local personal = vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
   local work = vim.fn.resolve(vim.fn.expand("~/Developer/second-brain-work"))
@@ -18,7 +18,7 @@ local function vault_context()
   if inside(personal) then
     return personal
   end
-  local session = vim.fn.system('tmux display-message -p "#S" 2>/dev/null'):gsub("%s+$", "")
+  local session = require("config.mux").session_label()
   if session == "second-brain-work" then
     return work
   end

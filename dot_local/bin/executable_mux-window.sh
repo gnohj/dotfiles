@@ -5,7 +5,7 @@
 # any other shell caller) used to shell out to `tmux new-window` directly, so
 # under herdr — where panes have no backing tmux server ($TMUX unset) — those
 # windows silently failed and the review workflow only ever showed the single
-# gh-dash tab. This detects the live multiplexer and dispatches so the same
+# gh-dash tab. Dispatches on the live multiplexer (mux-kind.sh) so the same
 # binding opens a real tab under both tmux (the Mac, off-herdr) and herdr.
 #
 #   mux-window.sh [OPTIONS] <name> <cwd> <command>
@@ -49,11 +49,7 @@ cwd="${2:?mux-window: missing <cwd>}"
 command="${3:?mux-window: missing <command>}"
 cwd="${cwd/#\~/$HOME}"
 
-mux_kind() {
-  if [ -n "${HERDR_SOCKET_PATH:-}" ]; then echo herdr
-  elif [ -n "${TMUX:-}" ]; then echo tmux
-  else echo none; fi
-}
+mux_kind() { "$HOME/.local/bin/mux-kind.sh"; }
 
 open_herdr() {
   command -v jq >/dev/null 2>&1 || { echo "mux-window: jq required for herdr" >&2; exit 1; }

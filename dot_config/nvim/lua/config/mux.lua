@@ -24,16 +24,6 @@
 
 local M = {}
 
-function M.kind()
-  if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
-    return "herdr"
-  end
-  if vim.env.TMUX and vim.env.TMUX ~= "" then
-    return "tmux"
-  end
-  return nil
-end
-
 -- Resolve the herdr binary robustly: pane shells don't always export
 -- HERDR_BIN_PATH, and nvim's $PATH at system() time may miss the nix dir where
 -- herdr lives (same rationale as herdr-navigator.lua).
@@ -47,6 +37,36 @@ local function herdr_bin()
     return p
   end
   return "herdr"
+end
+
+-- Pane env being absent says nothing about what's running, so ask the servers.
+local function probe_kind()
+  local out = vim.fn.system({ herdr_bin(), "status", "server" })
+  if vim.v.shell_error == 0 and out:match("status:%s*running") then
+    return "herdr"
+  end
+  vim.fn.system({ "tmux", "ls" })
+  if vim.v.shell_error == 0 then
+    return "tmux"
+  end
+  return nil
+end
+
+-- `false` = probed and found nothing; memoized so every keypress isn't 2 subprocesses.
+local probed = nil
+
+-- Mirrors mux-kind.sh: own pane first (herdr wins), then the live probe.
+function M.kind()
+  if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
+    return "herdr"
+  end
+  if vim.env.TMUX and vim.env.TMUX ~= "" then
+    return "tmux"
+  end
+  if probed == nil then
+    probed = probe_kind() or false
+  end
+  return probed or nil
 end
 
 -- Run a herdr CLI subcommand (arg list) and return its decoded JSON, or nil on
@@ -104,6 +124,30 @@ function M.new_window(cmd, opts)
       vim.log.levels.WARN
     )
   end
+end
+
+-- Session name: herdr's tmux sessions are numbered, so read the workspace label.
+function M.session_label()
+  local kind = M.kind()
+  if kind == "herdr" then
+    local ws = vim.env.HERDR_WORKSPACE_ID
+    if not ws or ws == "" then
+      return ""
+    end
+    local out = vim.fn.system({ herdr_bin(), "workspace", "get", ws })
+    if vim.v.shell_error ~= 0 then
+      return ""
+    end
+    local ok, data = pcall(vim.json.decode, out)
+    local label = ok and vim.tbl_get(data, "result", "workspace", "label")
+    if type(label) ~= "string" then
+      return ""
+    end
+    return (label:gsub("^[^%w]*", ""))
+  elseif kind == "tmux" then
+    return (vim.fn.system('tmux display-message -p "#S" 2>/dev/null'):gsub("%s+$", ""))
+  end
+  return ""
 end
 
 -- Count panes in the current herdr tab (for even-ish split sizing). Returns 1 on
