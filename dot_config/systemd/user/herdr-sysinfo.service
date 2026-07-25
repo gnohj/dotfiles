@@ -4,9 +4,8 @@
 # same flock-guarded self-daemonize herdr-git-status.sh uses, so there is no launchd twin
 # to keep in sync here either.
 #
-# The format below is the VPS variant: cpu/mem/load alongside host@city, because there
-# herdr is the whole screen with no OS bar behind it. macOS falls through to the script's
-# own default of host@city alone, since sketchybar already carries the metrics globally.
+# The format is host@city alone, matching what macOS gets from the script's own default -
+# the sidebar row stays a location cell, not a metrics readout.
 #
 # Path-activated (herdr-sysinfo.path): starts when the herdr socket exists; the daemon
 # exits when the socket disappears, so it runs ONLY while herdr is up. Keyed off the
@@ -26,8 +25,9 @@ ExecStart=%h/.local/bin/herdr-scripts/herdr-sysinfo.py
 # Tweak the line here rather than in the script. Fields: host city hostcity cpu mem memp
 # memtot load disk up time. Keep it short - the sidebar is 18-36 columns wide.
 Environment=HERDR_SYSINFO_INTERVAL=5
-Environment=HERDR_SYSINFO_SCOPE=focused
-Environment="HERDR_SYSINFO_FORMAT={hostcity}  {cpu}  {mem}  {load}"
+# pin, like macOS: the line lives on one "🖥️ $USER" space held at sidebar index 0 rather than chasing focus.
+Environment=HERDR_SYSINFO_SCOPE=pin
+Environment="HERDR_SYSINFO_FORMAT={hostcity}"
 # on-failure only: the daemon exits(0) when the socket is gone (herdr down) - stay
 # stopped and let the .path unit restart it when the socket returns.
 Restart=on-failure
