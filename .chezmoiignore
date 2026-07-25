@@ -106,4 +106,6 @@ linux-bootstrap.sh
 .config/systemd/user/herdr-focus-tracker.service
 .config/systemd/user/herdr-focus-tracker.path
 .config/systemd/user/herdr-server.service
+.config/systemd/user/herdr-sysinfo.service
+.config/systemd/user/herdr-sysinfo.path
 {{- end }}

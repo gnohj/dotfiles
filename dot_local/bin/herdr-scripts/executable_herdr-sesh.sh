@@ -187,7 +187,7 @@ for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
     label = (w.get("label", "?") or "?").split(" · ", 1)[0].rstrip()
     cwd = wscwd.get(wid, "").rstrip("/")
     if cwd: active_paths.add(cwd)
-    entries.append(("ws", "⚡", label, cwd, "ws:" + wid, True))
+    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True))
 
 cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in (load("CFGPATHS") or [])}
 seen = set()

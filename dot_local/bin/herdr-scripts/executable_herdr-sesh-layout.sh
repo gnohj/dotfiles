@@ -70,6 +70,7 @@ if [ -z "$label" ]; then
     gcd=$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)
     if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then glyph="🌳"; else glyph="🌿"; fi
   fi
+  [ "${dir%/}" = "${HOME%/}" ] && glyph="🖥️"
   label="$glyph $label"
 fi
 
@@ -90,6 +91,7 @@ existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" \
   '[.result.panes[] | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
 if [ -n "$existing" ]; then
   ( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
+  ( "$HOME/.local/bin/herdr-scripts/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
   exec "$herdr" workspace focus "$existing" >/dev/null 2>&1
 fi
 
@@ -104,6 +106,9 @@ tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 # an immediate pass so the new workspace's working-tree signs show without waiting for
 # the next poll cycle. Detached so it never blocks this script or dies with it.
 ( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
+
+# Same for the `$sys` sysinfo daemon - this is the macOS start path (Linux uses herdr-sysinfo.path); --kick is flock-guarded, so re-kicking is a no-op.
+( "$HOME/.local/bin/herdr-scripts/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
 
 # herdr tabs default their label to their own number (that's why untouched tabs
 # read "1", "2" … in the bar); a custom emoji label replaces it, dropping the
