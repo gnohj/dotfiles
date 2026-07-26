@@ -203,7 +203,8 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     used = dwidth(lab) + (sw + 1 if sw else 0)
     nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    rows.append("%s %s  %s  %s" % (ic, nm, sep, pth) + TAB + target)
+    # Field 1 (plain name) is inert today: --nth applies to the --with-nth=2 transform, not raw fields. Field 3 stays last for fzf {-1}.
+    rows.append(name + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
 
 print("\n".join(rows))
 '
@@ -262,12 +263,12 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0
 
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
 while true; do
-  # Sorted (not --no-sort: every row carries ~/Developer in its path column, so an unranked list left a typed name buried under the pinned rows), tiebreak=index (NOT begin): fzf already scores a name-column hit above a path hit (whitespace boundary beats a "/" one), and begin ranked by RUNE offset instead, where a 2-rune ⚙️ lost to a 1-rune 📁 and every config entry sank below its zoxide twins. index falls back to build_list order, so ⚡ active then ⚙️ config win their ties. Empty query keeps that order too.
+  # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(build_list | fzf \
-    --no-border --ansi --layout=reverse --list-border --tiebreak=index \
+    --no-border --ansi --layout=reverse --list-border --no-sort \
     --prompt '⚡ ' --gutter=' ' --color "$color_string" \
     --input-border --header-border \
-    --delimiter='\t' --with-nth=1 \
+    --delimiter='\t' --with-nth=2 --nth=1 \
     --expect=ctrl-w \
     --bind 'tab:down,btab:up' \
     --bind 'ctrl-j:down,ctrl-k:up' \
