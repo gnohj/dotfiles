@@ -42,6 +42,12 @@ if [ "${FILE#/}" = "$FILE" ]; then
   ABS_FILE="$PWD/$FILE"
 fi
 
+# Spawn at the REPO ROOT, not the file's nested dir: nvim keys its pickers, LSP root and :Git off cwd.
+OPEN_DIR=$(git -C "$(dirname "$ABS_FILE")" rev-parse --show-toplevel 2>/dev/null) ||
+  OPEN_DIR=$(dirname "$ABS_FILE")
+[ -n "$OPEN_DIR" ] || OPEN_DIR=$(dirname "$ABS_FILE")
+echo "  open dir (git root): $OPEN_DIR" >> "$DEBUG_LOG"
+
 # Deferred via double-fork because killing lazygit synchronously would
 # SIGHUP this script (we're a customCommand subprocess of lazygit).
 close_popup_deferred() {
@@ -64,7 +70,7 @@ spawn_in_host_pane() {
   echo "  host pane $pane current_command: $current_cmd" >> "$DEBUG_LOG"
   case "$current_cmd" in
     bash|zsh|fish|sh|dash|tcsh|ksh)
-      tmux send-keys -t "$pane" C-u "nvim '$ABS_FILE'" Enter 2>>"$DEBUG_LOG"
+      tmux send-keys -t "$pane" C-u "cd '$OPEN_DIR' && nvim '$ABS_FILE'" Enter 2>>"$DEBUG_LOG"
       echo "  → sent nvim launch to host pane $pane (shell: $current_cmd)" >> "$DEBUG_LOG"
       return 0
       ;;
@@ -79,7 +85,7 @@ spawn_in_host_pane() {
 spawn_in_new_window() {
   echo "  → spawning nvim in new tmux window" >> "$DEBUG_LOG"
   if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    tmux new-window -c "$(dirname "$ABS_FILE")" "nvim '$ABS_FILE'" >>"$DEBUG_LOG" 2>&1
+    tmux new-window -c "$OPEN_DIR" "nvim '$ABS_FILE'" >>"$DEBUG_LOG" 2>&1
     echo "  tmux new-window exit: $?" >> "$DEBUG_LOG"
   else
     echo "  → tmux unavailable" >> "$DEBUG_LOG"
@@ -94,17 +100,46 @@ spawn_in_new_window() {
 # then close lazygit and refocus that pane. Falls through to the tmux path below
 # when not under herdr, so tmux behaviour is unchanged.
 herdr_edit_and_exit() {
-  local herdr cur_tab host_nvim host_shell info deep key sock dir newp
+  local herdr cur_tab host_nvim host_shell info deep key sock dir newp panes focused
   herdr="${HERDR_BIN_PATH:-herdr}"
   command -v jq >/dev/null 2>&1 || return 0
-  cur_tab=$("$herdr" pane current --current 2>/dev/null | jq -r '.result.pane.tab_id // empty')
+
+  panes=$("$herdr" pane list 2>/dev/null)
+  [ -n "$panes" ] || return 0
+
+  # A herdr popup is not a pane, so $HERDR_PANE_ID is unset and `pane current` has no caller: the focused pane is the only anchor.
+  focused=$(printf '%s' "$panes" | jq -r '[.result.panes[] | select(.focused==true)][0].pane_id // empty' 2>/dev/null)
+  [ -n "$focused" ] || focused=$("$herdr" pane current --current 2>/dev/null | jq -r '.result.pane.pane_id // empty')
+  cur_tab=$(printf '%s' "$panes" | jq -r --arg p "$focused" '[.result.panes[] | select(.pane_id==$p)][0].tab_id // empty' 2>/dev/null)
+  echo "  herdr: focused=$focused tab=$cur_tab" >> "$DEBUG_LOG"
   [ -n "$cur_tab" ] || return 0
+
+  # nvim | shell | busy — busy means an agent or other TUI owns the pane.
+  classify_pane() {
+    local i d
+    i=$("$herdr" pane process-info --pane "$1" 2>/dev/null)
+    if printf '%s' "$i" | jq -e '.result.process_info.foreground_processes[]?.name
+        | select(test("^(view|l?n?vim?x?)$";"i"))' >/dev/null 2>&1; then echo nvim; return; fi
+    d=$(printf '%s' "$i" | jq -r '.result.process_info.foreground_processes[-1].name // empty' 2>/dev/null)
+    if printf '%s' "$d" | grep -qiE '^(bash|zsh|fish|sh|dash|ksh|tcsh|nu)$'; then echo shell; else echo busy; fi
+  }
 
   # Classify sibling panes in this tab: a running (n)vim (open via its socket),
   # or an IDLE SHELL prompt (deepest foreground process is a bare shell → nothing
   # running, so we can safely send `nvim <file>` into it). Panes running an agent
   # or another TUI are skipped (send-keys would corrupt them).
   host_nvim=""; host_shell=""
+
+  # Prefer the ACTIVE pane; only fall back to scanning siblings when it is busy.
+  if [ -n "$focused" ] && [ "$focused" != "${HERDR_PANE_ID:-}" ]; then
+    case "$(classify_pane "$focused")" in
+      nvim)  host_nvim="$focused";  echo "  herdr: active pane $focused runs nvim" >> "$DEBUG_LOG" ;;
+      shell) host_shell="$focused"; echo "  herdr: active pane $focused is an idle prompt" >> "$DEBUG_LOG" ;;
+      *)     echo "  herdr: active pane $focused is busy; scanning siblings" >> "$DEBUG_LOG" ;;
+    esac
+  fi
+
+  [ -n "$host_nvim" ] || [ -n "$host_shell" ] ||
   while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     info=$("$herdr" pane process-info --pane "$pid" 2>/dev/null)
@@ -129,7 +164,7 @@ herdr_edit_and_exit() {
     echo "  herdr nvim pane=$host_nvim sock=$sock exists=$([ -S "$sock" ] && echo yes || echo no)" >> "$DEBUG_LOG"
     if [ -S "$sock" ]; then
       nvim --server "$sock" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1
-      "$HOME/.local/bin/herdr-scripts/herdr-focus-pane.sh" "$host_nvim" >/dev/null 2>&1
+      "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$host_nvim" >/dev/null 2>&1
       close_popup_deferred
       exit 0
     fi
@@ -139,15 +174,15 @@ herdr_edit_and_exit() {
   if [ -n "$host_shell" ]; then
     echo "  herdr: opening nvim in idle shell pane $host_shell" >> "$DEBUG_LOG"
     "$herdr" pane send-keys "$host_shell" ctrl+u >/dev/null 2>&1   # clear partial input
-    "$herdr" pane send-text "$host_shell" "nvim '$ABS_FILE'" >/dev/null 2>&1
+    "$herdr" pane send-text "$host_shell" "cd '$OPEN_DIR' && nvim '$ABS_FILE'" >/dev/null 2>&1
     "$herdr" pane send-keys "$host_shell" enter >/dev/null 2>&1
-    "$HOME/.local/bin/herdr-scripts/herdr-focus-pane.sh" "$host_shell" >/dev/null 2>&1
+    "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$host_shell" >/dev/null 2>&1
     close_popup_deferred
     exit 0
   fi
 
   # 3) Nothing reusable — open the file in a fresh herdr pane split.
-  dir=$(dirname "$ABS_FILE")
+  dir="$OPEN_DIR"
   newp=$("$herdr" pane split --direction right --cwd "$dir" --focus 2>/dev/null \
     | jq -r '.result.pane.pane_id // .result.pane_id // empty' 2>/dev/null)
   if [ -n "$newp" ]; then
@@ -158,7 +193,9 @@ herdr_edit_and_exit() {
   close_popup_deferred
   exit 0
 }
-if [ -n "${HERDR_PANE_ID:-}" ] && command -v "${HERDR_BIN_PATH:-herdr}" >/dev/null 2>&1; then
+# Ask the dispatcher, not $HERDR_PANE_ID: a popup sets no pane env, so the old guard fell through to tmux and opened the file on an unwatched server.
+if [ "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" = herdr ]; then
+  echo "  mux kind: herdr → herdr path" >> "$DEBUG_LOG"
   herdr_edit_and_exit
 fi
 
