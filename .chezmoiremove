@@ -61,3 +61,9 @@
 # worktree-list + wtsync regrouped under worktree/ - they are one unit (enumerate, then seed zoxide) and neither is a mux concern.
 .local/bin/mux/shared/worktree-list
 .local/bin/wtsync
+
+# Superseded by `tmux-dash json --dirty --clean`, which the dirty() zsh function now reads; the sketchybar widget that shared it is gone.
+.local/bin/dirty-repo-status
+# The widget itself: source is gone and items/widgets/init.lua no longer requires it, but the applied files linger.
+.config/sketchybar/items/widgets/dirty_repos_notification.lua
+.config/sketchybar/items/widgets/dirty_repos_notification.sh
