@@ -57,3 +57,7 @@
 .local/bin/worktree-prompt
 .local/bin/worktree-retry
 .local/bin/worktree-runner
+
+# worktree-list + wtsync regrouped under worktree/ - they are one unit (enumerate, then seed zoxide) and neither is a mux concern.
+.local/bin/mux/shared/worktree-list
+.local/bin/wtsync
