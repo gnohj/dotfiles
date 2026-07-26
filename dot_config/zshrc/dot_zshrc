@@ -811,8 +811,8 @@ ticket() {
 
 # Show dirty/clean state for git repos with a file-level breakdown. Repos come
 # from `tmux-dash json --dirty --clean` (every git-source repo, each tagged with
-# a `dirty` bool), shared with the sketchybar dirty-repos widget (which uses
-# just `--dirty` for its count) so the two stay in lockstep on scope.
+# a `dirty` bool), the single source of scope now that the standalone
+# dirty-repo-status script and the sketchybar dirty-repos widget are both gone.
 dirty() {
   # --list: show every repo in scope with its status, no file-level breakdown.
   if [[ "${1:-}" == "--list" ]]; then
