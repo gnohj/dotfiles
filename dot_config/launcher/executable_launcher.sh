@@ -637,7 +637,7 @@ open_named_window() {
     [ -n "$keepopen" ] && run="$cmd; exec ${SHELL:-/bin/zsh} -l"
     open_window "$emoji" "$run"
   else
-    ~/.local/bin/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
+    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
   fi
 }
 

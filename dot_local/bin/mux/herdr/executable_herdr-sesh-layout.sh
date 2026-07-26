@@ -90,8 +90,8 @@ fi
 existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" \
   '[.result.panes[] | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
 if [ -n "$existing" ]; then
-  ( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
-  ( "$HOME/.local/bin/herdr-scripts/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
+  ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
+  ( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
   exec "$herdr" workspace focus "$existing" >/dev/null 2>&1
 fi
 
@@ -105,10 +105,10 @@ tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 # Ensure the git-status poller is running (it feeds the sidebar `$git` token) and do
 # an immediate pass so the new workspace's working-tree signs show without waiting for
 # the next poll cycle. Detached so it never blocks this script or dies with it.
-( "$HOME/.local/bin/herdr-scripts/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
+( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
 
-# Same for the `$sys` sysinfo daemon - this is the macOS start path (Linux uses herdr-sysinfo.path); --kick is flock-guarded, so re-kicking is a no-op.
-( "$HOME/.local/bin/herdr-scripts/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
+# Same for the `$sys` sysinfo daemon - launchd/systemd own its lifecycle now, so this --kick is only a flock-guarded backstop.
+( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
 
 # herdr tabs default their label to their own number (that's why untouched tabs
 # read "1", "2" … in the bar); a custom emoji label replaces it, dropping the
@@ -118,10 +118,10 @@ pen_n=$(printf '%s' "$out" | jq -r '.result.tab.number // empty')
 
 # startup_command session (e.g. web/review → "ghd"): sesh opens ONE window running
 # that command, no extra tabs. Run it in the root pane and stop. Label the tab
-# "<number>.🐚" (shell) so it matches the styled dev tabs instead of herdr's bare
+# "<number>.🐟" (shell) so it matches the styled dev tabs instead of herdr's bare
 # default number badge.
 if [ -n "$startup_cmd" ]; then
-  "$herdr" tab rename "$tab" "${pen_n:+$pen_n.}🐚" >/dev/null 2>&1
+  "$herdr" tab rename "$tab" "${pen_n:+$pen_n.}🐟" >/dev/null 2>&1
   "$herdr" pane run "$pen" "$startup_cmd" >/dev/null 2>&1
   exit 0
 fi

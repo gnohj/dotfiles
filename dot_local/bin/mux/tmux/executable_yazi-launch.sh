@@ -7,7 +7,7 @@
 # client/server version mismatch otherwise makes every `tmux` call here fail
 # ("server exited unexpectedly"). macOS order is unchanged (no tmux lives in
 # ~/.local/bin there, so it still resolves via /run/current-system or homebrew).
-export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 EMOJI="🗄️"
 SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)

@@ -14,7 +14,7 @@ cmd + rctrl - k : ~/.config/skhd/kitty-quake.sh
    #   notify-switch  → ctrl+'  (C-a ')
    #   worktree abort → ctrl+/  (C-a /)
    # Only clear-notifications stays skhd-triggered (still calls the portable script):
-rctrl - escape : ~/.local/bin/notify-idle-clear.sh # clear stuck banners + state (uname-branched: Darwin dismisses banners, Linux clears the marker)
+rctrl - escape : ~/.local/bin/mux/shared/notify-idle-clear.sh # clear stuck banners + state (uname-branched: Darwin dismisses banners, Linux clears the marker)
    # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
 hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
 

@@ -8,6 +8,9 @@
 # herdr can't distinguish left/right ctrl, so "rctrl+enter" collapses to ctrl+enter.
 set -uo pipefail
 
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-workspace"
 

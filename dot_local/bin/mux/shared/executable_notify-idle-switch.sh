@@ -5,7 +5,7 @@
 # displayed banners. Pane-id shape picks the mux: "%N" tmux, "wA:pN" herdr.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 STATE_FILE="/tmp/notify-idle.latest"
@@ -20,7 +20,7 @@ is_herdr_pane() {
 
 # Focus a herdr pane by id; non-zero lets the caller fall to workspace-by-name.
 herdr_jump() {
-  "$HOME/.local/bin/herdr-scripts/herdr-focus-pane.sh" "$1" >/dev/null 2>&1
+  "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$1" >/dev/null 2>&1
 }
 
 # Focus the herdr workspace labelled $1, comparing on the emoji-stripped tail.
@@ -137,7 +137,7 @@ EOF
   if [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
     # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
     herdr_focus_workspace_named "$VAULT_SESSION" ||
-      "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$VAULT_DIR" >/dev/null 2>&1 || true
+      "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$VAULT_DIR" >/dev/null 2>&1 || true
     if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
       "$HOME/.local/bin/mux/mux" window "📝" "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" >/dev/null 2>&1 || true
     fi
@@ -187,7 +187,7 @@ EOF
   if [ -z "$HANDLED" ] && [ -n "$WORKTREE_PATH" ] &&
     [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
     # Deferred creation, herdr side: attach to the workspace at this path or build it.
-    "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$WORKTREE_PATH" >/dev/null 2>&1 || true
+    "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WORKTREE_PATH" >/dev/null 2>&1 || true
     HANDLED=1
   fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# herdr-native yazi launcher — the herdr counterpart of dot_local/bin/yazi-launch.sh.
+# herdr-native yazi launcher — the herdr counterpart of dot_local/bin/mux/tmux/yazi-launch.sh.
 # Runs as a herdr pane command (type=pane) opened by a herdr keybind. Discovers the
 # sibling pane in this tab running (n)vim; if that nvim is up on its per-pane RPC
 # socket (named by init.lua: /tmp/nvim-herdr-<sanitized pane id>.sock), seed yazi
@@ -9,6 +9,9 @@
 # Backwards-compat: tmux keeps yazi-launch.sh via skhd (rctrl-y) unchanged. This
 # path only runs inside herdr, where HERDR_PANE_ID is set.
 set -uo pipefail
+
+# Own the PATH like every sibling: a keybind command inherits the herdr server's env, which is a snapshot from whenever the server started.
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 herdr="${HERDR_BIN_PATH:-herdr}"
 TARGET=""

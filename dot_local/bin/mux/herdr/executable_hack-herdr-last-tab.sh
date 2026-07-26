@@ -7,6 +7,9 @@
 # version was blind to. Notifies when there's no prior tab to jump back to.
 set -uo pipefail
 
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-tab"
 

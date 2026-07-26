@@ -14,7 +14,7 @@
 .config/sketchybar/items/widgets/health_check_notification.sh
 .config/sketchybar/items/widgets/health_check_notification.lua
 
-# herdr helper scripts moved into .local/bin/herdr-scripts/ (the folder can't be named
+# herdr helper scripts moved into .local/bin/mux/herdr/ (the folder can't be named
 # `herdr` — that's the herdr binary). Remove the flat copies so they don't shadow.
 .local/bin/hack-herdr-last-tab.sh
 .local/bin/hack-herdr-last-workspace.sh
@@ -24,6 +24,24 @@
 .local/bin/herdr-sesh-layout.sh
 .local/bin/herdr-sesh.sh
 .local/bin/yazi-herdr.sh
+
+# Moved into the mux/ tree; remove the old copies so a missed absolute path fails loudly instead of running stale code.
+.local/bin/herdr-scripts
+.local/bin/install-agent-tmux-web.sh
+.local/bin/lazygit.sh
+.local/bin/open-tmux-attach.sh
+.local/bin/sesh-switcher.sh
+.local/bin/tmux-dash-next-input.sh
+.local/bin/tmux-window-simple.sh
+.local/bin/treekanga-selector.sh
+.local/bin/yazi-launch.sh
+.local/bin/host-city
+.local/bin/lazygit-nvim-edit
+.local/bin/notify-idle.sh
+.local/bin/notify-idle-clear.sh
+.local/bin/notify-idle-emit.sh
+.local/bin/notify-idle-switch.sh
+.local/bin/worktree-list
 
 # mux and the worktree pipeline each collapsed into one dispatcher in its own folder; remove the flat copies so an old absolute path can't still reach them.
 .local/bin/mux-kind.sh
