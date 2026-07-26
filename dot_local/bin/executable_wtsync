@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Seed every git worktree (as enumerated by ~/.local/bin/worktree-list) into
+# Seed every git worktree (as enumerated by ~/.local/bin/mux/shared/worktree-list) into
 # zoxide, so sesh's default view and the `z` command surface worktrees even
 # when they were never manually cd'd into (e.g. created by Claude Code's
 # worktree isolation, a bare `git worktree add`, or an agent tool). treekanga
@@ -9,7 +9,7 @@
 # it. Called from ~/.config/zshrc/.zshrc (startup) and ~/.config/tmux/
 # sesh-popup.sh (each picker open, so the NEXT open is fresh).
 
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.local/bin/mux/shared:$PATH"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 command -v zoxide >/dev/null 2>&1 || exit 0

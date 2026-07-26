@@ -22,9 +22,9 @@
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
-export PATH="$HOME/.local/bin:$HOME/.local/bin/herdr-scripts:$HOME/.nix-profile/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
-SELF="$HOME/.local/bin/herdr-scripts/herdr-sesh.sh"
+SELF="$HOME/.local/bin/mux/herdr/herdr-sesh.sh"
 
 build_list() {
   # Keep gitmux off the render path: fire a detached background pass to refresh the git
@@ -56,27 +56,20 @@ fg, dim, accent = tc(os.environ.get("FG")), tc(os.environ.get("DIM")), tc(os.env
 TAB = "\t"
 rows = []
 
-# ---- git columns for active workspaces ----------------------------------------
-# Reuse the SAME gitmux config as the tmux status line so the symbols match. gitmux
-# emits tmux "#[fg=...]" codes; those are converted to SGR (fzf --ansi speaks SGR, not
-# tmux codes) so the picker keeps gitmux'"'"'s colors. Only the gitmux SYMBOLS are shown
-# (the branch is dropped by request); they sit on the workspace-name line, and only for
-# the ACTIVE workspace (⚡) rows — never the ~100 zoxide/config rows (running gitmux on
-# all of them would stall the picker). Degrades gracefully: no gitmux/git -> just name + path.
+# ---- git columns -----------------------------------------------------------------
+# Reuse the SAME gitmux config as the tmux status line and herdr'"'"'s sidebar token so all
+# three agree. Parsing (tmux "#[fg=...]" codes -> SGR, since fzf --ansi speaks SGR) and
+# the on-disk cache live in herdr_gitmux.py, shared with the sidebar poller that writes
+# this cache. Only the gitmux SYMBOLS are shown, on the workspace-name line; the branch
+# is dropped. Degrades gracefully: no gitmux/git -> just name + path.
 #
 # Layout: ⚡ name+symbols │ path. Glyphs sit INLINE in the name column (name clips to NAME_W - sw - 1 so status stays visible); they are ambiguous-width, so a row measured wrong now shifts ITS path cell.
-import re as _re, subprocess, unicodedata
-GITMUX_CFG = os.path.expanduser("~/.config/gitmux/gitmux.yml")
-TMUX_CODE = _re.compile(r"(#\[[^]]*\])")
-NAME_W, PATH_W, SYM_W = 38, 40, 28  # per-section clip thresholds (columns); NAME_W now holds name + inline symbols
-NAMED = {"black":30,"red":31,"green":32,"yellow":33,"blue":34,"magenta":35,"cyan":36,"white":37}
-
-def dwidth(s):
-    n = 0
-    for ch in s:
-        if unicodedata.combining(ch): continue
-        n += 2 if unicodedata.east_asian_width(ch) in ("W","F") else 1
-    return n
+import sys as _sys
+_sys.dont_write_bytecode = True                                    # keep __pycache__ out of the scripts dir
+_sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/herdr"))
+import herdr_gitmux as hg   # gitmux parsing + the status cache, shared with herdr-git-status.sh
+NAME_W, PATH_W = 38, 40  # per-section clip thresholds (columns); NAME_W now holds name + inline symbols
+SYM_W, dwidth = hg.SYM_W, hg.dwidth
 
 def dclip(s, w, left=False):  # plain-text clip to display width w, "…" on the clipped end
     if dwidth(s) <= w: return s
@@ -94,78 +87,6 @@ def dclip(s, w, left=False):  # plain-text clip to display width w, "…" on the
 def dpad(s, w):
     p = w - dwidth(s)
     return s + " " * p if p > 0 else s
-
-def sgr(inner):  # tmux "#[...]" body -> SGR (fg only; none/default -> reset)
-    if inner in ("none", "") or "default" in inner: return RESET
-    codes = []
-    for part in inner.split(","):
-        if part.startswith("fg="):
-            v = part[3:]
-            if v.startswith("#") and len(v) == 7:
-                codes.append("38;2;%d;%d;%d" % (int(v[1:3],16), int(v[3:5],16), int(v[5:7],16)))
-            elif v in NAMED:
-                codes.append(str(NAMED[v]))
-    return "\033[" + ";".join(codes) + "m" if codes else RESET
-
-def git_pairs(cwd):  # (branch_pairs, symbol_pairs) of (char, sgr); ([],[]) unless cwd is a checkout ROOT
-    # Only a repo/worktree ROOT carries a ".git" entry (a dir for a main repo, a file for a
-    # worktree). Nested subdirs have none — so this both honors "root only, not nested" AND
-    # skips the gitmux subprocess for every nested dir (the bulk of the ~100 entries -> fast).
-    if not cwd or not os.path.exists(os.path.join(cwd, ".git")): return [], []
-    try:
-        env = dict(os.environ, PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:" + os.environ.get("PATH",""))
-        raw = subprocess.run(["gitmux","-cfg",GITMUX_CFG], cwd=cwd, capture_output=True,
-                              text=True, timeout=1.2, env=env).stdout or ""
-    except Exception:
-        return [], []
-    pairs, cur = [], RESET
-    for tok in TMUX_CODE.split(raw):
-        if not tok: continue
-        if tok.startswith("#["): cur = sgr(tok[2:-1])
-        else:
-            for ch in tok: pairs.append((ch, cur))
-    trimmed, prev_sp = [], False   # trim + collapse whitespace so widths + the split are stable
-    for ch, c in pairs:
-        if ch.isspace():
-            if prev_sp or not trimmed: continue
-            trimmed.append((" ", c)); prev_sp = True
-        else:
-            trimmed.append((ch, c)); prev_sp = False
-    while trimmed and trimmed[-1][0] == " ": trimmed.pop()
-    sp = next((i for i,(c,_) in enumerate(trimmed) if c == " "), None)
-    if sp is None: return trimmed, []          # branch only (clean repo)
-    return trimmed[:sp], trimmed[sp+1:]
-
-def clip_colored(pairs, w):  # -> (sgr_string, used_display_width)
-    plain_w = sum(dwidth(c) for c,_ in pairs)
-    limit = w if plain_w <= w else w - 1
-    out, cur, used = [], None, 0
-    for ch, c in pairs:
-        cw = dwidth(ch)
-        if used + cw > limit: break
-        if c != cur: out.append(c); cur = c
-        out.append(ch); used += cw
-    if plain_w > w:
-        out.append(RESET + "…"); used += 1
-    out.append(RESET)
-    return "".join(out), used
-
-# Glyphs stripped from the shown symbols AND ignored for the "has real changes" sort: the
-# stash bucket and ahead/behind divergence -- none are working-tree changes. Codepoints, so no
-# literal glyphs live here. gitmux.yml is untouched, so the tmux status line keeps them all.
-NOISE_RE = _re.compile("[" + chr(0xEA98) + chr(0x1F446) + chr(0x1F447) + r"]\s*\d*")
-def has_changes(spairs):
-    plain = "".join(c for c, _ in spairs)
-    return bool(NOISE_RE.sub("", plain).strip())
-def strip_noise(pairs):
-    # Remove every noise token (glyph + count) from the symbol pairs, then trim edge spaces.
-    while True:
-        m = NOISE_RE.search("".join(c for c, _ in pairs))
-        if not m: break
-        pairs = pairs[:m.start()] + pairs[m.end():]
-    while pairs and pairs[0][0] == " ": pairs.pop(0)
-    while pairs and pairs[-1][0] == " ": pairs.pop()
-    return pairs
 
 import time
 SEP = "❯"
@@ -206,59 +127,49 @@ for e in (load("ENTRIES") or []):
 # compute in a thread pool (subprocess releases the GIL); (2) a fresh compute on every
 # open / ctrl-d reload is wasteful, so cache per-path with a short TTL. Slightly stale
 # symbols (< TTL) are fine for a picker.
-CACHE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
-                     "herdr", "sesh-git-cache.json")
+#
+# The ⚡ ACTIVE rows are not on that lazy path at all: herdr-git-status.sh already runs
+# gitmux over every open workspace every few seconds for the sidebar `$git` token, and
+# writes those same entries into this cache. So active rows are <= one poll old and read
+# identically here and in the sidebar. What follows only has to cover the rest.
 TTL = 30.0
-def cache_load():
-    try:
-        with open(CACHE) as f: return json.load(f)
-    except Exception: return {}
-def cache_save(c):
-    try:
-        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
-        tmp = CACHE + ".tmp"
-        with open(tmp, "w") as f: json.dump(c, f)
-        os.replace(tmp, CACHE)
-    except Exception: pass
-
 now = time.time()
-cache = cache_load()
+cache = hg.load()
 paths = [p for _, _, _, p, _, _ in entries if p]
 
+# roots_only off for active paths: only a handful, and a workspace sitting in a subdir of
+# a repo must still report, the way the sidebar poller does for the very same cwd.
 def compute(p):
-    _b, spairs = git_pairs(p)
-    spairs = strip_noise(spairs)   # stash bucket is noise here; drop it from the display
-    scol, sw = clip_colored(spairs, SYM_W)
-    return p, [now, scol, sw, has_changes(spairs)]
+    return p, hg.entry(hg.git_pairs(p, roots_only=p not in active_paths)[1], now)
 
 # WARM pass (spawned detached by build_list): refresh entries older than TTL and drop paths no
 # longer listed, then exit WITHOUT rendering. Runs off the render path so opening stays instant;
 # it is what keeps the shown (possibly stale) symbols fresh. flock => only one warm at a time.
 if os.environ.get("WARM") == "1":
     import fcntl
-    lock = open(CACHE + ".lock", "a+")
+    lock = open(hg.CACHE + ".lock", "a+")
     try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError: raise SystemExit(0)      # another warm already running
     todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)]
     if todo:
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=16) as ex:
-            for p, rec in ex.map(compute, todo): cache[p] = rec
-        cache = {k: v for k, v in cache.items() if k in set(paths)}   # prune vanished paths
-        cache_save(cache)
+            fresh = dict(ex.map(compute, todo))
+        hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
 
-# Render path. Show cached symbols REGARDLESS of age — stale is fine (the bg warm refreshes
-# them), and never hiding them is what stops the picker rendering blank after a short idle.
-# Only entries genuinely MISSING from the cache are computed synchronously; that is just the
-# first open (they then persist), and non-roots resolve instantly (git_pairs skips them). So:
-# never blank, and fast on every subsequent open.
+# Render path. Show cached symbols REGARDLESS of age — stale is fine (the poller keeps the
+# active rows current and the bg warm refreshes the rest), and never hiding them is what
+# stops the picker rendering blank after a short idle. Only entries genuinely MISSING from
+# the cache are computed synchronously; that is just the first open (they then persist), and
+# non-roots resolve instantly (git_pairs skips them). So: never blank, and fast afterwards.
 missing = [p for p in dict.fromkeys(paths) if p not in cache]
 if missing:
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=16) as ex:
-        for p, rec in ex.map(compute, missing): cache[p] = rec
-    cache_save(cache)
+        fresh = dict(ex.map(compute, missing))
+    cache.update(fresh)
+    hg.update(fresh)
 sym = {}
 for p in paths:
     hit = cache.get(p)
@@ -381,7 +292,7 @@ while true; do
       WT_PATH="${WT##*$'\t'}"
       # Seed zoxide on entry (_ZO_DATA_DIR is exported above) so the worktree shows in the default view immediately - the chpwd hook only fires on a later cd.
       zoxide add "$WT_PATH" 2>/dev/null
-      exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$WT_PATH"
+      exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WT_PATH"
     fi
     # esc in the worktree view → fall through and re-show the default picker.
     continue
@@ -392,8 +303,8 @@ while true; do
   TARGET="${SELECTED##*$'\t'}"
   case "$TARGET" in
     ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
-    cfg:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
-    zox:*)         exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
+    cfg:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
+    zox:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
     *)             exit 0 ;;
   esac
 done

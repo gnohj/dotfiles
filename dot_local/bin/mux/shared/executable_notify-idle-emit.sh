@@ -3,7 +3,7 @@
 # Fires the native macOS agent-idle banner (icon + mac-notify); called locally by notify-idle.sh or over reverse-SSH from the VPS. Args: AGENT SESSION TERM_ID [ATTACH_CMD]
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 AGENT="${1:-Agent}"
 SESSION="${2:-}"

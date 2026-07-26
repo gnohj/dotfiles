@@ -22,7 +22,7 @@ The daemon re-samples on a timer and also rides the socket's event stream
 `herdr api`) so a closed pinned space comes back immediately rather than on the next tick.
 
 `{hostcity}` is the herdr twin of the tmux host cell: host_short@city, with the city
-coming from the SAME ~/.local/bin/host-city geoip helper (public-IP derived, cached ~1h,
+coming from the SAME ~/.local/bin/mux/shared/host-city geoip helper (public-IP derived, cached ~1h,
 re-resolves on its own when a box relocates). It reads that helper's cache file directly
 and only forks the helper when the cache is stale, so the poll stays cheap. herdr needs
 no #{@ssh_host} equivalent: this daemon runs on whichever host runs the herdr SERVER, so
@@ -31,8 +31,9 @@ over `herdr --remote` the line already reports the remote box rather than the Ma
 Lifecycle follows the herdr socket's existence, and exits once it has been gone for a
 grace window (long enough to ride out a server restart) rather than polling a dead socket:
   Linux  systemd .path unit (PathExists) -> runs the daemon directly
-  macOS  --kick from herdr-sesh-layout.sh, flock-guarded self-daemonize (same shape as
-         herdr-git-status.sh, which has no launchd job either)
+  macOS  launchd agent org.nixos.herdr-sysinfo (KeepAlive PathState on the socket), same
+         as every other herdr daemon; the flock-guarded --kick from herdr-sesh-layout.sh
+         is now just a belt-and-braces no-op when launchd already owns the daemon
 
 Stdlib only for the herdr side - no herdr binary, no PATH - so systemd's minimal env is
 enough; the only fork is the absolute-path host-city helper on a cache miss.
@@ -75,7 +76,7 @@ FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or (
 TTL_MS = int(INTERVAL * 3000 + 5000)
 GRACE = 60.0
 
-CITY_HELPER = os.path.expanduser("~/.local/bin/host-city")
+CITY_HELPER = os.path.expanduser("~/.local/bin/mux/shared/host-city")
 CITY_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "host-city")
 CITY_TTL = 3600
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")

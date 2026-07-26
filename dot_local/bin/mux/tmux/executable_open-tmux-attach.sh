@@ -25,7 +25,7 @@
 set -uo pipefail
 # ~/.local/bin (+ mise shims) BEFORE /usr/bin so ~/.local/bin/tmux (3.6b) beats
 # apt's /usr/bin/tmux (3.4) on Linux; macOS order preserved (no tmux there).
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 SESSION="${1:-}"
 if [ -z "$SESSION" ]; then

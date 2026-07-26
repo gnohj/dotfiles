@@ -9,6 +9,9 @@
 # when there's no prior pane to jump back to (e.g. a single-pane tab).
 set -uo pipefail
 
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-pane"
 
@@ -16,7 +19,7 @@ target=""
 [ -f "$state" ] && target=$(cat "$state" 2>/dev/null)
 
 if [ -n "$target" ]; then
-  "$HOME/.local/bin/herdr-scripts/herdr-focus-pane.sh" "$target" >/dev/null 2>&1
+  "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$target" >/dev/null 2>&1
 else
   "$herdr" notification show "No last pane" --body "nothing to jump back to in this tab" >/dev/null 2>&1
 fi

@@ -5,7 +5,7 @@ export ZDOTDIR=$HOME/.config/zshrc
 # is sourced by all invocations (login, non-login, interactive or not); .zshrc is
 # interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
 # to launch pane commands, and which tmux/skhd launchers use - never read .zshrc,
-# so anything living only in ~/.local/bin (yazi-herdr.sh, claude-account, worktree
+# so anything living only in ~/.local/bin (mux/herdr/yazi-herdr.sh, claude-account, worktree
 # helpers, ...) was unresolvable from those chains. Setting it here fixes it
 # locally and over `herdr --remote` (each host resolves its own ~/.local/bin).
 # typeset -U keeps PATH duplicate-free; .zshrc re-prepends it to preserve the
@@ -14,10 +14,10 @@ typeset -U path PATH
 # nix-profile (home-manager pkgs: lazygit, yazi) - needed by the non-interactive herdr server, same reason as .local/bin below
 export PATH="$HOME/.nix-profile/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-# herdr helper scripts live in a subfolder (can't be named `herdr` - that's the binary).
-# Still needs to be on PATH: herdr's config.toml invokes them by bare name. Needs a full
-# herdr server restart, not just reload-config, for the daemon to inherit this.
-export PATH="$HOME/.local/bin/herdr-scripts:$PATH"
+# Per-backend helpers nest under mux/ (can't be top-level `herdr`/`tmux` - those are the binaries).
+# Still needs to be on PATH: herdr's config.toml and the tmux binds invoke them by bare name. Needs a
+# full herdr server restart, not just reload-config, for the daemon to inherit this.
+export PATH="$HOME/.local/bin/mux/herdr:$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared:$PATH"
 # Same deal for the mux/ and worktree/ dispatcher folders, so bare `mux …` / `worktree …` resolve from these non-interactive chains too.
 export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 # mise owns the herdr binary on both boxes, and mise only activates in .zshrc (interactive),

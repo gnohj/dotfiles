@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Portable PATH so tmux resolves from a bare env: homebrew (macOS), then nix/mise/local (Linux)
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 EMOJI="$1"
 TYPE="$2" # reserved positional (was a window-type flag nothing read; callers still pass it)

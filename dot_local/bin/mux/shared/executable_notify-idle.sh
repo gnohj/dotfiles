@@ -3,7 +3,7 @@
 # Agent-idle notifier + rctrl-' marker (Claude `Stop` hook). uname-branched: Mac fires the banner locally; Linux writes the marker then reverse-SSHes the banner to the Mac (Track A). Marker written FIRST so rctrl-' works even when the banner can't be delivered.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 # Log every invocation with caller info so we can spot rogue triggers.
 LOG_DIR="$HOME/.logs"
@@ -57,8 +57,8 @@ done
 case "$("$HOME/.local/bin/machine-identity" os 2>/dev/null || uname)" in
   darwin | Darwin)
     # Agent runs on the Mac — fire the banner locally; click attaches to the session.
-    "$HOME/.local/bin/notify-idle-emit.sh" "$AGENT" "$SESSION" "$TERM_ID" \
-      "$HOME/.local/bin/open-tmux-attach.sh '$SESSION'"
+    "$HOME/.local/bin/mux/shared/notify-idle-emit.sh" "$AGENT" "$SESSION" "$TERM_ID" \
+      "$HOME/.local/bin/mux/tmux/open-tmux-attach.sh '$SESSION'"
     ;;
   linux | Linux)
     # Devbox: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Mac host via machine-identity (= $NOTIFY_MAC_SSH / mac-ssh-host); unset → marker-only.
@@ -67,7 +67,7 @@ case "$("$HOME/.local/bin/machine-identity" os 2>/dev/null || uname)" in
     # Strip single quotes so the payload can't break out of the single-quoted remote command (defense-in-depth).
     AGENT_S=${AGENT//\'} SESSION_S=${SESSION//\'} TERM_S=${TERM_ID//\'}
     ssh -o ConnectTimeout=2 -o BatchMode=yes "$MAC_HOST" \
-      "\$HOME/.local/bin/notify-idle-emit.sh '$AGENT_S' '$SESSION_S' '$TERM_S'" \
+      "\$HOME/.local/bin/mux/shared/notify-idle-emit.sh '$AGENT_S' '$SESSION_S' '$TERM_S'" \
       >/dev/null 2>&1 &
     ;;
 esac

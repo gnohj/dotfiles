@@ -74,4 +74,4 @@ table = []
 [[keybindings.session]]
 key = "t"
 name = "treekanga"
-command = '"$HOME/.local/bin/treekanga-selector.sh"'
+command = '"$HOME/.local/bin/mux/tmux/treekanga-selector.sh"'

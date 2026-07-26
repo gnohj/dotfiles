@@ -11,6 +11,9 @@
 # $PWD, since type="shell" bindings run detached and don't inherit the pane's dir.
 set -uo pipefail
 
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
+[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
 herdr="${HERDR_BIN_PATH:-herdr}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 
@@ -20,4 +23,4 @@ cwd=$("$herdr" api snapshot 2>/dev/null | jq -r '
   | (.foreground_cwd // .cwd) // empty')
 [ -n "$cwd" ] && [ -d "$cwd" ] || cwd="$HOME"
 
-exec "$HOME/.local/bin/herdr-scripts/herdr-sesh-layout.sh" "$cwd"
+exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$cwd"

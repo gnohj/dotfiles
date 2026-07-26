@@ -14,6 +14,8 @@ ctrl+space / ctrl+enter wrappers read:
   ~/.local/state/hack-herdr-last-tab        -> previous tab IN the current workspace
   ~/.local/state/hack-herdr-last-pane       -> previous pane IN the current tab
 
+It also keeps tab labels numbered by POSITION - see renumber_tabs below.
+
 pane.focused carries no tab_id, so a focused pane is attributed to the current tab
 (herdr emits tab.focused before pane.focused on a tab switch; within-tab pane switches
 keep the tab) — that's what keeps ctrl+b isolated to the current tab.
@@ -26,6 +28,7 @@ the supervisor restarts it when the socket returns. Stdlib only — no herdr bin
 """
 import json
 import os
+import re
 import socket
 import time
 
@@ -38,7 +41,91 @@ LAST_PANE = os.path.join(STATE_DIR, "hack-herdr-last-pane")
 SUBSCRIPTIONS = [
     "workspace.focused", "tab.focused", "pane.focused",
     "workspace.closed", "tab.closed", "pane.closed",
+    "tab.created", "tab.moved", "tab.renamed",
 ]
+
+NUMBERED_LABEL = re.compile(r"^(\d+)\.(.*)$", re.DOTALL)
+AUTO_LABEL = re.compile(r"^\d+$")
+DEFAULT_TAB_TEXT = "\U0001f41f"
+
+
+def request(method, params):
+    """One-shot socket RPC on its own connection; the subscribe stream stays read-only."""
+    conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    conn.settimeout(3)
+    try:
+        conn.connect(SOCK)
+        conn.sendall((json.dumps({"id": "focus-tracker", "method": method, "params": params}) + "\n").encode())
+        buf = b""
+        while b"\n" not in buf:
+            chunk = conn.recv(65536)
+            if not chunk:
+                return None
+            buf += chunk
+        return json.loads(buf.split(b"\n")[0])
+    except (OSError, ConnectionError, ValueError):
+        return None
+    finally:
+        conn.close()
+
+
+def label_text(label, position):
+    """Text of an EXISTING label: `<n>.rest` -> rest, anything else -> itself.
+
+    A bare number counts as text UNLESS it equals the position the tab is getting - then
+    it is herdr's own auto number and carries no meaning, so the tab falls back to the
+    fish. "1000" at position 9 is a label the user typed; "9" at position 9 is not.
+    """
+    match = NUMBERED_LABEL.match(label)
+    if match:
+        return match.group(2).strip()
+    label = label.strip()
+    if AUTO_LABEL.match(label) and label == str(position):
+        return ""
+    return label
+
+
+def typed_text(label):
+    """Text of a label the user JUST TYPED, where bare digits are real text: "100" -> 100,
+    "3.hi" -> hi (our own prefix, or their guess at one), "3." -> nothing -> fish."""
+    match = NUMBERED_LABEL.match(label)
+    return match.group(2).strip() if match else label.strip()
+
+
+def renumber_tabs(typed=None):
+    """Give every named tab a `<position>.` prefix, and keep that number honest.
+
+    prefix+1..9 is positional, and herdr auto-numbers only tabs with NO custom label -
+    a label replaces the number outright (src/ui/tabs.rs tab_chrome_label). So a tab
+    renamed to "notes" loses its number, and "3.🔨" keeps reading 3 after an earlier tab
+    closes even though prefix+2 is what focuses it. Both are fixed here: rename to a bare
+    word and the prefix is added, close a tab and the rest renumber. Everything after the
+    dot is preserved.
+
+    Every tab ends up as `<position>.<text>`, with a fish standing in when there is no
+    text. That makes an unnamed tab a NAMED one, which stops herdr's own auto-numbering;
+    fine, because this pass owns the number from then on and reconciles on connect as
+    well as on events.
+
+    `typed` carries what the user just entered at a rename prompt, keyed by tab id, where
+    digits are always text: renaming to "100" at position 3 gives "3.100". Without that
+    context a bare number is read by label_text, which only discards it when it matches
+    the position (herdr's own auto number).
+    """
+    typed = typed or {}
+    reply = request("tab.list", {})
+    if not reply or "result" not in reply:
+        return
+    by_workspace = {}
+    for tab in reply["result"].get("tabs", []):
+        by_workspace.setdefault(tab.get("workspace_id"), []).append(tab)
+    for tabs in by_workspace.values():
+        for position, tab in enumerate(tabs, start=1):
+            label = tab.get("label") or ""
+            text = typed.get(tab["tab_id"], label_text(label, position))
+            desired = f"{position}.{text or DEFAULT_TAB_TEXT}"
+            if desired != label:
+                request("tab.rename", {"tab_id": tab["tab_id"], "label": desired})
 
 
 def write_atomic(path, value):
@@ -131,8 +218,22 @@ def handle(mru, msg):
         mru.close_ws(data.get("closed_workspace_id") or data.get("workspace_id"))
     elif event == "tab_closed":
         mru.close_tab(data.get("closed_tab_id") or data.get("tab_id"))
+        renumber_tabs()
+    elif event == "tab_renamed":
+        # The event carries what the user typed, so "100" stays text instead of reading
+        # as a number. Our own rename echoes back; that pass finds nothing and stops.
+        tab_id, label = data.get("tab_id"), data.get("label") or ""
+        renumber_tabs({tab_id: typed_text(label)} if tab_id else None)
+        return False
+    elif event in ("tab_created", "tab_moved"):
+        renumber_tabs()
+        return False
     elif event == "pane_closed":
         mru.close_pane(data.get("closed_pane_id") or data.get("pane_id"))
+        # Closing a tab's last pane (prefix+x) takes the tab with it but emits ONLY
+        # pane_closed - tab_closed fires just on the API path, so this is the one that
+        # catches a tab closed from the UI.
+        renumber_tabs()
     else:
         return False
     return True
@@ -147,6 +248,9 @@ def session(mru):
         "params": {"subscriptions": [{"type": t} for t in SUBSCRIPTIONS]},
     }
     conn.sendall((json.dumps(req) + "\n").encode())
+    # Reconcile once per connect: events only cover drift from now on, so a tab closed
+    # while the daemon was down (restart, `chezmoi apply`, herdr restart) stays wrong forever.
+    renumber_tabs()
     with conn.makefile("rb") as stream:
         for raw in stream:
             raw = raw.strip()

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 # Nix packages (fzf, fd, tmux) are in PATH via nix-daemon.sh
 

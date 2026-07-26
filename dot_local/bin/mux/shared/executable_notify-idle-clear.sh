@@ -15,7 +15,7 @@ case "$(uname -s)" in
   Darwin)
     # macOS: dismiss any stuck terminal-notifier banners, then bounce the
     # notification agents so nothing lingers on screen. Best-effort.
-    export PATH="/opt/homebrew/bin:$PATH"
+    . "$HOME/.local/bin/mux/shared/mux-env.sh"
     terminal-notifier -remove ALL >/dev/null 2>&1 || true
     killall NotificationCenter usernotificationsd >/dev/null 2>&1 || true
     ;;

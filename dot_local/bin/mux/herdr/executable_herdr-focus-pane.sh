@@ -2,7 +2,7 @@
 # Focus a herdr pane by id via the socket's pane.focus — no CLI can (`pane focus` is direction-only; `agent focus` takes only panes hosting a live agent).
 set -uo pipefail
 
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 herdr="${HERDR_BIN_PATH:-herdr}"
 sock="${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}"

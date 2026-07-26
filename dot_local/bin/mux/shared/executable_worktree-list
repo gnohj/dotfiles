@@ -24,7 +24,7 @@
 # absolute path with `sort -u`, so treehouse worktrees reported by both a
 # Developer repo and a treehouse seed collapse to one row.
 
-export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+. "$HOME/.local/bin/mux/shared/mux-env.sh"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 format_name() {
