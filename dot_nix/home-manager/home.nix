@@ -14,4 +14,7 @@
   home.packages = import ../common/package-list.nix { inherit pkgs lib; };
 
   programs.home-manager.enable = true;
+
+  # HM can't import nixpkgs' now-curried systemd service.nix; drop once HM catches up.
+  manual.manpages.enable = false;
 }
