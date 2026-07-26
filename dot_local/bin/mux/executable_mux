@@ -8,6 +8,10 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 herdr="${HERDR_BIN_PATH:-herdr}"
 
+# mux_kind() — shared with launcher.sh so there is one definition of "which mux is live".
+# shellcheck source=/dev/null
+. "$HOME/.local/bin/mux/shared/mux-detect.sh"
+
 die() { printf 'mux: %s\n' "$1" >&2; exit "${2:-1}"; }
 need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for herdr"; }
 
@@ -36,22 +40,7 @@ popup options:
 EOF
 }
 
-cmd_kind() {
-  # herdr wins when both are set — a herdr pane can sit atop a tmux session.
-  if [ -n "${HERDR_SOCKET_PATH:-}" ]; then echo herdr; return 0; fi
-  if [ -n "${TMUX:-}" ]; then echo tmux; return 0; fi
-  # No pane env still means a live server: nohup'd reclaims and systemd units have none.
-  if command -v "$herdr" >/dev/null 2>&1 &&
-    "$herdr" status server 2>/dev/null | grep -q '^status: running'; then
-    echo herdr
-    return 0
-  fi
-  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    echo tmux
-    return 0
-  fi
-  echo none
-}
+cmd_kind() { mux_kind; }
 
 # herdr numbers its tmux sessions, so `#S` is meaningless there; read the label.
 cmd_session_label() {

@@ -24,6 +24,20 @@ LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
+# mux_kind() — one definition of "which mux is live", shared with the mux dispatcher.
+# Sourced, not forked: the badge re-renders on every fzf focus event, so a subprocess
+# per ask would be pure waste.
+# shellcheck source=/dev/null
+. "$HOME/.local/bin/mux/shared/mux-detect.sh"
+
+# Resolved ONCE here, into this shell, because the six active_mux() call sites all use
+# `$(active_mux)` — a subshell, so any memo assigned down there cannot propagate back
+# up and would silently re-probe each time. Free when a pane env is present (mux_kind
+# short-circuits on HERDR_SOCKET_PATH / TMUX); one socket probe in the bare quake.
+# Safe to fix at startup: the live mux cannot change mid-invocation.
+MUX_LIVE=$(mux_kind)
+[ "$MUX_LIVE" = none ] && MUX_LIVE=""
+
 # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
 FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
 
@@ -518,7 +532,9 @@ focused_pane_path() {
   # `|| true` so a failing tmux (running standalone, e.g. from the quake, where
   # there is no tmux server) does not trip `set -euo pipefail` and abort the whole
   # launcher before the herdr-focus fallback below can run.
-  line=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' \
+  # session_attached for the same reason as active_mux: a detached session's active
+  # pane would otherwise win and hand back a cwd you are not actually looking at.
+  line=$(tmux list-panes -s -f '#{&&:#{session_attached},#{&&:#{window_active},#{pane_active}}}' \
     -F '#{pane_current_command}	#{pane_current_path}' 2>/dev/null | head -1) || true
   cmd=${line%%$'\t'*}
   path=${line#*$'\t'}
@@ -558,45 +574,59 @@ notify() {
   fi
 }
 
-# True only when a herdr SERVER is actually reachable (not merely installed) —
-# the socket answers. herdr counts as "live" only if this passes.
-herdr_reachable() {
-  command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 &&
-    herdr api snapshot >/dev/null 2>&1
-}
+# Which multiplexer to open INTO — the live one, not whatever LAUNCHER_MODE assumes
+# (the quake is LAUNCHER_MODE=herdr for its own UI, but you may be running tmux).
+# Delegates to mux_kind() from mux/shared/mux-detect.sh, sourced at the top of this
+# file, so the dispatcher and the launcher can't drift on the answer; mux_kind itself
+# is NOT memoized, which is why the result is resolved once into MUX_LIVE at startup.
+#
+# Reads the MUX_LIVE resolved at startup; "" means nothing running (mux_kind's "none").
+# The one case it can't disambiguate — two independent muxes in two visible terminals
+# at once — would need a focus-tracker daemon; not built (you run one at a time).
+active_mux() { [ -z "$MUX_LIVE" ] || printf '%s\n' "$MUX_LIVE"; }
 
-# Decide which multiplexer to open INTO — the live one, not whatever
-# LAUNCHER_MODE assumes (the quake is LAUNCHER_MODE=herdr for its own UI, but you
-# may be running tmux). Mirrors focused_pane_path's read-side detection so a note
-# lands where you're actually looking:
-#   * active tmux pane runs `herdr`   → herdr (herdr sitting atop tmux)
-#   * a real tmux pane is active      → tmux
-#   * no tmux around, herdr reachable → herdr
-#   * else whichever server exists    → tmux
-# Prints "herdr", "tmux", or "" (nothing running). The one case this can't
-# disambiguate — two independent muxes in two visible terminals at once — would
-# need a focus-tracker daemon; not built (you run one at a time).
-active_mux() {
-  local cmd
-  cmd=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' \
-    -F '#{pane_current_command}' 2>/dev/null | head -1) || true
-  if [ "$cmd" = herdr ] && herdr_reachable; then
-    echo herdr
-    return
+# host@city for the badge, mirroring the tmux host cell (host_cell_fmt in
+# generate-tmux-colors.sh): same host-city geoip helper, same "drop @city when it
+# can't be resolved" rule. Reads the cache FILE rather than forking host-city,
+# because fzf re-invokes --mux-badge on every focus event; a cold cache is warmed
+# in the background and this render shows the bare hostname, exactly like tmux's
+# backgrounded @host_city set.
+mux_host_label() {
+  local host city="" cache="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
+  host=$(hostname -s 2>/dev/null) || host=""
+  [ -n "$host" ] || host="?"
+  if [ -s "$cache" ]; then
+    city=$(cat "$cache" 2>/dev/null) || city=""
+  else
+    ( "$HOME/.local/bin/mux/shared/host-city" >/dev/null 2>&1 & ) 2>/dev/null || true
   fi
-  [ -n "$cmd" ] && { echo tmux; return; }
-  herdr_reachable && { echo herdr; return; }
-  tmux info >/dev/null 2>&1 && echo tmux
+  printf '%s%s' "$host" "${city:+@$city}"
 }
 
-# Colored badge for the live multiplexer — shown in the launcher header so you
-# always know where an "open window/tab" action will land.
+# hex (#rrggbb) → truecolor SGR, the same conversion ccusage-statusline-green.sh and
+# the zshrc outdated helpers use. $2 non-empty makes it bold.
+sgr() {
+  local hex="${1#\#}"
+  printf '\033[%s38;2;%d;%d;%dm' "${2:+1;}" "$((16#${hex:0:2}))" "$((16#${hex:2:2}))" "$((16#${hex:4:2}))"
+}
+
+# Colored badge for the live multiplexer plus the box it's on — shown in the
+# launcher header so you always know both where an "open window/tab" action will
+# land and which machine you're aimed at (matters over ssh / herdr --remote).
+# Palette-driven (the colorscheme is sourced at the top of this file): both muxes
+# wear the purple and the LABEL names which one, so the eye goes to host@city in red
+# — the thing that changes when you're aimed at another box. Hex fallbacks keep it
+# readable if a scheme omits a var.
 mux_indicator() {
-  case "$(active_mux)" in
-    herdr) printf '\033[1;38;5;173m● herdr\033[0m' ;;
-    tmux) printf '\033[1;38;5;108m● tmux\033[0m' ;;
-    *) printf '\033[1;38;5;244m● no mux\033[0m' ;;
+  local mux badge off=$'\033[0m' dim host
+  dim=$(sgr "${gnohj_color08:-#505e62}")
+  host=$(sgr "${gnohj_color11:-#da858e}")
+  mux=$(active_mux)
+  case "$mux" in
+    herdr | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
+    *) badge="$(sgr "${gnohj_color08:-#505e62}" 1)● no mux${off}" ;;
   esac
+  printf '%s %s·%s %s%s%s' "$badge" "$dim" "$off" "$host" "$(mux_host_label)" "$off"
 }
 
 # Open <cmd> in a fresh window/tab labeled <label>, optionally rooted at <dir>,
