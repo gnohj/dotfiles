@@ -30,3 +30,7 @@ video = [
 prepend_rules = [
   { mime = "video/*", use = "video" },
 ]
+
+[tasks]
+# Viewport preload = one ~1s magick/ffmpeg per visible file; media dirs still churn at quit.
+suppress_preload = true
