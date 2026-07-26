@@ -48,6 +48,11 @@ OPEN_DIR=$(git -C "$(dirname "$ABS_FILE")" rev-parse --show-toplevel 2>/dev/null
 [ -n "$OPEN_DIR" ] || OPEN_DIR=$(dirname "$ABS_FILE")
 echo "  open dir (git root): $OPEN_DIR" >> "$DEBUG_LOG"
 
+# These get interpolated into strings a shell will parse (send-keys / send-text / new-window),
+# so quote them for the shell rather than wrapping in literal quotes a filename could close.
+Q_FILE=$(printf %q "$ABS_FILE")
+Q_DIR=$(printf %q "$OPEN_DIR")
+
 # Deferred via double-fork because killing lazygit synchronously would
 # SIGHUP this script (we're a customCommand subprocess of lazygit).
 close_popup_deferred() {
@@ -70,7 +75,7 @@ spawn_in_host_pane() {
   echo "  host pane $pane current_command: $current_cmd" >> "$DEBUG_LOG"
   case "$current_cmd" in
     bash|zsh|fish|sh|dash|tcsh|ksh)
-      tmux send-keys -t "$pane" C-u "cd '$OPEN_DIR' && nvim '$ABS_FILE'" Enter 2>>"$DEBUG_LOG"
+      tmux send-keys -t "$pane" C-u "cd $Q_DIR && nvim $Q_FILE" Enter 2>>"$DEBUG_LOG"
       echo "  → sent nvim launch to host pane $pane (shell: $current_cmd)" >> "$DEBUG_LOG"
       return 0
       ;;
@@ -85,7 +90,7 @@ spawn_in_host_pane() {
 spawn_in_new_window() {
   echo "  → spawning nvim in new tmux window" >> "$DEBUG_LOG"
   if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    tmux new-window -c "$OPEN_DIR" "nvim '$ABS_FILE'" >>"$DEBUG_LOG" 2>&1
+    tmux new-window -c "$OPEN_DIR" "nvim $Q_FILE" >>"$DEBUG_LOG" 2>&1
     echo "  tmux new-window exit: $?" >> "$DEBUG_LOG"
   else
     echo "  → tmux unavailable" >> "$DEBUG_LOG"
@@ -174,7 +179,7 @@ herdr_edit_and_exit() {
   if [ -n "$host_shell" ]; then
     echo "  herdr: opening nvim in idle shell pane $host_shell" >> "$DEBUG_LOG"
     "$herdr" pane send-keys "$host_shell" ctrl+u >/dev/null 2>&1   # clear partial input
-    "$herdr" pane send-text "$host_shell" "cd '$OPEN_DIR' && nvim '$ABS_FILE'" >/dev/null 2>&1
+    "$herdr" pane send-text "$host_shell" "cd $Q_DIR && nvim $Q_FILE" >/dev/null 2>&1
     "$herdr" pane send-keys "$host_shell" enter >/dev/null 2>&1
     "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$host_shell" >/dev/null 2>&1
     close_popup_deferred
@@ -186,7 +191,7 @@ herdr_edit_and_exit() {
   newp=$("$herdr" pane split --direction right --cwd "$dir" --focus 2>/dev/null \
     | jq -r '.result.pane.pane_id // .result.pane_id // empty' 2>/dev/null)
   if [ -n "$newp" ]; then
-    "$herdr" pane send-text "$newp" "nvim '$ABS_FILE'" >/dev/null 2>&1
+    "$herdr" pane send-text "$newp" "nvim $Q_FILE" >/dev/null 2>&1
     "$herdr" pane send-keys "$newp" enter >/dev/null 2>&1
   fi
   echo "  herdr: no reusable pane; split pane $newp in $dir" >> "$DEBUG_LOG"
