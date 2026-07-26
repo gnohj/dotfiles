@@ -8,7 +8,7 @@
 # below that to leave headroom for the system prompt + JSON envelope.
 
 set -uo pipefail
-export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # Anything bigger than this character count routes to claude. ~28K chars
