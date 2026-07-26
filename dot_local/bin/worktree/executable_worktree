@@ -30,7 +30,8 @@ Internal (invoked by the verbs above, not by hand):
   worktree capture <outcome> [reason]
                              write the vault inbox note for a run
 
-Sibling scripts kept standalone: mux/shared/worktree-list, setup-worktrees.
+Sibling scripts in this folder, not verbs: worktree-list (enumerate), wtsync
+(seed zoxide). Kept standalone elsewhere: setup-worktrees (provisioning).
 EOF
 }
 

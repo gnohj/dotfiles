@@ -18,7 +18,7 @@ export PATH="$HOME/.local/bin:$PATH"
 # Still needs to be on PATH: herdr's config.toml and the tmux binds invoke them by bare name. Needs a
 # full herdr server restart, not just reload-config, for the daemon to inherit this.
 export PATH="$HOME/.local/bin/mux/herdr:$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared:$PATH"
-# Same deal for the mux/ and worktree/ dispatcher folders, so bare `mux …` / `worktree …` resolve from these non-interactive chains too.
+# Same deal for the mux/ and worktree/ folders, so bare `mux …` / `worktree …` plus worktree/'s worktree-list and wtsync resolve from these non-interactive chains too.
 export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 # mise owns the herdr binary on both boxes, and mise only activates in .zshrc (interactive),
 # so the bare-name `herdr` these same chains call would be unresolvable. APPENDED, not
