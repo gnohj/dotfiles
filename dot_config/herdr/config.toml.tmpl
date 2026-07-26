@@ -106,7 +106,7 @@ description = "horizontal split (alias of prefix+minus)"
 [[keys.command]]
 key = "ctrl+g"
 type = "popup"
-command = "lazygit"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/lazygit-herdr.sh"
 width = "90%"
 height = "90%"
 description = "lazygit (server-side, on the pane's repo)"
@@ -120,7 +120,7 @@ description = "lazygit (server-side, on the pane's repo)"
 key = "ctrl+y"
 # type=pane, not popup: the popup surface never draws the Kitty graphics stream, so previews render blank.
 type = "pane"
-command = "yazi-herdr.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/yazi-herdr.sh"
 description = "yazi (seeded from the sibling nvim buffer / cwd)"
 
 # ctrl+t → herdr-sesh.sh, the sesh-style session picker (herdr-native replacement
@@ -139,7 +139,7 @@ description = "yazi (seeded from the sibling nvim buffer / cwd)"
 [[keys.command]]
 key = "ctrl+t"
 type = "popup"
-command = "herdr-sesh.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-sesh.sh"
 width = "48%"
 height = "70%"
 description = "sesh-style session picker"
@@ -148,7 +148,7 @@ description = "sesh-style session picker"
 [[keys.command]]
 key = "prefix+e"
 type = "popup"
-command = "herdr-scrollback.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-scrollback.sh"
 width = "90%"
 height = "90%"
 description = "scrollback (bottom)"
@@ -156,7 +156,7 @@ description = "scrollback (bottom)"
 [[keys.command]]
 key = "prefix+u"
 type = "popup"
-command = "herdr-scrollback-jump.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-scrollback-jump.sh"
 width = "90%"
 height = "90%"
 description = "scrollback at last user prompt"
@@ -170,7 +170,7 @@ description = "scrollback at last user prompt"
 [[keys.command]]
 key = "prefix+shift+n"
 type = "shell"
-command = "herdr-new-workspace.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-new-workspace.sh"
 description = "new glyphed workspace at focused cwd (dev layout)"
 
 # ctrl+; → cycle the priority queue: agents that need you, advancing on each press
@@ -182,8 +182,21 @@ description = "new glyphed workspace at focused cwd (dev layout)"
 [[keys.command]]
 key = "prefix+,"
 type = "shell"
-command = "herdr-next-priority-agent.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-next-priority-agent.sh"
 description = "cycle agents needing attention (blocked/input -> done)"
+
+# ctrl+' → cycle agents by RECENCY: what you were just doing, rather than what wants you
+# (that's ctrl+; above). Deliberately time-ranked and not a "last done" jump: herdr's `done`
+# self-clears to `idle` as soon as the pane is seen, so a status jump only ever reaches
+# agents you have NOT looked at - the same set ctrl+; already drains. Ranking on the
+# last-activity epochs herdr-agent-activity.py records (the $act token's raw source) keeps
+# working after the state decays. Bound as prefix+' because ghostty/kitty already re-emit
+# ctrl+' as \x01\x27 = `prefix '`, free since the notification-jump hack was retired.
+[[keys.command]]
+key = "prefix+'"
+type = "shell"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-last-active-agent.sh"
+description = "cycle agents by last activity (most recent first)"
 
 # ctrl+space → best-effort "last tab" toggle within the current workspace. HACK: herdr
 # has no last_tab and no focus-history, so hack-herdr-last-tab.sh fakes MRU via a state
@@ -193,7 +206,7 @@ description = "cycle agents needing attention (blocked/input -> done)"
 [[keys.command]]
 key = "prefix+space"
 type = "shell"
-command = "hack-herdr-last-tab.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/hack-herdr-last-tab.sh"
 description = "last tab toggle (best-effort MRU)"
 
 # ctrl+0 → close every tab but the first in the CURRENT workspace (the gh-dash review
@@ -206,7 +219,7 @@ description = "last tab toggle (best-effort MRU)"
 [[keys.command]]
 key = "prefix+0"
 type = "shell"
-command = "hack-herdr-close-other-tabs.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/hack-herdr-close-other-tabs.sh"
 description = "close all tabs but the first (current workspace)"
 
 # ctrl+enter → best-effort "last workspace" toggle. HACK: herdr has no last_workspace
@@ -217,7 +230,7 @@ description = "close all tabs but the first (current workspace)"
 [[keys.command]]
 key = "prefix+shift+l"
 type = "shell"
-command = "hack-herdr-last-workspace.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/hack-herdr-last-workspace.sh"
 description = "last workspace toggle (best-effort MRU)"
 
 # ctrl+b → previous pane in the current tab. Replaces herdr's native last_pane (global,
@@ -228,7 +241,7 @@ description = "last workspace toggle (best-effort MRU)"
 [[keys.command]]
 key = "ctrl+b"
 type = "shell"
-command = "hack-herdr-last-pane.sh"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/hack-herdr-last-pane.sh"
 description = "last pane in current tab (isolated toggle)"
 
 # prefix+f → git-aware file viewer (smarzban/herdr-file-viewer): read-only tree with git
@@ -310,17 +323,50 @@ position = "top-right"
 [ui.sound]
 enabled = false
 
+# Sidebar agent rows. The STATE itself is fully native — `state_icon` renders herdr's own
+# agent_status (idle/working/blocked/done/unknown), detected by the manifests in
+# ~/.local/state/herdr/agent-detection/ and streamed as pane_agent_status_changed. What
+# herdr has no notion of is TIME: nothing in `herdr api schema` carries a timestamp (only
+# state_change_seq, a counter). So the age is a CUSTOM $act token fed by
+# herdr-agent-activity.py from the agent's session-JSONL tail, matching the tmux-dash
+# sidebar's wording. claude only — it is the one agent whose transcript timestamps each
+# turn; the rest keep herdr's default rows and get no age rather than a guessed one.
+# Inline fg values here are SEEDS only - generate_herdr_config in colorscheme-set.sh rewrites
+# both row lines on every theme switch, same as the $git/$sys spaces row. Inline fg is honoured
+# per-token and UNCONDITIONALLY (it cannot vary by active/inactive) - verified live for
+# workspace, pane, state_text and $act. The one thing that DOES track focus is the `text`
+# theme token, which paints the active entry's first row only; see [theme.custom] below.
+[ui.sidebar.agents]
+rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent", "state_text"]]
+
+# `state_text` spells out idle/working/blocked/done next to the age, because state_icon
+# alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
+# purpose: rows_by_agent.claude only ever matches claude panes, so it renders a constant
+# "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
+# these rows are indented). The default rows above keep it, since those DO vary by agent.
+[ui.sidebar.agents.rows_by_agent]
+claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
+
+# pi and opencode get the same shape as claude. Same reason as claude for dropping the
+# literal `agent` token - these row sets only ever match their own agent, so it renders a
+# constant "pi"/"opencode" in place of the pane summary. Both rows are fed by the same two
+# daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
+# first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
+# (pi's transcript timestamps, opencode's session.time_updated).
+pi = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
+opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
+
 # Sidebar space rows: name, then a gitmux status line on its OWN line, then branch.
 # herdr's built-in `git_status` token carries NO working-tree signs (its data model
 # has branch but no dirty/ahead/behind - verified against `herdr api schema`), so the
-# middle line is a CUSTOM `$git` token fed by herdr-git-status.sh, which runs the same
+# `$git` line (3rd row, under the branch) is a CUSTOM token fed by herdr-git-status.sh, which runs the same
 # gitmux.yml as the tmux status line and pushes it via `herdr workspace
 # report-metadata --token git=…`. That poller is what keeps this line live.
 #
 # The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - ogulcancelik/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. ONE $git token on purpose: more get joined by herdr's " · " - see the /herdr-upgrade watchlist.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], [{ token = "$git", fg = "#b7ce97" }], ["branch"], [{ token = "$sys", fg = "#7a90a0" }]]
+rows = [["state_icon", "workspace"], ["branch", { token = "$git", fg = "#b7ce97" }, { token = "$pr", fg = "#a7cfbd" }], [{ token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
 
 [session]
 resume_agents_on_restore = true
@@ -382,30 +428,32 @@ surface0 = "#1e2528"
 surface1 = "#1e2528"
 overlay0 = "#536571"
 overlay1 = "#7a90a0"
-# herdr sidebar token map (verified via diagnostic): text = active/focused row's
-# whole line (workspace+tab), subtext0 = inactive rows' whole line, mauve = active
-# space's branch line. These tokens are SHARED by the spaces AND agents sections,
-# so they can't be set per-panel. subtext0 = gnohj blue (agents/inactive rows),
-# text = default, mauve = green (only the active space's branch line).
+# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
+# isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
+# it does NOT reach the pane-title, state_text or $act rows, so those cannot vary by
+# active state at all. subtext0 = inactive rows, mauve = active space's branch line.
+# Shared by the spaces AND agents sections, so none of them can be set per-panel.
+# text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
+# longer differs in COLOR from the inactive ones - the active cue is the surface_dim row
+# fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "#a3b8c6"
-text = "#b8c9d3"
+text = "#a3b8c6"
 mauve = "#c2f0db"
-# herdr colors the agent "idle" state with its green token and the "working" state
-# with its yellow token (both verified live). Point green at gnohj_color05 (idle)
-# and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
-# like tmux-dash's @chip_idle / @chip_working. NOTE: herdr has no per-state color
-# config, so any other element using green/yellow shifts with them.
+# herdr's four agent states are painted by four palette tokens - state_label_color()
+# and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
+# blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
+# overlay0. There is no per-state config key, so anything else using these tokens
+# shifts with them. Mapped 1:1 onto the tmux-dash chips so both dashboards agree:
+# @chip_idle / @chip_working / @chip_input / @chip_done.
 green = "#dab183"
 yellow = "#a3b8c6"
 red = "#da858e"
-# blue = the sidebar  status line (herdr renders the custom git metadata token
-# in its blue token - verified via diagnostic: recoloring blue changed ONLY the git
-# signs, not names/branches/borders). Pointed at gnohj_color02 (green) so the git
-# signs read green, matching the tmux-dash git-status glyphs. The workspace NAME uses
-# subtext0 and the branch uses overlay0 (shared with borders/headers), so neither of
-# those can be recolored independently - blue is the one git-isolated token.
+# blue = fallback for custom metadata tokens; $git/$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "#b7ce97"
-teal = "#a7cfbd"
+# teal = the done state, and status.rs is its ONLY consumer - so pointing it at
+# gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
+# matching tmux-dash where @chip_done and @chip_input are already the same color.
+teal = "#da858e"
 peach = "#dc988e"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 # <<< colorscheme-set: herdr theme palette <<<

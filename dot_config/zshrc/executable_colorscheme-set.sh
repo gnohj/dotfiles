@@ -431,7 +431,7 @@ customCommands:
   # popup) via RPC. Skips the clipboard → exit lazygit → snacks-picker
   # paste round-trip. Path is also copied to clipboard as a side-effect
   # so it remains available for other contexts (PR descriptions, etc.).
-  # Uses ~/.local/bin/lazygit-nvim-edit which talks to nvim's RPC
+  # Uses ~/.local/bin/mux/shared/lazygit-nvim-edit which talks to nvim's RPC
   # socket (~/.config/nvim/init.lua sets one per tmux pane).
   #
   # Note: this does NOT auto-close the lazygit popup. Press q yourself
@@ -2315,8 +2315,19 @@ generate_herdr_config() {
   local herdr_source_tmpl="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml.tmpl"
   # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$git", fg = "%s" }], ["branch"], [{ token = "$sys", fg = "%s" }]]' \
-    "$gnohj_color02" "$gnohj_color46")"
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], ["branch", { token = "$git", fg = "%s" }, { token = "$pr", fg = "%s" }], [{ token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
+    "$gnohj_color02" "$gnohj_color03" "$gnohj_color03" "$gnohj_color46")"
+  # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
+  # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
+  local herdr_agent_rows herdr_claude_rows
+  herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "tab", fg = "%s" }], ["agent", "state_text"]]' \
+    "$gnohj_color02")"
+  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "pane", fg = "%s" }], ["state_text", { token = "$act", fg = "%s" }]]' \
+    "$gnohj_color02" "$gnohj_color04" "$gnohj_color04")"
+  # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
+  local herdr_store_rows
+  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "pane", fg = "%s" }], ["state_text", { token = "$act", fg = "%s" }]]' \
+    "$gnohj_color02" "$gnohj_color04" "$gnohj_color04")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2335,32 +2346,39 @@ surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
 overlay0 = "$gnohj_color13"
 overlay1 = "$gnohj_color46"
-# herdr sidebar token map (verified via diagnostic): text = active/focused row's
-# whole line (workspace+tab), subtext0 = inactive rows' whole line, mauve = active
-# space's branch line. These tokens are SHARED by the spaces AND agents sections,
-# so they can't be set per-panel. subtext0 = gnohj blue (agents/inactive rows),
-# text = default, mauve = green (only the active space's branch line).
+# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
+# isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
+# it does NOT reach the pane-title, state_text or \$act rows, so those cannot vary by
+# active state at all. subtext0 = inactive rows, mauve = active space's branch line.
+# Shared by the spaces AND agents sections, so none of them can be set per-panel.
+# text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
+# longer differs in COLOR from the inactive ones - the active cue is the surface_dim row
+# fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "$gnohj_color04"
-text = "$gnohj_color14"
+text = "$gnohj_color04"
 mauve = "#c2f0db"
-# herdr colors the agent "idle" state with its green token and the "working" state
-# with its yellow token (both verified live). Point green at gnohj_color05 (idle)
-# and yellow at gnohj_color04 (working) so the two states read yellow/blue exactly
-# like tmux-dash's @chip_idle / @chip_working. NOTE: herdr has no per-state color
-# config, so any other element using green/yellow shifts with them.
+# herdr's four agent states are painted by four palette tokens - state_label_color()
+# and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
+# blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
+# overlay0. There is no per-state config key, so anything else using these tokens
+# shifts with them. Mapped 1:1 onto the tmux-dash chips so both dashboards agree:
+# @chip_idle / @chip_working / @chip_input / @chip_done.
 green = "$gnohj_color05"
 yellow = "$gnohj_color04"
 red = "$gnohj_color11"
 # blue = fallback for custom metadata tokens; \$git/\$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "$gnohj_color02"
-teal = "$gnohj_color03"
+# teal = the done state, and status.rs is its ONLY consumer - so pointing it at
+# gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
+# matching tmux-dash where @chip_done and @chip_input are already the same color.
+teal = "$gnohj_color11"
 peach = "$gnohj_color06"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 $herdr_end
 EOF
   )"
 
-  local herdr_file
+  local herdr_file herdr_agent_key
   for herdr_file in "$herdr_target" "$herdr_source" "$herdr_source_tmpl"; do
     [ -f "$herdr_file" ] || continue
 
@@ -2379,6 +2397,23 @@ EOF
     # 1b) rows: matched on $git + token= so only the styled spaces row is touched.
     HERDR_ROWS="$herdr_rows" perl -i -pe \
       'if (/^rows\s*=/ && /\$git/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
+
+    # 1c) agents rows: the OTHER `rows =` line (no $git). state_text keeps it from
+    #     matching any future unstyled row, so the two row lines can't be confused.
+    HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
+      'if (/^rows\s*=/ && /state_text/ && !/\$git/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
+
+    # 1d) rows_by_agent.claude: keyed on $act, the token only this row carries.
+    HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
+      'if (/^claude\s*=/ && /\$act/) { $_ = $ENV{HERDR_CLAUDE_ROWS} . "\n" }' "$herdr_file"
+
+    # 1e) rows_by_agent.pi / .opencode: keyed on state_text so a plain `pi = …` elsewhere
+    #     in the file (a theme key, a plugin id) can never be rewritten by accident.
+    for herdr_agent_key in pi opencode; do
+      HERDR_AGENT_KEY="$herdr_agent_key" HERDR_STORE_ROWS="$herdr_store_rows" perl -i -pe \
+        'if (/^\Q$ENV{HERDR_AGENT_KEY}\E\s*=/ && /state_text/) {
+           $_ = "$ENV{HERDR_AGENT_KEY} = $ENV{HERDR_STORE_ROWS}\n" }' "$herdr_file"
+    done
 
     # 2) [theme.custom] palette: strip any prior managed block (idempotent), then
     #    re-append the freshly-interpolated one at EOF.
