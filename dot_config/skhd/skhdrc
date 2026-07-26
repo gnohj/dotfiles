@@ -3,10 +3,18 @@ cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp
 cmd - m : :
 cmd - h : :
 
-# Global Kitty Quake Terminals
-cmd + rctrl - s : ~/.config/skhd/kitty-ql-quake.sh
-cmd + rctrl - y : ~/.config/skhd/kitty-yazi-quake.sh
-cmd + rctrl - k : ~/.config/skhd/kitty-quake.sh
+# Global Kitty Quake Terminal — the launcher, running locally.
+# kitty and not ghostty: ghostty 1.3.1 rejects a right-ctrl chord outright (a
+# global:cmd+right_ctrl+<key> bind returns InvalidFormat), has no CLI for skhd to
+# toggle its quick terminal, and scopes `command` app-wide rather than per-quake.
+# kitty's quick-access takes an instance group + its own config and command, so
+# rctrl stays distinguishable.
+# The ssh/yazi/plain quakes that used to sit on s/y/k are retired: the launcher
+# resolves tmux-vs-herdr at runtime (active_mux in launcher.sh), so a separate key
+# per mux was never the thing encoding it.
+cmd + rctrl - r : ~/.config/skhd/kitty-ql-quake.sh
+# Same launcher, but running ON the dev-context target (`tailscale ssh` for ts:, plain ssh otherwise). No-ops with a banner when dev-context is local.
+cmd + rctrl - t : ~/.config/skhd/kitty-remote-quake.sh
 
 # Needs to work local / remote
    # MIGRATED to ghostty/kitty prefix-expansion → tmux server-side binds (work local + VPS):

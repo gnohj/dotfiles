@@ -67,3 +67,13 @@
 # The widget itself: source is gone and items/widgets/init.lua no longer requires it, but the applied files linger.
 .config/sketchybar/items/widgets/dirty_repos_notification.lua
 .config/sketchybar/items/widgets/dirty_repos_notification.sh
+
+# The ssh/yazi/plain kitty quakes (cmd+rctrl+s/y/k). Retired: tmux-vs-herdr is
+# resolved at runtime by active_mux in launcher.sh, so a key per mux encoded nothing.
+# cmd+rctrl+r (the ql launcher quake) is the only one left.
+.config/skhd/kitty-ssh-quake.sh
+.config/skhd/kitty-yazi-quake.sh
+.config/skhd/kitty-quake.sh
+.config/kitty/quick-access-terminal-ssh.conf
+.config/kitty/quick-access-terminal-yazi.conf
+.config/kitty/quick-access-terminal.conf
