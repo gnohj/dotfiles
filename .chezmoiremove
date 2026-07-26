@@ -68,6 +68,18 @@
 .config/sketchybar/items/widgets/dirty_repos_notification.lua
 .config/sketchybar/items/widgets/dirty_repos_notification.sh
 
+# dev-context (local<->vps indicator + toggle + bare-`ssh` poller). Retired: a
+# menu-bar widget guessing the local/remote split from live ssh sessions is
+# redundant now that reaching another host is an explicit act, not ambient state.
+# Source and the two items/widgets/init.lua requires are gone; these are the
+# applied copies.
+.config/sketchybar/items/widgets/dev_context.lua
+.config/sketchybar/items/widgets/dev_context_watch.lua
+.config/sketchybar/items/widgets/dev-context-lib.sh
+.config/sketchybar/items/widgets/dev-context.sh
+.config/sketchybar/items/widgets/dev-context-click.sh
+.config/sketchybar/items/widgets/dev-context-watch.sh
+
 # The ssh/yazi/plain kitty quakes (cmd+rctrl+s/y/k). Retired: tmux-vs-herdr is
 # resolved at runtime by active_mux in launcher.sh, so a key per mux encoded nothing.
 # cmd+rctrl+r (the ql launcher quake) is the only one left.
