@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Generates + enables every herdr daemon's systemd units from .chezmoidata/mux-daemons.json, and prunes any whose manifest entry is gone. herdr-server is excluded: it is the server, not a socket-activated daemon.
+# manifest sha256: {{ include ".chezmoidata/mux-daemons.json" | sha256sum }}
+{{ range $name, $d := .muxDaemons.list -}}
+# {{ $name }} sha256: {{ include (printf "dot_local/bin/mux/herdr/executable_%s" $d.script) | sha256sum }}
+{{ end -}}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+UNIT_DIR="$HOME/.config/systemd/user"
+mkdir -p "$UNIT_DIR"
+
+SOCKET="%h/{{ .muxDaemons.socket }}"
+SCRIPTS="%h/{{ .muxDaemons.scriptDir }}"
+
+KEEP="{{ range $name, $d := .muxDaemons.list }}{{ $name }} {{ end }}"
+
+write_unit() {  # write_unit <path> <content>; only touches disk when the content changed
+  local path="$1" content="$2"
+  if [ -f "$path" ] && [ "$(cat "$path")" = "$content" ]; then return 1; fi
+  printf '%s' "$content" > "$path"
+  return 0
+}
+
+CHANGED=""
+
+{{ range $name, $d := .muxDaemons.list }}
+# ---------- {{ $name }} ----------
+{{- $interp := $d.interp }}
+{{- $env := list }}
+{{- if hasKey $d "linux" }}{{ if hasKey $d.linux "interp" }}{{ $interp = $d.linux.interp }}{{ end }}{{ if hasKey $d.linux "env" }}{{ $env = $d.linux.env }}{{ end }}{{ end }}
+SERVICE=$(cat <<'UNIT_EOF'
+# GENERATED from .chezmoidata/mux-daemons.json — edit the manifest, not this file.
+# Keyed off the socket, not herdr-server.service: the real server is usually lazy-spawned via `herdr --remote`, so that unit sits failing "already running" and cannot anchor a lifecycle.
+{{- if hasKey $d "note" }}
+# {{ $d.note }}
+{{- end }}
+[Unit]
+Description={{ $d.desc }}
+Documentation=https://herdr.dev/docs/configuration/
+
+[Service]
+Type=simple
+{{- if hasKey $d "needsPath" }}
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin
+{{- end }}
+ExecStart={{ if $interp }}{{ $interp }} {{ end }}%h/{{ $.muxDaemons.scriptDir }}/{{ $d.script }}{{ if $d.args }} {{ $d.args }}{{ end }}
+{{- range $e := $env }}
+Environment={{ if or (contains " " $e.v) (contains "{" $e.v) }}"{{ $e.k }}={{ $e.v }}"{{ else }}{{ $e.k }}={{ $e.v }}{{ end }}
+{{- end }}
+# on-failure only: a clean exit(0) means the socket vanished, so stay stopped and let .path restart us.
+Restart=on-failure
+RestartSec=5
+UNIT_EOF
+)
+
+PATHUNIT=$(cat <<'UNIT_EOF'
+# GENERATED from .chezmoidata/mux-daemons.json — edit the manifest, not this file.
+[Unit]
+Description=Run {{ if hasKey $d "pathDesc" }}{{ $d.pathDesc }}{{ else }}{{ $name }}{{ end }} only while the herdr socket exists
+
+[Path]
+PathExists=%h/{{ $.muxDaemons.socket }}
+
+[Install]
+WantedBy=default.target
+UNIT_EOF
+)
+
+write_unit "$UNIT_DIR/{{ $name }}.service" "$SERVICE" && CHANGED="$CHANGED {{ $name }}"
+write_unit "$UNIT_DIR/{{ $name }}.path"    "$PATHUNIT" && CHANGED="$CHANGED {{ $name }}"
+{{ end }}
+
+# A unit on disk but absent from the manifest is a retired daemon — remove it.
+for unit in "$UNIT_DIR"/herdr-*.path; do
+  [ -e "$unit" ] || continue
+  base=$(basename "$unit" .path)
+  [ "$base" = "herdr-server" ] && continue
+  case " $KEEP " in
+    *" $base "*) continue ;;
+  esac
+  echo "herdr-daemons: pruning retired $base"
+  systemctl --user disable --now "$base.path" 2>/dev/null || true
+  systemctl --user stop "$base.service" 2>/dev/null || true
+  rm -f "$UNIT_DIR/$base.path" "$UNIT_DIR/$base.service"
+  CHANGED="$CHANGED $base"
+done
+
+[ -n "$CHANGED" ] || { echo "herdr-daemons: units already current"; exit 0; }
+
+systemctl --user daemon-reload
+{{ range $name, $d := .muxDaemons.list -}}
+systemctl --user enable --now {{ $name }}.path
+systemctl --user try-restart {{ $name }}.service 2>/dev/null || true
+{{ end -}}
+echo "herdr-daemons: applied ({{ len .muxDaemons.list }} daemons)"

@@ -1,0 +1,7 @@
+{{/*
+  GENERATED SIBLING — do not edit. Source of truth is .chezmoidata/mux-daemons.json.
+  Nix evaluates from ~/.nix, not the chezmoi source tree, so it cannot read .chezmoidata
+  directly; chezmoi renders this copy next to launchd-services.nix, which imports it with
+  builtins.fromJSON. One manifest, two consumers.
+*/ -}}
+{{ .muxDaemons | toPrettyJson }}

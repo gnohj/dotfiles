@@ -1,0 +1,83 @@
+{
+  "muxDaemons": {
+    "socket": ".config/herdr/herdr.sock",
+    "scriptDir": ".local/bin/mux/herdr",
+    "logDir": ".logs",
+    "list": {
+      "herdr-git-status": {
+        "desc": "herdr sidebar git-status poller (feeds the $git metadata token)",
+        "script": "herdr-git-status.sh",
+        "args": "--loop",
+        "interp": "",
+        "token": "$git",
+        "note": "self-exports a full PATH, so the minimal supervisor env still resolves herdr/gitmux/jq",
+        "pathDesc": "herdr-git-status poller"
+      },
+      "herdr-sysinfo": {
+        "desc": "herdr sidebar system-info feeder (feeds the $sys metadata token)",
+        "script": "herdr-sysinfo.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "$sys",
+        "linux": {
+          "interp": "",
+          "env": [
+            {
+              "k": "HERDR_SYSINFO_INTERVAL",
+              "v": "5"
+            },
+            {
+              "k": "HERDR_SYSINFO_SCOPE",
+              "v": "pin"
+            },
+            {
+              "k": "HERDR_SYSINFO_FORMAT",
+              "v": "{hostcity}"
+            }
+          ]
+        },
+        "macos": {
+          "throttle": 10
+        },
+        "note": "linux runs the shebang directly and pins format via env; macOS forces system python3 and relies on script defaults"
+      },
+      "herdr-agent-activity": {
+        "desc": "herdr agent-activity ($act sidebar token: per-agent last-activity age)",
+        "script": "herdr-agent-activity.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "$act"
+      },
+      "herdr-thread-status": {
+        "desc": "herdr thread-status ($pr sidebar token: PR approvals + CI state)",
+        "script": "herdr-thread-status.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "$pr",
+        "needsPath": true,
+        "note": "needs an authenticated gh on PATH; unauthenticated just means the token never appears"
+      },
+      "herdr-pane-summary": {
+        "desc": "herdr pane-summary (label agent panes from their AI session title)",
+        "script": "herdr-pane-summary.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "pane label"
+      },
+      "herdr-focus-tracker": {
+        "desc": "herdr focus-tracker (MRU state for last-pane / last-tab / last-workspace jumps)",
+        "script": "herdr-focus-tracker.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "MRU state"
+      },
+      "herdr-balance-panes": {
+        "desc": "herdr balance-panes (even split ratios after every pane create/close)",
+        "script": "herdr-balance-panes.py",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "token": "layout"
+      }
+    }
+  }
+}
