@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Prints a script that authorizes THIS box on the workstation, pinned to `to-desktop --forced`.
+# Run from the workstation: `ssh <box> mac-authorize | bash`
+set -euo pipefail
+
+KEYFILE="$HOME/.ssh/id_ed25519.pub"
+if [ ! -f "$KEYFILE" ]; then
+  printf 'mac-authorize: no %s — run: ssh-keygen -t ed25519 -N "" -f %s\n' "$KEYFILE" "${KEYFILE%.pub}" >&2
+  exit 1
+fi
+
+KEY="$(cut -d' ' -f1,2 "$KEYFILE")"
+TAG="$(hostname -s)"
+
+# The emitted script runs on the workstation, so $HOME/$AK resolve there, not here.
+cat <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+AK="\$HOME/.ssh/authorized_keys"
+OPTS="command=\"\$HOME/.local/bin/to-desktop --forced\",no-agent-forwarding,no-pty,no-port-forwarding,no-X11-forwarding"
+mkdir -p "\$HOME/.ssh"
+chmod 700 "\$HOME/.ssh"
+if [ -f "\$AK" ]; then
+  cp "\$AK" "\$AK.bak"
+  grep -v ' ${TAG}\$' "\$AK" > "\$AK.new" || true
+else
+  : > "\$AK.new"
+fi
+printf '%s %s %s\n' "\$OPTS" '${KEY}' '${TAG}' >> "\$AK.new"
+mv "\$AK.new" "\$AK"
+chmod 600 "\$AK"
+echo "authorized ${TAG}; authorized_keys now parses as:"
+ssh-keygen -lf "\$AK"
+EOF

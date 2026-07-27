@@ -9,10 +9,13 @@ Host github.com
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
-# RemoteForward exposes this mac's Chrome CDP port on dev-box for chrome-devtools-mcp.
-Host dev-box tailscale
-  ForwardAgent yes
+Host tailscale
   HostName dev-box
+
+# No HostName below, so any future dev-box-N resolves by its own MagicDNS name.
+# RemoteForward exposes this mac's Chrome CDP port on the box for chrome-devtools-mcp.
+Host dev-box dev-box-* tailscale
+  ForwardAgent yes
   IdentityFile ~/.ssh/id_ed25519
   RemoteForward 9222 127.0.0.1:9222
   User gnohj
