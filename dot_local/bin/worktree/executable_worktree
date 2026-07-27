@@ -44,6 +44,11 @@ EOF
 # CLI tools. mac-notify owns that fallback plus icon resolution.
 notify_error() {
   local tag="$1" msg="$2" icon="${3:-}"
+  # mac-notify no-ops off darwin, so the devbox would fail silently; to-desktop owns the portable fallback chain.
+  if [ "$(uname -s)" != Darwin ]; then
+    to-desktop notify "$tag" "$msg" 2>/dev/null || printf '%s: %s\n' "$tag" "$msg" >&2
+    return 0
+  fi
   if [ -n "$icon" ] && [ -f "$icon" ]; then
     mac-notify -t "$tag" -m "$msg" -T 6 -g "${tag}-error" -i "$icon"
   else
