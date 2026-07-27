@@ -102,4 +102,9 @@ linux-bootstrap.sh
 # would be launchd jobs). The enable scripts (run_onchange_after_enable-herdr-*.sh.tmpl)
 # self-guard on uname, so only the unit files need skipping here.
 .config/systemd/user/herdr-server.service
+
+# Autopush timer — same story: macOS schedules the identical script through the
+# nix-darwin launchd agent `github-auto-push` instead.
+.config/systemd/user/github-auto-push.service
+.config/systemd/user/github-auto-push.timer
 {{- end }}

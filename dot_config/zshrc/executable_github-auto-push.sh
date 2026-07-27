@@ -35,7 +35,7 @@ log_message() {
 }
 
 # List of repositories to push to (paths only, decoupled from clone manifest).
-AUTOPUSH_FILE="$HOME/.config/repos-autopush.txt"
+AUTOPUSH_FILE="${AUTOPUSH_FILE:-$HOME/.config/repos-autopush.txt}"
 if [[ ! -f "$AUTOPUSH_FILE" ]]; then
   log_message "ERROR" "ALL" "Missing $AUTOPUSH_FILE — run \`chezmoi apply\`"
   exit 1
@@ -64,11 +64,30 @@ display_notification() {
   mac-notify -t "$title" -m "$message"
 }
 
+# A dirty tree skips the pull above, so a multi-machine repo is often behind by push time.
+push_with_rebase_retry() {
+  local repo="$1"
+  git push 2>"$ERROR_LOG" && return 0
+  log_message "WARN" "$repo" "Push rejected - rebasing onto remote and retrying"
+  if ! git pull --rebase 2>"$ERROR_LOG"; then
+    # Never leave an unattended repo mid-rebase; the next cycle needs a clean tree.
+    git rebase --abort 2>/dev/null || true
+    return 1
+  fi
+  git push 2>"$ERROR_LOG"
+}
+
 SUCCESS_MESSAGES=""
 
 for REPO_PATH in "${REPO_LIST[@]}"; do
   REPO_NAME=$(basename "$REPO_PATH")
   ERROR_LOG="$LOG_DIR/${REPO_NAME}_error.log"
+
+  # Not every manifest entry exists on every machine; absence is expected, not an error.
+  if [[ ! -d "$REPO_PATH/.git" ]]; then
+    log_message "INFO" "$REPO_NAME" "Not present at $REPO_PATH — skipping"
+    continue
+  fi
 
   cd "$REPO_PATH" || {
     log_message "ERROR" "$REPO_NAME" "Failed to navigate to $REPO_PATH"
@@ -152,7 +171,7 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
       fi
     fi
 
-    if ! git push 2>"$ERROR_LOG"; then
+    if ! push_with_rebase_retry "$REPO_NAME"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
       log_message "ERROR" "$REPO_NAME" "Push failed: $ERROR_MSG"
       display_notification "Push failed - check logs" "Git Push Error" "$REPO_NAME"

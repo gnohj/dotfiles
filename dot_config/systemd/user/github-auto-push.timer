@@ -1,0 +1,13 @@
+# Mirrors launchd's `StartInterval = 180` on macOS. Must stay in sync with
+# PUSH_INTERVAL in github-auto-push.sh, which skips any repo touched in the last
+# 180s so an in-progress edit is never committed mid-keystroke.
+[Unit]
+Description=Run github-auto-push every 3 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=3min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target
