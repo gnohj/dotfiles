@@ -18,9 +18,9 @@ from the poller running here instead.
 Jira is RENDERED but never fetched. The same thread file carries `jira_status`, so the
 $jira token is filled from it (shortened by the table below), but nothing here
 writes that field: it needs Jira credentials this daemon does not have. Read-only, never a
-writer. The skill that used to populate it
-is gone, so until there is a token-based source, $jira shows whatever last landed in the
-file and is empty for most workspaces. That gap is upstream of this poller, not in it.
+writer. The writer is the `sb-agent-refresh` skill, supervised by herdr-jira-status.service,
+which reaches Jira through MCP inside a real Claude session — the one place those credentials
+exist. $jira is therefore empty until that poller's first tick lands a status.
 
 Slow on purpose. Two `gh` calls per workspace are network round-trips and count against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. Both calls
@@ -45,6 +45,7 @@ that is; without it the token simply never appears. Stdlib only, no jq (gh embed
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -61,6 +62,10 @@ TOKEN = "pr"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
+# Same ticket-key shape treekanga's worktree_setup.sh matches, so both writers agree on the id.
+TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
+# worktree_setup.sh derives tmux_session by stripping this prefix; mirrored so the two agree.
+DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 
 # Vault-note discovery for the $sb token.
 # PR: newest open PR for the branch -> "<url>\t<approved review count>", or "" for none.
@@ -167,6 +172,49 @@ def thread_for(cwd, branch, entries):
     return only([(p, d) for p, d in entries if d.get("branch") == branch])
 
 
+def create_thread(cwd, branch):
+    """Write the thread file a ticket workspace is missing, or (None, None) if it cannot.
+
+    treekanga's worktree_setup.sh postScript is the original writer, but it only runs for a
+    worktree born through treekanga. herdr's built-in new_worktree, lazygit's worktree UI and a
+    bare `git worktree add` all produce a checkout with no thread file, leaving $jira and the
+    cached $pr fields blank forever — so this reconciles from the workspace list the poller
+    already walks instead of relying on the creation moment.
+
+    Ticket-shaped branches only: an untracked branch gets no Jira badge anyway, so a file for it
+    would just add a `branch` collision to thread_for(). Schema and the skip-if-exists rule are
+    copied from worktree_setup.sh so the two writers cannot disagree, and O_EXCL makes losing a
+    concurrent race against it a no-op rather than a clobber.
+    """
+    match = TICKET_RE.search(branch)
+    if not match:
+        return None, None
+    path = os.path.join(THREADS_DIR, match.group(1) + ".json")
+    url = out(["git", "-C", cwd, "config", "--get", "remote.origin.url"], timeout=4) or ""
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    data = {
+        "id": match.group(1),
+        "kind": "ticket",
+        "repo": re.sub(r"\.git$", "", os.path.basename(url)) or None,
+        "branch": branch,
+        "worktree": cwd,
+        "tmux_session": cwd[len(DEV_PREFIX):] if cwd.startswith(DEV_PREFIX) else cwd,
+        "vault_note": None,
+        "pr_url": None,
+        "created_at": now,
+        "last_seen_at": now,
+    }
+    try:
+        os.makedirs(THREADS_DIR, exist_ok=True)
+        with open(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
+            json.dump(data, handle, indent=2)
+    except FileExistsError:
+        return None, None  # already written (by us on a past pass, or by worktree_setup.sh)
+    except OSError:
+        return None, None
+    return path, data
+
+
 def fetch(branch, worktree):
     """(pr_url, approvals, ci_status) from gh, each None when its call gave nothing."""
     pr = out(
@@ -233,8 +281,8 @@ def render(approvals, ci):
 def jira_short(status):
     """Jira status as the sidebar shows it, or "" when the thread carries none.
 
-    Read-only, deliberately: nothing writes `jira_status` any more (the skill that did is
-    gone), so this renders whatever last landed in the thread file and never invents a value.
+    Read-only, deliberately: `sb-agent-refresh` owns this field, so this renders whatever last
+    landed in the thread file and never invents a value.
     """
     text = (status or "").strip()
     return JIRA_SHORT.get(text.lower(), text)
@@ -260,6 +308,9 @@ def refresh_once():
     most wants the badge — a ticket worktree whose thread file was never written, or was
     cleaned up — showed nothing at all. So every git workspace gets a badge, and the
     write-back happens only when a thread file unambiguously matches.
+
+    A ticket workspace with no file gets one created here (see create_thread), so the "never
+    written" case self-heals on the next pass instead of staying blank forever.
     """
     if not out(["gh", "--version"], timeout=5):
         return  # gh missing or unauthenticated env: leave every token untouched this pass
@@ -273,6 +324,11 @@ def refresh_once():
             report(workspace, {"jira": "", TOKEN: ""}, seq)  # not a git checkout / detached HEAD
             continue
         path, data = thread_for(cwd, branch, entries)
+        if not path:
+            # No match can also mean AMBIGUOUS, which is why create_thread() skips an existing filename.
+            path, data = create_thread(cwd, branch)
+            if path:
+                entries.append((path, data))
         url, approvals, ci, reached = fetch(branch, cwd)
         if reached and path:
             persist(path, data, url, approvals, ci)
