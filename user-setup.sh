@@ -467,25 +467,54 @@ print_info "› Phase 9: Configuring Claude Code MCP servers..."
 
 MCP_FILE="$HOME/.config/claude-mcp-servers.txt"
 
+# Every Claude account gets the same server list: CLAUDE_CONFIG_DIR decides
+# which config a session reads, and each holds its own independent mcpServers map.
+# Empty string = personal, i.e. Claude's native config (~/.claude.json) which
+# claude-account reaches by leaving CLAUDE_CONFIG_DIR UNSET — passing $HOME/.claude
+# explicitly would write ~/.claude/.claude.json, a config no session ever reads.
+MCP_CONFIG_DIRS=("" "$HOME/.claude-work")
+
+case "$(uname -s)" in
+  Darwin) MCP_HOST_OS="mac" ;;
+  *) MCP_HOST_OS="linux" ;;
+esac
+
 if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
-  while IFS= read -r line; do
-    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-
-    type=$(echo "$line" | awk '{print $1}')
-    name=$(echo "$line" | awk '{print $2}')
-    rest=$(echo "$line" | cut -d' ' -f3-)
-
-    if claude mcp get "$name" -s user &>/dev/null 2>&1; then
-      print_success "MCP already configured: $name"
+  for config_dir in "${MCP_CONFIG_DIRS[@]}"; do
+    if [ -n "$config_dir" ]; then
+      mkdir -p "$config_dir"
+      export CLAUDE_CONFIG_DIR="$config_dir"
+      print_info "  MCP config dir: $config_dir"
     else
-      if [ "$type" = "http" ]; then
-        claude mcp add -s user --transport http "$name" "$rest"
-      else
-        claude mcp add -s user "$name" -- $rest
-      fi
-      print_success "Added MCP server: $name"
+      unset CLAUDE_CONFIG_DIR
+      print_info "  MCP config dir: native (~/.claude.json, personal account)"
     fi
-  done < "$MCP_FILE"
+
+    while IFS= read -r line; do
+      [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+
+      # eval-based split so quoted args (header values with spaces) survive
+      eval "set -- $line"
+      os="$1" type="$2" name="$3" target="$4"
+      shift 4
+      extra=("$@")
+
+      if [ "$os" != "all" ] && [ "$os" != "$MCP_HOST_OS" ]; then
+        continue
+      fi
+
+      if claude mcp get "$name" &>/dev/null; then
+        print_success "MCP already configured: $name"
+      elif [ "$type" = "http" ]; then
+        claude mcp add -s user --transport http "$name" "$target" "${extra[@]}" >/dev/null &&
+          print_success "Added MCP server: $name"
+      else
+        claude mcp add -s user "$name" -- "$target" "${extra[@]}" >/dev/null &&
+          print_success "Added MCP server: $name"
+      fi
+    done < "$MCP_FILE"
+  done
+  unset CLAUDE_CONFIG_DIR
 elif [ ! -f "$MCP_FILE" ]; then
   print_warning "No claude-mcp-servers.txt found, skipping"
 elif ! command -v claude &>/dev/null; then
@@ -548,6 +577,32 @@ if [ -n "$MISSING_CLAUDE_TOKENS" ]; then
   echo "      claude setup-token"
   echo "      pbpaste | claude-account set-token <personal|work>"
   echo ""
+fi
+
+# MCP servers whose OAuth is per-config-dir and browser-only (atlassian, etc.)
+if command -v claude &>/dev/null; then
+  for config_dir in "" "$HOME/.claude-work"; do
+    if [ -n "$config_dir" ]; then
+      [ -d "$config_dir" ] || continue
+      export CLAUDE_CONFIG_DIR="$config_dir"
+      ACCOUNT_LABEL="work ($config_dir)"
+      AUTH_HINT="CLAUDE_CONFIG_DIR=$config_dir claude"
+    else
+      unset CLAUDE_CONFIG_DIR
+      ACCOUNT_LABEL="personal (~/.claude.json)"
+      AUTH_HINT="claude"
+    fi
+    UNAUTHED=$(claude mcp list 2>/dev/null |
+      grep -i 'needs authentication' | awk -F: '{print $1}' | tr '\n' ' ')
+    if [ -n "$UNAUTHED" ]; then
+      PENDING=$((PENDING + 1))
+      echo "[$PENDING] MCP servers awaiting browser OAuth - $ACCOUNT_LABEL: $UNAUTHED"
+      echo "    Authenticate interactively (browser flow, one time per account):"
+      echo "      $AUTH_HINT   # then run /mcp and pick Authenticate"
+      echo ""
+    fi
+  done
+  unset CLAUDE_CONFIG_DIR
 fi
 
 # Work org / work email state files
