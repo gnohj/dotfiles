@@ -176,8 +176,8 @@ in
     # Jira Status Refresh — runs `/sb-agent-refresh` headlessly so every
     # ticket-shaped thread state file at ~/.local/state/threads/ stays in
     # sync with its actual Jira workflow status. That status drives the
-    # text line below each agent row in tmux-dash (e.g. "In Dev Review",
-    # "Ready to Merge").
+    # text line below each agent row in the dashboard sidebar (e.g. "In Dev
+    # Review", "Ready to Merge").
     #
     # Cost: $0 on Claude Max — runs against subscription quota, not API
     # billing. Verified Rovo MCP is available in `claude -p` headless

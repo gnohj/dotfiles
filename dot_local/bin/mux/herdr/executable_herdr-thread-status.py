@@ -7,33 +7,31 @@ custom metadata token, exactly like $git (working-tree signs), $sys (host stats)
 
 Separately, and only where a thread file under ~/.local/state/threads/ unambiguously owns
 the workspace, this poller is also the WRITER of record for `pr_url` / `pr_approvals` /
-`ci_status` / `pr_last_checked` — the fields tmux-dash's sidebar and split card already read
-(src/plugins/second_brain.rs). One fetcher, two dashboards, no disagreement. A workspace
-with no thread file still gets its badge; it just caches nothing.
+`ci_status` / `pr_last_checked` — the fields the sidebar and split card read. One fetcher,
+no disagreement. A workspace with no thread file still gets its badge; it just caches
+nothing.
 
-That inverts the previous arrangement, where tmux-dash's own `refresh_thread` was the only
-fetcher — and it only ran for live TMUX sessions whose thread_kind was "ticket", so working
-in herdr left the cache permanently cold. Anything reading those files benefits from the
-poller running here instead, including tmux-dash on the same box.
+The previous fetcher only ran for live tmux sessions whose thread_kind was "ticket", so
+working in herdr left the cache permanently cold. Anything reading those files benefits
+from the poller running here instead.
 
 Jira is RENDERED but never fetched. The same thread file carries `jira_status`, so the
-$jira token is filled from it (shortened by the same table tmux-dash uses), but nothing here
-writes that field: it needs Jira credentials this daemon does not have. tmux-dash's jira.rs
-has the identical contract — read-only, never a writer. The skill that used to populate it
+$jira token is filled from it (shortened by the table below), but nothing here
+writes that field: it needs Jira credentials this daemon does not have. Read-only, never a
+writer. The skill that used to populate it
 is gone, so until there is a token-based source, $jira shows whatever last landed in the
 file and is empty for most workspaces. That gap is upstream of this poller, not in it.
 
 Slow on purpose. Two `gh` calls per workspace are network round-trips and count against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. Both calls
 failing (offline, not a gh repo, `gh auth` never run) leaves the thread file UNTOUCHED, so a
-transient error can never clobber good state — the same contract tmux-dash's writer had.
+transient error can never clobber good state.
 
 Two zones, always both, `<approvals> │ <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
 ⧗ running, ✗ failure, ✓ success, – none. The vocabularies are disjoint so no glyph means two
 things — ● is only ever approvals, ✓ only ever CI — and both sides always print, because
-dropping the empty one left a lone glyph whose zone the reader had to guess. That diverges
-from tmux-dash's sidebar, which colours the zones apart instead; a metadata token carries a
-single inline fg, so this panel cannot. All single-cell and deliberately not emoji — a VS16
+dropping the empty one left a lone glyph whose zone the reader had to guess. Colouring the
+zones apart is not an option: a metadata token carries a single inline fg. All single-cell and deliberately not emoji — a VS16
 sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
 
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
@@ -64,7 +62,7 @@ THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
 
-# Lifted verbatim from tmux-dash src/plugins/second_brain.rs so both stay in step.
+# Vault-note discovery for the $sb token.
 # PR: newest open PR for the branch -> "<url>\t<approved review count>", or "" for none.
 PR_JQ = (
     '.[0] | if . == null then "" else .url + "\\t" '
@@ -84,10 +82,9 @@ APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
 CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
 NONE_GLYPH = "–"
 
-# Jira workflow status, shortened to fit a 26-col sidebar. Same table as tmux-dash's
-# short_jira_status (src/sidebar/rows.rs) so the two panels read identically; the canonical
-# full name stays in the thread file and this is purely a display transform. Anything not
-# listed falls through unchanged, which is also tmux-dash's behaviour.
+# Jira workflow status, shortened to fit a 26-col sidebar. The canonical full name stays in
+# the thread file and this is purely a display transform. Anything not listed falls through
+# unchanged.
 JIRA_SHORT = {
     "in dev review": "In Dev Rev",
     "in code review": "In Code Rev",
@@ -195,7 +192,7 @@ def fetch(branch, worktree):
 
 
 def persist(path, data, url, approvals, ci):
-    """Atomic write-back of the fields tmux-dash reads. tmp+rename so no reader sees half."""
+    """Atomic write-back of the status fields. tmp+rename so no reader sees half."""
     if url is not None:
         data["pr_url"] = url or None
         data["pr_approvals"] = approvals
@@ -224,7 +221,7 @@ def render(approvals, ci):
     """The $pr token, or "" for nothing worth a row.
 
     One string with one colour: a metadata token carries a single inline fg, so the approval and
-    CI zones cannot be coloured apart the way tmux-dash colours them. Both zones therefore render
+    CI zones cannot be coloured apart. Both zones therefore render
     ALWAYS, divider included — dropping the empty side made a lone glyph ambiguous, since the
     reader could not tell which zone survived.
     """
@@ -238,7 +235,6 @@ def jira_short(status):
 
     Read-only, deliberately: nothing writes `jira_status` any more (the skill that did is
     gone), so this renders whatever last landed in the thread file and never invents a value.
-    tmux-dash's jira.rs has exactly the same contract — it only ever read the field too.
     """
     text = (status or "").strip()
     return JIRA_SHORT.get(text.lower(), text)

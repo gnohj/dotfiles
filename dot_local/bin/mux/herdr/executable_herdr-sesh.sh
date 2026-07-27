@@ -146,7 +146,7 @@ def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailco
     body = "%s %s  %s  %s" % (" " * ICON_W, nm, sep, cell)
     return (name or text) + TAB + body + TAB + target
 
-# Account = which config root owns the session, the rule tmux-dash uses (src/agents/claude.rs account_for_root).
+# Account = which config root owns the session.
 CLAUDE_ROOTS = [(os.path.join(home, ".claude-work"), "work"), (os.path.join(home, ".claude"), "personal")]
 
 def claude_account(sess, cwd):
@@ -164,7 +164,7 @@ def claude_account(sess, cwd):
         if glob.glob(os.path.join(root, "projects", "*", glob.escape(val) + ".jsonl")): return acct
     return ""
 
-# Colored blue (work) / purple (personal), the account convention the tmux-dash sidebar uses.
+# Colored blue (work) / purple (personal), the account convention.
 def agent_identity(ag):
     harness = (ag.get("agent") or "").strip()
     if harness != "claude": return harness, dim

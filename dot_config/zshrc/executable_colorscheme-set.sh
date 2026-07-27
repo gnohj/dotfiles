@@ -413,7 +413,7 @@ customCommands:
 
   # <c-e> (Emoji), not <c-a>: <c-a> is herdr's prefix, so it never reaches
   # lazygit inside a herdr pane. Trigger with LEFT ctrl (;-hold layer) — skhd's
-  # rctrl-e (tmux-dash focus) is RIGHT-ctrl only, so left-ctrl+e is clear.
+  # rctrl-e is RIGHT-ctrl only, so left-ctrl+e is clear.
   - key: "<c-e>"
     prompts:
       - type: "menuFromCommand"
@@ -2346,7 +2346,7 @@ $herdr_begin
 panel_bg = "reset"
 # surface_dim drives the sidebar active/selected row bg and surface0 the inactive
 # tab bg (verified live against herdr 0.7.3). Both set to gnohj_color26 - the same
-# dark tint tmux-dash uses for its active-session row (bg_active_session) - so the
+# dark tint used for the active-session row - so the
 # active item reads as that subtle near-bg fill. surface1 tracks them for a flat ramp.
 surface_dim = "$gnohj_color26"
 surface0 = "$gnohj_color26"
@@ -2368,7 +2368,7 @@ mauve = "#c2f0db"
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
 # blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
 # overlay0. There is no per-state config key, so anything else using these tokens
-# shifts with them. Mapped 1:1 onto the tmux-dash chips so both dashboards agree:
+# shifts with them. Mapped 1:1 onto the agent chips:
 # @chip_idle / @chip_working / @chip_input / @chip_done.
 green = "$gnohj_color05"
 yellow = "$gnohj_color04"
@@ -2377,7 +2377,7 @@ red = "$gnohj_color11"
 blue = "$gnohj_color02"
 # teal = the done state, and status.rs is its ONLY consumer - so pointing it at
 # gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
-# matching tmux-dash where @chip_done and @chip_input are already the same color.
+# matching @chip_done and @chip_input, which are already the same color.
 teal = "$gnohj_color11"
 peach = "$gnohj_color06"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".

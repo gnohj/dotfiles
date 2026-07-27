@@ -112,7 +112,6 @@
   <tr><th>Chord</th><th>Action</th><th></th></tr>
   <tr><td class="k"><kbd>rctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>tmux <code>select-window :1…:9</code></td><td><span class="badge b-global">global</span> <span class="desc">pending migration (ctrl+digit "wall")</span></td></tr>
   <tr><td class="k"><kbd>rctrl</kbd>+<kbd>0</kbd></td><td>tmux <code>kill-window -a</code> (keep :1)</td><td><span class="badge b-global">global</span></td></tr>
-  <tr><td class="k"><kbd>rctrl</kbd>+<kbd>i</kbd></td><td>tmux-dash next-input jump</td><td><span class="badge b-global">global</span> <span class="desc">kept: nvim uses C-i (jumplist)</span></td></tr>
   <tr><td class="k"><kbd>rctrl</kbd>+<kbd>'</kbd></td><td>notify-idle smart-switch</td><td><span class="badge b-global">global</span> <span class="desc">macOS-only (banners)</span></td></tr>
   <tr><td class="k"><kbd>rctrl</kbd>+<kbd>esc</kbd></td><td>clear all notifications</td><td><span class="badge b-global">global</span></td></tr>
   <tr><td class="k"><kbd>rctrl</kbd>+<kbd>shift</kbd>+<kbd>esc</kbd></td><td>worktree abort</td><td><span class="badge b-global">global</span></td></tr>
@@ -126,8 +125,6 @@
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>tab</kbd></td><td class="mono">C-a n</td><td>next-window</td><td><span class="badge b-terminal">terminal</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>space</kbd></td><td class="mono">C-a Space</td><td>last-window (toggle)</td><td><span class="badge b-terminal">terminal</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>enter</kbd></td><td class="mono">C-a L</td><td>switch-client -l (session toggle)</td><td><span class="badge b-terminal">terminal</span></td></tr>
-  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>.</kbd></td><td class="mono">C-a g</td><td>tmux-dash popup</td><td><span class="badge b-terminal">terminal</span> <span class="desc">was ctrl+/ (beeped)</span></td></tr>
-  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>;</kbd></td><td class="mono">C-a a</td><td>tmux-dash popup (table)</td><td><span class="badge b-terminal">terminal</span></td></tr>
 </table></div>
 <p class="sub">Also non-ctrl terminal keys: <kbd>cmd</kbd>+<kbd>r</kbd> reload · <kbd>cmd</kbd>+<kbd>i</kbd> inspector/env · <kbd>cmd</kbd>+<kbd>k</kbd> clear (kitty) · <kbd>cmd</kbd>+<kbd>shift</kbd>+<kbd>s</kbd> secure-input (ghostty) · <kbd>shift</kbd>+<kbd>enter</kbd> newline.</p>
 
@@ -137,7 +134,6 @@
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>g</kbd></td><td>lazygit</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>y</kbd></td><td>yazi</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>b</kbd></td><td>smart dual-split switch</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">nvim C-b freed</span></td></tr>
-  <tr><td class="k"><kbd>ctrl</kbd>+<kbd>e</kbd></td><td>focus tmux-dash sidebar</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">nvim C-e freed</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>t</kbd></td><td>sesh switcher</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>h</kbd></td><td>nvim-aware sidebar / split nav</td><td><span class="badge b-tmuxroot">tmux root</span> <span class="desc">agentic.conf</span></td></tr>
   <tr><td class="k"><kbd>alt</kbd>+<kbd>k</kbd></td><td>smart clear (shell) / <code>C-l</code> (TUI)</td><td><span class="badge b-tmuxroot">tmux root</span></td></tr>
@@ -152,7 +148,6 @@
   <tr><td class="k"><kbd>c</kbd></td><td>new window (🐚)</td><td class="k"><kbd>x</kbd></td><td>kill pane</td></tr>
   <tr><td class="k"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></td><td>resize (one-shot)</td><td class="k"><kbd>r</kbd></td><td>sticky resize mode</td></tr>
   <tr><td class="k"><kbd>m</kbd></td><td>zoom pane</td><td class="k"><kbd>Space</kbd></td><td>last-window</td></tr>
-  <tr><td class="k"><kbd>g</kbd></td><td>tmux-dash popup</td><td class="k"><kbd>a</kbd></td><td>tmux-dash table popup</td></tr>
   <tr><td class="k"><kbd>y</kbd> / <kbd>u</kbd></td><td>copy-mode</td><td class="k"><kbd>s</kbd></td><td>session tree</td></tr>
   <tr><td class="k"><kbd>L</kbd></td><td>switch-client -l</td><td class="k"><kbd>C-t</kbd></td><td>theme selector</td></tr>
   <tr><td class="k"><kbd>T</kbd></td><td>toggle transparency</td><td class="k"><kbd>C-a</kbd></td><td>send literal C-a</td></tr>

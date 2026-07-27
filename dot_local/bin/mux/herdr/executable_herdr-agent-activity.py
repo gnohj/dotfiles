@@ -13,18 +13,16 @@ any event (verified against the full `herdr api schema` — the only ordering si
 `state_change_seq`, a monotonic counter). So "idle · 12m ago" has to be computed here and
 pushed back in, which `pane.report_metadata` allows: a $act custom token per pane.
 
-The age matches tmux-dash's agent sidebar (src/state.rs format_repo_age): the last
-`timestamp` entry in the agent's session JSONL — NOT the file mtime, which gets touched
-without new turns (tmux-dash src/agents/claude.rs:14). herdr makes that cheaper than it
-is in tmux-dash: the snapshot hands over `agent_session.value` (the session id) directly,
-so there's none of tmux-dash's process-subtree walk to find which forked worker owns the
-session file (claude.rs:16-18).
+The age is the last `timestamp` entry in the agent's session JSONL — NOT the file mtime,
+which gets touched without new turns. herdr makes that cheap: the snapshot hands over
+`agent_session.value` (the session id) directly, so no process-subtree walk is needed to
+find which forked worker owns the session file.
 
 claude, pi and opencode — every agent that records its own wall-clock time, which is the
 bar for appearing here. pi stamps its transcript with the same ISO `timestamp` key claude
 uses, so it shares the tail reader; opencode keeps no transcript at all and its age comes
-from `session.time_updated` in its SQLite store (epoch ms), the column tmux-dash reads as
-`activity`. Any other agent gets the token CLEARED rather than a guess: the only signal
+from `session.time_updated` in its SQLite store (epoch ms). Any other agent gets the token
+CLEARED rather than a guess: the only signal
 left would be event-arrival time, which is blind on cold start and would show every agent
 as brand new after a restart — see report_all.
 
@@ -110,8 +108,7 @@ def project_slug(cwd):
 def find_jsonl(session_id, cwd):
     """Transcript path for a session id, cached. The cwd-derived slug is the fast path (one
     stat); a session that has since changed directory won't be there, so fall back to a scan
-    for that id across every project dir and take the newest — the same
-    changed-cwd case tmux-dash handles in claude.rs newest_jsonl."""
+    for that id across every project dir and take the newest."""
     cached = _jsonl_cache.get(session_id)
     if cached and os.path.exists(cached):
         return cached
@@ -168,8 +165,7 @@ def opencode_activity(session, cwd):
     """Last-activity epoch for an opencode session, from `session.time_updated` (epoch ms).
 
     opencode keeps no transcript file to tail - its store is SQLite - so this is the one
-    agent whose age is a query rather than a JSONL tail. Same column tmux-dash reads as
-    `activity` in src/agents/opencode.rs.
+    agent whose age is a query rather than a JSONL tail.
     """
     if not stores:
         return None
@@ -178,9 +174,7 @@ def opencode_activity(session, cwd):
 
 
 def format_age(then_epoch, now):
-    """Compact age, wording matched to tmux-dash's format_repo_age (src/state.rs) so the
-    two sidebars read identically. Past a day it becomes a date, which doubles as the
-    stale marker."""
+    """Compact age. Past a day it becomes a date, which doubles as the stale marker."""
     secs = max(0, int(now - then_epoch))
     if secs < 60:
         return "< 1m"

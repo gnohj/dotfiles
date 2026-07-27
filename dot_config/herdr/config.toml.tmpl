@@ -178,7 +178,7 @@ description = "new glyphed workspace at focused cwd (dev layout)"
 # never idle/working. The wrapper narrows herdr's next_agent (which walks every agent)
 # to just blocked+done. Bound as prefix+, because ghostty/kitty re-emit ctrl+; as
 # \x01\x2c = `prefix ,`, free now that settings is back on prefix+s. The same chord hits
-# tmux's `bind ,` (tmux-dash-next-input), so ctrl+; cycles the queue in both worlds.
+# the agent queue, so ctrl+; cycles it.
 [[keys.command]]
 key = "prefix+,"
 type = "shell"
@@ -291,7 +291,7 @@ manage_ssh_config = true
 mouse_capture = true
 
 # Show detected/reported agent labels (claude / codex / etc.) in split-pane
-# borders when no manual pane name is set - mirrors the tmux-dash agent chips.
+# borders when no manual pane name is set.
 show_agent_labels_on_pane_borders = true
 
 # Order the Agents panel as an attention queue (blocked/needs-input first) instead
@@ -328,8 +328,8 @@ enabled = false
 # ~/.local/state/herdr/agent-detection/ and streamed as pane_agent_status_changed. What
 # herdr has no notion of is TIME: nothing in `herdr api schema` carries a timestamp (only
 # state_change_seq, a counter). So the age is a CUSTOM $act token fed by
-# herdr-agent-activity.py from the agent's session-JSONL tail, matching the tmux-dash
-# sidebar's wording. claude only — it is the one agent whose transcript timestamps each
+# herdr-agent-activity.py from the agent's session-JSONL tail. claude only — it is the one
+# agent whose transcript timestamps each
 # turn; the rest keep herdr's default rows and get no age rather than a guessed one.
 # Inline fg values here are SEEDS only - generate_herdr_config in colorscheme-set.sh rewrites
 # both row lines on every theme switch, same as the $git/$sys spaces row. Inline fg is honoured
@@ -421,7 +421,7 @@ pane_history = true
 panel_bg = "reset"
 # surface_dim drives the sidebar active/selected row bg and surface0 the inactive
 # tab bg (verified live against herdr 0.7.3). Both set to gnohj_color26 - the same
-# dark tint tmux-dash uses for its active-session row (bg_active_session) - so the
+# dark tint used for the active-session row - so the
 # active item reads as that subtle near-bg fill. surface1 tracks them for a flat ramp.
 surface_dim = "#1e2528"
 surface0 = "#1e2528"
@@ -443,7 +443,7 @@ mauve = "#c2f0db"
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
 # blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
 # overlay0. There is no per-state config key, so anything else using these tokens
-# shifts with them. Mapped 1:1 onto the tmux-dash chips so both dashboards agree:
+# shifts with them. Mapped 1:1 onto the agent chips:
 # @chip_idle / @chip_working / @chip_input / @chip_done.
 green = "#dab183"
 yellow = "#a3b8c6"
@@ -452,7 +452,7 @@ red = "#da858e"
 blue = "#b7ce97"
 # teal = the done state, and status.rs is its ONLY consumer - so pointing it at
 # gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
-# matching tmux-dash where @chip_done and @chip_input are already the same color.
+# matching @chip_done and @chip_input, which are already the same color.
 teal = "#da858e"
 peach = "#dc988e"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
