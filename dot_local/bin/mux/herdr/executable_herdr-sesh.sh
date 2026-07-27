@@ -10,6 +10,8 @@
 # each open. Theme matches the tmux sesh popup (dot_config/tmux/sesh-popup.sh).
 # Agents hang under their workspace as "state · activity · harness", claude/<account> when the harness is claude.
 #
+# The cursor starts on the row you are currently in (see focus_row), not on row 1.
+#
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
 #   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
@@ -409,6 +411,26 @@ print(next((n for n, i in enumerate(order, 1) if targets[i] in sel), 1))
 esac
 
 # --- interactive picker ---------------------------------------------------------
+# Row the cursor opens on: focused pane's agent row, else its tab, else its workspace. A popup is an overlay and not a pane, so `pane list` still reports the pane under it (as in herdr-scrollback.sh); HERDR_* env is the fallback.
+focus_row() {
+  local rows="$1" pane tab ws t n
+  read -r pane tab ws <<<"$("$herdr" pane list 2>/dev/null | python3 -c '
+import json, sys
+try: panes = json.load(sys.stdin)["result"]["panes"]
+except Exception: panes = []
+p = next((p for p in panes if p.get("focused")), None) or {}
+print(p.get("pane_id") or "", p.get("tab_id") or "", p.get("workspace_id") or "")
+')"
+  [ -n "${pane:-}" ] || pane="${HERDR_PANE_ID:-}"
+  [ -n "${tab:-}" ] || tab="${HERDR_TAB_ID:-}"
+  [ -n "${ws:-}" ] || ws="${HERDR_WORKSPACE_ID:-}"
+  for t in ${pane:+"agent:$pane"} ${tab:+"tab:$tab"} ${ws:+"ws:$ws"}; do
+    n=$(awk -F'\t' -v t="$t" '$NF == t { print NR; exit }' "$rows")
+    [ -n "$n" ] && { printf '%s\n' "$n"; return; }
+  done
+  printf '1\n'
+}
+
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
@@ -425,6 +447,7 @@ trap 'rm -f "$ROWS_FILE" "$VIEW_FILE"' EXIT
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
 while true; do
   build_list >"$ROWS_FILE"
+  START_POS=$(focus_row "$ROWS_FILE")
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
@@ -434,6 +457,8 @@ while true; do
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
     --expect=ctrl-w \
+    --sync \
+    --bind "start:pos($START_POS)" \
     --bind 'tab:down,btab:up' \
     --bind 'ctrl-j:down,ctrl-k:up' \
     --bind 'ctrl-b:abort' \
