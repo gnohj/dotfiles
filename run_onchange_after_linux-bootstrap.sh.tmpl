@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 18   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 19   (bump to force a re-run on `chezmoi apply`)
 #
 # System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
 # tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
 # runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: tmux + agent-tmux-web
 # (agents live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh).
 # This script installs what Nix deliberately doesn't: apt system base + monitoring,
-# zinit, tpm, ghostty terminfo, mise runtimes/AI agents, tmux-dash + agent-tmux-web.
+# zinit, tpm, ghostty terminfo, mise runtimes/AI agents, agent-tmux-web.
 # Skipped on macOS via .chezmoiignore. The agent-tmux-web service and interactive
 # `tailscale up`/`serve` are separate one-time manual steps.
 # Every step is best-effort (|| true / guarded) so a hiccup never aborts `chezmoi apply`.
@@ -158,21 +158,6 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
     echo "==> installing node@22 (Neovim Copilot interpreter)"
     "$MISE" install node@22 >/dev/null 2>&1 \
       || echo "   (node@22 install failed — Copilot needs it: mise install node@22)"
-  fi
-fi
-
-# 6b. tmux-dash — PERSONAL PRIVATE repo with no release binaries, so it can't be a
-#     declarative mise entry; cargo-built from source (rust comes from the mise
-#     config). Needs GitHub repo AUTH on the box first (SSH key, or `gh auth login`
-#     + `gh auth setup-git`), so on a fresh box it falls to the manual step below.
-if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  # The tmux popup binds call the absolute ~/.local/bin/tmux-dash (matches macOS), so
-  # install there via --root instead of cargo's default ~/.cargo/bin, and gate on that
-  # exact path so an older box that built to ~/.cargo/bin gets re-placed on next apply.
-  if [ ! -x "$HOME/.local/bin/tmux-dash" ]; then
-    echo "==> building tmux-dash from source (Rust, PRIVATE repo — needs repo auth first)"
-    "$MISE" exec -- cargo install --git ssh://git@github.com/gnohj/tmux-dash --locked --root "$HOME/.local" >/dev/null 2>&1 \
-      || echo "   (tmux-dash is PRIVATE — build by hand once authed: git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path . --root ~/.local)"
   fi
 fi
 

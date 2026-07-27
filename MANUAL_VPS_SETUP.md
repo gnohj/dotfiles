@@ -2,7 +2,7 @@
 
 The **interactive / secret-touching** steps that `chezmoi` + `run_onchange_after_linux-bootstrap.sh` can't script. Distinct from `MANUAL_SETUP.md` (which is the macOS/nix path).
 
-What's automated (don't do by hand): the bootstrap installs the toolchain, agent CLIs (claude/codex/gemini), custom tools (treehouse/no-mistakes/treekanga/atuin, tmux-dash from source), tailscale binary, and `enable-linger`. Everything below is the manual remainder.
+What's automated (don't do by hand): the bootstrap installs the toolchain, agent CLIs (claude/codex/gemini), custom tools (treehouse/no-mistakes/treekanga/atuin), tailscale binary, and `enable-linger`. Everything below is the manual remainder.
 
 ---
 
@@ -21,7 +21,7 @@ These are non-negotiable; the rest of the doc assumes them.
 
 ## 1. Provision (Vultr, Ubuntu 24.04, Dallas)
 
-Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale: 16 GB comfortably runs the full agent stack in the trial; bump to 32 GB only if monitoring (§8b) shows an OOM kill or sustained swap/pressure.
+Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale: 16 GB comfortably runs the full agent stack in the trial; bump to 32 GB only if monitoring (§7b) shows an OOM kill or sustained swap/pressure.
 
 ## Fast path — one command does §2–§4
 
@@ -38,7 +38,7 @@ export TS_AUTHKEY=tskey-... GITHUB_TOKEN=ghp-...
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-It's idempotent, and it prints the interactive remainder (§5–§7) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
+It's idempotent, and it prints the interactive remainder (§5–§6) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
 
 ## 2. User + SSH hardening
 
@@ -86,17 +86,7 @@ claude   # once, for OAuth   |   codex   # once   |   gemini   # once
 
 `gh auth login` uses a scoped token stored by `gh` — do NOT restore your Bitwarden `id_ed25519` here (§Security 4).
 
-## 6. tmux-dash — **private repo, manual build** (usually needed by hand)
-
-tmux-dash is a **personal PRIVATE repo** with no release binaries, built from source (Rust). The bootstrap attempts it over SSH but on a fresh box that repo auth isn't set up yet, so **expect to do this by hand** after auth. First give the box GitHub access — a **dedicated per-host SSH key** added to your GitHub account (preferred; don't copy your primary key — §Security 4), or `gh auth login` + `gh auth setup-git`. Then:
-
-```
-git clone git@github.com:gnohj/tmux-dash && cd tmux-dash && cargo install --path .
-```
-
-Treat this like the other **private repos** you clone by hand (see `MANUAL_SETUP.md`'s clone section) — chezmoi can't fetch private repos for you.
-
-## 7. agent-tmux-web (security-sensitive — go slow)
+## 6. agent-tmux-web (security-sensitive — go slow)
 
 **One command** (chezmoi drops the installer on the box): `install-agent-tmux-web.sh <PINNED-AUDITED-SHA>` — it clones+pins+builds, writes the `chmod 600` token `.env` (HOST=127.0.0.1), installs the user systemd unit + linger, and runs `tailscale serve` — and it never prints the token to logs. **Read the server source first** (`src/server/index.ts` + `tmux.ts`) before trusting a SHA.
 
@@ -126,7 +116,7 @@ tailscale serve --bg http://127.0.0.1:6174
 
 - Phone URL = `https://<box>.ts.net/?token=<value from .env>` — a password (§Security 5). `grep AGENT_TMUX_WEB_AUTH_TOKEN .env` to read it; never paste it anywhere shared.
 
-## 8. Run agents + connect
+## 7. Run agents + connect
 
 ```
 tmux new -s claude -c ~/work    # then run: claude   (Ctrl-b d to detach)
@@ -134,7 +124,7 @@ tmux new -s claude -c ~/work    # then run: claude   (Ctrl-b d to detach)
 
 Laptop: `ssh gnohj@<box>.ts.net` (or `mosh`) → `tmux attach`. Phone: open the tokenized URL, Add to Home Screen.
 
-## 8b. Monitoring — trial data for the 16-vs-32 GB verdict
+## 7b. Monitoring — trial data for the 16-vs-32 GB verdict
 
 The bootstrap already installs + enables the **lightweight, file-based recorders** (near-zero RAM, so they don't skew the memory measurement you're taking): `sysstat` (sar time-series, sampling every 5 min) and `atop` (per-process log every 60 s). Nothing to install by hand. To use them:
 
@@ -154,7 +144,7 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 # then browse over Tailscale: http://dev-box.<tailnet>.ts.net:19999
 ```
 
-## 9. VPS → Mac dispatcher (built)
+## 8. VPS → Mac dispatcher (built)
 
 Lets the box reach the workstation for the things a headless machine can't do itself: open a URL, write the clipboard, post a notification, and start a debuggable Chrome the box can drive over CDP. That last one is what makes browser E2E possible from an SSH session — `chrome-devtools-mcp` runs on the box and _attaches_ to a browser, it never launches one, and the box has no browser to launch.
 
@@ -186,11 +176,11 @@ A Chrome version JSON means the whole chain is live: forced-command SSH to the M
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
-- [ ] on PATH: `treehouse treekanga no-mistakes tmux-dash atuin claude codex gemini`
+- [ ] on PATH: `treehouse treekanga no-mistakes atuin claude codex gemini`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `systemctl --user status agent-tmux-web` active; phone loads the PWA
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives
 - [ ] **No service bound to `0.0.0.0`**; public port 22 closed; `.env` is `chmod 600`
 - [ ] OSC52 clipboard works over SSH (yank in nvim → paste on the Mac)
-- [ ] Dispatcher live (§9): `ssh macbook browser-debug` then `curl -s http://127.0.0.1:9222/json/version` returns Chrome JSON
+- [ ] Dispatcher live (§8): `ssh macbook browser-debug` then `curl -s http://127.0.0.1:9222/json/version` returns Chrome JSON
 - [ ] Monitoring live: `systemctl status sysstat atop` active; `vps-usage-export.sh` writes CSVs to `~/vps-usage/`

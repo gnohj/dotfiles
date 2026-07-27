@@ -113,7 +113,7 @@ Run it inside `tmux`/`mosh` so a dropped link doesn't kill the long build. It ha
 ### The commands you'll actually use
 
 - **`up`** - the whole machine current in one shot (each step banner'd, failure-tolerant): `nix flake update` + `darwin-rebuild switch` → `chezmoi apply` → `brew upgrade` → `mise` → `tpm`.
-- **`update`** - pull the latest config repos (chezmoi dotfiles + `agents` + `tmux-dash`); no package upgrades.
+- **`update`** - pull the latest config repos (chezmoi dotfiles + `agents`); no package upgrades.
 - **`outdated`** - what's pending across nix (flake staleness), brew, mise, mas.
 - **`nix-preview`** - exactly which nix packages would change on the next `up` (diff-closures; live `flake.lock` untouched).
 - **`cza`** - re-add your local dotfile edits back into the chezmoi source after editing a target.
@@ -163,7 +163,7 @@ mise upgrade          # bump all      mise upgrade node   # one runtime
 Mirrors the Mac's model - same aliases, minus the Homebrew/App-Store layer.
 
 - **`up`** - one shot: `apt full-upgrade` → `nix flake update` + `home-manager switch` → `mise` → `chezmoi` → `tpm`.
-- **`update`** - pull config repos (chezmoi + `agents` + `tmux-dash`).
+- **`update`** - pull config repos (chezmoi + `agents`).
 - **`outdated`** - what's pending across nix (flake staleness) + mise.
 - **`nix-preview`** - which nix packages would change on the next `up`.
 
@@ -196,6 +196,6 @@ mise outdated    # list      mise install   # install missing      mise upgrade 
 
 ### Tailscale + from-source tools
 
-Tailscale rides along with apt (`sudo tailscale update` to force). **herdr:** `curl -fsSL https://herdr.dev/install.sh | sh`. **tmux-dash** (private, cargo): `cd ~/Developer/tmux-dash && git pull && cargo install --path .`.
+Tailscale rides along with apt (`sudo tailscale update` to force). **herdr:** `curl -fsSL https://herdr.dev/install.sh | sh`.
 
 </details>
