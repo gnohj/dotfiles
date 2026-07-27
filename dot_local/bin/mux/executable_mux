@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # mux — one entry point for "where is the user looking, and put this there".
-# Verb-dispatched; run `mux help` for the list. nvim mirrors kind/session-label
-# in config/mux.lua to avoid a subprocess on dashboard render.
+# Verb-dispatched; run `mux help` for the list. config/mux.lua is a thin shim over
+# it, mirroring only kind() to stay off a subprocess on dashboard render.
 set -uo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
@@ -22,15 +22,24 @@ mux — multiplexer operations against whichever of herdr/tmux is live.
   mux kind                                 herdr | tmux | none
   mux session-label                        workspace/session name, emoji stripped
   mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
+  mux split  <cwd> <cmd>                   run a command beside the current pane
+  mux focus  <pane-id>                     focus a pane by recorded id
   mux send-keys <pane-id> <key>...         send key presses to a pane
   mux pane-pids <pane-id>                  pids in the pane's foreground
   mux pane-width <pane-id>                 columns the pane currently occupies
+  mux session [--label NAME] [<cwd>]       focus a session/workspace, building
+                                           one at <cwd> if none exists
+  mux tabs                                 "<id><TAB><label>" per open window/tab
+  mux pane-cwds                            cwd of every open pane, one per line
+  mux close  <id>                          close a window/tab by `mux tabs` id
   mux notify [OPTS] <message>              transient message
   mux popup  [OPTS] <script-path>          run a script modally
   mux help
 
 window options:
   --print-pane        print the new pane id (for HUNK_PANE capture)
+  --keep-open         leave the window at a prompt when <cmd> exits
+                      (default: the window closes, mirroring tmux new-window)
   --env KEY=VALUE     set an env var in the new window (repeatable)
   --workspace ID      override the target herdr workspace / tmux session;
                       defaults to the one this process was invoked from
@@ -82,10 +91,11 @@ focused_workspace() {
 # tmux runs the command AS the window process so it closes on exit; herdr spawns a
 # persistent shell, so "; exit" is appended to match that close-on-exit contract.
 cmd_window() {
-  local print_pane="" popup="" popup_size="80%x90%" ws="" envs=() e
+  local print_pane="" popup="" popup_size="80%x90%" ws="" keep="" envs=() e
   while [ $# -gt 0 ]; do
     case "$1" in
       --print-pane) print_pane=1; shift ;;
+      --keep-open)  keep=1; shift ;;
       --popup)      popup=1; shift ;;
       --popup-size) popup_size="$2"; shift 2 ;;
       --workspace)  ws="$2"; shift 2 ;;
@@ -95,8 +105,9 @@ cmd_window() {
       *)            break ;;
     esac
   done
-  local name="${1:?mux window: missing <name>}"
-  local cwd="${2:?mux window: missing <cwd>}"
+  # `?` not `:?` — empty is legal and means "leave the backend's default".
+  local name="${1?mux window: missing <name>}"
+  local cwd="${2?mux window: missing <cwd>}"
   local command="${3:?mux window: missing <command>}"
   cwd="${cwd/#\~/$HOME}"
   # Pinned to the spawning workspace, so a switch during a detached caller's setup cannot misplace the tab.
@@ -105,7 +116,10 @@ cmd_window() {
   case "$(cmd_kind)" in
     herdr)
       need_jq
-      local args=(tab create --cwd "$cwd" --label "$name")
+      # An empty --label BLANKS the tab, costing it herdr's number badge.
+      local args=(tab create)
+      [ -n "$name" ] && args+=(--label "$name")
+      [ -n "$cwd" ] && args+=(--cwd "$cwd")
       # An unresolvable origin (daemon, quake, stripped env) falls back to the active workspace.
       if [ -n "$ws" ]; then
         args+=(--workspace "$ws")
@@ -126,26 +140,100 @@ cmd_window() {
       # match the numbered sesh-layout tabs.
       tab_id="$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty' 2>/dev/null)"
       num="$(printf '%s' "$out" | jq -r '.result.tab.number // empty' 2>/dev/null)"
-      [ -n "$tab_id" ] && [ -n "$num" ] && "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
-      "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+      [ -n "$name" ] && [ -n "$tab_id" ] && [ -n "$num" ] &&
+        "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
+      if [ -n "$keep" ]; then
+        "$herdr" pane run "$pane" "$command" >/dev/null 2>&1
+      else
+        "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+      fi
       [ -n "$print_pane" ] && printf '%s\n' "$pane"
       return 0
       ;;
     tmux)
       # Modal popup: only meaningful without pane capture.
       if [ -n "$popup" ] && [ -z "$print_pane" ]; then
-        tmux display-popup -d "$cwd" -w "${popup_size%x*}" -h "${popup_size#*x}" -E "$command"
+        tmux display-popup ${cwd:+-d "$cwd"} -w "${popup_size%x*}" -h "${popup_size#*x}" -E "$command"
         return 0
       fi
       # Session-scoped: appends at the next free index, and only yanks a client already attached there.
-      local targs=(new-window -n "$name" -c "$cwd")
+      local targs=(new-window -n "$name")
+      [ -n "$cwd" ] && targs+=(-c "$cwd")
       [ -n "$ws" ] && targs+=(-t "$ws:")
       [ -n "$print_pane" ] && targs+=(-P -F '#{pane_id}')
       for e in "${envs[@]:-}"; do [ -n "$e" ] && targs+=(-e "$e"); done
-      targs+=("$command")
+      # Separate argv, not one string, so a quote in $command can't break out.
+      if [ -n "$keep" ]; then
+        local sh="${SHELL:-/bin/zsh}"
+        targs+=("$sh" -l -c "$command; exec $sh -l")
+      else
+        targs+=("$command")
+      fi
       tmux "${targs[@]}"
       ;;
     none) die "no tmux or herdr session detected" ;;
+  esac
+}
+
+# Panes sharing the caller's herdr tab; 1 on failure, so the split isn't mis-sized.
+herdr_tab_pane_count() {
+  local tab n
+  tab="$("$herdr" pane current --current 2>/dev/null | jq -r '.result.tab_id // empty' 2>/dev/null)"
+  [ -n "$tab" ] || { printf '1'; return; }
+  n="$("$herdr" pane list 2>/dev/null |
+    jq -r --arg t "$tab" '[.result.panes[]? | select(.tab_id == $t)] | length' 2>/dev/null)"
+  case "$n" in
+    ''|*[!0-9]*|0) printf '1' ;;
+    *)             printf '%s' "$n" ;;
+  esac
+}
+
+# Run <cmd> beside the current pane; the caller stays dominant at ~75%.
+cmd_split() {
+  [ "${1:-}" = "--" ] && shift
+  local cwd="${1:?mux split: missing <cwd>}"
+  local command="${2:?mux split: missing <command>}"
+  cwd="${cwd/#\~/$HOME}"
+
+  case "$(cmd_kind)" in
+    herdr)
+      need_jq
+      local ratio=0.75 pane
+      [ "$(herdr_tab_pane_count)" -gt 1 ] && ratio=0.66
+      pane="$("$herdr" pane split --current --direction right --ratio "$ratio" \
+        --cwd "$cwd" --focus 2>/dev/null | jq -r '.result.pane.pane_id // empty' 2>/dev/null)"
+      [ -n "$pane" ] || die "herdr pane split failed"
+      "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+      ;;
+    tmux)
+      if [ "$(tmux list-panes 2>/dev/null | wc -l | tr -d ' ')" = 1 ]; then
+        tmux split-window -h -l 25% -c "$cwd" "$command"
+      else
+        tmux split-window -h -c "$cwd" "$command"
+        tmux select-layout even-horizontal >/dev/null 2>&1
+      fi
+      ;;
+    none) die "no tmux or herdr session detected" ;;
+  esac
+}
+
+# Focus a pane by id; its SHAPE picks the backend. 0 focused · 1 gone · 2 not a pane id.
+cmd_focus() {
+  local pane="${1:?mux focus: missing <pane-id>}" session
+  case "$pane" in
+    *:p*)
+      "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$pane" >/dev/null 2>&1
+      ;;
+    %*)
+      session="$(tmux display-message -t "$pane" -p '#{session_name}' 2>/dev/null)" || return 1
+      [ -n "$session" ] || return 1
+      # select-pane alone won't change the current window, so both are needed.
+      tmux select-window -t "$pane" 2>/dev/null || true
+      tmux select-pane -t "$pane" 2>/dev/null || true
+      tmux switch-client -t "$session" 2>/dev/null ||
+        tmux attach-session -t "$session" 2>/dev/null || true
+      ;;
+    *) return 2 ;;
   esac
 }
 
@@ -191,6 +279,93 @@ cmd_pane_width() {
       ;;
     %*) tmux display-message -pt "$pane" '#{pane_width}' 2>/dev/null || true ;;
     *)  return 2 ;;
+  esac
+}
+
+# Focus the herdr workspace labelled $1, comparing on the emoji-stripped tail.
+herdr_focus_workspace_named() {
+  local want="$1" ws
+  ws="$("$herdr" workspace list 2>/dev/null |
+    jq -r --arg w "$want" '.result.workspaces[]?
+      | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w)
+      | .workspace_id' 2>/dev/null | head -1)"
+  [ -n "$ws" ] || return 1
+  "$herdr" workspace focus "$ws" >/dev/null 2>&1
+}
+
+# "Attach if it exists, else build it". Without <cwd> it only focuses.
+cmd_session() {
+  local label=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --label) label="$2"; shift 2 ;;
+      --)      shift; break ;;
+      -*)      die "session: unknown option $1" 2 ;;
+      *)       break ;;
+    esac
+  done
+  local cwd="${1:-}"
+  cwd="${cwd/#\~/$HOME}"
+  [ -n "$label" ] || [ -n "$cwd" ] || die "session: need --label or <cwd>" 2
+
+  case "$(cmd_kind)" in
+    herdr)
+      need_jq
+      [ -n "$label" ] && herdr_focus_workspace_named "$label" && return 0
+      [ -n "$cwd" ] || return 1
+      # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
+      local layout=("$cwd")
+      [ -n "$label" ] && layout+=("$label")
+      "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${layout[@]}" >/dev/null 2>&1
+      ;;
+    tmux)
+      [ -n "$label" ] || label="$(basename "$cwd")"
+      if ! tmux has-session -t "$label" 2>/dev/null; then
+        [ -n "$cwd" ] || return 1
+        tmux new-session -d -s "$label" -c "$cwd" 2>/dev/null || return 1
+      fi
+      tmux switch-client -t "$label" 2>/dev/null ||
+        tmux attach-session -t "$label" 2>/dev/null || true
+      ;;
+    none) die "no tmux or herdr session detected" ;;
+  esac
+}
+
+# Every open window/tab as "<id><TAB><label>"; empty means the enumeration glitched.
+cmd_tabs() {
+  case "$(cmd_kind)" in
+    herdr)
+      need_jq
+      "$herdr" workspace list 2>/dev/null |
+        jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null |
+        while IFS= read -r ws; do
+          [ -n "$ws" ] || continue
+          "$herdr" tab list --workspace "$ws" 2>/dev/null |
+            jq -r '.result.tabs[]? | "\(.tab_id)\t\(.label // "")"' 2>/dev/null
+        done || true
+      ;;
+    tmux) tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || true ;;
+  esac
+}
+
+# Current cwd of every open pane.
+cmd_pane_cwds() {
+  case "$(cmd_kind)" in
+    herdr)
+      need_jq
+      "$herdr" pane list 2>/dev/null |
+        jq -r '.result.panes[]? | (.foreground_cwd // .cwd // empty)' 2>/dev/null || true
+      ;;
+    tmux) tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true ;;
+  esac
+}
+
+# Close the window/tab with the id `mux tabs` printed.
+cmd_close() {
+  local id="${1:?mux close: missing <id>}"
+  case "$(cmd_kind)" in
+    herdr) "$herdr" tab close "$id" >/dev/null 2>&1 || true ;;
+    tmux)  tmux kill-window -t "$id" 2>/dev/null || true ;;
   esac
 }
 
@@ -241,9 +416,15 @@ case "$verb" in
   kind)          cmd_kind "$@" ;;
   session-label) cmd_session_label "$@" ;;
   window)        cmd_window "$@" ;;
+  split)         cmd_split "$@" ;;
+  focus)         cmd_focus "$@" ;;
   send-keys)     cmd_send_keys "$@" ;;
   pane-pids)     cmd_pane_pids "$@" ;;
   pane-width)    cmd_pane_width "$@" ;;
+  session)       cmd_session "$@" ;;
+  tabs)          cmd_tabs "$@" ;;
+  pane-cwds)     cmd_pane_cwds "$@" ;;
+  close)         cmd_close "$@" ;;
   notify)        cmd_notify "$@" ;;
   popup)         cmd_popup "$@" ;;
   help|-h|--help) cmd_help ;;
