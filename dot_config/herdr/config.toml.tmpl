@@ -27,8 +27,8 @@ cycle_pane_previous = "prefix+shift+tab"
 # ctrl+b → previous pane in the CURRENT TAB (see the [[keys.command]] below). Not
 # herdr's native last_pane: that one is global and leaks across workspaces/tabs.
 
-# Sidebar toggle, relocated off its default prefix+b to prefix+B.
-toggle_sidebar = "prefix+shift+b"
+# Sidebar toggle, relocated off its default prefix+b to prefix+E - a move, not a second binding, since the action takes exactly one key and there is no `herdr sidebar` CLI to alias it, so prefix+B is free again; lowercase prefix+e stays the scrollback popup below.
+toggle_sidebar = "prefix+shift+e"
 
 # prefix+a cycles through ALL agents in sidebar order (herdr's native next_agent) -
 # a browse-the-queue walk regardless of state. Distinct from prefix+i below, which
