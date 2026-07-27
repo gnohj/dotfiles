@@ -4,6 +4,9 @@ set -uo pipefail
 
 TREEHOUSE="$HOME/.treehouse"
 CPU_MIN="${ERRORS_CPU_MIN:-30}"   # cpu-bucket floor (keeps idle launchd agents out)
+# Mirrors the badge thresholds; under them a zombie is churn, not a leak.
+ZOMBIE_THRESHOLD="${ZOMBIE_THRESHOLD:-3}"
+ZOMBIE_MIN_AGE="${ZOMBIE_MIN_AGE:-600}"
 
 proc_cwd() { # pid -> cwd ("" if unknown)
   if [[ -r /proc/$1/cwd ]]; then readlink "/proc/$1/cwd" 2>/dev/null
@@ -58,7 +61,7 @@ if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
   printf 'cwd       %s\n' "$(tilde "${cwd:-n/a}")"
   printf 'command   %s\n' "$(proc_argv "$pid")"
   if [[ "$pstat" == *Z* ]]; then
-    printf 'kill      no-op on a zombie — restart the parent instead: kill %s\n' "$ppid"
+    printf 'kill      no-op on a zombie — restart the parent instead: kill %s   (kill -9 %s if it survives)\n' "$ppid" "$ppid"
   else
     printf 'kill      kill %s   (kill -9 %s if it ignores TERM)\n' "$pid" "$pid"
   fi
@@ -98,12 +101,15 @@ done < <(
 )
 
 # Parent name is fetched per-group: the shared ps parse splits comm on whitespace, which mangles names like "Raycast Helper (Extensions)".
-zomb=()
+zomb=(); zomb_hot=0
 for pp in "${!z_count[@]}"; do
   pname=$(ps -o comm= -p "$pp" 2>/dev/null)
   pname=${pname##*/}
-  zomb+=("$pp|${z_count[$pp]}|${z_age[$pp]:-0}|${pname:-gone}")
+  n=${z_count[$pp]}; age=${z_age[$pp]:-0}; hot=0
+  ((n >= ZOMBIE_THRESHOLD || age >= ZOMBIE_MIN_AGE)) && { hot=1; ((zomb_hot++)); }
+  zomb+=("$hot|$pp|$n|$age|${pname:-gone}")
 done
+((${#zomb[@]})) && mapfile -t zomb < <(printf '%s\n' "${zomb[@]}" | sort -t'|' -k1,1r -k4,4nr)
 
 print_bucket() { # title subtitle rows...
   local title="$1" sub="$2"; shift 2
@@ -129,11 +135,16 @@ hms() { # seconds -> coarsest single unit
 print_zombies() { # grouped by parent: the leaking parent is the actionable unit
   ((${#zomb[@]} == 0)) && return
   printf '\n\033[1mZOMBIES\033[0m  \033[2mdead children a live parent never reaped — they cost a pid slot, not memory\033[0m\n'
-  local r pp n age pname
+  local r hot pp n age pname
   for r in "${zomb[@]}"; do
-    IFS='|' read -r pp n age pname <<<"$r"
-    printf '  \033[33m[%s]\033[0m %s  ·  %s unreaped  ·  oldest %s\n' "$pp" "$pname" "$n" "$(hms "$age")"
-    printf '      \033[2mrun\033[0m  \033[1mkill %s\033[0m   (the PARENT — killing a zombie is a no-op · errors %s for full detail)\n' "$pp" "$pp"
+    IFS='|' read -r hot pp n age pname <<<"$r"
+    if ((hot)); then
+      printf '  \033[33m[%s]\033[0m %s  ·  %s unreaped  ·  oldest %s\n' "$pp" "$pname" "$n" "$(hms "$age")"
+      printf '      \033[2mrun\033[0m  \033[1mkill %s\033[0m   (the PARENT — killing a zombie is a no-op · kill -9 %s if it survives · errors %s for full detail)\n' "$pp" "$pp" "$pp"
+    else
+      printf '  \033[2m[%s] %s  ·  %s unreaped  ·  oldest %s  ·  transient, under the %s-count / %s-age badge threshold\033[0m\n' \
+        "$pp" "$pname" "$n" "$(hms "$age")" "$ZOMBIE_THRESHOLD" "$(hms "$ZOMBIE_MIN_AGE")"
+    fi
   done
 }
 
@@ -144,9 +155,14 @@ ERRSTATE="$HOME/.local/state/errors/current"
   [[ "$ct" == error ]] && svc+=("$src")
 done <"$ERRSTATE"
 
-total=$((${#svc[@]} + ${#fff[@]} + ${#tree[@]} + ${#gen[@]} + ${#zomb[@]}))
+total=$((${#svc[@]} + ${#fff[@]} + ${#tree[@]} + ${#gen[@]} + zomb_hot))
 if ((total == 0)); then
-  echo "✓ all clear — no errors, no orphans, no zombies"
+  if ((${#zomb[@]})); then
+    echo "✓ all clear — no errors, no orphans, no zombie leaks"
+    print_zombies
+  else
+    echo "✓ all clear — no errors, no orphans, no zombies"
+  fi
   exit 0
 fi
 
