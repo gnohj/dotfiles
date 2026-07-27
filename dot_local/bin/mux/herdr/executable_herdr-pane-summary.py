@@ -4,19 +4,26 @@
 Turns an un-renamed agent pane from an anonymous `claude` into
 `implement-herdr-pane-rename`.
 
-Deriving the title the hard way means: map pane_pid -> ~/.claude/projects/<slug>/ -> newest
-JSONL -> last `{"type":"ai-title"}`, with a whole-file re-scan when the 64 KB tail misses on
-a resumed session. For claude and codex none of that layer is needed here, because herdr
-parses their OSC title and hands it over on the pane object as `terminal_title_stripped`
-(spinner glyph and all, pre-stripped) - the daemon is just title -> slug -> write.
+For claude and codex the OSC title is the fast path: herdr parses it and hands it over on the
+pane object as `terminal_title_stripped` (spinner glyph and all, pre-stripped), so the daemon
+is just title -> slug -> write, live to the cell.
+
+claude's OSC title is only as good as its `ai-title`, though, and one is not guaranteed. A
+session opened straight into a slash command never gets named at all, so its title stays the
+literal `Claude Code` for the whole session and the pane would sit anonymous forever. That is
+what `transcript_title` is for: when the OSC title is still a PLACEHOLDER, read the session's
+own JSONL and take the last `{"type":"ai-title"}`, else the slash command the session opened
+with, else its first user prompt. It is a FALLBACK, not an override - the moment claude names
+itself the OSC title wins again, so the pane converges on the real summary.
 
 pi and opencode DO set an OSC title, but never a session one: pi shows `π - <cwd basename>`
 and opencode prefixes its own with `OC | `, so slugging those gives a name that is either
-the directory or a wasted segment. For them the session store is authoritative instead
-(`store_title` below), read from two sources - pi's first user
-message and opencode's stored session title. The OSC title stays as the backstop for when
-the store read misses. Where those stores live is owned by the sibling herdr_agent_stores
-module, shared with herdr-agent-activity.py.
+the directory or a wasted segment. For them the session store is authoritative instead and
+their OSC title is never consulted (`STORE_READERS` below), read from two sources - pi's
+first user message and opencode's stored session title.
+
+Where every one of those stores lives is owned by the sibling herdr_agent_stores module,
+shared with herdr-agent-activity.py.
 
 Write channel is `pane.report_metadata`, NOT `pane.rename`:
   * `pane.rename` sets `label`, herdr's deliberate-rename field. That is the user's, the
@@ -67,7 +74,7 @@ import unicodedata
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     import herdr_agent_stores as stores
-except ImportError:  # sibling absent: pi/opencode degrade, claude and codex are unaffected
+except ImportError:  # sibling absent: on-disk titles degrade, an OSC-titled session still works
     stores = None
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
@@ -90,13 +97,16 @@ TRAILING_STOPWORDS = {"a", "an", "and", "at", "for", "in", "of", "on", "or", "th
 # context to name itself; naming a pane from it would label every fresh pane identically.
 PLACEHOLDERS = {"claude code", "claude", "codex", "opencode", "pi"}
 
-# Session-store reads for the agents that never put a title in their OSC title (see
-# store_title). 64 KB is the tail read size. The TTL only smooths event bursts -
-# a pi title is immutable and opencode re-titles rarely, so staleness is not a concern.
+# On-disk title reads for the agents the OSC title fails (see lookup_title); 64 KB window.
 HEAD_BYTES = 64 * 1024
 TITLE_TTL = int(os.environ.get("HERDR_SUMMARY_TITLE_TTL", "30"))
+# A miss expires sooner: it is usually a new session whose first prompt has yet to hit disk.
+TITLE_MISS_TTL = int(os.environ.get("HERDR_SUMMARY_TITLE_MISS_TTL", "5"))
 # opencode names a session `New session - <iso>` until its summarizer replaces it.
 OPENCODE_PLACEHOLDER = "New session"
+# claude wraps a slash-command turn in these: `<command-name>/tidy-commit</command-name>` -> `tidy-commit`.
+CLAUDE_COMMAND_OPEN = "<command-name>"
+CLAUDE_COMMAND_CLOSE = "</command-name>"
 _title_cache = {}
 
 
@@ -173,6 +183,84 @@ def budget_for(pane_id):
     return FALLBACK_BUDGET
 
 
+def edge_windows(path):
+    """The file's first and last HEAD_BYTES, decoded - one read when it fits in one window.
+
+    Both ends are needed because the transcript answers two different questions from two
+    different places: the newest `ai-title` is at the end, the opening prompt at the start.
+    """
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(HEAD_BYTES)
+            size = os.fstat(handle.fileno()).st_size
+            if size <= HEAD_BYTES:
+                tail = head
+            else:
+                handle.seek(max(HEAD_BYTES, size - HEAD_BYTES))
+                tail = handle.read()
+    except OSError:
+        return "", ""
+    return head.decode("utf-8", "replace"), tail.decode("utf-8", "replace")
+
+
+def prompt_text(entry):
+    """A transcript entry's user-typed text, or "" for anything that is not a real prompt.
+
+    `isMeta` covers the body a slash command expands into and `isSidechain` a subagent's
+    turns; a content list of tool_result blocks is the transcript's own plumbing. Naming a
+    pane from any of those would read as the harness talking to itself.
+    """
+    if entry.get("type") != "user" or entry.get("isMeta") or entry.get("isSidechain"):
+        return ""
+    content = (entry.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+        return " ".join(parts).strip()
+    return ""
+
+
+def claude_transcript_title(ref, cwd):
+    """Title for a claude session that never made it into the OSC title.
+
+    Newest `ai-title` first, since that is the same string the OSC would have carried. Failing
+    that the session was never named - the slash-command case - and the opening turn is the
+    best description of it: the command's own name, or the first prompt when it was typed.
+    """
+    if ref.get("kind") == "path":
+        path = ref.get("value")
+    elif ref.get("kind") == "id" and stores:
+        path = stores.claude_transcript(ref.get("value"), cwd)
+    else:
+        path = None
+    if not path:
+        return None
+    head, tail = edge_windows(path)
+    for line in reversed(tail.splitlines()):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("type") == "ai-title" and (entry.get("aiTitle") or "").strip():
+            return entry["aiTitle"].strip()
+    for line in head.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        text = prompt_text(entry)
+        if not text:
+            continue
+        start = text.find(CLAUDE_COMMAND_OPEN)
+        if start == -1:
+            return text
+        end = text.find(CLAUDE_COMMAND_CLOSE, start)
+        command = text[start + len(CLAUDE_COMMAND_OPEN):end].strip() if end != -1 else ""
+        return command or text
+    return None
+
+
 def pi_first_user_title(path):
     """First user message in a pi transcript — pi emits no LLM title, so this is the signal."""
     try:
@@ -214,34 +302,33 @@ def opencode_title(ref, cwd):
     return None if title.startswith(OPENCODE_PLACEHOLDER) else (title or None)
 
 
+# Authoritative for agents that never title their OSC, so their terminal title is not consulted.
 STORE_READERS = {"pi": pi_title, "opencode": opencode_title, "open_code": opencode_title}
+# Consulted only once the OSC title has proved useless, so a titled session pays nothing.
+TRANSCRIPT_READERS = {"claude": claude_transcript_title}
 
 
-def store_title(pane):
-    """Title from the agent's own session store, for agents that set no OSC title.
+def lookup_title(pane, readers):
+    """Title from the agent's own on-disk record, TTL-cached per session.
 
-    claude and codex title their OSC, so the pane object already carries the answer. pi and
-    opencode never do, which is why their panes would otherwise stay anonymous here. Their
-    titles come from the session stores instead, keyed precisely: herdr's pi/opencode
-    integrations report the exact session via `pane.report_agent_session`, so two panes in one
-    directory never collide. The cwd lookup stays as the fallback
-    for a session whose integration has not reported yet.
+    Keyed precisely: herdr's agent integrations report the exact session via
+    `pane.report_agent_session`, so two panes in one directory never collide. The cwd stays
+    in the key as the fallback for a session whose integration has not reported yet - and so
+    does the agent, without which a pi and an opencode pane sharing a cwd would both land on
+    the same (None, None, cwd) entry and inherit each other's title.
     """
-    agent = pane.get("agent")
-    reader = STORE_READERS.get(agent)
+    reader = readers.get(pane.get("agent"))
     if reader is None:
         return None
     ref = pane.get("agent_session") or {}
     cwd = pane.get("cwd") or pane.get("foreground_cwd")
-    # The agent belongs in the key: without it a pi and an opencode pane sharing a cwd both
-    # fall back to the same (None, None, cwd) entry and inherit each other's title.
-    key = (agent, ref.get("kind"), ref.get("value"), cwd)
+    key = (pane.get("agent"), ref.get("kind"), ref.get("value"), cwd)
     cached = _title_cache.get(key)
     now = time.monotonic()
     if cached and cached[1] > now:
         return cached[0]
     title = reader(ref, cwd)
-    _title_cache[key] = (title, now + TITLE_TTL)
+    _title_cache[key] = (title, now + (TITLE_TTL if title else TITLE_MISS_TTL))
     return title
 
 
@@ -252,14 +339,12 @@ def desired(pane):
     # A deliberate `pane.rename` outranks us.
     if (pane.get("label") or "").strip():
         return None
-    # For a store-backed agent the store is authoritative and their OSC title is never
-    # consulted: whatever their terminal is showing is a placeholder or
-    # the shell's own doing. The OSC title stays the backstop for when the store read misses.
-    title = ""
-    if pane.get("agent") in STORE_READERS:
-        title = (store_title(pane) or "").strip()
+    title = (lookup_title(pane, STORE_READERS) or "").strip()
     if not title:
         title = (pane.get("terminal_title_stripped") or "").strip()
+    # Only now, with no usable OSC title, is the transcript worth opening.
+    if not title or title.lower() in PLACEHOLDERS:
+        title = (lookup_title(pane, TRANSCRIPT_READERS) or "").strip()
     if not title or title.lower() in PLACEHOLDERS:
         return None
     return slugify(title, WORDS) or None
