@@ -88,11 +88,16 @@ for unit in "$UNIT_DIR"/herdr-*.path; do
   CHANGED="$CHANGED $base"
 done
 
-[ -n "$CHANGED" ] || { echo "herdr-daemons: units already current"; exit 0; }
-
-systemctl --user daemon-reload
+# Unit churn and script churn are separate triggers, and only unit churn needs systemd retaught.
+if [ -n "$CHANGED" ]; then
+  systemctl --user daemon-reload
 {{ range $name, $d := .muxDaemons.list -}}
-systemctl --user enable --now {{ $name }}.path
+  systemctl --user enable --now {{ $name }}.path 2>/dev/null || true
+{{ end -}}
+fi
+
+# Unguarded by $CHANGED: the sha256 comments above re-run this whenever a daemon script changes, so reaching here means a running daemon holds stale code.
+{{ range $name, $d := .muxDaemons.list -}}
 systemctl --user try-restart {{ $name }}.service 2>/dev/null || true
 {{ end -}}
 echo "herdr-daemons: applied ({{ len .muxDaemons.list }} daemons)"
