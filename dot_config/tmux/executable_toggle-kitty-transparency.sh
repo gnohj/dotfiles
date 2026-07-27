@@ -46,6 +46,10 @@ fi
 echo "background_opacity $new_opacity" >>"$KITTY_CONFIG"
 echo "# background_opacity $comment_opacity" >>"$KITTY_CONFIG"
 
-pkill -USR1 -x kitty 2>/dev/null || true
+# Matched off `ps`: macOS compares `pkill -x` against comm, which is the full bundle
+# path here, so the old form signalled nothing. Anchored so bare `kitty` (Linux) also hits.
+ps -eo pid,comm= | awk '$2 ~ /(^|\/)kitty$/ {print $1}' | while read -r _pid; do
+  kill -USR1 "$_pid" 2>/dev/null || true
+done
 
 tmux display-message "$MSG" 2>/dev/null || echo "$MSG"

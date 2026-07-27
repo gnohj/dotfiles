@@ -44,6 +44,15 @@ fi
 echo "background-opacity = $new_opacity" >>"$GHOSTTY_CONFIG"
 echo "# background-opacity = $comment_opacity" >>"$GHOSTTY_CONFIG"
 
-# Note: Ghostty requires manual reload with cmd+shift+, or restart
-# Try to send the reload keystroke via AppleScript (may not work depending on Ghostty version)
-osascript -e 'tell application "System Events" to keystroke "," using {command down, shift down}' 2>/dev/null || true
+# Ghostty reloads only by keystroke, so aim it explicitly and hand focus back - a bare
+# keystroke lands in whatever is frontmost, which from the launcher quake is kitty.
+if command -v osascript >/dev/null 2>&1 && ps -eo comm= | grep -qE '(^|/)ghostty$'; then
+  osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+tell application "System Events" to set _prev to name of first application process whose frontmost is true
+tell application "Ghostty" to activate
+delay 0.2
+tell application "System Events" to keystroke "," using {command down, shift down}
+delay 0.1
+tell application "System Events" to set frontmost of first application process whose name is _prev to true
+APPLESCRIPT
+fi
