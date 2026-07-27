@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Enable the autopush timer. Linux/systemd only — on macOS the equivalent is the
+# nix-darwin launchd agent `github-auto-push`, so the uname guard makes this a
+# clean no-op there.
+#
+# run_onchange: the embedded unit hashes make chezmoi re-run this whenever either
+# unit changes, so `daemon-reload` picks up edits.
+#
+# service sha256: {{ include "dot_config/systemd/user/github-auto-push.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/github-auto-push.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+
+# --now is safe here (unlike herdr-server): the service is a oneshot that holds no
+# live state, so starting it immediately just runs one autopush cycle.
+systemctl --user enable --now github-auto-push.timer
+
+echo "github-auto-push.timer enabled (every 3 minutes)."

@@ -1,0 +1,17 @@
+# Linux counterpart of the nix-darwin launchd agent `github-auto-push`
+# (dot_nix/nix-darwin/modules/launchd-services.nix). Same script, same 3-minute
+# cadence — only the scheduler differs, since launchd's StartInterval has no
+# systemd equivalent on a service itself. The cadence lives in the .timer.
+[Unit]
+Description=Auto-commit and push the repos in ~/.config/repos-autopush.txt
+Documentation=file:%h/.config/repos-autopush.txt
+
+[Service]
+Type=oneshot
+# systemd user services start with a near-empty environment. The script prepends
+# its own entries, but it needs a usable base to find git; ~/.local/bin carries
+# mac-notify, which it shells out to for failure banners.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.config/zshrc/github-auto-push.sh
+# A push can block on network; never let a stuck run pile up behind the timer.
+TimeoutStartSec=300

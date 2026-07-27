@@ -6,6 +6,10 @@
 # setup time — e.g. fitness lives in the iCloud-synced vault but its
 # GitHub remote is preserved as an off-machine backup.
 #
+# A path listed here that does not exist on this machine is skipped silently by
+# github-auto-push.sh, so entries can stay unconditional unless the OS split is
+# a real policy difference (as it is for the iCloud-backed personal vault).
+#
 # Templated per-OS: the personal vault + its nested project repos exist only on
 # macOS (iCloud-backed). The Linux work VPS has no personal vault, so listing
 # them there would just make the auto-push script cd into missing paths.
@@ -17,11 +21,12 @@
 ~/Obsidian/second-brain/Projects/fitness
 ~/Obsidian/second-brain/Projects/parents-estate
 {{- end }}
-# second-brain-work (work vault) is intentionally NOT autopushed on ANY machine —
-# work commits are deliberate. It is cloned via repos-clone.txt but never auto-committed.
+# second-brain-work (work vault) is git-only — no iCloud behind it — so autopush IS
+# its sync mechanism between the Mac and the Linux work VPS. Timestamped autopush
+# commits are expected noise here; deliberate history lives in the code repos.
+~/Developer/second-brain-work
 ~/Developer/agents
 ~/Developer/colorscheme
-{{- if eq .chezmoi.os "darwin" }}
-# vps-linux-provision: auto-push from the Mac only, never from the VPS itself.
+# vps-linux-provision: autopushed from both sides. Both machines edit it, and the
+# script pulls --rebase before pushing, so the VPS is no longer read-only for it.
 ~/Developer/vps-linux-provision
-{{- end }}
