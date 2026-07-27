@@ -276,7 +276,7 @@ fi
 
 if [ ! -f "$WORK_EMAIL_FILE" ] || [ ! -s "$WORK_EMAIL_FILE" ]; then
   echo ""
-  print_info "Work email (used by tmux-dash row coloring and claude-account label-for-email)."
+  print_info "Work email (used by agent row coloring and claude-account label-for-email)."
   printf "  Enter email, or press Enter to skip: "
   read -r WORK_EMAIL_INPUT
   if [ -n "$WORK_EMAIL_INPUT" ]; then
@@ -621,7 +621,7 @@ if [ ! -s "$HOME/.local/state/claude/work-orgs" ]; then
 fi
 if [ ! -s "$HOME/.local/state/claude/work-email" ]; then
   PENDING=$((PENDING + 1))
-  echo "[$PENDING] Work email not configured (tmux-dash row coloring will not work)"
+  echo "[$PENDING] Work email not configured (agent row coloring will not work)"
   echo "      claude-account set-work-email <your-work-email>"
   echo ""
 fi
