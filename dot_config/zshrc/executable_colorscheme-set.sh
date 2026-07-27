@@ -404,6 +404,13 @@ customCommands:
     context: "global"
     subprocess: yes
 
+  # Overrides the built-in pull: web's post-merge hook runs a full \`pnpm i\` (2GB node_modules) on every fast-forward, which reads as a hung spinner. Run \`pnpm i\` yourself when pnpm-lock.yaml changes.
+  - key: "p"
+    description: "Pull and bypass hooks"
+    command: "HUSKY=0 git pull"
+    context: "global"
+    subprocess: yes
+
   # Overrides the built-in push: web's pre-push hook typechecks/lints/tests affected files, which stalls for minutes on a cold cache (CI re-runs it anyway).
   - key: "P"
     description: "Push and bypass hooks"
