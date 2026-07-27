@@ -22,6 +22,9 @@ mux — multiplexer operations against whichever of herdr/tmux is live.
   mux kind                                 herdr | tmux | none
   mux session-label                        workspace/session name, emoji stripped
   mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
+  mux send-keys <pane-id> <key>...         send key presses to a pane
+  mux pane-pids <pane-id>                  pids in the pane's foreground
+  mux pane-width <pane-id>                 columns the pane currently occupies
   mux notify [OPTS] <message>              transient message
   mux popup  [OPTS] <script-path>          run a script modally
   mux help
@@ -146,6 +149,51 @@ cmd_window() {
   esac
 }
 
+# Drive a TUI in another pane; dispatch on the id SHAPE, exit 2 when neither backend owns it.
+cmd_send_keys() {
+  local pane="${1:?mux send-keys: missing <pane-id>}"
+  shift
+  [ $# -gt 0 ] || die "send-keys: missing <key>" 2
+  case "$pane" in
+    *:p*) "$herdr" pane send-keys "$pane" "$@" >/dev/null 2>&1 ;;
+    %*)   tmux send-keys -t "$pane" "$@" 2>/dev/null ;;
+    *)    return 2 ;;
+  esac
+}
+
+# Correlates a pane with a process-keyed API; children cover a wrapper shell.
+cmd_pane_pids() {
+  local pane="${1:?mux pane-pids: missing <pane-id>}" pid
+  case "$pane" in
+    *:p*)
+      need_jq
+      "$herdr" pane process-info --pane "$pane" 2>/dev/null |
+        jq -r '.result.process_info.foreground_processes[]?.pid // empty' 2>/dev/null
+      ;;
+    %*)
+      pid="$(tmux display-message -pt "$pane" '#{pane_pid}' 2>/dev/null)" || return 0
+      [ -n "$pid" ] || return 0
+      printf '%s\n' "$pid"
+      pgrep -P "$pid" 2>/dev/null || true
+      ;;
+    *) return 2 ;;
+  esac
+}
+
+# Columns the pane occupies now; empty when it is gone, so "unknown" reads apart from a number.
+cmd_pane_width() {
+  local pane="${1:?mux pane-width: missing <pane-id>}"
+  case "$pane" in
+    *:p*)
+      need_jq
+      "$herdr" pane layout --pane "$pane" 2>/dev/null |
+        jq -r --arg p "$pane" 'first(.result.layout.panes[]? | select(.pane_id == $p) | .rect.width) // empty' 2>/dev/null
+      ;;
+    %*) tmux display-message -pt "$pane" '#{pane_width}' 2>/dev/null || true ;;
+    *)  return 2 ;;
+  esac
+}
+
 cmd_notify() {
   local title="notice" duration=5000
   while [ $# -gt 0 ]; do
@@ -193,6 +241,9 @@ case "$verb" in
   kind)          cmd_kind "$@" ;;
   session-label) cmd_session_label "$@" ;;
   window)        cmd_window "$@" ;;
+  send-keys)     cmd_send_keys "$@" ;;
+  pane-pids)     cmd_pane_pids "$@" ;;
+  pane-width)    cmd_pane_width "$@" ;;
   notify)        cmd_notify "$@" ;;
   popup)         cmd_popup "$@" ;;
   help|-h|--help) cmd_help ;;

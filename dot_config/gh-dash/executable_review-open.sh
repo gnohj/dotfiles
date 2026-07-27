@@ -69,6 +69,52 @@ open_hunk() {
   mux --print-pane "🔀 #$pr" "$1" "hunk diff $2"
 }
 
+# hunk auto-draws its sidebar only at >= 220 cols and 0.17.6 has no key to preset it, so press `s`.
+HUNK_SIDEBAR_AUTO_COLS=220
+HUNK_SIDEBAR_MIN_COLS=71
+
+# By PID, not path: treehouse reuses worktrees, so a stale session answers a path match too early.
+hunk_pane_registered() {
+  local pane_pids session_pids p s
+  pane_pids="$("$mux_bin" pane-pids "$1" 2>/dev/null)"
+  [ -n "$pane_pids" ] || return 1
+  session_pids="$(hunk session list --json 2>/dev/null | jq -r '.sessions[]?.pid // empty')"
+  [ -n "$session_pids" ] || return 1
+  for p in $pane_pids; do
+    for s in $session_pids; do
+      [ "$p" = "$s" ] && return 0
+    done
+  done
+  return 1
+}
+
+# Every failure path leaves the sidebar closed, since a stray `s` toggles the WRONG way.
+open_hunk_sidebar() {
+  local pane="$1" width tries=0
+  [ "$mux_bin" = echo ] && return 0
+  command -v hunk >/dev/null 2>&1 || return 0
+  while [ "$tries" -lt 40 ] && ! hunk_pane_registered "$pane"; do
+    sleep 0.25
+    tries=$((tries + 1))
+  done
+  if ! hunk_pane_registered "$pane"; then
+    echo "review-open: hunk never registered a session for pane $pane - sidebar left closed"
+    return 0
+  fi
+  width="$("$mux_bin" pane-width "$pane" 2>/dev/null || true)"
+  case "$width" in
+    '' | *[!0-9]*)
+      echo "review-open: pane width unknown for $pane - sidebar left closed"
+      return 0
+      ;;
+  esac
+  # At/above the auto width hunk already drew the sidebar, so `s` would close it.
+  if [ "$width" -ge "$HUNK_SIDEBAR_AUTO_COLS" ] || [ "$width" -lt "$HUNK_SIDEBAR_MIN_COLS" ]; then
+    return 0
+  fi
+  "$mux_bin" send-keys "$pane" s || true
+}
+
 open_claude_hunk() {
   mux --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/hunk-review '"$pr"' pane=$HUNK_PANE"'
@@ -93,6 +139,7 @@ case "$mode" in
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     open_octo "$WT" 1
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
+    open_hunk_sidebar "$PANE" &
     open_claude_hunk "$WT" "$PANE"
     open_enhance "$WT"
     ;;
@@ -111,6 +158,7 @@ case "$mode" in
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
+    open_hunk_sidebar "$PANE" &
     open_claude_hunk "$WT" "$PANE"
     ;;
   enhance)
