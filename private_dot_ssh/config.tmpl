@@ -9,13 +9,11 @@ Host github.com
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
-# dev-box VPS (uncomment + set HostName once the box exists). macOS-only: this is
-# a client-side alias for reaching the box, meaningless on the VPS itself.
-# ForwardAgent is a convenience for interactive sessions; git push from the box
-# rides the box's own per-host key (set by post-provision gh auth), not this agent.
-# Host dev-box
-#   HostName dev-box.<tailnet>.ts.net
-#   User gnohj
-#   ForwardAgent yes
-#   IdentityFile ~/.ssh/id_ed25519
+# RemoteForward exposes this mac's Chrome CDP port on dev-box for chrome-devtools-mcp.
+Host dev-box tailscale
+  ForwardAgent yes
+  HostName dev-box
+  IdentityFile ~/.ssh/id_ed25519
+  RemoteForward 9222 127.0.0.1:9222
+  User gnohj
 {{- end }}
