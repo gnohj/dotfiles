@@ -17,8 +17,13 @@ if [ "$kind" = tailscale ]; then
   [ -n "$fqdn" ] && target="$fqdn"
 fi
 
+# This is the only process with both machines in scope, so it stamps the far side's view of THIS one —
+# nothing on the box could otherwise learn the workstation's OS. `env` as a remote command needs no AcceptEnv.
+# stty -echo leads, as in kitty-ql-quake.sh: the remote pty echoes until fzf takes over, and here that covers the ssh round-trip too.
+remote_cmd="stty -echo 2>/dev/null; env DESKTOP_OS='$(uname -s)' DESKTOP_HOST='$(hostname -s)' zsh -l -c '~/.config/launcher/launcher-quake.sh'; stty echo 2>/dev/null"
+
 # -tt forces a pty (`tailscale ssh` cannot take -t) or remote fzf dies on /dev/tty; -l without -i skips .zshrc's fastfetch banner.
 exec /Applications/kitty.app/Contents/MacOS/kitten quick-access-terminal \
   --instance-group remote \
   --config "$HOME/.config/kitty/quick-access-terminal-remote.conf" \
-  ssh -tt "$target" zsh -l -c '~/.config/launcher/launcher-quake.sh'
+  ssh -tt "$target" "$remote_cmd"
