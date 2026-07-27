@@ -1031,35 +1031,21 @@ MID
 # the same read path works unchanged.
 #-------------------------------------------------------------------------------
 cmd_jira() {
-  # `exists process` first — without it, asking a closed browser for its URL
-  # launches it.
-  read_active_tab_url() {
-    local app="$1"
-    osascript <<APPLESCRIPT 2>/dev/null
-tell application "System Events"
-  if not (exists process "${app}") then return ""
-end tell
-tell application "${app}"
-  if (count of windows) is 0 then return ""
-  return URL of active tab of front window
-end tell
-APPLESCRIPT
-  }
-
   local browser_icon
   browser_icon=$(resolve-term-icon chrome 2>/dev/null || true)
 
-  # Track LAST_URL across browsers so the not-a-Jira warning can name the browser
-  # the user was actually looking at, rather than just "no tab".
-  local URL="" TICKET="" LAST_URL="" LAST_SOURCE="" app candidate short
-  for app in "Google Chrome" "Helium" "Brave Browser"; do
-    candidate=$(read_active_tab_url "$app" || true)
+  # to-desktop reads the tabs locally on the workstation, over the restricted ssh relay from the devbox.
+  local TABS TAB_STATUS=0
+  TABS=$(to-desktop active-tab 2>/dev/null) || TAB_STATUS=$?
+  if [ "$TAB_STATUS" -ne 0 ]; then
+    notify_error "worktree-jira" "Could not read the browser - workstation relay unreachable" "$browser_icon"
+    exit 1
+  fi
+
+  # Track LAST_URL so the not-a-Jira warning can name the browser you were looking at, not just "no tab".
+  local URL="" TICKET="" LAST_URL="" LAST_SOURCE="" candidate short
+  while IFS=$'\t' read -r short candidate; do
     [ -z "$candidate" ] && continue
-    case "$app" in
-      "Google Chrome") short="Chrome" ;;
-      "Helium") short="Helium" ;;
-      "Brave Browser") short="Brave" ;;
-    esac
     LAST_URL="$candidate"
     LAST_SOURCE="$short"
     if [[ "$candidate" =~ ^https://[^/]+\.atlassian\.net/ ]] \
@@ -1068,7 +1054,7 @@ APPLESCRIPT
       TICKET="${BASH_REMATCH[1]}"
       break
     fi
-  done
+  done <<< "$TABS"
 
   if [ -z "$LAST_URL" ]; then
     notify_error "worktree-jira" "No active tab in Chrome, Helium, or Brave" "$browser_icon"
