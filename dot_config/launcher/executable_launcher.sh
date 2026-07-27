@@ -711,15 +711,17 @@ open_named_window() {
 dismiss_quake() {
   [ "$LAUNCHER_MODE" = herdr ] || return 0
   # No --no-response: saves nothing measured, and the response is what lets a failure fall through.
-  if command -v kitten >/dev/null 2>&1; then
-    if [ -n "${KITTY_LISTEN_ON:-}" ] &&
-      kitten @ --to "$KITTY_LISTEN_ON" action hide_macos_app >/dev/null 2>&1; then
-      return 0
-    fi
-    case "${TERM:-}" in
-    xterm-kitty) kitten @ action hide_macos_app >/dev/null 2>&1 && return 0 ;;
-    esac
+  if [ -n "${KITTY_LISTEN_ON:-}" ] && command -v kitten >/dev/null 2>&1 &&
+    kitten @ --to "$KITTY_LISTEN_ON" action hide_macos_app >/dev/null 2>&1; then
+    return 0
   fi
+  # Emit kitty's tty escape protocol ourselves rather than shelling out to `kitten`: the
+  # remote quake's launcher runs on the dev box, which has no kitty installed at all.
+  case "${TERM:-}" in
+  xterm-kitty)
+    printf '\033P@kitty-cmd{"cmd":"action","version":[0,26,0],"no_response":true,"payload":{"action":"hide_macos_app"}}\033\\' >/dev/tty 2>/dev/null && return 0
+    ;;
+  esac
   if command -v osascript >/dev/null 2>&1; then
     osascript -e 'tell application "System Events"
       set fg to name of first application process whose frontmost is true
