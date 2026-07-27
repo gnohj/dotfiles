@@ -9,8 +9,18 @@ if [ ! -f "$KEYFILE" ]; then
   exit 1
 fi
 
-KEY="$(cut -d' ' -f1,2 "$KEYFILE")"
+ssh-keygen -l -f "$KEYFILE" >/dev/null 2>&1 || { echo "mac-authorize: $KEYFILE is not a valid public key" >&2; exit 1; }
+
+# Interpolated fields become code on the workstation, so whitelist instead of quote-escaping.
+read -r KEYTYPE KEYB64 _ < "$KEYFILE"
 TAG="$(hostname -s)"
+
+refuse() { echo "mac-authorize: refusing unexpected characters in $1" >&2; exit 1; }
+[[ $KEYTYPE =~ ^[a-z0-9@.-]+$ ]] || refuse "key type"
+[[ $KEYB64 =~ ^[A-Za-z0-9+/=]+$ ]] || refuse "key body"
+[[ $TAG =~ ^[A-Za-z0-9._-]+$ ]] || refuse hostname
+
+KEY="$KEYTYPE $KEYB64"
 
 # The emitted script runs on the workstation, so $HOME/$AK resolve there, not here.
 cat <<EOF
