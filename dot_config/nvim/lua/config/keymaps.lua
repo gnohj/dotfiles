@@ -228,7 +228,26 @@ local function get_default_branch()
       :gsub("\n", "")
   end
 
-  -- Fallback to current checked out branch
+  -- Both symbolic-refs are unset in bare-clone worktrees; develop first because inferno has both.
+  if branch == "" then
+    for _, fb in ipairs({ "develop", "main", "master" }) do
+      vim.fn.system({
+        "git",
+        "-C",
+        repo,
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "origin/" .. fb,
+      })
+      if vim.v.shell_error == 0 then
+        branch = fb
+        break
+      end
+    end
+  end
+
+  -- Last resort: the checked-out branch, so gitbrowse still opens something.
   if branch == "" then
     branch = vim.fn
       .system(
@@ -239,26 +258,7 @@ local function get_default_branch()
       :gsub("\n", "")
   end
 
-  -- Fallback chain: develop -> main -> master
   if branch == "" or branch == "HEAD" then
-    local fallbacks = { "develop", "main", "master" }
-    for _, fb in ipairs(fallbacks) do
-      local exists = vim.fn.system(
-        "cd "
-          .. vim.fn.shellescape(repo)
-          .. " && git rev-parse --verify "
-          .. fb
-          .. " 2>/dev/null"
-      )
-      if vim.v.shell_error == 0 then
-        branch = fb
-        break
-      end
-    end
-  end
-
-  -- Final fallback
-  if branch == "" then
     branch = "master"
   end
 
