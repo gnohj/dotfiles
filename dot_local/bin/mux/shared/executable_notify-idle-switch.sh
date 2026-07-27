@@ -2,38 +2,15 @@
 # Smart-switch binding for rctrl - '.
 # Reads the latest session that emitted an idle banner (tracked by
 # notify-idle.sh in /tmp/notify-idle.latest), switches to it, then clears all
-# displayed banners. Pane-id shape picks the mux: "%N" tmux, "wA:pN" herdr.
+# displayed banners. Every jump goes through a `mux` verb, never herdr/tmux directly.
 
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
+MUX="${MUX:-$HOME/.local/bin/mux/mux}"
 STATE_FILE="/tmp/notify-idle.latest"
 ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
-
-herdr_bin="${HERDR_BIN_PATH:-herdr}"
-
-# True when $1 looks like a herdr pane id ("wA:p2E") rather than a tmux one ("%3").
-is_herdr_pane() {
-  case "$1" in *:p*) return 0 ;; *) return 1 ;; esac
-}
-
-# Focus a herdr pane by id; non-zero lets the caller fall to workspace-by-name.
-herdr_jump() {
-  "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$1" >/dev/null 2>&1
-}
-
-# Focus the herdr workspace labelled $1, comparing on the emoji-stripped tail.
-herdr_focus_workspace_named() {
-  local want="$1" ws
-  command -v jq >/dev/null 2>&1 || return 1
-  ws=$("$herdr_bin" workspace list 2>/dev/null |
-    jq -r --arg w "$want" '.result.workspaces[]?
-      | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w)
-      | .workspace_id' 2>/dev/null | head -1)
-  [ -n "$ws" ] || return 1
-  "$herdr_bin" workspace focus "$ws" >/dev/null 2>&1
-}
 
 # No-op when there's no recent notification to act on. Prevents repeated
 # presses from blowing away active notifications when there's nothing to
@@ -117,7 +94,7 @@ vault\|*)
 #!/usr/bin/env bash
 fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='capture > ' < '$PICK_LIST' > '$PICK_OUT'
 EOF
-    "$HOME/.local/bin/mux/mux" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
+    "$MUX" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
     rm -f "$PICK_SH"
 
     PICK=$(cat "$PICK_OUT" 2>/dev/null || true)
@@ -132,30 +109,11 @@ EOF
     fi
   fi
 
-  # Focus the vault session, creating if absent; note opens in a FRESH tab.
+  # Focus the vault session, creating if absent; note opens in a FRESH window.
   # printf %q on NOTE_PATH: a filename with a quote would otherwise inject a command.
-  if [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
-    # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
-    herdr_focus_workspace_named "$VAULT_SESSION" ||
-      "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$VAULT_DIR" >/dev/null 2>&1 || true
-    if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
-      "$HOME/.local/bin/mux/mux" window "📝" "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" >/dev/null 2>&1 || true
-    fi
-  else
-    if tmux has-session -t "$VAULT_SESSION" 2>/dev/null; then
-      if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
-        tmux new-window -t "$VAULT_SESSION" -c "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" 2>/dev/null || true
-      fi
-    else
-      if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
-        tmux new-session -d -s "$VAULT_SESSION" -c "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" 2>/dev/null || true
-      else
-        tmux new-session -d -s "$VAULT_SESSION" -c "$VAULT_DIR" 2>/dev/null || true
-      fi
-    fi
-    tmux switch-client -t "$VAULT_SESSION" 2>/dev/null \
-      || tmux attach-session -t "$VAULT_SESSION" 2>/dev/null \
-      || true
+  "$MUX" session --label "$VAULT_SESSION" "$VAULT_DIR" >/dev/null 2>&1 || true
+  if [ -n "$NOTE_PATH" ] && [ -f "$NOTE_PATH" ]; then
+    "$MUX" window "📝" "$VAULT_DIR" "nvim $(printf %q "$NOTE_PATH")" >/dev/null 2>&1 || true
   fi
   ;;
 *)
@@ -163,61 +121,25 @@ EOF
   WORKTREE_PATH=""
   case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
 
-  # RAW is one of:
-  #   wA:pN       — a herdr pane id; `agent focus` reaches it wherever it lives.
-  #   %N          — a STABLE tmux pane id (notify-idle.sh records this). It
-  #                 survives pane/window renumbering, so it always points at the
-  #                 agent that fired — even minutes later, even with multiple
-  #                 agents in the session. Resolve its live session for the switch.
-  #   <session>   — a bare session (worktree deferred-create banner, or older
-  #                 state). Switches to the session, landing on its current pane.
-  # PANE = the pane to focus (id or index target); SESSION = its session.
-  # HANDLED skips the tmux block without exiting; the tail still clears banners.
-  HANDLED=""
-  if is_herdr_pane "$RAW"; then
-    if herdr_jump "$RAW"; then
-      HANDLED=1
-    else
-      # Pane gone (workspace closed) — let the path branch below rebuild it.
-      RAW=""
-    fi
-  fi
-
-  if [ -z "$HANDLED" ] && [ -n "$WORKTREE_PATH" ] &&
-    [ "$("$HOME/.local/bin/mux/mux" kind)" = herdr ]; then
-    # Deferred creation, herdr side: attach to the workspace at this path or build it.
-    "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WORKTREE_PATH" >/dev/null 2>&1 || true
-    HANDLED=1
-  fi
-
+  # RAW is a pane id (herdr wA:pN / tmux %N) or a bare session; only the latter has a label.
+  SESSION_LABEL=""
   case "$RAW" in
-    "") PANE="";     SESSION="" ;;
-    %*) PANE="$RAW"; SESSION=$(tmux display-message -t "$RAW" -p '#{session_name}' 2>/dev/null) ;;
-    *)  PANE="";     SESSION="$RAW" ;;
+    "" | *:p* | %*) ;;
+    *) SESSION_LABEL="$RAW" ;;
   esac
-  [ -n "$HANDLED" ] && { PANE=""; SESSION=""; WORKTREE_PATH=""; }
 
-  # If a path was provided and the session doesn't exist yet, create it
-  # detached at that path. This is the "deferred creation" the worktree
-  # wrapper relies on — it skips pre-creation to avoid a session-created
-  # hook fire on the user's tmux while they're not switching.
-  if [ -n "$WORKTREE_PATH" ] && ! tmux has-session -t "$SESSION" 2>/dev/null; then
-    tmux new-session -d -s "$SESSION" -c "$WORKTREE_PATH" 2>/dev/null || true
-  fi
-
-  # Focus the EXACT agent pane before switching. select-window sets the current
-  # window (both a %pane-id and a session:window.pane target resolve to their
-  # window); select-pane focuses the pane in it — select-pane alone won't change
-  # the current window, so both are needed.
-  if [ -n "$PANE" ]; then
-    tmux select-window -t "$PANE" 2>/dev/null || true
-    tmux select-pane -t "$PANE" 2>/dev/null || true
-  fi
-  # Switch to the session (skipped only if a stale pane id resolved to nothing).
-  if [ -n "$SESSION" ]; then
-    tmux switch-client -t "$SESSION" 2>/dev/null \
-      || tmux attach-session -t "$SESSION" 2>/dev/null \
-      || true
+  # Only pane-id shapes are worth a focus attempt; a session name just costs a fork.
+  if [ -n "$RAW" ] && [ -z "$SESSION_LABEL" ] && "$MUX" focus "$RAW" 2>/dev/null; then
+    :
+  elif [ -n "$WORKTREE_PATH" ]; then
+    # Deferred creation: the worktree wrapper skips pre-creating the session.
+    if [ -n "$SESSION_LABEL" ]; then
+      "$MUX" session --label "$SESSION_LABEL" "$WORKTREE_PATH" >/dev/null 2>&1 || true
+    else
+      "$MUX" session "$WORKTREE_PATH" >/dev/null 2>&1 || true
+    fi
+  elif [ -n "$SESSION_LABEL" ]; then
+    "$MUX" session --label "$SESSION_LABEL" >/dev/null 2>&1 || true
   fi
   ;;
 esac

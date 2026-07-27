@@ -169,7 +169,7 @@ herdr_edit_and_exit() {
     echo "  herdr nvim pane=$host_nvim sock=$sock exists=$([ -S "$sock" ] && echo yes || echo no)" >> "$DEBUG_LOG"
     if [ -S "$sock" ]; then
       nvim --server "$sock" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1
-      "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$host_nvim" >/dev/null 2>&1
+      "$HOME/.local/bin/mux/mux" focus "$host_nvim" >/dev/null 2>&1
       close_popup_deferred
       exit 0
     fi
@@ -181,7 +181,7 @@ herdr_edit_and_exit() {
     "$herdr" pane send-keys "$host_shell" ctrl+u >/dev/null 2>&1   # clear partial input
     "$herdr" pane send-text "$host_shell" "cd $Q_DIR && nvim $Q_FILE" >/dev/null 2>&1
     "$herdr" pane send-keys "$host_shell" enter >/dev/null 2>&1
-    "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$host_shell" >/dev/null 2>&1
+    "$HOME/.local/bin/mux/mux" focus "$host_shell" >/dev/null 2>&1
     close_popup_deferred
     exit 0
   fi

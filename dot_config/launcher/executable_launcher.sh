@@ -48,6 +48,9 @@ else
   export MUX_LIVE
 fi
 
+# mux_kind answers "which mux"; the dispatcher answers "do the thing".
+MUX="${MUX:-$HOME/.local/bin/mux/mux}"
+
 if [ "$LAUNCHER_NEEDS" = full ]; then
   # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
   FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
@@ -663,47 +666,22 @@ mux_indicator() {
   printf '%s %s·%s %s%s%s' "$badge" "$dim" "$off" "$host" "$(mux_host_label)" "$off"
 }
 
-# Open <cmd> in a fresh window/tab labeled <label>, optionally rooted at <dir>,
-# in the LIVE multiplexer (see active_mux). tmux → new window in the server
-# (works even from the standalone quake). herdr → new tab in the focused
-# workspace, then run <cmd> in its root pane over the socket API.
-# Owns the quake dismissal: neither mux raises its window on an API-created tab.
+# Open <cmd> in the live mux. Owns the quake dismissal: neither mux raises its own window.
 open_window() {
-  local label="$1" cmd="$2" dir="${3:-}" pane
-  case "$(active_mux)" in
-    herdr)
-      pane=$(herdr tab create --label "$label" ${dir:+--cwd "$dir"} --focus 2>/dev/null |
-        jq -r '.result.root_pane.pane_id // empty') || pane=""
-      if [ -n "$pane" ]; then
-        herdr pane run "$pane" "$cmd"
-      else
-        notify "herdr: could not open tab"
-        return 1
-      fi
-      ;;
-    tmux)
-      tmux new-window -n "$label" ${dir:+-c "$dir"} "$cmd" 2>/dev/null ||
-        { notify "tmux: could not open window"; return 1; }
-      ;;
-    *)
-      notify "no herdr or tmux server to open into"
-      return 1
-      ;;
-  esac
+  local label="$1" cmd="$2" dir="${3:-}" keep="${4:-}"
+  "$MUX" window ${keep:+--keep-open} "$label" "$dir" "$cmd" 2>/dev/null ||
+    { notify "could not open a window in the live multiplexer"; return 1; }
   dismiss_quake
 }
 
-# Open a NAMED command window. tmux mode delegates to tmux-window-simple.sh (which
-# reuses a window by emoji and keeps the shell alive after the command); herdr
-# mode opens a herdr tab running the command.
-# keepopen is tmux-only: herdr types into a live shell that returns to its prompt anyway.
+# NAMED window (tmux reuses by emoji). 4th arg is CLOSE_ON_EXIT, as tmux-window-simple.sh takes it.
 open_named_window() {
-  local emoji="$1" name="$2" cmd="$3" keepopen="${4:-}" run
+  local emoji="$1" name="$2" cmd="$3" close_on_exit="${4:-}" keep=""
+  [ "$close_on_exit" = true ] || keep=1
   if [ "$(active_mux)" = herdr ]; then
-    run="$cmd"
-    open_window "$emoji" "$run"
+    open_window "$emoji" "$cmd" "" "$keep"
   else
-    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen &&
+    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $close_on_exit &&
       dismiss_quake
   fi
 }
