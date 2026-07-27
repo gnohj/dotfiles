@@ -16,16 +16,19 @@
 #
 # Modes:
 #   [sesh flags...]   emit the list
-#   --kill <row>      kill the session a row names (ctrl-d). Agent rows are a
-#                     no-op rather than a kill against a parsed-out label.
+#   --kill <row>      ctrl-d: an agent row kills only its own pane, a session row the whole session.
 
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 if [[ "${1:-}" == "--kill" ]]; then
   row="${2:-}"
-  # Agent rows are indented; only an unindented row names a session.
-  [[ "$row" == " "* ]] && exit 0
+  # Agent rows are indented and carry their pane target after a tab (fzf's {} is the raw line); require the full session:window.pane or kill-pane hits whatever pane is active there.
+  if [[ "$row" == " "* ]]; then
+    target="${row##*$'\t'}"
+    [[ "$target" == *:*.* ]] && tmux kill-pane -t "$target" 2>/dev/null
+    exit 0
+  fi
   # Drop the leading sesh icon glyph (fzf has already stripped the ANSI).
   name="${row#* }"
   [[ -n "$name" ]] && tmux kill-session -t "$name" 2>/dev/null
