@@ -134,6 +134,7 @@ SIMPLE_ACTIONS=(
   "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)"
   "🔀 GitHub PRs|act_ghpr|ghpr summary: my open PRs, review-requested, and involved (bots filtered)"
   "👻 Toggle Transparency|act_toggle_transparency|Toggle terminal background transparency|mac"
+  "🔃 Restart Launcher|act_restart_launcher|Reload the launcher itself so edits to launcher.sh take effect, without restarting the quake"
 )
 
 # Exact NORMAL-mode order — cat:<ID> (renders pointer) or simple:<label>.
@@ -143,7 +144,7 @@ TOP_LEVEL_ORDER=(
   "simple:🔀 GitHub PRs" "simple:📋 Copy Pane Address"
   "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "simple:📈 Usage Report (cpu/mem)"
   "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
-  "simple:👻 Toggle Transparency" "cat:WORKTREES"
+  "simple:👻 Toggle Transparency" "cat:WORKTREES" "simple:🔃 Restart Launcher"
 )
 
 # Preview command: call this script in --preview mode with the selected line.
@@ -470,14 +471,15 @@ themes_menu() {
 
 # $1 = name filter ("" = all), $2 = header, $3 = prompt.
 themes_filtered() {
-  local schemes_dir="$HOME/.config/colorscheme/list" sel
+  local sel rc=0
   sel=$(
     {
-      find "$schemes_dir" -name "*.sh" -type f -print0 | xargs -0 -n 1 basename |
-        { [ -n "$1" ] && grep -i "$1" || cat; }
+      provide_themes | { [ -n "$1" ] && grep -i "$1" || cat; }
       printf "← Back\n"
-    } | fzf --height=40% --reverse --header="$2" --prompt="$3" --no-info $FZF_COLORS
-  ) || true
+    } | ~/.local/bin/fzf-vim.sh --height=40% --header="$2" --prompt="$3" --ansi $FZF_COLORS
+  ) || rc=$?
+  # fzf-vim.sh, not raw fzf: plain fzf returns 130 for BOTH Esc and Ctrl+C.
+  quit_on_interrupt "$rc"
   case "$sel" in
   "← Back" | "") themes_menu ;;
   *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel" ;;
@@ -1060,6 +1062,9 @@ act_usage_report() {
 act_ghpr() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; ghpr; echo; echo 'Press any key to continue...'; read -k1"
 }
+
+# exec, so a source edit takes effect: the quake holds its parsed functions otherwise.
+act_restart_launcher() { exec env LAUNCHER_MODE="$LAUNCHER_MODE" "$SELF"; }
 
 act_toggle_transparency() {
   ~/.config/tmux/toggle-terminal-transparency.sh
