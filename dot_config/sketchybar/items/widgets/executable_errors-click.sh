@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# errors popup: SERVICE ERRORS + orphan buckets from ~/.local/state/errors/current; any row click closes it.
+# errors popup: SERVICE ERRORS + orphan buckets + zombie parents from ~/.local/state/errors/current; any row click closes it.
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
@@ -40,6 +40,16 @@ emit_bucket() { # cat title
   done <"$CURRENT"
 }
 
+emit_zombies() {
+  local ct pp n pname age printed=0
+  while IFS='|' read -r ct pp n pname age; do
+    [ "$ct" = zombie ] || continue
+    [ "$printed" = 0 ] && { add_header "ZOMBIES (parent is not reaping)"; printed=1; }
+    add_row "$pname  ·  ppid $pp  ·  $n unreaped  ·  oldest $age" "$WHITE"
+    add_row "kill the parent, not the zombie" "$BLUE"
+  done <"$CURRENT"
+}
+
 if [ ! -s "$CURRENT" ]; then
   add_header "✓ all clear"
 else
@@ -52,6 +62,7 @@ else
   emit_bucket fff "FFF-ORPHANS (each pins an fff LMDB slot)"
   emit_bucket treehouse "TREEHOUSE-ORPHANS"
   emit_bucket cpu "CPU-ORPHANS"
+  emit_zombies
 fi
 
 sketchybar -m "${args[@]}" >/dev/null

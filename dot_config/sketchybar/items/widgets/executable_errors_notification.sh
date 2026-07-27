@@ -1,10 +1,13 @@
 #!/bin/bash
-# errors monitor -> sketchybar "errors" badge: service-log errors + ppid-1 orphans (fff/treehouse/cpu). Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70).
+# errors monitor -> sketchybar "errors" badge: service-log errors + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE.
 shopt -s nullglob
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
 NAME="${NAME:-widgets.errors_notification}"
 THRESHOLD="${ORPHAN_THRESHOLD:-70}"
+# A zombie costs only a pid slot, so badge a parent only once it leaks (count) or clearly hangs (age).
+ZOMBIE_THRESHOLD="${ZOMBIE_THRESHOLD:-3}"
+ZOMBIE_MIN_AGE="${ZOMBIE_MIN_AGE:-600}"
 SAMPLE_SECS=2
 TREEHOUSE="$HOME/.treehouse"
 LOOKBACK_MIN=30
@@ -34,21 +37,45 @@ proc_cwd() {
   if [[ -r /proc/$1/cwd ]]; then readlink "/proc/$1/cwd" 2>/dev/null
   else lsof -a -d cwd -p "$1" -Fn 2>/dev/null | awk '/^n/{print substr($0,2);exit}'; fi
 }
+etime_secs() { # ps etime "[[DD-]HH:]MM:SS" -> seconds
+  local e="$1" d=0 rest h=0 m=0 s=0 parts
+  if [[ "$e" == *-* ]]; then d=${e%%-*}; rest=${e#*-}; else rest="$e"; fi
+  local IFS=:; read -ra parts <<<"$rest"; unset IFS
+  case ${#parts[@]} in
+    3) h=${parts[0]} m=${parts[1]} s=${parts[2]} ;;
+    2) m=${parts[0]} s=${parts[1]} ;;
+    *) s=${parts[0]:-0} ;;
+  esac
+  echo $((10#$d * 86400 + 10#$h * 3600 + 10#$m * 60 + 10#$s))
+}
+hms() { # seconds -> coarsest single unit
+  local s=$1
+  if ((s >= 86400)); then echo "$((s / 86400))d"
+  elif ((s >= 3600)); then echo "$((s / 3600))h"
+  elif ((s >= 60)); then echo "$((s / 60))m"
+  else echo "${s}s"; fi
+}
 
 declare -A t0
 while read -r pid s; do t0[$pid]=$s; done < <(
   ps -axo pid=,time= | awk '{n=split($2,a,":");s=0;for(i=1;i<=n;i++)s=s*60+a[i];print $1,s}')
 sleep "$SAMPLE_SECS"
-declare -A ppid stat comm cput
-while IFS='|' read -r pid pp st s cmd; do
-  ppid[$pid]=$pp; stat[$pid]=$st; cput[$pid]=$s; comm[$pid]=$cmd
-done < <(ps -axo pid=,ppid=,stat=,time=,command= |
-  awk '{pid=$1;pp=$2;st=$3;n=split($4,a,":");s=0;for(i=1;i<=n;i++)s=s*60+a[i];$1=$2=$3=$4="";sub(/^ +/,"");print pid"|"pp"|"st"|"s"|"$0}')
+declare -A ppid stat comm cput etimes
+while IFS='|' read -r pid pp st s et cmd; do
+  ppid[$pid]=$pp; stat[$pid]=$st; cput[$pid]=$s; etimes[$pid]=$et; comm[$pid]=$cmd
+done < <(ps -axo pid=,ppid=,stat=,time=,etime=,command= |
+  awk '{pid=$1;pp=$2;st=$3;n=split($4,a,":");s=0;for(i=1;i<=n;i++)s=s*60+a[i];et=$5;$1=$2=$3=$4=$5="";sub(/^ +/,"");print pid"|"pp"|"st"|"s"|"et"|"$0}')
 
-orphans=(); zombies=0
+orphans=(); declare -A z_count z_age
 for pid in "${!cput[@]}"; do
   st=${stat[$pid]}
-  if [[ "$st" == *Z* ]]; then zombies=$((zombies + 1)); log "ZOMBIE pid=$pid comm=${comm[$pid]}"; continue; fi
+  if [[ "$st" == *Z* ]]; then
+    pp=${ppid[$pid]}
+    z_count[$pp]=$((${z_count[$pp]:-0} + 1))
+    age=$(etime_secs "${etimes[$pid]}")
+    ((age > ${z_age[$pp]:-0})) && z_age[$pp]=$age
+    continue
+  fi
   [[ "${ppid[$pid]}" == 1 ]] || continue
   cmd=${comm[$pid]}
   [[ "$cmd" == *.app/Contents/MacOS/* ]] && continue
@@ -97,6 +124,17 @@ for pid in "${!prev_line[@]}"; do
   orphan_rows+=("${prev_line[$pid]}")
 done
 
+# Zombies group by parent: the leaking parent is the actionable unit, the individual <defunct> pid is not.
+zombie_rows=()
+for pp in "${!z_count[@]}"; do
+  n=${z_count[$pp]}; age=${z_age[$pp]:-0}
+  ((n >= ZOMBIE_THRESHOLD || age >= ZOMBIE_MIN_AGE)) || continue
+  # ps comm= keeps names with spaces intact ("Raycast Helper (Extensions)"); splitting the argv would truncate them.
+  pname=$(ps -o comm= -p "$pp" 2>/dev/null); pname=${pname##*/}
+  zombie_rows+=("zombie|$pp|$n|${pname:-gone}|$(hms "$age")")
+  log "ZOMBIE parent=$pp comm=${pname:-gone} count=$n oldest=${age}s"
+done
+
 CUTOFF=$(date -v-${LOOKBACK_MIN}M '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "-${LOOKBACK_MIN} min" '+%Y-%m-%d %H:%M:%S')
 MONTH=$(date '+%Y%m')
 error_sources=()
@@ -122,10 +160,12 @@ fi
 : >"$CURRENT"
 for s in "${error_sources[@]}"; do echo "error|$s" >>"$CURRENT"; done
 for r in "${orphan_rows[@]}"; do echo "$r" >>"$CURRENT"; done
-err_n=${#error_sources[@]}; orph_n=${#orphan_rows[@]}; count=$((err_n + orph_n))
+for r in "${zombie_rows[@]}"; do echo "$r" >>"$CURRENT"; done
+err_n=${#error_sources[@]}; orph_n=${#orphan_rows[@]}; zomb_n=${#zombie_rows[@]}
+count=$((err_n + orph_n + zomb_n))
 
 if dry; then
-  echo "errors=$err_n  orphans=$orph_n  zombies=$zombies"
+  echo "errors=$err_n  orphans=$orph_n  zombie-parents=$zomb_n (of ${#z_count[@]} with any)"
   cat "$CURRENT"
   exit 0
 fi

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# errors [<pid>] — service-log errors + orphaned processes (ppid 1) with kill commands; <pid> for full detail. Portable mac/linux.
+# errors [<pid>] - service-log errors + orphaned processes (ppid 1) + unreaped zombies, with kill commands; <pid> for full detail. Portable mac/linux.
 set -uo pipefail
 
 TREEHOUSE="$HOME/.treehouse"
@@ -29,21 +29,39 @@ humanize_age() {
   printf '%s%ds' "$out" "$s"
 }
 
+etime_secs() { # ps etime -> seconds (for max/threshold comparisons)
+  local e="$1" d=0 rest h=0 m=0 s=0 parts
+  if [[ "$e" == *-* ]]; then d=${e%%-*}; rest=${e#*-}; else rest="$e"; fi
+  local IFS=:; read -ra parts <<<"$rest"; unset IFS
+  case ${#parts[@]} in
+    3) h=${parts[0]} m=${parts[1]} s=${parts[2]} ;;
+    2) m=${parts[0]} s=${parts[1]} ;;
+    *) s=${parts[0]:-0} ;;
+  esac
+  echo $((10#$d * 86400 + 10#$h * 3600 + 10#$m * 60 + 10#$s))
+}
+
 if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
   pid="$1"
-  read -r ppid pgid pcpu rss etime lstart < <(
-    ps -o ppid=,pgid=,%cpu=,rss=,etime=,lstart= -p "$pid" 2>/dev/null | awk '{print $1,$2,$3,$4,$5,$6" "$7" "$8" "$9" "$10}'
+  read -r ppid pgid pstat pcpu rss etime lstart < <(
+    ps -o ppid=,pgid=,stat=,%cpu=,rss=,etime=,lstart= -p "$pid" 2>/dev/null | awk '{print $1,$2,$3,$4,$5,$6,$7" "$8" "$9" "$10" "$11}'
   ) || true
   [[ -z "${ppid:-}" ]] && { echo "pid $pid: not found"; exit 1; }
   cwd=$(proc_cwd "$pid")
   printf 'pid       %s\n' "$pid"
+  [[ "$pstat" == *Z* ]] &&
+    printf 'state     \033[33mzombie (<defunct>)\033[0m — already dead, holding a pid slot until parent %s reaps it\n' "$ppid"
   printf 'orphaned  %s\n' "$([[ $ppid == 1 ]] && echo 'yes — parent died, reparented to pid 1 (original parent unrecoverable)' || echo "no — live parent pid $ppid")"
   printf 'pgid      %s\n' "$pgid"
   printf 'cpu/mem   %s%%  ·  %sM\n' "$pcpu" "$((rss / 1024))"
   printf 'age       %s   (started %s)\n' "$(humanize_age "$etime")" "$lstart"
   printf 'cwd       %s\n' "$(tilde "${cwd:-n/a}")"
   printf 'command   %s\n' "$(proc_argv "$pid")"
-  printf 'kill      kill %s   (kill -9 %s if it ignores TERM)\n' "$pid" "$pid"
+  if [[ "$pstat" == *Z* ]]; then
+    printf 'kill      no-op on a zombie — restart the parent instead: kill %s\n' "$ppid"
+  else
+    printf 'kill      kill %s   (kill -9 %s if it ignores TERM)\n' "$pid" "$pid"
+  fi
   echo   'env (launch context):'
   # redact token/secret-shaped vars so the tool never prints credentials
   proc_env "$pid" |
@@ -53,8 +71,14 @@ if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
   exit 0
 fi
 
-fff=(); tree=(); gen=()
-while IFS='|' read -r pid ppid pcpu rss etime comm cmd; do
+fff=(); tree=(); gen=(); declare -A z_count z_age
+while IFS='|' read -r pid ppid pstat pcpu rss etime comm cmd; do
+  if [[ "$pstat" == *Z* ]]; then
+    z_count[$ppid]=$((${z_count[$ppid]:-0} + 1))
+    age=$(etime_secs "$etime")
+    ((age > ${z_age[$ppid]:-0})) && z_age[$ppid]=$age
+    continue
+  fi
   [[ "$ppid" == 1 ]] || continue
   [[ "$cmd" == *.app/Contents/MacOS/* ]] && continue
   case "$cmd" in /System/* | /usr/libexec/* | /usr/sbin/* | /sbin/* | /Library/Apple/*) continue ;; esac
@@ -69,9 +93,17 @@ while IFS='|' read -r pid ppid pcpu rss etime comm cmd; do
     gen+=("$row")
   fi
 done < <(
-  ps -axo pid=,ppid=,%cpu=,rss=,etime=,comm=,command= |
-    awk '{pid=$1;pp=$2;pc=$3;rs=$4;et=$5;cm=$6;$1=$2=$3=$4=$5=$6="";sub(/^ +/,"");print pid"|"pp"|"pc"|"rs"|"et"|"cm"|"$0}'
+  ps -axo pid=,ppid=,stat=,%cpu=,rss=,etime=,comm=,command= |
+    awk '{pid=$1;pp=$2;st=$3;pc=$4;rs=$5;et=$6;cm=$7;$1=$2=$3=$4=$5=$6=$7="";sub(/^ +/,"");print pid"|"pp"|"st"|"pc"|"rs"|"et"|"cm"|"$0}'
 )
+
+# Parent name is fetched per-group: the shared ps parse splits comm on whitespace, which mangles names like "Raycast Helper (Extensions)".
+zomb=()
+for pp in "${!z_count[@]}"; do
+  pname=$(ps -o comm= -p "$pp" 2>/dev/null)
+  pname=${pname##*/}
+  zomb+=("$pp|${z_count[$pp]}|${z_age[$pp]:-0}|${pname:-gone}")
+done
 
 print_bucket() { # title subtitle rows...
   local title="$1" sub="$2"; shift 2
@@ -86,6 +118,25 @@ print_bucket() { # title subtitle rows...
   done
 }
 
+hms() { # seconds -> coarsest single unit
+  local s=$1
+  if ((s >= 86400)); then echo "$((s / 86400))d"
+  elif ((s >= 3600)); then echo "$((s / 3600))h"
+  elif ((s >= 60)); then echo "$((s / 60))m"
+  else echo "${s}s"; fi
+}
+
+print_zombies() { # grouped by parent: the leaking parent is the actionable unit
+  ((${#zomb[@]} == 0)) && return
+  printf '\n\033[1mZOMBIES\033[0m  \033[2mdead children a live parent never reaped — they cost a pid slot, not memory\033[0m\n'
+  local r pp n age pname
+  for r in "${zomb[@]}"; do
+    IFS='|' read -r pp n age pname <<<"$r"
+    printf '  \033[33m[%s]\033[0m %s  ·  %s unreaped  ·  oldest %s\n' "$pp" "$pname" "$n" "$(hms "$age")"
+    printf '      \033[2mrun\033[0m  \033[1mkill %s\033[0m   (the PARENT — killing a zombie is a no-op · errors %s for full detail)\n' "$pp" "$pp"
+  done
+}
+
 # service-log errors from the sketchybar monitor's state (matches the badge)
 svc=()
 ERRSTATE="$HOME/.local/state/errors/current"
@@ -93,9 +144,9 @@ ERRSTATE="$HOME/.local/state/errors/current"
   [[ "$ct" == error ]] && svc+=("$src")
 done <"$ERRSTATE"
 
-total=$((${#svc[@]} + ${#fff[@]} + ${#tree[@]} + ${#gen[@]}))
+total=$((${#svc[@]} + ${#fff[@]} + ${#tree[@]} + ${#gen[@]} + ${#zomb[@]}))
 if ((total == 0)); then
-  echo "✓ all clear — no errors, no orphans"
+  echo "✓ all clear — no errors, no orphans, no zombies"
   exit 0
 fi
 
@@ -106,6 +157,8 @@ fi
 print_bucket "FFF-ORPHANS" "orphaned nvim — each pins an fff.nvim LMDB reader slot" "${fff[@]}"
 print_bucket "TREEHOUSE-ORPHANS" "orphaned procs under ~/.treehouse" "${tree[@]}"
 print_bucket "CPU-ORPHANS" "high-CPU orphans (≥${CPU_MIN}%)" "${gen[@]}"
+print_zombies
 
 kills=(); for r in "${fff[@]}" "${tree[@]}" "${gen[@]}"; do kills+=("${r%%|*}"); done
 ((${#kills[@]})) && printf '\n\033[2m%d orphan(s) · kill all: kill %s\033[0m\n' "${#kills[@]}" "${kills[*]}"
+exit 0
