@@ -4,5 +4,6 @@ overrides:
   # Markdown files
   - files: "*.md"
     options:
-      proseWrap: "never"
       printWidth: 80
+      # preserve, not never: "never" joins paragraphs and undoes sentence-per-line authoring
+      proseWrap: "preserve"
