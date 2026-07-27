@@ -61,7 +61,7 @@ sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
 # Minutes, not seconds: every pass is 2 network calls per workspace against a rate limit.
-INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
+INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "300"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
@@ -97,17 +97,25 @@ APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
 CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
 NONE_GLYPH = "–"
 
-# Jira workflow status, shortened to fit a 26-col sidebar. The canonical full name stays in
+# Jira workflow status, shortened to fit a 32-col sidebar. The canonical full name stays in
 # the thread file and this is purely a display transform. Anything not listed falls through
 # unchanged.
+# Keys are matched lowercased; the spares are aliases for boards that name a step differently.
 JIRA_SHORT = {
-    "in dev review": "In Dev Rev",
-    "in code review": "In Code Rev",
-    "code review": "In Code Rev",
-    "in review": "In Code Rev",
-    "stakeholder review": "Stakeholder Rev",
-    "product review": "Stakeholder Rev",
-    "ready to merge": "Merge",
+    "blocked": "blocked",
+    "to do": "todo",
+    "in dev": "dev",
+    "in dev/dqa review": "dev rev",
+    "in dev review": "dev rev",
+    "in dqa review": "dev rev",
+    "in qa": "qa",
+    "in code review": "code rev",
+    "code review": "code rev",
+    "in review": "code rev",
+    "stakeholder review": "stake",
+    "product review": "stake",
+    "ready to merge": "merge",
+    "done": "done",
 }
 
 
