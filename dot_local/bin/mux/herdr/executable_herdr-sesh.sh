@@ -11,9 +11,7 @@
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
-#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close an open
-#             workspace (⚡), remove a zoxide dir (📁); ⚙️ config is left alone (it
-#             lives in sesh.toml). The list reloads in place.
+#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
 #   ctrl-b  → abort
 #
 # Subcommands (used by fzf's reload/execute binds, not called directly):
@@ -349,25 +347,25 @@ print(next((n for n, i in enumerate(order, 1) if targets[i] in sel), 1))
     ;;
   --delete)
     case "${2:-}" in
-      ws:*)
-        # Closing a workspace makes herdr shift focus to an adjacent one — even when
-        # the closed workspace isn't the focused one. Since the picker overlays the
-        # CURRENT workspace, deleting a different workspace would yank focus away.
-        # Capture the focused workspace first and restore it after the close (unless
-        # it's the one being deleted).
-        target="${2#ws:}"
+      ws:* | agent:*)
+        # Closing a workspace (or the last pane in one) shifts herdr's focus even when it wasn't focused, and the picker overlays the current workspace — so capture focus first and restore it unless it is the one being deleted.
+        target="${2#*:}"
+        wid="${target%%:*}" # both ids read "<wid>[:<inner>]", so the workspace is the first field
         focused=""
         if command -v jq >/dev/null 2>&1; then
           focused=$("$herdr" workspace list 2>/dev/null \
             | jq -r '.result.workspaces[] | select(.focused) | .workspace_id' 2>/dev/null)
         fi
-        "$herdr" workspace close "$target" >/dev/null 2>&1
-        [ -n "$focused" ] && [ "$focused" != "$target" ] &&
+        case "$2" in
+          ws:*) "$herdr" workspace close "$target" >/dev/null 2>&1 ;;
+          *)    "$herdr" pane close "$target" >/dev/null 2>&1 ;;
+        esac
+        [ -n "$focused" ] && [ "$focused" != "$wid" ] &&
           "$herdr" workspace focus "$focused" >/dev/null 2>&1
         ;;
       zox:*) zoxide remove "${2#zox:}" >/dev/null 2>&1 ;;
       cfg:*) : ;;  # config entries live in sesh.toml — not deletable from the picker
-      agent:* | tab:*) : ;;  # views onto a workspace's insides; ctrl-d closes workspaces, not these
+      tab:*) : ;;  # a whole tab of agents is too blunt for ctrl-d; kill its panes instead
     esac
     exit 0
     ;;
