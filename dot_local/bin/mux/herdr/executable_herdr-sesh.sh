@@ -51,7 +51,7 @@ build_list() {
   DONE="${gnohj_color11:-}" IDLING="${gnohj_color05:-}" \
   WORKACCT="${gnohj_color04:-}" PERSONALACCT="${gnohj_color01:-}" \
   HOME="$HOME" python3 -c '
-import os, json
+import os, json, re
 
 def load(env):
     try: return json.loads(os.environ.get(env, "") or "null")
@@ -198,6 +198,26 @@ def agent_rows(wid):
                                 tail=ident, tailcol=icol))
     return out
 
+def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
+    i = 0
+    while i < len(s) and not (s[i].isalnum() or s[i] in "._-/~"): i += 1
+    return s[:i].strip(), (s[i:] or s)
+
+# Mirrors the herdr-sesh-layout.sh naming rule - keep in sync; full keeps the ticket tail, else the bare number.
+def derive_name(cwd, full):
+    d = (cwd or "").rstrip("/")
+    hm = home.rstrip("/")
+    if hm and d.startswith(hm + "/Developer/"):
+        segs = [s for s in d[len(hm) + 11:].split("/") if s][:3]
+        if len(segs) == 3:
+            m = re.match(r"^([A-Z]+)-([0-9]+)", segs[2])
+            if m: segs[2] = segs[2][len(m.group(1)) + 1:] if full else m.group(2)
+        return "/".join(segs)
+    if hm and d.startswith(hm + "/"):
+        segs = [s for s in d[len(hm) + 1:].split("/") if s]
+        return segs[-1] if len(segs) >= 3 else "/".join(segs)
+    return os.path.basename(d)
+
 # Collect every entry uniformly: (kind, icon, name, path, target, active).
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
@@ -208,6 +228,11 @@ for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
     # suffix a workspace label may carry to avoid a doubled/clipped name.
     label = (w.get("label", "?") or "?").split(" · ", 1)[0].rstrip()
     cwd = wscwd.get(wid, "").rstrip("/")
+    # No second row here, so re-expand the ticket tail - but only if the label is still the derived short form.
+    if cwd:
+        deco, name0 = split_label(label)
+        if name0 == derive_name(cwd, False):
+            label = ("%s %s" % (deco, derive_name(cwd, True))).strip()
     if cwd: active_paths.add(cwd)
     entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True))
 
@@ -287,11 +312,6 @@ def prio(ie):
 # Render: <emoji> name ❯ path ❯ symbols — one emoji per row (label glyph else kind icon), DISPLAY-width padded so columns align.
 sep = "%s%s%s" % (dim, SEP, RESET)
 ICON_W = 2   # one emoji, 2 display columns
-
-def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
-    i = 0
-    while i < len(s) and not (s[i].isalnum() or s[i] in "._-/~"): i += 1
-    return s[:i].strip(), (s[i:] or s)
 
 for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerate(entries), key=prio)]:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
