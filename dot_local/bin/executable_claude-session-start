@@ -46,16 +46,11 @@ ticket=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
 
 notes=()
 
-# Ticket-specific why-history notes. Glob BOTH Notes/work/ (post-ingest) and
-# Notes-Inbox/ (pre-ingest captures from /sb-ticket-capture) so a freshly
-# captured note still gets surfaced before /sb-ingest-mine has filed it. See
-# memory `feedback-session-start-check-inbox-too`. Match `<KEY>.md` (no slug)
-# and `<KEY>-*.md` (with slug) — both naming forms appear in practice.
+# Ticket why-history notes via `vault-note`; --all covers both Notes/work/ and Notes-Inbox/, so a fresh capture surfaces before /sb-ingest-mine files it (memory `feedback-session-start-check-inbox-too`).
 if [ -n "$ticket" ]; then
-  while IFS= read -r -d '' f; do notes+=("$f"); done < <(
-    find "$VAULT/Notes/work" "$VAULT/Notes-Inbox" -maxdepth 1 -type f \
-      \( -name "${ticket}.md" -o -name "${ticket}-*.md" \) -print0 2>/dev/null
-  )
+  while IFS= read -r f; do
+    [ -n "$f" ] && notes+=("$f")
+  done < <("$HOME/.local/bin/vault-note" --all "$cwd" 2>/dev/null)
 fi
 
 # Per-repo hot-path notes. Keep this list in sync with the per-repo section in

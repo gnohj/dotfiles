@@ -6,16 +6,11 @@
 #   sb-ticket-log "<message>"          # append the message
 #   echo "<message>" | sb-ticket-log   # read from stdin
 #
-# Resolution order for the note path:
-#   1. Thread state file `~/.local/state/threads/<TICKET>.json` → vault_note
-#   2. Glob `Notes/work/<TICKET>-*.md`
-#   3. Glob `Notes-Inbox/<TICKET>*.md`
+# Which note gets the entry is `vault-note`'s call — the same resolver behind the 󰎞 badge and prefix+O.
 #
 # Silently no-ops when:
-#   - Not in a git repo (no current branch).
-#   - Branch carries no `[A-Z]+-\d+` ticket key (e.g. master, scratch).
-#   - No vault note exists yet for the ticket.
 #   - The message is empty / whitespace only.
+#   - vault-note finds nothing: no repo, no `[A-Z]+-\d+` ticket key, or no note yet.
 #
 # These are all expected when fired from the global post-commit hook —
 # the hook runs on every commit machine-wide; the skill's job is to be
@@ -36,47 +31,14 @@ MSG=$(printf '%s' "$MSG" | awk '{$1=$1; print}')
 [ -z "$MSG" ] && exit 0
 
 # ---------------------------------------------------------------------------
-# 2. Ticket key from current branch
+# 2. Resolve the vault note path
 # ---------------------------------------------------------------------------
-BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
-if [[ "$BRANCH" =~ ([A-Z]+-[0-9]+) ]]; then
-  TICKET="${BASH_REMATCH[1]}"
-else
-  exit 0
-fi
+# Its exit 1 is the ordinary "nothing to log into" case, not a failure for the post-commit hook.
+NOTE=$("$HOME/.local/bin/vault-note" 2>/dev/null) || exit 0
+[ -n "$NOTE" ] || exit 0
 
 # ---------------------------------------------------------------------------
-# 3. Resolve the vault note path
-# ---------------------------------------------------------------------------
-# Vault follows cwd: work repo → work vault, else personal (see vault-path).
-VAULT="$("$HOME/.local/bin/vault-path")"
-NOTE=""
-
-THREAD_FILE="$HOME/.local/state/threads/$TICKET.json"
-if [ -f "$THREAD_FILE" ] && command -v jq >/dev/null 2>&1; then
-  REL=$(jq -r '.vault_note // empty' "$THREAD_FILE" 2>/dev/null)
-  if [ -n "$REL" ] && [ -f "$VAULT/$REL" ]; then
-    NOTE="$VAULT/$REL"
-  fi
-fi
-
-if [ -z "$NOTE" ]; then
-  # Glob fallback. Match the convention enforced by /sb-ticket-capture
-  # and /sb-ingest-mine: filenames start with the ticket key.
-  for dir in Notes/work Notes-Inbox; do
-    for pat in "${VAULT}/${dir}/${TICKET}-"*.md "${VAULT}/${dir}/${TICKET}.md"; do
-      if [ -f "$pat" ]; then
-        NOTE="$pat"
-        break 2
-      fi
-    done
-  done
-fi
-
-[ -z "$NOTE" ] && exit 0
-
-# ---------------------------------------------------------------------------
-# 4. Append entry to ## Work Log (newest-first)
+# 3. Append entry to ## Work Log (newest-first)
 # ---------------------------------------------------------------------------
 TS=$(date '+%Y-%m-%d %H:%M')
 ENTRY="- $TS · $MSG"

@@ -823,8 +823,7 @@ act_browser_dotfiles() {
 
 act_notes_current() {
   # Open the Obsidian vault note(s) for the ticket / unticketed worktree behind
-  # the focused pane. Globs Notes/work/<id>-*.md and Notes-Inbox/<id>*.md (the
-  # convention from /sb-ticket-capture and /sb-ingest-mine).
+  # the focused pane. `vault-note` finds them; --ticket because an unticketed worktree keys off its dir name.
   pane_path=$(focused_pane_path)
   branch=$(git -C "${pane_path:-$PWD}" branch --show-current 2>/dev/null) || branch=""
   if [ -z "$branch" ]; then
@@ -836,13 +835,8 @@ act_notes_current() {
   else
     ID=$(basename "${pane_path:-$PWD}")
   fi
-  VAULT="$("$HOME/.local/bin/vault-path" "${pane_path:-$PWD}")"
-  MATCHES=$(
-    {
-      ls "$VAULT/Notes/work/${ID}-"*.md 2>/dev/null
-      ls "$VAULT/Notes-Inbox/${ID}"*.md 2>/dev/null
-    } | sort -u
-  )
+  # No note is an ordinary exit 1, and this script runs under set -e.
+  MATCHES=$("$HOME/.local/bin/vault-note" --all --ticket "$ID" "${pane_path:-$PWD}" 2>/dev/null) || MATCHES=""
   COUNT=$(printf '%s' "$MATCHES" | grep -c .) || COUNT=0
   # open_window abstracts the multiplexer: a new tmux window in tmux mode, a new
   # herdr tab in herdr mode. (Avoids nested popups: the launcher may itself run in
