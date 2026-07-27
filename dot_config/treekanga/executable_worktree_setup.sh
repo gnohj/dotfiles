@@ -119,7 +119,7 @@ fi
 
 # Thread state file: a JSON doc that links this worktree to its branch +
 # tmux session + (later, when discovered) vault note + PR URL. Read by
-# tmux-dash to surface 📝🎟️🔀 badges and by the rctrl-i "open notes"
+# the dashboards to surface 📝🎟️🔀 badges and by the "open notes"
 # launcher item. Idempotent — re-runs of treekanga on the same worktree
 # don't overwrite the existing state.
 THREAD_BRANCH=$(git -C "$CURRENT_WORKTREE" branch --show-current 2>/dev/null || true)

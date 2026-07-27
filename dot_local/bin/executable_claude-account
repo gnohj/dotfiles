@@ -12,7 +12,7 @@
 # SELECTION: a repo whose remote is a configured work org (see work-orgs, kept
 # in local state — NOT in dotfiles) → work; everything else (personal repos,
 # non-git dirs) → personal. Precedence, highest first: CLAUDE_ACCOUNT env
-# (per-shell) > pin file (sticky global, set from tmux-dash) > the cwd rule.
+# (per-shell) > pin file (sticky global) > the cwd rule.
 #
 #   claude-account                 effective account for the current dir
 #   claude-account resolve         same (explicit name; used by `cw`)
@@ -25,14 +25,14 @@
 #                                  e.g. `claude setup-token | claude-account set-token work`
 #   claude-account add-work-org <o>     add a GitHub org that counts as work
 #   claude-account work-orgs            list configured work orgs
-#   claude-account set-work-email <e>   which email counts as "work" (for tmux-dash color)
+#   claude-account set-work-email <e>   which email counts as "work" (for row coloring)
 #   claude-account work-email           print the configured work email
 #   claude-account label-for-email <e>  classify an email -> personal|work
 set -euo pipefail
 
 WORK_EMAIL_FILE="$HOME/.local/state/claude/work-email"
 WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
-# Sticky global account pin (set from tmux-dash's Accounts view). Single source
+# Sticky global account pin. Single source
 # of truth for a deliberate account choice: when it holds work|personal it beats
 # the cwd rule for EVERY new session (cs / cr / dashboard spawns). Absent/empty
 # = auto (fall back to the per-dir git-remote rule). CLAUDE_ACCOUNT still wins.
@@ -157,7 +157,7 @@ add_work_org() {
 }
 
 # Classify an email -> personal|work using the configured work email. Single
-# source of the work/personal POLICY for email; tmux-dash mirrors the same
+# source of the work/personal POLICY for email; the dashboards mirror the same
 # compare in Rust (reading the same work-email file) to color rows by account.
 label_for_email() {
   local email="$1" work=""

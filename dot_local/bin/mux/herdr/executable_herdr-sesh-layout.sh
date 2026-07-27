@@ -17,9 +17,8 @@ dir="${dir/#\~/$HOME}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 [ -d "$dir" ] || { echo "not a directory: $dir"; exit 1; }
 
-# Workspace label: match tmux-dash's sidebar naming (its state.rs
-# session_display_name -> cwd_logical_path -> shorten_segments), so a worktree reads
-# the SAME in herdr as in tmux-dash. The name is DIRECTORY-derived, home-relative:
+# Workspace label: the shared sidebar naming rule (session_display_name ->
+# cwd_logical_path -> shorten_segments). The name is DIRECTORY-derived, home-relative:
 #   ~/Developer/<repo>/<worktree>        -> "<repo>/<worktree>"  (web/master, web/review)
 #   ~/Developer/<repo>/<bucket>/<branch> -> "<branch>"           (bucket in fix|feat|ui|…)
 #   ~/<other>/…/<leaf>  (>=3 segments)   -> "<leaf>"

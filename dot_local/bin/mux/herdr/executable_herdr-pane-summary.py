@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """herdr-pane-summary — label each agent pane with a slug of its AI session title.
 
-The herdr counterpart of tmux-dash's `auto_pane_rename` feature (src/state.rs
-`apply_auto_summary` + `slugify`), which turns an un-renamed agent pane from an anonymous
-`claude` into `implement-herdr-pane-rename`.
+Turns an un-renamed agent pane from an anonymous `claude` into
+`implement-herdr-pane-rename`.
 
-tmux-dash has to WORK for the title: map pane_pid -> ~/.claude/projects/<slug>/ -> newest
+Deriving the title the hard way means: map pane_pid -> ~/.claude/projects/<slug>/ -> newest
 JSONL -> last `{"type":"ai-title"}`, with a whole-file re-scan when the 64 KB tail misses on
 a resumed session. For claude and codex none of that layer is needed here, because herdr
 parses their OSC title and hands it over on the pane object as `terminal_title_stripped`
@@ -14,15 +13,15 @@ parses their OSC title and hands it over on the pane object as `terminal_title_s
 pi and opencode DO set an OSC title, but never a session one: pi shows `π - <cwd basename>`
 and opencode prefixes its own with `OC | `, so slugging those gives a name that is either
 the directory or a wasted segment. For them the session store is authoritative instead
-(`store_title` below), read from the same two sources tmux-dash uses - pi's first user
+(`store_title` below), read from two sources - pi's first user
 message and opencode's stored session title. The OSC title stays as the backstop for when
 the store read misses. Where those stores live is owned by the sibling herdr_agent_stores
 module, shared with herdr-agent-activity.py.
 
 Write channel is `pane.report_metadata`, NOT `pane.rename`:
   * `pane.rename` sets `label`, herdr's deliberate-rename field. That is the user's, the
-    same way tmux-dash's `@agent_name` outranks `@agent_summary` — a pane carrying a label
-    is skipped entirely, so a hand-named pane is never clobbered.
+    field — a pane carrying a label is skipped entirely, so a hand-named pane is never
+    clobbered.
   * `pane.report_metadata --source auto-summary --title <slug>` is the display-only channel
     and is scoped by `source`, so our record and any other reporter's stay independent.
 Both render on the pane border.
@@ -39,9 +38,8 @@ agent next did something. RECONCILE_SECS is the backstop: the event read carries
 timeout, and each expiry re-sweeps every pane. Cheap (one pane.list plus one pane.layout per
 agent pane per tick) and it also re-fits labels after a resize, which likewise emits nothing.
 
-Widths mirror tmux-dash: the slug is capped at `WORDS` hyphen-segments and then truncated
-to the pane's real border budget with an ellipsis (crate::text::truncate), east-asian width
-aware so a CJK title reserves its true cells.
+The slug is capped at `WORDS` hyphen-segments and then truncated to the pane's real border
+budget with an ellipsis, east-asian width aware so a CJK title reserves its true cells.
 
 Runs wherever the herdr SERVER runs (Mac-local, or the VPS under --remote), started and
 stopped by the socket's existence: a Linux systemd .path unit (PathExists) and macOS launchd
@@ -86,7 +84,7 @@ TRAILING_STOPWORDS = {"a", "an", "and", "at", "for", "in", "of", "on", "or", "th
 PLACEHOLDERS = {"claude code", "claude", "codex", "opencode", "pi"}
 
 # Session-store reads for the agents that never put a title in their OSC title (see
-# store_title). 64 KB mirrors tmux-dash's read_head. The TTL only smooths event bursts -
+# store_title). 64 KB is the tail read size. The TTL only smooths event bursts -
 # a pi title is immutable and opencode re-titles rarely, so staleness is not a concern.
 HEAD_BYTES = 64 * 1024
 TITLE_TTL = int(os.environ.get("HERDR_SUMMARY_TITLE_TTL", "30"))
@@ -121,7 +119,7 @@ def dwidth(text):
 
 
 def truncate(text, budget):
-    """tmux-dash crate::text::truncate — fit `budget` cells, reserving one for the ellipsis."""
+    """Fit `budget` cells, reserving one for the ellipsis."""
     if dwidth(text) <= budget:
         return text
     out, used = "", 0
@@ -216,11 +214,10 @@ def store_title(pane):
     """Title from the agent's own session store, for agents that set no OSC title.
 
     claude and codex title their OSC, so the pane object already carries the answer. pi and
-    opencode never do, which is why their panes stayed anonymous here while tmux-dash renamed
-    them. Same two sources tmux-dash reads (src/agents/pi.rs `first_user_title`,
-    src/agents/opencode.rs `title`), but keyed better: herdr's pi/opencode integrations report
-    the exact session via `pane.report_agent_session`, where tmux-dash can only guess by cwd
-    and so collides between two panes in one directory. The cwd lookup stays as the fallback
+    opencode never do, which is why their panes would otherwise stay anonymous here. Their
+    titles come from the session stores instead, keyed precisely: herdr's pi/opencode
+    integrations report the exact session via `pane.report_agent_session`, so two panes in one
+    directory never collide. The cwd lookup stays as the fallback
     for a session whose integration has not reported yet.
     """
     agent = pane.get("agent")
@@ -245,11 +242,11 @@ def desired(pane):
     """The slug this pane should carry, or None to leave it alone."""
     if not pane.get("agent"):
         return None
-    # A deliberate `pane.rename` outranks us, exactly like tmux-dash's @agent_name.
+    # A deliberate `pane.rename` outranks us.
     if (pane.get("label") or "").strip():
         return None
-    # For a store-backed agent the store is authoritative, exactly as in tmux-dash, which
-    # never consults their OSC title: whatever their terminal is showing is a placeholder or
+    # For a store-backed agent the store is authoritative and their OSC title is never
+    # consulted: whatever their terminal is showing is a placeholder or
     # the shell's own doing. The OSC title stays the backstop for when the store read misses.
     title = ""
     if pane.get("agent") in STORE_READERS:

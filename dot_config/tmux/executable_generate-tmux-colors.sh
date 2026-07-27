@@ -15,9 +15,8 @@ source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null || t
 
 OUTPUT_FILE="$HOME/.config/tmux/tmux-colors.conf"
 
-# Active-pane border COLOR: the pane you're ON matches tmux-dash's sidebar green
-# accent (gnohj_color24, the @chip_green identity chip + active dot). So the
-# active tmux border and the dash's green cue agree. Same on every window;
+# Active-pane border COLOR: the pane you're ON matches the sidebar green
+# accent (gnohj_color24, the @chip_green identity chip + active dot). Same on every window;
 # normally the border just means "you are here". The prefix/resize/copy/zoom
 # modes retint it to the old active-border color (gnohj_color06, salmon-red).
 #
@@ -85,8 +84,8 @@ set -g window-status-format ''
 set -g cursor-colour "${gnohj_color24}"
 
 # Pane border colors — inactive panes dim to muted slate so the active pane
-# stands out by color on pane switch; the active pane matches the tmux-dash
-# sidebar green accent (gnohj_color24) normally, retinted to the salmon-red
+# stands out by color on pane switch; the active pane matches the sidebar
+# green accent (gnohj_color24) normally, retinted to the salmon-red
 # (gnohj_color06) in prefix/resize/copy/zoom. See inactive_border_fmt /
 # active_border_fmt above.
 set -g pane-border-style "${inactive_border_fmt}"

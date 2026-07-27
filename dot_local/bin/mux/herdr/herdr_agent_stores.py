@@ -7,8 +7,6 @@ so both daemons have to read the agents' own stores. What they share is not the 
 those differ - but the FACTS about where those stores live and how they are keyed. Those
 facts belong to pi and opencode, not to either daemon, so they get one owner here.
 
-The same two sources tmux-dash reads, in src/agents/pi.rs and src/agents/opencode.rs.
-
 Stdlib only, like both callers. Import it defensively:
 
     try:
@@ -45,9 +43,8 @@ def pi_newest_session(cwd):
     """Newest `.jsonl` transcript for `cwd`, or None.
 
     Only a fallback: pi's herdr integration reports the exact file as an `agent_session`
-    path, so this is reached for a session that started before the extension loaded. It is
-    also what tmux-dash has to rely on exclusively, which is why two pi panes sharing a
-    directory get the same answer there.
+    path, so this is reached for a session that started before the extension loaded. Two pi
+    panes sharing a directory get the same answer from it.
     """
     try:
         names = os.listdir(pi_session_dir(cwd))
@@ -90,7 +87,7 @@ def opencode_by_session_or_cwd(column, session, cwd):
     """`column` for the pane's opencode session: exact by reported id, else newest for cwd.
 
     The cwd branch matches the longest project worktree that is a prefix of cwd, so a pane
-    inside a subdirectory still resolves to its project - the same predicate tmux-dash uses.
+    inside a subdirectory still resolves to its project.
     """
     session_id = session.get("value") if session.get("kind") == "id" else None
     if session_id:
