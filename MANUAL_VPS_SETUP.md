@@ -162,9 +162,11 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 
 ## 8. VPS → Mac dispatcher (built)
 
-Lets the box reach the workstation for the things a headless machine can't do itself: open a URL, write the clipboard, post a notification, and start a debuggable Chrome the box can drive over CDP. That last one is what makes browser E2E possible from an SSH session — `chrome-devtools-mcp` runs on the box and _attaches_ to a browser, it never launches one, and the box has no browser to launch.
+Lets the box reach the workstation for the things a headless machine can't do itself: open a URL, write the clipboard, post a notification, read the frontmost browser tab, and start a debuggable Chrome the box can drive over CDP. That last one is what makes browser E2E possible from an SSH session — `chrome-devtools-mcp` runs on the box and _attaches_ to a browser, it never launches one, and the box has no browser to launch.
 
-**Trust model.** The box's key is pinned in the Mac's `authorized_keys` to `command="$HOME/.local/bin/to-desktop --forced"` with `no-pty` and no forwarding, so it can never obtain a shell. `to-desktop --forced` re-parses `$SSH_ORIGINAL_COMMAND` against its own verb allowlist, so the box gets exactly `open` / `clip` / `notify` / `browser-debug` and nothing else. Reachability stays tailnet-only; public 22 on the Mac is never opened.
+`active-tab` is what lets the 🎫 **AI Add Worktree (Chrome tab → worktree)** launcher entry work from the box: it prints one `<browser>\t<url>` line per open browser and `worktree jira` picks the first Jira URL. Note it is a **different browser** from `browser-debug`, which deliberately launches a throwaway profile (`~/.cache/chrome-cdp-profile`). `active-tab` reads your real logged-in windows instead, which is why it goes through Apple Events rather than CDP.
+
+**Trust model.** The box's key is pinned in the Mac's `authorized_keys` to `command="$HOME/.local/bin/to-desktop --forced"` with `no-pty` and no forwarding, so it can never obtain a shell. `to-desktop --forced` re-parses `$SSH_ORIGINAL_COMMAND` against its own verb allowlist, so the box gets exactly `open` / `clip` / `notify` / `browser-debug` / `active-tab` and nothing else. Every one of those takes fixed argv the box cannot steer, so a trailing `; id` or `$(id)` is either refused outright or lands as inert text. Reachability stays tailnet-only; public 22 on the Mac is never opened.
 
 **One-time, on the Mac.** System Settings → General → Sharing → **Remote Login: ON**.
 
@@ -185,6 +187,36 @@ ssh macbook browser-debug && sleep 3 && curl -s http://127.0.0.1:9222/json/versi
 ```
 
 A Chrome version JSON means the whole chain is live: forced-command SSH to the Mac, Chrome launched there on the debug profile, and CDP reaching back through the `RemoteForward` that herdr carries on every `--remote` attach. A connection reset means Chrome isn't listening; `Permission denied` means the key isn't authorized.
+
+Then check the tab reader, which needs a real browser window open on the Mac:
+
+```
+to-desktop active-tab
+```
+
+A `<browser>\t<url>` line means the 🎫 worktree capture will work from here. Empty output means no browser window is open on the Mac; `nobody is attached to relay to` means the resolver below found no live session.
+
+**No relay target is ever configured.** `machine-identity mac-host` resolves it from live evidence on every single call, so it cannot drift out of sync with where you are actually sitting:
+
+| Order | Signal | Why it cannot go stale |
+| --- | --- | --- |
+| 1 | `$NOTIFY_MAC_SSH` | Explicit override, for testing or a workstation off the tailnet |
+| 2 | `tailscaled be-child ssh --remote-ip=` | Tailscale SSH spawns one process per login; it exits when you detach |
+| 3 | `ss` established socket on `:22` | Classic sshd logins leave no such process, so the open socket is the evidence |
+
+Then `tailscale status` maps that IP to a peer name, skipping any peer whose OS has no browser to open into (a phone). Nothing is read from disk, and `role` reports `devbox` only while somebody is attached, so an idle banner fired at 3am is not reverse-SSHed into an empty room.
+
+What this deliberately does **not** use is `$SSH_CONNECTION`. The herdr server is systemd-spawned and long-lived, so it bakes in whoever attached first and every pane it later spawns inherits that same value forever.
+
+**URL opening is wired through one variable.** `.zshenv` exports `BROWSER=desktop-open` and `GH_BROWSER=desktop-open`, and `desktop-open` is a one-word wrapper around `to-desktop open`. That is the whole integration:
+
+| Tool | Path to the relay |
+| --- | --- |
+| gh-dash `o` | `cli/go-gh` reads `GH_BROWSER` before falling back to `xdg-open` |
+| nvim `<leader>gb` / `<leader>gx` | snacks `gitbrowse` → `vim.ui.open` → `xdg-open` → `open_envvar` honors `BROWSER` |
+| `gh pr view --web`, `git web--browse` | Same `BROWSER` contract |
+
+No per-tool config, no nvim override, and anything new that respects either variable works for free. On the Mac the same export is harmless: `to-desktop` sees it is the workstation and opens locally, unsetting `BROWSER` for its own `xdg-open` child so a future Linux desktop cannot ping-pong between the two.
 
 ---
 

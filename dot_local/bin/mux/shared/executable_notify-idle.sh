@@ -61,7 +61,7 @@ case "$("$HOME/.local/bin/machine-identity" os 2>/dev/null || uname)" in
       "$HOME/.local/bin/mux/tmux/open-tmux-attach.sh '$SESSION'"
     ;;
   linux | Linux)
-    # Devbox: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Mac host via machine-identity (= $NOTIFY_MAC_SSH / mac-ssh-host); unset → marker-only.
+    # Devbox: reverse-SSH the banner to the Mac, fire-and-forget (backgrounded, short timeout, never blocks the Stop hook). Host comes from machine-identity, resolved live from the attached session; nobody attached → marker-only.
     MAC_HOST="$("$HOME/.local/bin/machine-identity" mac-host 2>/dev/null)"
     [ -n "$MAC_HOST" ] || exit 0
     # Strip single quotes so the payload can't break out of the single-quoted remote command (defense-in-depth).
