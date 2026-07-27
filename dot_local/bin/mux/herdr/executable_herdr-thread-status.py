@@ -28,10 +28,13 @@ API rate limit, so the default interval is minutes, not the seconds $git runs at
 failing (offline, not a gh repo, `gh auth` never run) leaves the thread file UNTOUCHED, so a
 transient error can never clobber good state — the same contract tmux-dash's writer had.
 
-Glyphs mirror tmux-dash's sidebar so the two read identically: ◌/✓ for one/two approvals,
-⧗/✗/✓ for CI running/failure/success, │ between the two zones. All single-cell and
-deliberately not emoji — a VS16 sequence measures one cell and draws two, which strands
-uncleared artifacts on the grid until a repaint.
+Two zones, always both, `<approvals> │ <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
+⧗ running, ✗ failure, ✓ success, – none. The vocabularies are disjoint so no glyph means two
+things — ● is only ever approvals, ✓ only ever CI — and both sides always print, because
+dropping the empty one left a lone glyph whose zone the reader had to guess. That diverges
+from tmux-dash's sidebar, which colours the zones apart instead; a metadata token carries a
+single inline fg, so this panel cannot. All single-cell and deliberately not emoji — a VS16
+sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
 
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
 that box's thread files and checkouts — the state is per-host and that is correct, since a
@@ -76,8 +79,10 @@ CI_JQ = (
     'or .conclusion == "cancelled")) | length > 0 then "failure" else "success" end'
 )
 
-APPROVAL_GLYPH = {1: "◌", 2: "✓"}
+# Disjoint vocabularies: ● is approvals-complete, ✓ is CI-green, never the reverse.
+APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
 CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
+NONE_GLYPH = "–"
 
 # Jira workflow status, shortened to fit a 26-col sidebar. Same table as tmux-dash's
 # short_jira_status (src/sidebar/rows.rs) so the two panels read identically; the canonical
@@ -209,18 +214,23 @@ def persist(path, data, url, approvals, ci):
             pass
 
 
+def approval_glyph(approvals):
+    """– none, ◌ one, ● two or more. Capping at 2 keeps it a state, not a counter."""
+    n = approvals or 0
+    return APPROVAL_GLYPH.get(n, "●") if n < 2 else "●"
+
+
 def render(approvals, ci):
     """The $pr token, or "" for nothing worth a row.
 
-    One string with one colour: a metadata token carries a single inline fg, so the approval
-    and CI zones cannot be coloured apart the way tmux-dash colours them. The │ divider is
-    what keeps them legible as separate zones instead.
+    One string with one colour: a metadata token carries a single inline fg, so the approval and
+    CI zones cannot be coloured apart the way tmux-dash colours them. Both zones therefore render
+    ALWAYS, divider included — dropping the empty side made a lone glyph ambiguous, since the
+    reader could not tell which zone survived.
     """
-    left = APPROVAL_GLYPH.get(approvals or 0, "")
-    right = CI_GLYPH.get(ci or "", "")
-    if left and right:
-        return "%s │ %s" % (left, right)
-    return left or right
+    if approvals is None and not ci:
+        return ""
+    return "%s │ %s" % (approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH))
 
 
 def jira_short(status):
