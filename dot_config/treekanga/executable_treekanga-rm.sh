@@ -133,10 +133,8 @@ delete_one() {
     # Cheap shell-level idempotency check: if the vault note already says
     # `state: frozen`, the user (or a previous tkrm) already shipped this
     # ticket. Skip the ~10s claude spawn entirely — just clean the orphan.
-    note=$(ls "$vault/Notes/work/${thread_id}-"*.md 2>/dev/null | head -1)
-    if [ -z "$note" ]; then
-      note=$(ls "$vault/Notes-Inbox/${thread_id}-"*.md 2>/dev/null | head -1)
-    fi
+    # --ticket, not a dir: the worktree is mid-delete, so there may be no branch left to read.
+    note=$("$HOME/.local/bin/vault-note" --ticket "$thread_id" --work 2>/dev/null) || note=""
     if [ -n "$note" ] && grep -q '^state: frozen' "$note" 2>/dev/null; then
       already_frozen=1
       echo "  ✓ /sb-ticket-finish $thread_id — note already frozen, skipping claude"
