@@ -8,6 +8,7 @@
 # sesh.toml (⚙️ gear) and recent dirs from the zoxide DB (📁 folder) — LIVE, no
 # re-authoring. On top it pins herdr's OPEN workspaces (🌳/🌿/📁 glyph, else ⚡), queried fresh
 # each open. Theme matches the tmux sesh popup (dot_config/tmux/sesh-popup.sh).
+# Agents hang under their workspace as "state · activity · harness", claude/<account> when the harness is claude.
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
@@ -46,6 +47,7 @@ build_list() {
   FG="${gnohj_color02:-}" DIM="${gnohj_color09:-}" ACCENT="${gnohj_color04:-}" \
   WORKING="${gnohj_color04:-}" BLOCKED="${gnohj_color11:-}" \
   DONE="${gnohj_color11:-}" IDLING="${gnohj_color05:-}" \
+  WORKACCT="${gnohj_color04:-}" PERSONALACCT="${gnohj_color01:-}" \
   HOME="$HOME" python3 -c '
 import os, json
 
@@ -114,6 +116,7 @@ AGENT_COLOR = {
     "working": tc(os.environ.get("WORKING")), "blocked": tc(os.environ.get("BLOCKED")),
     "done":    tc(os.environ.get("DONE")),    "idle":    tc(os.environ.get("IDLING")),
 }
+work_col, personal_col = tc(os.environ.get("WORKACCT")), tc(os.environ.get("PERSONALACCT"))
 agents_by_tab = {}
 for ag in (load("AGENTS") or {}).get("result", {}).get("agents", []):
     t = ag.get("tab_id")
@@ -130,12 +133,44 @@ for lst in tabs_by_ws.values():
     lst.sort(key=lambda t: (t.get("number") or 0, t.get("tab_id") or ""))
 
 # Connectors live INSIDE the name column so the ❯ separator holds its screen column at any depth.
-def tree_row(prefix, text, tcol, right, rcol, target, name=None):
+def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailcol=""):
     lab = dclip(prefix + text, NAME_W)
     nm = "%s%s%s%s%s%s" % (dim, prefix, tcol, lab[len(prefix):], RESET,
                            " " * max(NAME_W - dwidth(lab), 0))
-    body = "%s %s  %s  %s%s%s" % (" " * ICON_W, nm, sep, rcol, dpad(dclip(right, PATH_W), PATH_W), RESET)
+    # `tail` rides inside the state cell rather than claiming a column of its own.
+    r = dclip(right, PATH_W)
+    t = dclip(tail, max(PATH_W - dwidth(r) - 3, 0)) if (tail and r) else ""
+    cell = "%s%s%s" % (rcol, r, RESET)
+    if t: cell += "%s · %s%s%s" % (dim, tailcol or dim, t, RESET)
+    cell += " " * max(PATH_W - dwidth(r) - (dwidth(t) + 3 if t else 0), 0)
+    body = "%s %s  %s  %s" % (" " * ICON_W, nm, sep, cell)
     return (name or text) + TAB + body + TAB + target
+
+# Account = which config root owns the session, the rule tmux-dash uses (src/agents/claude.rs account_for_root).
+CLAUDE_ROOTS = [(os.path.join(home, ".claude-work"), "work"), (os.path.join(home, ".claude"), "personal")]
+
+def claude_account(sess, cwd):
+    kind, val = sess.get("kind"), sess.get("value") or ""
+    if not val: return ""
+    if kind == "path":
+        return next((a for root, a in CLAUDE_ROOTS if val.startswith(root + os.sep)), "")
+    if kind != "id": return ""
+    slug = cwd.replace("/", "-").replace(".", "-").replace("_", "-")   # the projects/ dir name claude derives from a cwd
+    for root, acct in CLAUDE_ROOTS:
+        if os.path.exists(os.path.join(root, "projects", slug, val + ".jsonl")): return acct
+    import glob   # only reached when the session has since changed directory
+    for root, acct in CLAUDE_ROOTS:
+        # escape: an id carrying a glob metachar would otherwise match a stranger session and mislabel the row.
+        if glob.glob(os.path.join(root, "projects", "*", glob.escape(val) + ".jsonl")): return acct
+    return ""
+
+# Colored blue (work) / purple (personal), the account convention the tmux-dash sidebar uses.
+def agent_identity(ag):
+    harness = (ag.get("agent") or "").strip()
+    if harness != "claude": return harness, dim
+    acct = claude_account(ag.get("agent_session") or {}, (ag.get("cwd") or ag.get("foreground_cwd") or "").rstrip("/"))
+    if not acct: return harness, dim
+    return "%s/%s" % (harness, acct), (work_col if acct == "work" else personal_col)
 
 def agent_rows(wid):
     out = []
@@ -154,9 +189,11 @@ def agent_rows(wid):
             act = ((ag.get("tokens") or {}).get("act") or "").strip()
             state = ("%s · %s" % (st, act)) if act else st
             branch = "└─" if ai == len(kids) - 1 else "├─"
+            ident, icol = agent_identity(ag)
             out.append(tree_row("%s%s " % (stem, branch),
                                 "%s %s" % (AGENT_GLYPH.get(st, "✧"), title), col,
-                                state, col, "agent:" + (ag.get("pane_id") or ""), name=title))
+                                state, col, "agent:" + (ag.get("pane_id") or ""), name=title,
+                                tail=ident, tailcol=icol))
     return out
 
 # Collect every entry uniformly: (kind, icon, name, path, target, active).
