@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# vault-note — resolve the second-brain note(s) for the ticket owning a directory.
+#
+# Companion to vault-path: that one answers WHICH vault, this one which note inside it.
+# One resolver for the herdr $sb badge, prefix+O, sb-ticket-log, the session-start
+# hook, the launcher and tkrm, so none of them can disagree.
+#
+# Resolution order, first hit wins:
+#   1. ~/.local/state/threads/<KEY>.json → vault_note, when that file still exists
+#   2. <vault>/Notes/work/<KEY>.md | <KEY>-*.md      (ingested, the usual home)
+#   3. <vault>/Notes-Inbox/<KEY>.md | <KEY>-*.md     (captured, not yet ingested)
+#
+# Key comes from the dir's branch, so IHRWEB-24314-foo, review/IHRWEB-24126/bar and
+# feature/ABC-1 all work. Exit 1 with no output = no repo, no ticket key, or no note yet.
+# No jq on purpose: the sidebar poller calls this from herdr's frozen daemon env.
+#
+#   vault-note [dir]                    # absolute path, first hit
+#   vault-note --relative [dir]         # vault-relative path (what the thread file stores)
+#   vault-note --all [dir]              # every match, one per line (work dir before inbox)
+#   vault-note --ticket <KEY> [dir]     # key given, not derived — unticketed worktree id, or one already deleted
+#   vault-note --work|--personal ...    # force the vault instead of resolving from dir
+
+set -uo pipefail
+
+REL=0
+ALL=0
+TICKET=""
+VAULT_FLAG=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --relative) REL=1; shift ;;
+    --all) ALL=1; shift ;;
+    --ticket) [ -n "${2:-}" ] || exit 2; TICKET="$2"; shift 2 ;;
+    --work | --personal) VAULT_FLAG="$1"; shift ;;
+    --) shift; break ;;
+    -*) exit 2 ;;
+    *) break ;;
+  esac
+done
+
+dir="${1:-$PWD}"
+
+# An explicit --ticket needs no branch, so a deleted worktree still resolves (tkrm's hook).
+if [ -z "$TICKET" ]; then
+  [ -d "$dir" ] || exit 1
+  branch=$(git -C "$dir" branch --show-current 2>/dev/null) || exit 1
+  [[ "$branch" =~ ([A-Z]+-[0-9]+) ]] || exit 1
+  TICKET="${BASH_REMATCH[1]}"
+fi
+
+# Vault follows the dir (work repo → work vault); --work/--personal forward to vault-path.
+vault=$("$HOME/.local/bin/vault-path" "${VAULT_FLAG:-$dir}" 2>/dev/null)
+[ -n "$vault" ] && [ -d "$vault" ] || exit 1
+
+emit() {
+  if [ "$REL" = 1 ]; then
+    printf '%s\n' "$1"
+  else
+    printf '%s/%s\n' "$vault" "$1"
+  fi
+}
+
+if [ "$ALL" = 0 ]; then
+  thread="${XDG_STATE_HOME:-$HOME/.local/state}/threads/$TICKET.json"
+  if [ -f "$thread" ]; then
+    # One field per line (the writers all pretty-print), so sed reads it without jq.
+    cached=$(sed -n 's/.*"vault_note"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$thread" | head -1)
+    if [ -n "$cached" ] && [ -f "$vault/$cached" ]; then
+      emit "$cached"
+      exit 0
+    fi
+  fi
+fi
+
+found=0
+for sub in Notes/work Notes-Inbox; do
+  for cand in "$vault/$sub/$TICKET.md" "$vault/$sub/$TICKET-"*.md; do
+    [ -f "$cand" ] || continue
+    emit "$sub/${cand##*/}"
+    found=1
+    [ "$ALL" = 1 ] || break 2
+  done
+done
+
+[ "$found" = 1 ] || exit 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR/CI state ($pr) and Jira status ($jira) to the sidebar.
+"""herdr-thread-status — feed each workspace's PR/CI ($pr), Jira status ($jira) and vault note ($sb) to the sidebar.
 
 herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
 custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
@@ -22,9 +22,15 @@ writer. The writer is the `sb-agent-refresh` skill, supervised by herdr-jira-sta
 which reaches Jira through MCP inside a real Claude session — the one place those credentials
 exist. $jira is therefore empty until that poller's first tick lands a status.
 
+The vault note ($sb) is the second-brain half, ported from the retired tmux-dash badge row: a
+lone 󰎞 when the workspace's ticket has a note. Where that note lives is the shared `vault-note`
+resolver's call, not this poller's. It needs no network, so it sits outside the `gh` check below
+and renders on a box with no gh at all, and where a thread file owns the workspace the path is
+mirrored into its `vault_note` field — a cache for sb-ticket-log that nothing else ever wrote.
+
 Slow on purpose. Two `gh` calls per workspace are network round-trips and count against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. Both calls
-failing (offline, not a gh repo, `gh auth` never run) leaves the thread file UNTOUCHED, so a
+failing (offline, not a gh repo, `gh auth` never run) leaves the PR fields UNTOUCHED, so a
 transient error can never clobber good state.
 
 Two zones, always both, `<approvals> │ <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
@@ -41,7 +47,7 @@ that is; without it the token simply never appears. Stdlib only, no jq (gh embed
 
   herdr-thread-status.py           daemon: refresh every $HERDR_THREAD_INTERVAL seconds
   herdr-thread-status.py --once    one pass over every open workspace, then exit
-  herdr-thread-status.py --clear   drop both tokens from every workspace, then exit
+  herdr-thread-status.py --clear   drop all three tokens from every workspace, then exit
 """
 import json
 import os
@@ -67,7 +73,11 @@ TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
 # worktree_setup.sh derives tmux_session by stripping this prefix; mirrored so the two agree.
 DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 
-# Vault-note discovery for the $sb token.
+# Absolute path: a herdr daemon's PATH is whatever the server was launched with.
+VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
+# nf-md-note_text (tmux-dash's badge glyph); Material Design shares the sidebar's grid, nf-fa draws larger.
+NOTE_GLYPH = "\U000f039e"
+
 # PR: newest open PR for the branch -> "<url>\t<approved review count>", or "" for none.
 PR_JQ = (
     '.[0] | if . == null then "" else .url + "\\t" '
@@ -239,14 +249,17 @@ def fetch(branch, worktree):
     return url, approvals, ci, (pr is not None or ci is not None)
 
 
-def persist(path, data, url, approvals, ci):
+def persist(path, data, url, approvals, ci, note):
     """Atomic write-back of the status fields. tmp+rename so no reader sees half."""
     if url is not None:
         data["pr_url"] = url or None
         data["pr_approvals"] = approvals
     if ci is not None:
         data["ci_status"] = ci or None
-    data["pr_last_checked"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    # Mirror, not append-only: a deleted or renamed note clears the field.
+    data["vault_note"] = note or None
+    if url is not None or ci is not None:
+        data["pr_last_checked"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     tmp = path + ".tmp"
     try:
         with open(tmp, "w") as handle:
@@ -276,6 +289,11 @@ def render(approvals, ci):
     if approvals is None and not ci:
         return ""
     return "%s │ %s" % (approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH))
+
+
+def vault_note(cwd):
+    """Vault-relative path of this workspace's ticket note, or "" — the lookup is vault-note's."""
+    return out([VAULT_NOTE, "--relative", cwd], timeout=6) or ""
 
 
 def jira_short(status):
@@ -312,8 +330,8 @@ def refresh_once():
     A ticket workspace with no file gets one created here (see create_thread), so the "never
     written" case self-heals on the next pass instead of staying blank forever.
     """
-    if not out(["gh", "--version"], timeout=5):
-        return  # gh missing or unauthenticated env: leave every token untouched this pass
+    # No gh skips only the PR half: $jira and $sb are local reads and still render.
+    have_gh = bool(out(["gh", "--version"], timeout=5))
     entries = thread_files()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
@@ -321,7 +339,8 @@ def refresh_once():
             continue
         branch = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
         if not branch:
-            report(workspace, {"jira": "", TOKEN: ""}, seq)  # not a git checkout / detached HEAD
+            # not a git checkout / detached HEAD
+            report(workspace, {"jira": "", "sb": "", TOKEN: ""}, seq)
             continue
         path, data = thread_for(cwd, branch, entries)
         if not path:
@@ -329,16 +348,18 @@ def refresh_once():
             path, data = create_thread(cwd, branch)
             if path:
                 entries.append((path, data))
-        url, approvals, ci, reached = fetch(branch, cwd)
-        if reached and path:
-            persist(path, data, url, approvals, ci)
-        elif not reached:
+        note = vault_note(cwd)
+        url, approvals, ci, reached = fetch(branch, cwd) if have_gh else (None, None, None, False)
+        if path and (reached or note != (data.get("vault_note") or "")):
+            persist(path, data, url, approvals, ci, note)
+        if not reached:
             # Offline, or not a GitHub remote: fall back to whatever the thread file already
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
         report(workspace, {
             "jira": jira_short(data.get("jira_status") if data else None),
+            "sb": NOTE_GLYPH if note else "",
             TOKEN: render(approvals, ci),
         }, seq)
 
@@ -346,7 +367,7 @@ def refresh_once():
 def clear_all():
     seq = str(time.time_ns())
     for workspace in workspace_cwds():
-        report(workspace, {"jira": "", TOKEN: ""}, seq)
+        report(workspace, {"jira": "", "sb": "", TOKEN: ""}, seq)
 
 
 def main():
