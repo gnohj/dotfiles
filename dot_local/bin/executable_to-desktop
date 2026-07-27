@@ -49,8 +49,15 @@ do_notify() {
   else printf '%s: %s\n' "$1" "$2"; fi
 }
 
-# Transport slot: nothing listens on the workstation yet, so it always declines and callers fall back.
-ship() { return 1; }
+# Transport: kitty's rc escape up the tty we already have, since the workstation runs no
+# listener. Only `open` is offered; rc-auth.py rejects the rest.
+ship() {
+  [ "$1" = open ] || return 1
+  case "${TERM:-}" in xterm-kitty) ;; *) return 1 ;; esac
+  # Refused, not escaped: a quote or backslash would let a hostile url rewrite the JSON.
+  case "$2" in *[\"\\]* | *[[:space:]]* | *[[:cntrl:]]*) return 1 ;; esac
+  printf '\033P@kitty-cmd{"cmd":"launch","version":[0,26,0],"no_response":true,"payload":{"args":["open","%s"],"type":"background"}}\033\\' "$2" >/dev/tty 2>/dev/null || return 1
+}
 
 verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | notify)" 2
 shift
