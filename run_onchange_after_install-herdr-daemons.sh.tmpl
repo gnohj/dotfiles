@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
-# Generates + enables every herdr daemon's systemd units from .chezmoidata/mux-daemons.json, and prunes any whose manifest entry is gone. herdr-server is excluded: it is the server, not a socket-activated daemon.
+# Keeps every herdr daemon in .chezmoidata/mux-daemons.json current: on Linux writes + enables its systemd units and prunes retired ones, on macOS restarts the equivalent launchd agents. herdr-server is excluded on both: it is the server, not a socket-activated daemon.
 # manifest sha256: {{ include ".chezmoidata/mux-daemons.json" | sha256sum }}
 {{ range $name, $d := .muxDaemons.list -}}
 # {{ $name }} sha256: {{ include (printf "dot_local/bin/mux/herdr/executable_%s" $d.script) | sha256sum }}
 {{ end -}}
 set -eu
+
+# macOS has no systemd: nix-darwin reloads a launchd agent only when its PLIST changes, not when the script it execs does, so a script edit leaves stale code running until reboot.
+if [ "$(uname)" = "Darwin" ]; then
+  command -v launchctl >/dev/null 2>&1 || exit 0
+  # Mirror `systemctl try-restart`: restart only what already runs, since KeepAlive/PathState holds these down on purpose while the herdr socket is absent.
+  RUNNING=$(launchctl list | awk '$1 != "-" { print $3 }')
+  RESTARTED=0
+{{ range $name, $d := .muxDaemons.list -}}
+  if printf '%s\n' "$RUNNING" | grep -qxF "org.nixos.{{ $name }}"; then
+    launchctl kickstart -k "gui/$(id -u)/org.nixos.{{ $name }}" >/dev/null 2>&1 && RESTARTED=$((RESTARTED + 1))
+  fi
+{{ end -}}
+  echo "herdr-daemons: restarted $RESTARTED running launchd agent(s)"
+  exit 0
+fi
 
 [ "$(uname)" = "Linux" ] || exit 0
 command -v systemctl >/dev/null 2>&1 || exit 0
