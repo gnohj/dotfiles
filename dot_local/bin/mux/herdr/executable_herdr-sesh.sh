@@ -26,11 +26,18 @@ herdr="${HERDR_BIN_PATH:-herdr}"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
 SELF="$HOME/.local/bin/mux/herdr/herdr-sesh.sh"
 
+# Detaching the warm pass is not enough - its ~9 CPU-seconds land while you scroll the picker that spawned it; taskpolicy -b throttles CPU and I/O, nice is the Linux fallback.
+if command -v taskpolicy >/dev/null 2>&1; then
+  BG=(taskpolicy -b)
+else
+  BG=(nice -n 19)
+fi
+
 build_list() {
   # Keep gitmux off the render path: fire a detached background pass to refresh the git
   # cache (deduped via flock inside), so THIS open renders instantly from whatever is
   # cached and the NEXT open is fresh. Skipped when we already are that warm pass (WARM set).
-  [ -n "${WARM:-}" ] || ( "$SELF" --warm >/dev/null 2>&1 & )
+  [ -n "${WARM:-}" ] || ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
   ACTIVE_WS="$("$herdr" workspace list 2>/dev/null)" \
   PANES="$("$herdr" pane list 2>/dev/null)" \
   ENTRIES="$(sesh list -c -z -j 2>/dev/null)" \
@@ -153,7 +160,8 @@ if os.environ.get("WARM") == "1":
     todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)]
     if todo:
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=16) as ex:
+        # Smaller pool than the render path below: this refresh has no deadline, so trade wall clock for staying out of the way of the picker you are scrolling.
+        with ThreadPoolExecutor(max_workers=6) as ex:
             fresh = dict(ex.map(compute, todo))
         hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
