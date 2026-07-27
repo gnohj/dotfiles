@@ -1,5 +1,5 @@
 #!/bin/bash
-# errors monitor -> sketchybar "errors" badge: service-log errors + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE.
+# errors monitor -> sketchybar "errors" badge: service-log errors + daemon stderr + dead herdr daemons + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE.
 shopt -s nullglob
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
@@ -137,6 +137,8 @@ done
 
 CUTOFF=$(date -v-${LOOKBACK_MIN}M '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "-${LOOKBACK_MIN} min" '+%Y-%m-%d %H:%M:%S')
 MONTH=$(date '+%Y%m')
+# Noise in every log we scan: our own KEEP lines, notifier echoes, and probes whose miss is expected.
+NOISE_RE='KEEP:.*error.log|NOTIFY.*Error|already focused|non-zero|socket read timeout|error connecting to|was not found, falling back'
 error_sources=()
 scan_log() { # file source
   local file="$1" src="$2" line ts
@@ -145,14 +147,70 @@ scan_log() { # file source
     ts=$(echo "$line" | grep -oE '^\[?[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\]?' | tr -d '[]')
     [ -z "$ts" ] && continue
     if [[ "$ts" > "$CUTOFF" || "$ts" == "$CUTOFF" ]]; then error_sources+=("$src"); return; fi
-  done < <(grep -E '\[ERROR\]|ERROR:|FATAL|FAIL[^_]' "$file" 2>/dev/null |
-    grep -iv 'KEEP:.*error.log\|NOTIFY.*Error\|already focused\|non-zero\|socket read timeout')
+  done < <(grep -E '\[ERROR\]|ERROR:|FATAL|FAIL[^_]' "$file" 2>/dev/null | grep -ivE "$NOISE_RE")
 }
 for dir in "$HOME/.logs"/*/; do
   d=$(basename "$dir")
   [[ "$d" == errors || "$d" == health-check ]] && continue
   for f in "$dir"*"$MONTH"*.log; do scan_log "$f" "$d"; done
 done
+# <dir>/*.err.log has no timestamps and never rotates, so judge only the bytes appended since the last run and hold a hit for LOOKBACK_MIN.
+STDERR_OFF="$STATE_DIR/stderr-offsets"
+STDERR_HITS="$STATE_DIR/stderr-hits"
+STDERR_RE='Traceback|Error:|Exception:|ERROR|FATAL|panicked at|command not found|No such file or directory|Permission denied|Segmentation fault|Abort trap'
+NOW=$(date '+%s')
+: >"$STDERR_OFF.new"
+for f in "$HOME"/.logs/*/*.err.log; do
+  [ -f "$f" ] || continue
+  src=$(basename "$(dirname "$f")")
+  size=$(wc -c <"$f" | tr -d ' ')
+  prev=$(awk -F'|' -v f="$f" '$1 == f { print $2 }' "$STDERR_OFF" 2>/dev/null | tail -1)
+  # First sighting baselines at the current size, else a fresh state replays years of dead errors.
+  [ -z "$prev" ] && prev=$size
+  [ "$size" -lt "$prev" ] && prev=0   # truncated by cleanup-logs or rewritten
+  echo "$f|$size" >>"$STDERR_OFF.new"
+  [ "$size" -gt "$prev" ] || continue
+  tail -c "+$((prev + 1))" "$f" | grep -ivE "$NOISE_RE" | grep -Eq "$STDERR_RE" || continue
+  echo "$src|$NOW" >>"$STDERR_HITS"
+  log "STDERR $src ($((size - prev)) new bytes)"
+done
+mv -f "$STDERR_OFF.new" "$STDERR_OFF"
+if [ -s "$STDERR_HITS" ]; then
+  awk -F'|' -v now="$NOW" -v win="$((LOOKBACK_MIN * 60))" 'now - $2 < win' "$STDERR_HITS" |
+    sort -t'|' -k1,1 -k2,2nr | awk -F'|' '!seen[$1]++' >"$STDERR_HITS.new"
+  mv -f "$STDERR_HITS.new" "$STDERR_HITS"
+  while IFS='|' read -r src _; do
+    [ -n "$src" ] && error_sources+=("$src (stderr)")
+  done <"$STDERR_HITS"
+fi
+
+# A daemon that dies silently leaves no log, so ask launchd — only while the herdr socket exists, and only on a second consecutive sighting so a restart can't flicker the badge.
+DOWN_PREV="$STATE_DIR/daemon-down"
+down_now=""
+if [ -e "$HOME/.config/herdr/herdr.sock" ]; then
+  while read -r lpid lstat llabel; do
+    case "$llabel" in
+      org.nixos.herdr-server) continue ;;   # lazy-spawned by the CLI, so no launchd pid is normal
+      org.nixos.herdr-*) ;;
+      *) continue ;;
+    esac
+    [ "$lpid" = "-" ] || continue
+    # negative status is a signal (a deliberate stop); a positive one is the daemon's own failure
+    if [ "$lstat" -gt 0 ] 2>/dev/null; then reason="exited $lstat"; else reason="not running"; fi
+    down_now="$down_now${llabel#org.nixos.}|$reason
+"
+  done < <(launchctl list 2>/dev/null)
+fi
+while IFS='|' read -r name reason; do
+  [ -n "$name" ] || continue
+  grep -qxF "$name|$reason" "$DOWN_PREV" 2>/dev/null || continue
+  error_sources+=("$name ($reason)")
+  log "DAEMON $name $reason"
+done <<EOF
+$down_now
+EOF
+printf '%s' "$down_now" >"$DOWN_PREV"
+
 if ((${#error_sources[@]})); then
   IFS=$'\n' error_sources=($(printf '%s\n' "${error_sources[@]}" | sort -u)); unset IFS
 fi

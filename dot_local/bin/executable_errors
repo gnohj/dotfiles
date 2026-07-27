@@ -151,7 +151,7 @@ if ((total == 0)); then
 fi
 
 if ((${#svc[@]})); then
-  printf '\n\033[1mSERVICE ERRORS\033[0m  \033[2mrecent errors in ~/.logs\033[0m\n'
+  printf '\n\033[1mSERVICE ERRORS\033[0m  \033[2mrecent errors in ~/.logs · daemon stderr · dead daemons\033[0m\n'
   for s in "${svc[@]}"; do printf '  \033[31m✗ %s\033[0m\n' "$s"; done
 fi
 print_bucket "FFF-ORPHANS" "orphaned nvim — each pins an fff.nvim LMDB reader slot" "${fff[@]}"
