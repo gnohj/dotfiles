@@ -404,6 +404,13 @@ customCommands:
     context: "global"
     subprocess: yes
 
+  # Overrides the built-in push: web's pre-push hook typechecks/lints/tests affected files, which stalls for minutes on a cold cache (CI re-runs it anyway).
+  - key: "P"
+    description: "Push and bypass hooks"
+    command: "HUSKY=0 git push --no-verify"
+    context: "global"
+    subprocess: yes
+
   # <c-e> (Emoji), not <c-a>: <c-a> is herdr's prefix, so it never reaches
   # lazygit inside a herdr pane. Trigger with LEFT ctrl (;-hold layer) — skhd's
   # rctrl-e (tmux-dash focus) is RIGHT-ctrl only, so left-ctrl+e is clear.
