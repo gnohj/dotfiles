@@ -32,6 +32,8 @@ command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 # nothing to move to row two - and herdr truncates it if the row runs out. Pure prefix
 # expansion (no arrays / negative indices), so it stays bash-3.2 safe on macOS.
 #
+# herdr-sesh.sh (derive_name) mirrors this rule and re-expands the tail - keep the two in sync.
+#
 # A type glyph is prepended to the derived name so the sidebar reads its kind at a
 # glance: 🌳 linked git worktree, 🌿 plain git repo (a branch checkout), 📁 non-git
 # dir. Detection is nesting-safe (rev-parse, not a .git probe): a linked worktree's
