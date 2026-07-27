@@ -170,8 +170,7 @@ EOF
   #                 agent that fired — even minutes later, even with multiple
   #                 agents in the session. Resolve its live session for the switch.
   #   <session>   — a bare session (worktree deferred-create banner, or older
-  #                 state). We ask tmux-dash for its agent pane at press time
-  #                 (fresh, so no drift).
+  #                 state). Switches to the session, landing on its current pane.
   # PANE = the pane to focus (id or index target); SESSION = its session.
   # HANDLED skips the tmux block without exiting; the tail still clears banners.
   HANDLED=""
@@ -204,12 +203,6 @@ EOF
   # hook fire on the user's tmux while they're not switching.
   if [ -n "$WORKTREE_PATH" ] && ! tmux has-session -t "$SESSION" 2>/dev/null; then
     tmux new-session -d -s "$SESSION" -c "$WORKTREE_PATH" 2>/dev/null || true
-  fi
-
-  # Bare session → resolve its agent pane now, fresh from tmux-dash (no drift).
-  if [ -z "$PANE" ] && [ -n "$SESSION" ]; then
-    PANE=$("$HOME/.local/bin/tmux-dash" json 2>/dev/null \
-      | jq -r --arg s "$SESSION" 'first(.sessions[] | select(.tmux_session == $s) | .pane_target) // empty' 2>/dev/null)
   fi
 
   # Focus the EXACT agent pane before switching. select-window sets the current

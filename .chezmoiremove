@@ -1,4 +1,17 @@
-# Old "agent-sidebar" dashboard — superseded by the tmux-dash binary.
+# tmux-dash retired (herdr is the dashboard now) — the cargo-installed binary was never chezmoi-managed, so sweep it here.
+.local/bin/tmux-dash
+.config/tmux-dash
+.config/tmux/sesh-agent-rows.py
+.local/bin/mux/tmux/tmux-dash-next-input.sh
+.config/skhd/sesh-new-picker.sh
+.config/skhd/mux-passthrough.sh
+# Unmanaged leftovers that fed it; all had already lost their last caller.
+.config/sketchybar/items/widgets/tmux-dash_notification.sh
+.config/sketchybar/items/widgets/tmux-dash_notification.lua
+.config/tmux/generate-status-right.sh
+.config/skhd/launcher-switcher.sh
+
+# Old "agent-sidebar" dashboard — superseded by the later dashboard work, now all retired.
 # These targets were dropped from the source; remove their deployed copies.
 .local/bin/agent-sidebar
 .local/bin/agent-sidebar-launch
@@ -62,7 +75,7 @@
 .local/bin/mux/shared/worktree-list
 .local/bin/wtsync
 
-# Superseded by `tmux-dash json --dirty --clean`, which the dirty() zsh function now reads; the sketchybar widget that shared it is gone.
+# Superseded by the dirty() zsh function's own repo scan; the sketchybar widget that shared it is gone.
 .local/bin/dirty-repo-status
 # The widget itself: source is gone and items/widgets/init.lua no longer requires it, but the applied files linger.
 .config/sketchybar/items/widgets/dirty_repos_notification.lua

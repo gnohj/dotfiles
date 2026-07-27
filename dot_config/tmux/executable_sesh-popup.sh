@@ -7,13 +7,12 @@
 # defined once and can't drift:
 #   (default)    full picker — every sesh source incl. active sessions, with
 #                source-switching binds (ctrl-a/t/g/x/f) and kill (ctrl-d).
-#                Callers: skhd rctrl-t wrapper (sesh-switcher.sh) and the tmux
+#                Callers: the ctrl-t wrapper (sesh-switcher.sh) and the tmux
 #                status-line click (tmux.conf MouseDown1Status), both 28%x40%.
 #   --new-only   config+zoxide entries WITHOUT an active tmux session — places
 #                to start a NEW session. Plain list, no source binds (a reload
 #                would break the mode's invariant by pulling unfiltered
-#                sources back in). Caller: tmux-dash "new session → sesh" via
-#                the sesh-new-picker.sh adapter, 45%x65%.
+#                sources back in), 45%x65%.
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
