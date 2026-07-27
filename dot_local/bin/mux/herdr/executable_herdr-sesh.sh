@@ -305,7 +305,7 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     used = dwidth(lab) + (sw + 1 if sw else 0)
     nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    # Field 1 (plain name) is inert today: --nth applies to the --with-nth=2 transform, not raw fields. Field 3 stays last for fzf {-1}.
+    # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 stays last for fzf {-1}.
     rows.append(name + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
     if kind == "ws":
         rows.extend(agent_rows(target[3:]))
@@ -348,7 +348,8 @@ case "${1:-}" in
       cp "$ROWS" "$VIEW"
       POS=1
     else
-      POS=$(fzf --ansi --delimiter='\t' --with-nth=2 --nth=1 --no-sort --filter="$Q" <"$ROWS" \
+      # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
+      POS=$(fzf --ansi --delimiter='\t' --nth=1 --no-sort --filter="$Q" <"$ROWS" \
         | ROWS="$ROWS" VIEW="$VIEW" python3 -c '
 import os, sys
 sel = {l.rsplit("\t", 1)[-1] for l in sys.stdin.read().splitlines() if l}
