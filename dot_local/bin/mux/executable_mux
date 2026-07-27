@@ -21,7 +21,7 @@ mux — multiplexer operations against whichever of herdr/tmux is live.
 
   mux kind                                 herdr | tmux | none
   mux session-label                        workspace/session name, emoji stripped
-  mux window [OPTS] <name> <cwd> <cmd>     open a command in a new window/tab
+  mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
   mux notify [OPTS] <message>              transient message
   mux popup  [OPTS] <script-path>          run a script modally
   mux help
@@ -29,6 +29,8 @@ mux — multiplexer operations against whichever of herdr/tmux is live.
 window options:
   --print-pane        print the new pane id (for HUNK_PANE capture)
   --env KEY=VALUE     set an env var in the new window (repeatable)
+  --workspace ID      override the target herdr workspace / tmux session;
+                      defaults to the one this process was invoked from
   --popup             prefer a modal popup; herdr has no popup CLI, so it
                       falls back to a normal focused tab
   --popup-size WxH    popup size, tmux only (default 80%x90%)
@@ -56,15 +58,34 @@ cmd_session_label() {
   esac
 }
 
+# Where this process was SPAWNED, from the pane env: frozen, so it survives a detached delay.
+origin_workspace() {
+  case "$(cmd_kind)" in
+    herdr) printf '%s' "${HERDR_WORKSPACE_ID:-}" ;;
+    tmux)
+      [ -n "${TMUX_PANE:-}" ] || return 0
+      tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || true
+      ;;
+  esac
+}
+
+# herdr only; empty under tmux, where focus never crosses sessions.
+focused_workspace() {
+  command -v jq >/dev/null 2>&1 || return 0
+  "$herdr" workspace list 2>/dev/null |
+    jq -r 'first(.result.workspaces[]? | select(.focused == true) | .workspace_id) // empty' 2>/dev/null
+}
+
 # tmux runs the command AS the window process so it closes on exit; herdr spawns a
 # persistent shell, so "; exit" is appended to match that close-on-exit contract.
 cmd_window() {
-  local print_pane="" popup="" popup_size="80%x90%" envs=() e
+  local print_pane="" popup="" popup_size="80%x90%" ws="" envs=() e
   while [ $# -gt 0 ]; do
     case "$1" in
       --print-pane) print_pane=1; shift ;;
       --popup)      popup=1; shift ;;
       --popup-size) popup_size="$2"; shift 2 ;;
+      --workspace)  ws="$2"; shift 2 ;;
       --env)        envs+=("$2"); shift 2 ;;
       --)           shift; break ;;
       -*)           die "window: unknown option $1" 2 ;;
@@ -75,11 +96,24 @@ cmd_window() {
   local cwd="${2:?mux window: missing <cwd>}"
   local command="${3:?mux window: missing <command>}"
   cwd="${cwd/#\~/$HOME}"
+  # Pinned to the spawning workspace, so a switch during a detached caller's setup cannot misplace the tab.
+  [ -n "$ws" ] || ws="$(origin_workspace)"
 
   case "$(cmd_kind)" in
     herdr)
       need_jq
-      local args=(tab create --cwd "$cwd" --label "$name" --focus)
+      local args=(tab create --cwd "$cwd" --label "$name")
+      # An unresolvable origin (daemon, quake, stripped env) falls back to the active workspace.
+      if [ -n "$ws" ]; then
+        args+=(--workspace "$ws")
+        if [ "$ws" = "$(focused_workspace)" ]; then
+          args+=(--focus)
+        else
+          args+=(--no-focus)
+        fi
+      else
+        args+=(--focus)
+      fi
       for e in "${envs[@]:-}"; do [ -n "$e" ] && args+=(--env "$e"); done
       local out pane tab_id num
       out="$("$herdr" "${args[@]}" 2>/dev/null)"
@@ -100,7 +134,9 @@ cmd_window() {
         tmux display-popup -d "$cwd" -w "${popup_size%x*}" -h "${popup_size#*x}" -E "$command"
         return 0
       fi
+      # Session-scoped: appends at the next free index, and only yanks a client already attached there.
       local targs=(new-window -n "$name" -c "$cwd")
+      [ -n "$ws" ] && targs+=(-t "$ws:")
       [ -n "$print_pane" ] && targs+=(-P -F '#{pane_id}')
       for e in "${envs[@]:-}"; do [ -n "$e" ] && targs+=(-e "$e"); done
       targs+=("$command")
