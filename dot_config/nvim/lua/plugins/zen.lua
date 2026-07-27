@@ -134,19 +134,16 @@ local function herdr_bin()
   return "herdr"
 end
 
--- True when a dashboard sidebar is claiming horizontal space, so centering the
+-- True when herdr's sidebar is claiming horizontal space, so centering the
 -- editor on top of the reduced viewport just wastes the columns next to the
--- sidebar and zen should skip centering. Two multiplexers, two signals:
---   tmux-dash sets the global `@dash` option on its server while running.
---   herdr reserves a left column band for its sidebar; `api snapshot` then
---   reports every tab layout's `area.x > 0` (x is 0 when the sidebar is hidden).
--- herdr is checked first because it also runs inside the `th` tmux wrapper, so
--- TMUX is set too (same herdr-wins precedence as mux.lua).
+-- sidebar and zen should skip centering. herdr reserves a left column band for
+-- it; `api snapshot` then reports every tab layout's `area.x > 0` (x is 0 when
+-- the sidebar is hidden).
 --
--- Cached, since it's read on every width recompute. Both markers only change on
--- a viewport resize (dashboard attach/detach, herdr `prefix+shift+b` sidebar
--- toggle), which fires VimResized — so the cache invalidates there (see
--- config()), keeping detection live.
+-- Cached, since it's read on every width recompute. The marker only changes on
+-- a viewport resize (herdr `prefix+shift+b` sidebar toggle), which fires
+-- VimResized — so the cache invalidates there (see config()), keeping detection
+-- live.
 local dash_sidebar_cache = nil
 local function in_dash_sidebar()
   if dash_sidebar_cache ~= nil then
@@ -167,9 +164,6 @@ local function in_dash_sidebar()
         end
       end
     end
-  elseif vim.env.TMUX and vim.env.TMUX ~= "" then
-    local out = vim.fn.system({ "tmux", "show-option", "-gv", "@dash" })
-    result = vim.v.shell_error == 0 and vim.trim(out) == "1"
   end
   dash_sidebar_cache = result
   return result
@@ -367,9 +361,8 @@ return {
 
     local group = vim.api.nvim_create_augroup("ZenNvimFixes", { clear = true })
 
-    -- Invalidate the dash-sidebar detection cache when the client resizes: a
-    -- tmux-dash attach/detach (@dash marker) or a herdr sidebar toggle (area.x
-    -- shift) both change the viewport width and thus fire VimResized.
+    -- Invalidate the sidebar detection cache when the client resizes: a herdr
+    -- sidebar toggle (area.x shift) changes the viewport width and fires VimResized.
     vim.api.nvim_create_autocmd("VimResized", {
       group = group,
       callback = function()

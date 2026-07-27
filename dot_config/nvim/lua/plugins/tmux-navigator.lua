@@ -26,8 +26,7 @@ return {
     keys = {
       -- Left is special: at nvim's leftmost split, defer to tmux instead of
       -- christoomey's default `select-pane -L` (which wraps at the edge). Move to
-      -- the tmux pane on the left; at the true leftmost pane this is a no-op. The
-      -- tmux-dash sidebar is reached only via C-e, never C-h.
+      -- the tmux pane on the left; at the true leftmost pane this is a no-op.
       {
         "<c-h>",
         function()

@@ -10,7 +10,7 @@ local M = {}
 -- work (~/Developer/second-brain-work). Symlinks resolved so all path forms match.
 function M.vault_root()
   -- Defer to the `vault-path` helper — the SINGLE source of truth shared with the
-  -- shell/tmux-dash tooling: inside a vault → that vault; a work repo (per the
+  -- shell/mux tooling: inside a vault → that vault; a work repo (per the
   -- ~/.config/work-repos.txt whitelist) → work vault; else personal. Prefer the
   -- current buffer's dir (per-note ops like backlinks/image-paste), else cwd — so
   -- creating a note while editing code in a work repo lands in the WORK vault.
