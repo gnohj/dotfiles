@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # herdr-git-status.sh — feed each open herdr workspace's working-tree status to the
 # sidebar `$git` token, using the SAME gitmux.yml as the tmux status line + the
-# ctrl+t picker. herdr's own git model is branch-only (no dirty/ahead/behind — see
-# `herdr api schema`), so its built-in `git_status` token renders nothing; this
-# poller supplies the signs via `herdr workspace report-metadata --token git=…`.
+# ctrl+t picker. herdr's built-in `git_status` token carries no working-tree signs - it
+# renders only ahead/behind from herdr's internal model (src/ui/sidebar.rs formats "↑2 ↓1";
+# neither number reaches `herdr api schema`, which is what the old note here mistook for the
+# token being empty). This poller supplies the dirty glyph via
+# `herdr workspace report-metadata --token git=…`.
 # The `$git` row is wired in dot_config/herdr/config.toml ([ui.sidebar.spaces]).
 #
 # The same pass also writes the ctrl+t picker's status cache (herdr_gitmux.update),
@@ -17,9 +19,18 @@
 #
 # Everything runs through the herdr CLI (socket API), so it works local AND over
 # `herdr --remote` — the poller lives on whichever host runs the herdr server, the
-# same host the repos live on. gitmux SYMBOLS only (the branch is dropped: herdr
-# already shows it on its own sidebar line); tmux "#[…]" color codes are stripped
-# since a metadata token renders as plain theme-colored text.
+# same host the repos live on. gitmux SYMBOLS only (its branch field is dropped - it carries a
+# glyph and its own coloring, and `$br` below asks git directly); tmux "#[…]" color codes are
+# stripped since a metadata token renders as plain theme-colored text.
+#
+# The same pass feeds `$br`/`$br_on`, the sidebar's second row. These REPLACE herdr's built-in
+# `branch` token, which can only render the branch verbatim: a ticket worktree already spells
+# its key out on row 1, so row 2 carries the branch with that key stripped
+# (IHRWEB-24314-listen-endpoint -> listen-endpoint). Two tokens rather than one because a
+# custom token takes a single unconditional fg, losing the mauve/overlay0 focus split the
+# built-in gets for free (skills/herdr-upgrade/watchlist.md item 2). Exactly one of the pair
+# ever holds the text: herdr-focus-tracker.py::paint_branch moves it on workspace.focused, and
+# this pass picks the same slot from `focused` so an 8s poll never drags the accent back.
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
@@ -42,7 +53,7 @@ refresh_once() {
   command -v python3 >/dev/null 2>&1 || return 0
   command -v gitmux >/dev/null 2>&1 || return 0
   GITMUX_CFG="$GITMUX_CFG" SCRIPTS_DIR="$SCRIPTS_DIR" python3 - <<'PY'
-import os, json, subprocess, sys, time
+import os, json, re, subprocess, sys, time
 
 sys.dont_write_bytecode = True             # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
@@ -68,10 +79,32 @@ def out(args, cwd=None):
     except Exception:
         return ""
 
+# Ticket key stripped off the front, because row 1 of the sidebar already ends in it
+# (herdr-sesh-layout.sh labels a bucketed ticket worktree web/infra/IHRWEB-24314). master,
+# untick/foo and every other unprefixed branch pass through whole. Detached HEAD has no branch
+# name, so it falls back to the short sha rather than leaving the row blank.
+TICKET_PREFIX = re.compile(r"^[A-Z]+-[0-9]+-")
+
+def branch(cwd):
+    name = out(["git", "-C", cwd, "branch", "--show-current"]).strip()
+    if not name:
+        return out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    return TICKET_PREFIX.sub("", name) or name
+
 try:
     panes = json.loads(out([HERDR, "pane", "list"]))
 except Exception:
     sys.exit(0)
+
+# Which space is active decides whether the branch goes in `$br` (dim) or `$br_on` (accent).
+# The swap itself is herdr-focus-tracker.py's job, event-driven off workspace.focused; this
+# pass only has to agree with it, or every poll would drag the accent back to the wrong space.
+try:
+    focused = {w["workspace_id"] for w in
+               json.loads(out([HERDR, "workspace", "list"]))["result"]["workspaces"]
+               if w.get("focused")}
+except Exception:
+    focused = set()
 
 ws_cwd = {}
 for p in panes.get("result", {}).get("panes", []):
@@ -96,11 +129,16 @@ for w, c in ws_cwd.items():
     # Same gitmux run feeds the ctrl+t picker's cache, so its column can't disagree
     # with this token. roots_only is moot here: a workspace cwd is asked either way.
     picker[c] = hg.entry(spairs, now)
-    base = [HERDR, "workspace", "report-metadata", w, "--source", "gitmux", "--seq", seq]
-    if sym:
-        subprocess.run(base + ["--ttl-ms", TTL, "--token", "git=" + sym], capture_output=True)
-    else:
-        subprocess.run(base + ["--clear-token", "git"], capture_output=True)
+    # ONE call for all three tokens, not one per token: a second report from the same --source
+    # carrying the same --seq is dropped as not-newer, so split calls silently lost whichever
+    # went second. --token and --clear-token are both repeatable and mix freely.
+    args = [HERDR, "workspace", "report-metadata", w, "--source", "gitmux", "--seq", seq,
+            "--ttl-ms", TTL]
+    br = branch(c)
+    lit = w in focused
+    for name, value in (("git", sym), ("br", "" if lit else br), ("br_on", br if lit else "")):
+        args += ["--token", name + "=" + value] if value else ["--clear-token", name]
+    subprocess.run(args, capture_output=True)
 
 hg.update(picker)
 PY

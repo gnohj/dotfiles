@@ -48,6 +48,11 @@ NUMBERED_LABEL = re.compile(r"^(\d+)\.(.*)$", re.DOTALL)
 AUTO_LABEL = re.compile(r"^\d+$")
 DEFAULT_TAB_TEXT = "\U0001f41f"
 
+# Both kept in step with herdr-git-status.sh, the other writer of these two tokens - see
+# paint_branch. TTL outlives a couple of that poller's missed passes, same as its own.
+BRANCH_SOURCE = "gitmux"
+BRANCH_TTL_MS = 38000
+
 
 def request(method, params):
     """One-shot socket RPC on its own connection; the subscribe stream stays read-only."""
@@ -128,6 +133,50 @@ def renumber_tabs(typed=None):
                 request("tab.rename", {"tab_id": tab["tab_id"], "label": desired})
 
 
+def paint_branch():
+    """Move the sidebar branch text between `$br` (dim) and `$br_on` (accent) by focus.
+
+    herdr paints its BUILT-IN tokens differently on the active space and the rest - `branch`
+    gets mauve when selected/active and overlay0 otherwise (src/ui/sidebar.rs::branch_style) -
+    but a custom `$token` takes one flat inline `fg` and nothing else; fg_active/fg_inactive/
+    fg_focused/dim_inactive/fg_dim are all TOML parse errors on 0.7.5 (skills/herdr-upgrade/
+    watchlist.md item 2). Row 2 has to be custom, because the built-in can only render the
+    branch verbatim and this sidebar wants the ticket key stripped off it. So the two-tone is
+    rebuilt here: TWO tokens in that row, each a fixed color, exactly one ever holding the
+    text. An empty token renders nothing at all - no stray " · " - so the row reads as one word.
+
+    `source` MUST match the one herdr-git-status.sh reports with: a token can only be cleared
+    by the source that set it, so a second source here would leave both halves lit at once.
+    That poller writes the branch VALUE (and picks the same slot from `focused`, so its pass
+    never undoes this); this pass only ever moves an existing value, which is why it needs no
+    git and no herdr binary - `workspace.report_metadata` is a socket method like the rest.
+
+    Reconciles every workspace rather than diffing the focus change: it is one `workspace.list`
+    plus a write only where the slot is actually wrong (two, on a normal focus change), and it
+    self-heals a workspace left mispainted while the daemon was down.
+    """
+    reply = request("workspace.list", {})
+    if not reply or "result" not in reply:
+        return
+    for ws in reply["result"].get("workspaces", []):
+        tokens = ws.get("tokens") or {}
+        dim, lit = tokens.get("br") or "", tokens.get("br_on") or ""
+        value = lit or dim
+        if not value:
+            continue
+        want_lit = value if ws.get("focused") else ""
+        want_dim = "" if ws.get("focused") else value
+        if (dim, lit) == (want_dim, want_lit):
+            continue
+        request("workspace.report_metadata", {
+            "seq": time.time_ns(),
+            "source": BRANCH_SOURCE,
+            "tokens": {"br": want_dim or None, "br_on": want_lit or None},
+            "ttl_ms": BRANCH_TTL_MS,
+            "workspace_id": ws["workspace_id"],
+        })
+
+
 def write_atomic(path, value):
     tmp = f"{path}.tmp"
     with open(tmp, "w") as f:
@@ -205,6 +254,7 @@ class MRU:
 def handle(mru, msg):
     event = msg.get("event")
     data = msg.get("data") or {}
+    was_ws = mru.cur_ws
     if event == "workspace_focused":
         mru.focus_ws(data.get("workspace_id"))
     elif event == "tab_focused":
@@ -236,6 +286,11 @@ def handle(mru, msg):
         renumber_tabs()
     else:
         return False
+    # Only when the ACTIVE space actually moved: within-tab pane hops fire constantly and
+    # cannot change which space is lit. The two early `return False` paths above are all
+    # tab-label events, which never move focus, so they need no repaint.
+    if mru.cur_ws != was_ws:
+        paint_branch()
     return True
 
 
@@ -251,6 +306,9 @@ def session(mru):
     # Reconcile once per connect: events only cover drift from now on, so a tab closed
     # while the daemon was down (restart, `chezmoi apply`, herdr restart) stays wrong forever.
     renumber_tabs()
+    # Same reason for the branch row: focus can move while this daemon is down, which leaves
+    # the accent stuck on whichever space was lit at the time.
+    paint_branch()
     with conn.makefile("rb") as stream:
         for raw in stream:
             raw = raw.strip()

@@ -2329,9 +2329,14 @@ generate_herdr_config() {
   local herdr_source_tmpl="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml.tmpl"
   # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
   # $sb (note badge) takes gnohj_color05 so it reads apart from the $pr/$jira pair it sits between.
+  # Row 2 is the $br/$br_on pair (branch minus its ticket key, fed by herdr-git-status.sh) plus
+  # $git; see the comment above [ui.sidebar.spaces] in config.toml.tmpl for why it is not the
+  # built-in `branch`. Both halves need an explicit fg or they fall back to the `blue` theme
+  # token (the green $git sign color). Dim is overlay0, lit is what mauve paints the built-in
+  # with - hardcoded here for the same reason mauve is hardcoded below.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], ["branch"], [{ token = "$git", fg = "%s" }, { token = "$pr", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
-    "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color03" "$gnohj_color46")"
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "#c2f0db" }, { token = "$git", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color03" "$gnohj_color46")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
   local herdr_agent_rows herdr_claude_rows
@@ -2364,7 +2369,9 @@ overlay1 = "$gnohj_color46"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
 # isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
 # it does NOT reach the pane-title, state_text or \$act rows, so those cannot vary by
-# active state at all. subtext0 = inactive rows, mauve = active space's branch line.
+# active state at all. subtext0 = inactive rows. mauve = the active/selected space's branch
+# line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
+# pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
 # Shared by the spaces AND agents sections, so none of them can be set per-panel.
 # text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
 # longer differs in COLOR from the inactive ones - the active cue is the surface_dim row

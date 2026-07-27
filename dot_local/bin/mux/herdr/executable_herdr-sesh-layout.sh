@@ -18,13 +18,17 @@ command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 [ -d "$dir" ] || { echo "not a directory: $dir"; exit 1; }
 
 # Workspace label: the shared sidebar naming rule (session_display_name ->
-# cwd_logical_path -> shorten_segments). The name is DIRECTORY-derived, home-relative:
-#   ~/Developer/<repo>/<worktree>        -> "<repo>/<worktree>"  (web/master, web/review)
-#   ~/Developer/<repo>/<bucket>/<branch> -> "<branch>"           (bucket in fix|feat|ui|…)
-#   ~/<other>/…/<leaf>  (>=3 segments)   -> "<leaf>"
-#   anything else                        -> basename
-# herdr still shows the real git branch on its own second sidebar line, so a review
-# worktree checked out on _master reads "web/review" over "_master". Pure prefix
+# cwd_logical_path -> shorten_segments). The name is DIRECTORY-derived and home-relative:
+#   ~/Developer/<repo>/<worktree>          -> "<repo>/<worktree>"      (web/master, web/review)
+#   ~/Developer/<repo>/<bucket>/<TICKET-…> -> "<repo>/<bucket>/<KEY>"  (web/infra/IHRWEB-24314)
+#   ~/Developer/<repo>/<bucket>/<branch>   -> "<repo>/<bucket>/<branch>"
+#   ~/<other>/…/<leaf>  (>=3 segments)     -> "<leaf>"
+#   anything else                          -> basename
+# The third segment collapses to its ticket KEY when it has one, because the descriptive tail
+# is already the sidebar's second row ($br, which strips that same key off the branch). Split
+# that way each row carries something the other doesn't, instead of both spelling out
+# IHRWEB-24314-listen-endpoint. A branch dir with no ticket key is kept whole - there is
+# nothing to move to row two - and herdr truncates it if the row runs out. Pure prefix
 # expansion (no arrays / negative indices), so it stays bash-3.2 safe on macOS.
 #
 # A type glyph is prepended to the derived name so the sidebar reads its kind at a
@@ -42,12 +46,13 @@ if [ -z "$label" ]; then
       s2="${rest%%/*}"
       after2="${rest#"$s2"}"; after2="${after2#/}"
       s3="${after2%%/*}"
-      case "$s2" in
-        fix|feat|ui|infra|refactor|perf|test|chore|spike|orch|work)
-          [ -n "$s3" ] && label="$s3" || label="$s1${s2:+/$s2}" ;;
-        *)
-          label="$s1${s2:+/$s2}" ;;
-      esac
+      # grep, not [[ =~ ]], to stay bash-3.2 safe like the rest of this block. Key shape
+      # [A-Z]+-[0-9]+ is the same one launcher.sh and worktree already parse out of branches.
+      if [ -n "$s3" ]; then
+        key=$(printf '%s' "$s3" | grep -oE '^[A-Z]+-[0-9]+' | head -n1)
+        s3="${key:-$s3}"
+      fi
+      label="$s1${s2:+/$s2}${s3:+/$s3}"
       ;;
     "$HOME"/*)
       rel="${dir#"$HOME"/}"; rel="${rel%/}"
@@ -101,7 +106,7 @@ pen=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
 tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 [ -n "$ws" ] && [ -n "$pen" ] || { echo "workspace create failed"; exit 1; }
 
-# Ensure the git-status poller is running (it feeds the sidebar `$git` token) and do
+# Ensure the git-status poller is running (it feeds the sidebar `$git` and `$br` tokens) and do
 # an immediate pass so the new workspace's working-tree signs show without waiting for
 # the next poll cycle. Detached so it never blocks this script or dies with it.
 ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
