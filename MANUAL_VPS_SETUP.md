@@ -86,6 +86,22 @@ claude   # once, for OAuth   |   codex   # once   |   gemini   # once
 
 `gh auth login` uses a scoped token stored by `gh` — do NOT restore your Bitwarden `id_ed25519` here (§Security 4).
 
+## 5b. Scoped secrets → `~/.zsh_gnohj_env.local`
+
+The VPS deliberately skips Bitwarden, so nothing populates secrets automatically here. `run_onchange_after_bitwarden.sh.tmpl` exits early when `rbw` is absent, which means `~/.zsh_gnohj_env.secrets` is never generated on this box (§Security 4). Per-machine secrets go in `~/.zsh_gnohj_env.local` instead - gitignored, and sourced at the end of `~/.zsh_gnohj_env`.
+
+Create it, then add one `export NAME="value"` line per token, reading each value on the **Mac** with `rbw get <NAME>`:
+
+```
+touch ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
+```
+
+`dot_config/bitwarden/vars.txt` is the canonical list; copy only the **scoped subset** this box actually needs, never the whole vault. At minimum that has been: `CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `GPR_AUTH_TOKEN`, `JIRA_API_TOKEN`, `OPENAI_API_KEY`, `TURBO_TOKEN`.
+
+**`TURBO_TOKEN` is easy to miss and expensive to omit.** Without it turbo has no remote cache, so every task is a cold miss - the web repo's `pre-push` hook (typecheck + lint + test via turbo) then takes minutes instead of seconds. It is a single unnamespaced secret shared by both repos, unlike `FASTLY_API_TOKEN` / `INFERNO_FASTLY_API_TOKEN`, so one line covers web and inferno. Only the token belongs here: `web/turbo.json` already sets `remoteCache.teamSlug` and `inferno/.envrc` already sets `TURBO_TEAM`.
+
+Reload with `source ~/.zshrc`.
+
 ## 6. agent-tmux-web (security-sensitive — go slow)
 
 **One command** (chezmoi drops the installer on the box): `install-agent-tmux-web.sh <PINNED-AUDITED-SHA>` — it clones+pins+builds, writes the `chmod 600` token `.env` (HOST=127.0.0.1), installs the user systemd unit + linger, and runs `tailscale serve` — and it never prints the token to logs. **Read the server source first** (`src/server/index.ts` + `tmux.ts`) before trusting a SHA.
@@ -178,6 +194,7 @@ A Chrome version JSON means the whole chain is live: forced-command SSH to the M
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
 - [ ] on PATH: `treehouse treekanga no-mistakes atuin claude codex gemini`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
+- [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)
 - [ ] `systemctl --user status agent-tmux-web` active; phone loads the PWA
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives
 - [ ] **No service bound to `0.0.0.0`**; public port 22 closed; `.env` is `chmod 600`
