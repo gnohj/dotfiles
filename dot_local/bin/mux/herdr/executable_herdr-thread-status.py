@@ -28,10 +28,20 @@ resolver's call, not this poller's. It needs no network, so it sits outside the 
 and renders on a box with no gh at all, and where a thread file owns the workspace the path is
 mirrored into its `vault_note` field — a cache for sb-ticket-log that nothing else ever wrote.
 
-Slow on purpose. Two `gh` calls per workspace are network round-trips and count against the
-API rate limit, so the default interval is minutes, not the seconds $git runs at. Both calls
+Slow on purpose. The `gh` call per workspace is a network round-trip and counts against the
+API rate limit, so the default interval is minutes, not the seconds $git runs at. The call
 failing (offline, not a gh repo, `gh auth` never run) leaves the PR fields UNTOUCHED, so a
 transient error can never clobber good state.
+
+CI rides on that ONE call, via the PR's statusCheckRollup. It used to be a second call to
+`gh run list`, which reads the Actions REST endpoint, and GitHub rate-limits that endpoint
+per-repo far below the core quota: a big monorepo 403s there while `gh api rate_limit` still
+reports ~4900/5000 core remaining. That failure mode was invisible, since the PR half kept
+succeeding, so `pr_last_checked` stayed fresh while `ci_status` silently froze at whatever
+the last un-limited pass saw. The rollup is already scoped to the PR's head commit, so it
+also needs none of the newest-headSha filtering the old query hand-rolled. Its entries are
+CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ matches both
+shapes. Cost: a branch with no open PR now shows no CI, since the rollup hangs off the PR.
 
 Two zones, always both, `<approvals> │ <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
 ⧗ running, ✗ failure, ✓ success, – none. The vocabularies are disjoint so no glyph means two
@@ -61,7 +71,7 @@ sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
 # Minutes, not seconds: every pass is 2 network calls per workspace against a rate limit.
-INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "300"))
+INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
@@ -78,18 +88,16 @@ VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
 # nf-md-note_text (tmux-dash's badge glyph); Material Design shares the sidebar's grid, nf-fa draws larger.
 NOTE_GLYPH = "\U000f039e"
 
-# PR: newest open PR for the branch -> "<url>\t<approved review count>", or "" for none.
+# Newest open PR -> "<url>\t<approved reviews>\t<ci state>", or "" for none.
 PR_JQ = (
     '.[0] | if . == null then "" else .url + "\\t" '
-    '+ ([.latestReviews[] | select(.state == "APPROVED")] | length | tostring) end'
-)
-# CI: only the runs for the NEWEST headSha — an older green sha must never mask a red one.
-CI_JQ = (
-    '(map(.headSha) | first) as $sha | map(select(.headSha == $sha)) '
-    '| if length == 0 then empty '
-    'elif map(select(.status == "in_progress" or .status == "queued")) | length > 0 then "running" '
-    'elif map(select(.conclusion == "failure" or .conclusion == "timed_out" '
-    'or .conclusion == "cancelled")) | length > 0 then "failure" else "success" end'
+    '+ ([.latestReviews[] | select(.state == "APPROVED")] | length | tostring) + "\\t" '
+    '+ ((.statusCheckRollup // []) | if length == 0 then "" '
+    'elif map(select(.status == "IN_PROGRESS" or .status == "QUEUED" '
+    'or .state == "PENDING")) | length > 0 then "running" '
+    'elif map(select(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT" '
+    'or .conclusion == "CANCELLED" or .state == "FAILURE" or .state == "ERROR")) '
+    '| length > 0 then "failure" else "success" end) end'
 )
 
 # Disjoint vocabularies: ● is approvals-complete, ✓ is CI-green, never the reverse.
@@ -234,27 +242,21 @@ def create_thread(cwd, branch):
 
 
 def fetch(branch, worktree):
-    """(pr_url, approvals, ci_status) from gh, each None when its call gave nothing."""
+    """(pr_url, approvals, ci_status, reached) from one gh call; None where it gave nothing."""
     pr = out(
         ["gh", "pr", "list", "--head", branch, "--state", "open",
-         "--json", "url,latestReviews", "--jq", PR_JQ],
+         "--json", "url,latestReviews,statusCheckRollup", "--jq", PR_JQ],
         cwd=worktree,
     )
-    ci = out(
-        ["gh", "run", "list", "--branch", branch, "--limit", "20",
-         "--json", "headSha,status,conclusion", "--jq", CI_JQ],
-        cwd=worktree,
-    )
-    url, approvals = None, None
-    if pr is not None:
-        if pr:
-            parts = pr.split("\t", 1)
-            url = parts[0] or None
-            if len(parts) > 1 and parts[1].isdigit():
-                approvals = int(parts[1])
-        else:
-            url, approvals = "", None  # "" = checked, no open PR (distinct from "not checked")
-    return url, approvals, ci, (pr is not None or ci is not None)
+    if pr is None:
+        return None, None, None, False
+    if not pr:
+        # "" = checked, no open PR (distinct from "not checked"), and no PR means no CI to show.
+        return "", None, "", True
+    parts = pr.split("\t")
+    url = parts[0] or None
+    approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+    return url, approvals, parts[2] if len(parts) > 2 else "", True
 
 
 def persist(path, data, url, approvals, ci, note):
