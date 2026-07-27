@@ -42,7 +42,6 @@ no jq — so systemd's minimal env and a bare VPS python3 are enough.
   herdr-agent-activity.py --once    one pass over every agent, then exit (smoke test)
 """
 import calendar
-import glob
 import json
 import os
 import socket
@@ -52,7 +51,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     import herdr_agent_stores as stores
-except ImportError:  # sibling absent: pi/opencode ages degrade, claude is unaffected
+except ImportError:  # sibling absent: every on-disk age degrades; a path-kind session still works
     stores = None
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
@@ -70,12 +69,7 @@ STATE_DIR = os.path.join(
 )
 ACTIVITY_STATE = os.path.join(STATE_DIR, "agent-activity.json")
 
-# Both config roots, so a work-account agent resolves the same as a personal one. Either
-# may be absent (the VPS has only ~/.claude); a missing root just never matches.
-ROOTS = [os.path.expanduser("~/.claude"), os.path.expanduser("~/.claude-work")]
 TAIL_BYTES = 65536
-
-_jsonl_cache = {}  # session id -> resolved transcript path
 
 
 def rpc(method, params):
@@ -97,39 +91,6 @@ def rpc(method, params):
         return None
     finally:
         conn.close()
-
-
-def project_slug(cwd):
-    """Claude Code's transcript directory name for a cwd: every /, . and _ becomes a dash,
-    so /Users/gnohj/.local/share/chezmoi -> -Users-gnohj--local-share-chezmoi."""
-    return cwd.replace("/", "-").replace(".", "-").replace("_", "-")
-
-
-def find_jsonl(session_id, cwd):
-    """Transcript path for a session id, cached. The cwd-derived slug is the fast path (one
-    stat); a session that has since changed directory won't be there, so fall back to a scan
-    for that id across every project dir and take the newest."""
-    cached = _jsonl_cache.get(session_id)
-    if cached and os.path.exists(cached):
-        return cached
-    for root in ROOTS:
-        direct = os.path.join(root, "projects", project_slug(cwd), f"{session_id}.jsonl")
-        if os.path.exists(direct):
-            _jsonl_cache[session_id] = direct
-            return direct
-    best = None
-    for root in ROOTS:
-        for candidate in glob.glob(os.path.join(root, "projects", "*", f"{session_id}.jsonl")):
-            try:
-                mtime = os.path.getmtime(candidate)
-            except OSError:
-                continue
-            if best is None or mtime > best[0]:
-                best = (mtime, candidate)
-    if best:
-        _jsonl_cache[session_id] = best[1]
-        return best[1]
-    return None
 
 
 def last_timestamp(path):
@@ -218,8 +179,8 @@ def report_all():
         if kind == "claude":
             if session.get("kind") == "path":
                 path = session.get("value")
-            elif session.get("kind") == "id" and session.get("value"):
-                path = find_jsonl(session["value"], cwd)
+            elif session.get("kind") == "id" and stores:
+                path = stores.claude_transcript(session.get("value"), cwd)
         elif kind == "pi":
             # pi stamps every transcript entry with the same ISO `timestamp` key claude uses,
             # so the tail reader applies unchanged; only finding the file differs.

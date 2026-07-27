@@ -1,11 +1,12 @@
-"""herdr_agent_stores — where pi and opencode keep their sessions, in one place.
+"""herdr_agent_stores — where claude, pi and opencode keep their sessions, in one place.
 
 Imported by herdr-pane-summary.py (which wants each session's TITLE) and by
-herdr-agent-activity.py (which wants its last-activity TIME). Neither agent puts a usable
-session title in its OSC terminal title, and opencode keeps no transcript to tail at all,
-so both daemons have to read the agents' own stores. What they share is not the queries -
-those differ - but the FACTS about where those stores live and how they are keyed. Those
-facts belong to pi and opencode, not to either daemon, so they get one owner here.
+herdr-agent-activity.py (which wants its last-activity TIME). Every one of them has to be
+read off disk for something: pi and opencode put no usable session title in their OSC
+terminal title, opencode keeps no transcript to tail at all, and claude's title is missing
+from its OSC exactly when it never named the session. What the daemons share is not the
+queries - those differ - but the FACTS about where those stores live and how they are keyed.
+Those facts belong to the agents, not to either daemon, so they get one owner here.
 
 Stdlib only, like both callers. Import it defensively:
 
@@ -14,10 +15,11 @@ Stdlib only, like both callers. Import it defensively:
     except ImportError:
         stores = None
 
-A missing module then costs only pi/opencode enrichment instead of crash-looping a daemon
-that otherwise still serves claude - the daemons are supervised with KeepAlive, so a hard
-import error would restart-loop and take working functionality down with it.
+A missing module then costs only the on-disk enrichment instead of crash-looping a daemon
+that still serves everything derived from the pane object - the daemons are supervised with
+KeepAlive, so a hard import error would restart-loop and take working functionality down.
 """
+import glob
 import os
 
 try:
@@ -32,6 +34,46 @@ OPENCODE_DB = os.path.join(
     os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
     "opencode", "opencode.db",
 )
+# Both claude config roots (the VPS has only ~/.claude); a missing root just never matches.
+CLAUDE_ROOTS = [os.path.expanduser("~/.claude"), os.path.expanduser("~/.claude-work")]
+
+_claude_transcripts = {}  # session id -> resolved transcript path
+
+
+def claude_project_slug(cwd):
+    """claude's transcript directory name for a cwd: every /, . and _ becomes a dash,
+    so /home/gnohj/.local/share/chezmoi -> -home-gnohj--local-share-chezmoi."""
+    return cwd.replace("/", "-").replace(".", "-").replace("_", "-")
+
+
+def claude_transcript(session_id, cwd):
+    """Transcript path for a claude session id, cached. The cwd-derived slug is the fast path
+    (one stat per root); a session that has since changed directory won't be there, so fall
+    back to a scan for that id across every project dir and take the newest."""
+    if not session_id:
+        return None
+    cached = _claude_transcripts.get(session_id)
+    if cached and os.path.exists(cached):
+        return cached
+    if cwd:
+        for root in CLAUDE_ROOTS:
+            direct = os.path.join(root, "projects", claude_project_slug(cwd), session_id + ".jsonl")
+            if os.path.exists(direct):
+                _claude_transcripts[session_id] = direct
+                return direct
+    best = None
+    for root in CLAUDE_ROOTS:
+        for candidate in glob.glob(os.path.join(root, "projects", "*", session_id + ".jsonl")):
+            try:
+                mtime = os.path.getmtime(candidate)
+            except OSError:
+                continue
+            if best is None or mtime > best[0]:
+                best = (mtime, candidate)
+    if best:
+        _claude_transcripts[session_id] = best[1]
+        return best[1]
+    return None
 
 
 def pi_session_dir(cwd):
