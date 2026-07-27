@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message> | to-desktop browser-debug
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
-# deploys it to every machine. Machine routing only — which multiplexer is live is `mux`'s question.
+# deploys it to every machine. Machine routing only - which multiplexer is live is `mux`'s question.
 #
 # Deliberately not named to-mac: the workstation is whichever machine is NOT relaying elsewhere, so a
 # future Linux desktop is a workstation too. `devbox` is the only relaying role machine-identity has.
+#
+# Direction is resolved per call by machine-identity. Transports: ssh forced-command, kitty rc, OSC 52.
 set -uo pipefail
 
 export PATH="$HOME/.local/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
@@ -32,7 +34,8 @@ osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"
 do_open() {
   case "$(uname -s)" in
     Darwin) open "$1" ;;
-    *) (xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
+    # BROWSER unset: it names desktop-open, which calls back here, so xdg-open honoring it would ping-pong.
+    *) (env -u BROWSER xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
   esac
 }
 
@@ -50,14 +53,73 @@ do_browser_debug() {
   open -na 'Google Chrome' --args --remote-debugging-port=9222 --user-data-dir="$HOME/.cache/chrome-cdp-profile"
 }
 
+# Fixed argv, no caller input: the browser list is hardcoded, so the restricted key can't steer the query.
+do_active_tab() {
+  [ "$(uname -s)" = Darwin ] || die "active-tab: workstation is not macOS"
+  local app short url
+  for app in "Google Chrome" "Helium" "Brave Browser"; do
+    case "$app" in
+      "Google Chrome") short=Chrome ;;
+      "Helium") short=Helium ;;
+      "Brave Browser") short=Brave ;;
+    esac
+    # `exists process` first: asking a closed browser for its URL would launch it.
+    url=$(osascript <<APPLESCRIPT 2>/dev/null
+tell application "System Events"
+  if not (exists process "$app") then return ""
+end tell
+tell application "$app"
+  if (count of windows) is 0 then return ""
+  return URL of active tab of front window
+end tell
+APPLESCRIPT
+    )
+    # Same rule as `open`: only http(s) may cross, so a file:// tab never leaves the workstation.
+    valid_url "$url" || continue
+    printf '%s\t%s\n' "$short" "$url"
+  done
+  return 0
+}
+
+# active-tab needs a value back, so unlike open/clip/notify it can't ride the tty: OSC 52 and kitty rc are one-way.
+relay_active_tab() {
+  local host
+  host="$(relay_host)"
+  [ -n "$host" ] || die "active-tab: nobody is attached to relay to"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" active-tab
+}
+
 do_notify() {
   if command -v mac-notify >/dev/null 2>&1; then mac-notify -t "$1" -m "$2" -T 5 2>/dev/null
   elif command -v notify-send >/dev/null 2>&1; then notify-send "$1" "$2" 2>/dev/null
   else printf '%s: %s\n' "$1" "$2"; fi
 }
 
-# Transport: kitty's rc escape up the tty we already have, since the workstation runs no
-# listener. Only `open` is offered; rc-auth.py rejects the rest.
+# Relaying a loopback url would open the WORKSTATION's loopback, where nothing is listening.
+box_local_url() {
+  local host
+  host="${1#*://}"; host="${host%%/*}"; host="${host%%\?*}"; host="${host##*@}"
+  case "$host" in \[*\]*) host="${host#\[}"; host="${host%%\]*}" ;; *) host="${host%%:*}" ;; esac
+  case "$host" in localhost | 127.*.*.* | ::1) return 0 ;; esac
+  # 127.0.0.1 only: Debian parks this box's own name on 127.0.1.1, which IS reachable over MagicDNS.
+  awk -v h="$host" '$1 == "127.0.0.1" || $1 == "::1" { for (i = 2; i <= NF; i++) if ($i == h) { found = 1; exit } } END { exit found ? 0 : 1 }' /etc/hosts
+}
+
+relay_host() { "$HOME/.local/bin/machine-identity" mac-host 2>/dev/null; }
+
+# Transport 1: the workstation runs no daemon, but authorized_keys pins this key to `--forced`, so ssh is the listener.
+relay() {
+  local host arg
+  host="$(relay_host)"
+  [ -n "$host" ] || return 1
+  # Refused, not quoted: the forced entry re-splits on whitespace, so such an arg would arrive torn in half.
+  for arg in "$@"; do
+    case "$arg" in *[[:space:]]* | *[[:cntrl:]]*) return 1 ;; esac
+  done
+  ssh -o BatchMode=yes -o ConnectTimeout=3 "$host" "$@" >/dev/null 2>&1
+}
+
+# Transport 2: kitty's rc escape up the tty we already have. Only `open` is offered; rc-auth.py rejects the rest.
 ship() {
   [ "$1" = open ] || return 1
   case "${TERM:-}" in xterm-kitty) ;; *) return 1 ;; esac
@@ -66,16 +128,18 @@ ship() {
   printf '\033P@kitty-cmd{"cmd":"launch","version":[0,26,0],"no_response":true,"payload":{"args":["open","%s"],"type":"background"}}\033\\' "$2" >/dev/tty 2>/dev/null || return 1
 }
 
-verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | notify)" 2
+verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | notify | browser-debug | active-tab)" 2
 shift
 
 # Restricted ssh entry: authorized_keys forces this, so $SSH_ORIGINAL_COMMAND is re-parsed against the same verbs.
 if [ "$verb" = --forced ]; then
+  # noglob: word-splitting is wanted, but a `?` in a query string must not expand against the cwd.
+  set -f
   # shellcheck disable=SC2086
   set -- ${SSH_ORIGINAL_COMMAND:-}
   verb="${1:-}"; [ -n "$verb" ] || die "forced: empty command" 2
   shift
-  case "$verb" in open | clip | notify | browser-debug) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
+  case "$verb" in open | clip | notify | browser-debug | active-tab) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
   at_desktop || die "forced mode only runs on the workstation" 2
 fi
 
@@ -85,10 +149,12 @@ case "$verb" in
     valid_url "$url" || die "refusing non-http(s) url: $url" 2
     if at_desktop; then
       do_open "$url"
-    elif ! ship open "$url"; then
-      # No transport: park it on the workstation's clipboard and say so, since a browser here would be headless.
+    elif box_local_url "$url"; then
+      die "refusing box-local url: $url would open the workstation's loopback, not this box's server - forward the port first (LocalForward in the Mac's 'Host dev-box' block)"
+    elif ! relay open "$url" && ! ship open "$url"; then
+      # Nobody attached: park it on the workstation's clipboard, since a browser here would be headless.
       osc_clip "$url"
-      mux notify --title "🔗 to-desktop" "URL copied to your desktop — paste to open" 2>/dev/null ||
+      mux notify --title "🔗 to-desktop" "URL copied to your desktop - paste to open" 2>/dev/null ||
         printf 'copied to desktop clipboard: %s\n' "$url"
     fi
     ;;
@@ -105,5 +171,8 @@ case "$verb" in
     at_desktop || die "browser-debug only runs on the workstation" 2
     do_browser_debug
     ;;
-  *) die "unknown verb '$verb' (open | clip | notify | browser-debug)" 2 ;;
+  active-tab)
+    if at_desktop; then do_active_tab; else relay_active_tab; fi
+    ;;
+  *) die "unknown verb '$verb' (open | clip | notify | browser-debug | active-tab)" 2 ;;
 esac

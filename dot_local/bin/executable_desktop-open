@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# $BROWSER / $GH_BROWSER target: xdg-open execs "$browser" "$url" unsplit, so the verb can't ride in the var.
+set -uo pipefail
+
+# Quiet non-zero for non-urls, so xdg-open falls through to its own error instead of printing ours twice.
+case "${1:-}" in
+  http://?* | https://?*) ;;
+  *) exit 1 ;;
+esac
+
+exec "$HOME/.local/bin/to-desktop" open "$@"
