@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Unified macOS notification helper. Single source of truth for the
+# Unified notification helper. Single source of truth for the
 # `terminal-notifier ... || osascript ...` pattern that was duplicated
 # across the worktree dispatcher (runner, capture, abort, retry and every
-# capture entry point) and notify-idle.sh.
+# capture entry point) and notify-idle.sh. Named for its macOS origin, but
+# every caller is cross-platform now: off darwin it emits through mux
+# (herdr / tmux) so the dev box gets the same banners.
 #
 # Usage:
 #   mac-notify --title "T" --message "M" [opts]
@@ -36,18 +38,16 @@
 #   - Falls back to `osascript display notification` when
 #     terminal-notifier isn't installed. The fallback can't honor
 #     group/sound/icon/execute — those are silently ignored.
+#   - Off darwin: emits via `mux notify` (herdr toast / tmux message),
+#     then notify-send, then stderr. group/timeout/icon/execute are
+#     dropped — no multiplexer toast has an equivalent.
 #   - Always exits 0; notifications are best-effort. Errors are
 #     suppressed so the caller's flow isn't disrupted by a banner
 #     failure.
 
 set -uo pipefail
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-
-# Inherently macOS: terminal-notifier / osascript banners. On Linux there is no
-# desktop-notification surface here (a future remote dispatcher will own that),
-# so no-op cleanly. Every caller already treats this as best-effort, so exiting 0
-# is safe.
-[[ "$OSTYPE" == darwin* ]] || exit 0
+# ~/.local/bin/mux holds the mux dispatcher; callers fired from a hook or staged script can't be assumed to have it.
+export PATH="$HOME/.local/bin:$HOME/.local/bin/mux:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 TITLE=""
 MESSAGE=""
@@ -77,6 +77,22 @@ done
 
 if [ -z "$TITLE" ] && [ -z "$MESSAGE" ]; then
   echo "Usage: mac-notify --title <T> --message <M> [opts]" >&2
+  exit 0
+fi
+
+# Off darwin there is no terminal-notifier, but the banner still has somewhere to
+# land: mux owns the live multiplexer's toast (herdr notification / tmux message),
+# so the devbox gets the same start/heartbeat/outcome banners the Mac does. Args
+# terminal-notifier owns alone are dropped - herdr's CLI has no group replacement
+# (heartbeats stack instead of replacing), timeout, content image, or click action.
+if [[ "$OSTYPE" != darwin* ]]; then
+  if command -v mux >/dev/null 2>&1 && [ "$(mux kind 2>/dev/null)" != none ]; then
+    mux notify --title "$TITLE" "$MESSAGE" >/dev/null 2>&1 || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send "$TITLE" "$MESSAGE" >/dev/null 2>&1 || true
+  else
+    printf '%s: %s\n' "$TITLE" "$MESSAGE" >&2
+  fi
   exit 0
 fi
 
