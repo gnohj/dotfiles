@@ -299,6 +299,13 @@ manage_ssh_config = true
 [ui]
 mouse_capture = true
 
+# 32, up from the 26 default, so a bucketed ticket label fits unclipped on row 1. Budget math
+# (src/ui/sidebar.rs): a space row loses 4 columns to chrome - 1 list separator, 1 row-0 prefix,
+# 1 state_icon dot, 1 token separator - so a 28-column label needs 32. 28 is the worst case in
+# the bucket vocabulary: "🌳 web/refactor/IHRWEB-24314". Still under sidebar_max_width's default
+# of 36, and herdr auto-scales within that range, so this is a floor rather than a fixed size.
+sidebar_width = 32
+
 # Show detected/reported agent labels (claude / codex / etc.) in split-pane
 # borders when no manual pane name is set.
 show_agent_labels_on_pane_borders = true
@@ -365,18 +372,38 @@ claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ tok
 pi = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
 opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
 
-# Sidebar space rows: name, then the branch alone, then a git/PR/Jira status line on its OWN row.
-# herdr's built-in `git_status` token carries NO working-tree signs (its data model
-# has branch but no dirty/ahead/behind - verified against `herdr api schema`), so the
-# `$git` line (3rd row, under the branch) is a CUSTOM token fed by herdr-git-status.sh, which runs the same
-# gitmux.yml as the tmux status line and pushes it via `herdr workspace
-# report-metadata --token git=…`. That poller is what keeps this line live.
+# Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
+# herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
+# behind, from herdr's internal git model (src/ui/sidebar.rs formats "↑2 ↓1"; neither number is
+# in `herdr api schema`, which is what the old note here mistook for the token being empty).
+# The dirty glyph is therefore a CUSTOM `$git`, fed by herdr-git-status.sh from the same
+# gitmux.yml as the tmux status line and pushed via `herdr workspace report-metadata`.
+#
+# Row 2 is `$br`/`$br_on`, NOT the built-in `branch`, because the built-in can only render the
+# branch verbatim and row 1 already ends in the ticket key: the pair carries the branch with
+# that key stripped (web/infra/IHRWEB-24314 over listen-endpoint, rather than spelling
+# IHRWEB-24314-listen-endpoint out twice). It also makes the row FIT - the full branch is 28
+# columns and clips even at sidebar_width 32, the stripped tail is 15 and does not.
+#
+# TWO tokens because going custom forfeits the mauve/overlay0 focus split src/ui/sidebar.rs
+# gives built-in tokens for free; a custom token takes one unconditional fg and has no
+# per-state variant (watchlist item 2). So the split is rebuilt by hand: exactly one of the
+# pair ever holds the text, herdr-focus-tracker.py::paint_branch moves it on workspace.focused,
+# the poller writes whichever slot matches, and an empty token renders nothing - not even a
+# separator - so the row still reads as one word. Both go blank if the poller dies.
+#
+# `$git` rides on row 2 rather than its own line so local state reads as one unit and row 3 is
+# purely remote. It costs a " · " between branch and sign: separator() in src/ui/sidebar/
+# tokens.rs gives a plain space only when the CURRENT token is the built-in git_status, and a
+# custom `$token` never is. Cheap here - one dot, and only on a dirty tree, since a clean one
+# leaves `$git` empty and an absent token emits no separator at all. The sign keeps its own
+# color regardless: apply_token_style lets an inline fg override the contextual default.
 #
 # The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - ogulcancelik/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
-# $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself.
+# $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. ONE $git token on purpose: more get joined by herdr's " · " - see the /herdr-upgrade watchlist.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], ["branch"], [{ token = "$git", fg = "#b7ce97" }, { token = "$pr", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#c2f0db" }, { token = "$git", fg = "#b7ce97" }], [{ token = "$pr", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
 
 [session]
 resume_agents_on_restore = true
@@ -441,7 +468,9 @@ overlay1 = "#7a90a0"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
 # isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
 # it does NOT reach the pane-title, state_text or $act rows, so those cannot vary by
-# active state at all. subtext0 = inactive rows, mauve = active space's branch line.
+# active state at all. subtext0 = inactive rows. mauve = the active/selected space's branch
+# line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
+# pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
 # Shared by the spaces AND agents sections, so none of them can be set per-panel.
 # text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
 # longer differs in COLOR from the inactive ones - the active cue is the surface_dim row
