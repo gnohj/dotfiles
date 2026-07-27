@@ -53,6 +53,12 @@ DEFAULT_TAB_TEXT = "\U0001f41f"
 BRANCH_SOURCE = "gitmux"
 BRANCH_TTL_MS = 38000
 
+# herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
+SUMMARY_SOURCE = "auto-summary"
+
+# Events that can move which pane is focused, and so need the accent re-slotted.
+PANE_PAINT_EVENTS = {"workspace_focused", "tab_focused", "pane_focused", "pane_closed"}
+
 
 def request(method, params):
     """One-shot socket RPC on its own connection; the subscribe stream stays read-only."""
@@ -177,6 +183,47 @@ def paint_branch():
         })
 
 
+def paint_panes():
+    """Move each agent pane's summary between `$pn` (dim) and `$pn_on` (accent) by focus.
+
+    paint_branch's problem and solution, one level down. The agents panel shows each pane's
+    summary slug, and herdr gives that row no focus-varying color at all: the `text` theme
+    token reaches only the ACTIVE entry's FIRST row (workspace + tab), never the summary line,
+    and an inline `fg` on a custom token is unconditional. So the same two-slot trick applies -
+    `$pn` holds the text in dim blue on every unfocused agent, `$pn_on` holds it in the accent
+    on the focused one, and exactly one is ever non-empty.
+
+    `source` MUST be herdr-pane-summary.py's: a token can only be cleared by the source that
+    set it, so a second source here would light both slots at once. Writing `tokens` alone does
+    NOT disturb the `title` that daemon set under the same source (verified live), which is why
+    the pane border label survives this pass untouched.
+
+    Reconciles every pane rather than diffing the focus change - one `pane.list` plus a write
+    only where the slot is actually wrong (two, on a normal focus change) - and it self-heals a
+    pane left mispainted while the daemon was down. Panes holding neither slot are skipped, so
+    a pane that never earned a summary is never given one here.
+    """
+    reply = request("pane.list", {})
+    if not reply or "result" not in reply:
+        return
+    for pane in reply["result"].get("panes", []):
+        tokens = pane.get("tokens") or {}
+        dim, lit = tokens.get("pn") or "", tokens.get("pn_on") or ""
+        value = lit or dim
+        if not value:
+            continue
+        want_lit = value if pane.get("focused") else ""
+        want_dim = "" if pane.get("focused") else value
+        if (dim, lit) == (want_dim, want_lit):
+            continue
+        request("pane.report_metadata", {
+            "pane_id": pane["pane_id"],
+            "seq": time.time_ns(),
+            "source": SUMMARY_SOURCE,
+            "tokens": {"pn": want_dim or None, "pn_on": want_lit or None},
+        })
+
+
 def write_atomic(path, value):
     tmp = f"{path}.tmp"
     with open(tmp, "w") as f:
@@ -286,6 +333,9 @@ def handle(mru, msg):
         renumber_tabs()
     else:
         return False
+    # Unlike the branch row, this one DOES track within-tab pane hops - that is the point of it.
+    if event in PANE_PAINT_EVENTS:
+        paint_panes()
     # Only when the ACTIVE space actually moved: within-tab pane hops fire constantly and
     # cannot change which space is lit. The two early `return False` paths above are all
     # tab-label events, which never move focus, so they need no repaint.
@@ -309,6 +359,7 @@ def session(mru):
     # Same reason for the branch row: focus can move while this daemon is down, which leaves
     # the accent stuck on whichever space was lit at the time.
     paint_branch()
+    paint_panes()
     with conn.makefile("rb") as stream:
         for raw in stream:
             raw = raw.strip()

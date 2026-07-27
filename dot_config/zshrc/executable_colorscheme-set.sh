@@ -2332,22 +2332,27 @@ generate_herdr_config() {
   # Row 2 is the $br/$br_on pair (branch minus its ticket key, fed by herdr-git-status.sh) plus
   # $git; see the comment above [ui.sidebar.spaces] in config.toml.tmpl for why it is not the
   # built-in `branch`. Both halves need an explicit fg or they fall back to the `blue` theme
-  # token (the green $git sign color). Dim is overlay0, lit is what mauve paints the built-in
-  # with - hardcoded here for the same reason mauve is hardcoded below.
+  # token (the green $git sign color). Dim is overlay0; lit is gnohj green, matching $pn_on so
+  # both panels light their selected row alike and track the scheme rather than mauve's value.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "#c2f0db" }, { token = "$git", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color03" "$gnohj_color46")"
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color02" "$gnohj_color03" "$gnohj_color03" "$gnohj_color05" "$gnohj_color03" "$gnohj_color46")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
+  # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
+  # toward the bg - no fg can undo it. state_text takes NO fg so it keeps herdr's per-state
+  # palette color; only the dim is lifted.
+  # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
+  # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
   local herdr_agent_rows herdr_claude_rows
-  herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "tab", fg = "%s" }], ["agent", "state_text"]]' \
+  herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "tab", fg = "%s" }], ["agent", { token = "state_text", dim = false }]]' \
     "$gnohj_color02")"
-  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "pane", fg = "%s" }], ["state_text", { token = "$act", fg = "%s" }]]' \
-    "$gnohj_color02" "$gnohj_color04" "$gnohj_color04")"
+  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
+    "$gnohj_color02" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "pane", fg = "%s" }], ["state_text", { token = "$act", fg = "%s" }]]' \
-    "$gnohj_color02" "$gnohj_color04" "$gnohj_color04")"
+  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
+    "$gnohj_color02" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2378,7 +2383,9 @@ overlay1 = "$gnohj_color46"
 # fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "$gnohj_color04"
 text = "$gnohj_color04"
-mauve = "#c2f0db"
+# mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
+# use (\$br/\$br_on replaced it) - kept in step with \$br_on/\$pn_on for intent, not for render.
+mauve = "$gnohj_color02"
 # herdr's four agent states are painted by four palette tokens - state_label_color()
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
 # blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =

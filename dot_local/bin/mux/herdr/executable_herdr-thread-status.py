@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR/CI ($pr), Jira status ($jira) and vault note ($sb) to the sidebar.
+"""herdr-thread-status — feed each workspace's PR ($pr), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
 
 herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
 custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
@@ -43,11 +43,12 @@ also needs none of the newest-headSha filtering the old query hand-rolled. Its e
 CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ matches both
 shapes. Cost: a branch with no open PR now shows no CI, since the rollup hangs off the PR.
 
-Two zones, always both, `<approvals> │ <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
+Two zones, always both, `<approvals> · <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
 ⧗ running, ✗ failure, ✓ success, – none. The vocabularies are disjoint so no glyph means two
 things — ● is only ever approvals, ✓ only ever CI — and both sides always print, because
-dropping the empty one left a lone glyph whose zone the reader had to guess. Colouring the
-zones apart is not an option: a metadata token carries a single inline fg. All single-cell and deliberately not emoji — a VS16
+dropping the empty one left a lone glyph whose zone the reader had to guess. They are two
+tokens ($pr, $ci) rather than one string so the " · " is herdr's own separator and stays dim,
+and so each zone can carry its own fg. All single-cell and deliberately not emoji — a VS16
 sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
 
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
@@ -57,7 +58,7 @@ that is; without it the token simply never appears. Stdlib only, no jq (gh embed
 
   herdr-thread-status.py           daemon: refresh every $HERDR_THREAD_INTERVAL seconds
   herdr-thread-status.py --once    one pass over every open workspace, then exit
-  herdr-thread-status.py --clear   drop all three tokens from every workspace, then exit
+  herdr-thread-status.py --clear   drop all four tokens from every workspace, then exit
 """
 import json
 import os
@@ -75,6 +76,7 @@ INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
+CI_TOKEN = "ci"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
@@ -289,16 +291,17 @@ def approval_glyph(approvals):
 
 
 def render(approvals, ci):
-    """The $pr token, or "" for nothing worth a row.
+    """The ($pr, $ci) glyph pair, or ("", "") for nothing worth a row.
 
-    One string with one colour: a metadata token carries a single inline fg, so the approval and
-    CI zones cannot be coloured apart. Both zones therefore render
-    ALWAYS, divider included — dropping the empty side made a lone glyph ambiguous, since the
-    reader could not tell which zone survived.
+    Two tokens, not one string: the " · " between them is then herdr's own separator and takes
+    the dim contextual colour, where a single token would paint its divider the token's fg.
+    Each zone also gets its own inline fg that way, which one token could never do.
+    Both render ALWAYS or neither does — a lone glyph left the reader guessing which zone
+    survived, and an empty token drops its separator too.
     """
     if approvals is None and not ci:
-        return ""
-    return "%s │ %s" % (approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH))
+        return "", ""
+    return approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH)
 
 
 def vault_note(cwd):
@@ -350,7 +353,7 @@ def refresh_once():
         branch = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
         if not branch:
             # not a git checkout / detached HEAD
-            report(workspace, {"jira": "", "sb": "", TOKEN: ""}, seq)
+            report(workspace, {"jira": "", "sb": "", TOKEN: "", CI_TOKEN: ""}, seq)
             continue
         path, data = thread_for(cwd, branch, entries)
         if not path:
@@ -367,17 +370,19 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
+        pr_glyph, ci_glyph = render(approvals, ci)
         report(workspace, {
             "jira": jira_short(data.get("jira_status") if data else None),
             "sb": NOTE_GLYPH if note else "",
-            TOKEN: render(approvals, ci),
+            TOKEN: pr_glyph,
+            CI_TOKEN: ci_glyph,
         }, seq)
 
 
 def clear_all():
     seq = str(time.time_ns())
     for workspace in workspace_cwds():
-        report(workspace, {"jira": "", "sb": "", TOKEN: ""}, seq)
+        report(workspace, {"jira": "", "sb": "", TOKEN: "", CI_TOKEN: ""}, seq)
 
 
 def main():
