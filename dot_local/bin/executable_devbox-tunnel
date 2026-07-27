@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Points the Mac's `dev.{listen,account}.iheart.com` at `pnpm dev-listen` running on the dev-box VPS, by forwarding the ports /etc/hosts already sends to 127.0.0.1. Tunnel up = VPS, tunnel down = Mac-local dev; same browser, same URLs, no /etc/hosts churn.
+# usage: devbox-tunnel [up|bg|down|trust|status]   ·   up: foreground, Ctrl-C to stop (default)   ·   bg: background   ·   trust: install Caddy's root CA (one time)
+set -uo pipefail
+
+BOX_HOST="${DEVBOX_HOST:-dev-box}"
+BOX_IP_FALLBACK="${DEVBOX_IP:-100.89.53.66}"
+BOX_USER="${DEVBOX_USER:-$USER}"
+CA_REMOTE='.local/share/caddy/pki/authorities/local/root.crt'
+CA_LOCAL="$HOME/Library/Application Support/caddy-dev-box-root.crt"
+PORTS=(443 8000 8100)
+SSH_TAG="devbox-tunnel"
+
+_say() { printf 'devbox-tunnel: %s\n' "$1"; }
+_die() {
+  _say "$1" >&2
+  exit 1
+}
+
+# The App Store build never lands in PATH, so probe the bundle before giving up on a live lookup.
+_tailscale() {
+  if command -v tailscale >/dev/null 2>&1; then
+    tailscale "$@"
+  elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
+  else
+    return 1
+  fi
+}
+
+# A live tailnet lookup beats the baked-in literal, which only exists so this still works with Tailscale asleep.
+_box_ip() {
+  local ip
+  ip="$(_tailscale ip -4 "$BOX_HOST" 2>/dev/null | head -1)"
+  printf '%s' "${ip:-$BOX_IP_FALLBACK}"
+}
+
+_pid() { pgrep -f "SetEnv=DEVBOX_TAG=$SSH_TAG" 2>/dev/null | head -1; }
+
+# ExitOnForwardFailure kills the whole tunnel on one busy port, so name the offender instead of dying cryptically.
+_check_ports() {
+  local port busy=0
+  for port in "${PORTS[@]}"; do
+    if lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1; then
+      _say "port $port is already in use - stop Mac-local dev-listen (or Caddy) first"
+      busy=1
+    fi
+  done
+  return "$busy"
+}
+
+# sudo is only needed because 443 is privileged on macOS; -F /dev/null and the explicit key stop ssh from reading root's ~/.ssh instead of yours.
+_ssh_cmd() {
+  local ip port
+  ip="$(_box_ip)"
+  SSH_CMD=(sudo ssh -F /dev/null -i "$HOME/.ssh/id_ed25519" -o "UserKnownHostsFile=$HOME/.ssh/known_hosts" -o "ExitOnForwardFailure=yes" -o "ServerAliveInterval=30" -o "SetEnv=DEVBOX_TAG=$SSH_TAG" -N)
+  for port in "${PORTS[@]}"; do
+    SSH_CMD+=(-L "$port:127.0.0.1:$port")
+  done
+  SSH_CMD+=("$BOX_USER@$ip")
+}
+
+_up() {
+  [ -n "$(_pid)" ] && _die "tunnel already running (pid $(_pid)) - \`devbox-tunnel down\` first"
+  _check_ports || exit 1
+  _ssh_cmd
+  _say "forwarding ${PORTS[*]} to $BOX_HOST - open https://dev.listen.iheart.com"
+  "${SSH_CMD[@]}" "$@"
+}
+
+_down() {
+  local pid
+  pid="$(_pid)"
+  [ -z "$pid" ] && {
+    _say "no tunnel running"
+    return 0
+  }
+  sudo kill "$pid" && _say "tunnel stopped (pid $pid)"
+}
+
+_status() {
+  local pid
+  pid="$(_pid)"
+  if [ -n "$pid" ]; then
+    _say "up (pid $pid) -> $(_box_ip)"
+  else
+    _say "down - https://dev.listen.iheart.com will hit Mac-local dev"
+  fi
+}
+
+# Caddy signs with its own CA and a public cert for an iheart.com name is unobtainable, so the root has to be trusted by hand once.
+_trust() {
+  scp "$BOX_USER@$(_box_ip):$CA_REMOTE" "$CA_LOCAL" || _die "could not fetch the root CA from $BOX_HOST"
+  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$CA_LOCAL" || _die "could not install the root CA"
+  _say "root CA trusted - fully quit Chrome (Cmd-Q) so it drops cached cert failures"
+}
+
+[ "$(uname -s)" = Darwin ] || _die "run this on the Mac, not the box"
+
+case "${1:-up}" in
+up) _up ;;
+bg)
+  shift
+  _up -f
+  ;;
+down) _down ;;
+status) _status ;;
+trust) _trust ;;
+*)
+  echo "usage: devbox-tunnel [up | bg | down | status | trust]" >&2
+  exit 2
+  ;;
+esac
