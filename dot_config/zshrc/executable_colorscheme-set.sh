@@ -2322,7 +2322,7 @@ generate_herdr_config() {
   local herdr_source_tmpl="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml.tmpl"
   # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], ["branch", { token = "$git", fg = "%s" }, { token = "$pr", fg = "%s" }], [{ token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], ["branch"], [{ token = "$git", fg = "%s" }, { token = "$pr", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
     "$gnohj_color02" "$gnohj_color03" "$gnohj_color03" "$gnohj_color46")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
