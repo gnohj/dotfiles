@@ -4,4 +4,5 @@ set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 
-exec lazygit "$@"
+# HUSKY=0 mirrors mux/tmux/lazygit.sh: built-in ops (branch-panel `f` runs `git pull --ff-only`) would otherwise fire web's post-merge `pnpm i` + `pnpm build-packages`.
+exec env HUSKY=0 lazygit "$@"
