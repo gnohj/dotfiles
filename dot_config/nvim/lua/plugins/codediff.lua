@@ -23,11 +23,34 @@ return {
     {
       "<leader>gD",
       function()
-        local default_branch = vim.fn.system(
-          "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' | tr -d '\\n'"
+        -- origin/HEAD is unset in bare-clone worktrees, so probe real refs instead of guessing.
+        local default_branch = vim.trim(
+          vim.fn.system(
+            "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'"
+          )
         )
         if default_branch == "" then
-          default_branch = "main"
+          -- develop first: inferno has both origin/develop and origin/main.
+          for _, candidate in ipairs({ "develop", "main", "master" }) do
+            vim.fn.system({
+              "git",
+              "rev-parse",
+              "--verify",
+              "--quiet",
+              "origin/" .. candidate,
+            })
+            if vim.v.shell_error == 0 then
+              default_branch = candidate
+              break
+            end
+          end
+        end
+        if default_branch == "" then
+          vim.notify(
+            "Could not resolve origin's default branch",
+            vim.log.levels.ERROR
+          )
+          return
         end
         open_in_window("CodeDiff origin/" .. default_branch .. " HEAD", "🔀")
       end,
