@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message>
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message> | to-desktop browser-debug
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
 # deploys it to every machine. Machine routing only — which multiplexer is live is `mux`'s question.
@@ -43,6 +43,13 @@ do_clip() {
   else osc_clip "$1"; fi
 }
 
+# Fixed argv, no caller input: the restricted ssh key reaches this, so nothing may interpolate.
+do_browser_debug() {
+  [ "$(uname -s)" = Darwin ] || die "browser-debug: workstation is not macOS"
+  lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1 && return 0
+  open -na 'Google Chrome' --args --remote-debugging-port=9222 --user-data-dir="$HOME/.cache/chrome-cdp-profile"
+}
+
 do_notify() {
   if command -v mac-notify >/dev/null 2>&1; then mac-notify -t "$1" -m "$2" -T 5 2>/dev/null
   elif command -v notify-send >/dev/null 2>&1; then notify-send "$1" "$2" 2>/dev/null
@@ -68,7 +75,7 @@ if [ "$verb" = --forced ]; then
   set -- ${SSH_ORIGINAL_COMMAND:-}
   verb="${1:-}"; [ -n "$verb" ] || die "forced: empty command" 2
   shift
-  case "$verb" in open | clip | notify) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
+  case "$verb" in open | clip | notify | browser-debug) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
   at_desktop || die "forced mode only runs on the workstation" 2
 fi
 
@@ -94,5 +101,9 @@ case "$verb" in
     title="${1:?to-desktop notify: missing <title>}"; msg="${2:?to-desktop notify: missing <message>}"
     if at_desktop; then do_notify "$title" "$msg"; else ship notify "$title" "$msg" || mux notify --title "$title" "$msg"; fi
     ;;
-  *) die "unknown verb '$verb' (open | clip | notify)" 2 ;;
+  browser-debug)
+    at_desktop || die "browser-debug only runs on the workstation" 2
+    do_browser_debug
+    ;;
+  *) die "unknown verb '$verb' (open | clip | notify | browser-debug)" 2 ;;
 esac
