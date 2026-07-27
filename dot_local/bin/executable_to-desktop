@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# to-desktop <verb> [args] — land an effect on the machine you are sitting at.
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message>
+#
+# One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
+# deploys it to every machine. Machine routing only — which multiplexer is live is `mux`'s question.
+#
+# Deliberately not named to-mac: the workstation is whichever machine is NOT relaying elsewhere, so a
+# future Linux desktop is a workstation too. `devbox` is the only relaying role machine-identity has.
+set -uo pipefail
+
+export PATH="$HOME/.local/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+die() { printf 'to-desktop: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+# Only http(s) may cross: an unvalidated scheme handed to a URL opener is a file:// / x-apple:// hole.
+valid_url() { case "${1:-}" in http://?* | https://?*) return 0 ;; *) return 1 ;; esac; }
+
+# DESKTOP_OS is stamped by kitty-remote-quake.sh; its presence means someone upstream owns the display. Rest is fallback for a bare ssh.
+at_desktop() {
+  [ -n "${DESKTOP_OS:-}" ] && return 1
+  [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" = devbox ] && return 1
+  case "$(uname -s)" in
+    Darwin) return 0 ;;
+    *) [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] ;;
+  esac
+}
+
+# herdr relays OSC 52 as a protocol-level clipboard write, so this reaches the workstation even over --remote.
+osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"; }
+
+do_open() {
+  case "$(uname -s)" in
+    Darwin) open "$1" ;;
+    *) (xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
+  esac
+}
+
+do_clip() {
+  if command -v pbcopy >/dev/null 2>&1; then printf '%s' "$1" | pbcopy
+  elif command -v wl-copy >/dev/null 2>&1; then printf '%s' "$1" | wl-copy
+  elif command -v xclip >/dev/null 2>&1; then printf '%s' "$1" | xclip -selection clipboard
+  else osc_clip "$1"; fi
+}
+
+do_notify() {
+  if command -v mac-notify >/dev/null 2>&1; then mac-notify -t "$1" -m "$2" -T 5 2>/dev/null
+  elif command -v notify-send >/dev/null 2>&1; then notify-send "$1" "$2" 2>/dev/null
+  else printf '%s: %s\n' "$1" "$2"; fi
+}
+
+# Transport slot: nothing listens on the workstation yet, so it always declines and callers fall back.
+ship() { return 1; }
+
+verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | notify)" 2
+shift
+
+# Restricted ssh entry: authorized_keys forces this, so $SSH_ORIGINAL_COMMAND is re-parsed against the same verbs.
+if [ "$verb" = --forced ]; then
+  # shellcheck disable=SC2086
+  set -- ${SSH_ORIGINAL_COMMAND:-}
+  verb="${1:-}"; [ -n "$verb" ] || die "forced: empty command" 2
+  shift
+  case "$verb" in open | clip | notify) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
+  at_desktop || die "forced mode only runs on the workstation" 2
+fi
+
+case "$verb" in
+  open)
+    url="${1:?to-desktop open: missing <url>}"
+    valid_url "$url" || die "refusing non-http(s) url: $url" 2
+    if at_desktop; then
+      do_open "$url"
+    elif ! ship open "$url"; then
+      # No transport: park it on the workstation's clipboard and say so, since a browser here would be headless.
+      osc_clip "$url"
+      mux notify --title "🔗 to-desktop" "URL copied to your desktop — paste to open" 2>/dev/null ||
+        printf 'copied to desktop clipboard: %s\n' "$url"
+    fi
+    ;;
+  clip)
+    text="${1:?to-desktop clip: missing <text|->}"
+    [ "$text" = - ] && text="$(cat)"
+    if at_desktop; then do_clip "$text"; else ship clip "$text" || osc_clip "$text"; fi
+    ;;
+  notify)
+    title="${1:?to-desktop notify: missing <title>}"; msg="${2:?to-desktop notify: missing <message>}"
+    if at_desktop; then do_notify "$title" "$msg"; else ship notify "$title" "$msg" || mux notify --title "$title" "$msg"; fi
+    ;;
+  *) die "unknown verb '$verb' (open | clip | notify)" 2 ;;
+esac
