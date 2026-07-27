@@ -40,12 +40,16 @@ build_list() {
   # cache (deduped via flock inside), so THIS open renders instantly from whatever is
   # cached and the NEXT open is fresh. Skipped when we already are that warm pass (WARM set).
   [ -n "${WARM:-}" ] || ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
-  ACTIVE_WS="$("$herdr" workspace list 2>/dev/null)" \
-  PANES="$("$herdr" pane list 2>/dev/null)" \
-  AGENTS="$("$herdr" agent list 2>/dev/null)" \
-  TABS="$("$herdr" tab list 2>/dev/null)" \
-  ENTRIES="$(sesh list -c -z -j 2>/dev/null)" \
-  CFGPATHS="$(sesh list -c -j 2>/dev/null)" \
+  # Probes fan out into files, not command substitution: a subshell cannot hand a variable back.
+  local src
+  src="$(mktemp -d "${TMPDIR:-/tmp}/herdr-sesh-src.XXXXXX")" || return 1
+  "$herdr" workspace list >"$src/ws" 2>/dev/null &
+  "$herdr" pane list >"$src/pn" 2>/dev/null &
+  "$herdr" agent list >"$src/ag" 2>/dev/null &
+  "$herdr" tab list >"$src/tb" 2>/dev/null &
+  sesh list -c -z -j >"$src/en" 2>/dev/null &
+  wait
+  SRC="$src" \
   FG="${gnohj_color02:-}" DIM="${gnohj_color09:-}" ACCENT="${gnohj_color04:-}" \
   WORKING="${gnohj_color04:-}" BLOCKED="${gnohj_color11:-}" \
   DONE="${gnohj_color11:-}" IDLING="${gnohj_color05:-}" \
@@ -53,8 +57,9 @@ build_list() {
   HOME="$HOME" python3 -c '
 import os, json, re
 
-def load(env):
-    try: return json.loads(os.environ.get(env, "") or "null")
+def load(name):
+    try:
+        with open(os.path.join(os.environ["SRC"], name)) as fh: return json.load(fh)
     except Exception: return None
 
 home = os.environ.get("HOME", "")
@@ -105,11 +110,14 @@ def dpad(s, w):
 import time
 SEP = "❯"
 
-# Representative cwd per open workspace (from its panes).
+# Representative cwd per open workspace (from its panes); the same walk picks up the focused ids.
 wscwd = {}
-for pn in (load("PANES") or {}).get("result", {}).get("panes", []):
+focus = ("", "", "")
+for pn in (load("pn") or {}).get("result", {}).get("panes", []):
     w = pn.get("workspace_id"); c = (pn.get("foreground_cwd") or pn.get("cwd") or "").rstrip("/")
     if w and c and w not in wscwd: wscwd[w] = c
+    if pn.get("focused"):
+        focus = (pn.get("pane_id") or "", pn.get("tab_id") or "", w or "")
 
 # All width N/Na so columns hold; working is steady (fzf is static, a spinner would sit frozen) and blocked is ! since ❯ is the column separator.
 AGENT_GLYPH = {"working": "➤", "blocked": "!", "done": "✔", "idle": "✓"}
@@ -120,7 +128,7 @@ AGENT_COLOR = {
 }
 work_col, personal_col = tc(os.environ.get("WORKACCT")), tc(os.environ.get("PERSONALACCT"))
 agents_by_tab = {}
-for ag in (load("AGENTS") or {}).get("result", {}).get("agents", []):
+for ag in (load("ag") or {}).get("result", {}).get("agents", []):
     t = ag.get("tab_id")
     if t: agents_by_tab.setdefault(t, []).append(ag)
 for lst in agents_by_tab.values():
@@ -128,7 +136,7 @@ for lst in agents_by_tab.values():
 
 # Only tabs that actually hold an agent - a plain shell tab would just pad the picker.
 tabs_by_ws = {}
-for tb in (load("TABS") or {}).get("result", {}).get("tabs", []):
+for tb in (load("tb") or {}).get("result", {}).get("tabs", []):
     if agents_by_tab.get(tb.get("tab_id")):
         tabs_by_ws.setdefault(tb.get("workspace_id"), []).append(tb)
 for lst in tabs_by_ws.values():
@@ -222,7 +230,7 @@ def derive_name(cwd, full):
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths = set()
-for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
+for w in (load("ws") or {}).get("result", {}).get("workspaces", []):
     wid = w.get("workspace_id")
     # This picker builds its own git column from the cwd, so strip any " · <symbols>"
     # suffix a workspace label may carry to avoid a doubled/clipped name.
@@ -236,9 +244,11 @@ for w in (load("ACTIVE_WS") or {}).get("result", {}).get("workspaces", []):
     if cwd: active_paths.add(cwd)
     entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True))
 
-cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in (load("CFGPATHS") or [])}
+# sesh already tags each row config/zoxide, so a second probe for the curated paths is redundant.
+sesh_entries = load("en") or []
+cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.get("Src") == "config"}
 seen = set()
-for e in (load("ENTRIES") or []):
+for e in sesh_entries:
     p = (e.get("Path", "") or "").rstrip("/")
     if not p or p in active_paths or p in seen: continue
     seen.add(p)
@@ -331,7 +341,19 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
         rows.extend(agent_rows(target[3:]))
 
 print("\n".join(rows))
+
+# Cursor row: focused pane'"'"'s agent row, else its tab, else its workspace - a popup overlays a pane, so the walk above still sees it (as in herdr-scrollback.sh); HERDR_* env is the fallback.
+fpath = os.environ.get("FOCUS_FILE")
+if fpath:
+    pane, tab, ws = (a or os.environ.get(b, "") for a, b in
+                     zip(focus, ("HERDR_PANE_ID", "HERDR_TAB_ID", "HERDR_WORKSPACE_ID")))
+    at = {}
+    for n, r in enumerate(rows, 1): at.setdefault(r.rsplit(TAB, 1)[-1], n)
+    want = [k + ":" + v for k, v in (("agent", pane), ("tab", tab), ("ws", ws)) if v]
+    with open(fpath, "w") as fh:
+        fh.write("%d\n" % next((at[t] for t in want if t in at), 1))
 '
+  rm -rf "$src"
 }
 
 # --- fzf reload/execute helpers -------------------------------------------------
@@ -369,37 +391,32 @@ case "${1:-}" in
       POS=1
     else
       # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
+      # $ROWS is read first (guaranteed non-empty above) so FNR==NR still means "first file" when nothing matched.
       POS=$(fzf --ansi --delimiter='\t' --nth=1 --no-sort --filter="$Q" <"$ROWS" \
-        | ROWS="$ROWS" VIEW="$VIEW" python3 -c '
-import os, sys
-sel = {l.rsplit("\t", 1)[-1] for l in sys.stdin.read().splitlines() if l}
-with open(os.environ["ROWS"]) as fh:
-    lines = fh.read().splitlines()
-targets = [l.rsplit("\t", 1)[-1] for l in lines]
-
-# Ancestors come from POSITION not from parsing ids: rows are emitted parent-first, so a row belongs to the nearest preceding ws:/tab: row.
-anc, ws, tab = {}, None, None
-for i, t in enumerate(targets):
-    if t.startswith("ws:"):
-        ws, tab, anc[i] = i, None, ()
-    elif t.startswith("tab:"):
-        tab, anc[i] = i, (ws,) if ws is not None else ()
-    elif t.startswith("agent:"):
-        anc[i] = tuple(a for a in (ws, tab) if a is not None)
-    else:
-        anc[i] = ()
-
-keep = set()
-for i, t in enumerate(targets):
-    if t in sel:
-        keep.add(i)
-        keep.update(anc[i])
-order = sorted(keep)
-with open(os.environ["VIEW"], "w") as fh:
-    fh.write("".join(lines[i] + "\n" for i in order))
-# 1-based cursor position of the first genuine hit; borrowed ancestors are context, not hits.
-print(next((n for n, i in enumerate(order, 1) if targets[i] in sel), 1))
-')
+        | awk -F'\t' -v out="$VIEW" '
+FNR == NR {
+  line[FNR] = $0; tgt[FNR] = $NF; n = FNR
+  # Ancestors come from POSITION not from parsing ids: rows are emitted parent-first, so a row belongs to the nearest preceding ws:/tab: row.
+  if ($NF ~ /^ws:/)         { ws = FNR; tab = 0 }
+  else if ($NF ~ /^tab:/)   { tab = FNR; up1[FNR] = ws }
+  else if ($NF ~ /^agent:/) { up1[FNR] = ws; up2[FNR] = tab }
+  next
+}
+{ sel[$NF] = 1 }
+END {
+  for (i = 1; i <= n; i++)
+    if (tgt[i] in sel) { keep[i] = 1; if (up1[i]) keep[up1[i]] = 1; if (up2[i]) keep[up2[i]] = 1 }
+  printf "" >out                 # truncate even when nothing matched
+  pos = 1
+  for (i = 1; i <= n; i++) {
+    if (!(i in keep)) continue
+    print line[i] >out
+    # 1-based cursor position of the first genuine hit; borrowed ancestors are context, not hits.
+    if (!hit && (tgt[i] in sel)) { pos = ++k; hit = 1 } else k++
+  }
+  close(out)
+  print pos
+}' "$ROWS" -)
     fi
     # pos() is UNCONDITIONAL: reload-sync keeps the old cursor index, so without it the cursor drifts as the query narrows.
     printf 'reload-sync(cat %s)+pos(%s)\n' "$VIEW" "${POS:-1}"
@@ -432,26 +449,6 @@ print(next((n for n, i in enumerate(order, 1) if targets[i] in sel), 1))
 esac
 
 # --- interactive picker ---------------------------------------------------------
-# Row the cursor opens on: focused pane's agent row, else its tab, else its workspace. A popup is an overlay and not a pane, so `pane list` still reports the pane under it (as in herdr-scrollback.sh); HERDR_* env is the fallback.
-focus_row() {
-  local rows="$1" pane tab ws t n
-  read -r pane tab ws <<<"$("$herdr" pane list 2>/dev/null | python3 -c '
-import json, sys
-try: panes = json.load(sys.stdin)["result"]["panes"]
-except Exception: panes = []
-p = next((p for p in panes if p.get("focused")), None) or {}
-print(p.get("pane_id") or "", p.get("tab_id") or "", p.get("workspace_id") or "")
-')"
-  [ -n "${pane:-}" ] || pane="${HERDR_PANE_ID:-}"
-  [ -n "${tab:-}" ] || tab="${HERDR_TAB_ID:-}"
-  [ -n "${ws:-}" ] || ws="${HERDR_WORKSPACE_ID:-}"
-  for t in ${pane:+"agent:$pane"} ${tab:+"tab:$tab"} ${ws:+"ws:$ws"}; do
-    n=$(awk -F'\t' -v t="$t" '$NF == t { print NR; exit }' "$rows")
-    [ -n "$n" ] && { printf '%s\n' "$n"; return; }
-  done
-  printf '1\n'
-}
-
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
@@ -463,12 +460,15 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0
 # Built ONCE per open; --view re-reads this instead of re-querying herdr and gitmux. Per-PID so two open pickers cannot collide.
 ROWS_FILE="${TMPDIR:-/tmp}/herdr-sesh-rows.$$"
 VIEW_FILE="${TMPDIR:-/tmp}/herdr-sesh-view.$$"
-trap 'rm -f "$ROWS_FILE" "$VIEW_FILE"' EXIT
+# Set only for the interactive open, so --list/--warm/--rebuild skip the cursor lookup.
+export FOCUS_FILE="${TMPDIR:-/tmp}/herdr-sesh-pos.$$"
+trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"' EXIT
 
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
 while true; do
   build_list >"$ROWS_FILE"
-  START_POS=$(focus_row "$ROWS_FILE")
+  START_POS=$(cat "$FOCUS_FILE" 2>/dev/null) || START_POS=1
+  [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
@@ -504,7 +504,7 @@ while true; do
       WT_PATH="${WT##*$'\t'}"
       # Seed zoxide on entry (_ZO_DATA_DIR is exported above) so the worktree shows in the default view immediately - the chpwd hook only fires on a later cd.
       zoxide add "$WT_PATH" 2>/dev/null
-      rm -f "$ROWS_FILE" "$VIEW_FILE"   # exec replaces us, so the EXIT trap never runs
+      rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # exec replaces us, so the EXIT trap never runs
       exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WT_PATH"
     fi
     # esc in the worktree view → fall through and re-show the default picker.
@@ -514,7 +514,7 @@ while true; do
   [ -z "$SELECTED" ] && exit 0
 
   TARGET="${SELECTED##*$'\t'}"
-  rm -f "$ROWS_FILE" "$VIEW_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
+  rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
   case "$TARGET" in
     ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
     agent:* | tab:*)
