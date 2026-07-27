@@ -79,13 +79,13 @@
         "note": "linux runs the shebang directly and pins format via env; macOS forces system python3 and relies on script defaults"
       },
       "herdr-thread-status": {
-        "desc": "herdr thread-status ($pr sidebar token: PR approvals + CI state)",
+        "desc": "herdr thread-status ($pr PR approvals + CI, $sb vault note)",
         "script": "herdr-thread-status.py",
         "args": "",
         "interp": "/usr/bin/python3",
-        "token": "$pr",
+        "token": "$pr/$sb",
         "needsPath": true,
-        "note": "needs an authenticated gh on PATH; unauthenticated just means the token never appears"
+        "note": "gh only feeds $pr; $sb is a local vault-note lookup and still renders without it"
       }
     }
   }
