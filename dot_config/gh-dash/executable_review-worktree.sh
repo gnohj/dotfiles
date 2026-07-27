@@ -21,7 +21,6 @@
 set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees"
-herdr="${HERDR_BIN_PATH:-herdr}"
 
 # sweep grace period: a freshly-acquired lease has its worktree windows created
 # ASYNCHRONOUSLY (gh-dash bindings run review-open.sh detached), so for the first
@@ -65,29 +64,9 @@ _mtime() {
   stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
-# Which multiplexer are we under? gh-dash review windows live in tmux windows on
-# the Mac (off-herdr) and in herdr tabs under herdr; window/tab enumeration for
-# release + sweep must follow suit. Shared detector; see mux kind.
-mux_kind() { "$HOME/.local/bin/mux/mux" kind; }
-
-# All open herdr tabs as "<tab_id>\t<label>" lines across every workspace (herdr
-# tab list is per-workspace, so iterate). Best-effort: never aborts the caller.
-herdr_tabs() {
-  "$herdr" workspace list 2>/dev/null \
-    | jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null \
-    | while IFS= read -r ws; do
-        [ -n "$ws" ] || continue
-        "$herdr" tab list --workspace "$ws" 2>/dev/null \
-          | jq -r '.result.tabs[]? | "\(.tab_id)\t\(.label // "")"' 2>/dev/null
-      done || true
-}
-
-# Current cwd of every open herdr pane (foreground process cwd, falling back to the
-# pane cwd). Used to decide whether ANY pane still sits in a leased worktree.
-herdr_pane_cwds() {
-  "$herdr" pane list 2>/dev/null \
-    | jq -r '.result.panes[]? | (.foreground_cwd // .cwd // empty)' 2>/dev/null || true
-}
+# `mux tabs` / `mux pane-cwds` enumerate the live mux, so release + sweep don't branch.
+MUX="${MUX:-$HOME/.local/bin/mux/mux}"
+mux_kind() { "$MUX" kind; }
 
 # True (0) if some line in $1 is exactly $2 or a subdirectory of it — i.e. a pane
 # still sits in the worktree. Prefix-safe: "/a/b" does not match "/a/bc".
@@ -152,22 +131,12 @@ release_pr() {
   # remove this file between a test and a read, which would abort under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
 
-  case "$(mux_kind)" in
-    herdr)
-      # Close every herdr tab whose label carries "#<pr>" (e.g. "2.🐙 #19156").
-      herdr_tabs \
-        | awk -F'\t' -v pr="$pr" '$2 ~ ("#" pr "([^0-9]|$)") { print $1 }' \
-        | while IFS= read -r tid; do
-            [ -n "$tid" ] && "$herdr" tab close "$tid" >/dev/null 2>&1 || true
-          done || true
-      ;;
-    tmux)
-      tmux list-windows -a -F '#{window_id} #{window_name}' 2>/dev/null \
-        | grep -E "#${pr}([^0-9]|$)" \
-        | awk '{print $1}' \
-        | while read -r wid; do tmux kill-window -t "$wid" 2>/dev/null || true; done || true
-      ;;
-  esac
+  # Close every window/tab whose label carries "#<pr>" (e.g. "2.🐙 #19156").
+  "$MUX" tabs \
+    | awk -F'\t' -v pr="$pr" '$2 ~ ("#" pr "([^0-9]|$)") { print $1 }' \
+    | while IFS= read -r id; do
+        [ -n "$id" ] && "$MUX" close "$id" || true
+      done || true
 
   # The review's processes — hunk, the Octo nvim, and their node/claude helpers —
   # ignore the SIGHUP from their tmux window closing and reparent to the tmux
@@ -212,17 +181,9 @@ sweep() {
   fi
   sleep 0.3 # debounce: let the just-closed window/tab finish unlinking
   local cwds wins f pr wt now age total
-  case "$(mux_kind)" in
-    herdr)
-      cwds="$(herdr_pane_cwds || true)"
-      wins="$(herdr_tabs | cut -f2- || true)"
-      ;;
-    tmux)
-      cwds="$(tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true)"
-      wins="$(tmux list-windows -a -F '#{window_name}' 2>/dev/null || true)"
-      ;;
-    *) return 0 ;;
-  esac
+  [ "$(mux_kind)" = none ] && return 0
+  cwds="$("$MUX" pane-cwds || true)"
+  wins="$("$MUX" tabs | cut -f2- || true)"
 
   # Guard against transient enumeration failure: this sweep was triggered BY a
   # window/tab close, so the multiplexer IS running and necessarily has at least
