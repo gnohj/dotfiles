@@ -18,7 +18,6 @@ cmd + rctrl - t : ~/.config/skhd/kitty-remote-quake.sh
 
 # Needs to work local / remote
    # MIGRATED to ghostty/kitty prefix-expansion → tmux server-side binds (work local + VPS):
-   #   next-input     → ctrl+;  (C-a ,)   mux-passthrough.sh now orphaned  (ctrl+, → tmux-dash summary/table)
    #   notify-switch  → ctrl+'  (C-a ')
    #   worktree abort → ctrl+/  (C-a /)
    # Only clear-notifications stays skhd-triggered (still calls the portable script):
