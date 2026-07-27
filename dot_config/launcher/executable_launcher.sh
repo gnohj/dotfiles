@@ -21,28 +21,43 @@ SELF="${BASH_SOURCE[0]}"
 # identical for both. See launcher-quake.sh for the herdr entry point.
 LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
 
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+# fzf re-forks --preview per cursor move, so each mode skips the startup work it never reads.
+case "${1:-}" in
+--preview) LAUNCHER_NEEDS=preview ;;
+--mux-badge) LAUNCHER_NEEDS=badge ;;
+*) LAUNCHER_NEEDS=full ;;
+esac
 
-# mux_kind() — one definition of "which mux is live", shared with the mux dispatcher.
-# Sourced, not forked: the badge re-renders on every fzf focus event, so a subprocess
-# per ask would be pure waste.
-# shellcheck source=/dev/null
-. "$HOME/.local/bin/mux/shared/mux-detect.sh"
+FZF_COLORS=""
 
-# Resolved ONCE here, into this shell, because the six active_mux() call sites all use
-# `$(active_mux)` — a subshell, so any memo assigned down there cannot propagate back
-# up and would silently re-probe each time. Free when a pane env is present (mux_kind
-# short-circuits on HERDR_SOCKET_PATH / TMUX); one socket probe in the bare quake.
-# Safe to fix at startup: the live mux cannot change mid-invocation.
-MUX_LIVE=$(mux_kind)
-[ "$MUX_LIVE" = none ] && MUX_LIVE=""
+# Preview inherits MUX_LIVE (a socket probe per keystroke would kill the fast path); the badge must re-probe.
+if [ "$LAUNCHER_NEEDS" = preview ]; then
+  MUX_LIVE="${MUX_LIVE:-}"
+else
+  # shellcheck source=/dev/null
+  [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
+    source "$HOME/.config/colorscheme/active/active-colorscheme.sh" || true
 
-# fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
-FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
+  # mux_kind() — one definition of "which mux is live", shared with the mux dispatcher.
+  # shellcheck source=/dev/null
+  . "$HOME/.local/bin/mux/shared/mux-detect.sh"
+
+  # Resolved once here: active_mux() call sites use $(...), so a memo inside would re-probe every time.
+  MUX_LIVE=$(mux_kind)
+  [ "$MUX_LIVE" = none ] && MUX_LIVE=""
+  export MUX_LIVE
+fi
+
+if [ "$LAUNCHER_NEEDS" = full ]; then
+  # fzf colors using current colorscheme (matches FZF_DEFAULT_OPTS from zshrc)
+  FZF_COLORS="--color=bg+:$gnohj_color13,border:$gnohj_color03,fg:$gnohj_color04,fg+:$gnohj_color04,hl+:$gnohj_color04,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09"
+fi
 
 # Machine identity from the central resolver, so the os gate and the Mac-relay badge share one source of truth. role: mac->darwin, devbox->linux+mac-relay, linux->plain.
-LAUNCHER_ROLE="$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)"
+# Exported so the per-keystroke re-forks inherit it instead of re-running machine-identity.
+LAUNCHER_ROLE="${LAUNCHER_ROLE:-$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)}"
+LAUNCHER_HOST="${LAUNCHER_HOST:-$(hostname -s 2>/dev/null || echo '?')}"
+export LAUNCHER_ROLE LAUNCHER_HOST
 case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 [ "$LAUNCHER_ROLE" = devbox ] && LAUNCHER_IS_DEVBOX=1 || LAUNCHER_IS_DEVBOX=""
 
@@ -50,7 +65,7 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 # Registry — the only thing you edit to add/rename entries
 #===============================================================================
 
-# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope|os
+# id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope|os|mux
 #   leaf_provider  static (leaves from ACTIONS) | fn emitting labels at runtime
 #   submenu_fn     generic | custom fn (themes drilldown, aerospace header)
 #   leaf_handler   static (label→ACTIONS fn)    | fn called as `fn "<label>"`
@@ -61,6 +76,8 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 #                  OS (filtered at every derivation path, so it can't be dispatched
 #                  off-OS either). scope is field 9; os is field 10 — set an empty
 #                  scope (||) when an entry needs os but not mac.
+#   mux            omitted = all | tmux | herdr. Field 11, same treatment as os but
+#                  against the LIVE mux — set empty scope+os (|||) to reach it.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
   "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace||darwin"
@@ -73,8 +90,8 @@ CATEGORIES=(
   "WORKTREES|🌳 Worktrees|🌳 Worktrees ›|Worktrees|Worktree > |static|generic|static"
 )
 
-# Static leaves — prefix|label|function|description|scope|os (scope+os optional; scope
-# omitted inherits the category; os omitted = all — set an empty scope || to reach os)
+# Static leaves — prefix|label|function|description|scope|os|mux (all optional; scope
+# omitted inherits the category; set empty leading fields to reach a later one)
 ACTIONS=(
   "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
@@ -106,12 +123,12 @@ ACTIONS=(
   "🌳 Worktrees|🗑  Delete Worktree|act_worktree_delete|Interactively select and delete a git worktree"
 )
 
-# Top-level actions with no submenu — label|function|description|scope|os (scope+os optional)
+# Top-level actions with no submenu — label|function|description|scope|os|mux (all three optional)
 SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check outdated Homebrew (mac) + mise packages; nix refreshes via 'up' (flake.lock), not per-package"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs (this machine only)"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|mac"
-  "[tmux] 📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|mac"
+  "📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|mac||tmux"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
   "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands"
   "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)"
@@ -123,7 +140,7 @@ SIMPLE_ACTIONS=(
 TOP_LEVEL_ORDER=(
   "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
-  "simple:🔀 GitHub PRs" "simple:[tmux] 📋 Copy Pane Address"
+  "simple:🔀 GitHub PRs" "simple:📋 Copy Pane Address"
   "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "simple:📈 Usage Report (cpu/mem)"
   "cat:FZF" "cat:SYNC" "cat:SYSTEM" "cat:THEMES"
   "simple:👻 Toggle Transparency" "cat:WORKTREES"
@@ -136,13 +153,13 @@ PREVIEW_CMD="\"$SELF\" --preview {}"
 # Engine — derives all three views from the registry
 #===============================================================================
 
-# Populate REC0..REC8 with a category's fields by id; 1 if unknown.
+# Populate REC0..REC10 with a category's fields by id; 1 if unknown.
 get_cat() {
   local rec
   for rec in "${CATEGORIES[@]}"; do
     case "$rec" in
     "$1|"*)
-      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 REC8 REC9 <<<"$rec"
+      IFS='|' read -r REC0 REC1 REC2 REC3 REC4 REC5 REC6 REC7 REC8 REC9 REC10 <<<"$rec"
       return 0
       ;;
     esac
@@ -161,12 +178,17 @@ strip_scope() { printf '%s' "${1%%$'\t'*}"; }
 # OS gate: 0 (show) when the os field is empty/all or matches the current OS.
 os_match() { case "${1:-}" in "" | all | "$LAUNCHER_OS") return 0 ;; *) return 1 ;; esac; }
 
-# os field of a simple action by label ("" if none).
-simple_os() {
-  local rec lbl fn desc scope os
+# Mux filter: 0 (show) when the field is empty/all or names the live mux (none running = hidden).
+mux_match() { case "${1:-}" in "" | all | "$MUX_LIVE") return 0 ;; *) return 1 ;; esac; }
+
+# One scan setting scope+os+mux, so the render path forks no subshell per field.
+SIMPLE_SCOPE="" SIMPLE_OS="" SIMPLE_MUX=""
+simple_fields() { # label
+  local rec lbl fn desc scope os mux
+  SIMPLE_SCOPE="" SIMPLE_OS="" SIMPLE_MUX=""
   for rec in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn desc scope os <<<"$rec"
-    [ "$lbl" = "$1" ] && { printf '%s' "$os"; return; }
+    IFS='|' read -r lbl fn desc scope os mux <<<"$rec"
+    [ "$lbl" = "$1" ] && { SIMPLE_SCOPE="$scope" SIMPLE_OS="$os" SIMPLE_MUX="$mux"; return; }
   done
 }
 
@@ -194,24 +216,19 @@ leaf_is_mac() { # prefix label
   [ "$(cat_scope_by_prefix "$1")" = mac ]
 }
 
-# Is a simple action mac-scoped AND are we on the devbox?
-simple_is_mac() { # label
+# Is a simple action mac-scoped AND are we on the devbox? Reads what simple_fields resolved.
+simple_is_mac() { # label (simple_fields must have run for it)
   [ -n "$LAUNCHER_IS_DEVBOX" ] || return 1
-  local rec lbl fn desc scope os
-  for rec in "${SIMPLE_ACTIONS[@]}"; do
-    IFS='|' read -r lbl fn desc scope os <<<"$rec"
-    [ "$lbl" = "$1" ] && { [ "$scope" = mac ]; return; }
-  done
-  return 1
+  [ "$SIMPLE_SCOPE" = mac ]
 }
 
 # Emit leaf labels (no prefix). $1=prefix $2=leaf_provider.
 leaves_of() {
   if [ "$2" = static ]; then
-    local rec p l f desc scope os
+    local rec p l f desc scope os mux
     for rec in "${ACTIONS[@]}"; do
-      IFS='|' read -r p l f desc scope os <<<"$rec"
-      [ "$p" = "$1" ] && os_match "$os" && printf '%s\n' "$l"
+      IFS='|' read -r p l f desc scope os mux <<<"$rec"
+      [ "$p" = "$1" ] && os_match "$os" && mux_match "$mux" && printf '%s\n' "$l"
     done
   else
     "$2"
@@ -251,16 +268,24 @@ run_leaf() {
   fi
 }
 
+# Glob + expansion, not find|xargs|basename: these feed the INSERT corpus on every render.
 provide_themes() {
-  [ -d "$HOME/.config/colorscheme/list" ] || return 0
-  find "$HOME/.config/colorscheme/list" -maxdepth 1 -name "*.sh" -type f -print0 |
-    xargs -0 -n 1 basename | sort
+  local f
+  shopt -s nullglob
+  for f in "$HOME"/.config/colorscheme/list/*.sh; do
+    [ -f "$f" ] && printf '%s\n' "${f##*/}"
+  done
+  shopt -u nullglob
 }
 
 provide_aerospace() {
-  local dir="$HOME/.config/aerospace/profiles"
-  [ -d "$dir" ] || return 0
-  find "$dir" -maxdepth 1 -name '*.toml' -exec basename {} .toml \; 2>/dev/null | sort
+  local f base
+  shopt -s nullglob
+  for f in "$HOME"/.config/aerospace/profiles/*.toml; do
+    base="${f##*/}"
+    printf '%s\n' "${base%.toml}"
+  done
+  shopt -u nullglob
 }
 
 handle_theme() { "$HOME/.config/zshrc/colorscheme-set.sh" "$1"; }
@@ -277,11 +302,14 @@ build_top_level_items() {
     cat:*)
       get_cat "${tok#cat:}" || continue
       os_match "${REC9:-}" || continue
+      mux_match "${REC10:-}" || continue
       if [ "${REC8:-local}" = mac ] && [ -n "$LAUNCHER_IS_DEVBOX" ]; then printf '%s\t%s\n' "$REC2" "$SCOPE_GLYPH"; else printf '%s\n' "$REC2"; fi
       ;;
     simple:*)
       lbl="${tok#simple:}"
-      os_match "$(simple_os "$lbl")" || continue
+      simple_fields "$lbl"
+      os_match "$SIMPLE_OS" || continue
+      mux_match "$SIMPLE_MUX" || continue
       if simple_is_mac "$lbl"; then printf '%s\t%s\n' "$lbl" "$SCOPE_GLYPH"; else printf '%s\n' "$lbl"; fi
       ;;
     esac
@@ -291,10 +319,11 @@ build_top_level_items() {
 # INSERT mode: breadcrumb-prefixed leaves so fuzzy-typing any partial name
 # ("tokyo", "laptop", "open pr") resolves in one shot.
 build_flattened_leaves() {
-  local rec id prefix pointer header prompt provider submenu handler scope os leaf
+  local rec id prefix pointer header prompt provider submenu handler scope os mux leaf
   for rec in "${CATEGORIES[@]}"; do
-    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope os <<<"$rec"
+    IFS='|' read -r id prefix pointer header prompt provider submenu handler scope os mux <<<"$rec"
     os_match "$os" || continue
+    mux_match "$mux" || continue
     while IFS= read -r leaf; do
       [ -n "$leaf" ] || continue
       if leaf_is_mac "$prefix" "$leaf"; then
@@ -362,7 +391,7 @@ generic_submenu() {
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left'
   ) || rc=$?
   quit_on_interrupt "$rc"
-  clear
+  printf '\033[2J\033[H'
   choice="$(strip_scope "$choice")"
   case "$choice" in
   "← Back" | "") back_to_root ;;
@@ -377,12 +406,14 @@ main_menu() {
     build_top_level_items
     build_flattened_leaves
   })
+  # Badge rendered in-process (a subshell, not a re-exec); HEADER_CMD still feeds the poster.
   choice=$(build_top_level_items |
     FZF_VIM_INSERT_INPUT="$insert_corpus" FZF_VIM_HEADER_CMD="\"$SELF\" --mux-badge" \
+      FZF_VIM_HEADER="$(mux_indicator)" \
       ~/.local/bin/fzf-vim.sh --height=100% --prompt="❯ " --ansi $FZF_COLORS \
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || rc=$?
   quit_on_interrupt "$rc"
-  clear
+  printf '\033[2J\033[H'
   # Empty = Esc / aborted fzf. Never an exit: in herdr mode the loop just redraws
   # root (only Ctrl+C quits); in tmux mode returning falls through to the end of
   # the script, closing the popup as before.
@@ -593,10 +624,11 @@ active_mux() { [ -z "$MUX_LIVE" ] || printf '%s\n' "$MUX_LIVE"; }
 # backgrounded @host_city set.
 mux_host_label() {
   local host city="" cache="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
-  host=$(hostname -s 2>/dev/null) || host=""
-  [ -n "$host" ] || host="?"
+  host="$LAUNCHER_HOST"
+  # read <file, not $(cat file): a builtin beats a fork on every menu spawn.
   if [ -s "$cache" ]; then
-    city=$(cat "$cache" 2>/dev/null) || city=""
+    # `|| true`, NOT `|| city=""`: no trailing newline means read returns 1 having already assigned.
+    read -r city <"$cache" 2>/dev/null || true
   else
     ( "$HOME/.local/bin/mux/shared/host-city" >/dev/null 2>&1 & ) 2>/dev/null || true
   fi
@@ -633,6 +665,7 @@ mux_indicator() {
 # in the LIVE multiplexer (see active_mux). tmux → new window in the server
 # (works even from the standalone quake). herdr → new tab in the focused
 # workspace, then run <cmd> in its root pane over the socket API.
+# Owns the quake dismissal: neither mux raises its window on an API-created tab.
 open_window() {
   local label="$1" cmd="$2" dir="${3:-}" pane
   case "$(active_mux)" in
@@ -655,33 +688,49 @@ open_window() {
       return 1
       ;;
   esac
+  dismiss_quake
 }
 
 # Open a NAMED command window. tmux mode delegates to tmux-window-simple.sh (which
 # reuses a window by emoji and keeps the shell alive after the command); herdr
-# mode opens a herdr tab running the command (optionally keeping a shell open).
+# mode opens a herdr tab running the command.
+# keepopen is tmux-only: herdr types into a live shell that returns to its prompt anyway.
 open_named_window() {
   local emoji="$1" name="$2" cmd="$3" keepopen="${4:-}" run
   if [ "$(active_mux)" = herdr ]; then
     run="$cmd"
-    [ -n "$keepopen" ] && run="$cmd; exec ${SHELL:-/bin/zsh} -l"
     open_window "$emoji" "$run"
   else
-    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen
+    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $keepopen &&
+      dismiss_quake
   fi
 }
 
-# In herdr mode the launcher runs inside the ghostty quake; once an action hands
-# off to a herdr tab, dismiss the quake so the herdr window comes forward. Ghostty
-# has no CLI to toggle the quick terminal, so we send its toggle keybind (cmd+s,
-# per ghostty/config `keybind = cmd+s=toggle_quick_terminal`) via System Events —
-# key code 1 = 's'. Best-effort: needs Accessibility permission for the terminal;
-# silently no-ops otherwise. Only fires in herdr mode (the quake), never in tmux.
+# Hide the quake after a hand-off: kitty socket, then its tty escape channel (survives the
+# remote quake's ssh hop), then a frontmost-guarded Escape. ALWAYS returns 0 (set -e).
 dismiss_quake() {
   [ "$LAUNCHER_MODE" = herdr ] || return 0
-  command -v osascript >/dev/null 2>&1 || return 0
-  osascript -e 'tell application "System Events" to key code 1 using {command down}' >/dev/null 2>&1 || true
+  # No --no-response: saves nothing measured, and the response is what lets a failure fall through.
+  if command -v kitten >/dev/null 2>&1; then
+    if [ -n "${KITTY_LISTEN_ON:-}" ] &&
+      kitten @ --to "$KITTY_LISTEN_ON" action hide_macos_app >/dev/null 2>&1; then
+      return 0
+    fi
+    case "${TERM:-}" in
+    xterm-kitty) kitten @ action hide_macos_app >/dev/null 2>&1 && return 0 ;;
+    esac
+  fi
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e 'tell application "System Events"
+      set fg to name of first application process whose frontmost is true
+      if fg is "kitty" then key code 53
+    end tell' >/dev/null 2>&1 || true
+  fi
+  return 0
 }
+
+# No dismiss_quake: hide_on_focus_loss covers it, and racing it lands Escape in the browser.
+open_url() { to-desktop open "$1"; }
 
 # Ctrl+C is a hard quit from any picker. fzf-vim.sh exits 130 on Ctrl+C (esc
 # exits 1 = go back). The persistent herdr-mode loop treats an aborted picker as
@@ -714,8 +763,10 @@ require_tmux() {
   return 0
 }
 
-act_ai_codeburn() { open_named_window 🔥 codeburn "~/.local/share/mise/shims/codeburn report --period today" true; }
+# Bare name, not the mise shim: both hosts use a login shell with mise on PATH (~0.8s cheaper).
+act_ai_codeburn() { open_named_window 🔥 codeburn "codeburn report --period today" true; }
 act_ai_rtk() { open_named_window 📊 rtk "rtk gain --graph"; }
+# No dismiss_quake: the app takes focus and hide_on_focus_loss covers it — see open_url.
 act_ai_claude_personal() { "$HOME/.local/bin/claude-desktop" personal; }
 act_ai_claude_work() { "$HOME/.local/bin/claude-desktop" work; }
 
@@ -723,14 +774,17 @@ act_browser_pr() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
   pane_path=$(focused_pane_path)
   cd "${pane_path:-$PWD}" 2>/dev/null || true
-  if gh pr view --web 2>/dev/null; then
+  # Resolve the URL here, open it via to-desktop: --web would launch a browser on whichever box this runs on.
+  if pr_url=$(gh pr view --json url -q .url 2>/dev/null) && [ -n "$pr_url" ]; then
+    open_url "$pr_url"
     echo "Opened PR for current branch"
-  elif [ -z "$(git symbolic-ref -q --short HEAD 2>/dev/null)" ] && detached_ref=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1) && [ -n "$detached_ref" ] && detached_branch=${detached_ref#*/} && gh pr view "$detached_branch" --web 2>/dev/null; then
+  elif [ -z "$(git symbolic-ref -q --short HEAD 2>/dev/null)" ] && detached_ref=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1) && [ -n "$detached_ref" ] && detached_branch=${detached_ref#*/} && pr_url=$(gh pr view "$detached_branch" --json url -q .url 2>/dev/null) && [ -n "$pr_url" ]; then
+    open_url "$pr_url"
     echo "Opened PR for detached-HEAD branch: $detached_branch"
   else
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
     if [ -n "$repo" ]; then
-      open "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+      open_url "https://github.com/$repo/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
       echo "No PR for branch — opened $repo PRs list"
     else
       echo "Could not resolve repo (not a git repo or gh not authenticated)"
@@ -748,7 +802,7 @@ act_browser_jira() {
   else
     key=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1)
     if [ -n "$key" ]; then
-      open "https://ihm-it.atlassian.net/browse/$key"
+      open_url "https://ihm-it.atlassian.net/browse/$key"
       echo "Opened ticket: $key"
     else
       echo "No Jira ticket key found in branch: $branch"
@@ -758,7 +812,7 @@ act_browser_jira() {
 }
 
 act_browser_dotfiles() {
-  open "https://github.com/gnohj/dotfiles"
+  open_url "https://github.com/gnohj/dotfiles"
   echo "Opened dotfiles repo"
   sleep 1
 }
@@ -816,7 +870,13 @@ act_fzf_env() {
 act_fzf_logs() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
   log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
-  [ -n "$log_file" ] && exec nvim "$log_file"
+  [ -n "$log_file" ] || return 0
+  # Quake mode hands off: `exec` would replace the persistent launcher loop with nvim.
+  if [ "$LAUNCHER_MODE" = herdr ]; then
+    open_window "📋" "nvim '$log_file'"
+  else
+    exec nvim "$log_file"
+  fi
 }
 
 act_sync_autopush() {
@@ -897,10 +957,11 @@ act_system_up() {
 #     rides the worktree runner's env chain (open→Terminal, then claude→treekanga→
 #     postScript), the same channel TREEKANGA_POSTSCRIPT_LOG uses. When the
 #     capture returns, the persistent picker redraws root.
+# Dismissal waits for the capture to return: it prompts inside the quake.
 run_worktree_capture() {
   local verb="$1"
   if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr "$HOME/.local/bin/worktree/worktree" "$verb"
+    WORKTREE_OPEN_IN=herdr "$HOME/.local/bin/worktree/worktree" "$verb" && dismiss_quake
   else
     tmux run-shell -b "$HOME/.local/bin/worktree/worktree $verb"
   fi
@@ -908,11 +969,11 @@ run_worktree_capture() {
 
 # treekanga-add.sh self-detects its host: tmux → new tmux window, herdr/quake →
 # new herdr tab running `treekanga tui`. Runs in both modes.
-act_worktree_add() { ~/.config/treekanga/treekanga-add.sh; }
+act_worktree_add() { ~/.config/treekanga/treekanga-add.sh && dismiss_quake; }
 act_worktree_ai_prompt() { run_worktree_capture prompt; }
 act_worktree_jira() {
   if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree/worktree jira
+    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree/worktree jira && dismiss_quake
   else
     ~/.local/bin/worktree/worktree jira
   fi

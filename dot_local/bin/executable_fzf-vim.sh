@@ -6,31 +6,32 @@
 
 set -euo pipefail
 
-# Buffer stdin so the loop can re-feed fzf on mode switch
-INPUT=$(cat)
+# Buffer stdin so the loop can re-feed fzf on mode switch; builtin slurp, no $(cat) fork.
+IFS= read -r -d '' INPUT || true
 
 extra_args=("$@")
 mode="${FZF_VIM_MODE:-normal}"
 
 # Optional status header, pinned to the top (--header-first). Two opt-in forms;
 # every other picker sets neither and keeps --no-header (unchanged):
-#   FZF_VIM_HEADER_CMD  a command, re-run LIVE: via transform-header on start +
-#                       every focus change, AND on an idle timer (fzf --listen +
-#                       a background poster) — so a status badge (e.g. the active
-#                       mux) stays fresh even when the persistent quake sits idle
-#                       with no interaction. Interval: FZF_VIM_HEADER_POLL (def 5s).
-#   FZF_VIM_HEADER      a static string.
-# transform-header/focus/--listen need fzf >= 0.38 (nix ships current on both OSes).
+#   FZF_VIM_HEADER_CMD  command the idle poster re-runs (FZF_VIM_HEADER_POLL, def 5s).
+#   FZF_VIM_HEADER      static string; set WITH _CMD to skip the start-up re-exec.
+# Never bind either to `focus` — anything fzf runs itself blocks its render loop.
+# transform-header/--listen need fzf >= 0.38 (nix ships current on both OSes).
 _poster_pid=""
 _port_file=""
 if [ -n "${FZF_VIM_HEADER_CMD:-}" ]; then
-  _port_file=$(mktemp -t fzf-vim-port.XXXXXX)
-  header_args=(--header-first --listen
-    --bind "start:transform-header($FZF_VIM_HEADER_CMD)+execute-silent(printf '%s' \"\$FZF_PORT\" >|$_port_file)"
-    --bind "focus:transform-header($FZF_VIM_HEADER_CMD)")
-  # Idle poster: refresh the header on a timer via fzf's --listen HTTP API, even
-  # with zero interaction. Re-reads the port each tick so it follows the current
-  # fzf across mode switches. Best-effort — silently absent without curl.
+  # $$ gives the same uniqueness as a mktemp fork; EXIT trap removes it.
+  _port_file="${TMPDIR:-/tmp}/fzf-vim-port.$$"
+  # Only pay for transform-header when the caller could not supply an initial string.
+  if [ -n "${FZF_VIM_HEADER:-}" ]; then
+    header_args=(--header "$FZF_VIM_HEADER" --header-first --listen
+      --bind "start:execute-silent(printf '%s' \"\$FZF_PORT\" >|$_port_file)")
+  else
+    header_args=(--header-first --listen
+      --bind "start:transform-header($FZF_VIM_HEADER_CMD)+execute-silent(printf '%s' \"\$FZF_PORT\" >|$_port_file)")
+  fi
+  # Poster renders the badge itself; fzf running it would stutter its render loop.
   if command -v curl >/dev/null 2>&1; then
     (
       set +e # best-effort: a dead port during a mode-switch must not kill the loop
@@ -38,10 +39,14 @@ if [ -n "${FZF_VIM_HEADER_CMD:-}" ]; then
       while :; do
         sleep "$interval"
         port=$(cat "$_port_file" 2>/dev/null)
-        [ -n "$port" ] && curl -sS -XPOST "localhost:$port" \
-          -d "transform-header($FZF_VIM_HEADER_CMD)" >/dev/null 2>&1
+        [ -n "$port" ] || continue
+        # Single line: `change-header:` consumes the rest of the payload verbatim.
+        hdr=$(eval "$FZF_VIM_HEADER_CMD" 2>/dev/null | head -1)
+        [ -n "$hdr" ] && curl -sS -XPOST "localhost:$port" \
+          -d "change-header:$hdr" >/dev/null 2>&1
       done
-    ) &
+      # >/dev/null is load-bearing: a child holding our stdout blocks the caller's $(...).
+    ) >/dev/null 2>&1 &
     _poster_pid=$!
   fi
 elif [ -n "${FZF_VIM_HEADER:-}" ]; then
@@ -50,10 +55,10 @@ else
   header_args=(--no-header)
 fi
 
-# Reset cursor + tear down the idle poster / its port file on exit.
+# Reset cursor + tear down poster/port file; children first or the `sleep` is orphaned.
 trap '
   printf "\e[0 q" >/dev/tty 2>/dev/null
-  [ -n "$_poster_pid" ] && kill "$_poster_pid" 2>/dev/null
+  [ -n "$_poster_pid" ] && { pkill -P "$_poster_pid" 2>/dev/null; kill "$_poster_pid" 2>/dev/null; }
   [ -n "$_port_file" ] && rm -f "$_port_file"
 ' EXIT
 
@@ -96,12 +101,18 @@ while true; do
       --bind 'esc:abort') || fzf_rc=$?
   fi
 
+  # Parameter expansion, not $(printf|head)/$(printf|sed): four processes on the Enter path.
   if [[ $fzf_rc -ne 0 && -z "$fzf_out" ]]; then
     key="esc"
     sel=""
   else
-    key=$(printf "%s\n" "$fzf_out" | head -n1)
-    sel=$(printf "%s\n" "$fzf_out" | sed -n '2p')
+    key="${fzf_out%%$'\n'*}"
+    if [[ "$fzf_out" == *$'\n'* ]]; then
+      sel="${fzf_out#*$'\n'}"
+      sel="${sel%%$'\n'*}"
+    else
+      sel=""
+    fi
   fi
 
   # Ctrl+C is a hard quit from EITHER mode. fzf runs the terminal in raw mode, so
