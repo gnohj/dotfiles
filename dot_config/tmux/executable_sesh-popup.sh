@@ -70,15 +70,18 @@ else
   # only way to get "esc = back to default" is to re-enter this loop). ctrl-w
   # is surfaced via --expect: pressing it accepts and exits with "ctrl-w" on
   # line 1, so we branch on it instead of connecting.
+  # Rows carry a hidden tab-separated pane target (grammar in sesh-agents.sh); --with-nth=1 keeps it out of display and matching.
+  ROWS="$HOME/.config/tmux/sesh-agents.sh"
   while true; do
-    OUT=$(sesh list --icons | fzf "${fzf_common[@]}" \
+    OUT=$("$ROWS" | fzf "${fzf_common[@]}" \
+      --delimiter=$'\t' --with-nth=1 \
       --expect=ctrl-w \
-      --bind 'ctrl-a:change-prompt(⚡ )+reload(sesh list --icons)' \
-      --bind 'ctrl-t:change-prompt( )+reload(sesh list -t --icons)' \
+      --bind "ctrl-a:change-prompt(⚡ )+reload($ROWS)" \
+      --bind "ctrl-t:change-prompt( )+reload($ROWS -t)" \
       --bind 'ctrl-g:change-prompt(⚙️ )+reload(sesh list -c --icons)' \
       --bind 'ctrl-x:change-prompt(📁 )+reload(sesh list -z --icons)' \
       --bind 'ctrl-f:change-prompt(🔎 )+reload(fd -H -d 2 -t d -E .Trash . ~)' \
-      --bind 'ctrl-d:execute(tmux kill-session -t {2..})+change-prompt(⚡ )+reload(sesh list --icons)')
+      --bind "ctrl-d:execute($ROWS --kill {})+change-prompt(⚡ )+reload($ROWS)")
     # With --expect, line 1 is the pressed expect-key (empty on a normal enter)
     # and line 2 is the selection. On esc/abort fzf exits non-zero and OUT is
     # empty, so both come back blank.
@@ -106,6 +109,11 @@ else
     fi
 
     [[ -z "$SELECTED" ]] && exit 0
+    # Agent rows carry `session:window.pane`; switch-client reads a ':' target as session+window+pane. No sesh stamp - the pane is already live.
+    if [[ "$SELECTED" == *$'\t'* ]]; then
+      tmux switch-client -t "${SELECTED##*$'\t'}"
+      exit 0
+    fi
     # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
     "$HOME/.config/sesh/sesh-spawn.sh" stamp
     sesh connect "$SELECTED"
