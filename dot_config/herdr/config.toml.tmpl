@@ -301,9 +301,10 @@ mouse_capture = true
 
 # 32, up from the 26 default, so a bucketed ticket label fits unclipped on row 1. Budget math
 # (src/ui/sidebar.rs): a space row loses 4 columns to chrome - 1 list separator, 1 row-0 prefix,
-# 1 state_icon dot, 1 token separator - so a 28-column label needs 32. 28 is the worst case in
-# the bucket vocabulary: "🌳 web/refactor/IHRWEB-24314". Still under sidebar_max_width's default
-# of 36, and herdr auto-scales within that range, so this is a floor rather than a fixed size.
+# 1 state_icon dot, 1 token separator - so a 28-column label needs 32. Row 1 collapses the ticket
+# to its bare number (herdr-sesh-layout.sh), making its worst case "🌳 web/refactor/24314" at 21,
+# so row 3's PR/note/Jira cluster is the binding constraint now. Still under sidebar_max_width's
+# default of 36, and herdr auto-scales within that range, so this is a floor not a fixed size.
 sidebar_width = 32
 
 # Show detected/reported agent labels (claude / codex / etc.) in split-pane
@@ -380,8 +381,8 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # gitmux.yml as the tmux status line and pushed via `herdr workspace report-metadata`.
 #
 # Row 2 is `$br`/`$br_on`, NOT the built-in `branch`, because the built-in can only render the
-# branch verbatim and row 1 already ends in the ticket key: the pair carries the branch with
-# that key stripped (web/infra/IHRWEB-24314 over listen-endpoint, rather than spelling
+# branch verbatim and row 1 already ends in the ticket number: the pair carries the branch with
+# the full key stripped (web/infra/24314 over listen-endpoint, rather than spelling
 # IHRWEB-24314-listen-endpoint out twice). It also makes the row FIT - the full branch is 28
 # columns and clips even at sidebar_width 32, the stripped tail is 15 and does not.
 #

@@ -20,14 +20,15 @@ command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 # Workspace label: the shared sidebar naming rule (session_display_name ->
 # cwd_logical_path -> shorten_segments). The name is DIRECTORY-derived and home-relative:
 #   ~/Developer/<repo>/<worktree>          -> "<repo>/<worktree>"      (web/master, web/review)
-#   ~/Developer/<repo>/<bucket>/<TICKET-…> -> "<repo>/<bucket>/<KEY>"  (web/infra/IHRWEB-24314)
+#   ~/Developer/<repo>/<bucket>/<TICKET-…> -> "<repo>/<bucket>/<NUM>"  (web/infra/24314)
 #   ~/Developer/<repo>/<bucket>/<branch>   -> "<repo>/<bucket>/<branch>"
 #   ~/<other>/…/<leaf>  (>=3 segments)     -> "<leaf>"
 #   anything else                          -> basename
-# The third segment collapses to its ticket KEY when it has one, because the descriptive tail
+# The third segment collapses to its ticket NUMBER when it has one, because the descriptive tail
 # is already the sidebar's second row ($br, which strips that same key off the branch). Split
 # that way each row carries something the other doesn't, instead of both spelling out
-# IHRWEB-24314-listen-endpoint. A branch dir with no ticket key is kept whole - there is
+# IHRWEB-24314-listen-endpoint. The constant project prefix goes with it, ambiguous only if a
+# second project ever shares this tree. A branch dir with no ticket key is kept whole - there is
 # nothing to move to row two - and herdr truncates it if the row runs out. Pure prefix
 # expansion (no arrays / negative indices), so it stays bash-3.2 safe on macOS.
 #
@@ -50,7 +51,7 @@ if [ -z "$label" ]; then
       # [A-Z]+-[0-9]+ is the same one launcher.sh and worktree already parse out of branches.
       if [ -n "$s3" ]; then
         key=$(printf '%s' "$s3" | grep -oE '^[A-Z]+-[0-9]+' | head -n1)
-        s3="${key:-$s3}"
+        [ -n "$key" ] && s3="${key##*-}"
       fi
       label="$s1${s2:+/$s2}${s3:+/$s3}"
       ;;
