@@ -1,12 +1,33 @@
 #!/usr/bin/env bash
-# THIS machine's identity, so consumers stop re-deriving from bare `uname` (which can't tell the devbox from a future Linux laptop - both Linux). Devbox = a Mac relay is configured (same target notify-idle/to-mac use); a Linux client without one is `linux`.
-# usage: machine-identity {os|role|mac-host|is <role>}   ·   os: darwin|linux   ·   role: mac|devbox|linux   ·   mac-host: the Mac ssh target (empty if none)
+# THIS machine's identity, so consumers stop re-deriving from bare `uname` (which can't tell the devbox from a future Linux laptop - both Linux). Devbox = a workstation is attached RIGHT NOW; nobody attached is plain `linux`, since there is nowhere to send a URL or banner.
+# usage: machine-identity {os|role|mac-host|is <role>}   ·   os: darwin|linux   ·   role: mac|devbox|linux   ·   mac-host: the attached workstation's ssh target (empty if nobody is attached)
 set -uo pipefail
 
 _os() { case "$(uname -s)" in Darwin) echo darwin ;; *) echo linux ;; esac; }
 
-# Mirrors notify-idle: $NOTIFY_MAC_SSH override else the config file; $(...) strips the trailing newline so it's ssh-ready.
-_mac_host() { printf '%s' "${NOTIFY_MAC_SSH:-$(cat "$HOME/.config/notify-idle/mac-ssh-host" 2>/dev/null || true)}"; }
+# Not $SSH_CONNECTION (the herdr server bakes it in forever). Linux-only: BSD pgrep lacks -a, macOS lacks ss.
+_attached_ips() {
+  [ "$(_os)" = linux ] || return 0
+  pgrep -af 'be-child ssh' 2>/dev/null | grep -oE 'remote-ip=[0-9.]+' | cut -d= -f2
+  ss -Htn state established '( sport = :22 )' 2>/dev/null | awk '{ sub(/:[^:]*$/, "", $4); print $4 }'
+}
+
+# Name not IP (ssh config is keyed by name); OS filter skips phones; shape-checked against ssh option injection.
+_peer_host() {
+  tailscale status 2>/dev/null |
+    awk -v ip="$1" '$1 == ip && ($4 == "macOS" || $4 == "linux" || $4 == "windows") { print $2; exit }' |
+    grep -xE '[A-Za-z0-9][A-Za-z0-9._-]*'
+}
+
+# Nothing is read from disk on purpose: a stored target is the one thing that can drift out of sync.
+_mac_host() {
+  [ -n "${NOTIFY_MAC_SSH:-}" ] && { printf '%s' "$NOTIFY_MAC_SSH"; return; }
+  local ip host
+  for ip in $(_attached_ips); do
+    host="$(_peer_host "$ip")"
+    [ -n "$host" ] && { printf '%s' "$host"; return; }
+  done
+}
 
 _role() {
   [ "$(_os)" = darwin ] && { echo mac; return; }

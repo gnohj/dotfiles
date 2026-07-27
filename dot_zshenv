@@ -54,6 +54,11 @@ export XDG_STATE_HOME="$HOME/.local/state"
 # loads its own config there cleanly instead of warning/erroring.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi"
 
+# Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: herdr's panes skip it.
+export BROWSER="desktop-open"
+# Read before BROWSER by cli/go-gh, so gh-dash and gh CLI reach the wrapper without touching xdg-open.
+export GH_BROWSER="desktop-open"
+
 # GIT_OPTIONAL_LOCKS=0: stop background git tooling from fighting over index.lock.
 # Without it, every `git status`/`git diff` may refresh + REWRITE the index, each
 # write grabbing <gitdir>/index.lock. In the web bare+worktree monorepo (huge tree,
