@@ -26,6 +26,13 @@ Write channel is `pane.report_metadata`, NOT `pane.rename`:
     and is scoped by `source`, so our record and any other reporter's stay independent.
 Both render on the pane border.
 
+The same write also fills a `$pn`/`$pn_on` custom token pair, which is what the AGENTS-panel
+row renders (the built-in `pane` token cannot change color by focus). herdr-focus-tracker.py
+::paint_panes moves the text between the two slots so the selected agent's name reads in the
+accent color. `title` and `tokens` are independent per source - verified live: a tokens-only
+report_metadata under `auto-summary` leaves the title standing - so paint_panes can re-slot
+without carrying the title, and the border label is unaffected either way.
+
 Event-driven: `pane.updated` carries the whole pane object (title, label, agent) and fires
 when the pane's terminal changes — ~6 events in 18s across five busy agents. Our own write
 emits one more `pane.updated`, which re-enters as a no-op because the slug is unchanged; that
@@ -259,7 +266,20 @@ def desired(pane):
 
 
 def apply(pane, cache, recheck_width=False):
-    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written)."""
+    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written, lit).
+
+    The slug goes out THREE ways in one write: `title` (the pane border, and herdr's built-in
+    `pane` sidebar token) plus the `$pn`/`$pn_on` token pair the agents-panel row reads. The
+    pair exists because a custom `$token` takes one flat inline `fg` and cannot vary by focus,
+    so the two-tone is rebuilt by hand exactly as row 2 of the spaces panel does it for the
+    branch - see herdr-focus-tracker.py::paint_panes. Exactly one slot ever holds the text;
+    an empty token renders nothing, not even a separator.
+
+    `lit` is part of the cache key so a pane whose slot is wrong gets rewritten on the next
+    sweep. Slot correctness is really paint_panes' job - it repaints on every focus event -
+    but this pane object's `focused` can be stale, and without `lit` in the key the unchanged
+    slug would short-circuit the write and leave the mis-slot standing until the title changed.
+    """
     pane_id = pane.get("pane_id")
     if not pane_id:
         return
@@ -267,22 +287,34 @@ def apply(pane, cache, recheck_width=False):
     if raw is None:
         # Retract a slug we previously wrote once the pane stops qualifying (hand-renamed).
         if cache.pop(pane_id, None) is not None:
-            request("pane.report_metadata", {"pane_id": pane_id, "source": SOURCE, "clear_title": True})
+            request("pane.report_metadata", {
+                "clear_title": True,
+                "pane_id": pane_id,
+                "source": SOURCE,
+                "tokens": {"pn": None, "pn_on": None},
+            })
         return
+    lit = bool(pane.get("focused"))
     previous = cache.get(pane_id)
     # Steady state costs nothing: an unchanged title skips even the width lookup.
-    if previous and previous[0] == raw and not recheck_width:
+    if previous and previous[0] == raw and previous[2] == lit and not recheck_width:
         return
     slug = truncate(raw, budget_for(pane_id))
-    if previous and previous[1] == slug:
-        cache[pane_id] = (raw, slug)
+    if previous and previous[1] == slug and previous[2] == lit:
+        cache[pane_id] = (raw, slug, lit)
         return
     result = request(
         "pane.report_metadata",
-        {"pane_id": pane_id, "source": SOURCE, "title": slug, "seq": time.time_ns()},
+        {
+            "pane_id": pane_id,
+            "seq": time.time_ns(),
+            "source": SOURCE,
+            "title": slug,
+            "tokens": {"pn": None if lit else slug, "pn_on": slug if lit else None},
+        },
     )
     if result is not None:
-        cache[pane_id] = (raw, slug)
+        cache[pane_id] = (raw, slug, lit)
 
 
 def sweep(cache):
@@ -298,7 +330,12 @@ def clear_all():
         if pane.get("pane_id"):
             request(
                 "pane.report_metadata",
-                {"pane_id": pane["pane_id"], "source": SOURCE, "clear_title": True},
+                {
+                    "clear_title": True,
+                    "pane_id": pane["pane_id"],
+                    "source": SOURCE,
+                    "tokens": {"pn": None, "pn_on": None},
+                },
             )
 
 

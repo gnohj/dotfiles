@@ -353,8 +353,11 @@ enabled = false
 # per-token and UNCONDITIONALLY (it cannot vary by active/inactive) - verified live for
 # workspace, pane, state_text and $act. The one thing that DOES track focus is the `text`
 # theme token, which paints the active entry's first row only; see [theme.custom] below.
+# `dim = false` (third inline style field) opts out of herdr's default agent-row dim, which the
+# terminal renders at ~0.52x toward the bg - no fg can undo it. state_text/$act opt out; tab and
+# pane stay dim so the name/summary lines recede.
 [ui.sidebar.agents]
-rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent", "state_text"]]
+rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent", { token = "state_text", dim = false }]]
 
 # `state_text` spells out idle/working/blocked/done next to the age, because state_icon
 # alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
@@ -362,7 +365,7 @@ rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent"
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
+claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
@@ -370,8 +373,8 @@ claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ tok
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
-opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "pane", fg = "#a3b8c6" }], ["state_text", { token = "$act", fg = "#a3b8c6" }]]
+pi = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
+opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
@@ -404,7 +407,7 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. ONE $git token on purpose: more get joined by herdr's " · " - see the /herdr-upgrade watchlist.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#c2f0db" }, { token = "$git", fg = "#b7ce97" }], [{ token = "$pr", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#b7ce97" }], [{ token = "$pr", fg = "#a7cfbd" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
 
 [session]
 resume_agents_on_restore = true
@@ -478,7 +481,7 @@ overlay1 = "#7a90a0"
 # fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "#a3b8c6"
 text = "#a3b8c6"
-mauve = "#c2f0db"
+mauve = "#b7ce97"
 # herdr's four agent states are painted by four palette tokens - state_label_color()
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
 # blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
