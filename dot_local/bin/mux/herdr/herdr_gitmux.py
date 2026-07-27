@@ -22,9 +22,10 @@ import fcntl
 import json
 import os
 import re
-import subprocess
 import time
 import unicodedata
+
+# subprocess is imported inside run(): the picker's warm-cache render never shells out.
 
 RESET = "\033[0m"
 SYM_W = 28
@@ -69,6 +70,7 @@ def sgr(inner):
 
 def run(cwd, cfg=GITMUX_CFG, timeout=1.2):
     """Raw gitmux stdout for cwd (tmux color codes intact), "" on any failure."""
+    import subprocess
     try:
         env = dict(os.environ, PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:"
                    + os.environ.get("PATH", ""))
