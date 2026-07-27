@@ -3,8 +3,9 @@
 # (~/.claude personal, ~/.claude-work work), since CLAUDE_CONFIG_DIR selects
 # which one a session reads and each keeps its own mcpServers map.
 #
-# Format: <os> <type> <name> <url-or-command> [extra claude-mcp-add args...]
-#   os:    all | mac | linux   - entries not matching the host are skipped
+# Format: <os> <acct> <type> <name> <url-or-command> [extra claude-mcp-add args...]
+#   os:    all | mac | linux            - entries not matching the host are skipped
+#   acct:  all | personal | work        - which Claude config dir gets it
 #   type:  http | stdio
 #   extra: passed through verbatim; the line is parsed with shell quoting, so
 #          single-quote anything holding a literal ${VAR} you want Claude to
@@ -19,10 +20,10 @@
 #   - atlassian (Jira/Confluence) needs a one-time browser OAuth per config
 #     dir: run /mcp inside Claude and pick Authenticate.
 
-all   http  context7       https://mcp.context7.com/mcp -H 'CONTEXT7_API_KEY: ${CONTEXT7_API_KEY}'
-all   http  atlassian      https://mcp.atlassian.com/v1/mcp
-all   stdio playwright     npx @playwright/mcp@latest
-mac   stdio chrome-devtools npx -y chrome-devtools-mcp@latest
-linux stdio chrome-devtools npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:9222 --acceptInsecureCerts
-mac   stdio apple-notes    npx apple-notes-mcp
-mac   stdio google-drive   npx mcp-google-drive
+all   all      http  context7       https://mcp.context7.com/mcp -H 'CONTEXT7_API_KEY: ${CONTEXT7_API_KEY}'
+all   work     http  atlassian      https://mcp.atlassian.com/v1/mcp
+all   all      stdio playwright     npx @playwright/mcp@latest
+mac   all      stdio chrome-devtools npx -y chrome-devtools-mcp@latest
+linux all      stdio chrome-devtools npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:9222 --acceptInsecureCerts
+mac   personal stdio apple-notes    npx apple-notes-mcp
+mac   personal stdio google-drive   npx mcp-google-drive

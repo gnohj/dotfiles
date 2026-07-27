@@ -484,9 +484,11 @@ if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
     if [ -n "$config_dir" ]; then
       mkdir -p "$config_dir"
       export CLAUDE_CONFIG_DIR="$config_dir"
+      MCP_ACCT="work"
       print_info "  MCP config dir: $config_dir"
     else
       unset CLAUDE_CONFIG_DIR
+      MCP_ACCT="personal"
       print_info "  MCP config dir: native (~/.claude.json, personal account)"
     fi
 
@@ -495,11 +497,16 @@ if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
 
       # eval-based split so quoted args (header values with spaces) survive
       eval "set -- $line"
-      os="$1" type="$2" name="$3" target="$4"
-      shift 4
+      os="$1" acct="$2" type="$3" name="$4" target="$5"
+      shift 5
       extra=("$@")
 
       if [ "$os" != "all" ] && [ "$os" != "$MCP_HOST_OS" ]; then
+        continue
+      fi
+
+      # Work-only servers (Jira/Confluence) must never land in the personal account.
+      if [ "$acct" != "all" ] && [ "$acct" != "$MCP_ACCT" ]; then
         continue
       fi
 
