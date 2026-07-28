@@ -112,13 +112,11 @@ height = "90%"
 description = "lazygit (server-side, on the pane's repo)"
 
 # yazi seeded from the sibling nvim's current buffer (or its cwd) — herdr
-# counterpart of the tmux rctrl-y launcher. Direct chord ctrl+y (;-hold + y),
-# matching ctrl+g lazygit. skhd's rctrl-y is freed so ctrl+y reaches herdr; tmux
-# mirrors it with -n C-y. NOTE: side-blind — takes ctrl+y from nvim (scroll-up) /
-# readline (yank), same tradeoff as ctrl+g.
+# counterpart of the tmux yazi launcher; tmux mirrors it with `bind y`.
+# prefix+y, not a direct chord like ctrl+g/ctrl+t: herdr would eat ctrl+y before nvim's blink-cmp accept sees it.
 [[keys.command]]
-key = "ctrl+y"
-# type=pane, not popup: the popup surface never draws the Kitty graphics stream, so previews render blank.
+key = "prefix+y"
+# type=pane: herdr popups never draw the Kitty graphics stream, so previews render blank (retried on 0.7.5 with kitty_graphics).
 type = "pane"
 command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/yazi-herdr.sh"
 description = "yazi (seeded from the sibling nvim buffer / cwd)"
@@ -133,7 +131,7 @@ description = "yazi (seeded from the sibling nvim buffer / cwd)"
 # herdr-sesh-layout.sh opens it (pen nvim + fish shells), attaching to an existing
 # workspace if one's already there. Direct chord ;-hold + t. skhd's rctrl-t is freed
 # so ctrl+t reaches herdr; tmux mirrors -n C-t → the tmux sesh popup for the
-# plain-tmux world (same wiring as ctrl+g lazygit / ctrl+y yazi). zoxide is folded
+# plain-tmux world (same wiring as ctrl+g lazygit / prefix+y yazi). zoxide is folded
 # into this one picker, so there is no separate prefix+t binding anymore.
 # Rows render ~90 cols (NAME_W 38 + PATH_W 40 + icon/deco/sep), so 48% fits them on a ~200-col screen; 70% left a third empty.
 [[keys.command]]
