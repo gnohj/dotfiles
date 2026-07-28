@@ -1,3 +1,6 @@
 # Static template data, loaded on EVERY run including the first `chezmoi init` — the config file's [data] block isn't available until it's been applied once, which broke fresh-VPS init.
 github_user_name = "gnohj"
 github_user_email = "gnohj@users.noreply.github.com"
+
+# Tailnet name of the remote dev box - renders into the Mac's ~/.ssh/config Host line (which carries the CDP + radioctl forwards) and into ~/.config/devbox-host, which devbox-web.sh reads instead of prompting. Rename the box here, not in either consumer.
+devbox_host = "dev-box"
