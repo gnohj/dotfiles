@@ -570,19 +570,36 @@ herdr() {
 }
 
 # btopc / btopm: proc-only fullscreen tables, cpu- or memory-sorted ("cpu direct" is a strict live top-to-bottom sort; "cpu lazy" smooths order over time and looks unsorted).
+# Extra args are key=value btop.conf overrides. Cache dir, not /tmp: on Linux /tmp is shared between users.
 _btop_proc_conf() {
   local sort="$1" tag="${1// /-}"
-  local tmp="${TMPDIR:-/tmp}/btop-proc-${tag}.conf"
-  sed -E -e "s/^proc_sorting = .*/proc_sorting = \"$sort\"/" \
-         -e 's/^shown_boxes = .*/shown_boxes = "proc"/' \
-    ~/.config/btop/btop.conf >"$tmp"
+  shift
+  local src="$HOME/.config/btop/btop.conf"
+  local dir="${XDG_CACHE_HOME:-$HOME/.cache}/btop"
+  local tmp="$dir/proc-${tag}.conf"
+  if [[ ! -r "$src" ]]; then
+    print -ru2 -- "btop: cannot read $src - run 'btop' once to generate it"
+    return 1
+  fi
+  mkdir -p "$dir" || return 1
+  local -a script
+  script=(-e "s/^proc_sorting = .*/proc_sorting = \"$sort\"/" -e 's/^shown_boxes = .*/shown_boxes = "proc"/')
+  local kv
+  for kv in "$@"; do script+=(-e "s/^${kv%%=*} = .*/${kv%%=*} = ${kv#*=}/"); done
+  sed -E "${script[@]}" "$src" >"$tmp" || return 1
   print -r -- "$tmp"
 }
-btopc() { command btop -c "$(_btop_proc_conf 'cpu direct')" "$@"; }
-btopm() { command btop -c "$(_btop_proc_conf memory)" "$@"; }
+# Tree+aggregate so a browser's 27 helpers roll up into one total instead of 27 rows you have to add up by hand; press t to flatten.
+_btop_mem_conf() {
+  _btop_proc_conf memory proc_tree=true proc_aggregate=true proc_cpu_graphs=false proc_per_core=false
+}
+btopc() { local c; c="$(_btop_proc_conf 'cpu direct')" || return; command btop -c "$c" "$@"; }
+btopm() { local c; c="$(_btop_mem_conf)" || return; command btop -c "$c" "$@"; }
 # btop2 — btopm (memory) left, btopc (cpu) right, proc-only, side by side
 btop2() {
-  local cpu_conf="$(_btop_proc_conf 'cpu direct')"
+  local cpu_conf mem_conf
+  cpu_conf="$(_btop_proc_conf 'cpu direct')" || return
+  mem_conf="$(_btop_mem_conf)" || return
   if [[ -n "$HERDR_SOCKET_PATH" ]]; then
     # herdr splits right, so cpu goes there and memory stays here; --ratio is what we keep.
     local pane
@@ -592,15 +609,15 @@ btop2() {
       echo "btop2: could not split the herdr pane; run btopm and btopc separately"
       return 1
     fi
-    "${HERDR_BIN_PATH:-herdr}" pane run "$pane" "btop -c '$cpu_conf'; exit" >/dev/null 2>&1
+    "${HERDR_BIN_PATH:-herdr}" pane run "$pane" "btop -c ${(q)cpu_conf}; exit" >/dev/null 2>&1
   elif [[ -n "$TMUX" ]]; then
-    tmux split-window -h "btop -c '$cpu_conf'"
+    tmux split-window -h "btop -c ${(q)cpu_conf}"
     tmux select-pane -L
   else
     echo "btop2 needs tmux or herdr; run btopm and btopc in separate splits instead"
     return 1
   fi
-  command btop -c "$(_btop_proc_conf memory)"
+  command btop -c "$mem_conf"
 }
 
 # Github Dash
