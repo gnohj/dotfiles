@@ -123,6 +123,26 @@ in
       };
     };
 
+    # embed-watch: logs what spawns `nvim --embed`. Must run continuously - once the process reparents to pid 1 the spawner is unrecoverable, so there is nothing to inspect after the fact.
+    embed-watch = {
+      serviceConfig = {
+        # bash -c wrapper: launchd doesn't auto-create StandardOut/ErrPath parent dirs, so `mkdir -p` keeps the service from failing silently.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/embed-watch
+            exec ${pkgs.bash}/bin/bash ${homeDir}/.local/bin/embed-watch
+          ''
+        ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        ThrottleInterval = 10;
+        StandardOutPath = "${homeDir}/.logs/embed-watch/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/embed-watch/launchagent.err.log";
+      };
+    };
+
     # SketchyBar Watchdog
     # Monitors sketchybar health and kills it if frozen (LaunchAgent will restart)
     sketchybar-watchdog = {
