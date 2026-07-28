@@ -85,7 +85,8 @@ while IFS='|' read -r pid ppid pstat pcpu rss etime comm cmd; do
   [[ "$ppid" == 1 ]] || continue
   [[ "$cmd" == *.app/Contents/MacOS/* ]] && continue
   case "$cmd" in /System/* | /usr/libexec/* | /usr/sbin/* | /sbin/* | /Library/Apple/*) continue ;; esac
-  base=${comm##*/}
+  # base comes from the argv, not comm: multi-column ps truncates comm to 16 chars, so a nix path yields "clsyc".
+  exe=${cmd%% *}; base=${exe##*/}
   cwd=$(proc_cwd "$pid")
   row="$pid|$pcpu|$((rss / 1024))|$etime|$base|$(tilde "${cwd:-n/a}")|$cmd"
   if [[ "$base" == nvim ]]; then
