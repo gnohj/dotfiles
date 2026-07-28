@@ -240,14 +240,11 @@ MANUAL_VPS_SETUP.md. Run these AS the target user (su - <user> or ssh <user>@<bo
         chezmoi apply ~/.config/git/config       # gh setup-git rewrites the helper to gh's abs nix path; re-apply restores the portable !gh template (no drift)
 
   [2] Clone + run the private post-provision.sh — it scripts everything else
-      (ssh-key · ai OAuth · secrets · atuin · tailscale · repos · agents · tpm),
+      (ssh-key · ai OAuth · secrets · atuin · tailscale · repos · agents · tpm ·
+      finalize · devbox · radioctl),
       idempotent, pausing only where a human is genuinely needed. Clone over HTTPS
       (gh token) since the SSH key isn't set up until step_gh runs:
         gh repo clone gnohj/vps-linux-provision ~/Developer/vps-linux-provision
         ~/Developer/vps-linux-provision/post-provision.sh
-
-  [3] agent-tmux-web — NOT in the script (phone PWA code-exec surface; audit first).
-      Needs Tailscale up. Read src/server/{index,tmux}.ts before trusting a SHA:
-        install-agent-tmux-web.sh   # prompts for the audited SHA; blank = skip
 
 EOF

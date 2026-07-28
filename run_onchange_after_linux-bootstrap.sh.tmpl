@@ -3,12 +3,12 @@
 #
 # System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
 # tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
-# runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: tmux + agent-tmux-web
-# (agents live in tmux; mobile PWA reaches them over Tailscale, laptop over mosh/ssh).
+# runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: agents live in
+# tmux/herdr, reached over Tailscale (mosh/ssh from the laptop).
 # This script installs what Nix deliberately doesn't: apt system base + monitoring,
-# zinit, tpm, ghostty terminfo, mise runtimes/AI agents, agent-tmux-web.
-# Skipped on macOS via .chezmoiignore. The agent-tmux-web service and interactive
-# `tailscale up`/`serve` are separate one-time manual steps.
+# zinit, tpm, ghostty terminfo, mise runtimes/AI agents.
+# Skipped on macOS via .chezmoiignore. The interactive `tailscale up` is a separate
+# one-time manual step.
 # Every step is best-effort (|| true / guarded) so a hiccup never aborts `chezmoi apply`.
 set -uo pipefail
 
@@ -176,9 +176,7 @@ echo "==> bootstrap done."
 echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker aic"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
-echo "    NEXT (agent-tmux-web route): 'sudo tailscale up --ssh', run 'claude'/'codex' once for OAuth,"
-echo "    then clone+build agent-tmux-web (audited, pinned) and expose it tailnet-only via"
-echo "    'tailscale serve --bg http://127.0.0.1:6174'."
+echo "    NEXT: 'sudo tailscale up --ssh', then run 'claude'/'codex' once for OAuth."
 echo "    ONE-TIME for lazygit AI-commit (<c-e>/<c-s>): run 'gh auth login', then"
 echo "    'mise run setup-global-tools' + 'chezmoi apply' (so ~/.aicommitrc gets the token)."
 echo "    ONE-TIME for secrets (master password never touches this box): put ONLY the"
