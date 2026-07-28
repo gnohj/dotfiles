@@ -105,6 +105,9 @@ popup_read() {
   rm -f "$out" "$sh" "$hdr"
 }
 
+# Off the workstation (the dev box) the clipboard lives on the Mac, so to-desktop relays the read back.
+at_workstation() { [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" != devbox ]; }
+
 # Detect what's on the clipboard. Sets CLIPBOARD_KIND (image|text), CLIP, TMP_IMG.
 # Returns 1 on an empty clipboard. Image wins — pngpaste is authoritative.
 #
@@ -116,6 +119,22 @@ detect_clipboard() {
   base=$(mktemp "${TMPDIR:-/tmp}/${prefix}-image.XXXXXX")
   TMP_IMG="${base}.png"
   mv "$base" "$TMP_IMG"
+
+  # No path-to-image fallback here: a copied path names a file on the workstation's disk, so it stays text.
+  if ! at_workstation; then
+    to-desktop paste-image 2>/dev/null | base64 -d > "$TMP_IMG" 2>/dev/null || true
+    if [ -s "$TMP_IMG" ]; then
+      CLIPBOARD_KIND="image"
+      return 0
+    fi
+    rm -f "$TMP_IMG"
+    TMP_IMG=""
+    CLIP=$(to-desktop paste 2>/dev/null || true)
+    [ -n "$CLIP" ] || return 1
+    CLIP=$(printf '%s' "$CLIP" | clipboard-sanitize)
+    CLIPBOARD_KIND="text"
+    return 0
+  fi
 
   # $TMP_IMG must survive past the exec — the spawned claude session reads it.
   # /tmp is auto-cleaned by the OS, so no manual cleanup.

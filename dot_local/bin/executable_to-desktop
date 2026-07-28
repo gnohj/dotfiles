@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
 # deploys it to every machine. Machine routing only - which multiplexer is live is `mux`'s question.
@@ -46,6 +46,23 @@ do_clip() {
   else osc_clip "$1"; fi
 }
 
+# Read side of do_clip. No OSC 52 tier: the escape protocol is write-only.
+do_paste() {
+  if command -v pbpaste >/dev/null 2>&1; then pbpaste
+  elif command -v wl-paste >/dev/null 2>&1; then wl-paste --no-newline
+  elif command -v xclip >/dev/null 2>&1; then xclip -selection clipboard -o
+  else die "paste: no clipboard reader on the workstation"
+  fi
+}
+
+# base64, not raw bytes: a PNG's NULs would not survive the caller's command substitution.
+do_paste_image() {
+  if command -v pngpaste >/dev/null 2>&1; then pngpaste - 2>/dev/null | base64
+  elif command -v wl-paste >/dev/null 2>&1; then wl-paste --type image/png 2>/dev/null | base64
+  fi
+  return 0
+}
+
 # Fixed argv, no caller input: the restricted ssh key reaches this, so nothing may interpolate.
 do_browser_debug() {
   [ "$(uname -s)" = Darwin ] || die "browser-debug: workstation is not macOS"
@@ -81,12 +98,12 @@ APPLESCRIPT
   return 0
 }
 
-# active-tab needs a value back, so unlike open/clip/notify it can't ride the tty: OSC 52 and kitty rc are one-way.
-relay_active_tab() {
+# active-tab / paste / paste-image need a value back, so unlike open/clip/notify they can't ride the tty: OSC 52 and kitty rc are one-way.
+relay_read() {
   local host
   host="$(relay_host)"
-  [ -n "$host" ] || die "active-tab: nobody is attached to relay to"
-  ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" active-tab
+  [ -n "$host" ] || die "$1: nobody is attached to relay to"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" "$1"
 }
 
 do_notify() {
@@ -128,7 +145,7 @@ ship() {
   printf '\033P@kitty-cmd{"cmd":"launch","version":[0,26,0],"no_response":true,"payload":{"args":["open","%s"],"type":"background"}}\033\\' "$2" >/dev/tty 2>/dev/null || return 1
 }
 
-verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | notify | browser-debug | active-tab)" 2
+verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | paste | paste-image | notify | browser-debug | active-tab)" 2
 shift
 
 # Restricted ssh entry: authorized_keys forces this, so $SSH_ORIGINAL_COMMAND is re-parsed against the same verbs.
@@ -139,7 +156,8 @@ if [ "$verb" = --forced ]; then
   set -- ${SSH_ORIGINAL_COMMAND:-}
   verb="${1:-}"; [ -n "$verb" ] || die "forced: empty command" 2
   shift
-  case "$verb" in open | clip | notify | browser-debug | active-tab) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
+  # SAFETY: paste/paste-image hand the workstation's whole clipboard to the key holder, one step wider than active-tab.
+  case "$verb" in open | clip | paste | paste-image | notify | browser-debug | active-tab) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
   at_desktop || die "forced mode only runs on the workstation" 2
 fi
 
@@ -163,6 +181,12 @@ case "$verb" in
     [ "$text" = - ] && text="$(cat)"
     if at_desktop; then do_clip "$text"; else ship clip "$text" || osc_clip "$text"; fi
     ;;
+  paste)
+    if at_desktop; then do_paste; else relay_read paste; fi
+    ;;
+  paste-image)
+    if at_desktop; then do_paste_image; else relay_read paste-image; fi
+    ;;
   notify)
     title="${1:?to-desktop notify: missing <title>}"; msg="${2:?to-desktop notify: missing <message>}"
     if at_desktop; then do_notify "$title" "$msg"; else ship notify "$title" "$msg" || mux notify --title "$title" "$msg"; fi
@@ -172,7 +196,7 @@ case "$verb" in
     do_browser_debug
     ;;
   active-tab)
-    if at_desktop; then do_active_tab; else relay_active_tab; fi
+    if at_desktop; then do_active_tab; else relay_read active-tab; fi
     ;;
-  *) die "unknown verb '$verb' (open | clip | notify | browser-debug | active-tab)" 2 ;;
+  *) die "unknown verb '$verb' (open | clip | paste | paste-image | notify | browser-debug | active-tab)" 2 ;;
 esac
