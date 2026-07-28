@@ -116,6 +116,8 @@ keybind = ctrl+tab=text:\x01n
 keybind = ctrl+shift+tab=text:\x01p
 keybind = ctrl+space=text:\x01\x20
 keybind = ctrl+enter=text:\x01L
+# ctrl+; and ctrl+' feed herdr's prefix+, / prefix+' agent-queue binds - not tmux-dash leftovers
+keybind = ctrl+semicolon=text:\x01\x2c
 keybind = ctrl+apostrophe=text:\x01\x27
 keybind = ctrl+slash=text:\x01\x2f
 # ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding
