@@ -864,8 +864,9 @@ EOF
   if [ "$(uname)" = Darwin ]; then
     open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
   elif [ "$("$MUX" kind)" != none ]; then
+    # --no-focus mirrors the Darwin `open -g` above: the capture must not yank you out of what you were doing.
     # $HOME, not $PWD: the origin worktree may be gone, and a bad --cwd fails tab create.
-    "$MUX" window --env SKIP_FETCH=1 "$WORKTREE_GROUP" "$HOME" "$TMPSCRIPT"
+    "$MUX" window --no-focus --env SKIP_FETCH=1 "$WORKTREE_GROUP" "$HOME" "$TMPSCRIPT"
   else
     tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
   fi
