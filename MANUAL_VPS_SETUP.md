@@ -20,7 +20,7 @@ These are non-negotiable; the rest of the doc assumes them.
 
 ## 1. Provision (Vultr, Ubuntu 24.04, Dallas)
 
-Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale: 16 GB comfortably runs the full agent stack in the trial; bump to 32 GB only if monitoring (§7b) shows an OOM kill or sustained swap/pressure.
+Trial: Vultr `/promo/try300/` ($300 credit / 30 days). Deploy → **Dallas** → Ubuntu 24.04 → **VX1 GP** (4 vCPU / 16 GB) + **8 GB swap** → attach your SSH **public** key → Hostname `dev-box`, Label `dev-box-dallas-trial` → Deploy Now. Note the public IP. **Delete before day ~28** (power-off still bills). Sizing rationale: 16 GB comfortably runs the full agent stack in the trial; bump to 32 GB only if monitoring (§6b) shows an OOM kill or sustained swap/pressure.
 
 ## Fast path — one command does §2–§4
 
@@ -37,7 +37,7 @@ export TS_AUTHKEY=tskey-... GITHUB_TOKEN=ghp-...
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-It's idempotent, and it prints the interactive remainder (§5–§6) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
+It's idempotent, and it prints the interactive remainder (§5–§5b) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
 
 ## 2. User + SSH hardening
 
@@ -167,11 +167,11 @@ A `<browser>\t<url>` line means the 🎫 worktree capture will work from here. E
 
 **No relay target is ever configured.** `machine-identity mac-host` resolves it from live evidence on every single call, so it cannot drift out of sync with where you are actually sitting:
 
-| Order | Signal | Why it cannot go stale |
-| --- | --- | --- |
-| 1 | `$NOTIFY_MAC_SSH` | Explicit override, for testing or a workstation off the tailnet |
-| 2 | `tailscaled be-child ssh --remote-ip=` | Tailscale SSH spawns one process per login; it exits when you detach |
-| 3 | `ss` established socket on `:22` | Classic sshd logins leave no such process, so the open socket is the evidence |
+| Order | Signal                                 | Why it cannot go stale                                                        |
+| ----- | -------------------------------------- | ----------------------------------------------------------------------------- |
+| 1     | `$NOTIFY_MAC_SSH`                      | Explicit override, for testing or a workstation off the tailnet               |
+| 2     | `tailscaled be-child ssh --remote-ip=` | Tailscale SSH spawns one process per login; it exits when you detach          |
+| 3     | `ss` established socket on `:22`       | Classic sshd logins leave no such process, so the open socket is the evidence |
 
 Then `tailscale status` maps that IP to a peer name, skipping any peer whose OS has no browser to open into (a phone). Nothing is read from disk, and `role` reports `devbox` only while somebody is attached, so an idle banner fired at 3am is not reverse-SSHed into an empty room.
 
@@ -179,11 +179,11 @@ What this deliberately does **not** use is `$SSH_CONNECTION`. The herdr server i
 
 **URL opening is wired through one variable.** `.zshenv` exports `BROWSER=desktop-open` and `GH_BROWSER=desktop-open`, and `desktop-open` is a one-word wrapper around `to-desktop open`. That is the whole integration:
 
-| Tool | Path to the relay |
-| --- | --- |
-| gh-dash `o` | `cli/go-gh` reads `GH_BROWSER` before falling back to `xdg-open` |
-| nvim `<leader>gb` / `<leader>gx` | snacks `gitbrowse` → `vim.ui.open` → `xdg-open` → `open_envvar` honors `BROWSER` |
-| `gh pr view --web`, `git web--browse` | Same `BROWSER` contract |
+| Tool                                  | Path to the relay                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| gh-dash `o`                           | `cli/go-gh` reads `GH_BROWSER` before falling back to `xdg-open`                 |
+| nvim `<leader>gb` / `<leader>gx`      | snacks `gitbrowse` → `vim.ui.open` → `xdg-open` → `open_envvar` honors `BROWSER` |
+| `gh pr view --web`, `git web--browse` | Same `BROWSER` contract                                                          |
 
 No per-tool config, no nvim override, and anything new that respects either variable works for free. On the Mac the same export is harmless: `to-desktop` sees it is the workstation and opens locally, unsetting `BROWSER` for its own `xdg-open` child so a future Linux desktop cannot ping-pong between the two.
 
