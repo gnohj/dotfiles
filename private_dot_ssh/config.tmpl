@@ -14,9 +14,13 @@ Host tailscale
 
 # No HostName below, so any future dev-box-N resolves by its own MagicDNS name.
 # RemoteForward exposes this mac's Chrome CDP port on the box for chrome-devtools-mcp.
+# LocalForward points this mac's 8085 at the box's, so radioctl's OAuth callback
+# (redirect_uri is hardcoded 127.0.0.1:8085) reaches the listener waiting on the box.
+# herdr --remote includes this file, so the forward rides the session you already have.
 Host dev-box dev-box-* tailscale
   ForwardAgent yes
   IdentityFile ~/.ssh/id_ed25519
   RemoteForward 9222 127.0.0.1:9222
+  LocalForward 8085 127.0.0.1:8085
   User gnohj
 {{- end }}
