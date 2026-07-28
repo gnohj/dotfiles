@@ -14,8 +14,7 @@ These are non-negotiable; the rest of the doc assumes them.
 2. **Close public SSH.** Either use Tailscale SSH, or firewall port 22 to the tailnet range (`100.64.0.0/10`). Set `PasswordAuthentication no` and `PermitRootLogin no` in `sshd_config`.
 3. **Secrets live only in `chmod 600` files, generated ON the box** (`openssl rand -hex 32`). Never commit them, never paste them into shared logs / chat / screenshots, never echo them to a world-readable location.
 4. **Do NOT put your Bitwarden master key or unlock your full vault on the VPS.** Use `gh auth login` + per-machine agent OAuth + per-service generated tokens instead. Don't copy your primary `~/.ssh/id_ed25519` here — generate a dedicated per-host key or use Tailscale SSH.
-5. **The `agent-tmux-web` token = full code execution on the box.** Treat the tokenized URL like a password: don't screen-share it, don't sync it into browser history you back up, rotate it if exposed.
-6. **Rotate tokens** by regenerating the `.env` value and restarting the service — not by editing `tailscale serve`.
+5. **Rotate a leaked token at its source** - regenerate it at the provider, refill `~/.zsh_gnohj_env.local`, `source ~/.zshrc`. Never paper over it downstream.
 
 ---
 
@@ -102,45 +101,15 @@ touch ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
 
 Reload with `source ~/.zshrc`.
 
-## 6. agent-tmux-web (security-sensitive — go slow)
-
-**One command** (chezmoi drops the installer on the box): `install-agent-tmux-web.sh <PINNED-AUDITED-SHA>` — it clones+pins+builds, writes the `chmod 600` token `.env` (HOST=127.0.0.1), installs the user systemd unit + linger, and runs `tailscale serve` — and it never prints the token to logs. **Read the server source first** (`src/server/index.ts` + `tmux.ts`) before trusting a SHA.
-
-The manual equivalent, if you'd rather do it by hand:
-
-```
-git clone https://github.com/antonlobanovskiy/agent-tmux-web.git ~/.local/share/agent-tmux-web
-cd ~/.local/share/agent-tmux-web && git checkout <PINNED-AUDITED-SHA>
-```
-
-**Read `src/server/index.ts` + `tmux.ts` before building** (audited clean: constant-time auth, arg-array exec, no shell injection). Then build + configure:
-
-```
-pnpm install --frozen-lockfile && pnpm build
-printf 'HOST=127.0.0.1\nPORT=6174\nCLI_WEB_DEFAULT_CWD=%s\nAGENT_TMUX_WEB_AUTH_TOKEN=%s\n' "$HOME" "$(openssl rand -hex 32)" > .env
-chmod 600 .env
-```
-
-- **Bind stays `127.0.0.1`** — Tailscale exposes it, privately. A token MUST be set (empty token disables auth entirely).
-- Install the user systemd unit (put `%h/.local/share/mise/shims` on its `PATH`), then:
-
-```
-loginctl enable-linger "$(id -un)"
-systemctl --user daemon-reload && systemctl --user enable --now agent-tmux-web.service
-tailscale serve --bg http://127.0.0.1:6174
-```
-
-- Phone URL = `https://<box>.ts.net/?token=<value from .env>` — a password (§Security 5). `grep AGENT_TMUX_WEB_AUTH_TOKEN .env` to read it; never paste it anywhere shared.
-
-## 7. Run agents + connect
+## 6. Run agents + connect
 
 ```
 tmux new -s claude -c ~/work    # then run: claude   (Ctrl-b d to detach)
 ```
 
-Laptop: `ssh gnohj@<box>.ts.net` (or `mosh`) → `tmux attach`. Phone: open the tokenized URL, Add to Home Screen.
+Laptop: `ssh gnohj@<box>.ts.net` (or `mosh`) → `tmux attach`.
 
-## 7b. Monitoring — trial data for the 16-vs-32 GB verdict
+## 6b. Monitoring — trial data for the 16-vs-32 GB verdict
 
 The bootstrap already installs + enables the **lightweight, file-based recorders** (near-zero RAM, so they don't skew the memory measurement you're taking): `sysstat` (sar time-series, sampling every 5 min) and `atop` (per-process log every 60 s). Nothing to install by hand. To use them:
 
@@ -160,7 +129,7 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 # then browse over Tailscale: http://dev-box.<tailnet>.ts.net:19999
 ```
 
-## 8. VPS → Mac dispatcher (built)
+## 7. VPS → Mac dispatcher (built)
 
 Lets the box reach the workstation for the things a headless machine can't do itself: open a URL, write the clipboard, post a notification, read the frontmost browser tab, and start a debuggable Chrome the box can drive over CDP. That last one is what makes browser E2E possible from an SSH session — `chrome-devtools-mcp` runs on the box and _attaches_ to a browser, it never launches one, and the box has no browser to launch.
 
@@ -224,12 +193,11 @@ No per-tool config, no nvim override, and anything new that respects either vari
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
-- [ ] on PATH: `treehouse treekanga no-mistakes atuin claude codex gemini`
+- [ ] on PATH: `treehouse treekanga herdr no-mistakes atuin claude codex gemini pi opencode`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)
-- [ ] `systemctl --user status agent-tmux-web` active; phone loads the PWA
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives
-- [ ] **No service bound to `0.0.0.0`**; public port 22 closed; `.env` is `chmod 600`
+- [ ] **No service bound to `0.0.0.0`**; public port 22 closed; `~/.zsh_gnohj_env.local` is `chmod 600`
 - [ ] OSC52 clipboard works over SSH (yank in nvim → paste on the Mac)
-- [ ] Dispatcher live (§8): `ssh macbook browser-debug` then `curl -s http://127.0.0.1:9222/json/version` returns Chrome JSON
+- [ ] Dispatcher live (§7): `ssh macbook browser-debug` then `curl -s http://127.0.0.1:9222/json/version` returns Chrome JSON
 - [ ] Monitoring live: `systemctl status sysstat atop` active; `vps-usage-export.sh` writes CSVs to `~/vps-usage/`

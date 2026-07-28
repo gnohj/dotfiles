@@ -41,6 +41,7 @@
 # Moved into the mux/ tree; remove the old copies so a missed absolute path fails loudly instead of running stale code.
 .local/bin/herdr-scripts
 .local/bin/install-agent-tmux-web.sh
+.local/bin/mux/tmux/install-agent-tmux-web.sh
 .local/bin/lazygit.sh
 .local/bin/open-tmux-attach.sh
 .local/bin/sesh-switcher.sh
