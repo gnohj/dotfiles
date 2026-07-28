@@ -407,7 +407,7 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. ONE $git token on purpose: more get joined by herdr's " · " - see the /herdr-upgrade watchlist.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#b7ce97" }], [{ token = "$pr", fg = "#a7cfbd" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#a7cfbd" }], [{ token = "$sys", fg = "#7a90a0" }]]
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#da858e" }], [{ token = "$pr", fg = "#da858e" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#b7ce97" }], [{ token = "$sys", fg = "#7a90a0" }]]
 
 [session]
 resume_agents_on_restore = true

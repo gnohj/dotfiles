@@ -2332,11 +2332,12 @@ generate_herdr_config() {
   # Row 2 is the $br/$br_on pair (branch minus its ticket key, fed by herdr-git-status.sh) plus
   # $git; see the comment above [ui.sidebar.spaces] in config.toml.tmpl for why it is not the
   # built-in `branch`. Both halves need an explicit fg or they fall back to the `blue` theme
-  # token (the green $git sign color). Dim is overlay0; lit is gnohj green, matching $pn_on so
+  # token (gnohj green). Dim is overlay0; lit is gnohj green, matching $pn_on so
   # both panels light their selected row alike and track the scheme rather than mauve's value.
+  # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so all of $pr's glyphs go red, not just the one-approval one.
   local herdr_rows
   herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color02" "$gnohj_color03" "$gnohj_color03" "$gnohj_color05" "$gnohj_color03" "$gnohj_color46")"
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color11" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color46")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
   # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
