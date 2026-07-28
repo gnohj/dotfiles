@@ -8,9 +8,12 @@
 #
 # Usage: herdr-sesh-layout.sh <dir> [label]
 # If a workspace already sits at <dir>, it just focuses it (sesh "attach if exists").
+# HERDR_SESH_NO_FOCUS=1 builds it without taking focus, for background callers; the picker leaves it unset.
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
+focus_flag=--focus
+[ -n "${HERDR_SESH_NO_FOCUS:-}" ] && focus_flag=--no-focus
 dir="${1:?usage: herdr-sesh-layout.sh <dir> [label]}"
 dir="${dir/#\~/$HOME}"
 
@@ -94,16 +97,20 @@ if command -v sesh >/dev/null 2>&1; then
 fi
 
 # Attach-if-exists: focus a workspace already rooted at this dir (real sesh behavior).
-existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" \
-  '[.result.panes[] | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
+# The background caller cd's into the new worktree first, so its own pane would read as "already open here" and skip the create.
+self_pane=""
+[ "$focus_flag" = --no-focus ] && self_pane="${HERDR_PANE_ID:-}"
+existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" --arg self "$self_pane" \
+  '[.result.panes[] | select($self == "" or .pane_id != $self) | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
 if [ -n "$existing" ]; then
   ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
   ( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
+  [ "$focus_flag" = --no-focus ] && exit 0
   exec "$herdr" workspace focus "$existing" >/dev/null 2>&1
 fi
 
-# Create the workspace (focused) rooted at dir.
-out=$("$herdr" workspace create --cwd "$dir" --label "$label" --focus 2>/dev/null)
+# Create the workspace rooted at dir, focused unless the caller asked for background.
+out=$("$herdr" workspace create --cwd "$dir" --label "$label" "$focus_flag" 2>/dev/null)
 ws=$(printf '%s' "$out" | jq -r '.result.workspace.workspace_id // empty')
 pen=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
 tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
