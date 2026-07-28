@@ -322,15 +322,17 @@ cmd_runner() {
   # Snapshot tmux sessions BEFORE Terminal.app opens — Terminal/shell init
   # occasionally spawns an unnamed numeric session as a side effect and we need to
   # know it wasn't ours. Snapshotting inside the inner script is too late.
+  # `|| true` inside the pipeline: under pipefail a serverless `tmux ls` kills the runner right after the start banner.
   TMUX_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-tmux.XXXXXX")
-  tmux ls -F '#{session_name}' 2>/dev/null | sort -u > "$TMUX_SNAPSHOT"
+  { tmux ls -F '#{session_name}' 2>/dev/null || true; } | sort -u > "$TMUX_SNAPSHOT"
 
   # Snapshot all git worktrees under ~/Developer before claude runs; the new one is
   # the set difference afterward - an authoritative detector that doesn't depend on
   # claude printing the path. Sorted for `comm` in the diff below.
+  # Same pipefail guard: a non-repo dir under ~/Developer would abort the runner.
   WT_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-wt.XXXXXX")
   for _r in "$HOME"/Developer/*/; do
-    git -C "$_r" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'
+    { git -C "$_r" worktree list --porcelain 2>/dev/null || true; } | awk '/^worktree /{print $2}'
   done | sort -u > "$WT_SNAPSHOT"
 
   # Stage the log header + prompt as tmpfiles so multi-line content and special
@@ -378,7 +380,8 @@ cmd_runner() {
   # is worse than the rare race.
   PS_LOG_PER_RUN=$(mktemp -t "${WORKTREE_LOG_TAG}-ps.XXXXXX.log")
   PS_LOG_GLOBAL="$HOME/.logs/treekanga-postscript.log"
-  PS_LOG_GLOBAL_SIZE_BEFORE=$(wc -c < "$PS_LOG_GLOBAL" 2>/dev/null || echo 0)
+  # 2>/dev/null first: redirections apply left to right, so it must precede the input redirect.
+  PS_LOG_GLOBAL_SIZE_BEFORE=$(wc -c 2>/dev/null < "$PS_LOG_GLOBAL" || echo 0)
 
   # SAFETY: these three carry clipboard/prompt text into the generated script below, so pre-quote them — an unquoted payload containing `"` or `$(…)` would otherwise execute there.
   HB_MSG_Q=$(printf '%q' "${WORKTREE_LOG_TAG}: $HB_INPUT_TRIMMED")
