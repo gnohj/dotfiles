@@ -196,16 +196,18 @@ def agent_identity(ag):
     if not acct: return harness, dim
     return "%s/%s" % (harness, acct), (work_col if acct == "work" else personal_col)
 
-def agent_rows(wid):
+def agent_rows(wid, pad=0):
     out = []
+    # Clears the parent'"'"'s alias chip so the tree hangs off its name, not the chip.
+    sp = " " * pad
     tabs = tabs_by_ws.get(wid, [])
     for ti, tb in enumerate(tabs):
         tlast = ti == len(tabs) - 1
         kids = agents_by_tab.get(tb.get("tab_id"), [])
         label = (tb.get("label") or ("t%s" % (tb.get("number") or "?"))).strip()
-        out.append(tree_row(" %s " % ("└─" if tlast else "├─"), label, fg, "", dim,
+        out.append(tree_row(sp + " %s " % ("└─" if tlast else "├─"), label, fg, "", dim,
                             "tab:" + (tb.get("tab_id") or "")))
-        stem = "    " if tlast else " │  "
+        stem = sp + ("    " if tlast else " │  ")
         for ai, ag in enumerate(kids):
             st = ag.get("agent_status") or "unknown"
             col = AGENT_COLOR.get(st) or dim
@@ -350,14 +352,14 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     budget = NAME_W - (sw + 1 if sw else 0) - cw
     lab = dclip(name, max(budget, 1))
     used = dwidth(lab) + (sw + 1 if sw else 0) + cw
-    nm = "%s%s%s%s%s%s" % (ncol, lab, RESET, (" " + dim + chip + RESET) if chip else "",
+    nm = "%s%s%s%s%s%s" % ((accent + chip + RESET + " ") if chip else "", ncol, lab, RESET,
                           (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
     # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 stays last for fzf {-1}.
     # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
     rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
     if kind == "ws":
-        rows.extend(agent_rows(target[3:]))
+        rows.extend(agent_rows(target[3:], cw))
 
 print("\n".join(rows))
 

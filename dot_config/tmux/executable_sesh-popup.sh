@@ -43,10 +43,16 @@ fzf_common=(
 # One row source for every view, so the "[cz]" alias chips survive a source switch.
 ROWS="$HOME/.config/tmux/sesh-agents.sh"
 
-# Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim); the chip is display-only.
+# Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
 connect_selected() {
   "$HOME/.config/sesh/sesh-spawn.sh" stamp
-  sesh connect "${1% \[*\]}"
+  # The chip between icon and name is the alias itself, which sesh resolves on its own.
+  local rest="${1#* }" chip=""
+  case "$rest" in \[*\]\ *) chip="${rest%%\]*}"; chip="${chip#\[}" ;; esac
+  case "$chip" in
+    "" | *[!A-Za-z0-9]*) sesh connect "$1" ;;
+    *) sesh connect "$chip" ;;
+  esac
 }
 
 if [[ "${1:-}" == "--new-only" ]]; then
