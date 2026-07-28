@@ -67,6 +67,11 @@ def load(name):
 home = os.environ.get("HOME", "")
 def short(p): return "~" + p[len(home):] if home and p.startswith(home) else p
 
+# A pane reports the RESOLVED cwd, so a symlinked config path only matches once both sides are resolved.
+def real(p):
+    try: return os.path.realpath(p).rstrip("/") or p
+    except Exception: return p
+
 # path -> alias, keyed by path (not name) so an OPEN workspace keeps its config entry'"'"'s alias.
 def load_aliases():
     out = {}
@@ -74,7 +79,10 @@ def load_aliases():
         with open(os.path.join(os.environ["SRC"], "al")) as fh:
             for line in fh:
                 f = line.rstrip("\n").split("\t")
-                if len(f) == 3 and f[0] and f[2]: out[f[2].rstrip("/")] = f[0]
+                if len(f) == 3 and f[0] and f[2]:
+                    p = f[2].rstrip("/")
+                    out[p] = f[0]
+                    out.setdefault(real(p), f[0])
     except Exception: pass
     return out
 alias_by_path = load_aliases()
@@ -259,7 +267,7 @@ for w in (load("ws") or {}).get("result", {}).get("workspaces", []):
         deco, name0 = split_label(label)
         if name0 == derive_name(cwd, False):
             label = ("%s %s" % (deco, derive_name(cwd, True))).strip()
-    if cwd: active_paths.add(cwd)
+    if cwd: active_paths.update((cwd, real(cwd)))
     entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True))
 
 # sesh already tags each row config/zoxide, so a second probe for the curated paths is redundant.
@@ -268,7 +276,7 @@ cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.ge
 seen = set()
 for e in sesh_entries:
     p = (e.get("Path", "") or "").rstrip("/")
-    if not p or p in active_paths or p in seen: continue
+    if not p or p in active_paths or real(p) in active_paths or p in seen: continue
     seen.add(p)
     if p in cfg_paths:
         kind, icon, name = "cfg", "⚙️", (e.get("Name") or os.path.basename(p))  # nice config name
