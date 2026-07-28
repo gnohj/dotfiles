@@ -215,9 +215,9 @@ def agent_rows(wid, pad=0):
         tlast = ti == len(tabs) - 1
         kids = agents_by_tab.get(tb.get("tab_id"), [])
         label = (tb.get("label") or ("t%s" % (tb.get("number") or "?"))).strip()
-        out.append(tree_row(sp + " %s " % ("└─" if tlast else "├─"), label, fg, "", dim,
+        out.append(tree_row(sp + "%s " % ("└─" if tlast else "├─"), label, fg, "", dim,
                             "tab:" + (tb.get("tab_id") or "")))
-        stem = sp + ("    " if tlast else " │  ")
+        stem = sp + ("   " if tlast else "│  ")
         for ai, ag in enumerate(kids):
             st = ag.get("agent_status") or "unknown"
             col = AGENT_COLOR.get(st) or dim
