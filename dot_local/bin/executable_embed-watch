@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# embed-watch - log each new `nvim --embed` with its ancestry while the parent still exists; once it reparents to pid 1 the spawner is unrecoverable. `--once` = one sweep. Env: EMBED_WATCH_INTERVAL (3s).
+set -uo pipefail
+
+# macOS bash 3.2 makes `declare -A` a silent INDEXED, non-local array, so stale pids would leak across sweeps.
+if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  printf 'embed-watch: needs bash 4+ for associative arrays, got %s\n' "${BASH_VERSION:-unknown}" >&2
+  exit 1
+fi
+
+INTERVAL="${EMBED_WATCH_INTERVAL:-3}"
+LOG_DIR="$HOME/.logs/embed-watch"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/embed-watch_$(date '+%Y%m').log"
+ONCE=0
+[ "${1:-}" = --once ] && ONCE=1
+
+# stdout only when interactive: under launchd it would double every line into launchagent.out.log, which never rotates.
+emit() { printf '%s\n' "$1" >>"$LOG"; if [ -t 1 ]; then printf '%s\n' "$1"; fi; }
+
+declare -A seen
+
+sweep() {
+  local snapshot pid ppid cmd walk depth
+  declare -A ppid_of cmd_of
+  # One snapshot feeds both detection and the walk, so the chain cannot rot between two ps calls.
+  snapshot=$(ps -axo pid=,ppid=,command= 2>/dev/null)
+  while read -r pid ppid cmd; do
+    [ -n "${pid:-}" ] || continue
+    ppid_of[$pid]=$ppid
+    cmd_of[$pid]=$cmd
+  done <<<"$(printf '%s\n' "$snapshot" | awk '{pid=$1;pp=$2;$1=$2="";sub(/^ +/,"");print pid" "pp" "$0}')"
+
+  local exe base
+  for pid in "${!cmd_of[@]}"; do
+    cmd=${cmd_of[$pid]}
+    # argv[0] must BE nvim: matching the whole line flags any shell whose command merely mentions "nvim --embed".
+    exe=${cmd%% *}; base=${exe##*/}
+    [ "$base" = nvim ] || continue
+    case "$cmd" in *' --embed'*) ;; *) continue ;; esac
+    [ -n "${seen[$pid]:-}" ] && continue
+    seen[$pid]=1
+
+    emit ""
+    emit "[$(date '+%Y-%m-%d %H:%M:%S')] NEW nvim --embed  pid=$pid"
+    emit "  argv: ${cmd:0:200}"
+    if [ "${ppid_of[$pid]}" = 1 ]; then
+      emit "  ancestry: already orphaned (ppid 1) at first sighting - spawner lost, lower EMBED_WATCH_INTERVAL"
+      continue
+    fi
+    emit "  ancestry (child -> ancestor):"
+    walk=${ppid_of[$pid]}
+    depth=0
+    while [ -n "${walk:-}" ] && [ "$walk" != 0 ] && [ "$depth" -lt 12 ]; do
+      emit "    [$walk] ${cmd_of[$walk]:0:160}"
+      [ "$walk" = 1 ] && break
+      walk=${ppid_of[$walk]:-}
+      depth=$((depth + 1))
+    done
+  done
+}
+
+sweep
+[ "$ONCE" = 1 ] && exit 0
+while :; do
+  sleep "$INTERVAL"
+  sweep
+done
