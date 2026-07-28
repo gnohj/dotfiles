@@ -1,3 +1,6 @@
+# Mouseless v1.0 dropped the sandbox; config moved to Application Support and this copy is dead.
+Library/Containers/net.sonuscape.mouseless/Data/.mouseless
+
 # tmux-dash retired (herdr is the dashboard now) — the cargo-installed binary was never chezmoi-managed, so sweep it here.
 .local/bin/tmux-dash
 .config/tmux-dash
