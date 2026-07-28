@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab | to-desktop media <path>
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
 # deploys it to every machine. Machine routing only - which multiplexer is live is `mux`'s question.
@@ -17,6 +17,40 @@ die() { printf 'to-desktop: %s\n' "$1" >&2; exit "${2:-1}"; }
 
 # Only http(s) may cross: an unvalidated scheme handed to a URL opener is a file:// / x-apple:// hole.
 valid_url() { case "${1:-}" in http://?* | https://?*) return 0 ;; *) return 1 ;; esac; }
+
+# Media lands under the cache, never PATH or LaunchAgents, so a relayed write can't become a startup item or shadow a binary.
+MEDIA_DIR="$HOME/.cache/to-desktop/media"
+
+# Sanitized, not quoted: the forced entry re-splits on whitespace, so the name must already be one shell word.
+safe_name() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
+
+# Extension allowlist, lowercased for camera .HEIC/.MP4: the receiver has only the NAME, so keep `open` off .app/.command/.pkg.
+valid_media_name() {
+  case "${1:-}" in '' | .* | *[[:cntrl:]]*) return 1 ;; esac
+  set -- "$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+  case "$1" in
+    *.mp4 | *.mkv | *.mov | *.webm | *.avi | *.m4v) return 0 ;;
+    *.mp3 | *.m4a | *.flac | *.wav | *.opus | *.ogg) return 0 ;;
+    *.png | *.jpg | *.jpeg | *.gif | *.webp | *.heic | *.avif | *.tif | *.tiff | *.bmp) return 0 ;;
+    *.pdf) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# -a/-na names the app outright: letting LaunchServices pick by extension is the hole the allowlist exists to close.
+do_media() {
+  local lower
+  lower="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
+  case "$(uname -s)" in
+    Darwin)
+      case "$lower" in
+        *.mp4 | *.mkv | *.mov | *.webm | *.avi | *.m4v | *.mp3 | *.m4a | *.flac | *.wav | *.opus | *.ogg)
+          open -na VLC --args "$1" ;;
+        *) open -a Preview "$1" ;;
+      esac ;;
+    *) (env -u BROWSER xdg-open "$1" >/dev/null 2>&1 &) || die "no media opener (xdg-open)" ;;
+  esac
+}
 
 # DESKTOP_OS is stamped by kitty-remote-quake.sh; its presence means someone upstream owns the display. Rest is fallback for a bare ssh.
 at_desktop() {
@@ -157,7 +191,7 @@ if [ "$verb" = --forced ]; then
   verb="${1:-}"; [ -n "$verb" ] || die "forced: empty command" 2
   shift
   # SAFETY: paste/paste-image hand the workstation's whole clipboard to the key holder, one step wider than active-tab.
-  case "$verb" in open | clip | paste | paste-image | notify | browser-debug | active-tab) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
+  case "$verb" in open | clip | paste | paste-image | notify | browser-debug | active-tab | media-recv) ;; *) die "forced: verb not permitted: $verb" 2 ;; esac
   at_desktop || die "forced mode only runs on the workstation" 2
 fi
 
@@ -198,5 +232,34 @@ case "$verb" in
   active-tab)
     if at_desktop; then do_active_tab; else relay_read active-tab; fi
     ;;
-  *) die "unknown verb '$verb' (open | clip | paste | paste-image | notify | browser-debug | active-tab)" 2 ;;
+  media)
+    path="${1:?to-desktop media: missing <path>}"
+    [ -f "$path" ] || die "media: no such file: $path"
+    name="$(safe_name "$(basename -- "$path")")"
+    valid_media_name "$name" || die "refusing non-media file: $name" 2
+    if at_desktop; then
+      do_media "$path"
+    else
+      # Not relay(): this one needs the file on stdin and a transfer-length timeout, so it spells the ssh out like relay_read.
+      host="$(relay_host)"
+      [ -n "$host" ] || die "media: nobody is attached to relay to"
+      ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" "media-recv $name" < "$path" ||
+        die "media: transfer to $host failed"
+    fi
+    ;;
+  media-recv)
+    at_desktop || die "media-recv only runs on the workstation" 2
+    name="${1:?media-recv: missing <name>}"
+    # Re-validated here, not trusted from the sender: this is the restricted key's entry point.
+    [ "$name" = "$(safe_name "$name")" ] || die "media-recv: unsanitized name" 2
+    valid_media_name "$name" || die "media-recv: name not permitted: $name" 2
+    mkdir -p "$MEDIA_DIR" || die "media-recv: cannot create $MEDIA_DIR"
+    # Relayed copies are disposable; prune before writing so the cache can't grow without bound.
+    find "$MEDIA_DIR" -type f -mtime +1 -delete 2>/dev/null
+    # Unlink first: `cat >` follows a symlink, so a planted one would redirect the write out of MEDIA_DIR.
+    rm -f "$MEDIA_DIR/$name"
+    cat > "$MEDIA_DIR/$name" || die "media-recv: write failed"
+    do_media "$MEDIA_DIR/$name"
+    ;;
+  *) die "unknown verb '$verb' (open | clip | paste | paste-image | notify | browser-debug | active-tab | media)" 2 ;;
 esac
