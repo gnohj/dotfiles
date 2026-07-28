@@ -3,35 +3,22 @@
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+case "${OSTYPE:-}" in linux*) PATH="/home/linuxbrew/.linuxbrew/bin:$PATH" ;; esac
 herdr="${HERDR_BIN_PATH:-herdr}"
 sock="${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}"
-py="$(command -v python3 2>/dev/null || echo /usr/bin/python3)"
 
 pane="${1:?herdr-focus-pane: missing <pane_id>}"
 
+# nc not python3 (~32ms interpreter start per keypress); no -N since macOS nc lacks it and the server closes anyway.
 focus_via_socket() {
   [ -S "$sock" ] || return 1
-  "$py" - "$sock" "$pane" <<'PY'
-import json, socket, sys
-
-sock_path, pane_id = sys.argv[1], sys.argv[2]
-try:
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(5)
-    s.connect(sock_path)
-    req = {"id": "focus-pane", "method": "pane.focus", "params": {"pane_id": pane_id}}
-    s.sendall((json.dumps(req) + "\n").encode())
-    buf = b""
-    while b"\n" not in buf:
-        chunk = s.recv(65536)
-        if not chunk:
-            break
-        buf += chunk
-    sys.exit(0 if "result" in json.loads(buf.split(b"\n")[0]) else 1)
-except Exception:
-    sys.exit(1)
-PY
+  command -v nc >/dev/null 2>&1 || return 1
+  # pane_id is interpolated into JSON unescaped, so restrict it to the real id charset (wJ:p1).
+  case "$pane" in ''|*[!A-Za-z0-9_:-]*) return 1 ;; esac
+  local req resp
+  req="{\"id\":\"focus-pane\",\"method\":\"pane.focus\",\"params\":{\"pane_id\":\"$pane\"}}"
+  resp=$(printf '%s\n' "$req" | nc -U -w 5 "$sock" 2>/dev/null)
+  case "$resp" in *'"result"'*) return 0 ;; *) return 1 ;; esac
 }
 
 focus_via_socket && exit 0
