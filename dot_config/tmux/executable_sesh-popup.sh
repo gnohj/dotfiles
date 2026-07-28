@@ -40,6 +40,15 @@ fzf_common=(
   --bind 'ctrl-b:abort'
 )
 
+# One row source for every view, so the "[cz]" alias chips survive a source switch.
+ROWS="$HOME/.config/tmux/sesh-agents.sh"
+
+# Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim); the chip is display-only.
+connect_selected() {
+  "$HOME/.config/sesh/sesh-spawn.sh" stamp
+  sesh connect "${1% \[*\]}"
+}
+
 if [[ "${1:-}" == "--new-only" ]]; then
   # cwd of every active tmux session — used to drop entries already open.
   ACTIVE=$(tmux list-sessions -F '#{session_path}' 2>/dev/null | sort -u || true)
@@ -47,7 +56,7 @@ if [[ "${1:-}" == "--new-only" ]]; then
   # `-j` gives the same rows as JSON with Path (for the active filter). Same
   # query → same order — zip them, drop active/duplicate paths, keep the icon
   # line (which `sesh connect` accepts, icon and all).
-  ICONS=$(sesh list -c -z --icons)
+  ICONS=$("$ROWS" -c -z)
   LIST=$(sesh list -c -z -j | ICONS="$ICONS" ACTIVE="$ACTIVE" python3 -c '
 import sys, json, os
 icons = os.environ.get("ICONS", "").splitlines()
@@ -70,15 +79,14 @@ else
   # is surfaced via --expect: pressing it accepts and exits with "ctrl-w" on
   # line 1, so we branch on it instead of connecting.
   # Rows carry a hidden tab-separated pane target (grammar in sesh-agents.sh); --with-nth=1 keeps it out of display and matching.
-  ROWS="$HOME/.config/tmux/sesh-agents.sh"
   while true; do
     OUT=$("$ROWS" | fzf "${fzf_common[@]}" \
       --delimiter=$'\t' --with-nth=1 \
       --expect=ctrl-w \
       --bind "ctrl-a:change-prompt(⚡ )+reload($ROWS)" \
       --bind "ctrl-t:change-prompt( )+reload($ROWS -t)" \
-      --bind 'ctrl-g:change-prompt(⚙️ )+reload(sesh list -c --icons)' \
-      --bind 'ctrl-x:change-prompt(📁 )+reload(sesh list -z --icons)' \
+      --bind "ctrl-g:change-prompt(⚙️ )+reload($ROWS -c)" \
+      --bind "ctrl-x:change-prompt(📁 )+reload($ROWS -z)" \
       --bind 'ctrl-f:change-prompt(🔎 )+reload(fd -H -d 2 -t d -E .Trash . ~)' \
       --bind "ctrl-d:execute($ROWS --kill {})+change-prompt(⚡ )+reload($ROWS)")
     # With --expect, line 1 is the pressed expect-key (empty on a normal enter)
@@ -113,14 +121,10 @@ else
       tmux switch-client -t "${SELECTED##*$'\t'}"
       exit 0
     fi
-    # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
-    "$HOME/.config/sesh/sesh-spawn.sh" stamp
-    sesh connect "$SELECTED"
+    connect_selected "$SELECTED"
     exit 0
   done
 fi
 
 [[ -z "$SELECTED" ]] && exit 0
-# Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
-"$HOME/.config/sesh/sesh-spawn.sh" stamp
-sesh connect "$SELECTED"
+connect_selected "$SELECTED"
