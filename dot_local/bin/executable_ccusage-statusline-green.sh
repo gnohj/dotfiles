@@ -28,13 +28,19 @@ b=$((16#${hex:4:2}))
 e=$(printf '\033')
 green_sgr="${e}[38;2;${r};${g};${b}m"
 
+# `ccusage` on PATH is only a node shim around this binary; calling it direct skips a node boot per render (~48 MB, 13x faster).
+ccusage_bin=ccusage
+for candidate in "$HOME"/.bun/install/global/node_modules/@ccusage/ccusage-*/bin/ccusage; do
+  [ -x "$candidate" ] && ccusage_bin="$candidate" && break
+done
+
 # ccusage colors some segments (context %, and in other versions burn-rate/cost) with
 # its own ANSI codes, and its plain segments inherit the terminal's default foreground.
 # We want the WHOLE line to be the palette green. So: strip every SGR ccusage emits,
 # then wrap the entire line in the green truecolor SGR with a reset at the end. Emoji
 # keep their own glyph colors; all text becomes uniform green regardless of ccusage's
 # own coloring or version.
-out="$(ccusage statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
+out="$("$ccusage_bin" statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
 
 [ -n "$out" ] && printf '%s%s%s[0m' "${green_sgr}" "$out" "${e}"
 
