@@ -45,7 +45,7 @@ with pkgs;
 
   # Data tools
   jq         # JSON processor
-  yq         # Yaml processor
+  yq-go      # Yaml processor (mikefarah/yq; nixpkgs `yq` is the python jq-wrapper, no `-o json`)
 
   # Terminal & Shell
   tmux       # Terminal multiplexer
