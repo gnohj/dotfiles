@@ -48,6 +48,8 @@ build_list() {
   "$herdr" agent list >"$src/ag" 2>/dev/null &
   "$herdr" tab list >"$src/tb" 2>/dev/null &
   sesh list -c -z -j >"$src/en" 2>/dev/null &
+  # `sesh list` omits aliases in every output mode, so read them straight from sesh.toml.
+  "$HOME/.config/sesh/sesh-aliases.sh" >"$src/al" 2>/dev/null &
   wait
   SRC="$src" \
   FG="${gnohj_color02:-}" DIM="${gnohj_color09:-}" ACCENT="${gnohj_color04:-}" \
@@ -64,6 +66,18 @@ def load(name):
 
 home = os.environ.get("HOME", "")
 def short(p): return "~" + p[len(home):] if home and p.startswith(home) else p
+
+# path -> alias, keyed by path (not name) so an OPEN workspace keeps its config entry'"'"'s alias.
+def load_aliases():
+    out = {}
+    try:
+        with open(os.path.join(os.environ["SRC"], "al")) as fh:
+            for line in fh:
+                f = line.rstrip("\n").split("\t")
+                if len(f) == 3 and f[0] and f[2]: out[f[2].rstrip("/")] = f[0]
+    except Exception: pass
+    return out
+alias_by_path = load_aliases()
 
 def tc(hexs):  # hex "#rrggbb" -> truecolor SGR (matches the popup palette)
     h = (hexs or "").lstrip("#")
@@ -326,17 +340,22 @@ ICON_W = 2   # one emoji, 2 display columns
 for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerate(entries), key=prio)]:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
+    al = alias_by_path.get(path0, "")
+    chip = "[%s]" % al if al else ""
+    cw = dwidth(chip) + 1 if chip else 0
     icol = accent if active else dim
     ncol = (BOLD + fg) if active else fg
     ic = "%s%s%s" % (icol, dpad(deco or icon, ICON_W), RESET)
-    # Symbols claim their width first; the name clips into what is left so status is never cut.
-    budget = NAME_W - (sw + 1 if sw else 0)
+    # Symbols and the alias chip claim their width first; the name clips into what is left so neither is cut.
+    budget = NAME_W - (sw + 1 if sw else 0) - cw
     lab = dclip(name, max(budget, 1))
-    used = dwidth(lab) + (sw + 1 if sw else 0)
-    nm = "%s%s%s%s%s" % (ncol, lab, RESET, (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
+    used = dwidth(lab) + (sw + 1 if sw else 0) + cw
+    nm = "%s%s%s%s%s%s" % (ncol, lab, RESET, (" " + dim + chip + RESET) if chip else "",
+                          (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
     # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 stays last for fzf {-1}.
-    rows.append(name + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
+    # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
+    rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
     if kind == "ws":
         rows.extend(agent_rows(target[3:]))
 
@@ -393,9 +412,12 @@ case "${1:-}" in
       # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
       # $ROWS is read first (guaranteed non-empty above) so FNR==NR still means "first file" when nothing matched.
       POS=$(fzf --ansi --delimiter='\t' --nth=1 --no-sort --filter="$Q" <"$ROWS" \
-        | awk -F'\t' -v out="$VIEW" '
+        | awk -F'\t' -v out="$VIEW" -v q="$Q" '
 FNR == NR {
   line[FNR] = $0; tgt[FNR] = $NF; n = FNR
+  # An exactly-typed alias parks the cursor on its row whatever else fuzzy-matched.
+  nw = split($1, w, " ")
+  if (nw > 1 && w[nw] == q) aliasrow[FNR] = 1
   # Ancestors come from POSITION not from parsing ids: rows are emitted parent-first, so a row belongs to the nearest preceding ws:/tab: row.
   if ($NF ~ /^ws:/)         { ws = FNR; tab = 0 }
   else if ($NF ~ /^tab:/)   { tab = FNR; up1[FNR] = ws }
@@ -412,8 +434,11 @@ END {
     if (!(i in keep)) continue
     print line[i] >out
     # 1-based cursor position of the first genuine hit; borrowed ancestors are context, not hits.
-    if (!hit && (tgt[i] in sel)) { pos = ++k; hit = 1 } else k++
+    k++
+    if (!hit && (tgt[i] in sel)) { pos = k; hit = 1 }
+    if (i in aliasrow) apos = k
   }
+  if (apos) pos = apos
   close(out)
   print pos
 }' "$ROWS" -)
