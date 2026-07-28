@@ -87,6 +87,7 @@ Library/
 .config/ghosttyfetch/
 .config/fastfetch/
 .config/spicetify/
+.config/mouseless/
 
 # Nix (Mac-only — no nix layer on the VPS, so flake.nix + common/ are inert there)
 .nix/
