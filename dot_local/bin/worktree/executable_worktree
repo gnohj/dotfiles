@@ -94,9 +94,14 @@ popup_read() {
   chmod +x "$sh"
   {
     echo '#!/usr/bin/env bash'
-    echo 'clear'
+    # ANSI fallback: the dev box has no xterm-kitty terminfo, so `clear` fails there and the prompt draws over whatever was on screen.
+    echo "clear 2>/dev/null || printf '\\033[2J\\033[H'"
     printf 'cat %q\n' "$hdr"
+    # The quake starts the launcher under `stty -echo` because fzf draws its own input; `read -e` obeys that flag, so keystrokes land but stay invisible.
+    echo '_tty_saved=$(stty -g 2>/dev/null || true)'
+    echo 'stty echo 2>/dev/null || true'
     printf 'read -e -p %q ans\n' "$label"
+    echo '[ -n "$_tty_saved" ] && stty "$_tty_saved" 2>/dev/null || true'
     printf 'printf %%s "$ans" > %q\n' "$out"
   } > "$sh"
   # A cancel exits non-zero and set -e would abort before the caller can check.
