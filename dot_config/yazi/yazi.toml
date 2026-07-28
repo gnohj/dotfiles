@@ -22,13 +22,29 @@ group = "git"
 edit = [
   { run = '''sh -c 'cd "${YAZI_START_DIR:-$PWD}" && nvim "$1"' -- "$@"''', desc = "nvim (preserve cwd)", block = true, for = "unix" },
 ]
+# linux entry first - beats the unix/mpv match on the VPS, never matches macOS. block = true so the relay copy shows progress.
 video = [
+  { run = 'to-desktop media "$1"', block = true, desc = "VLC on the workstation", for = "linux" },
   { run = 'open -na "VLC" "$@" 2>/dev/null', desc = "VLC (new instance)", for = "macos" },
+]
+# Mirrors the default `play` opener, linux entry prepended.
+audio = [
+  { run = 'to-desktop media "$1"', block = true, desc = "Play on the workstation", for = "linux" },
+  { run = 'mpv --force-window "$@"', orphan = true, for = "unix" },
+  { run = '''mediainfo "$1"; echo "Press enter to exit"; read _''', block = true, desc = "Show media info", for = "unix" },
+]
+# Mirrors the default `open` opener, linux entry prepended.
+image = [
+  { run = 'to-desktop media "$1"', block = true, desc = "Open on the workstation", for = "linux" },
+  { run = 'open "$@"', desc = "Open", for = "macos" },
 ]
 
 [open]
+# `reveal` kept second on audio/image so the open-with menu matches the defaults these rules shadow.
 prepend_rules = [
   { mime = "video/*", use = "video" },
+  { mime = "audio/*", use = [ "audio", "reveal" ] },
+  { mime = "image/*", use = [ "image", "reveal" ] },
 ]
 
 [tasks]
