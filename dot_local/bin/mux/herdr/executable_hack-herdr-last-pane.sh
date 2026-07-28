@@ -10,7 +10,7 @@
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+case "${OSTYPE:-}" in linux*) PATH="/home/linuxbrew/.linuxbrew/bin:$PATH" ;; esac
 
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-pane"
