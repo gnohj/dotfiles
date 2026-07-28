@@ -70,10 +70,17 @@ if
 then
   local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
   if ok then
+    -- Paste stays local: herdr's panes never answer the OSC52 read query, so osc52.paste() hangs 10s per register.
+    local paste_local = function()
+      return {
+        vim.fn.split(vim.fn.getreg('"'), "\n"),
+        vim.fn.getregtype('"'),
+      }
+    end
     vim.g.clipboard = {
       name = "OSC 52",
       copy = { ["+"] = osc52.copy("+"), ["*"] = osc52.copy("*") },
-      paste = { ["+"] = osc52.paste("+"), ["*"] = osc52.paste("*") },
+      paste = { ["+"] = paste_local, ["*"] = paste_local },
     }
   end
 end
