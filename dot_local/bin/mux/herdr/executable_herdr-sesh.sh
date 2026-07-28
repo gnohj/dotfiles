@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # herdr-sesh.sh — sesh-style session picker for herdr (the ctrl+t navigator, the
 # herdr-native replacement for the tmux sesh popup). Runs as a herdr `type = "pane"`
-# command (zoom overlay like ctrl+g/ctrl+y) → server-side, so it works local AND
+# command (zoom overlay like ctrl+g/prefix+y) → server-side, so it works local AND
 # over --remote.
 #
 # It reuses `sesh list -c -z --icons` verbatim, so config entries come straight from

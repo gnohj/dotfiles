@@ -1,6 +1,7 @@
 #!/bin/bash
-# Open yazi in a tmux window. If the focused pane is nvim (per-pane RPC socket up),
-# seed yazi with the active buffer's path; otherwise fall back to the pane cwd.
+# prefix+y run-shell job: open yazi in a 90% display-popup, matching the ctrl+g
+# lazygit popup. If the focused pane is nvim (per-pane RPC socket up), seed yazi with
+# the active buffer's path; otherwise fall back to the pane cwd.
 
 # Insert ~/.local/bin (+ mise shims) BEFORE /usr/bin so the source-built
 # ~/.local/bin/tmux (3.6b) beats apt's /usr/bin/tmux (3.4) on Linux — a
@@ -8,14 +9,6 @@
 # ("server exited unexpectedly"). macOS order is unchanged (no tmux lives in
 # ~/.local/bin there, so it still resolves via /run/current-system or homebrew).
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-
-EMOJI="🗄️"
-SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)
-
-# Reuse an existing yazi window if one already exists in this session.
-if tmux select-window -t "${SESSION}:${EMOJI}" 2>/dev/null; then
-  exit 0
-fi
 
 PANE_CMD=$(tmux display-message -p '#{pane_current_command}' 2>/dev/null)
 PANE_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null)
@@ -33,8 +26,14 @@ fi
 
 # Resolve yazi to its REAL binary. `command -v yazi` finds the mise SHIM first
 # (shims are on PATH above), and the shim re-resolves through mise at run time —
-# which dies in the bare new-window env, so the window never appears. `mise which`
+# which dies in the bare popup env, so the popup flashes and closes. `mise which`
 # returns the actual install-dir binary; macOS (yazi from nix, not mise) yields
 # nothing and falls back to command -v.
 YAZI_BIN="$(mise which yazi 2>/dev/null || command -v yazi 2>/dev/null || echo yazi)"
-tmux new-window -n "$EMOJI" -c "$PANE_PATH" "$YAZI_BIN $(printf %q "$TARGET")"
+
+# YAZI_START_DIR mirrors the `y` alias so yazi.toml's edit opener returns nvim to the launch cwd.
+tmux display-popup -E -w 90% -h 90% -d "$PANE_PATH" -B \
+  "YAZI_START_DIR=$(printf %q "$PANE_PATH") $(printf %q "$YAZI_BIN") $(printf %q "$TARGET")"
+
+# Always exit 0: a non-zero run-shell job gets dumped into a copy-mode pager.
+exit 0
