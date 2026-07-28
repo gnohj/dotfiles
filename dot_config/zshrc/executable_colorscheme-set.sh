@@ -607,7 +607,7 @@ generate_borders_config() {
 # Auto-generated borders config
 options=(
   width=5
-  hidpi=on
+  hidpi=off
   active_color=0xff${gnohj_color03#\#}
   inactive_color=0x33${gnohj_color09#\#}
 )
