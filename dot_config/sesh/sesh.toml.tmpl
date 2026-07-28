@@ -1,4 +1,5 @@
 {{- /* One OS-split file, not a second sesh-vps.toml: sesh reads only ~/.config/sesh/sesh.toml unless every caller passes -C. */ -}}
+{{- /* Aliases: unique case-insensitively across BOTH branches (else sesh rejects the whole config at load), and none a strict prefix of another. */ -}}
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
 startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
@@ -6,159 +7,193 @@ startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
 [[session]]
 name = "home"
 path = "~/"
+alias = "h"
 startup_command = "c"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "bin"
 path = "~/_bin"
+alias = "b"
 startup_command = "ls"
 {{ end }}
 [[session]]
 name = "config"
 path = "~/.config"
+alias = "cf"
 startup_command = "n"
 
 [[session]]
 name = "logs"
 path = "~/.logs"
+alias = "lg"
 
 [[session]]
 name = "chezmoi"
 path = "~/.local/share/chezmoi"
+alias = "cz"
 startup_command = "git status"
 
 [[session]]
 name = "developer"
 path = "~/Developer"
+alias = "dv"
 startup_command = "ls"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "downloads"
 path = "~/Downloads"
+alias = "dl"
 startup_command = "ls"
 
 [[session]]
 name = "desktop"
 path = "~/Desktop"
+alias = "dk"
 startup_command = "ls"
 
 [[session]]
 name = "inferno/bare"
 path = "~/Developer/inferno/"
+alias = "ib"
 startup_command = "treekanga tui"
 {{ end }}
 [[session]]
 name = "inferno/develop"
 path = "~/Developer/inferno/develop"
+alias = "id"
 
 [[session]]
 name = "inferno/review"
 path = "~/Developer/inferno/review"
+alias = "ir"
 startup_command = "ghd"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "second_brain"
 path = "~/Developer/second-brain"
+alias = "sb"
 startup_command = "n"
 {{ end }}
 [[session]]
 name = "second_brain_work"
 path = "~/Developer/second-brain-work"
+alias = "sw"
 startup_command = "n"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "glove80"
 path = "~/Developer/glove80"
+alias = "g8"
 
 [[session]]
 name = "corne42"
 path = "~/Developer/corne42"
+alias = "c4"
 
 [[session]]
 name = "toucan_corne42"
 path = "~/Developer/toucan-corne42"
+alias = "tc"
 
 [[session]]
 name = "web/bare"
 path = "~/Developer/web/"
+alias = "wb"
 startup_command = "treekanga tui"
 {{ end }}
 [[session]]
 name = "web/master"
 path = "~/Developer/web/master"
+alias = "wm"
 
 [[session]]
 name = "web/review"
 path = "~/Developer/web/review"
+alias = "wr"
 startup_command = "ghd"
 
 [[session]]
 name = "yazi"
 path = "~/."
+alias = "y"
 startup_command = "y"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "radioctl"
 path = "~/."
+alias = "rc"
 startup_command = "n .radioctl2"
 preview_command = "bat --language=bash --style=snip --color=always ~/.radioctl2"
 {{ end }}
 [[session]]
 name = "radioctl_cmd"
 path = "~/.zsh_radioctl_cmds"
+alias = "rk"
 startup_command = "n .zsh_radioctl_cmds"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_radioctl_cmds"
 
 [[session]]
 name = "agents"
 path = "~/Developer/agents"
+alias = "ag"
 startup_command = "git status"
 
 [[session]]
 name = "skills"
 path = "~/Developer/agents/shared/skills"
+alias = "sk"
 startup_command = "nvim -c \"lua vim.schedule(function() require('lazy').load({plugins={'fff.nvim'}}); require('fff').find_files() end)\""
 
 [[session]]
 name = "claude"
 path = "~/.claude"
+alias = "cc"
 
 [[session]]
 name = "pi"
 path = "~/.pi/agent"
+alias = "pi"
 
 [[session]]
 name = "opencode"
 path = "~/.config/opencode"
+alias = "oc"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "gnohj-monorepo"
 path = "~/Developer/gnohj-monorepo"
+alias = "gm"
 
 [[session]]
 name = "feed"
 path = "~/Developer/feed"
+alias = "fd"
 
 [[session]]
 name = "GhosttyFetch"
 path = "~/Developer/GhosttyFetch"
+alias = "gf"
 {{ end }}
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "actions"
 path = "~/Developer/actions"
+alias = "ac"
 
 [[session]]
 name = "sre-iam-management"
 path = "~/Developer/sre-iam-management"
+alias = "si"
 {{ else }}
 [[session]]
 name = "vps-linux-provision"
 path = "~/Developer/vps-linux-provision"
+alias = "vp"
 startup_command = "git status"
 {{ end }}
 [[session]]
 name = "zsh_gnohj_env"
 path = "~/.zsh_gnohj_env"
+alias = "ze"
 startup_command = "n .zsh_gnohj_env"
 preview_command = "bat --language=bash --style=snip --color=always ~/.zsh_gnohj_env"
