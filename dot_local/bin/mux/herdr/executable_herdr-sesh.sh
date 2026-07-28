@@ -78,6 +78,8 @@ def load_aliases():
     except Exception: pass
     return out
 alias_by_path = load_aliases()
+# Chips pad to the widest alias so a one-letter one does not pull its name a column left.
+ALIAS_W = max([len(a) for a in alias_by_path.values()] or [0])
 
 def tc(hexs):  # hex "#rrggbb" -> truecolor SGR (matches the popup palette)
     h = (hexs or "").lstrip("#")
@@ -343,7 +345,7 @@ for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerat
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     al = alias_by_path.get(path0, "")
-    chip = "[%s]" % al if al else ""
+    chip = ("[%s]" % al).ljust(ALIAS_W + 2) if al else ""
     cw = dwidth(chip) + 1 if chip else 0
     icol = accent if active else dim
     ncol = (BOLD + fg) if active else fg

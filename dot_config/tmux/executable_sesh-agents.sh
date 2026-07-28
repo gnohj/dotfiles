@@ -44,7 +44,7 @@ BEGIN {
     BLUE = ESC "[94m"
 }
 # Alias lines are the only 3-field records, so input order never matters.
-NF == 3 { alias[$2] = $1; next }
+NF == 3 { alias[$2] = $1; if (length($1) > awide) awide = length($1); next }
 {
   # No ANSI escape contains a space, so the first space is always the icon/name boundary.
   plain = $0
@@ -52,7 +52,10 @@ NF == 3 { alias[$2] = $1; next }
   sp = index(plain, " ")
   name = sp ? substr(plain, sp + 1) : plain
   if (!(name in alias) || !sp) { print $0; next }
+  # Pad to the widest alias so a one-letter chip does not pull its name a column left.
+  pad = ""
+  for (i = length(alias[name]); i < awide; i++) pad = pad " "
   cut = index($0, " ")
-  print substr($0, 1, cut) BLUE "[" alias[name] "]" ESC "[39m " substr($0, cut + 1)
+  print substr($0, 1, cut) BLUE "[" alias[name] "]" ESC "[39m" pad " " substr($0, cut + 1)
 }
 ' "$ALIAS_CACHE" - 2>/dev/null
