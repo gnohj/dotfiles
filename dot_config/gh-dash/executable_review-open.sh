@@ -65,8 +65,9 @@ open_octo() {
   mux "🐙 #$pr" "$cwd" "nvim --cmd \"let g:zen_disabled=1\"$extra -c \":silent Octo pr edit $pr\""
 }
 
+# --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
 open_hunk() {
-  mux --print-pane "🔀 #$pr" "$1" "hunk diff $2"
+  mux --print-pane "🔀 #$pr" "$1" "hunk diff --watch $2"
 }
 
 # hunk auto-draws its sidebar only at >= 220 cols and 0.17.6 has no key to preset it, so press `s`.
