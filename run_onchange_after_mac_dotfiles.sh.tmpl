@@ -19,41 +19,7 @@ exit 0
 {{- end }}
 
 #-------------------------------------------------------------------------------
-#--                      Spicetify Theme
-#-------------------------------------------------------------------------------
-if ! command -v spicetify &>/dev/null; then
-  echo "❌  spicetify not found"
-else
-  echo "Installing spicetify themes..."
-
-  if [ ! -d "$HOME/.config/spicetify/Themes/Dribbblish" ]; then
-    if [ ! -d "/tmp/spicetify-themes" ]; then
-      git clone --depth=1 https://github.com/spicetify/spicetify-themes.git /tmp/spicetify-themes
-    fi
-
-    mkdir -p ~/.config/spicetify/Themes
-    cp -r /tmp/spicetify-themes/* ~/.config/spicetify/Themes/
-
-    rm -rf /tmp/spicetify-themes
-
-    echo "✅  Spicetify themes installed"
-  else
-    echo "⏭️  Spicetify themes already installed"
-  fi
-
-  spicetify config current_theme Dribbblish
-  spicetify config color_scheme gruvbox-material-dark
-  spicetify backup apply
-
-  echo "✅  Spicetify theme configured: Dribbblish (gruvbox-material-dark)"
-fi
-
-#-------------------------------------------------------------------------------
 #--                      Summary
 #-------------------------------------------------------------------------------
-echo ""
-echo "📋 Post-Dotfiles Configuration Summary:"
-echo "✅ Configured:"
-echo "  • Spicetify theme: $(command -v spicetify >/dev/null 2>&1 && [ -d "/Applications/Spotify.app" ] && echo "✅ Applied" || echo "❌ Skipped")"
 echo ""
 echo "🎉 Run OnChange [After] Dotfiles Applied Complete!"

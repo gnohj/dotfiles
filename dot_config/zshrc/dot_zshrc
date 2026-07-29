@@ -722,9 +722,6 @@ fza() {
 # Trigger Spotify Sketchybar Update
 alias spot='sketchybar --trigger spotify'
 
-# Trigger Spicetify Sketchybar Update
-alias spice='spicetify auto'
-
 # Mailsy ( Anon email generation )
 alias mail='mailsy'
 
