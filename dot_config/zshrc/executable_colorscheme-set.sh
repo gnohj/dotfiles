@@ -621,11 +621,11 @@ EOF
   sync
 
   echo "Stopping borders... auto restarting with new colors."
-  pkill -f "/opt/homebrew/bin/borders" 2>/dev/null || true
+  # Restarts the job itself rather than killing the process and waiting on KeepAlive; blocks until launchd's ThrottleInterval allows the respawn
+  launchctl kickstart -k "gui/$UID/org.nixos.borders" >/dev/null 2>&1 || true
 
-  # Wait for borders to restart via LaunchAgent (max 3 seconds)
-  for i in {1..6}; do
-    sleep 0.5
+  # kickstart returns once the job is back up, so this only confirms
+  for i in {1..10}; do
     if pgrep -f "/opt/homebrew/bin/borders" >/dev/null 2>&1; then
       echo "Borders restarted successfully."
       # Force borders to render by triggering window focus
@@ -633,6 +633,7 @@ EOF
       /opt/homebrew/bin/aerospace list-windows --focused --format '%{window-id}' | head -1 | xargs -I {} /opt/homebrew/bin/aerospace focus --window-id {} 2>/dev/null || true
       break
     fi
+    sleep 0.1
   done
 
   # Restart borders with new configuration
@@ -683,28 +684,16 @@ EOF
 }
 
 generate_hunk_config() {
-  hunk_conf_file="$HOME/.config/hunk/config.toml"
+  # Only [custom_theme] is generated, into target + source; 30/32 = add/del bg, 02/11 = fg.
+  local hunk_target="$HOME/.config/hunk/config.toml"
+  local hunk_source="$HOME/.local/share/chezmoi/dot_config/hunk/config.toml"
 
-  # Create the directory if it doesn't exist
-  mkdir -p "$(dirname "$hunk_conf_file")"
-
-  # Full-file ownership: hunk has no separate theme file, so the whole
-  # config.toml (preferences + custom_theme) is generated here from the
-  # gnohj_color* palette. Custom theme inherits from a built-in base and
-  # overrides colors with palette values (colors 27-33 are the "Nvim -
-  # Diffview colors" group: 30/32 = added/removed bg, 02/11 = added/removed fg).
-  cat >"$hunk_conf_file" <<EOF
-# Auto-generated hunk config — edit generate_hunk_config in colorscheme-set.sh
-theme = "custom"
-mode = "stack"
-vcs = "git"
-watch = false
-exclude_untracked = false
-line_numbers = true
-wrap_lines = false
-menu_bar = true
-agent_notes = true
-transparent_background = true
+  local hunk_begin="# >>> colorscheme-set: hunk theme - generated, do not edit (see generate_hunk_config) >>>"
+  local hunk_end="# <<< colorscheme-set: hunk theme <<<"
+  local hunk_block
+  hunk_block="$(
+    cat <<EOF
+$hunk_begin
 
 [custom_theme]
 base = "github-dark-default"
@@ -748,8 +737,19 @@ constant = "$gnohj_color06"
 property = "$gnohj_color04"
 tag = "$gnohj_color11"
 attribute = "$gnohj_color05"
+$hunk_end
 EOF
-  echo "hunk configuration updated at '$hunk_conf_file'."
+  )"
+
+  # Idempotent re-append at EOF, where it must stay: TOML bans keys after a table.
+  local hunk_file
+  for hunk_file in "$hunk_target" "$hunk_source"; do
+    [ -f "$hunk_file" ] || continue
+    HUNK_BEGIN="$hunk_begin" HUNK_END="$hunk_end" perl -0777 -i -pe \
+      's/\n*\Q$ENV{HUNK_BEGIN}\E.*?\Q$ENV{HUNK_END}\E\n?//s' "$hunk_file"
+    printf '\n%s\n' "$hunk_block" >>"$hunk_file"
+  done
+  echo "hunk theme updated at '$hunk_target'."
 }
 
 generate_yazi_theme() {

@@ -1,0 +1,56 @@
+# Preferences hand-maintained here; the [custom_theme] block at EOF is generated.
+theme = "custom"
+mode = "split"
+vcs = "git"
+watch = false
+exclude_untracked = false
+line_numbers = true
+wrap_lines = false
+menu_bar = true
+agent_notes = true
+transparent_background = true
+# >>> colorscheme-set: hunk theme - generated, do not edit (see generate_hunk_config) >>>
+
+[custom_theme]
+base = "github-dark-default"
+label = "gnohj"
+accent = "#a3b8c6"
+accentMuted = "#536571"
+text = "#b8c9d3"
+muted = "#9fb7a4"
+border = "#40474b"
+selectedHunk = "#536571"
+lineNumberFg = "#9fb7a4"
+addedBg = "#132a19"
+addedContentBg = "#1f4a2a"
+addedSignColor = "#b7ce97"
+removedBg = "#2a1319"
+removedContentBg = "#4a1f2a"
+removedSignColor = "#da858e"
+movedAddedBg = "#132a19"
+movedRemovedBg = "#2a1319"
+badgeAdded = "#b7ce97"
+badgeRemoved = "#da858e"
+badgeNeutral = "#536571"
+fileNew = "#b7ce97"
+fileModified = "#dab183"
+fileDeleted = "#da858e"
+fileRenamed = "#a3b8c6"
+fileUntracked = "#9fb7a4"
+noteBorder = "#c0aed2"
+noteTitleText = "#b8c9d3"
+
+[custom_theme.syntax]
+keyword = "#c0aed2"
+string = "#b7ce97"
+comment = "#9fb7a4"
+operator = "#a7cfbd"
+variable = "#b8c9d3"
+function = "#a3b8c6"
+type = "#dab183"
+number = "#dc988e"
+constant = "#dc988e"
+property = "#a3b8c6"
+tag = "#da858e"
+attribute = "#dab183"
+# <<< colorscheme-set: hunk theme <<<
