@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR ($pr), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
+"""herdr-thread-status — feed each workspace's PR ($pr/$pr_on), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
 
 herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
 custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
@@ -51,6 +51,11 @@ tokens ($pr, $ci) rather than one string so the " · " is herdr's own separator 
 and so each zone can carry its own fg. All single-cell and deliberately not emoji — a VS16
 sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
 
+The approvals zone is a PAIR of tokens, $pr and $pr_on, for the same reason $git/$git_on is:
+a herdr token's inline fg is unconditional, so one token cannot render – / ◌ red and ● green.
+Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
+glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
+
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
 that box's thread files and checkouts — the state is per-host and that is correct, since a
 VPS workspace's PR belongs to the VPS checkout. Needs `gh` authenticated on whichever host
@@ -58,7 +63,7 @@ that is; without it the token simply never appears. Stdlib only, no jq (gh embed
 
   herdr-thread-status.py           daemon: refresh every $HERDR_THREAD_INTERVAL seconds
   herdr-thread-status.py --once    one pass over every open workspace, then exit
-  herdr-thread-status.py --clear   drop all four tokens from every workspace, then exit
+  herdr-thread-status.py --clear   drop all five tokens from every workspace, then exit
 """
 import json
 import os
@@ -76,6 +81,8 @@ INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
+# $pr's green twin, lit only at 2+ approvals; see approval_slots().
+ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
@@ -104,6 +111,7 @@ PR_JQ = (
 
 # Disjoint vocabularies: ● is approvals-complete, ✓ is CI-green, never the reverse.
 APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
+FULL_GLYPH = "●"  # the one approval glyph that rides $pr_on, so it can be green
 CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
 NONE_GLYPH = "–"
 
@@ -287,21 +295,32 @@ def persist(path, data, url, approvals, ci, note):
 def approval_glyph(approvals):
     """– none, ◌ one, ● two or more. Capping at 2 keeps it a state, not a counter."""
     n = approvals or 0
-    return APPROVAL_GLYPH.get(n, "●") if n < 2 else "●"
+    return APPROVAL_GLYPH.get(n, FULL_GLYPH) if n < 2 else FULL_GLYPH
+
+
+def approval_slots(approvals):
+    """The ($pr, $pr_on) pair — ● goes to the green slot, – and ◌ to the red one.
+
+    Never both: a token's inline fg is unconditional, so the only way one zone renders in two
+    colours is two tokens with one populated. An empty token emits no separator either, so the
+    pair still occupies a single cell no matter which half is lit.
+    """
+    glyph = approval_glyph(approvals)
+    return ("", glyph) if glyph == FULL_GLYPH else (glyph, "")
 
 
 def render(approvals, ci):
-    """The ($pr, $ci) glyph pair, or ("", "") for nothing worth a row.
+    """The ($pr, $pr_on, $ci) glyph triple, or all-empty for nothing worth a row.
 
-    Two tokens, not one string: the " · " between them is then herdr's own separator and takes
-    the dim contextual colour, where a single token would paint its divider the token's fg.
+    Separate tokens, not one string: the " · " between them is then herdr's own separator and
+    takes the dim contextual colour, where a single token would paint its divider the token's fg.
     Each zone also gets its own inline fg that way, which one token could never do.
-    Both render ALWAYS or neither does — a lone glyph left the reader guessing which zone
+    Both zones render ALWAYS or neither does — a lone glyph left the reader guessing which zone
     survived, and an empty token drops its separator too.
     """
     if approvals is None and not ci:
-        return "", ""
-    return approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH)
+        return "", "", ""
+    return approval_slots(approvals) + (CI_GLYPH.get(ci or "", NONE_GLYPH),)
 
 
 def vault_note(cwd):
@@ -353,7 +372,7 @@ def refresh_once():
         branch = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
         if not branch:
             # not a git checkout / detached HEAD
-            report(workspace, {"jira": "", "sb": "", TOKEN: "", CI_TOKEN: ""}, seq)
+            report(workspace, {"jira": "", "sb": "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}, seq)
             continue
         path, data = thread_for(cwd, branch, entries)
         if not path:
@@ -370,11 +389,12 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
-        pr_glyph, ci_glyph = render(approvals, ci)
+        pr_glyph, pr_on_glyph, ci_glyph = render(approvals, ci)
         report(workspace, {
             "jira": jira_short(data.get("jira_status") if data else None),
             "sb": NOTE_GLYPH if note else "",
             TOKEN: pr_glyph,
+            ON_TOKEN: pr_on_glyph,
             CI_TOKEN: ci_glyph,
         }, seq)
 
@@ -382,7 +402,7 @@ def refresh_once():
 def clear_all():
     seq = str(time.time_ns())
     for workspace in workspace_cwds():
-        report(workspace, {"jira": "", "sb": "", TOKEN: "", CI_TOKEN: ""}, seq)
+        report(workspace, {"jira": "", "sb": "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}, seq)
 
 
 def main():
