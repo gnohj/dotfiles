@@ -74,12 +74,14 @@ in
     };
 
     # Borders - Window border visualization
-    # KeepAlive = true so colorscheme-set.sh can pkill and it auto-restarts
+    # KeepAlive = true so colorscheme-set.sh can restart it and launchd brings it back
     borders = {
       serviceConfig = {
         ProgramArguments = [ "${homeDir}/.config/borders/bordersrc" ];
         KeepAlive = true;
         RunAtLoad = true;
+        # Default respawn throttle is 10s, which stalls back-to-back `theme` runs
+        ThrottleInterval = 1;
         ProcessType = "Interactive";
         StandardOutPath = "${homeDir}/.logs/borders/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/borders/launchagent.err.log";
