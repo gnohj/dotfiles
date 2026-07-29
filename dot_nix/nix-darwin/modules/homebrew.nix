@@ -64,7 +64,6 @@
       "mailsy"
       "mas"
       "pngpaste"
-      "spicetify-cli"
       "switchaudio-osx"
       "usage"
 
