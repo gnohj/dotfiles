@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
-# Generate plain (no conventional-commit prefix, no gitmoji) commit
-# messages from staged changes.
-#
-# Hybrid backend: small diffs use direct GitHub Models gpt-4o (fast,
-# capped at 8000 tokens per request); big diffs fall through to
-# `claude -p` (1M context, slower but uncapped).
+# Generate plain (no conventional-commit prefix, no gitmoji) commit messages from staged changes via `claude -p`.
 
 set -uo pipefail
-export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+# ~/.local/bin MUST precede the mise shims: `claude` there is the wrapper that injects the account's CLAUDE_CODE_OAUTH_TOKEN, and the shim reaches the raw CLI, which has no login.
+export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-
-DIFF_CHAR_THRESHOLD=28000
 
 if git diff --cached --quiet 2>/dev/null; then
   echo "no staged changes"
@@ -19,51 +13,9 @@ fi
 
 DIFF_STAT=$(git diff --cached --stat 2>/dev/null)
 FULL_DIFF=$(git diff --cached 2>/dev/null)
-DIFF_SIZE=$(printf '%s' "$FULL_DIFF" | wc -c | tr -d ' ')
 
-# Fast path — direct GitHub Models gpt-4o call (matches the previous
-# implementation byte-for-byte).
-if [ "$DIFF_SIZE" -le "$DIFF_CHAR_THRESHOLD" ]; then
-  TOKEN=$(gh auth token 2>/dev/null)
-  if [ -n "$TOKEN" ]; then
-    read -r -d '' SHORT_PROMPT << 'EOF'
-Generate 5 brief, plain commit messages for these changes. Rules:
-- NO conventional commit prefixes (no feat:, fix:, chore:, etc.)
-- NO emojis
-- Keep it simple and descriptive like: "updated header styles", "fixed login button alignment", "added user validation"
-- Use lowercase
-- Be brief (under 50 chars if possible)
-- Each message on its own line, nothing else
-
-Changes:
-EOF
-    RESPONSE=$(curl -s "https://models.inference.ai.azure.com/chat/completions" \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $TOKEN" \
-      -d "$(jq -n \
-        --arg prompt "$SHORT_PROMPT" \
-        --arg diff "$FULL_DIFF" \
-        '{
-          model: "gpt-4o",
-          messages: [
-            {role: "system", content: "You generate brief, plain git commit messages. No emojis. No conventional commit prefixes. Just simple descriptions."},
-            {role: "user", content: ($prompt + "\n\n" + $diff)}
-          ],
-          max_tokens: 256,
-          temperature: 0.7
-        }')" 2>/dev/null)
-    OUT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty' 2>/dev/null | grep -v '^$' | head -5)
-    if [ -n "$OUT" ]; then
-      printf '%s\n' "$OUT"
-      exit 0
-    fi
-    # If gpt-4o errored (413, etc.) fall through to claude path below.
-  fi
-fi
-
-# Slow path — claude -p (subscription OAuth, 1M context).
 if ! command -v claude >/dev/null 2>&1; then
-  echo "diff too large for gpt-4o, and claude is not on PATH"
+  echo "claude is not on PATH"
   exit 0
 fi
 
@@ -87,7 +39,16 @@ EOF
 
 RAW=$(claude --dangerously-skip-permissions --model haiku -p "$PROMPT" 2>/dev/null) || true
 
-printf '%s\n' "$RAW" \
+# This filter only drops prefixed lines, so claude's "Not logged in · Please run /login" would sail through into lazygit.
+case "$RAW" in
+  *"Not logged in"*|*"/login"*) echo "claude is not logged in - run: claude auth login"; exit 0 ;;
+esac
+
+OUT=$(printf '%s\n' "$RAW" \
   | grep -v '^$' \
   | grep -vE '^[a-z]+(\([^)]+\))?:' \
-  | head -5
+  | head -5)
+
+[ -n "$OUT" ] || { echo "claude returned no usable candidates"; exit 0; }
+
+printf '%s\n' "$OUT"
