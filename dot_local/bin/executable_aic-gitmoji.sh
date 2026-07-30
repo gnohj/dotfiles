@@ -1,20 +1,10 @@
 #!/usr/bin/env bash
-# Generate gitmoji-prefixed commit messages from staged changes.
-#
-# Hybrid backend: small diffs go through `aic` (GitHub Models gpt-4o,
-# fast), big diffs fall through to `claude -p` (1M context, slower but
-# uncapped). Threshold is in characters since gpt-4o through GitHub
-# Models caps at 8000 tokens (~32K chars) per request — we cut over
-# below that to leave headroom for the system prompt + JSON envelope.
+# Generate gitmoji-prefixed commit messages from staged changes via `claude -p` (subscription OAuth, 1M context).
 
 set -uo pipefail
-export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+# ~/.local/bin MUST precede the mise shims: `claude` there is the wrapper that injects the account's CLAUDE_CODE_OAUTH_TOKEN, and the shim reaches the raw CLI, which has no login.
+export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-
-# Anything bigger than this character count routes to claude. ~28K chars
-# stays comfortably under the 8000-token cap (~32K chars / 4-chars-per-
-# token rule of thumb plus envelope overhead).
-DIFF_CHAR_THRESHOLD=28000
 
 if git diff --cached --quiet 2>/dev/null; then
   echo "no staged changes"
@@ -40,18 +30,8 @@ emojify() {
   done
 }
 
-DIFF_SIZE=$(git diff --cached 2>/dev/null | wc -c | tr -d ' ')
-
-if [ "$DIFF_SIZE" -le "$DIFF_CHAR_THRESHOLD" ] && command -v aic >/dev/null 2>&1; then
-  # Fast path — original aic / gpt-4o flow.
-  aic generate "$@" 2>&1 | emojify
-  exit 0
-fi
-
-# Slow path — claude -p (subscription OAuth, 1M context, no per-call
-# token cap). Output: 5 candidates, one per line, gitmoji-prefixed.
 if ! command -v claude >/dev/null 2>&1; then
-  echo "diff too large for aic ($DIFF_SIZE chars > $DIFF_CHAR_THRESHOLD), and claude is not on PATH"
+  echo "claude is not on PATH"
   exit 0
 fi
 
@@ -79,5 +59,15 @@ EOF
 )
 
 RAW=$(claude --dangerously-skip-permissions --model haiku -p "$PROMPT" 2>/dev/null) || true
+OUT=$(printf '%s\n' "$RAW" | grep -E '^[a-z]+(\([^)]+\))?:' | head -10)
 
-printf '%s\n' "$RAW" | grep -E '^[a-z]+(\([^)]+\))?:' | head -10 | emojify
+# Claude's own "Not logged in · Please run /login" would otherwise reach lazygit as a commit-message candidate.
+if [ -z "$OUT" ]; then
+  case "$RAW" in
+    *"Not logged in"*|*"/login"*) echo "claude is not logged in - run: claude auth login" ;;
+    *) echo "claude returned no usable candidates" ;;
+  esac
+  exit 0
+fi
+
+printf '%s\n' "$OUT" | emojify
