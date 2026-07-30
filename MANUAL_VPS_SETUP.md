@@ -79,7 +79,7 @@ This applies the Linux subset and runs the bootstrap (toolchain + agent CLIs + c
 ## 5. Authenticate the tools (interactive, per-machine)
 
 ```
-gh auth login                    # HTTPS token → git push + gh + aic
+gh auth login                    # HTTPS token → git push + gh
 claude   # once, for OAuth   |   codex   # once   |   gemini   # once
 ```
 

@@ -161,24 +161,14 @@ if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
   fi
 fi
 
-# 9. aic — AI commit-message tool behind lazygit's <c-e>/<c-s>. `setup-global-tools`
-#    runs `bun add -g @kkidd/aicommit` (bun auto-installs via mise). Only the fast `aic`
-#    path is provisioned; the large-diff `claude -p` fallback stays Mac-only.
-if [ -x "$MISE" ] || command -v mise >/dev/null 2>&1; then
-  echo "==> mise: aic (AI commit tool)"
-  "$MISE" run setup-global-tools >/dev/null 2>&1 \
-    || echo "   (skip aic — after 'gh auth login', run: mise run setup-global-tools)"
-fi
-
 # Colorscheme seed lives in run_once_after_seed-default-theme.sh, not duplicated here.
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker aic"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT: 'sudo tailscale up --ssh', then run 'claude'/'codex' once for OAuth."
-echo "    ONE-TIME for lazygit AI-commit (<c-e>/<c-s>): run 'gh auth login', then"
-echo "    'mise run setup-global-tools' + 'chezmoi apply' (so ~/.aicommitrc gets the token)."
+echo "    lazygit AI-commit (<c-e>/<c-s>) rides the 'claude' OAuth above — no extra setup."
 echo "    ONE-TIME for secrets (master password never touches this box): put ONLY the"
 echo "    tokens this box needs into ~/.zsh_gnohj_env.local (auto-sourced; var names in"
 echo "    ~/.config/bitwarden/vars.txt). Full 'rbw unlock' is reserved for the trusted"

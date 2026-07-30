@@ -106,3 +106,6 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 .config/kitty/quick-access-terminal-ssh.conf
 .config/kitty/quick-access-terminal-yazi.conf
 .config/kitty/quick-access-terminal.conf
+
+# aic's config - the GitHub Models endpoint it names died 2026-07-30, and it holds a live gh token.
+.aicommitrc
