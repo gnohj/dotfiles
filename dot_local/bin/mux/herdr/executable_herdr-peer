@@ -1,0 +1,406 @@
+#!/usr/bin/env python3
+"""herdr-peer - pull context from, or hand work to, another agent pane by NAME.
+
+AGENT-FIRST, deliberately. The pool is `herdr agent list`, never `pane list`, so a workspace or
+a tab is an addressing FILTER over agents and never a thing you operate on. Every noun tier
+therefore returns the same type - a list of agents - which is what lets one multi-match rule
+cover all of them. The cost is that plain shell panes are invisible: on this box that is 13 of
+16 panes, 9 of them in one web workspace. A build running in a shell pane is NOT reachable here
+by design; use `herdr pane read` directly for that. Named `peer`, not `agent`, because
+`herdr-agent list` sitting one character from the native `herdr agent list` is a trap.
+
+The gap: nothing in herdr resolves a target by label, at any level. `agent get`, `pane read`
+and `agent prompt` take a pane_id and nothing else - a slug, a session uuid, a terminal_id, a
+tab_id and a bare index were all probed on 0.7.5 and every one returns *_not_found. Workspaces
+and tabs are no better: `workspace get` takes the number (`2`), never the label (`chezmoi`),
+and `tab get` takes only the tab_id. So every cross-pane call needs a pane_id the user does not
+have memorised, which is why asking an agent for one degenerates into "check pane 1, or maybe 2".
+
+Everything needed to close that is already on the pane object. herdr-pane-summary.py writes a
+slug into `title`, workspaces carry a real `label`, and every pane reports `cwd` and
+`agent_status` - so this resolves a human noun against all of them and hands the verbs a
+pane_id. Precedence is fixed (see resolve): exact slug, pane id, direction, slug prefix,
+workspace label, cwd, status. `chezmoi` matches a workspace label AND two panes' cwd, so the
+order is load-bearing, not incidental.
+
+Reading is by TRANSCRIPT, not by screen. `agent read` returns the visible ~55 rows with ANSI
+still in them; the session's own JSONL has the whole thing, and herdr_agent_stores already
+resolves its path across both claude roots. Measured on a real 16.7MB session: text turns are
+4.9% of the file, the last 6 cost ~990 tokens, ALL text turns cost ~204k, and the raw file is
+~4.16M - four times a 1M context. That is why --full means every text TURN and the raw file is
+not reachable through any flag.
+
+Only claude keeps a transcript this can read. pi's is a different store and opencode keeps none
+at all, so non-claude panes fall back to the screen automatically and the digest says so.
+
+MANUAL USE ONLY, for `grab`. Isolation between agent panes is a feature - it is what stops one
+specialist's reasoning polluting another's - so pulling a sibling's context is a thing the user
+asks for, never a thing that fires on its own. `grab` must not be wired to a hook, a /loop, a
+cron routine or another skill's enrichment step. `list` and `wait` are exempt and safe to
+automate: they return a table and a state word, never reasoning.
+
+Set-valued nouns list their candidates and stop rather than fanning out, for `grab` and
+`inject` both. `--all` is the deliberate override. A 10-pane workspace at the 6-turn default is
+~6k tokens of other agents' reasoning in one command, which is exactly the aggregate case the
+isolation principle guards against.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import herdr_agent_stores as stores
+except ImportError:
+    stores = None
+
+HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
+STATUSES = ("idle", "working", "blocked", "done", "unknown")
+DIRECTIONS = ("left", "right", "up", "down")
+LEVELS = {"head": 1, "brief": 3, "default": 6, "deep": 12, "wide": 25}
+
+
+def herdr(*args):
+    """Run a herdr subcommand and return its `result` object, or None on any failure."""
+    try:
+        out = subprocess.run(
+            [HERDR, *args], capture_output=True, text=True, timeout=15
+        ).stdout
+        payload = json.loads(out)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if "error" in payload:
+        return None
+    return payload.get("result")
+
+
+def agents():
+    res = herdr("agent", "list")
+    return res.get("agents", []) if res else []
+
+
+def workspaces():
+    res = herdr("workspace", "list")
+    return res.get("workspaces", []) if res else []
+
+
+def current_pane():
+    res = herdr("pane", "current")
+    return res.get("pane") if res else None
+
+
+def label_of(agent):
+    return agent.get("title") or agent.get("terminal_title_stripped") or "(unnamed)"
+
+
+def ws_labels():
+    """workspace_id -> label, with the leading glyph kept (it is part of the user's label)."""
+    return {w["workspace_id"]: w.get("label", "") for w in workspaces()}
+
+
+def resolve(query, pool=None):
+    """A noun -> the agents it names. Precedence is fixed; first tier that matches wins."""
+    pool = pool if pool is not None else agents()
+    if not query or query == "all":
+        return pool
+    q = query.lower().strip()
+
+    exact = [a for a in pool if (a.get("title") or "").lower() == q]
+    if exact:
+        return exact
+
+    by_id = [a for a in pool if a["pane_id"].lower() == q]
+    if by_id:
+        return by_id
+
+    if q in DIRECTIONS:
+        res = herdr("pane", "neighbor", "--current", "--direction", q)
+        pid = (res or {}).get("pane", {}).get("pane_id")
+        return [a for a in pool if a["pane_id"] == pid] if pid else []
+
+    if q in (".", "here"):
+        cur = current_pane()
+        if not cur:
+            return []
+        return [
+            a
+            for a in pool
+            if a["tab_id"] == cur["tab_id"] and a["pane_id"] != cur["pane_id"]
+        ]
+
+    prefix = [a for a in pool if (a.get("title") or "").lower().startswith(q)]
+    if prefix:
+        return prefix
+
+    labels = ws_labels()
+    ws = [a for a in pool if q in labels.get(a["workspace_id"], "").lower()]
+    if ws:
+        return ws
+
+    if q.startswith("#") and q[1:].isdigit():
+        want = int(q[1:])
+        ids = {w["workspace_id"] for w in workspaces() if w.get("number") == want}
+        ws = [a for a in pool if a["workspace_id"] in ids]
+        if ws:
+            return ws
+
+    cwd = [a for a in pool if q in (a.get("cwd") or "").lower()]
+    if cwd:
+        return cwd
+
+    if q in STATUSES:
+        return [a for a in pool if a.get("agent_status") == q]
+
+    return []
+
+
+def transcript_turns(agent):
+    """(path, [(role, text, [tool names])]) for a claude pane, or (None, None)."""
+    if stores is None or agent.get("agent") != "claude":
+        return None, None
+    sid = (agent.get("agent_session") or {}).get("value")
+    path = stores.claude_transcript(sid, agent.get("cwd"))
+    if not path:
+        return None, None
+    turns = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                message = entry.get("message") or {}
+                role = message.get("role")
+                if role not in ("user", "assistant"):
+                    continue
+                content = message.get("content")
+                tools = []
+                if isinstance(content, list):
+                    text = " ".join(
+                        b.get("text", "")
+                        for b in content
+                        if isinstance(b, dict) and b.get("type") == "text"
+                    )
+                    tools = [
+                        b.get("name", "?")
+                        for b in content
+                        if isinstance(b, dict) and b.get("type") == "tool_use"
+                    ]
+                else:
+                    text = content if isinstance(content, str) else ""
+                text = text.strip()
+                if not text or text.startswith("<"):
+                    continue
+                turns.append((role, text, tools))
+    except OSError:
+        return None, None
+    return path, turns
+
+
+def screen(agent, lines):
+    res = subprocess.run(
+        [
+            HERDR, "agent", "read", agent["pane_id"],
+            "--source", "recent-unwrapped", "--lines", str(lines), "--format", "text",
+        ],
+        capture_output=True, text=True, timeout=15,
+    )
+    return res.stdout.rstrip()
+
+
+def header(agent, labels):
+    ws = labels.get(agent["workspace_id"], agent["workspace_id"])
+    return (
+        f"=== {label_of(agent)}  [{agent['pane_id']}]  "
+        f"{agent.get('agent_status', '?')}  {ws}\n"
+        f"    cwd: {agent.get('cwd', '?')}"
+    )
+
+
+def render_digest(agent, turns_n, want_tools, force_screen, labels):
+    out = [header(agent, labels)]
+    if force_screen:
+        out.append(f"    source: screen ({turns_n} lines)\n")
+        out.append(screen(agent, turns_n))
+        return "\n".join(out)
+
+    path, turns = transcript_turns(agent)
+    if turns is None:
+        kind = agent.get("agent") or "non-agent"
+        out.append(f"    source: screen (no readable transcript for {kind})\n")
+        out.append(screen(agent, 60))
+        return "\n".join(out)
+    if not turns:
+        out.append("    source: transcript (no text turns yet)")
+        return "\n".join(out)
+
+    shown = turns if turns_n <= 0 else turns[-turns_n:]
+    cost = sum(len(t) for _, t, _ in shown) // 4
+    out.append(
+        f"    source: transcript, {len(shown)} of {len(turns)} turns, ~{cost:,} tok"
+    )
+    out.append("")
+    for role, text, tools in shown:
+        out.append(f"  [{role}] {text}")
+        if want_tools and tools:
+            out.append(f"     tools: {', '.join(tools)}")
+        out.append("")
+    return "\n".join(out)
+
+
+def print_candidates(matches, labels, verb, query):
+    print(
+        f"herdr-peer: '{query}' names {len(matches)} agents. "
+        f"Narrow it, or pass --all to {verb} every one.\n",
+        file=sys.stderr,
+    )
+    for a in matches:
+        print(f"  {a['pane_id']:<10} {a.get('agent_status','?'):<8} "
+              f"{label_of(a):<34} {labels.get(a['workspace_id'],'')}", file=sys.stderr)
+
+
+def pick(query, verb, allow_all):
+    """Resolve to exactly one agent, or list the candidates and exit."""
+    labels = ws_labels()
+    matches = resolve(query)
+    if not matches:
+        print(f"herdr-peer: nothing matches '{query}'", file=sys.stderr)
+        sys.exit(1)
+    if len(matches) > 1 and not allow_all:
+        print_candidates(matches, labels, verb, query)
+        sys.exit(2)
+    return matches, labels
+
+
+def cmd_list(args):
+    labels = ws_labels()
+    pool = resolve(args.noun) if args.noun else agents()
+    if args.status:
+        pool = [a for a in pool if a.get("agent_status") == args.status]
+    if not pool:
+        print("herdr-peer: no agents match", file=sys.stderr)
+        return 1
+    print(f"{'pane':<10} {'status':<8} {'agent':<8} {'name':<34} workspace")
+    for a in pool:
+        print(f"{a['pane_id']:<10} {a.get('agent_status','?'):<8} "
+              f"{a.get('agent','?'):<8} {label_of(a):<34} "
+              f"{labels.get(a['workspace_id'],'')}")
+    return 0
+
+
+def cmd_grab(args):
+    turns_n = 0 if args.full else (LEVELS[args.level] if args.level else args.turns)
+    matches, labels = pick(args.noun, "grab", args.all)
+    chunks = [
+        render_digest(a, turns_n, args.tools, args.screen, labels) for a in matches
+    ]
+    print("\n\n".join(chunks))
+    return 0
+
+
+def submitted_line(agent, stdout):
+    """`agent prompt` echoes the whole agent object; only its settled state is worth showing."""
+    try:
+        state = json.loads(stdout)["result"]["agent"].get("agent_status", "?")
+    except (ValueError, KeyError, TypeError):
+        state = "submitted"
+    return f"-> {label_of(agent)} [{agent['pane_id']}]: {state}"
+
+
+def cmd_inject(args):
+    matches, labels = pick(args.noun, "inject", args.all)
+    if args.all and len(matches) > 1:
+        print_candidates(matches, labels, "inject", args.noun)
+        if input("\nInject into all of the above? [y/N] ").strip().lower() != "y":
+            return 1
+    rc = 0
+    for a in matches:
+        # Turn count BEFORE submitting, so --collect can show the reply and not the backlog.
+        before = len(transcript_turns(a)[1] or [])
+        call = [HERDR, "agent", "prompt", a["pane_id"], args.text]
+        if args.wait or args.collect:
+            call.append("--wait")
+            for state in args.until or []:
+                call += ["--until", state]
+            if args.timeout:
+                call += ["--timeout", str(args.timeout)]
+        res = subprocess.run(call, capture_output=True, text=True)
+        if res.returncode != 0:
+            rc = res.returncode
+            print(f"-> {label_of(a)} [{a['pane_id']}]: failed", file=sys.stderr)
+            print(res.stderr.strip(), file=sys.stderr)
+            continue
+        print(submitted_line(a, res.stdout))
+        if args.collect:
+            after = len(transcript_turns(a)[1] or [])
+            fresh = max(after - before, 1) if after else args.turns
+            print()
+            print(render_digest(a, fresh, args.tools, False, labels))
+    return rc
+
+
+def cmd_wait(args):
+    matches, labels = pick(args.noun, "wait", args.all)
+    rc = 0
+    for a in matches:
+        call = [HERDR, "agent", "wait", a["pane_id"]]
+        for state in args.until or []:
+            call += ["--until", state]
+        if args.timeout:
+            call += ["--timeout", str(args.timeout)]
+        res = subprocess.run(call, capture_output=True, text=True)
+        print(f"{label_of(a)} [{a['pane_id']}]: {res.stdout.strip() or res.returncode}")
+        rc = rc or res.returncode
+    return rc
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="herdr-peer",
+        description="Pull context from, or hand work to, another agent pane by name.",
+    )
+    sub = parser.add_subparsers(dest="verb", required=True)
+
+    p_list = sub.add_parser("list", help="resolve and show agents, no content")
+    p_list.add_argument("noun", nargs="?")
+    p_list.add_argument("--status", choices=STATUSES)
+    p_list.set_defaults(func=cmd_list)
+
+    p_grab = sub.add_parser("grab", help="digest one agent's recent turns (manual use only)")
+    p_grab.add_argument("noun")
+    p_grab.add_argument("--turns", type=int, default=6)
+    p_grab.add_argument("--level", choices=sorted(LEVELS))
+    p_grab.add_argument("--full", action="store_true", help="every text turn (~204k tok on a long session)")
+    p_grab.add_argument("--tools", action="store_true", help="append tool names per turn")
+    p_grab.add_argument("--screen", action="store_true", help="read the screen instead of the transcript")
+    p_grab.add_argument("--all", action="store_true")
+    p_grab.set_defaults(func=cmd_grab)
+
+    p_inj = sub.add_parser("inject", help="submit a prompt to another agent")
+    p_inj.add_argument("noun")
+    p_inj.add_argument("text")
+    p_inj.add_argument("--wait", action="store_true")
+    p_inj.add_argument("--collect", action="store_true", help="wait, then grab the reply")
+    p_inj.add_argument("--until", action="append", choices=STATUSES)
+    p_inj.add_argument("--timeout", type=int)
+    p_inj.add_argument("--turns", type=int, default=6, help="turns to collect")
+    p_inj.add_argument("--tools", action="store_true")
+    p_inj.add_argument("--all", action="store_true")
+    p_inj.set_defaults(func=cmd_inject)
+
+    p_wait = sub.add_parser("wait", help="block until an agent reaches a state")
+    p_wait.add_argument("noun")
+    p_wait.add_argument("--until", action="append", choices=STATUSES)
+    p_wait.add_argument("--timeout", type=int)
+    p_wait.add_argument("--all", action="store_true")
+    p_wait.set_defaults(func=cmd_wait)
+
+    args = parser.parse_args()
+    sys.exit(args.func(args))
+
+
+if __name__ == "__main__":
+    main()
