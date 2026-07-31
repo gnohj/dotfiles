@@ -13,7 +13,7 @@ cmd - h : :
 # resolves tmux-vs-herdr at runtime (active_mux in launcher.sh), so a separate key
 # per mux was never the thing encoding it.
 cmd + rctrl - r : ~/.config/skhd/kitty-ql-quake.sh
-# Same launcher, but running ON the dev-context target (`tailscale ssh` for ts:, plain ssh otherwise). No-ops with a banner when dev-context is local.
+# Same launcher, but running ON the dev box, resolved live from the tailnet at press time. dev-context only overrides the target; a banner explains any no-op.
 cmd + rctrl - t : ~/.config/skhd/kitty-remote-quake.sh
 
 # Needs to work local / remote

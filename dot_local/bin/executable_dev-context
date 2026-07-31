@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-context: source of truth for where new dev sessions land. State token is `local`, `ssh:<alias>`, or `ts:<host>`; read via `kind`/`target`, and any `set` fires dev_context_change for the sketchybar widget.
+# dev-context: optional override for where new dev sessions land; on `local` consumers resolve their own default live. State token is `local`, `ssh:<alias>`, or `ts:<host>`; read via `kind`/`target`, and any `set` fires dev_context_change for the sketchybar widget.
 set -euo pipefail
 
 STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/dev-context"
