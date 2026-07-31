@@ -49,9 +49,10 @@ if grep -q '^## Work Log' "$NOTE"; then
   # Insert the new entry immediately after the heading. awk prints every
   # line; on the first match it also prints our entry right after. Guards
   # against double-insert if the heading somehow appears twice.
-  awk -v entry="$ENTRY" '
+  # ENVIRON, not -v: awk expands backslash escapes in a -v value, forging log lines.
+  ENTRY="$ENTRY" awk '
     { print }
-    /^## Work Log/ && !done { print entry; done = 1 }
+    /^## Work Log/ && !done { print ENVIRON["ENTRY"]; done = 1 }
   ' "$NOTE" > "$TMP"
 else
   # No Work Log section yet — append it at EOF.

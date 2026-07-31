@@ -31,5 +31,25 @@ case "$SUBJECT" in
   Merge*|Revert*) exit 0 ;;
 esac
 
-sb-ticket-log "$SUBJECT" 2>/dev/null || true
+# Bodies lead with the finding, so subject-only threw it away; full ones would swamp the log.
+BODY_LEDE=$(
+  git log -1 --pretty=%b 2>/dev/null \
+    | awk 'NF==0 && seen { exit } NF { seen=1; print }' \
+    | tr '\n' ' '
+)
+# Collapse runs of whitespace, then trim.
+BODY_LEDE=$(printf '%s' "$BODY_LEDE" | tr -s '[:space:]' ' ' | awk '{$1=$1; print}')
+
+MESSAGE="$SUBJECT"
+if [ -n "$BODY_LEDE" ]; then
+  # Cap the lede so one commit can never dominate the log; cut on a word boundary.
+  LIMIT=400
+  if [ "${#BODY_LEDE}" -gt "$LIMIT" ]; then
+    BODY_LEDE=$(printf '%s' "$BODY_LEDE" | cut -c1-"$LIMIT" | sed 's/ [^ ]*$//')
+    BODY_LEDE="${BODY_LEDE}..."
+  fi
+  MESSAGE="$SUBJECT - $BODY_LEDE"
+fi
+
+sb-ticket-log "$MESSAGE" 2>/dev/null || true
 exit 0
