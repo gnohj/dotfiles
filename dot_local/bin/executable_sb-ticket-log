@@ -64,4 +64,6 @@ else
   } >> "$TMP"
 fi
 
-mv "$TMP" "$NOTE"
+# Not `mv`: mktemp is 0600, and a rename would carry that onto the note, downgrading it from 0644.
+cat "$TMP" > "$NOTE"
+rm -f "$TMP"
