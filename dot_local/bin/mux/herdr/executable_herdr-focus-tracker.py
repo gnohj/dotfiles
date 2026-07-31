@@ -26,6 +26,7 @@ KeepAlive PathState both run it only while ~/.config/herdr/herdr.sock exists. To
 that work the daemon EXITS when the socket is gone (herdr down), rather than spinning;
 the supervisor restarts it when the socket returns. Stdlib only — no herdr binary, no PATH.
 """
+import collections
 import json
 import os
 import re
@@ -47,6 +48,9 @@ SUBSCRIPTIONS = [
 NUMBERED_LABEL = re.compile(r"^(\d+)\.(.*)$", re.DOTALL)
 AUTO_LABEL = re.compile(r"^\d+$")
 DEFAULT_TAB_TEXT = "\U0001f41f"
+
+# Labels this daemon wrote and has not yet seen echoed back - see is_self_echo.
+SELF_WRITES = collections.defaultdict(lambda: collections.deque(maxlen=8))
 
 # Both kept in step with herdr-git-status.sh, the other writer of these two tokens - see
 # paint_branch. TTL outlives a couple of that poller's missed passes, same as its own.
@@ -103,6 +107,23 @@ def typed_text(label):
     return match.group(2).strip() if match else label.strip()
 
 
+def is_self_echo(tab_id, label):
+    """True, consuming the record, when this tab.renamed is one of OUR writes coming back.
+
+    herdr emits tab.renamed for API renames too, so our own writes return looking exactly
+    like a user rename, costing a pointless reconcile each. Dropping them also keeps this
+    daemon from amplifying a herdr bug seen on 0.7.5: the server can get stuck emitting a
+    phantom tab.renamed stream (~10/s, alternating two stale labels) for a tab whose stored
+    label never changes. Reacting to those as input turns the phantom events into REAL
+    renames and the tab visibly flickers - see the AUTO_LABEL guard in handle for the rest.
+    """
+    pending = SELF_WRITES.get(tab_id)
+    if pending and label in pending:
+        pending.remove(label)
+        return True
+    return False
+
+
 def renumber_tabs(typed=None):
     """Give every named tab a `<position>.` prefix, and keep that number honest.
 
@@ -136,6 +157,7 @@ def renumber_tabs(typed=None):
             text = typed.get(tab["tab_id"], label_text(label, position))
             desired = f"{position}.{text or DEFAULT_TAB_TEXT}"
             if desired != label:
+                SELF_WRITES[tab["tab_id"]].append(desired)
                 request("tab.rename", {"tab_id": tab["tab_id"], "label": desired})
 
 
@@ -317,10 +339,14 @@ def handle(mru, msg):
         mru.close_tab(data.get("closed_tab_id") or data.get("tab_id"))
         renumber_tabs()
     elif event == "tab_renamed":
-        # The event carries what the user typed, so "100" stays text instead of reading
-        # as a number. Our own rename echoes back; that pass finds nothing and stops.
+        # The event carries what the user typed, so "100" stays text instead of a number.
         tab_id, label = data.get("tab_id"), data.get("label") or ""
-        renumber_tabs({tab_id: typed_text(label)} if tab_id else None)
+        if tab_id and is_self_echo(tab_id, label):
+            return False
+        # Only a BARE NUMBER needs the event's label; every other form reads off tab.list.
+        text = typed_text(label)
+        typed = {tab_id: text} if tab_id and AUTO_LABEL.match(text) else None
+        renumber_tabs(typed)
         return False
     elif event in ("tab_created", "tab_moved"):
         renumber_tabs()
