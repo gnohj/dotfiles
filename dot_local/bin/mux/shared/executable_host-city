@@ -2,14 +2,15 @@
 # Prints "city-stateabbrev" (e.g. austin-tx) from the machine's public-IP
 # geolocation, for the tmux host cell (host_short@city). Fully dynamic: when a
 # box relocates (Dallas -> Atlanta) its public IP changes and this re-resolves
-# on its own — nothing to edit. Cached ~1h so the status bar never forks a
+# on its own — nothing to edit. Cached ~5min so the status bar never forks a
 # network call per refresh; on a network failure it prints the last known value.
 # Cross-platform (macOS + Linux).
 
 set -uo pipefail
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
-TTL=3600
+# 5min, not 1h: an exit node flipping changes egress geo instantly.
+TTL=300
 
 # GNU stat first: its -f means "filesystem", not "format", so the BSD probe
 # `stat -f %m` does NOT fail cleanly on Linux - it prints filesystem info

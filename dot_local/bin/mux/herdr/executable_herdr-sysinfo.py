@@ -22,7 +22,7 @@ The daemon re-samples on a timer and also rides the socket's event stream
 `herdr api`) so a closed pinned space comes back immediately rather than on the next tick.
 
 `{hostcity}` is the herdr twin of the tmux host cell: host_short@city, with the city
-coming from the SAME ~/.local/bin/mux/shared/host-city geoip helper (public-IP derived, cached ~1h,
+coming from the SAME ~/.local/bin/mux/shared/host-city geoip helper (public-IP derived, cached ~5min,
 re-resolves on its own when a box relocates). It reads that helper's cache file directly
 and only forks the helper when the cache is stale, so the poll stays cheap. herdr needs
 no #{@ssh_host} equivalent: this daemon runs on whichever host runs the herdr SERVER, so
@@ -78,7 +78,7 @@ GRACE = 60.0
 
 CITY_HELPER = os.path.expanduser("~/.local/bin/mux/shared/host-city")
 CITY_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "host-city")
-CITY_TTL = 3600
+CITY_TTL = 300
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
 LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
 
@@ -161,7 +161,8 @@ class Sampler:
         return f"{max(0.0, busy) * 100:.0f}%"
 
     def cached_city(self):
-        if time.monotonic() - self.city_at > 900 or not self.city:
+        # Tied to CITY_TTL: a longer hold pins a city the disk cache already re-resolved.
+        if time.monotonic() - self.city_at > CITY_TTL or not self.city:
             self.city, self.city_at = city(), time.monotonic()
         return self.city
 
