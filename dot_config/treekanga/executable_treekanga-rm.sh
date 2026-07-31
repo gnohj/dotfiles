@@ -122,19 +122,19 @@ delete_one() {
   # teardown sets it: an orch child branch (e.g. IHRWEB-123-foo-ui-settings)
   # embeds its PARENT's ticket id, so running the finish hook would wrongly
   # freeze the parent ticket's note + delete its thread state on child close.
-  local thread_id thread_file vault note already_frozen=0 finish_ok=0
+  local thread_id thread_file vault acct note already_frozen=0 finish_ok=0
   thread_id=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1)
   thread_file="$HOME/.local/state/threads/${thread_id}.json"
-  # Worktrees carry work tickets, so their notes live in the work vault (resolved
-  # via vault-path — never hardcoded).
-  vault="$("$HOME/.local/bin/vault-path" --work)"
+  # Resolve from the WORKTREE, not $PWD: $wt_path still exists here, $PWD is just where tkrm ran.
+  vault="$("$HOME/.local/bin/vault-path" "$wt_path")"
+  acct="$("$HOME/.local/bin/claude-account" cwd "$wt_path" 2>/dev/null || true)"
 
   if [ "${TKRM_SKIP_FINISH:-0}" != 1 ] && [ -n "$thread_id" ] && [ -f "$thread_file" ]; then
     # Cheap shell-level idempotency check: if the vault note already says
     # `state: frozen`, the user (or a previous tkrm) already shipped this
     # ticket. Skip the ~10s claude spawn entirely — just clean the orphan.
-    # --ticket, not a dir: the worktree is mid-delete, so there may be no branch left to read.
-    note=$("$HOME/.local/bin/vault-note" --ticket "$thread_id" --work 2>/dev/null) || note=""
+    # --ticket so the key never depends on the mid-delete worktree's branch.
+    note=$("$HOME/.local/bin/vault-note" --ticket "$thread_id" "$wt_path" 2>/dev/null) || note=""
     if [ -n "$note" ] && grep -q '^state: frozen' "$note" 2>/dev/null; then
       already_frozen=1
       echo "  ✓ /sb-ticket-finish $thread_id — note already frozen, skipping claude"
@@ -145,7 +145,8 @@ delete_one() {
       echo "  ✓ /sb-ticket-finish $thread_id — vault not mounted, cleaning state only"
     else
       echo "  /sb-ticket-finish $thread_id"
-      if command -v claude &>/dev/null; then
+      # Absolute path: PATH hits mise's raw npm binary first, which has no auth and dies.
+      if [ -x "$HOME/.local/bin/claude" ]; then
         # --add-dir is required: claude's default sandbox is the cwd ($HOME or
         # wherever tkrm was invoked from), which excludes the vault and the
         # threads state dir. Without these flags the skill halts at pre-check.
@@ -155,8 +156,8 @@ delete_one() {
         # minutes before giving up. bypassPermissions runs it unattended; the
         # timeout is a backstop so a stall can never block the delete for long.
         if run_with_timeout 150 \
-            env SB_TICKET_FINISH_FROM_TKRM=1 \
-            claude -p "/sb-ticket-finish $thread_id" \
+            env SB_TICKET_FINISH_FROM_TKRM=1 CLAUDE_ACCOUNT="$acct" \
+            "$HOME/.local/bin/claude" -p "/sb-ticket-finish $thread_id" \
               --permission-mode bypassPermissions \
               --add-dir "$vault" \
               --add-dir "$HOME/.local/state" \
@@ -170,7 +171,7 @@ delete_one() {
         mkdir -p "$HOME/.local/state/sb-ticket-finish-pending"
         cp "$thread_file" \
            "$HOME/.local/state/sb-ticket-finish-pending/${thread_id}.json" 2>/dev/null \
-          && echo "    (claude not on PATH — deferred to ~/.local/state/sb-ticket-finish-pending/)"
+          && echo "    (~/.local/bin/claude missing — deferred to ~/.local/state/sb-ticket-finish-pending/)"
       fi
     fi
 
