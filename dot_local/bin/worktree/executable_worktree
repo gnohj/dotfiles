@@ -254,6 +254,15 @@ slugify() {
   echo "$1" | tr -c '[:alnum:]_-' '-' | sed 's/-\{2,\}/-/g; s/^-\|-$//g' | head -c 40
 }
 
+# Two passes: one combined pattern lets the greedy URL group eat `browse/IHRWE`.
+parse_jira_url() {
+  JIRA_URL="" JIRA_TICKET=""
+  [[ "$1" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*) ]] || return 1
+  JIRA_URL="${BASH_REMATCH[1]}"
+  [[ "$JIRA_URL" =~ ([A-Z]+-[0-9]+) ]] || { JIRA_URL=""; return 1; }
+  JIRA_TICKET="${BASH_REMATCH[1]}"
+}
+
 # The two prompt files worktree-bug / worktree-retry feed to claude: a committed
 # generic scaffold plus the gitignored per-employer detail.
 read_jira_conventions() {
@@ -1338,10 +1347,10 @@ CONTEXT: ${CONTEXT:-(none)}" \
     exec "$SELF" runner
   fi
 
-  local URL TICKET SLACK_URL INPUT SELECTED_MODEL
-  if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
-    URL="${BASH_REMATCH[1]}"
-    TICKET="${BASH_REMATCH[2]}"
+  local URL TICKET SLACK_URL INPUT SELECTED_MODEL JIRA_URL JIRA_TICKET
+  if parse_jira_url "$CLIP"; then
+    URL="$JIRA_URL"
+    TICKET="$JIRA_TICKET"
 
     if [ -z "$CONTEXT" ]; then
       # Fast path — pure URL (Mode A). haiku handles the MCP fetch + repo
@@ -1472,9 +1481,8 @@ cmd_bug() {
   # everything else.
   local JIRA_URL="" JIRA_TICKET="" SLACK_URL=""
   if [ "$CLIPBOARD_KIND" = "text" ]; then
-    if [[ "$CLIP" =~ ^[[:space:]]*(https://[^/]+\.atlassian\.net/[^[:space:]]*([A-Z]+-[0-9]+)[^[:space:]]*) ]]; then
-      JIRA_URL="${BASH_REMATCH[1]}"
-      JIRA_TICKET="${BASH_REMATCH[2]}"
+    if parse_jira_url "$CLIP"; then
+      : # JIRA_URL / JIRA_TICKET set by the helper
     elif [[ "$CLIP" =~ ^[[:space:]]*([A-Z]+-[0-9]+)[[:space:]]*$ ]]; then
       JIRA_TICKET="${BASH_REMATCH[1]}"
       JIRA_URL="$JIRA_TICKET"  # bare key — the /worktree skill resolves it
