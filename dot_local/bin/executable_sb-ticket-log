@@ -40,6 +40,18 @@ NOTE=$("$HOME/.local/bin/vault-note" 2>/dev/null) || exit 0
 # ---------------------------------------------------------------------------
 # 3. Append entry to ## Work Log (newest-first)
 # ---------------------------------------------------------------------------
+# A live session and the drain daemon both read-modify-write the whole note, so serialize them. mkdir, not flock: macOS ships no flock(1).
+LOCK="$NOTE.lock.d"
+LOCKED=0
+for _ in $(seq 1 50); do
+  if mkdir "$LOCK" 2>/dev/null; then LOCKED=1; break; fi
+  # Reclaim a lock left by a crashed writer, or every later commit wedges behind it forever.
+  [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$LOCK" 2>/dev/null
+  sleep 0.1
+done
+# Best effort past the timeout: losing the entry is worse than the tiny remaining race window.
+[ "$LOCKED" = 1 ] && trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
 TS=$(date '+%Y-%m-%d %H:%M')
 ENTRY="- $TS · $MSG"
 
