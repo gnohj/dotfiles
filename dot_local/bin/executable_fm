@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# firstmate has no binary - the clone IS the tool, so resolve its home and hand off to the claude wrapper (its AGENTS.md runs the crew).
+set -eu
+
+root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
+
+if [ ! -d "$root/.git" ]; then
+  echo "fm: no firstmate clone at $root" >&2
+  echo "fm: run \`update\` to clone it, or: git clone https://github.com/kunchenguid/firstmate $root" >&2
+  exit 1
+fi
+
+cd "$root"
+exec "$HOME/.local/bin/claude" --dangerously-skip-permissions "$@"
