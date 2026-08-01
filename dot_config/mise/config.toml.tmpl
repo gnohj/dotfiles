@@ -25,6 +25,18 @@ zig = 'latest'          # used for GhosttyFetch
 "npm:@earendil-works/pi-coding-agent" = "latest"
 "github:rtk-ai/rtk" = "latest"                     # PreToolUse `rtk hook claude`; not in nixpkgs
 herdr = "latest"                                   # agent multiplexer; on `latest` for same-day releases (nixpkgs lagged, and this replaces the VPS curl|sh installer)
+
+# AXI CLIs (kunchenguid, same author as firstmate/treehouse/no-mistakes) — required by
+# firstmate's bootstrap toolchain check, which tests binary presence only. `latest` because
+# firstmate version-checks tasks-axi and quota-axi against floors that move with its releases.
+# gh-axi and chrome-devtools-axi also ship an OPTIONAL `setup hooks` step that writes a
+# SessionStart hook into agent settings; that is deliberately NOT run here — those settings are
+# owned by the gnohj/agents monorepo, so run it there by hand if you want the hook.
+"npm:gh-axi" = "latest"
+"npm:chrome-devtools-axi" = "latest"
+"npm:lavish-axi" = "latest"
+"npm:tasks-axi" = "latest"
+"npm:quota-axi" = "latest"
 {{- if ne .chezmoi.os "darwin" }}
 
 # Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
