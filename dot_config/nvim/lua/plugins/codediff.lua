@@ -91,6 +91,8 @@ return {
       explorer = {
         width = 30, -- Sidebar width in columns (default: 40)
         view_mode = "tree", -- "list" (flat) or "tree" (directory tree)
+        -- Land in the diff: j/k and <tab> only work there; <leader>e returns to the explorer.
+        initial_focus = "modified", -- "explorer", "original", or "modified"
         file_filter = {
           -- Hide heavy/bundle files that are slow to diff
           ignore = {
@@ -254,6 +256,16 @@ return {
       callback = function()
         -- Defer to ensure plugin has set up the window marker
         vim.schedule(setup_diff_keymaps)
+      end,
+    })
+
+    -- codediff echoes "Hunk N of M"; noice's mini view holds it 7s, so drop it when a file loads.
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "CodeDiffFileSelect",
+      callback = function()
+        pcall(function()
+          require("noice").cmd("dismiss")
+        end)
       end,
     })
 
