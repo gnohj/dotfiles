@@ -167,6 +167,18 @@ update() {
   else
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
+  # After the pulls, so the divergence check sees the fresh monorepo copy; silent when nothing is wrong.
+  if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
+    "$HOME/.local/bin/claude-settings-relink" ||
+      { print -P "%F{yellow}   claude settings need a manual merge (see above)%f"; fails=$((fails + 1)); }
+  fi
+  # A fresh `agents` clone wires nothing up; must follow the relink, which rescues a clobbered settings.json before setup_symlinks.py would move it aside.
+  if [ ! -e "$HOME/.claude/settings.json" ] && [ -f "$HOME/Developer/agents/setup_symlinks.py" ] &&
+     command -v python3 >/dev/null 2>&1; then
+    print -P "%F{cyan}==> wiring agent symlinks (first run on this machine)%f"
+    python3 "$HOME/Developer/agents/setup_symlinks.py" ||
+      { print -P "%F{red}   agent symlink setup failed%f"; fails=$((fails + 1)); }
+  fi
   if (( fails )); then
     print -P "%F{yellow}==> update: done with $fails issue(s)%f"
   else
