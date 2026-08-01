@@ -31,7 +31,7 @@ prepend_keymap = [
   { on = [ "g", "p" ], run = "cd ~/Pictures/Photos\\ Library.photoslibrary/originals", desc = "Go to iCloud Pictures" },
   { on = [ "g", "l" ], run = "cd ~/.logs", desc = "Go to logs directory" },
   { on = [ "g", "r" ], run = "cd ~/Developer", desc = "Go to Developer repos" },
-  { on = [ "g", "y" ], run = "cd /tmp", desc = "Go to /tmp" },
+  { on = [ "g", "t" ], run = "cd /tmp", desc = "Go to /tmp" },
 ]
 
 [input]
