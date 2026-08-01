@@ -50,6 +50,15 @@
         "interp": "/usr/bin/python3",
         "token": "pane label"
       },
+      "herdr-sb-drain": {
+        "desc": "second-brain drain (Work Log entries from queued commits, note freeze on PR merge)",
+        "script": "herdr-sb-drain.sh",
+        "args": "",
+        "interp": "",
+        "token": "vault work log",
+        "needsPath": true,
+        "note": "drives `claude -p /sb-ticket-log --from-commits` and `/sb-ticket-finish`: both need a real Claude session, same reason as herdr-jira-status. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
+      },
       "herdr-sysinfo": {
         "desc": "herdr sidebar system-info feeder (feeds the $sys metadata token)",
         "script": "herdr-sysinfo.py",

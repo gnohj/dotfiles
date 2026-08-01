@@ -87,6 +87,11 @@ CI_TOKEN = "ci"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
+# Shared with tkrm's deferral path: both drop a thread-file copy here for herdr-sb-drain to freeze.
+FINISH_QUEUE = os.path.join(
+    os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+    "sb-ticket-finish-pending",
+)
 # Same ticket-key shape treekanga's worktree_setup.sh matches, so both writers agree on the id.
 TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
 # worktree_setup.sh derives tmux_session by stripping this prefix; mirrored so the two agree.
@@ -269,6 +274,40 @@ def fetch(branch, worktree):
     return url, approvals, parts[2] if len(parts) > 2 else "", True
 
 
+def enqueue_finish(path, data, cwd):
+    """A known PR left the open set — if it MERGED, queue the vault-note freeze for herdr-sb-drain.
+
+    Costs one extra `gh` call only on the pass where the PR disappears, never per pass, so the
+    rate-limit budget the module docstring guards is unaffected. Closed-without-merge is ignored:
+    nothing shipped, so there is nothing to freeze.
+    """
+    old = data.get("pr_url")
+    if not old or data.get("pr_merged_at"):
+        return
+    info = out(
+        ["gh", "pr", "view", old, "--json", "state,mergedAt,mergeCommit",
+         "--jq", '.state + "\t" + (.mergedAt // "") + "\t" + (.mergeCommit.oid // "")'],
+        cwd=cwd,
+    )
+    if not info:
+        return
+    parts = info.split("\t")
+    if parts[0] != "MERGED":
+        return
+    data["pr_merged_at"] = (parts[1] if len(parts) > 1 and parts[1]
+                            else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+    data["merge_commit"] = parts[2] if len(parts) > 2 and parts[2] else None
+    ticket = os.path.basename(path)[:-len(".json")]
+    try:
+        os.makedirs(FINISH_QUEUE, exist_ok=True)
+        # O_EXCL: never re-queue a freeze the drain is already working through.
+        job = os.path.join(FINISH_QUEUE, ticket + ".json")
+        with open(os.open(job, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
+            json.dump(data, handle, indent=2)
+    except (FileExistsError, OSError):
+        return
+
+
 def persist(path, data, url, approvals, ci, note):
     """Atomic write-back of the status fields. tmp+rename so no reader sees half."""
     if url is not None:
@@ -382,6 +421,9 @@ def refresh_once():
                 entries.append((path, data))
         note = vault_note(cwd)
         url, approvals, ci, reached = fetch(branch, cwd) if have_gh else (None, None, None, False)
+        # Must run BEFORE persist, which clears pr_url to None once the PR leaves the open set.
+        if path and data and reached and url == "" and data.get("pr_url"):
+            enqueue_finish(path, data, cwd)
         if path and (reached or note != (data.get("vault_note") or "")):
             persist(path, data, url, approvals, ci, note)
         if not reached:
