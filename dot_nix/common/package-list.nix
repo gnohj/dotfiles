@@ -57,6 +57,7 @@ with pkgs;
 
   # AWS & Cloud
   awscli2    # AWS CLI
+  fastly     # Fastly CLI - Compute build/serve; nixpkgs 15.4.0 matches the version pinned in .github/actions/setup-fastly-cli
   saml2aws   # AWS SAML auth
 
   # System utilities
