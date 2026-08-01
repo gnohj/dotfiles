@@ -427,6 +427,20 @@ if [ -x "$HOME/.local/bin/setup-worktrees" ]; then
   "$HOME/.local/bin/setup-worktrees" || print_warning "Some bare-worktree repos failed (see above)."
 fi
 
+# --- PHASE 7.5: WIRE AGENT CONFIG SYMLINKS ---
+print_info "› Phase 7.5: Wiring agent config symlinks..."
+
+AGENTS_REPO="$HOME/Developer/agents"
+if [ -f "$AGENTS_REPO/setup_symlinks.py" ] && command -v python3 &>/dev/null; then
+  # Repair BEFORE linking: setup_symlinks.py would move a clobbered settings.json aside to its backup dir, whereas this promotes it into the monorepo.
+  if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
+    "$HOME/.local/bin/claude-settings-relink" || print_warning "Claude settings need a manual merge (see above)."
+  fi
+  python3 "$AGENTS_REPO/setup_symlinks.py" || print_warning "Agent symlink setup reported problems (see above)."
+else
+  print_warning "Skipping agent symlinks: $AGENTS_REPO/setup_symlinks.py or python3 unavailable."
+fi
+
 # --- PHASE 8: INSTALL RUST TOOLS FROM SOURCE ---
 print_info "› Phase 8: Installing Rust tools from source..."
 

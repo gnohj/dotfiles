@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Repair ~/.claude/settings.json after an installer (moshi-hook, v0.2.67) replaces the monorepo symlink with a regular superset file: promote it back, then relink. Silent when healthy.
+set -uo pipefail
+
+LINK="$HOME/.claude/settings.json"
+SRC="$HOME/Developer/agents/claude/settings.json"
+say() { printf 'claude-settings-relink: %s\n' "$*" >&2; }
+
+# Repairs a BROKEN link, never creates the first one, so a fresh box has nothing to repair and must stay silent.
+[ -e "$SRC" ] || exit 0
+[ -e "$LINK" ] || exit 0
+
+# Healthy: already pointing at the monorepo. The common case, so stay quiet.
+if [ -L "$LINK" ] && [ "$(readlink -f "$LINK" 2>/dev/null)" = "$(readlink -f "$SRC")" ]; then
+  exit 0
+fi
+
+if [ -L "$LINK" ]; then
+  say "$LINK is a symlink to $(readlink "$LINK"), not the monorepo - leaving it alone"
+  exit 1
+fi
+[ -f "$LINK" ] || { say "$LINK exists but is not a regular file - leaving it alone"; exit 1; }
+
+command -v jq >/dev/null 2>&1 || { say "jq required"; exit 1; }
+jq empty "$LINK" 2>/dev/null || { say "$LINK is not valid JSON - refusing to promote it"; exit 1; }
+
+# The Mac reads this same copy under a different $HOME, so absolute paths would be dead hook commands there.
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT
+sed -e "s|'$HOME/\([^']*\)'|~/\1|g" -e "s|$HOME/|~/|g" "$LINK" >"$tmp"
+jq empty "$tmp" 2>/dev/null || { say "normalization produced invalid JSON - promoting the file unchanged"; cp "$LINK" "$tmp"; }
+
+# Promote only a true superset, or edits made on the Mac get dropped; compare AFTER normalizing so the previous repair's ~ form still matches.
+if ! jq -e --slurpfile m "$SRC" 'contains($m[0])' "$tmp" >/dev/null 2>&1; then
+  say "$LINK is NOT a superset of the monorepo copy - the two have diverged."
+  say "merge them by hand, then re-run. Nothing was changed."
+  exit 1
+fi
+
+backup="$HOME/.logs/claude-settings-relink/settings.$(date +%Y%m%d-%H%M%S).json"
+mkdir -p "${backup%/*}" && cp "$LINK" "$backup" || { say "backup failed - aborting"; exit 1; }
+
+cp "$tmp" "$SRC" || { say "could not write $SRC"; exit 1; }
+ln -sfn "$SRC" "$LINK" || { say "could not restore the symlink"; exit 1; }
+
+say "relinked $LINK -> $SRC (promoted content, backup: $backup)"
