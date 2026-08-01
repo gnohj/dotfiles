@@ -37,7 +37,8 @@ $FULL_DIFF
 EOF
 )
 
-RAW=$(claude --dangerously-skip-permissions --model haiku -p "$PROMPT" 2>/dev/null) || true
+# MAX_THINKING_TOKENS=0: haiku otherwise burns ~900 thinking tokens before 5 short lines, turning a 2s call into 10s.
+RAW=$(MAX_THINKING_TOKENS=0 claude --dangerously-skip-permissions --model haiku -p "$PROMPT" 2>/dev/null) || true
 
 # This filter only drops prefixed lines, so claude's "Not logged in · Please run /login" would sail through into lazygit.
 case "$RAW" in
