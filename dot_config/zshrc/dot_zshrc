@@ -135,9 +135,9 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
-# `update` - pull the config repos onto this machine: chezmoi (dotfiles) + the agents checkout. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
+# `update` - pull the config repos onto this machine: chezmoi (dotfiles), the agents checkout, and the firstmate distro. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
-  local repo name fails=0
+  local repo name slug fails=0
   if command -v chezmoi >/dev/null 2>&1; then
     print -P "%F{cyan}==> chezmoi update%f"
     chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; fails=$((fails + 1)); }
@@ -145,15 +145,17 @@ update() {
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
   if command -v git >/dev/null 2>&1; then
-    for repo in "$HOME/Developer/agents" "$HOME/Developer/vps-linux-provision"; do
-      name=${repo:t}
+    # owner/name slugs, not bare paths: firstmate is an upstream clone (kunchenguid), not a gnohj repo.
+    for slug in gnohj/agents gnohj/vps-linux-provision kunchenguid/firstmate; do
+      name=${slug:t}
+      repo="$HOME/Developer/$name"
       if [ ! -d "$repo/.git" ]; then
         print -P "%F{cyan}==> cloning $name%f"
         if command -v gh >/dev/null 2>&1; then
-          gh repo clone "gnohj/$name" "$repo" ||
-            { print -P "%F{red}   $name clone failed (private repo - needs gh auth)%f"; fails=$((fails + 1)); }
+          gh repo clone "$slug" "$repo" ||
+            { print -P "%F{red}   $name clone failed (private repo needs gh auth)%f"; fails=$((fails + 1)); }
         else
-          git clone "git@github.com:gnohj/$name.git" "$repo" ||
+          git clone "git@github.com:$slug.git" "$repo" ||
             { print -P "%F{red}   $name clone failed%f"; fails=$((fails + 1)); }
         fi
         continue
