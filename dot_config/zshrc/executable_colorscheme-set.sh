@@ -357,9 +357,9 @@ git:
   log:
     order: default
     showGraph: when-maximised
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
+  pagers:
+    - colorArg: always
+      pager: delta --dark --paging=never
 refresher:
   fetchInterval: 30
   refreshInterval: 10
@@ -381,6 +381,13 @@ gui:
       - "${gnohj_color06}"
   border: rounded
   nerdFontsVersion: "3"
+keybinding:
+  universal:
+    # openDiffTool needs a git diff.tool we don't have and only diffs the selection; <c-t> is reclaimed below.
+    openDiffTool: <disabled>
+  files:
+    # The only filter action bindable at all, so it goes home-row (u u = unstaged, u r = none, u s = staged); a true single-key filter is unreachable from config.
+    openStatusFilter: u
 customCommands:
   - key: "x"
     description: "Commit and bypass hooks"
@@ -465,6 +472,20 @@ customCommands:
     context: "global"
     subprocess: yes
     description: "Create draft PR with editor (assigned to you, reviewer} iheartradio/web-engineers"
+
+  # base...HEAD, so amended/reverted work collapses exactly like GitHub's Files changed.
+  - key: "<c-g>"
+    command: "lazygit-diff pr"
+    context: "global"
+    output: terminal
+    description: "Diff whole PR vs base (codediff)"
+
+  # The Files panel contents as one browsable diff: staged + unstaged + untracked, nothing committed.
+  - key: "<c-t>"
+    command: "lazygit-diff work"
+    context: "global"
+    output: terminal
+    description: "Diff uncommitted work (codediff)"
 EOF
 }
 

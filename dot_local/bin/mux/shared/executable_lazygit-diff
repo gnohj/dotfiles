@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Diff viewer run as a lazygit subprocess: `pr` = branch vs its PR base, `work` = uncommitted only. Never prompt on exit, lazygit already does.
+set -euo pipefail
+
+open_codediff() {
+  # zen_disabled makes the TabClosed autocmd run `qa`, so <esc> out of codediff returns to lazygit.
+  exec nvim --cmd 'let g:zen_disabled=1' -c "$1"
+}
+
+# Local refs only: `gh pr view` costs a round trip per keypress and only matters for a retargeted PR.
+resolve_base() {
+  local base ref
+  base="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
+  # origin/HEAD is unset in bare-clone worktrees; develop first because inferno carries both.
+  for ref in "origin/$base" "$base" origin/develop origin/main origin/master develop main master; do
+    if [ "$ref" = "origin/" ] || [ -z "$ref" ]; then
+      continue
+    fi
+    # Git allows `|` in a ref name and this ends up in nvim's -c, where `|` chains ex commands.
+    case "$ref" in *[!A-Za-z0-9._/-]*) continue ;; esac
+    if git rev-parse --verify --quiet "$ref" >/dev/null; then
+      printf '%s' "$ref"
+      return 0
+    fi
+  done
+  return 1
+}
+
+case "${1:-work}" in
+work)
+  # Bare CodeDiff is the git-status explorer (staged, unstaged, conflicts, untracked) - exactly the Files panel.
+  open_codediff "CodeDiff"
+  ;;
+pr)
+  if ! base_ref="$(resolve_base)"; then
+    echo "lazygit-diff: no base ref found (no origin/HEAD, no local main)."
+    exit 1
+  fi
+  if [ "$(git rev-list --count "$base_ref..HEAD")" -eq 0 ]; then
+    echo "lazygit-diff: nothing committed vs $base_ref. Uncommitted work is on <c-t>."
+    exit 0
+  fi
+  # Three dots, not `CodeDiff base HEAD`: merge-base semantics keep post-branch-point base commits out.
+  open_codediff "CodeDiff $base_ref...HEAD"
+  ;;
+*)
+  echo "usage: lazygit-diff [pr|work]" >&2
+  exit 2
+  ;;
+esac
