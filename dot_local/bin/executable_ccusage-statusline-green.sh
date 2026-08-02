@@ -40,13 +40,44 @@ done
 # then wrap the entire line in the green truecolor SGR with a reset at the end. Emoji
 # keep their own glyph colors; all text becomes uniform green regardless of ccusage's
 # own coloring or version.
-out="$("$ccusage_bin" statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
+# stdin is consumed once and reused: ccusage reads it, and the plan-usage line below parses it out of the same copy.
+_in="$(cat)"
+out="$(printf '%s' "$_in" | "$ccusage_bin" statusline --offline "$@" | sed -E "s/${e}\[[0-9;]*m//g")"
 
-[ -n "$out" ] && printf '%s%s%s[0m' "${green_sgr}" "$out" "${e}"
-
-# Second line: pre-rendered plan-usage segment; cat-only render (no keychain/curl/subshell) so it can't block or blank the line, refreshed out of band by the claude-usage-limits agent.
-# Personal sessions only (work has no usage API); independent of $out so an empty render can't hide it.
+# Mirrors claude-account's precedence (env > pin > path) without forking it: a personal session leaves CLAUDE_ACCOUNT unset, so the path rule alone would mislabel a pinned-personal pane in a work repo.
 acct="${CLAUDE_ACCOUNT:-}"
-[ -z "$acct" ] && case "$PWD" in */Developer/web*|*/Developer/inferno*|*/Developer/actions*|*/.treehouse/*) acct=work ;; *) acct=personal ;; esac
-seg="$HOME/.cache/claude-usage/segment-personal"
-if [ "$acct" = personal ] && [ -s "$seg" ]; then [ -n "$out" ] && printf '\n'; cat "$seg"; fi
+pin="$HOME/.local/state/claude/account-override"
+[ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
+case "$acct" in
+personal | work) ;;
+*) case "$PWD" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+esac
+
+# A glyph, not a word: it survives a narrow pane and reads at a glance across a wall of them.
+case "$acct" in work) glyph='🏢' ;; *) glyph='🏠' ;; esac
+
+# The glyph prints even when ccusage yields nothing, so a broken status line stays visibly distinct from an absent one - the failure mode that hid a missing ccusage binary for weeks.
+if [ -n "$out" ]; then
+  printf '%s%s %s%s[0m' "${green_sgr}" "$glyph" "$out" "${e}"
+else
+  printf '%s%s%s[0m' "${green_sgr}" "$glyph" "${e}"
+fi
+
+# Second line: plan usage + session cost off the harness payload (replacing an out-of-band /api/oauth/usage refresher), every field optional since rate_limits is Pro/Max only and each window may be absent.
+if command -v jq >/dev/null 2>&1; then
+  line2="$(printf '%s' "$_in" | jq -r '
+    def rel($t): if $t == null then "" else (($t - now) as $d
+      | if $d <= 0 then "now"
+        elif $d >= 86400 then "\((($d + 43200)/86400)|floor)d"
+        elif $d >= 3600 then "\((($d + 1800)/3600)|floor)h"
+        else "\((($d + 30)/60)|floor)m" end) end;
+    def win($w; $name): if ($w.used_percentage == null) then empty
+      else "\($name) \($w.used_percentage)%" + (rel($w.resets_at) | if . == "" then "" else " ⟳" + . end) end;
+    [ win(.rate_limits.five_hour // {}; "5h"),
+      win(.rate_limits.seven_day // {}; "7d"),
+      (if .cost.total_cost_usd == null then empty else "$\((.cost.total_cost_usd*100|round)/100)" end)
+    ] | join(" · ")' 2>/dev/null)"
+  if [ -n "$line2" ]; then
+    printf '\n%s%s%s[0m' "${green_sgr}" "$line2" "${e}"
+  fi
+fi
