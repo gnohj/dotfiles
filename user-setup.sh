@@ -315,6 +315,27 @@ else
   print_warning "mise not found. Skipping language runtime installation."
 fi
 
+# --- PHASE 6.2: INSTALL BUN GLOBAL CLI TOOLS ---
+# Deliberately NOT mise npm tools: the status line execs the platform binary out of ~/.bun/install/global directly, and a mise shim would boot node on every render.
+print_info "› Phase 6.2: Installing bun global CLI tools..."
+
+BUN_GLOBAL_TOOLS=(
+  ccstatusline # the status line itself; config in ~/.config/ccstatusline/settings.json (chezmoi-managed)
+  ccusage      # standalone spend analytics; no longer on the status line path
+)
+
+if command -v bun &>/dev/null; then
+  for tool in "${BUN_GLOBAL_TOOLS[@]}"; do
+    if bun add -g "$tool" &>/dev/null; then
+      print_success "bun global: $tool"
+    else
+      print_warning "bun global install failed: $tool"
+    fi
+  done
+else
+  print_warning "bun not found. Skipping bun global CLI tools (status line will render blank)."
+fi
+
 # --- PHASE 6.5: SYMLINK ICLOUD VAULT TO ~/Obsidian ---
 print_info "› Phase 6.5: Configuring iCloud-backed Obsidian vault..."
 
