@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Rate-limit usage percentage, colored by severity: green under 70%, purple from 70%, red from 90%.
+# Usage: claude-usage-pct <five_hour|seven_day>   (session payload JSON on stdin)
+#
+# A `custom-command` widget with preserveColors=true, because ccstatusline's own usage widgets take one static color and have no threshold support.
+#
+# Palette is sourced live rather than baked in by colorscheme-set: this already runs per render, so the thresholds re-theme instantly with no generator to keep in sync.
+window="${1:-five_hour}"
+
+command -v jq >/dev/null 2>&1 || exit 0
+
+pct="$(jq -r --arg w "$window" '.rate_limits[$w].used_percentage // empty' 2>/dev/null)"
+[ -n "$pct" ] || exit 0
+
+green="#b7ce97"
+warn="#c0aed2"
+red="#da858e"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+if [ -r "$active" ]; then
+  # shellcheck disable=SC1090
+  . "$active" >/dev/null 2>&1
+  green="${gnohj_color02:-$green}"
+  warn="${gnohj_color01:-$warn}"
+  red="${gnohj_color11:-$red}"
+fi
+
+# The API hands back raw floats (7% arrives as 7.000000000000001), so round to one decimal and drop a trailing ".0": "7%", "76%", "69.9%".
+read -r hex pct <<<"$(awk -v p="$pct" -v g="$green" -v w="$warn" -v r="$red" 'BEGIN {
+  c = (p >= 90 ? r : (p >= 70 ? w : g))
+  s = sprintf("%.1f", p)
+  sub(/\.0$/, "", s)
+  print c, s
+}')"
+
+printf '\033[38;2;%d;%d;%dm%s%%\033[0m' \
+  "$((16#${hex:1:2}))" "$((16#${hex:3:2}))" "$((16#${hex:5:2}))" "$pct"

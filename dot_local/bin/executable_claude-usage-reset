@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Prints the time remaining on a Claude usage window, e.g. "⟳2h 14m".
+# Usage: claude-usage-reset <five_hour|seven_day>   (session payload JSON on stdin)
+#
+# ccstatusline's own Block Reset Timer reads sessionResetAt from the authenticated usage API, which has no credentials on a token-injected Linux box and renders empty; `resets_at` is already in the piped session JSON, free.
+window="${1:-five_hour}"
+
+payload="$(cat)"
+now="$(date +%s)"
+
+command -v jq >/dev/null 2>&1 || exit 0
+target="$(printf '%s' "$payload" | jq -r --arg w "$window" '.rate_limits[$w].resets_at // empty' 2>/dev/null)"
+# Digits only before it reaches $(( )): bash evaluates array subscripts there, so a crafted resets_at would execute commands.
+case "$target" in '' | *[!0-9]*) exit 0 ;; esac
+
+# Truncated, not rounded, so the countdown stays monotonic; zero units are dropped ("1d 5h 44m" but plain "44m"), and under a minute collapses to "<1m".
+awk -v remaining="$((target - now))" 'BEGIN {
+  if (remaining <= 0) { print "⟳now"; exit }
+  if (remaining < 60) { print "⟳<1m"; exit }
+  out = ""
+  days = int(remaining / 86400)
+  hours = int((remaining % 86400) / 3600)
+  minutes = int((remaining % 3600) / 60)
+  if (days > 0)    { out = out days "d " }
+  if (hours > 0)   { out = out hours "h " }
+  if (minutes > 0) { out = out minutes "m" }
+  sub(/ $/, "", out)
+  print "⟳" out
+}'

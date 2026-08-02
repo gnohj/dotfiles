@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Cost summary for the status line: "$130.49 today / $1241.13 mo".
+# Wired in as a ccstatusline `custom-command` widget, which pipes it the session JSON.
+#
+# Today and month-to-date need ccusage, which re-parses every transcript JSONL (~240ms) - far too slow per render, so one call feeds both and the result is cached for 60s.
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/claude-cost"
+
+# Mirrors claude-account-glyph's precedence (env > pin > path); duplicated because claude-account resolves the cwd rule with `git remote get-url`, too slow on the render path. Keep the two in step.
+acct="${CLAUDE_ACCOUNT:-}"
+pin="$HOME/.local/state/claude/account-override"
+[ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
+case "$acct" in
+personal | work) ;;
+*) case "$PWD" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+esac
+
+# Per account, not shared: a single cache let the daily total flip between accounts depending on which pane rendered last and won the write.
+cache="$cache_dir/totals-$acct"
+
+# Drained but unused - ccstatusline writes the session payload here and would see EPIPE if nothing read it.
+cat >/dev/null
+command -v jq >/dev/null 2>&1 || exit 0
+
+ccusage_bin=""
+for candidate in "$HOME"/.bun/install/global/node_modules/@ccusage/ccusage-*/bin/ccusage; do
+  [ -x "$candidate" ] && ccusage_bin="$candidate" && break
+done
+
+# Pinned rather than inherited: a personal pane leaves CLAUDE_CONFIG_DIR unset and a work pane inherits only ~/.claude-work, so naming it makes each total reproducible from any pane.
+case "$acct" in
+work) cost_dirs="$HOME/.claude-work" ;;
+*) cost_dirs="$HOME/.claude" ;;
+esac
+
+# `find -newermt` is the staleness check: no match means absent or older than the window.
+if [ -n "$ccusage_bin" ] && [ -z "$(find "$cache" -newermt '-60 seconds' 2>/dev/null)" ]; then
+  mkdir -p "$cache_dir"
+  tmp="$(mktemp "$cache_dir/totals.XXXXXX")"
+  # Month sums from the billing anchor, not the 1st, so it matches the "mo:" countdown exactly.
+  anchor="$("$HOME/.local/bin/claude-billing-window" "$acct" 2>/dev/null | cut -d' ' -f1)"
+  [ -n "$anchor" ] || anchor="$(date +%Y-%m)-01"
+  if CLAUDE_CONFIG_DIR="$cost_dirs" "$ccusage_bin" daily --json 2>/dev/null |
+    jq -r --arg d "$(date +%Y-%m-%d)" --arg a "$anchor" '
+      ([.daily[] | select(.period == $d) | .totalCost] | add // 0) as $today
+      | ([.daily[] | select(.period >= $a) | .totalCost] | add // 0) as $month
+      | "\($today)\t\($month)"' >"$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+    mv -f "$tmp" "$cache"
+  else
+    rm -f "$tmp"
+  fi
+fi
+
+money() { awk -v v="$1" 'BEGIN { printf "$%.2f", v }'; }
+
+[ -r "$cache" ] || exit 0
+IFS=$'\t' read -r today month <"$cache"
+
+case "${1:-paren}" in
+paren) [ -n "$today" ] && [ -n "$month" ] && printf '(%s/%s)' "$(money "$today")" "$(money "$month")" ;;
+month) [ -n "$month" ] && printf '(%s mo)' "$(money "$month")" ;;
+today) [ -n "$today" ] && printf '%s today' "$(money "$today")" ;;
+esac

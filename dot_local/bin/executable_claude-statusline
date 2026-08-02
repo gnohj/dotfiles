@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Status line entry point: PATH shim in front of ccstatusline.
+#
+# The status line renders with a minimal PATH, so pointing settings.json at ccstatusline's `#!/usr/bin/env node` binary dies with "env: node: not found", prints nothing, and still exits 0.
+#
+# mise's install dir precedes its shims deliberately: a shim re-enters mise, which refuses to run under an untrusted .mise.toml and blanks the line just as thoroughly. Widgets inherit this PATH via execSync.
+export PATH="$HOME/.local/share/mise/installs/node/latest/bin:$HOME/.local/share/mise/shims:$HOME/.bun/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
+
+exec "$HOME/.bun/bin/ccstatusline" "$@"
