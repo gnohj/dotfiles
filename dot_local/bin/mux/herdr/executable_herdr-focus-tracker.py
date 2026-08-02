@@ -224,26 +224,37 @@ def paint_panes():
     only where the slot is actually wrong (two, on a normal focus change) - and it self-heals a
     pane left mispainted while the daemon was down. Panes holding neither slot are skipped, so
     a pane that never earned a summary is never given one here.
+
+    TWO pairs, two sources: `$pn` is herdr-pane-summary.py's, `$pbr` herdr-git-status.sh's. They
+    cannot move in one call - a token is only clearable by the source that set it, so a single
+    write would strand the other pair's dim half lit. `$pgit` carries a fixed color and needs none.
     """
     reply = request("pane.list", {})
     if not reply or "result" not in reply:
         return
     for pane in reply["result"].get("panes", []):
         tokens = pane.get("tokens") or {}
-        dim, lit = tokens.get("pn") or "", tokens.get("pn_on") or ""
-        value = lit or dim
-        if not value:
-            continue
-        want_lit = value if pane.get("focused") else ""
-        want_dim = "" if pane.get("focused") else value
-        if (dim, lit) == (want_dim, want_lit):
-            continue
-        request("pane.report_metadata", {
-            "pane_id": pane["pane_id"],
-            "seq": time.time_ns(),
-            "source": SUMMARY_SOURCE,
-            "tokens": {"pn": want_dim or None, "pn_on": want_lit or None},
-        })
+        focused = bool(pane.get("focused"))
+        for source, dim_key, lit_key, ttl_ms in (
+                (SUMMARY_SOURCE, "pn", "pn_on", None),
+                (BRANCH_SOURCE, "pbr", "pbr_on", BRANCH_TTL_MS)):
+            dim, lit = tokens.get(dim_key) or "", tokens.get(lit_key) or ""
+            value = lit or dim
+            if not value:
+                continue
+            want_lit = value if focused else ""
+            want_dim = "" if focused else value
+            if (dim, lit) == (want_dim, want_lit):
+                continue
+            payload = {
+                "pane_id": pane["pane_id"],
+                "seq": time.time_ns(),
+                "source": source,
+                "tokens": {dim_key: want_dim or None, lit_key: want_lit or None},
+            }
+            if ttl_ms:
+                payload["ttl_ms"] = ttl_ms
+            request("pane.report_metadata", payload)
 
 
 def write_atomic(path, value):

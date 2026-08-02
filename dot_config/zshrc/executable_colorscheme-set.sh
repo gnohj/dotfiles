@@ -2418,15 +2418,18 @@ generate_herdr_config() {
   # palette color; only the dim is lifted.
   # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
-  local herdr_agent_rows herdr_claude_rows
+  # Row 2 is $pbr/$pgit, same colors as the spaces row's $br/$git so both panels read alike.
+  local herdr_agent_rows herdr_claude_rows herdr_pane_git
   herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "tab", fg = "%s" }], ["agent", { token = "state_text", dim = false }]]' \
     "$gnohj_color02")"
-  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
-    "$gnohj_color02" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_pane_git="$(printf '[{ token = "$pbr", fg = "%s" }, { token = "$pbr_on", fg = "%s", dim = false }, { token = "$pgit", fg = "%s", dim = false }, { token = "$pgit_on", fg = "%s", dim = false }]' \
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02")"
+  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
+    "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
-    "$gnohj_color02" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
+    "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
