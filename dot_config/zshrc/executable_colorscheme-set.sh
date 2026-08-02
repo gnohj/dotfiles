@@ -2323,6 +2323,56 @@ EOF
   echo "Claude Code theme updated at '$claude_theme_file'."
 }
 
+generate_ccstatusline_config() {
+  # Same split as generate_gh_dash_config: jq patches only per-widget colors by id, so a layout change made in ccstatusline's TUI survives the next theme switch.
+  #
+  # "hex:RRGGBB" is ccstatusline's truecolor form - a leading "#" is silently dropped and renders the widget uncolored - and it needs colorLevel 3.
+  local ccsl_target="$HOME/.config/ccstatusline/settings.json"
+  local ccsl_source="$HOME/.local/share/chezmoi/dot_config/ccstatusline/private_settings.json"
+
+  command -v jq >/dev/null 2>&1 || {
+    echo "jq unavailable; skipping ccstatusline theme."
+    return
+  }
+
+  # widget id -> palette entry; unlisted ids keep their color, and the usage percentages are absent on purpose since claude-usage-pct colors itself by threshold.
+  local ccsl_colors
+  ccsl_colors="$(
+    cat <<EOF
+{
+  "model":      "hex:${gnohj_color04#\#}",
+  "ctxdot":     "hex:${gnohj_color13#\#}",
+  "ctx":        "hex:${gnohj_color14#\#}",
+  "sesscost":   "hex:${gnohj_color02#\#}",
+  "mocost":     "hex:${gnohj_color13#\#}",
+  "l5h":        "hex:${gnohj_color03#\#}",
+  "sessreset":  "hex:${gnohj_color13#\#}",
+  "l7d":        "hex:${gnohj_color03#\#}",
+  "weekreset":  "hex:${gnohj_color13#\#}"
+}
+EOF
+  )"
+
+  local ccsl_file
+  for ccsl_file in "$ccsl_target" "$ccsl_source"; do
+    # Skip a missing file rather than creating one: on a fresh machine chezmoi has not laid the target down yet, and the next run themes it.
+    [ -f "$ccsl_file" ] || continue
+    local ccsl_tmp
+    ccsl_tmp="$(mktemp)"
+    if jq --argjson c "$ccsl_colors" '
+        .colorLevel = 3
+        | .lines |= map(map(if $c[.id] then .color = $c[.id] else . end))
+      ' "$ccsl_file" >"$ccsl_tmp" 2>/dev/null && [ -s "$ccsl_tmp" ]; then
+      mv -f "$ccsl_tmp" "$ccsl_file"
+    else
+      rm -f "$ccsl_tmp"
+      echo "ccstatusline theme: failed to patch '$ccsl_file' (left unchanged)."
+    fi
+  done
+
+  echo "ccstatusline theme updated at '$ccsl_target'."
+}
+
 generate_herdr_config() {
   # herdr draws its own UI (panels, split-pane borders, sidebar). Two knobs feed
   # its colors, both mapped here from the gnohj_color* palette so herdr tracks
@@ -2560,6 +2610,9 @@ if [ "$UPDATED" = true ]; then
 
   # Generate Claude Code theme (custom theme, hot-reloaded via ~/.claude/themes watch)
   generate_claude_theme
+
+  # Recolor the Claude Code status line (ccstatusline widget colors only)
+  generate_ccstatusline_config
 
   # Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
   generate_herdr_config
