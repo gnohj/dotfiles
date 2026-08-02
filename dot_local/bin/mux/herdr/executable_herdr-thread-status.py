@@ -152,7 +152,12 @@ def out(args, cwd=None, timeout=20):
 
 
 def workspace_cwds():
-    """workspace_id -> cwd, from the first pane of each workspace. Same source as $git."""
+    """workspace_id -> cwd, from the lowest-id pane of each workspace. Same source as $git.
+
+    Sorted, and it has to be: a workspace can hold panes in DIFFERENT worktrees, so an unsorted
+    "first pane seen" is a coin flip over which thread file this resolves to - and that decides
+    the $pr and $ci the space row shows. herdr-git-status.sh picks its baseline the same way.
+    """
     raw = out([HERDR, "pane", "list"], timeout=6)
     if not raw:
         return {}
@@ -161,7 +166,8 @@ def workspace_cwds():
     except ValueError:
         return {}
     found = {}
-    for pane in panes:
+    for pane in sorted(panes, key=lambda p: (p.get("workspace_id") or "",
+                                             p.get("pane_id") or "")):
         ws = pane.get("workspace_id")
         cwd = (pane.get("foreground_cwd") or pane.get("cwd") or "").rstrip("/")
         if ws and cwd and ws not in found:
