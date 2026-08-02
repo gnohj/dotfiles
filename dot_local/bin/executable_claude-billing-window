@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Prints "<anchor YYYY-MM-DD> <next-boundary-epoch>" for an account's billing month.
+# Usage: claude-billing-window [personal|work]   (default: the current pane's account)
+#
+# Single source of truth for the anchor so the "mo:" countdown and the month spend total can never disagree about where the window began.
+#
+# With no recorded billing day it degrades to the calendar month, the boundary ccusage groups by. Record one with `claude-account set-billing-day <acct> <day>`.
+acct="${1:-}"
+if [ -z "$acct" ]; then
+  # Mirrors claude-account-glyph's precedence (env > pin > path); see the note there.
+  acct="${CLAUDE_ACCOUNT:-}"
+  pin="$HOME/.local/state/claude/account-override"
+  [ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
+  case "$acct" in
+  personal | work) ;;
+  *) case "$PWD" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+  esac
+fi
+
+# Capped at 28: a 29th-31st anchor has no February counterpart and would silently skip or double a cycle. Out of range falls back to the calendar month.
+day=""
+day_file="$HOME/.local/state/claude/billing-day-$acct"
+if [ -r "$day_file" ]; then
+  day="$(tr -dc '0-9' <"$day_file")"
+  { [ -z "$day" ] || [ "$day" -lt 1 ] || [ "$day" -gt 28 ]; } && day=""
+fi
+[ -n "$day" ] || day=1
+
+today="$(date +%d)"
+today="${today#0}"
+
+# The anchor is the most recent occurrence of the billing day, which before it in the month is last month's.
+if [ "$today" -ge "$day" ]; then
+  anchor="$(date +%Y-%m)-$(printf '%02d' "$day")"
+else
+  anchor="$(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m 2>/dev/null ||
+    date -v-1m +%Y-%m 2>/dev/null)-$(printf '%02d' "$day")"
+fi
+
+next="$(date -d "$anchor +1 month" +%s 2>/dev/null ||
+  date -j -f '%Y-%m-%d %H:%M:%S' "$anchor 00:00:00" -v+1m +%s 2>/dev/null)"
+[ -n "$next" ] || exit 0
+
+printf '%s %s' "$anchor" "$next"

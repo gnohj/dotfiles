@@ -19,6 +19,11 @@
 #   claude-account dir             its CLAUDE_CONFIG_DIR        (used by launchers)
 #   claude-account token           its OAuth token, if stored   (used by launchers)
 #   claude-account cwd [path]      account a directory maps to (ignores override)
+#   claude-account whoami [--all]  the ORG a token authenticates as (--all: both, warns if identical)
+#   claude-account set-org-label <personal|work|uuid> <label>   name an org so whoami prints it
+#   claude-account org-labels      list the org -> label map
+#   claude-account set-billing-day <personal|work> <1-28>       renewal day (absent = calendar month)
+#   claude-account billing-day [a] print it, or "calendar" when unset
 #   claude-account pin             print the sticky pin (work|personal|auto)
 #   claude-account pin <a>         pin work|personal globally; auto clears it
 #   claude-account set-token <a>   store a token for <a> from stdin (Keychain)
@@ -115,13 +120,111 @@ token_file() { printf '%s' "$HOME/.local/state/claude/oauth-$1"; }
 
 # macOS: Keychain primary, 0600-mirror fallback when it reads empty transiently (post-reboot / detached spawn) so we don't drop to the expired shared login. Linux: mirror only.
 account_token() {
-  local acct t; acct="$(resolve_account)"
+  local acct t; acct="${1:-$(resolve_account)}"
   if [ "$(uname)" = "Darwin" ]; then
     t="$(security find-generic-password -a "$USER" -s "claude-oauth-$acct" -w 2>/dev/null || true)"
     if [ -n "$t" ]; then printf '%s' "$t"; else cat "$(token_file "$acct")" 2>/dev/null || true; fi
   else
     cat "$(token_file "$acct")" 2>/dev/null || true
   fi
+}
+
+# Only the server can answer this (two tokens from the SAME account still differ as strings), and Haiku on purpose since premium models 429 on a bare OAuth request regardless of account.
+org_for_account() {
+  local tok
+  tok="$(account_token "$1")"
+  [ -n "$tok" ] || { printf 'no token stored'; return; }
+  curl -s --max-time 15 -o /dev/null -D - -X POST \
+    -H "Authorization: Bearer $tok" \
+    -H "anthropic-beta: oauth-2025-04-20" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "content-type: application/json" \
+    -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+    https://api.anthropic.com/v1/messages 2>/dev/null |
+    grep -i '^anthropic-organization-id:' | tr -d '\r' | cut -d' ' -f2- |
+    grep . || printf 'unresolved (token rejected or offline)'
+}
+
+# Hand-set locally since no email is available at a setup-token's scope; an unmapped org prints bare on purpose, so a swapped token shows up as an unfamiliar UUID instead of a stale name.
+ORG_LABELS_FILE="$HOME/.local/state/claude/org-labels"
+
+org_label() {
+  [ -r "$ORG_LABELS_FILE" ] || return 0
+  awk -F'\t' -v o="$1" '$1 == o { print $2; exit }' "$ORG_LABELS_FILE" 2>/dev/null
+}
+
+set_org_label() {
+  local key="$1" label="$2" org tmp
+  case "$key" in
+  personal | work) org="$(org_for_account "$key")" ;;
+  *) org="$key" ;;
+  esac
+  case "$org" in
+  *-*-*-*-*) ;;
+  *)
+    echo "✗ Could not resolve an org id from '$key' (got: $org)" >&2
+    return 1
+    ;;
+  esac
+  mkdir -p "$(dirname "$ORG_LABELS_FILE")"
+  touch "$ORG_LABELS_FILE"
+  tmp="$(mktemp)"
+  grep -v -F "$org	" "$ORG_LABELS_FILE" >"$tmp" 2>/dev/null || true
+  printf '%s\t%s\n' "$org" "$label" >>"$tmp"
+  mv -f "$tmp" "$ORG_LABELS_FILE"
+  echo "Labeled $org → $label"
+}
+
+# Tab-separated so it stays cut/awk-friendly; the label column is omitted when unmapped.
+print_whoami_row() {
+  local acct="$1" org="$2" label
+  label="$(org_label "$org")"
+  if [ -n "$label" ]; then
+    printf '%s\t%s\t%s\n' "$acct" "$org" "$label"
+  else
+    printf '%s\t%s\n' "$acct" "$org"
+  fi
+}
+
+whoami_cmd() {
+  local a orgs="" org
+  if [ "${1:-}" != "--all" ]; then
+    a="$(resolve_account)"
+    print_whoami_row "$a" "$(org_for_account "$a")"
+    return
+  fi
+  for a in personal work; do
+    org="$(org_for_account "$a")"
+    print_whoami_row "$a" "$org"
+    case "$org" in *-*-*-*-*) orgs="$orgs$org
+" ;; esac
+  done
+  # Same org in both slots means switching accounts is a silent no-op - the whole point of the check.
+  if [ "$(printf '%s' "$orgs" | grep -c .)" -gt 1 ] && [ "$(printf '%s' "$orgs" | sort -u | grep -c .)" -eq 1 ]; then
+    echo "warning: personal and work resolve to the SAME org - account switching is a no-op" >&2
+    return 1
+  fi
+}
+
+# Per-account billing anniversary consumed by claude-billing-window; capped at 28 (no February counterpart above that), absent = calendar month.
+billing_day_file() { printf '%s' "$HOME/.local/state/claude/billing-day-$1"; }
+
+set_billing_day() {
+  local account="$1" day="$2" f
+  case "$day" in
+  '' | *[!0-9]*)
+    echo "✗ Billing day must be a number 1-28 (got '$day')." >&2
+    return 1
+    ;;
+  esac
+  if [ "$day" -lt 1 ] || [ "$day" -gt 28 ]; then
+    echo "✗ Billing day must be 1-28 (got '$day'); later days have no February counterpart." >&2
+    return 1
+  fi
+  f="$(billing_day_file "$account")"
+  mkdir -p "$(dirname "$f")"
+  printf '%s\n' "$day" >"$f.tmp" && mv -f "$f.tmp" "$f"
+  echo "Billing day for $account → $day"
 }
 
 store_token() {
@@ -174,6 +277,25 @@ get | resolve) resolve_account ;;
 dir) account_dir ;;
 token) account_token ;;
 cwd) account_for_cwd "${2:-$PWD}" ;;
+whoami) whoami_cmd "${2:-}" ;;
+set-org-label)
+  [ -n "${2:-}" ] && [ -n "${3:-}" ] || {
+    echo "usage: claude-account set-org-label <personal|work|org-uuid> <label>" >&2
+    exit 1
+  }
+  set_org_label "$2" "$3"
+  ;;
+org-labels) cat "$ORG_LABELS_FILE" 2>/dev/null || true ;;
+set-billing-day)
+  case "${2:-}" in
+  personal | work) set_billing_day "$2" "${3:-}" ;;
+  *)
+    echo "usage: claude-account set-billing-day <personal|work> <1-28>" >&2
+    exit 1
+    ;;
+  esac
+  ;;
+billing-day) cat "$(billing_day_file "${2:-$(resolve_account)}")" 2>/dev/null || echo "calendar" ;;
 pin)
   if [ $# -ge 2 ]; then set_pin "$2"; else read_pin; fi
   ;;
@@ -225,7 +347,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|pin [<a>]|seed-config|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|seed-config|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
