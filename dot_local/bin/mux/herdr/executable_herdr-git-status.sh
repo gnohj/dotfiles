@@ -23,6 +23,8 @@
 # glyph and its own coloring, and `$br` below asks git directly); tmux "#[…]" color codes are
 # stripped since a metadata token renders as plain theme-colored text.
 #
+# A third pass reports `$pbr`/`$pgit` per PANE (agents row 2) when its worktree is not its workspace's.
+#
 # The same pass feeds `$br`/`$br_on`, the sidebar's second row. These REPLACE herdr's built-in
 # `branch` token, which can only render the branch verbatim: a ticket worktree already spells
 # its key out on row 1, so row 2 carries the branch with that key stripped
@@ -87,12 +89,90 @@ def out(args, cwd=None):
 # untick/foo and every other unprefixed branch pass through whole. Detached HEAD has no branch
 # name, so it falls back to the short sha rather than leaving the row blank.
 TICKET_PREFIX = re.compile(r"^[A-Z]+-[0-9]+-")
+_BRANCH = {}
+
+def raw_branch(cwd):
+    if cwd not in _BRANCH:
+        name = out(["git", "-C", cwd, "branch", "--show-current"]).strip()
+        _BRANCH[cwd] = name or out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    return _BRANCH[cwd]
+
+def key_of(name):
+    m = TICKET_PREFIX.match(name)
+    return m.group(0) if m else ""
 
 def branch(cwd):
-    name = out(["git", "-C", cwd, "branch", "--show-current"]).strip()
-    if not name:
-        return out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    name = raw_branch(cwd)
     return TICKET_PREFIX.sub("", name) or name
+
+# --path-format=absolute is load-bearing: bare --git-common-dir is relative in a checkout, absolute in a worktree.
+_IDENT = {}
+
+def ident(cwd):
+    """(worktree_root, repo_root) for cwd; ("", "") when it is not a checkout.
+
+    toplevel identifies the WORKTREE, common-dir the REPO, so the pair separates a sibling
+    worktree of this repo from another repo entirely. herdr has neither: `workspace list`
+    carries no path at all, so every agent row renders its workspace's label wherever it sits.
+    """
+    if cwd not in _IDENT:
+        parts = out(["git", "-C", cwd, "rev-parse", "--path-format=absolute",
+                     "--show-toplevel", "--git-common-dir"]).split()
+        _IDENT[cwd] = (parts[0], parts[1]) if len(parts) == 2 else ("", "")
+    return _IDENT[cwd]
+
+# Every treehouse review checkout is .treehouse/review-<pr>/<n>/review, so its leaf names nothing.
+GENERIC_LEAVES = {"review", "repo", "src", "checkout", "worktree", "wt"}
+
+def pane_label(tree, repo, brepo, btree):
+    """Short identity for a pane sitting outside its workspace's worktree.
+
+    Dir leaf over branch: treehouse names the dir after the work, so account-lint says what
+    spike/c2-account-lint says in 12 columns rather than 21, and it matches what
+    herdr-sesh-layout.sh would have labelled that worktree had it been its own workspace.
+    """
+    leaf = os.path.basename(tree)
+    name = leaf if leaf and leaf.lower() not in GENERIC_LEAVES else raw_branch(tree)
+    # Key kept unless the workspace is on that same ticket - row 1 names the WORKSPACE, not the pane.
+    if key_of(name) and key_of(name) == key_of(raw_branch(btree) if btree else ""):
+        name = TICKET_PREFIX.sub("", name) or name
+    # Cross-repo needs the repo name; skipped when the leaf already is it (~/Developer/<repo>).
+    if repo and repo != brepo:
+        rname = os.path.basename(os.path.dirname(repo))
+        if rname and rname != name:
+            name = rname + "/" + name
+    return name or raw_branch(tree)
+
+# Sidebar token is ONE glyph: "this tree has uncommitted work", nothing more. The full
+# per-class counts stay in the ctrl+t picker and the tmux status line, which have the
+# width for them; a 26-col sidebar does not, and the counts were never actionable there.
+# DIRTY_SIGNS is the gitmux staged/conflict/modified/untracked set — stash is deliberately
+# excluded (stashed work is not uncommitted work in the tree), as are the insertion and
+# deletion line counts. Clean tree clears the token, so the row disappears entirely.
+# Cached by tree: the pane pass would otherwise re-run gitmux once per pane sitting in it.
+_SIGN = {}
+
+def sign(cwd):
+    """(dirty_glyph, staged_only, picker_entry) for cwd — ONE gitmux run per tree."""
+    if cwd not in _SIGN:
+        _br, spairs = hg.parse(hg.run(cwd, CFG))     # branch dropped: herdr shows it already
+        flat = hg.plain(spairs)
+        sym = DIRTY_GLYPH if any(s in flat for s in DIRTY_SIGNS) else ""
+        staged_only = bool(sym) and not any(s in flat for s in UNSTAGED_SIGNS)
+        # Same gitmux run feeds the ctrl+t picker's cache, so its column can't disagree
+        # with this token. roots_only is moot here: a workspace cwd is asked either way.
+        _SIGN[cwd] = (sym, staged_only, hg.entry(spairs, now))
+    return _SIGN[cwd]
+
+# ONE call for all four tokens, not one per token: a second report from the same --source
+# carrying the same --seq is dropped as not-newer, so split calls silently lost whichever
+# went second. --token and --clear-token are both repeatable and mix freely.
+def report(kind, target, values):
+    args = [HERDR, kind, "report-metadata", target, "--source", "gitmux", "--seq", seq,
+            "--ttl-ms", TTL]
+    for name, value in values:
+        args += ["--token", name + "=" + value] if value else ["--clear-token", name]
+    subprocess.run(args, capture_output=True)
 
 try:
     panes = json.loads(out([HERDR, "pane", "list"]))
@@ -109,10 +189,16 @@ try:
 except Exception:
     focused = set()
 
+def cwd_of(p):
+    return (p.get("foreground_cwd") or p.get("cwd") or "").rstrip("/")
+
+# Sorted: first-seen followed `pane list` order, a coin flip once a workspace holds two worktrees.
+plist = sorted(panes.get("result", {}).get("panes", []),
+               key=lambda p: (p.get("workspace_id") or "", p.get("pane_id") or ""))
+
 ws_cwd = {}
-for p in panes.get("result", {}).get("panes", []):
-    w = p.get("workspace_id")
-    c = (p.get("foreground_cwd") or p.get("cwd") or "").rstrip("/")
+for p in plist:
+    w, c = p.get("workspace_id"), cwd_of(p)
     if w and c and w not in ws_cwd:
         ws_cwd[w] = c
 
@@ -121,32 +207,34 @@ picker = {}
 for w, c in ws_cwd.items():
     if not os.path.isdir(c):
         continue
-    _branch, spairs = hg.parse(hg.run(c, CFG))          # branch dropped: herdr shows it already
-    # Sidebar token is ONE glyph: "this tree has uncommitted work", nothing more. The full
-    # per-class counts stay in the ctrl+t picker and the tmux status line, which have the
-    # width for them; a 26-col sidebar does not, and the counts were never actionable there.
-    # DIRTY_SIGNS is the gitmux staged/conflict/modified/untracked set — stash is deliberately
-    # excluded (stashed work is not uncommitted work in the tree), as are the insertion and
-    # deletion line counts. Clean tree clears the token, so the row disappears entirely.
     # Two slots for one glyph, same trick as $br/$br_on: a custom token takes ONE flat inline fg.
-    plain = hg.plain(spairs)
-    sym = DIRTY_GLYPH if any(s in plain for s in DIRTY_SIGNS) else ""
-    staged_only = bool(sym) and not any(s in plain for s in UNSTAGED_SIGNS)
-    # Same gitmux run feeds the ctrl+t picker's cache, so its column can't disagree
-    # with this token. roots_only is moot here: a workspace cwd is asked either way.
-    picker[c] = hg.entry(spairs, now)
-    # ONE call for all four tokens, not one per token: a second report from the same --source
-    # carrying the same --seq is dropped as not-newer, so split calls silently lost whichever
-    # went second. --token and --clear-token are both repeatable and mix freely.
-    args = [HERDR, "workspace", "report-metadata", w, "--source", "gitmux", "--seq", seq,
-            "--ttl-ms", TTL]
+    sym, staged_only, entry = sign(c)
+    picker[c] = entry
     br = branch(c)
     lit = w in focused
-    for name, value in (("git", "" if staged_only else sym),
-                        ("git_on", sym if staged_only else ""),
-                        ("br", "" if lit else br), ("br_on", br if lit else "")):
-        args += ["--token", name + "=" + value] if value else ["--clear-token", name]
-    subprocess.run(args, capture_output=True)
+    report("workspace", w, (("git", "" if staged_only else sym),
+                            ("git_on", sym if staged_only else ""),
+                            ("br", "" if lit else br), ("br_on", br if lit else "")))
+
+# Compared on the worktree ROOT, not the cwd string - a subdirectory of the same tree is not another checkout.
+for p in plist:
+    pid, w = p.get("pane_id"), p.get("workspace_id")
+    if not pid:
+        continue
+    c = cwd_of(p)
+    base = ws_cwd.get(w, "")
+    tree, repo = ident(c) if c and os.path.isdir(c) else ("", "")
+    btree, brepo = ident(base) if base and os.path.isdir(base) else ("", "")
+    if not tree or tree == btree:
+        report("pane", pid, (("pbr", ""), ("pbr_on", ""), ("pgit", ""), ("pgit_on", "")))
+        continue
+    name = pane_label(tree, repo, brepo, btree)
+    sym, staged_only, entry = sign(tree)
+    picker[tree] = entry
+    lit = bool(p.get("focused"))
+    report("pane", pid, (("pgit", "" if staged_only else sym),
+                         ("pgit_on", sym if staged_only else ""),
+                         ("pbr", "" if lit else name), ("pbr_on", name if lit else "")))
 
 hg.update(picker)
 PY
