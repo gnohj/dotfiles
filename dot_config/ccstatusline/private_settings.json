@@ -1,0 +1,118 @@
+{
+  "version": 3,
+  "lines": [
+    [
+      {
+        "id": "acct",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-account-glyph",
+        "timeout": 300,
+        "preserveColors": true
+      },
+      {
+        "id": "model",
+        "type": "model",
+        "rawValue": true,
+        "color": "hex:a3b8c6"
+      },
+      {
+        "id": "ctxdot",
+        "type": "custom-text",
+        "customText": "·",
+        "color": "hex:536571"
+      },
+      {
+        "id": "ctx",
+        "type": "context-percentage",
+        "rawValue": true,
+        "color": "hex:b8c9d3"
+      },
+      {
+        "id": "sep1",
+        "type": "separator"
+      },
+      {
+        "id": "sesscost",
+        "type": "session-cost",
+        "rawValue": true,
+        "color": "hex:b7ce97"
+      },
+      {
+        "id": "mocost",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-cost-summary paren",
+        "timeout": 2000,
+        "color": "hex:536571"
+      }
+    ],
+    [
+      {
+        "id": "l5h",
+        "type": "custom-text",
+        "customText": "5h:",
+        "color": "hex:a7cfbd"
+      },
+      {
+        "id": "sess",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-usage-pct five_hour",
+        "timeout": 400,
+        "preserveColors": true
+      },
+      {
+        "id": "sessreset",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-usage-reset five_hour",
+        "timeout": 400,
+        "color": "hex:536571"
+      },
+      {
+        "id": "sepB",
+        "type": "separator"
+      },
+      {
+        "id": "l7d",
+        "type": "custom-text",
+        "customText": "7d:",
+        "color": "hex:a7cfbd"
+      },
+      {
+        "id": "week",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-usage-pct seven_day",
+        "timeout": 400,
+        "preserveColors": true
+      },
+      {
+        "id": "weekreset",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-usage-reset seven_day",
+        "timeout": 400,
+        "color": "hex:536571"
+      }
+    ],
+    []
+  ],
+  "flexMode": "full",
+  "compactThreshold": 60,
+  "colorLevel": 3,
+  "defaultPaddingSide": "right",
+  "inheritSeparatorColors": false,
+  "globalBold": false,
+  "gitCacheTtlSeconds": 5,
+  "minimalistMode": false,
+  "powerline": {
+    "enabled": false,
+    "separators": [
+      ""
+    ],
+    "separatorInvertBackground": [
+      false
+    ],
+    "startCaps": [],
+    "endCaps": [],
+    "autoAlign": false,
+    "continueThemeAcrossLines": false
+  },
+  "defaultPadding": " "
+}
