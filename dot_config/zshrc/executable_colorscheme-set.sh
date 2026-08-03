@@ -256,7 +256,7 @@ generate_starship_config() {
   # Nerd Font OS glyphs as byte escapes - literal PUA codepoints get stripped by editors
   local os_apple os_tux
   os_apple=$(printf '\xef\x85\xb9') # U+F179 nf-fa-apple
-  os_tux=$(printf '\xef\x85\xbc')   # U+F17C nf-fa-linux
+  os_tux=$(printf '\xf3\xb0\x8c\xbd') # U+F033D nf-md-linux, solid to match the apple's weight
 
   # Generate the main Starship configuration file
   cat >"$starship_conf_file" <<EOF
