@@ -384,9 +384,9 @@ zinit light zdharma-continuum/fast-syntax-highlighting
 # Using static blue color since dynamic color doesn't work correctly with transient prompt (known limitation for zsh-transient-prompt; it cant preserve original exit status)
 # Mirrors the starship [os] symbol so the collapsed prompt matches the live one
 case "$OSTYPE" in
-  darwin*) _transient_os_glyph=$'' ;; # nf-fa-apple
-  linux*) _transient_os_glyph=$'' ;;  # nf-linux-ubuntu
-  *) _transient_os_glyph=$'' ;;       # nf-fa-linux
+  darwin*) _transient_os_glyph=$'\xef\x85\xb9' ;; # U+F179 nf-fa-apple
+  linux*) _transient_os_glyph=$'\xef\x8c\x9c' ;;  # U+F31C nf-linux-ubuntu_inverse
+  *) _transient_os_glyph=$'\xef\x85\xbc' ;;       # U+F17C nf-fa-linux
 esac
 TRANSIENT_PROMPT_TRANSIENT_PROMPT="%F{${gnohj_color02:-blue}}${_transient_os_glyph}%f %F{blue}❯%f "
 TRANSIENT_PROMPT_TRANSIENT_RPROMPT=''
