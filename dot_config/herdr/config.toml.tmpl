@@ -111,15 +111,16 @@ width = "90%"
 height = "90%"
 description = "lazygit (server-side, on the pane's repo)"
 
-# yazi seeded from the sibling nvim's current buffer (or its cwd) — herdr
+# yazi in a NEW TAB rooted at the sibling nvim's buffer dir (or its cwd) — herdr
 # counterpart of the tmux yazi launcher; tmux mirrors it with `bind y`.
 # prefix+y, not a direct chord like ctrl+g/ctrl+t: herdr would eat ctrl+y before nvim's blink-cmp accept sees it.
+# type="shell" so the script runs detached and can `tab create` instead of occupying a pane; not popup, since popups never draw the Kitty graphics stream and previews render blank (retried on 0.7.5 with kitty_graphics).
+# REMOTE needs the script present + --remote-keybindings server (the zsh wrapper forces it).
 [[keys.command]]
 key = "prefix+y"
-# type=pane: herdr popups never draw the Kitty graphics stream, so previews render blank (retried on 0.7.5 with kitty_graphics).
-type = "pane"
+type = "shell"
 command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/yazi-herdr.sh"
-description = "yazi (seeded from the sibling nvim buffer / cwd)"
+description = "yazi in a new tab (seeded from the sibling nvim buffer / cwd)"
 
 # ctrl+t → herdr-sesh.sh, the sesh-style session picker (herdr-native replacement
 # for the tmux sesh popup). type=popup = a session-modal floating overlay (herdr's
