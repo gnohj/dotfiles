@@ -95,7 +95,7 @@ fi
 # nix: daily-cached nix-preview count (background-refreshed ~once/day); fall back to flake-lock staleness if no cache yet.
 if command -v nix >/dev/null 2>&1; then
   NIX_CACHE="$HOME/.cache/sketchybar/nix-preview.count"
-  if [ ! -f "$NIX_CACHE" ] || [ -n "$(find "$NIX_CACHE" -mtime +1 2>/dev/null)" ]; then
+  if [ ! -f "$NIX_CACHE" ] || [ -n "$(find "$NIX_CACHE" -mtime +0 2>/dev/null)" ]; then
     ("$HOME/.local/bin/nix-preview" --cache-only >/dev/null 2>&1 &)
   fi
   if [ -f "$NIX_CACHE" ] && [ -s "$NIX_CACHE" ]; then

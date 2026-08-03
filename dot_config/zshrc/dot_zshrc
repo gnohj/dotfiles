@@ -128,6 +128,10 @@ up() {
     chezmoi update || true
   fi
 
+  # the sketchybar package badge caches a pre-rebuild nix count; drop it so the widget recomputes.
+  rm -f "$HOME/.cache/sketchybar/nix-preview.count"
+  command -v sketchybar >/dev/null 2>&1 && sketchybar --trigger package_update 2>/dev/null || true
+
   print -P "%F{cyan}==> tpm: tmux plugins%f"
   [ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ] && \
     "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
