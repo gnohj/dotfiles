@@ -382,7 +382,13 @@ zinit light zdharma-continuum/fast-syntax-highlighting
 # Configure transient prompt BEFORE loading the plugin
 # This must be set before loading zsh-transient-prompt
 # Using static blue color since dynamic color doesn't work correctly with transient prompt (known limitation for zsh-transient-prompt; it cant preserve original exit status)
-TRANSIENT_PROMPT_TRANSIENT_PROMPT='%F{blue}❯%f '
+# Mirrors the starship [os] symbol so the collapsed prompt matches the live one
+case "$OSTYPE" in
+  darwin*) _transient_os_glyph=$'' ;; # nf-fa-apple
+  linux*) _transient_os_glyph=$'' ;;  # nf-linux-ubuntu
+  *) _transient_os_glyph=$'' ;;       # nf-fa-linux
+esac
+TRANSIENT_PROMPT_TRANSIENT_PROMPT="%F{${gnohj_color02:-blue}}${_transient_os_glyph}%f %F{blue}❯%f "
 TRANSIENT_PROMPT_TRANSIENT_RPROMPT=''
 
 # Load zsh-transient-prompt AFTER syntax highlighting to avoid conflicts
