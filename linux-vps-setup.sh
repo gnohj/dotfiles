@@ -136,10 +136,16 @@ if [ "$(id -u)" -eq 0 ]; then
   #    GitHub API rate limit — the difference between a one-shot install and a
   #    partial one on a busy IP.
   print_info "› Handing off to $TARGET_USER for chezmoi + toolchain…"
-  GH_TOKEN_FWD=""
-  [ -n "${GITHUB_TOKEN:-}" ] && GH_TOKEN_FWD="export GITHUB_TOKEN='${GITHUB_TOKEN}'; "
+  BOOTSTRAP_URL="https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-vps-setup.sh"
+  # Token rides a 0600 file the child sources then unlinks, never argv - /proc is world-readable.
+  TOKEN_FILE=""
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    TOKEN_FILE="/home/$TARGET_USER/.gh-token-handoff"
+    (umask 077; printf 'export GITHUB_TOKEN=%q\n' "$GITHUB_TOKEN" > "$TOKEN_FILE")
+    chown "$TARGET_USER" "$TOKEN_FILE"
+  fi
   exec sudo -u "$TARGET_USER" -i bash -c \
-    "${GH_TOKEN_FWD}curl -fsSL https://raw.githubusercontent.com/${GITHUB_USER}/dotfiles/main/linux-vps-setup.sh | bash"
+    "[ -n '$TOKEN_FILE' ] && [ -f '$TOKEN_FILE' ] && { . '$TOKEN_FILE'; rm -f '$TOKEN_FILE'; }; curl -fsSL '$BOOTSTRAP_URL' | bash"
 fi
 
 # =====================================================================

@@ -117,7 +117,9 @@ fi
 # Fallback path — terminal-notifier missing. osascript can't honor the
 # rich options; just title + message.
 if ! command -v terminal-notifier >/dev/null 2>&1; then
-  osascript -e "display notification \"$MESSAGE\" with title \"$TITLE\"" >/dev/null 2>&1 || true
+  # Args, not interpolation: $MESSAGE is untrusted text, so a `"` would inject AppleScript.
+  osascript -e 'on run {t, m}' -e 'display notification m with title t' -e 'end run' \
+    "$TITLE" "$MESSAGE" >/dev/null 2>&1 || true
   exit 0
 fi
 
