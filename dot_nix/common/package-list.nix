@@ -98,12 +98,7 @@ with pkgs;
   android-tools  # adb/fastboot for a USB Android phone — pointless headless
   scrcpy         # Mirror a USB Android phone — pointless headless
 
-  # Fonts render on the SSH client (the Mac), never on a headless server.
-  nerd-fonts.hasklug       # Ghostty primary (Hasklig Nerd Font)
-  nerd-fonts.roboto-mono   # Ghostty alternate
-  nerd-fonts.space-mono    # Sketchybar
-  nerd-fonts.meslo-lg      # Sketchybar mic widget (MesloLGM)
-  nerd-fonts.jetbrains-mono # Ghostty alternate option
+  # Fonts live in nix-darwin/modules/packages.nix - Core Text never scans the nix profile.
 ]
 
 # Linux-only — on macOS atuin comes from Homebrew because aarch64-darwin needs a
