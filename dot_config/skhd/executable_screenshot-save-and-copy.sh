@@ -8,7 +8,8 @@ HOSTS=()                         # add ssh aliases here to enable remote paste (
 # Match macshot's "Screenshot-{date} at {time}" so hyper+x and hyper+s produce identical iCloud archive naming.
 ARCHIVE="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Screenshot-$(date +'%Y-%m-%d at %H-%M-%S').png"
 
-mkdir -p "$STAGE"
+mkdir -p -m 700 "$STAGE"                # 700: screenshots routinely catch tokens/DMs, and /tmp is world-readable
+chmod 700 "$STAGE" 2>/dev/null          # mkdir -m is a no-op on an existing dir, so fix an older 755 one
 find "$STAGE" -type f -mmin +1440 -delete 2>/dev/null   # prune local staged shots >24h
 name="clip-$(date +%Y%m%d-%H%M%S)-$RANDOM.png"   # space-free for pasted paths
 path="$STAGE/$name"
@@ -21,6 +22,6 @@ printf %s "$path" | pbcopy        # the ONE path — valid on Mac and any mirror
 
 # Mirror to each VPS at the identical path. Backgrounded so the hotkey returns instantly; unreachable hosts fail harmlessly.
 for h in "${HOSTS[@]}"; do
-  ( ssh -o ConnectTimeout=3 "$h" "mkdir -p $STAGE && find $STAGE -type f -mmin +1440 -delete 2>/dev/null" \
+  ( ssh -o ConnectTimeout=3 "$h" "mkdir -p -m 700 $STAGE && chmod 700 $STAGE && find $STAGE -type f -mmin +1440 -delete 2>/dev/null" \
       && scp -q "$path" "$h:$path" ) >/dev/null 2>&1 &
 done

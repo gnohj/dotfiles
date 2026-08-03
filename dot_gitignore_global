@@ -3,6 +3,20 @@
 .radioctl2
 .saml2aws
 .zsh_gnohj_env.secrets
+# Backstop for github-auto-push.sh, which runs `git add .` unattended across every repo in repos-autopush.txt.
+.env
+.env.*
+!.env.example
+*.secrets
+*.pem
+*.key
+id_rsa
+id_ecdsa
+id_ed25519
+*.p12
+*.pfx
+.netrc
+credentials.json
 AGENTS.md
 .claude/
 tasks
