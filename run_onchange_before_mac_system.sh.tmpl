@@ -90,20 +90,9 @@ echo "  - Clone personal/private repos"
 echo "  - System Settings → General → Login Items → Allow in the background: AeroSpace, Bjango Pty Ltd, Borders, Caddy, github-auto-push, Homerow.app, iStats Menus, Logi Options+, Logitech.inc, sketchybar, skhd"
 echo "  - TCC permissions (Accessibility, Full Disk Access, Input Monitoring, Screen Recording, Automation, App Management): see MANUAL_SETUP.md for the full per-app list"
 
-#-------------------------------------------------------------------------------
-#--                      Gatekeeper Bypass for Specific Apps
-#-------------------------------------------------------------------------------
-# Some apps are not properly signed/notarized for macOS
-# Remove quarantine attribute to bypass Gatekeeper warnings
-
-echo "Applying Gatekeeper bypass for unsigned apps..."
-
-# Note: macshot is installed via Homebrew cask, no Gatekeeper bypass needed
-
 echo "📋 System Summary:"
 echo "✅ Configured in this script:"
 echo "  • Login items: $(osascript -e 'tell application "System Events" to count login items' 2>/dev/null || echo '0') apps configured"
-echo "  • Gatekeeper bypass: Applied for unsigned apps"
 echo ""
 echo "📝 Manual Steps Remaining:"
 echo "  • TCC Permissions (Accessibility, Automation, etc.)"
