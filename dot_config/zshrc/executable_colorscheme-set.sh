@@ -254,10 +254,9 @@ generate_starship_config() {
   mkdir -p "$HOME/.config/starship" # fresh box lacks it; cat > fails otherwise
 
   # Nerd Font OS glyphs as byte escapes - literal PUA codepoints get stripped by editors
-  local os_apple os_ubuntu os_tux
-  os_apple=$(printf '\xef\x85\xb9')  # U+F179 nf-fa-apple
-  os_ubuntu=$(printf '\xef\x8c\x9c') # U+F31C nf-linux-ubuntu_inverse
-  os_tux=$(printf '\xef\x85\xbc')    # U+F17C nf-fa-linux
+  local os_apple os_tux
+  os_apple=$(printf '\xef\x85\xb9') # U+F179 nf-fa-apple
+  os_tux=$(printf '\xef\x85\xbc')   # U+F17C nf-fa-linux
 
   # Generate the main Starship configuration file
   cat >"$starship_conf_file" <<EOF
@@ -273,7 +272,7 @@ disabled = false
 format = '[\$symbol ](bold ${gnohj_color02})'
 [os.symbols]
 Macos = "${os_apple}"
-Ubuntu = "${os_ubuntu}"
+Ubuntu = "${os_tux}"
 Debian = "${os_tux}"
 Arch = "${os_tux}"
 Alpine = "${os_tux}"
@@ -322,7 +321,7 @@ disabled = false
 format = '[\$symbol ](bold ${gnohj_color02})'
 [os.symbols]
 Macos = "${os_apple}"
-Ubuntu = "${os_ubuntu}"
+Ubuntu = "${os_tux}"
 Debian = "${os_tux}"
 Arch = "${os_tux}"
 Alpine = "${os_tux}"
