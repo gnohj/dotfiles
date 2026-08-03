@@ -22,6 +22,15 @@ in
     sketchybarLua
   ];
 
+  # systemPackages fonts are invisible to GUI apps; fonts.packages installs into /Library/Fonts.
+  fonts.packages = with pkgs; [
+    nerd-fonts.hasklug        # Ghostty/Kitty primary (Hasklig Nerd Font)
+    nerd-fonts.roboto-mono    # Ghostty alternate
+    nerd-fonts.space-mono     # Sketchybar
+    nerd-fonts.meslo-lg       # Sketchybar mic widget (MesloLGM)
+    nerd-fonts.jetbrains-mono # Ghostty alternate option
+  ];
+
   # Migration Note:
   # - ALL CLI tools moved to common/packages.nix (shared with future Linux)
   # - Homebrew formulae/casks in homebrew.nix
