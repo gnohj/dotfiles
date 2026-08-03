@@ -37,10 +37,19 @@ custom-shader-animation = always
 # custom-shader = ./shaders/inside-the-matrix.glsl
 
 # fonts
-font-family = "Hasklug Nerd Font Mono Med"
+# Family name only - the face comes from font-style-*; all four pinned so kitty can't diverge.
+font-family = "JetBrainsMono Nerd Font Mono"
+# font-family = "Hasklug Nerd Font Mono Med"
 # font-family = "RobotoMono Nerd Font"
-# font-family = "JetBrainsMono Nerd Font"
-font-family-italic = "Cartograph CF Italic"
+font-family-bold = "JetBrainsMono Nerd Font Mono"
+font-family-italic = "JetBrainsMono Nerd Font Mono"
+font-family-bold-italic = "JetBrainsMono Nerd Font Mono"
+font-style = "Regular"
+font-style-bold = "Bold"
+font-style-italic = "Italic"
+font-style-bold-italic = "Bold Italic"
+# Nerd Fonts patch U+26A1, so force the color emoji face to match kitty (new windows only).
+font-codepoint-map = U+26A1=Apple Color Emoji
 adjust-cell-width = -5%
 adjust-cell-height = 10%
 adjust-underline-thickness = 40%
