@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# sketchybar's launchd PATH has no nix bin dir, so `env bash` lands on macOS bash 3.2, which lacks `declare -A`.
+if ((BASH_VERSINFO[0] < 4)) && [[ -x /run/current-system/sw/bin/bash ]]; then
+  exec /run/current-system/sw/bin/bash "$0" "$@"
+fi
 # errors monitor -> sketchybar "errors" badge: service-log errors + daemon stderr + dead herdr daemons + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE.
 shopt -s nullglob
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
