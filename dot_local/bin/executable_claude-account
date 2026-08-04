@@ -28,6 +28,12 @@
 #   claude-account pin <a>         pin work|personal globally; auto clears it
 #   claude-account set-token <a>   store a token for <a> from stdin (Keychain)
 #                                  e.g. `claude setup-token | claude-account set-token work`
+#   claude-account token-status [a]     one word: ok|warn|critical|expired|missing
+#   claude-account token-age [a]        human line: age, days left, expiry date
+#   claude-account token-check [--probe]  both accounts; --probe also asks the API
+#   claude-account set-token-lifetime <days>  assumed grant lifetime (default 365)
+#   claude-account usage [a]            cached 5h/7d utilization TSV; refreshes in background
+#   claude-account usage-refresh [a]    fetch now (locked); for cron or a forced update
 #   claude-account add-work-org <o>     add a GitHub org that counts as work
 #   claude-account work-orgs            list configured work orgs
 #   claude-account set-work-email <e>   which email counts as "work" (for row coloring)
@@ -127,6 +133,179 @@ account_token() {
   else
     cat "$(token_file "$acct")" 2>/dev/null || true
   fi
+}
+
+# A setup-token grant is opaque (sk-ant-oat01 + 95 random chars), so expiry can only be PREDICTED from when we stored it plus an assumed lifetime — hence the override file. `token-check --probe` is the ground truth when the prediction and reality disagree.
+TOKEN_LIFETIME_FILE="$HOME/.local/state/claude/token-lifetime-days"
+TOKEN_WARN_DAYS=30
+TOKEN_CRIT_DAYS=7
+
+issued_file() { printf '%s' "$(token_file "$1").issued"; }
+# Precomputed so claude-account-glyph needs one integer compare per status-line render instead of this whole policy.
+expiry_file() { printf '%s' "$(token_file "$1").expires"; }
+
+now_epoch() {
+  local n=""
+  n="$(printf '%(%s)T' -1 2>/dev/null || true)"
+  case "$n" in '' | *[!0-9]*) date +%s ;; *) printf '%s' "$n" ;; esac
+}
+
+fmt_date() { date -d "@$1" +%F 2>/dev/null || date -r "$1" +%F 2>/dev/null || printf '?'; }
+
+file_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true; }
+
+token_lifetime_days() {
+  local v=""
+  [ -r "$TOKEN_LIFETIME_FILE" ] && v="$(tr -d '[:space:]' <"$TOKEN_LIFETIME_FILE" 2>/dev/null || true)"
+  case "$v" in '' | *[!0-9]*) echo 365 ;; *) echo "$v" ;; esac
+}
+
+# Falls back to the mirror's mtime so tokens stored before this existed still get dated - the mirror is written exactly once per set-token, so its mtime IS the issue time.
+token_issued() {
+  local f i=""
+  f="$(issued_file "$1")"
+  [ -r "$f" ] && i="$(tr -d '[:space:]' <"$f" 2>/dev/null || true)"
+  case "$i" in '' | *[!0-9]*) i="$(file_mtime "$(token_file "$1")")" ;; esac
+  case "$i" in '' | *[!0-9]*) return 0 ;; esac
+  printf '%s' "$i"
+}
+
+write_token_dates() {
+  local acct="$1" issued="$2" f
+  f="$(issued_file "$acct")"
+  mkdir -p "$(dirname "$f")"
+  printf '%s\n' "$issued" >"$f.tmp" && mv -f "$f.tmp" "$f"
+  f="$(expiry_file "$acct")"
+  printf '%s\n' "$((issued + $(token_lifetime_days) * 86400))" >"$f.tmp" && mv -f "$f.tmp" "$f"
+}
+
+# Backfills the .issued/.expires pair as a side effect, which is what makes the glyph light up for tokens stored before this check existed.
+token_days_left() {
+  local acct="$1" issued
+  [ -s "$(token_file "$acct")" ] || return 1
+  issued="$(token_issued "$acct")"
+  [ -n "$issued" ] || return 1
+  write_token_dates "$acct" "$issued"
+  printf '%s' "$(((issued + $(token_lifetime_days) * 86400 - $(now_epoch)) / 86400))"
+}
+
+token_status() {
+  local acct="${1:-$(resolve_account)}" left
+  left="$(token_days_left "$acct")" || { echo "missing" && return; }
+  if [ "$left" -le 0 ]; then echo "expired"
+  elif [ "$left" -le "$TOKEN_CRIT_DAYS" ]; then echo "critical"
+  elif [ "$left" -le "$TOKEN_WARN_DAYS" ]; then echo "warn"
+  else echo "ok"
+  fi
+}
+
+token_age() {
+  local acct="${1:-$(resolve_account)}" left issued
+  left="$(token_days_left "$acct")" || {
+    printf '%s\tno token stored\n' "$acct"
+    return
+  }
+  issued="$(token_issued "$acct")"
+  printf '%s\tstored %s (%dd ago)\texpires ~%s (%dd)\t%s\n' \
+    "$acct" "$(fmt_date "$issued")" "$((($(now_epoch) - issued) / 86400))" \
+    "$(fmt_date "$((issued + $(token_lifetime_days) * 86400))")" "$left" "$(token_status "$acct")"
+}
+
+# Ground truth vs the calendar guess: catches a revoked or rotated token that still looks young. Same Haiku call as org_for_account, read for status only.
+probe_token() {
+  local tok code
+  tok="$(account_token "$1")"
+  [ -n "$tok" ] || { printf 'missing'; return; }
+  code="$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' -X POST \
+    -H "Authorization: Bearer $tok" \
+    -H "anthropic-beta: oauth-2025-04-20" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "content-type: application/json" \
+    -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+    https://api.anthropic.com/v1/messages 2>/dev/null || true)"
+  case "$code" in
+  2?? | 429) printf 'live' ;;
+  401 | 403) printf 'REJECTED' ;;
+  *) printf 'offline (%s)' "${code:-no response}" ;;
+  esac
+}
+
+token_check() {
+  local a rc=0 st
+  for a in personal work; do
+    if [ "${1:-}" = "--probe" ]; then
+      printf '%s\tprobe=%s\n' "$(token_age "$a" | tr -d '\n')" "$(probe_token "$a")"
+    else
+      token_age "$a"
+    fi
+    st="$(token_status "$a")"
+    case "$st" in ok) ;; *) rc=1 ;; esac
+  done
+  [ "$rc" -eq 0 ] || echo "warning: a stored token needs refreshing - run \`claude setup-token\`, then \`claude-account set-token <account>\`" >&2
+  return "$rc"
+}
+
+# Cross-account rate-limit usage. The status-line payload only ever describes the account THAT session authenticated as, so the other account's headroom is invisible until you open a session on it. Both tokens are already here, and a Haiku call returns anthropic-ratelimit-unified-* headers, so each account can be measured without touching its credentials.
+USAGE_MAX_AGE=300
+USAGE_LOCK_MAX_AGE=120
+
+usage_file() { printf '%s' "$HOME/.local/state/claude/usage-$1"; }
+
+# TSV (fetched_at 5h_util 5h_reset 7d_util 7d_reset) so readers need no jq. Utilizations stay as the 0-1 floats the API sends.
+fetch_usage() {
+  local acct="$1" tok hdr f vals
+  tok="$(account_token "$acct")"
+  [ -n "$tok" ] || return 1
+  hdr="$(curl -s --max-time 20 -o /dev/null -D - -X POST \
+    -H "Authorization: Bearer $tok" \
+    -H "anthropic-beta: oauth-2025-04-20" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "content-type: application/json" \
+    -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+    https://api.anthropic.com/v1/messages 2>/dev/null || true)"
+  # tolower rather than IGNORECASE: gawk-only, and macOS ships BWK awk.
+  vals="$(printf '%s' "$hdr" | tr -d '\r' | awk '
+    { l = tolower($0) }
+    l ~ /^anthropic-ratelimit-unified-5h-utilization:/ { a = $2 }
+    l ~ /^anthropic-ratelimit-unified-5h-reset:/       { b = $2 }
+    l ~ /^anthropic-ratelimit-unified-7d-utilization:/ { c = $2 }
+    l ~ /^anthropic-ratelimit-unified-7d-reset:/       { d = $2 }
+    END { if (a != "" && c != "") printf "%s\t%s\t%s\t%s", a, b, c, d }')"
+  # A rejected token or a dead network leaves the previous numbers in place: last-known beats blank.
+  [ -n "$vals" ] || return 1
+  f="$(usage_file "$acct")"
+  mkdir -p "$(dirname "$f")"
+  printf '%s\t%s\n' "$(now_epoch)" "$vals" >"$f.tmp" && mv -f "$f.tmp" "$f"
+}
+
+# mkdir is the atomic primitive here: every pane's status line races to refresh the same account, and only one should win.
+refresh_usage() {
+  local acct="$1" lock age
+  lock="$(usage_file "$acct").lock"
+  mkdir -p "$(dirname "$lock")"
+  if ! mkdir "$lock" 2>/dev/null; then
+    age="$(file_mtime "$lock")"
+    case "$age" in '' | *[!0-9]*) return 0 ;; esac
+    [ "$(($(now_epoch) - age))" -gt "$USAGE_LOCK_MAX_AGE" ] || return 0
+    rmdir "$lock" 2>/dev/null || true
+    mkdir "$lock" 2>/dev/null || return 0
+  fi
+  fetch_usage "$acct" || true
+  rmdir "$lock" 2>/dev/null || true
+}
+
+# Prints cache immediately and refreshes in the BACKGROUND: a status-line widget must never wait on the network, so a stale read is served now and the fresh number lands on the next render. stdout is closed on the child or ccstatusline's execSync blocks on the inherited pipe.
+usage_read() {
+  local acct="${1:-$(resolve_account)}" f stamp
+  f="$(usage_file "$acct")"
+  [ -n "$(account_token "$acct")" ] || return 0
+  stamp="$(cut -f1 "$f" 2>/dev/null || true)"
+  case "$stamp" in '' | *[!0-9]*) stamp=0 ;; esac
+  # Forks the function rather than re-exec'ing $0: one less process, and it does not depend on how this script was invoked (`bash claude-account …` leaves $0 non-executable).
+  if [ "$(($(now_epoch) - stamp))" -ge "$USAGE_MAX_AGE" ]; then
+    (refresh_usage "$acct" >/dev/null 2>&1 &) >/dev/null 2>&1
+  fi
+  cat "$f" 2>/dev/null || true
 }
 
 # Only the server can answer this (two tokens from the SAME account still differ as strings), and Haiku on purpose since premium models 429 on a bare OAuth request regardless of account.
@@ -245,7 +424,23 @@ store_token() {
   f="$(token_file "$account")"
   mkdir -p "$(dirname "$f")"
   (umask 077; printf '%s' "$token" >"$f")
+  write_token_dates "$account" "$(now_epoch)"
   echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | shasum | cut -c1-12))"
+  token_age "$account"
+}
+
+# Rewrites both accounts' expiry so a corrected lifetime takes effect immediately instead of only on the next set-token.
+set_token_lifetime() {
+  local days="$1" a issued
+  case "$days" in '' | *[!0-9]*) echo "✗ Lifetime must be a whole number of days (got '$days')." >&2 && return 1 ;; esac
+  [ "$days" -ge 1 ] || { echo "✗ Lifetime must be at least 1 day." >&2; return 1; }
+  mkdir -p "$(dirname "$TOKEN_LIFETIME_FILE")"
+  printf '%s\n' "$days" >"$TOKEN_LIFETIME_FILE.tmp" && mv -f "$TOKEN_LIFETIME_FILE.tmp" "$TOKEN_LIFETIME_FILE"
+  echo "Assumed token lifetime → ${days}d"
+  for a in personal work; do
+    issued="$(token_issued "$a")"
+    [ -n "$issued" ] && write_token_dates "$a" "$issued"
+  done
 }
 
 add_work_org() {
@@ -318,6 +513,23 @@ seed-config)
   _tmp="$(mktemp)"
   jq --arg p "$PWD" '.hasCompletedOnboarding = true | .projects[$p].hasTrustDialogAccepted = true' "$_cj" >"$_tmp" 2>/dev/null && mv "$_tmp" "$_cj" || rm -f "$_tmp"
   ;;
+usage) usage_read "${2:-}" ;;
+usage-refresh)
+  case "${2:-}" in
+  personal | work) refresh_usage "$2" ;;
+  *) refresh_usage "$(resolve_account)" ;;
+  esac
+  ;;
+token-status) token_status "${2:-}" ;;
+token-age) token_age "${2:-}" ;;
+token-check) token_check "${2:-}" ;;
+set-token-lifetime)
+  [ -n "${2:-}" ] || {
+    echo "usage: claude-account set-token-lifetime <days>" >&2
+    exit 1
+  }
+  set_token_lifetime "$2"
+  ;;
 set-token)
   case "${2:-}" in
   personal | work) store_token "$2" ;;
@@ -347,7 +559,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|seed-config|set-token <a>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|seed-config|set-token <a>|token-status [a]|token-age [a]|token-check [--probe]|set-token-lifetime <d>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
