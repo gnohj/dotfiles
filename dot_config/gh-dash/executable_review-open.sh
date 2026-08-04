@@ -59,6 +59,9 @@ cd "$repo_path"
 base_ref() { gh pr view "$pr" --json baseRefName -q .baseRefName; }
 head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 
+# After the checkout, not at lease time - post_create would resolve master's manifests (see install-deps.sh).
+install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
+
 open_octo() {
   local cwd="$1" auto="$2" extra=""
   [ "$auto" = 1 ] && extra=' --cmd "let g:octo_auto_review=1"'
@@ -137,6 +140,7 @@ case "$mode" in
     HEAD="$(head_ref)"
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     open_octo "$WT" 1
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
@@ -149,6 +153,7 @@ case "$mode" in
     HEAD="$(head_ref)"
     git -C "$WT" fetch origin "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
     open_octo "$WT" 0
     ;;
   diff)
@@ -157,6 +162,7 @@ case "$mode" in
     HEAD="$(head_ref)"
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
     open_hunk_sidebar "$PANE" &
@@ -170,6 +176,7 @@ case "$mode" in
     HEAD="$(head_ref)"
     git -C "$WT" fetch origin "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
     open_claude_review "$WT"
     ;;
   *)

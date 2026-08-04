@@ -7,8 +7,8 @@
 # notifications, or kill windows — treehouse owns the pool-worktree lifecycle,
 # so all we want is a usable checkout. Just three things:
 #   1. copy .env files from the repo's main worktree (if any are missing here)
-#   2. pnpm install — BACKGROUNDED, so `get`/`--lease` returns immediately
-#      (reviews don't need deps; agents that do can wait for it)
+#   2. pnpm install via install-deps.sh - backgrounded, and skipped for review-*
+#      leases (review-open.sh runs it after the PR checkout instead)
 #   3. register the path with zoxide
 #
 # treehouse runs this via `/bin/sh -c` in the worktree dir, routes our stdout to
@@ -33,14 +33,6 @@ ENV_COPY_SKIP=(inferno)
 # User-global hook — fires for EVERY repo's pool. Only act in a pnpm workspace;
 # bail cleanly everywhere else so it's a no-op for non-JS repos.
 [ -f "$WT/pnpm-lock.yaml" ] || exit 0
-
-# Which multiplexer invoked us (matches review-worktree.sh's mux_kind)? treehouse
-# is called under tmux OR herdr, so the completion notify must route per-mux —
-# tmux commands would silently no-op under herdr. Captured now so the detached
-# background subshell keeps it.
-if [ -n "${HERDR_SOCKET_PATH:-}" ]; then MUX=herdr
-elif [ -n "${TMUX:-}" ]; then MUX=tmux
-else MUX=none; fi
 
 # 3 (cheap, do first) — zoxide, matching the interactive custom DB location or
 # the `z` command never sees the entry.
@@ -76,41 +68,13 @@ if [ -n "$common" ]; then
   fi
 fi
 
-# 2 — pnpm install, DETACHED so the lease returns fast. Reuse keeps node_modules
-# across leases, so --frozen-lockfile is near-instant when the lockfile is
-# unchanged; a fresh/reset slot pays a full install in the background. When it
-# finishes, notify like treekanga: a tmux status message on the session that
-# holds a pane in this worktree (the review/agent windows P/-e opened) + a macOS
-# notification, so you know deps are ready without watching.
-if command -v pnpm >/dev/null 2>&1; then
-  label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
-  ( (
-    cd "$WT" || exit
-    start=$(date +%s)
-    if pnpm install --frozen-lockfile >/dev/null 2>&1; then
-      msg="✅ treehouse: $label deps ready ($(($(date +%s) - start))s)"
-    else
-      msg="⚠️ treehouse: $label pnpm install failed"
-    fi
-    case "$MUX" in
-      tmux)
-        # status message on the session that has a pane in this worktree (the
-        # review/agent windows), plus a desktop notif — mirrors treekanga.
-        sess="$(tmux list-panes -a -F '#{pane_current_path}|#{session_name}' 2>/dev/null \
-          | awk -F'|' -v w="$WT" '$1==w||index($1,w"/")==1{print $2; exit}')"
-        [ -n "$sess" ] && command -v tmux >/dev/null 2>&1 && tmux display-message -d 6000 -t "$sess" "$msg" 2>/dev/null
-        command -v mac-notify >/dev/null 2>&1 && mac-notify -t "treehouse deps" -m "$msg" -T 5 2>/dev/null
-        ;;
-      herdr)
-        # herdr's own toast (its desktop-class notify) over the socket API.
-        command -v herdr >/dev/null 2>&1 && herdr notification show "treehouse deps" --body "$msg" --sound done 2>/dev/null || true
-        ;;
-      *)
-        # no multiplexer context — desktop notif only.
-        command -v mac-notify >/dev/null 2>&1 && mac-notify -t "treehouse deps" -m "$msg" -T 5 2>/dev/null
-        ;;
-    esac
-  ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
-  echo "pnpm install started (background)"
-fi
+# 2 - install-deps.sh (shared with review-open.sh); review leases defer so it sees the PR's manifests.
+case "${TREEHOUSE_LEASE_HOLDER:-}" in
+  review-*)
+    echo "review lease (${TREEHOUSE_LEASE_HOLDER}) — deferring pnpm install to review-open.sh"
+    ;;
+  *)
+    "$HOME/.config/treehouse/install-deps.sh" "$WT" || true
+    ;;
+esac
 exit 0

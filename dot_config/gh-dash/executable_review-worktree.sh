@@ -116,6 +116,8 @@ acquire() {
     return 0
   fi
 
+  # EXPORTED, not just flagged: treehouse never forwards it to post_create, which inherits our env and keys its install-defer off it.
+  export TREEHOUSE_LEASE_HOLDER="review-$pr"
   if ! wt="$(treehouse get --lease --lease-holder "review-$pr" 2>/dev/null)" || [ -z "$wt" ]; then
     echo "review-worktree: treehouse pool exhausted or unavailable (release finished reviews with R)" >&2
     exit 1
