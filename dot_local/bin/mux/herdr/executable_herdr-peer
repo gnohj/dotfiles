@@ -9,22 +9,31 @@ cover all of them. The cost is that plain shell panes are invisible: on this box
 by design; use `herdr pane read` directly for that. Named `peer`, not `agent`, because
 `herdr-agent list` sitting one character from the native `herdr agent list` is a trap.
 
-The gap: nothing in herdr resolves a target by label, at any level. `agent get`, `pane read`
-and `agent prompt` take a pane_id and nothing else - a slug, a session uuid, a terminal_id, a
-tab_id and a bare index were all probed on 0.7.5 and every one returns *_not_found. Workspaces
-and tabs are no better: `workspace get` takes the number (`2`), never the label (`chezmoi`),
-and `tab get` takes only the tab_id. So every cross-pane call needs a pane_id the user does not
-have memorised, which is why asking an agent for one degenerates into "check pane 1, or maybe 2".
+The gap: herdr resolves only ONE kind of name, and not the one that exists by itself. `agent get`
+does take an agent `name` (0.7.5), but a name is only ever there because somebody ran `agent
+rename` - nothing writes one automatically, so it is an opt-in label on a handful of panes.
+Everything else is pane_id-only: a slug, a session uuid, a terminal_id, a tab_id and a bare
+index were all re-probed on 0.8.0 and every one returns *_not_found. Workspaces and tabs are no
+better: `workspace get` takes the number (`2`), never the label (`chezmoi`), and `tab get` takes
+only the tab_id. So the common cross-pane call still needs a pane_id the user does not have
+memorised, which is why asking an agent for one degenerates into "check pane 1, or maybe 2".
 
 Everything needed to close that is already on the pane object. herdr-pane-summary.py writes a
 slug into `title`, workspaces carry a real `label`, and every pane reports `cwd` and
 `agent_status` - so this resolves a human noun against all of them and hands the verbs a
-pane_id. Precedence is fixed (see resolve): exact slug, pane id, direction, slug prefix,
-workspace label, cwd, status. `chezmoi` matches a workspace label AND two panes' cwd, so the
-order is load-bearing, not incidental.
+pane_id. Precedence is fixed (see resolve): agent name, exact slug, pane id, direction, slug
+prefix, workspace label, cwd, status. Name leads because it is the one identifier a human chose
+deliberately, and it is checked HERE rather than delegated so that a name and a slug colliding
+resolves the same way locally as it would natively. `chezmoi` matches a workspace label AND two
+panes' cwd, so the order is load-bearing, not incidental.
 
-Reading is by TRANSCRIPT, not by screen. `agent read` returns the visible ~55 rows with ANSI
-still in them; the session's own JSONL has the whole thing, and herdr_agent_stores already
+Reading is by TRANSCRIPT, not by screen. The screen read is deeper than it used to be - herdr
+0.8.0 collects real text history for idle alternate-screen agents, so `recent-unwrapped` returns
+~1000 rows where it once returned the visible ~55 (measured on a claude pane: visible 54,
+recent-unwrapped 999) - but it is still a rendered terminal, capped, and the cap is silent unless
+the read reports it. `screen()` therefore goes over the SOCKET rather than the CLI, purely to
+read the `truncated` flag the CLI's bare-text output cannot carry, and the digest says so.
+The session's own JSONL has the whole thing, and herdr_agent_stores already
 resolves its path across both claude roots. Measured on a real 16.7MB session: text turns are
 4.9% of the file, the last 6 cost ~990 tokens, ALL text turns cost ~204k, and the raw file is
 ~4.16M - four times a 1M context. That is why --full means every text TURN and the raw file is
@@ -47,6 +56,7 @@ isolation principle guards against.
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 
@@ -106,6 +116,11 @@ def resolve(query, pool=None):
     if not query or query == "all":
         return pool
     q = query.lower().strip()
+
+    # `name` is herdr's own deliberate identifier (agent rename, 0.7.5) so it beats the auto slug.
+    named = [a for a in pool if (a.get("name") or "").lower() == q]
+    if named:
+        return named
 
     exact = [a for a in pool if (a.get("title") or "").lower() == q]
     if exact:
@@ -200,7 +215,29 @@ def transcript_turns(agent):
     return path, turns
 
 
+def cut(truncated):
+    """Render the read's truncation flag for a digest header."""
+    return ", older rows cut" if truncated else ""
+
+
 def screen(agent, lines):
+    """Read the pane's recent history. Returns (text, truncated) - truncated is None when unknown."""
+    # Socket, not the CLI: `agent read` prints bare text, so its `truncated` flag (0.8.0) is CLI-invisible.
+    sock = os.path.expanduser(
+        os.environ.get("HERDR_SOCKET") or "~/.config/herdr/herdr.sock")
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+            conn.settimeout(15)
+            conn.connect(sock)
+            req = {"id": "herdr-peer", "method": "pane.read",
+                   "params": {"pane_id": agent["pane_id"], "source": "recent_unwrapped",
+                              "lines": lines, "strip_ansi": True}}
+            conn.sendall((json.dumps(req) + "\n").encode())
+            with conn.makefile("rb") as stream:
+                read = json.loads(stream.readline())["result"]["read"]
+        return read["text"].rstrip(), read.get("truncated")
+    except (OSError, ValueError, KeyError):
+        pass
     res = subprocess.run(
         [
             HERDR, "agent", "read", agent["pane_id"],
@@ -208,7 +245,7 @@ def screen(agent, lines):
         ],
         capture_output=True, text=True, timeout=15,
     )
-    return res.stdout.rstrip()
+    return res.stdout.rstrip(), None
 
 
 def header(agent, labels):
@@ -223,15 +260,17 @@ def header(agent, labels):
 def render_digest(agent, turns_n, want_tools, force_screen, labels):
     out = [header(agent, labels)]
     if force_screen:
-        out.append(f"    source: screen ({turns_n} lines)\n")
-        out.append(screen(agent, turns_n))
+        text, truncated = screen(agent, turns_n)
+        out.append(f"    source: screen ({turns_n} lines{cut(truncated)})\n")
+        out.append(text)
         return "\n".join(out)
 
     path, turns = transcript_turns(agent)
     if turns is None:
         kind = agent.get("agent") or "non-agent"
-        out.append(f"    source: screen (no readable transcript for {kind})\n")
-        out.append(screen(agent, 60))
+        text, truncated = screen(agent, 60)
+        out.append(f"    source: screen (no readable transcript for {kind}{cut(truncated)})\n")
+        out.append(text)
         return "\n".join(out)
     if not turns:
         out.append("    source: transcript (no text turns yet)")
