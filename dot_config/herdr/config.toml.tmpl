@@ -476,9 +476,8 @@ surface0 = "#1e2528"
 surface1 = "#1e2528"
 overlay0 = "#536571"
 overlay1 = "#7a90a0"
-# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in isolation, and
-# still true on 0.8.0 - src/ui/sidebar/tokens.rs is byte-identical between the two tags):
-# text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
+# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
+# isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
 # it does NOT reach the pane-title, state_text or $act rows, so those cannot vary by
 # active state at all. subtext0 = inactive rows. mauve = the active/selected space's branch
 # line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
@@ -489,7 +488,8 @@ overlay1 = "#7a90a0"
 # fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "#a3b8c6"
 text = "#a3b8c6"
-# mauve tracks the scheme but only feeds the BUILT-IN branch token $br/$br_on replaced - intent, not render.
+# mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
+# use ($br/$br_on replaced it) - kept in step with $br_on/$pn_on for intent, not for render.
 mauve = "#b7ce97"
 # herdr's four agent states are painted by four palette tokens - state_label_color()
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
