@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Single source of truth for the "where am I" bits in the starship prompt AND the
+# Claude Code status line (ccstatusline), so the two always agree.
+#
+# PATH output (default) - two transforms:
+#   1. Strip the container root (~/Developer, ~/.treehouse, ~/.local/share) so a
+#      git worktree keeps its distinguishing parent - web/master,
+#      master-130256/1/master, web/infra/IHRWEB-24278 - instead of collapsing to a
+#      bare basename the way starship's truncate_to_repo does (every pool slot
+#      rendered as an identical "review"/"master").
+#   2. Keep only the TICKET-1234 prefix of the last component, so
+#      IHRWEB-24278-release-automation renders as IHRWEB-24278. starship's
+#      directory.substitutions are literal-only (no regex, verified on 1.26), so
+#      this cannot live in the starship config.
+#
+# GIT-REF output (--git-ref) - branch name, or the short SHA when HEAD is detached.
+# ccstatusline's built-in git-branch widget runs only `symbolic-ref --short HEAD`,
+# which FAILS on a detached HEAD and renders a misleading "no git" - i.e. in every
+# treehouse pool slot, since those are always detached.
+#
+#   prompt-path                            # $PWD
+#   prompt-path <dir>                      # that dir
+#   prompt-path --stdin-json               # dir from a Claude status-line payload on stdin
+#   prompt-path --git-ref [...]            # ⎇ branch-or-sha instead of the path
+#   prompt-path --git-ref --trailing-sep   # ... plus a " ·", emitted only when there IS a ref
+#
+# --stdin-json exists for ccstatusline: it pipes the session JSON to every
+# custom-command widget (execSync `input:`) and never sets the child's cwd, so
+# $PWD there is whatever directory Claude Code launched from, not the session's.
+#
+# --trailing-sep exists because ccstatusline has no conditional widgets: a standalone
+# custom-text "·" still renders when its neighbour resolves empty, leaving a dangling
+# separator in any non-repo directory. Emitting it from here ties it to the ref, so
+# both vanish together. It inherits the widget's colour rather than the dim
+# separator colour - the alternative is hardcoding theme hexes as ANSI in here.
+#
+# The path prints for EVERY dir, worktree or plain repo - the status line carries the
+# ref on its own row, so suppressing the path would just leave a dangling separator.
+
+set -uo pipefail
+
+# ⎇ U+2387, the glyph ccstatusline's git widgets and lazygit's status line both use.
+BRANCH_GLYPH='⎇'
+
+mode=path
+trailing_sep=0
+args=()
+for a in "$@"; do
+  case "$a" in
+    --git-ref) mode=git-ref ;;
+    --trailing-sep) trailing_sep=1 ;;
+    *) args+=("$a") ;;
+  esac
+done
+
+dir=""
+case "${args[0]:-}" in
+  --stdin-json)
+    payload="$(cat)"
+    # .cwd FIRST to match ccstatusline's own resolveGitCwd precedence, so the path and the ref can never describe two different repos.
+    if command -v jq >/dev/null 2>&1; then
+      dir="$(printf '%s' "$payload" | jq -r '.cwd // .workspace.current_dir // .workspace.project_dir // empty' 2>/dev/null)"
+    fi
+    # jq-free fallback: the status line runs on a minimal PATH (see claude-statusline) that may not reach a jq on every box.
+    [ -n "$dir" ] || dir="$(printf '%s' "$payload" | sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    [ -n "$dir" ] || dir="$(printf '%s' "$payload" | sed -n 's/.*"current_dir"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    ;;
+  '') ;;
+  *) dir="${args[0]}" ;;
+esac
+[ -n "$dir" ] || dir="$PWD"
+
+in_work_tree() {
+  command -v git >/dev/null 2>&1 || return 1
+  [ -d "$dir" ] || return 1
+  [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]
+}
+
+if [ "$mode" = git-ref ]; then
+  in_work_tree || exit 0
+  ref="$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)"
+  # Detached (every treehouse pool slot) - the short SHA is the only honest answer.
+  [ -n "$ref" ] || ref="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+  [ -n "$ref" ] || exit 0
+  printf '%s %s' "$BRANCH_GLYPH" "$ref"
+  [ "$trailing_sep" = 1 ] && printf ' ·'
+  exit 0
+fi
+
+# Both tildes are escaped: bash tilde-expands a replacement string and a `#` pattern, so a bare ~ would expand straight back to /home/<user> and nothing would strip.
+d="${dir/#$HOME/\~}"
+d="${d#\~/Developer/}"
+d="${d#\~/.treehouse/}"
+d="${d#\~/.local/share/}"
+
+b="${d##*/}"
+if [[ $b =~ ^([A-Z]+-[0-9]+) ]]; then
+  t="${BASH_REMATCH[1]}"
+  if [[ $b == "$d" ]]; then d="$t"; else d="${d%/*}/$t"; fi
+fi
+
+printf '%s' "$d"
