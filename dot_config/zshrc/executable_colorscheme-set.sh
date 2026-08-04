@@ -14,20 +14,28 @@ error() {
   exit 1
 }
 
-if [ -z "$1" ]; then
+active_file="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+
+# COLORSCHEME_FORCE=1 rebuilds from the ACTIVE scheme, for when the generators changed but the palette did not.
+if [ -z "${1:-}" ] && [ "${COLORSCHEME_FORCE:-}" != 1 ]; then
   error "No colorscheme profile provided"
 fi
 
-colorscheme_profile="$1"
-
-colorscheme_file="$HOME/.config/colorscheme/list/$colorscheme_profile"
-active_file="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+if [ -n "${1:-}" ]; then
+  colorscheme_profile="$1"
+  colorscheme_file="$HOME/.config/colorscheme/list/$colorscheme_profile"
+else
+  colorscheme_profile="$(basename "$active_file")"
+  colorscheme_file="$active_file"
+fi
 
 if [ ! -f "$colorscheme_file" ]; then
   error "Colorscheme file '$colorscheme_file' does not exist."
 fi
 
-if [ ! -f "$active_file" ]; then
+if [ "${COLORSCHEME_FORCE:-}" = 1 ]; then
+  UPDATED=true
+elif [ ! -f "$active_file" ]; then
   echo "Active colorscheme file not found. Creating '$active_file'."
   cp "$colorscheme_file" "$active_file"
   UPDATED=true
@@ -2586,10 +2594,14 @@ fi
 
 # If there's an update, replace the active colorscheme and perform necessary actions
 if [ "$UPDATED" = true ]; then
-  echo "Updating active colorscheme to '$colorscheme_profile'."
+  if [ "$colorscheme_file" = "$active_file" ]; then
+    echo "Rebuilding all outputs from the active colorscheme."
+  else
+    echo "Updating active colorscheme to '$colorscheme_profile'."
+  fi
 
-  # Replace the contents of active-colorscheme.sh
-  cp "$colorscheme_file" "$active_file"
+  # Replace the contents of active-colorscheme.sh - forcing makes these one path, and cp would then error out
+  [ "$colorscheme_file" = "$active_file" ] || cp "$colorscheme_file" "$active_file"
 
   cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
 
