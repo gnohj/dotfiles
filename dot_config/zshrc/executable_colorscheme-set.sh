@@ -264,7 +264,7 @@ generate_starship_config() {
 "\$schema" = 'https://starship.rs/config-schema.json'
 add_newline = false
 format = '''
-\$os\$directory\$cmd_duration[❯ ](bold ${gnohj_color02})
+\$os\${custom.dir}\$cmd_duration[❯ ](bold ${gnohj_color02})
 '''
 right_format = ""
 [os]
@@ -286,10 +286,14 @@ Unknown = "❯"
 # disabled = false
 # show_always = false
 # configure directory
+# [custom.dir] supersedes [directory] and shares prompt-path with the Claude status line: truncate_to_repo collapses pool worktrees to a bare basename, and substitutions are literal-only (no regex).
 [directory]
-read_only = " "
-truncation_length = 10
-truncate_to_repo = true       # truncates directory to root folder if in github repo
+disabled = true
+[custom.dir]
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+command = '\$HOME/.local/bin/prompt-path'
+format = '[\$output](\$style) '
 style = "bold italic ${gnohj_color04}"
 [git_branch]
 style = "bold ${gnohj_color06}"
@@ -314,7 +318,7 @@ add_newline = false
 format = '''
 \${env_var.RADIO_CTL}
 \${env_var.AWS_PROFILE}
-\$os\$directory\$cmd_duration[❯ ](bold ${gnohj_color02})
+\$os\${custom.dir}\$cmd_duration[❯ ](bold ${gnohj_color02})
 '''
 [os]
 disabled = false
@@ -335,10 +339,14 @@ Unknown = "❯"
 # disabled = false
 # show_always = false
 # configure directory
+# Same rationale as the main config above - keep the two blocks in sync.
 [directory]
-read_only = " "
-truncation_length = 10
-truncate_to_repo = true       # truncates directory to root folder if in github repo
+disabled = true
+[custom.dir]
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+command = '\$HOME/.local/bin/prompt-path'
+format = '[\$output](\$style) '
 style = "bold italic ${gnohj_color04}"
 [git_branch]
 style = "bold ${gnohj_color06}"
