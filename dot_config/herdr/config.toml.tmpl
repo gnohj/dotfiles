@@ -310,6 +310,9 @@ sidebar_width = 32
 # borders when no manual pane name is set.
 show_agent_labels_on_pane_borders = true
 
+# Reclaim the scrollbar column (0.8.0): pane names gain a cell and selection stays terminal-native; scrolling is unaffected.
+pane_scrollbars = false
+
 # Order the Agents panel as an attention queue (blocked/needs-input first) instead
 # of the default "spaces" (grouped by workspace), so the sidebar visually surfaces
 # blocked agents at the top - keeps the panel readable at a glance. Use herdr's
@@ -471,8 +474,9 @@ surface0 = "#1e2528"
 surface1 = "#1e2528"
 overlay0 = "#536571"
 overlay1 = "#7a90a0"
-# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
-# isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
+# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in isolation, and
+# still true on 0.8.0 - src/ui/sidebar/tokens.rs is byte-identical between the two tags):
+# text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
 # it does NOT reach the pane-title, state_text or $act rows, so those cannot vary by
 # active state at all. subtext0 = inactive rows. mauve = the active/selected space's branch
 # line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
@@ -483,7 +487,7 @@ overlay1 = "#7a90a0"
 # fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
 subtext0 = "#a3b8c6"
 text = "#a3b8c6"
-# mauve only feeds the BUILT-IN branch token, which $br/$br_on replaced - kept in step for intent, not render.
+# mauve tracks the scheme but only feeds the BUILT-IN branch token $br/$br_on replaced - intent, not render.
 mauve = "#b7ce97"
 # herdr's four agent states are painted by four palette tokens - state_label_color()
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
