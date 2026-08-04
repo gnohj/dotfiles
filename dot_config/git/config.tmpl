@@ -23,6 +23,10 @@
 [pull]
 	ff = only
 
+# Bare `git push` on a new branch needs this: lazygit's P is a raw push, so nothing else sets upstream.
+[push]
+	autoSetupRemote = true
+
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
