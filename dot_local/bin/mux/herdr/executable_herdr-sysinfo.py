@@ -2,7 +2,7 @@
 """herdr-sysinfo - feed a live system-info line to the herdr sidebar's $sys token.
 
 herdr has no status bar and the maintainer ruled one out for the main client UI
-(ogulcancelik/herdr#341: "not something i am planning to add"; the tmux-status-bar PRs
+(herdrdev/herdr#341: "not something i am planning to add"; the tmux-status-bar PRs
 #342/#1742 were closed, and the plugin persistent-chrome proposal #1608 was closed
 not_planned). A custom sidebar metadata token is the only always-visible surface herdr
 exposes, so that is what this feeds.

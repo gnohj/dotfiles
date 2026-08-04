@@ -3,7 +3,7 @@
 
 herdr has native last_pane but it's GLOBAL (leaks across workspaces/tabs), and it has
 NO last_tab / last_workspace, and its snapshot carries no focus history (feature req
-ogulcancelik/herdr#1327 closed not-planned). BUT its socket API streams focus events
+herdrdev/herdr#1327 closed not-planned). BUT its socket API streams focus events
 (events.subscribe), which `herdr api` doesn't expose. This daemon subscribes to
 workspace/tab/pane .focused (+ .closed) and maintains true, correctly-SCOPED MRU that
 the press-based hacks and native last_pane can't: previous-workspace, previous-tab per
