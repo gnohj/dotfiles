@@ -100,9 +100,8 @@ description = "horizontal split (alias of prefix+minus)"
 # NOTE: ctrl+g is thereby taken from pane apps (nvim "show file info", readline
 # abort) — switch to "ctrl+alt+g" if that bites. (prefix+shift+g was wrong: it's
 # herdr's built-in new_worktree.)
-# CWD: relies on new_cwd = "follow" so the popup opens on the focused pane's repo.
-# If lazygit opens in $HOME instead, popups don't inherit pane cwd — revert to
-# type = "pane" for this binding.
+# CWD: herdr's popup inherits pane.cwd (the LEADER shell's dir), which does not follow a
+# nested subshell - lazygit-herdr.sh resolves foreground_cwd itself. If it opens in $HOME, check there.
 [[keys.command]]
 key = "ctrl+g"
 type = "popup"
