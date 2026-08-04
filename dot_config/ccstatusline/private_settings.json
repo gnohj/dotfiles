@@ -3,24 +3,11 @@
   "lines": [
     [
       {
-        "id": "acct",
-        "type": "custom-command",
-        "commandPath": "$HOME/.local/bin/claude-account-glyph",
-        "timeout": 300,
-        "preserveColors": true
-      },
-      {
         "id": "cwd",
         "type": "custom-command",
-        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json",
+        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json --glyph --align 22 --trailing-sep --color",
         "timeout": 400,
-        "color": "hex:a3b8c6"
-      },
-      {
-        "id": "cwddot",
-        "type": "custom-text",
-        "customText": "·",
-        "color": "hex:536571"
+        "preserveColors": true
       },
       {
         "id": "model",
@@ -62,9 +49,9 @@
       {
         "id": "branch",
         "type": "custom-command",
-        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json --git-ref --trailing-sep",
+        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json --git-ref --glyph --align 22 --trailing-sep --color",
         "timeout": 400,
-        "color": "hex:dc988e"
+        "preserveColors": true
       },
       {
         "id": "l5h",
@@ -109,6 +96,19 @@
         "commandPath": "$HOME/.local/bin/claude-usage-reset seven_day",
         "timeout": 400,
         "color": "hex:536571"
+      },
+      {
+        "id": "acctdot",
+        "type": "custom-text",
+        "customText": "·",
+        "color": "hex:536571"
+      },
+      {
+        "id": "acct",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-account-glyph",
+        "timeout": 300,
+        "preserveColors": true
       }
     ],
     []

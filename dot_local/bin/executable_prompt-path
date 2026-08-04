@@ -18,40 +18,84 @@
 # which FAILS on a detached HEAD and renders a misleading "no git" - i.e. in every
 # treehouse pool slot, since those are always detached.
 #
-#   prompt-path                            # $PWD
-#   prompt-path <dir>                      # that dir
-#   prompt-path --stdin-json               # dir from a Claude status-line payload on stdin
-#   prompt-path --git-ref [...]            # ⎇ branch-or-sha instead of the path
-#   prompt-path --git-ref --trailing-sep   # ... plus a " ·", emitted only when there IS a ref
+#   prompt-path                                  # $PWD, plain
+#   prompt-path <dir>                            # that dir
+#   prompt-path --stdin-json                     # dir from a Claude status-line payload on stdin
+#   prompt-path --git-ref [...]                  # ⎇ branch-or-sha instead of the path
+#   prompt-path --align N [...]                  # size the text so both rows' separators share a column, N = cap
+#   prompt-path --trailing-sep [...]             # append " ·" - only when there IS something to show
+#   prompt-path --color [...]                    # emit theme ANSI (needs preserveColors on the widget)
+#   prompt-path --glyph [...]                    # prefix with 🌳 worktree / 🌿 plain repo / 📁 non-git, or ⎇ for --git-ref
 #
 # --stdin-json exists for ccstatusline: it pipes the session JSON to every
 # custom-command widget (execSync `input:`) and never sets the child's cwd, so
 # $PWD there is whatever directory Claude Code launched from, not the session's.
 #
-# --trailing-sep exists because ccstatusline has no conditional widgets: a standalone
-# custom-text "·" still renders when its neighbour resolves empty, leaving a dangling
-# separator in any non-repo directory. Emitting it from here ties it to the ref, so
-# both vanish together. It inherits the widget's colour rather than the dim
-# separator colour - the alternative is hardcoding theme hexes as ANSI in here.
+# --align is what lines the status line's two rows up. Row 1 is glyph + path + "·",
+# row 2 is "⎇ ref" + "·", and the separators share a column only if both fields are
+# sized against the SAME number. The two widgets are separate processes with no shared
+# state, so each computes BOTH widths from the one dir it was handed and derives the
+# same target - deterministic, no coordination needed. The field grows only as far as
+# the longer of the two actually needs (a fixed width left ~12 dead columns whenever
+# the path was short) and stops at N, past which the value truncates instead.
 #
-# The path prints for EVERY dir, worktree or plain repo - the status line carries the
-# ref on its own row, so suppressing the path would just leave a dangling separator.
+# Two traps make the obvious approaches fail:
+#   * ccstatusline .trim()s every custom-command's output, so TRAILING padding is
+#     destroyed - the pad has to sit before the separator, which is why the "·" is
+#     emitted here instead of as its own custom-text widget.
+#   * a standalone custom-text "·" also renders when its neighbour resolves empty,
+#     dangling in any non-repo directory. Emitting it here ties the two together.
+#
+# Widths are computed from the ASCII portion plus glyphs of known width, never from
+# ${#s} on the whole string: the status line runs with no LANG (see claude-statusline)
+# where bash counts BYTES, so "⎇ master" measures 10 and every pad overshoots. Setting
+# LC_ALL here is not an option either - a box without that locale makes bash warn on
+# stderr, which starship would leak into the terminal.
 
 set -uo pipefail
 
-# ⎇ U+2387, the glyph ccstatusline's git widgets and lazygit's status line both use.
-BRANCH_GLYPH='⎇'
+ELLIPSIS='…'
+
+# Both rows lead with a 3-column prefix - row 1 the kind glyph, row 2 "⎇  " - so both texts start in column 4 and --align only ever sizes the TEXT, never the leader.
 
 mode=path
 trailing_sep=0
+color=0
+glyph=0
+align=0
 args=()
-for a in "$@"; do
-  case "$a" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --git-ref) mode=git-ref ;;
     --trailing-sep) trailing_sep=1 ;;
-    *) args+=("$a") ;;
+    --color) color=1 ;;
+    --glyph) glyph=1 ;;
+    --align) shift; align="${1:-0}" ;;
+    --align=*) align="${1#--align=}" ;;
+    *) args+=("$1") ;;
   esac
+  shift
 done
+[ "$align" -ge 0 ] 2>/dev/null || align=0
+
+C_TEXT='' C_DIM='' C_RESET=''
+if [ "$color" = 1 ]; then
+  # Theme colours read from the live colorscheme, not hardcoded, so `theme` carries through.
+  CS="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+  [ -r "$CS" ] && . "$CS" 2>/dev/null
+  ansi() {
+    local h="${1#\#}"
+    [ "${#h}" -eq 6 ] || return 1
+    printf '\033[38;2;%d;%d;%dm' "0x${h:0:2}" "0x${h:2:2}" "0x${h:4:2}"
+  }
+  if [ "$mode" = git-ref ]; then
+    C_TEXT="$(ansi "${gnohj_color06:-#dc988e}" 2>/dev/null)"
+  else
+    C_TEXT="$(ansi "${gnohj_color04:-#a3b8c6}" 2>/dev/null)"
+  fi
+  C_DIM="$(ansi "${gnohj_color13:-#536571}" 2>/dev/null)"
+  C_RESET=$'\033[0m'
+fi
 
 dir=""
 case "${args[0]:-}" in
@@ -70,23 +114,6 @@ case "${args[0]:-}" in
 esac
 [ -n "$dir" ] || dir="$PWD"
 
-in_work_tree() {
-  command -v git >/dev/null 2>&1 || return 1
-  [ -d "$dir" ] || return 1
-  [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]
-}
-
-if [ "$mode" = git-ref ]; then
-  in_work_tree || exit 0
-  ref="$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)"
-  # Detached (every treehouse pool slot) - the short SHA is the only honest answer.
-  [ -n "$ref" ] || ref="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
-  [ -n "$ref" ] || exit 0
-  printf '%s %s' "$BRANCH_GLYPH" "$ref"
-  [ "$trailing_sep" = 1 ] && printf ' ·'
-  exit 0
-fi
-
 # Both tildes are escaped: bash tilde-expands a replacement string and a `#` pattern, so a bare ~ would expand straight back to /home/<user> and nothing would strip.
 d="${dir/#$HOME/\~}"
 d="${d#\~/Developer/}"
@@ -98,5 +125,77 @@ if [[ $b =~ ^([A-Z]+-[0-9]+) ]]; then
   t="${BASH_REMATCH[1]}"
   if [[ $b == "$d" ]]; then d="$t"; else d="${d%/*}/$t"; fi
 fi
+path_w=${#d}
 
-printf '%s' "$d"
+# Resolved even in path mode: --align needs both widths to pick one shared column.
+ref=''
+ref_w=0
+# 📁 non-git, per herdr's vocabulary - it also keeps row 1's leader 3 columns wide outside a repo, so the two rows' text never falls out of step.
+kind_glyph='📁'
+if command -v git >/dev/null 2>&1 && [ -d "$dir" ] &&
+  [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]; then
+  ref="$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)"
+  # Detached (every treehouse pool slot) - the short SHA is the only honest answer.
+  [ -n "$ref" ] || ref="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+  [ -n "$ref" ] && ref_w=${#ref}
+  # Both sides physical (pwd -P), copied from herdr-sesh-layout.sh: under a logical pwd every symlinked repo reads as a worktree.
+  gd="$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
+  gcd="$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
+  if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then
+    kind_glyph='🌳'
+  else
+    kind_glyph='🌿'
+  fi
+fi
+
+# $pad is the TEXT width both rows share, so their separators land in one column.
+pad=0
+if [ "$align" -gt 0 ]; then
+  fit_path=$((path_w < align ? path_w : align))
+  fit_ref=$((ref_w < align ? ref_w : align))
+  pad=$((fit_path > fit_ref ? fit_path : fit_ref))
+fi
+
+# Slices only the ASCII body, never the composed string: bash counts BYTES here (no LANG), so cutting across the multibyte prefix or ellipsis would split one in half.
+emit() {
+  local pre="$1" pw="$2" body="$3" keep="$4" avail w i
+  if [ "$pad" -gt 0 ]; then
+    avail=$pad
+    if [ "${#body}" -gt "$avail" ] && [ "$avail" -gt 0 ]; then
+      if [ "$keep" = tail ]; then
+        body="$ELLIPSIS${body: -$((avail - 1))}"
+      else
+        body="${body:0:$((avail - 1))}$ELLIPSIS"
+      fi
+      w=$avail
+    else
+      w=${#body}
+    fi
+    i=$((avail - w))
+    while [ "$i" -gt 0 ]; do
+      body="$body "
+      i=$((i - 1))
+    done
+  fi
+  printf '%s%s%s%s' "$C_TEXT" "$pre" "$body" "$C_RESET"
+  [ "$trailing_sep" = 1 ] && printf '%s ·%s' "$C_DIM" "$C_RESET"
+  return 0
+}
+
+if [ "$mode" = git-ref ]; then
+  [ -n "$ref" ] || exit 0
+  # TWO spaces: ⎇ is one column against row 1's two-column emoji, so a single space would start the ref one column left of the path above it.
+  if [ "$glyph" = 1 ]; then
+    emit '⎇  ' 3 "$ref" head
+  else
+    emit '' 0 "$ref" head
+  fi
+  exit 0
+fi
+
+# 🌳 worktree, 🌿 plain repo - herdr's workspace-label vocabulary (mux/herdr/herdr-sesh-layout.sh), so a pane and the status line agree on what checkout you are in.
+if [ "$glyph" = 1 ] && [ -n "$kind_glyph" ]; then
+  emit "$kind_glyph " 3 "$d" tail
+else
+  emit '' 0 "$d" tail
+fi
