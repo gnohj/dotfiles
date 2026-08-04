@@ -82,7 +82,9 @@ CITY_TTL = 300
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
 LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
 
-SUBSCRIPTIONS = ["workspace.focused", "tab.focused", "pane.focused", "workspace.closed"]
+# workspace.reordered arrived in 0.8.0 with group reordering, which can displace the pin.
+SUBSCRIPTIONS = ["workspace.focused", "tab.focused", "pane.focused", "workspace.closed",
+                 "workspace.reordered", "workspace.moved"]
 
 
 def request(method, params):
@@ -206,9 +208,14 @@ class Sampler:
 
 def ensure_pin(entries):
     """Resolve the pinned space by label, creating it at the top of the sidebar if gone."""
-    for entry in entries:
+    for index, entry in enumerate(entries):
         if entry.get("label") == PIN:
-            return entry["workspace_id"], entries
+            wid = entry["workspace_id"]
+            if index:
+                # A reorder can displace it, so index 0 is re-asserted rather than only set on create.
+                request("workspace.move", {"workspace_id": wid, "insert_index": 0})
+                entries = (request("workspace.list", {}).get("result") or {}).get("workspaces") or entries
+            return wid, entries
     # Adopt+relabel any existing home space: matching the exact label alone spawned a twin on every rename.
     for entry in entries:
         if (entry.get("label") or "").split()[-1:] == [USER]:
