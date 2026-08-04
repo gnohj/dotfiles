@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# generator sha256: {{ include "dot_config/zshrc/executable_colorscheme-set.sh" | sha256sum }}
+
+# colorscheme-set.sh rebuilds its generated configs only when the palette changes, so heredoc edits need this hash to land.
+set -uo pipefail
+
+setter="$HOME/.config/zshrc/colorscheme-set.sh"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+
+# Fresh box: these may not be applied yet, and the first theme switch rebuilds everything anyway.
+[ -x "$setter" ] || { echo "colorscheme-set.sh not applied yet; skipping output rebuild"; exit 0; }
+[ -f "$active" ] || { echo "no active colorscheme yet; skipping output rebuild"; exit 0; }
+
+COLORSCHEME_FORCE=1 "$setter"
