@@ -16,3 +16,30 @@ case "$acct" in
 work) printf '🏢' ;;
 *) printf '🏠' ;;
 esac
+
+# Trailing "!" when this account's stored OAuth token nears its assumed expiry, so a token dies between sessions instead of mid-task. Reads the epoch claude-account precomputes: one file read, no fork per render.
+exp=""
+expfile="$HOME/.local/state/claude/oauth-$acct.expires"
+[ -r "$expfile" ] && read -r exp <"$expfile"
+case "$exp" in '' | *[!0-9]*) exit 0 ;; esac
+
+now="$(printf '%(%s)T' -1 2>/dev/null || true)"
+case "$now" in '' | *[!0-9]*) now="$(date +%s)" ;; esac
+
+left=$(((exp - now) / 86400))
+[ "$left" -le 30 ] || exit 0
+
+# Same palette source and severity split as claude-usage-pct, loaded only when something is actually wrong.
+warn="#c0aed2"
+red="#da858e"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+if [ -r "$active" ]; then
+  # shellcheck disable=SC1090
+  . "$active" >/dev/null 2>&1
+  warn="${gnohj_color01:-$warn}"
+  red="${gnohj_color11:-$red}"
+fi
+[ "$left" -le 7 ] && hex="$red" || hex="$warn"
+
+printf '\033[38;2;%d;%d;%dm!\033[0m' \
+  "$((16#${hex:1:2}))" "$((16#${hex:3:2}))" "$((16#${hex:5:2}))"
