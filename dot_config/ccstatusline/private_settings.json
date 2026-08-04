@@ -10,6 +10,19 @@
         "preserveColors": true
       },
       {
+        "id": "cwd",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json",
+        "timeout": 400,
+        "color": "hex:a3b8c6"
+      },
+      {
+        "id": "cwddot",
+        "type": "custom-text",
+        "customText": "·",
+        "color": "hex:536571"
+      },
+      {
         "id": "model",
         "type": "model",
         "rawValue": true,
@@ -46,6 +59,13 @@
       }
     ],
     [
+      {
+        "id": "branch",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/prompt-path --stdin-json --git-ref --trailing-sep",
+        "timeout": 400,
+        "color": "hex:dc988e"
+      },
       {
         "id": "l5h",
         "type": "custom-text",
