@@ -6,7 +6,7 @@
 onboarding = false
 
 [keys]
-# ctrl+a matches the tmux prefix muscle memory. The `th` wrapper tmux runs with
+# ctrl+a matches the tmux prefix muscle memory. The `thh` wrapper tmux runs with
 # `prefix None` + `unbind C-a`, so ctrl+a passes straight through to herdr here.
 # Note: herdr can't distinguish left vs right ctrl (the terminal collapses both),
 # so left-ctrl+a also triggers this and shadows shell readline ctrl+a.
@@ -426,7 +426,7 @@ resume_agents_on_restore = true
 # process-info` (needs jq) — if it's vim/nvim it forwards the key into that pane,
 # otherwise it moves herdr's focus. The Neovim half is wired in
 # dot_config/nvim/lua/plugins/herdr-navigator.lua. Direct chords (no prefix), so
-# the `th` passthrough tmux (prefix None) hands ctrl+h/j/k/l straight to herdr.
+# the `thh` passthrough tmux (prefix None) hands ctrl+h/j/k/l straight to herdr.
 #
 # Requires the herdr-side plugin to be installed (otherwise these error "plugin
 # action not found"):  herdr plugin install paulbkim-dev/vim-herdr-navigation
