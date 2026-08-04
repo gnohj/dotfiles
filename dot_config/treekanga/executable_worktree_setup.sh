@@ -357,8 +357,10 @@ if command -v "${HERDR_BIN_PATH:-herdr}" &>/dev/null && command -v jq &>/dev/nul
     jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null |
     while IFS= read -r ws; do
       [ -n "$ws" ] || continue
+      # herdr 0.8.0 closes the workspace when its LAST tab closes, so skip single-tab workspaces.
       "$herdr_bin" tab list --workspace "$ws" 2>/dev/null |
-        jq -r '.result.tabs[]? | select((.label // "") | test("(^|\\.)🌳$")) | .tab_id' 2>/dev/null
+        jq -r 'select(((.result.tabs? // []) | length) > 1)
+               | .result.tabs[]? | select((.label // "") | test("(^|\\.)🌳$")) | .tab_id' 2>/dev/null
     done |
     while IFS= read -r tid; do
       [ -n "$tid" ] && "$herdr_bin" tab close "$tid" >/dev/null 2>&1 || true

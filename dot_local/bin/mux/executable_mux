@@ -371,7 +371,16 @@ cmd_pane_cwds() {
 cmd_close() {
   local id="${1:?mux close: missing <id>}"
   case "$(cmd_kind)" in
-    herdr) "$herdr" tab close "$id" >/dev/null 2>&1 || true ;;
+    herdr)
+      need_jq
+      # herdr 0.8.0 closes the workspace when its LAST tab closes; `mux close` means the tab only.
+      local ws n
+      ws="${id%%:*}"
+      n="$("$herdr" tab list --workspace "$ws" 2>/dev/null | jq -r '(.result.tabs? // []) | length' 2>/dev/null)"
+      if [ "${n:-0}" -gt 1 ]; then
+        "$herdr" tab close "$id" >/dev/null 2>&1 || true
+      fi
+      ;;
     tmux)  tmux kill-window -t "$id" 2>/dev/null || true ;;
   esac
 }
