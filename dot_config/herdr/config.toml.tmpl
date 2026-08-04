@@ -404,7 +404,7 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # leaves `$git` empty and an absent token emits no separator at all. The sign keeps its own
 # color regardless: apply_token_style lets an inline fg override the contextual default.
 #
-# The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - ogulcancelik/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
+# The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - herdrdev/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
 # $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. $git red / $git_on green, only ever ONE lit so herdr's " · " never lands between them; per-SIGN color still needs several lit at once - see the /herdr-upgrade watchlist.
 # $pr/$pr_on is the same red/green pair for approvals: – and ◌ ride red $pr, ● rides green $pr_on (herdr-thread-status.py::approval_slots). $ci is still ONE token, so ✗ failure prints in the same color as ✓ success.
