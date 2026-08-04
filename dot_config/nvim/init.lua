@@ -38,7 +38,7 @@ require("config.lazy")
 -- can ask THIS nvim instance for the current buffer / open a file. Keyed off the
 -- pane id so the right nvim is queried when several run. Works under BOTH tmux
 -- (TMUX_PANE) and herdr (HERDR_PANE_ID). herdr takes precedence when both are set
--- (herdr runs inside the `th` tmux wrapper, whose single TMUX_PANE would collide
+-- (herdr runs inside the `thh` tmux wrapper, whose single TMUX_PANE would collide
 -- across herdr panes), so each herdr pane's nvim gets a distinct socket.
 local pane_key
 if vim.env.HERDR_PANE_ID and vim.env.HERDR_PANE_ID ~= "" then

@@ -574,10 +574,10 @@ alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n
 
 # tmux profiles — the default `tmux`/`sesh` flow uses ~/.config/tmux/tmux.conf
 # (base + agentic HUD). These select the alternate profiles:
-#   tn — clean personal tmux, no agent HUD (base only)
-#   th — invisible host on a dedicated -L herdr socket for the herdr client
+#   tn  — clean personal tmux, no agent HUD (base only)
+#   thh — invisible host on a dedicated -L herdr socket for the herdr client
 alias tn='tmux -f ~/.config/tmux/native.conf'
-alias th='tmux -L herdr -f ~/.config/tmux/herdr.conf'
+alias thh='tmux -L herdr -f ~/.config/tmux/herdr.conf'
 
 # herdr launch wrapper — force --remote-keybindings server on `herdr --remote <host>`
 # so our type=shell helpers (prefix+=, prefix+f) run ON THE REMOTE server, where the
@@ -686,6 +686,9 @@ alias tkd='treekanga --log debug'
 alias tkl='treekanga list -v'
 alias tka='~/.config/treekanga/treekanga-add.sh'
 alias tkrm='~/.config/treekanga/treekanga-rm.sh'
+
+# Treehouse — `th` (the herdr host tmux moved to `thh`, see the tmux profiles above)
+alias th='treehouse'
 
 
 # Cargo
