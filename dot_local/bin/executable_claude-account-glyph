@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Account glyph for the Claude Code status line: 🏢 work, 🏠 personal.
-# Wired in as a ccstatusline `custom-command` widget (~/.config/ccstatusline/settings.json).
+# Rendered by prompt-path as row 2's leader (~/.config/ccstatusline/settings.json), which passes the session dir - ccstatusline never sets a widget's cwd, so $PWD alone is whatever directory Claude Code launched from.
 #
 # Mirrors claude-account's precedence (env > pin > path) rather than shelling out to it: a personal session leaves CLAUDE_ACCOUNT unset by design, so the path rule alone would mislabel a pinned-personal pane in a work repo.
+dir="${1:-$PWD}"
 acct="${CLAUDE_ACCOUNT:-}"
 pin="$HOME/.local/state/claude/account-override"
 [ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
 case "$acct" in
 personal | work) ;;
-*) case "$PWD" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+*) case "$dir" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
 esac
 
 # No trailing space: ccstatusline trims widget output (NBSP included), so the gap must come from its own `defaultPadding`.
