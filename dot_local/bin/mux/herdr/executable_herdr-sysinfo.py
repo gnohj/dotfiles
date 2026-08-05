@@ -7,11 +7,14 @@ herdr has no status bar and the maintainer ruled one out for the main client UI
 not_planned). A custom sidebar metadata token is the only always-visible surface herdr
 exposes, so that is what this feeds.
 
-The line renders on ONE pinned space, so it appears exactly once and always in the same
-spot rather than repeating down every sidebar row or chasing focus. That space is labelled
-with the username, held at sidebar index 0 via workspace.move (socket API only - the
-`herdr workspace` CLI has no move), and recreated if it is ever closed. herdr has no
-pinned-space concept; this is just "first in the list, kept that way".
+The line renders on the pinned space rather than repeating down every sidebar row or chasing
+focus. That space is labelled with the username, held at sidebar index 0 via workspace.move
+(socket API only - the `herdr workspace` CLI has no move), and recreated if it is ever closed.
+herdr has no pinned-space concept; this is just "first in the list, kept that way". EVERY space
+carrying that label is fed, not only the first: herdr-sesh-layout.sh labels a workspace rooted at
+$HOME the same way, and its attach-if-exists probe can only match a pane's cwd (herdr exposes no
+workspace root cwd), so the pin's own pane wandering off ~ is enough to spawn a twin. Feeding both
+beats leaving whichever one you opened blank.
 
 The trade-off is real and deliberate: the pinned space is a genuine workspace with a live
 shell pane, so it joins the prefix+w / prefix+W cycle like any other. That is the cost of
@@ -207,29 +210,28 @@ class Sampler:
 
 
 def ensure_pin(entries):
-    """Resolve the pinned space by label, creating it at the top of the sidebar if gone."""
-    for index, entry in enumerate(entries):
-        if entry.get("label") == PIN:
-            wid = entry["workspace_id"]
-            if index:
-                # A reorder can displace it, so index 0 is re-asserted rather than only set on create.
-                request("workspace.move", {"workspace_id": wid, "insert_index": 0})
-                entries = (request("workspace.list", {}).get("result") or {}).get("workspaces") or entries
-            return wid, entries
+    """Resolve every PIN-labelled space, creating one at the top of the sidebar if none is left."""
+    matches = [entry["workspace_id"] for entry in entries if entry.get("label") == PIN]
+    if matches:
+        if entries[0].get("label") != PIN:
+            # A reorder can displace it, so index 0 is re-asserted rather than only set on create.
+            request("workspace.move", {"workspace_id": matches[0], "insert_index": 0})
+            entries = (request("workspace.list", {}).get("result") or {}).get("workspaces") or entries
+        return set(matches), entries
     # Adopt+relabel any existing home space: matching the exact label alone spawned a twin on every rename.
     for entry in entries:
         if (entry.get("label") or "").split()[-1:] == [USER]:
             wid = entry["workspace_id"]
             request("workspace.rename", {"workspace_id": wid, "label": PIN})
-            return wid, entries
+            return {wid}, entries
     created = (request("workspace.create", {"label": PIN, "cwd": os.path.expanduser("~"),
                                             "focus": False}).get("result") or {})
     wid = ((created.get("workspace") or {}).get("workspace_id"))
     if not wid:
-        return None, entries
+        return set(), entries
     request("workspace.move", {"workspace_id": wid, "insert_index": 0})
     refreshed = (request("workspace.list", {}).get("result") or {}).get("workspaces") or entries
-    return wid, refreshed
+    return {wid}, refreshed
 
 
 def publish(line, focused_hint=None):
@@ -243,8 +245,7 @@ def publish(line, focused_hint=None):
         focused = focused_hint or next((w["workspace_id"] for w in entries if w.get("focused")), None)
         targets = {focused} if focused else set()
     else:
-        pinned, entries = ensure_pin(entries)
-        targets = {pinned} if pinned else set()
+        targets, entries = ensure_pin(entries)
     seq = time.time_ns()
     for entry in entries:
         wid = entry["workspace_id"]
