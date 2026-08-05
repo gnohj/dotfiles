@@ -122,7 +122,8 @@ def ident(cwd):
     return _IDENT[cwd]
 
 # Every treehouse review checkout is .treehouse/review-<pr>/<n>/review, so its leaf names nothing.
-GENERIC_LEAVES = {"review", "repo", "src", "checkout", "worktree", "wt"}
+# master/main likewise name the base the worktree was cut from, so a detached one falls through to its SHA.
+GENERIC_LEAVES = {"checkout", "main", "master", "repo", "review", "src", "worktree", "wt"}
 
 def pane_label(tree, repo, brepo, btree):
     """Short identity for a pane sitting outside its workspace's worktree.
@@ -192,13 +193,14 @@ except Exception:
 def cwd_of(p):
     return (p.get("foreground_cwd") or p.get("cwd") or "").rstrip("/")
 
-# Sorted: first-seen followed `pane list` order, a coin flip once a workspace holds two worktrees.
+# Sorted: first-seen follows `pane list` order, so the baseline below must not depend on which pane that is.
 plist = sorted(panes.get("result", {}).get("panes", []),
                key=lambda p: (p.get("workspace_id") or "", p.get("pane_id") or ""))
 
 ws_cwd = {}
 for p in plist:
-    w, c = p.get("workspace_id"), cwd_of(p)
+    # Spawn cwd, never the foreground: a pane that cd'd into another worktree must not become the baseline.
+    w, c = p.get("workspace_id"), (p.get("cwd") or "").rstrip("/")
     if w and c and w not in ws_cwd:
         ws_cwd[w] = c
 
