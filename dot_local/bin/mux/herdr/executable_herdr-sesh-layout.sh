@@ -102,6 +102,13 @@ self_pane=""
 [ "$focus_flag" = --no-focus ] && self_pane="${HERDR_PANE_ID:-}"
 existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" --arg self "$self_pane" \
   '[.result.panes[] | select($self == "" or .pane_id != $self) | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
+
+# Home matches by label too: herdr's API carries no workspace root cwd, so a pin whose pane cd'd off ~ gets twinned.
+if [ -z "$existing" ] && [ "${dir%/}" = "${HOME%/}" ]; then
+  existing=$("$herdr" workspace list 2>/dev/null | jq -r --arg l "$label" \
+    '[.result.workspaces[] | select(.label == $l)] | (first // {}).workspace_id // empty' 2>/dev/null)
+fi
+
 if [ -n "$existing" ]; then
   ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
   ( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
