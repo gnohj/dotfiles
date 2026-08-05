@@ -21,18 +21,19 @@
 #   prompt-path                                  # $PWD, plain
 #   prompt-path <dir>                            # that dir
 #   prompt-path --stdin-json                     # dir from a Claude status-line payload on stdin
-#   prompt-path --git-ref [...]                  # ⎇ branch-or-sha instead of the path
+#   prompt-path --git-ref [...]                  # branch-or-sha instead of the path
 #   prompt-path --align N [...]                  # size the text so both rows' separators share a column, N = cap
 #   prompt-path --trailing-sep [...]             # append " ·" - only when there IS something to show
 #   prompt-path --color [...]                    # emit theme ANSI (needs preserveColors on the widget)
-#   prompt-path --glyph [...]                    # prefix with 🌳 worktree / 🌿 plain repo / 📁 non-git, or ⎇ for --git-ref
+#   prompt-path --glyph [...]                    # prefix with 🌳 worktree / 🌿 plain repo / 📁 non-git (path mode only)
+#   prompt-path --account-glyph [...]            # prefix with claude-account-glyph's 🏢/🏠 (--git-ref only)
 #
 # --stdin-json exists for ccstatusline: it pipes the session JSON to every
 # custom-command widget (execSync `input:`) and never sets the child's cwd, so
 # $PWD there is whatever directory Claude Code launched from, not the session's.
 #
 # --align is what lines the status line's two rows up. Row 1 is glyph + path + "·",
-# row 2 is "⎇ ref" + "·", and the separators share a column only if both fields are
+# row 2 is account glyph + ref + "·", and the separators share a column only if both fields are
 # sized against the SAME number. The two widgets are separate processes with no shared
 # state, so each computes BOTH widths from the one dir it was handed and derives the
 # same target - deterministic, no coordination needed. The field grows only as far as
@@ -48,25 +49,28 @@
 #
 # Widths are computed from the ASCII portion plus glyphs of known width, never from
 # ${#s} on the whole string: the status line runs with no LANG (see claude-statusline)
-# where bash counts BYTES, so "⎇ master" measures 10 and every pad overshoots. Setting
+# where bash counts BYTES, so "🌿 web" measures 8 and every pad overshoots. Setting
 # LC_ALL here is not an option either - a box without that locale makes bash warn on
 # stderr, which starship would leak into the terminal.
 
 set -uo pipefail
 
 ELLIPSIS='…'
+LEADER_W=3
 
-# Both rows lead with a 3-column prefix - row 1 the kind glyph, row 2 "⎇  " - so both texts start in column 4 and --align only ever sizes the TEXT, never the leader.
+# Both rows lead with a 3-column prefix - row 1 the kind glyph, row 2 the account glyph - so both texts start in column 4 and --align only ever sizes the TEXT, never the leader.
 
 mode=path
 trailing_sep=0
 color=0
 glyph=0
+account_glyph=0
 align=0
 args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --git-ref) mode=git-ref ;;
+    --account-glyph) account_glyph=1 ;;
     --trailing-sep) trailing_sep=1 ;;
     --color) color=1 ;;
     --glyph) glyph=1 ;;
@@ -89,7 +93,7 @@ if [ "$color" = 1 ]; then
     printf '\033[38;2;%d;%d;%dm' "0x${h:0:2}" "0x${h:2:2}" "0x${h:4:2}"
   }
   if [ "$mode" = git-ref ]; then
-    C_TEXT="$(ansi "${gnohj_color06:-#dc988e}" 2>/dev/null)"
+    C_TEXT="$(ansi "${gnohj_color02:-#b7ce97}" 2>/dev/null)"
   else
     C_TEXT="$(ansi "${gnohj_color04:-#a3b8c6}" 2>/dev/null)"
   fi
@@ -158,9 +162,11 @@ fi
 
 # Slices only the ASCII body, never the composed string: bash counts BYTES here (no LANG), so cutting across the multibyte prefix or ellipsis would split one in half.
 emit() {
-  local pre="$1" pw="$2" body="$3" keep="$4" avail w i
+  local pre="$1" lead_extra="$2" body="$3" keep="$4" avail w i
   if [ "$pad" -gt 0 ]; then
-    avail=$pad
+    # A leader wider than LEADER_W is paid for out of the TEXT, never out of the row - that is what keeps the "·" in one column when the account glyph grows its expiry "!".
+    avail=$((pad - lead_extra))
+    [ "$avail" -lt 1 ] && avail=1
     if [ "${#body}" -gt "$avail" ] && [ "$avail" -gt 0 ]; then
       if [ "$keep" = tail ]; then
         body="$ELLIPSIS${body: -$((avail - 1))}"
@@ -177,25 +183,33 @@ emit() {
       i=$((i - 1))
     done
   fi
-  printf '%s%s%s%s' "$C_TEXT" "$pre" "$body" "$C_RESET"
+  # C_TEXT is re-armed after the leader: the account glyph carries its own colour and reset, which would otherwise bleach the ref behind it.
+  printf '%s%s%s%s%s' "$C_TEXT" "$pre" "$C_TEXT" "$body" "$C_RESET"
   [ "$trailing_sep" = 1 ] && printf '%s ·%s' "$C_DIM" "$C_RESET"
   return 0
 }
 
 if [ "$mode" = git-ref ]; then
   [ -n "$ref" ] || exit 0
-  # TWO spaces: ⎇ is one column against row 1's two-column emoji, so a single space would start the ref one column left of the path above it.
-  if [ "$glyph" = 1 ]; then
-    emit '⎇  ' 3 "$ref" head
-  else
-    emit '' 0 "$ref" head
+  # 🏢/🏠 rendered HERE rather than as its own widget so one process owns row 2's leader: near token expiry the glyph grows a "!", and only the process that also sizes the text can take that column back.
+  lead='   ' lead_w=$LEADER_W
+  if [ "$account_glyph" = 1 ]; then
+    # Handed $dir explicitly - ccstatusline never sets a widget's cwd, so the glyph's own path rule would read Claude Code's launch directory.
+    g="$("$HOME/.local/bin/claude-account-glyph" "$dir" 2>/dev/null)"
+    # Measured, never ${#g}: the emoji is 2 columns of multibyte and the "!" arrives wrapped in ANSI.
+    if [ -n "$g" ]; then
+      lead_w=3
+      case "$g" in *'!'*) lead_w=4 ;; esac
+      lead="$g "
+    fi
   fi
+  emit "$lead" $((lead_w - LEADER_W)) "$ref" head
   exit 0
 fi
 
 # 🌳 worktree, 🌿 plain repo - herdr's workspace-label vocabulary (mux/herdr/herdr-sesh-layout.sh), so a pane and the status line agree on what checkout you are in.
 if [ "$glyph" = 1 ] && [ -n "$kind_glyph" ]; then
-  emit "$kind_glyph " 3 "$d" tail
+  emit "$kind_glyph " 0 "$d" tail
 else
   emit '' 0 "$d" tail
 fi
