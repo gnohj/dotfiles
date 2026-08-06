@@ -610,10 +610,13 @@ elif [ -f "$PS_LOG_GLOBAL" ]; then
   fi
 fi
 if [ -n "\$PS_LOG_NEW" ]; then
-  echo "── postScript output (this run) ──"
   LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
-  printf '%s' "\$LATEST_RUN"
-  echo "──"
+  # Through the log, not just stdout: detached there is no pane, and the viewer reads this from the file.
+  {
+    echo "── postScript output (this run) ──"
+    printf '%s' "\$LATEST_RUN"
+    echo "──"
+  } | tee -a $LOGFILE
 
   WORKTREE_PATH=\$(printf '%s' "\$LATEST_RUN" | head -1 | sed -E 's/.*=== START (.*) ===.*/\1/')
   REPO=\$(echo "\$WORKTREE_PATH" | sed -n 's|.*/Developer/\([^/]*\)/.*|\1|p')
@@ -866,16 +869,21 @@ fi
 exit 0
 EOF
 
-  # Spawn the staged session script. macOS: a background Terminal.app window.
-  # Linux/VPS: a tab in the live multiplexer. A bare `tmux new-window` would spin
-  # up an invisible tmux server on the herdr VPS, stranding the session where
-  # herdr can't reach it.
+  # macOS gets a Terminal.app window; a bare `tmux new-window` would strand the session in an invisible tmux server on the VPS.
+  RUNNER_LOG="$HOME/.logs/${WORKTREE_LOG_TAG}.log"
   if [ "$(uname)" = Darwin ]; then
     open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
   elif [ "$("$MUX" kind)" != none ]; then
+    # Own session: closing a pane hangs up its pty, which killed a runner living there by SIGHUP with its EXIT trap unrun.
+    LOG_OFFSET=$(wc -c 2>/dev/null < "$RUNNER_LOG" || echo 0)
+    SKIP_FETCH=1 setsid "$TMPSCRIPT" </dev/null >/dev/null 2>&1 &
+    # No job control in a script, so setsid is not the pgid leader and execs in place - $! is the runner.
+    RUNNER_PID=$!
     # --no-focus mirrors the Darwin `open -g` above: the capture must not yank you out of what you were doing.
     # $HOME, not $PWD: the origin worktree may be gone, and a bad --cwd fails tab create.
-    "$MUX" window --no-focus --env SKIP_FETCH=1 "$WORKTREE_GROUP" "$HOME" "$TMPSCRIPT"
+    # A viewer only, so closing it costs nothing; --pid keeps the old close-on-exit contract.
+    "$MUX" window --no-focus "$WORKTREE_GROUP" "$HOME" \
+      "tail --pid=$RUNNER_PID -c +$((LOG_OFFSET + 1)) -f $(printf '%q' "$RUNNER_LOG")"
   else
     tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
   fi
