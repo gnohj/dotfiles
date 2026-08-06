@@ -9,6 +9,10 @@
 # Usage:
 #   tkrm              fzf picker (multi-select with Tab)
 #   tkrm <branch>...  delete given branches across all configured repos
+#
+# Env:
+#   TKRM_FORCE=1         delete even when the worktree still holds unrecoverable work
+#   TKRM_SKIP_FINISH=1   skip the /sb-ticket-finish pre-delete hook
 
 set -uo pipefail
 
@@ -108,10 +112,59 @@ run_with_timeout() {
   fi
 }
 
+# Report work in $1 that would not survive the delete, as a human-readable
+# summary ("2 uncommitted, 1 unpushed"), or nothing when the worktree is safe.
+#
+# Why this is needed: the delete below is effectively permanent — it trashes the
+# dir and detaches an rm -rf, so there is no undo once the background job runs.
+# A merged PR does NOT imply an empty worktree: untracked scratch files, a
+# branch-local stash, and a follow-up commit you never pushed all outlive the
+# merge. The fzf picker deliberately does not annotate these (a status call per
+# worktree on a monorepo makes the picker feel broken), so the check happens per
+# selection at delete time instead.
+worktree_risks() {
+  local wt="$1" branch="$2" risks="" n
+  [ -d "$wt" ] || return 0
+  git -C "$wt" rev-parse --git-dir &>/dev/null || return 0
+
+  n=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  [ "${n:-0}" -gt 0 ] && risks="$n uncommitted"
+
+  # Stashes live in the repo-shared refs/stash and are therefore visible from
+  # every worktree, so filter by branch or a stash made elsewhere flags this one.
+  # Both message forms name it: "WIP on <branch>:" and "On <branch>:".
+  n=$(git -C "$wt" stash list 2>/dev/null | grep -icF " on ${branch}:" || true)
+  [ "${n:-0}" -gt 0 ] && risks="${risks}${risks:+, }$n stash"
+
+  # --not --remotes covers both a never-pushed branch and one ahead of its
+  # upstream. Skipped without a remote, where it would count every commit.
+  if [ -n "$(git -C "$wt" remote 2>/dev/null | head -1)" ]; then
+    n=$(git -C "$wt" rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)
+    [ "${n:-0}" -gt 0 ] && risks="${risks}${risks:+, }$n unpushed"
+  fi
+
+  printf '%s' "$risks"
+}
+
 delete_one() {
   local repo="$1" branch="$2" wt_path="$3" bare="$4"
 
   echo "→ $repo:$branch"
+
+  # Guard runs BEFORE the /sb-ticket-finish hook: refusing the delete must not
+  # leave a frozen note and a cleaned thread file behind for a worktree that is
+  # still here. One refusal does not abort the run — other selections proceed.
+  local risks
+  risks=$(worktree_risks "$wt_path" "$branch")
+  if [ -n "$risks" ]; then
+    if [ "${TKRM_FORCE:-0}" != 1 ]; then
+      echo "  ✗ refusing: $risks — none of it is recoverable after the rm -rf"
+      echo "    inspect:  git -C $wt_path status --short"
+      echo "    override: TKRM_FORCE=1 tkrm $branch"
+      return 1
+    fi
+    echo "  ⚠ TKRM_FORCE set — deleting despite $risks"
+  fi
 
   # Pre-delete /sb-ticket-finish hook. Freezes the vault note + cleans up the
   # ~/.local/state/threads/<TICKET>.json orphan BEFORE the worktree is removed.
