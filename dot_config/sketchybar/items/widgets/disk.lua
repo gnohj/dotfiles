@@ -1,16 +1,15 @@
 local constants = require("constants")
 local colors = require("config.colors")
 
--- Disk usage percentage of the Data volume (what "About This Mac > Storage" reports)
+-- counts the APFS reserve as used, matching duf rather than df's capacity column
 local function get_disk_percentage(callback)
 	sbar.exec(
 		[[volume=/System/Volumes/Data; [ -d "$volume" ] || volume=/; df -k "$volume" | awk 'NR==2 {
-      used = $3
+      total = $2
       avail = $4
-      total = used + avail
 
       if (total > 0) {
-        printf "%.0f", (used/total)*100
+        printf "%.0f", ((total - avail)/total)*100
       } else {
         printf "0"
       }
