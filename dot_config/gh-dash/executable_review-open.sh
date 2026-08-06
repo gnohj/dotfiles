@@ -20,6 +20,7 @@
 # command down with SIGTERM (`exit status 143`) before the chain finishes.
 # Running the chain detached means gh-dash sees an instant exit 0, and the focus
 # switch to the review windows happens after gh-dash has restored its TUI.
+# `full` opts out of that switch entirely via --no-focus; the rest still take it.
 
 set -euo pipefail
 
@@ -51,7 +52,14 @@ trap notify_fail EXIT
 
 # MUX is overridable so the command strings can be dry-run with `MUX=echo`.
 mux_bin="${MUX:-$HOME/.local/bin/mux/mux}"
-mux() { if [ "$mux_bin" = echo ]; then echo "$@"; else "$mux_bin" window "$@"; fi; }
+window_opts=()
+mux() {
+  if [ "$mux_bin" = echo ]; then
+    echo ${window_opts[@]+"${window_opts[@]}"} "$@"
+  else
+    "$mux_bin" window ${window_opts[@]+"${window_opts[@]}"} "$@"
+  fi
+}
 wt_script="$HOME/.config/gh-dash/review-worktree.sh"
 
 cd "$repo_path"
@@ -135,6 +143,7 @@ open_enhance() {
 
 case "$mode" in
   full)
+    window_opts=(--no-focus)
     WT="$("$wt_script" acquire "$pr")"
     BASE="$(base_ref)"
     HEAD="$(head_ref)"
