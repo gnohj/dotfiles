@@ -101,6 +101,54 @@ return {
       })
     end
 
+    -- Submit closes octo's own tabpage only; release drops the sibling #<pr> tabs.
+    if vim.g.zen_disabled then
+      local reviews = require("octo.reviews")
+      local Review = reviews.Review
+      local orig_submit = Review.submit
+
+      -- From $HOME: release's lsof sweep reaps itself if run inside the worktree.
+      local function release_pr_windows(pr)
+        vim.fn.jobstart({
+          vim.fn.expand("~/.config/gh-dash/review-worktree.sh"),
+          "release",
+          tostring(pr),
+        }, { detach = true, cwd = vim.env.HOME })
+      end
+
+      -- Upstream fires no submit event, so a closed layout tabpage means success.
+      local function on_review_tabpage_closed(tabpage, callback)
+        local waited, timer = 0, vim.uv.new_timer()
+        timer:start(
+          250,
+          250,
+          vim.schedule_wrap(function()
+            local still_open = vim.api.nvim_tabpage_is_valid(tabpage)
+            waited = waited + 250
+            if still_open and waited < 30000 then
+              return
+            end
+            timer:stop()
+            timer:close()
+            if not still_open then
+              callback()
+            end
+          end)
+        )
+      end
+
+      function Review:submit(event)
+        local pr = self.pull_request and self.pull_request.number
+        local tabpage = self.layout and self.layout.tabpage
+        orig_submit(self, event)
+        if pr and tabpage then
+          on_review_tabpage_closed(tabpage, function()
+            release_pr_windows(pr)
+          end)
+        end
+      end
+    end
+
     -- gh-dash / <leader>gi open Octo in a throwaway tmux window flagged with
     -- `let g:zen_disabled=1`. Unlike codediff (which self-quits on TabClosed),
     -- Octo never exits, so when that window closes the nvim lingers, gets
