@@ -13,8 +13,9 @@ session opened straight into a slash command never gets named at all, so its tit
 literal `Claude Code` for the whole session and the pane would sit anonymous forever. That is
 what `transcript_title` is for: when the OSC title is still a PLACEHOLDER, read the session's
 own JSONL and take the last `{"type":"ai-title"}`, else the slash command the session opened
-with, else its first user prompt. It is a FALLBACK, not an override - the moment claude names
-itself the OSC title wins again, so the pane converges on the real summary.
+with (argument first: `/hunk-review 19426` -> `19426-hunk-review`), else its first user prompt.
+It is a FALLBACK, not an override - the moment claude names itself the OSC title wins again, so
+the pane converges on the real summary.
 
 pi and opencode DO set an OSC title, but never a session one: pi shows `π - <cwd basename>`
 and opencode prefixes its own with `OC | `, so slugging those gives a name that is either
@@ -107,6 +108,8 @@ OPENCODE_PLACEHOLDER = "New session"
 # claude wraps a slash-command turn in these: `<command-name>/tidy-commit</command-name>` -> `tidy-commit`.
 CLAUDE_COMMAND_OPEN = "<command-name>"
 CLAUDE_COMMAND_CLOSE = "</command-name>"
+CLAUDE_ARGS_OPEN = "<command-args>"
+CLAUDE_ARGS_CLOSE = "</command-args>"
 _title_cache = {}
 
 
@@ -221,6 +224,33 @@ def prompt_text(entry):
     return ""
 
 
+def tagged(text, open_tag, close_tag):
+    """The text between one pair of tags, or None when the pair is not both present."""
+    start = text.find(open_tag)
+    if start == -1:
+        return None
+    end = text.find(close_tag, start)
+    if end == -1:
+        return None
+    return text[start + len(open_tag):end].strip()
+
+
+def command_title(text):
+    """A slash-command turn as `<args> <command>`: `/hunk-review 19426 pane=x` -> `19426 /hunk-review`.
+
+    The argument LEADS because it is the distinguishing half: four panes each running
+    /hunk-review differ only by their PR number, and a WORDS cut keeps whatever came first.
+    Only positional args count - `pane=w1Y:p22` and `--flag` are plumbing the user did not
+    type to describe the work.
+    """
+    name = tagged(text, CLAUDE_COMMAND_OPEN, CLAUDE_COMMAND_CLOSE)
+    if not name:
+        return None
+    args = tagged(text, CLAUDE_ARGS_OPEN, CLAUDE_ARGS_CLOSE) or ""
+    positional = [a for a in args.split() if "=" not in a and not a.startswith("-")]
+    return " ".join(positional + [name])
+
+
 def claude_transcript_title(ref, cwd):
     """Title for a claude session that never made it into the OSC title.
 
@@ -252,12 +282,9 @@ def claude_transcript_title(ref, cwd):
         text = prompt_text(entry)
         if not text:
             continue
-        start = text.find(CLAUDE_COMMAND_OPEN)
-        if start == -1:
+        if CLAUDE_COMMAND_OPEN not in text:
             return text
-        end = text.find(CLAUDE_COMMAND_CLOSE, start)
-        command = text[start + len(CLAUDE_COMMAND_OPEN):end].strip() if end != -1 else ""
-        return command or text
+        return command_title(text) or text
     return None
 
 
