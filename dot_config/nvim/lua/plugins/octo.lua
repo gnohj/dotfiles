@@ -10,7 +10,8 @@ return {
     {
       "<leader>gi",
       function()
-        local cmd = "gh-dash --config " .. vim.fn.expand("~/.config/gh-dash/issues.yml")
+        local cmd = "gh-dash --config "
+          .. vim.fn.expand("~/.config/gh-dash/issues.yml")
         require("config.mux").new_window(cmd, { name = "🐙" })
       end,
       desc = "gh-dash Issues (window)",
