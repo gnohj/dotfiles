@@ -28,6 +28,8 @@ end
 
 local disk = sbar.add("item", constants.items.DISK, {
 	position = "right",
+	padding_left = -5,
+	padding_right = -5,
 	update_freq = 300,
 	icon = {
 		string = "󰋊",
