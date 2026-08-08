@@ -24,12 +24,8 @@ if [[ "$PANE_CMD" =~ ^n?vim$ ]] && [ -n "$PANE_ID" ]; then
   fi
 fi
 
-# Resolve yazi to its REAL binary. `command -v yazi` finds the mise SHIM first
-# (shims are on PATH above), and the shim re-resolves through mise at run time —
-# which dies in the bare popup env, so the popup flashes and closes. `mise which`
-# returns the actual install-dir binary; macOS (yazi from nix, not mise) yields
-# nothing and falls back to command -v.
-YAZI_BIN="$(mise which yazi 2>/dev/null || command -v yazi 2>/dev/null || echo yazi)"
+# Resolve yazi up front: the popup's bare env may not find it on PATH.
+YAZI_BIN="$(command -v yazi 2>/dev/null || echo yazi)"
 
 # YAZI_START_DIR mirrors the `y` alias so yazi.toml's edit opener returns nvim to the launch cwd.
 tmux display-popup -E -w 90% -h 90% -d "$PANE_PATH" -B \
