@@ -30,6 +30,9 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 .config/sketchybar/items/widgets/health_check_notification.sh
 .config/sketchybar/items/widgets/health_check_notification.lua
 
+# The retired curl|sh installer's binary - mise owns herdr now, and this unmanaged copy shadowed the shim on PATH.
+.local/bin/herdr
+
 # herdr helper scripts moved into .local/bin/mux/herdr/ (the folder can't be named
 # `herdr` — that's the herdr binary). Remove the flat copies so they don't shadow.
 .local/bin/hack-herdr-last-tab.sh
