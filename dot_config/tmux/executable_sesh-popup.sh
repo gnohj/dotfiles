@@ -15,9 +15,9 @@
 #                sources back in), 45%x65%.
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
-# (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
+# (nix profile / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.local/bin/worktree:$PATH"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"

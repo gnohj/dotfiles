@@ -5,9 +5,9 @@
 set -e
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
-# (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
+# (nix profile / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 
 error() {
   echo "Error: $1" >&2

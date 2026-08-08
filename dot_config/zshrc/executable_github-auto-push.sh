@@ -3,7 +3,7 @@
 # ensures at least 3 minutes have elapsed since the last file modification before it will push changes
 
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 export HUSKY=0  # Disable Husky hooks for automated commits
 
 # This allows me to directly call the script without having to wait the PUSH_INTERVAL:

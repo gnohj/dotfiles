@@ -25,7 +25,7 @@
 # Developer repo and a treehouse seed collapse to one row.
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 
 format_name() {
   local p="$1"

@@ -5,8 +5,6 @@ _mux_path="$_mux_path:$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$HOME/.loca
 _mux_path="$_mux_path:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.nix-profile/bin:/run/current-system/sw/bin"
 # bun's global bin dir - a frozen herdr env has no bun shell init to add it.
 _mux_path="$_mux_path:$HOME/.bun/bin"
-# $OSTYPE not $(uname): this is sourced per keypress on the mux hot paths, and a fork is ~1.5ms.
-case "${OSTYPE:-}" in linux*) _mux_path="$_mux_path:/home/linuxbrew/.linuxbrew/bin" ;; esac
 
 # ~/.local/bin MUST stay ahead of /usr/bin: tmux 3.6b lives there, apt ships 3.4, and the mismatch fails every tmux call.
 _mux_path="$_mux_path:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"

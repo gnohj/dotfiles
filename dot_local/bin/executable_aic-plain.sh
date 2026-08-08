@@ -3,7 +3,6 @@
 
 set -uo pipefail
 export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # Absolute path like the zsh `claude` function: homebrew's bin and mise's node bin both carry an unwrapped CLI that wins a bare-name lookup and has no login.
 CLAUDE_BIN="$HOME/.local/bin/claude"

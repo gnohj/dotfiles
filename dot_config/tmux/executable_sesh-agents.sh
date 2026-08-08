@@ -2,7 +2,7 @@
 # Row source for the sesh picker (rows are "<icon> <name>"); `--kill <row>` is ctrl-d's handler.
 
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 
 if [[ "${1:-}" == "--kill" ]]; then
   row="${2:-}"

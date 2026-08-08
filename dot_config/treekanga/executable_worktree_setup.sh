@@ -31,7 +31,6 @@ log "=== START $CURRENT_WORKTREE ==="
 # so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
 # .tool-versions in the worktree.
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 # ~/.zsh_gnohj_env is the user's full environment file (bash-safe) — it
 # exports PNPM_HOME, GIT_AUTHOR_*, XDG paths, and chains into the secrets
