@@ -37,6 +37,10 @@ herdr = "latest"                                   # agent multiplexer; on `late
 "npm:lavish-axi" = "latest"
 "npm:tasks-axi" = "latest"
 "npm:quota-axi" = "latest"
+
+# Moved off nix: each release needed a hand bump of version + srcHash + vendorHash so the box sat versions behind, and the signed release binaries are version-stamped, so nix's ldflags workaround is moot.
+"github:kunchenguid/no-mistakes" = "latest"        # dev workflow guard; firstmate needs >=1.31.2
+"github:kunchenguid/treehouse" = "latest"          # pooled detached worktrees; firstmate spawn needs `get --lease`
 {{- if ne .chezmoi.os "darwin" }}
 
 # Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).

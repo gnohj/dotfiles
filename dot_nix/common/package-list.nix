@@ -8,10 +8,6 @@
 # Language runtimes stay in mise (~/.config/mise/config.toml); fast-moving AI
 # agents stay in mise/npm for freshness. See dot_nix/README.md.
 
-let
-  no-mistakes = pkgs.callPackage ./no-mistakes.nix { inherit pkgs lib; };
-  treehouse = pkgs.callPackage ./treehouse.nix { inherit pkgs lib; };
-in
 with pkgs;
 
 # Cross-platform core — built on macOS and the Linux VPS alike.
@@ -86,10 +82,6 @@ with pkgs;
   tree-sitter # Tree-sitter CLI
   figlet     # ASCII art text banners
   d2         # Diagram-as-code (sb-workflow / skills-workflow renders)
-
-  # Built from source (not in nixpkgs)
-  no-mistakes # Dev workflow guard
-  treehouse   # Pooled detached git worktrees for PR review
 ]
 
 # macOS-only — GUI/hardware-bound or sourced elsewhere on Linux.
