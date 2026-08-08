@@ -2,6 +2,9 @@ return {
   "nvim-treesitter/nvim-treesitter",
   branch = "main",
   opts = {
+    -- Own dir, not the shared site/: kulala.nvim builds kulala_http into
+    -- site/parser, and TSUpdate errors on any parser it finds but can't resolve.
+    install_dir = vim.fs.joinpath(vim.fn.stdpath("data"), "nvim-treesitter"),
     ensure_installed = {
       "bash",
       "c",
