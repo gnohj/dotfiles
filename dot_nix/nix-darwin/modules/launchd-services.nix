@@ -308,4 +308,13 @@ in
       };
     };
   };
+
+  # Teams resubmits a respawn watchdog each launch that relaunches the app on any signal death, making force-kills look like crashes.
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    echo "🚫 Refusing the Microsoft Teams respawn watchdog..." >&2
+    teamsUid=$(id -u ${config.system.primaryUser})
+    launchctl disable "gui/$teamsUid/com.microsoft.teams2.respawn" || true
+    # disable only refuses future loads; evict a live watchdog or it relaunches the app once more.
+    launchctl bootout "gui/$teamsUid/com.microsoft.teams2.respawn" 2>/dev/null || true
+  '';
 }
