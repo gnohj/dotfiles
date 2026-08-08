@@ -4,8 +4,20 @@ set -eu
 
 root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
 
-# Injected like cs/cr do CLAUDE_CONFIG_DIR, so a second home stays a per-shell override and state stays out of the clone `update` pulls.
-export FM_HOME="${FM_HOME:-$HOME/.local/share/firstmate}"
+account=personal
+case "${1:-}" in
+personal | work)
+  account=$1
+  shift
+  ;;
+esac
+
+# Paired, never from the env: firstmate forwards its account to every crewmate, so a mismatch runs the whole fleet on the wrong subscription.
+case "$account" in
+work) export FM_HOME="$HOME/.local/share/firstmate-work" ;;
+*) export FM_HOME="$HOME/.local/share/firstmate" ;;
+esac
+export CLAUDE_ACCOUNT="$account"
 mkdir -p "$FM_HOME"
 
 if [ ! -d "$root/.git" ]; then
