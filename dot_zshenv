@@ -1,6 +1,12 @@
 #  Zshell entry point
 export ZDOTDIR=$HOME/.config/zshrc
 
+# herdr panes inherit no LANG; C locale miscounts 3-byte prompt glyphs. C.UTF-8 needs no locale-gen.
+case "$OSTYPE" in
+  darwin*) export LANG="${LANG:-en_US.UTF-8}" ;;
+  *) export LANG="${LANG:-C.UTF-8}" ;;
+esac
+
 # ~/.local/bin must be on PATH for EVERY zsh, not just interactive ones. .zshenv
 # is sourced by all invocations (login, non-login, interactive or not); .zshrc is
 # interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
