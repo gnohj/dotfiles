@@ -2,9 +2,12 @@
 # Generate gitmoji-prefixed commit messages from staged changes via `claude -p` (subscription OAuth, 1M context).
 
 set -uo pipefail
-# ~/.local/bin MUST precede the mise shims: `claude` there is the wrapper that injects the account's CLAUDE_CODE_OAUTH_TOKEN, and the shim reaches the raw CLI, which has no login.
 export PATH="${HOMEBREW_PREFIX:-/opt/homebrew}/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/bin:/bin:$PATH"
 [ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+
+# Absolute path like the zsh `claude` function: homebrew's bin and mise's node bin both carry an unwrapped CLI that wins a bare-name lookup and has no login.
+CLAUDE_BIN="$HOME/.local/bin/claude"
+[ -x "$CLAUDE_BIN" ] || CLAUDE_BIN="$(command -v claude 2>/dev/null)"
 
 if git diff --cached --quiet 2>/dev/null; then
   echo "no staged changes"
@@ -30,7 +33,7 @@ emojify() {
   done
 }
 
-if ! command -v claude >/dev/null 2>&1; then
+if [ -z "$CLAUDE_BIN" ] || [ ! -x "$CLAUDE_BIN" ]; then
   echo "claude is not on PATH"
   exit 0
 fi
@@ -59,7 +62,8 @@ EOF
 )
 
 # MAX_THINKING_TOKENS=0: haiku otherwise burns ~900 thinking tokens before 5 short lines, turning a 2s call into 10s.
-RAW=$(MAX_THINKING_TOKENS=0 claude --dangerously-skip-permissions --model haiku -p "$PROMPT" 2>/dev/null) || true
+# Empty setting-sources + empty mcp-config: booting 5 MCP servers and the hook suite costs ~3.3s and ~11k tokens that a one-shot diff read never uses.
+RAW=$(MAX_THINKING_TOKENS=0 "$CLAUDE_BIN" --dangerously-skip-permissions --setting-sources '' --strict-mcp-config --mcp-config '{"mcpServers":{}}' --model haiku -p "$PROMPT" 2>/dev/null) || true
 OUT=$(printf '%s\n' "$RAW" | grep -E '^[a-z]+(\([^)]+\))?:' | head -10)
 
 # Claude's own "Not logged in · Please run /login" would otherwise reach lazygit as a commit-message candidate.
