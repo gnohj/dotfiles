@@ -245,6 +245,10 @@ in
         RunAtLoad = true;
         # Give a crash-loop room to breathe rather than hammering the socket.
         ThrottleInterval = 10;
+        # herdr hands panes the launchd locale; empty means zsh miscounts glyph width (herdr#1373).
+        EnvironmentVariables = {
+          LANG = "en_US.UTF-8";
+        };
         StandardOutPath = "${homeDir}/.logs/herdr-server/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/herdr-server/launchagent.err.log";
       };
