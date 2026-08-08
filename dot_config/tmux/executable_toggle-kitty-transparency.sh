@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Inherently macOS: no local GUI kitty on a headless Linux VPS, and the BSD `sed -i ''` below is macOS-only.
+[[ "$OSTYPE" == darwin* ]] || exit 0
+
 KITTY_CONFIG="$HOME/.config/kitty/kitty.conf"
 
 if grep -q "^background_opacity " "$KITTY_CONFIG" 2>/dev/null; then
@@ -47,7 +50,7 @@ echo "background_opacity $new_opacity" >>"$KITTY_CONFIG"
 echo "# background_opacity $comment_opacity" >>"$KITTY_CONFIG"
 
 # Matched off `ps`: macOS compares `pkill -x` against comm, which is the full bundle
-# path here, so the old form signalled nothing. Anchored so bare `kitty` (Linux) also hits.
+# path here, so the old form signalled nothing. Anchored to match the trailing path segment.
 ps -eo pid,comm= | awk '$2 ~ /(^|\/)kitty$/ {print $1}' | while read -r _pid; do
   kill -USR1 "$_pid" 2>/dev/null || true
 done
