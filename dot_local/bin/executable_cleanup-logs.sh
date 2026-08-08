@@ -70,12 +70,11 @@ while IFS= read -r -d '' logfile; do
     # For non-dated log files, check modification time
     # Delete if older than 60 days
     if [[ $(uname) == "Darwin" ]]; then
-      # macOS find syntax
-      DAYS_OLD=$(( ($(date +%s) - $(stat -c %Y "$logfile" 2>/dev/null || stat -f %m "$logfile" 2>/dev/null || echo 0)) / 86400 ))
+      MTIME=$(stat -f %m "$logfile" 2>/dev/null || echo 0)
     else
-      # Linux find syntax
-      DAYS_OLD=$(( ($(date +%s) - $(stat -c %Y "$logfile")) / 86400 ))
+      MTIME=$(stat -c %Y "$logfile" 2>/dev/null || echo 0)
     fi
+    DAYS_OLD=$(( ($(date +%s) - MTIME) / 86400 ))
 
     if [[ $DAYS_OLD -gt 60 ]]; then
       DELETED_COUNT=$((DELETED_COUNT + 1))
