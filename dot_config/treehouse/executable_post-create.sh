@@ -24,6 +24,23 @@ export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/
 
 WT="$PWD"
 
+# owner/repo from any remote spelling, so ssh and https clones of one repo compare equal.
+norm_origin() { printf '%s' "$1" | sed -E 's|\.git$||; s|^[^:]+://[^/]+/||; s|^[^:]+:||'; }
+
+# Matched by origin rather than path, so a clone anywhere resolves to the same env source.
+canonical_checkout() { # <origin-url> -> default-branch worktree, or empty
+  local want d def_b wt
+  want="$(norm_origin "$1")"
+  [ -n "$want" ] || return 0
+  for d in "$HOME"/Developer/*/; do
+    [ "$(norm_origin "$(git -C "$d" remote get-url origin 2>/dev/null || true)")" = "$want" ] || continue
+    def_b="$(git -C "$d" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+    wt="$(git -C "$d" worktree list --porcelain 2>/dev/null |
+      awk -v b="refs/heads/$def_b" '/^worktree /{p=$2} /^branch /{if($2==b){print p; exit}}')"
+    [ -n "$wt" ] && [ -d "$wt" ] && printf '%s' "$wt" && return 0
+  done
+}
+
 # Repos (folder basename under ~/Developer) to SKIP .env copying for. inferno
 # manages its envs per broadcast target (local/premiere/coassociate), so blindly
 # copying master's .env into a pool worktree is wrong. pnpm install + zoxide
@@ -51,6 +68,11 @@ if [ -n "$common" ]; then
   main_wt="$(git -C "$WT" worktree list --porcelain 2>/dev/null \
     | awk -v b="refs/heads/$def" '/^worktree /{p=$2} /^branch /{if($2==b){print p; exit}}')"
   [ -z "$main_wt" ] && main_wt="$repo_dir/$def"
+  # A plain clone is its own main worktree and holds no gitignored envs, so re-resolve against the canonical checkout.
+  if [ -z "$main_wt" ] || [ "$main_wt" = "$repo_dir" ]; then
+    alt="$(canonical_checkout "$(git -C "$WT" remote get-url origin 2>/dev/null || true)")"
+    [ -n "$alt" ] && main_wt="$alt"
+  fi
   repo_name="$(basename "$repo_dir")"
   skip_env=0
   for r in "${ENV_COPY_SKIP[@]}"; do [ "$repo_name" = "$r" ] && skip_env=1; done
