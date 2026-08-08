@@ -31,8 +31,8 @@ in
     nerd-fonts.jetbrains-mono # Ghostty alternate option
   ];
 
-  # Migration Note:
-  # - ALL CLI tools moved to common/packages.nix (shared with future Linux)
+  # Where everything else lives:
+  # - Cross-platform CLI core in common/packages.nix (shared with the Linux VPS)
   # - Homebrew formulae/casks in homebrew.nix
-  # - Language runtimes stay in mise (~/.config/mise/config.toml)
+  # - Language runtimes + fast-moving CLIs in mise (~/.config/mise/config.toml)
 }

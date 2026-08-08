@@ -1,11 +1,12 @@
 { pkgs, lib, ... }:
 
 # Linux VPS user environment. Deliberately PACKAGES-ONLY — dotfiles stay in
-# chezmoi, language runtimes stay in mise. This is the Linux counterpart to
-# nix-darwin's environment.systemPackages, sharing common/package-list.nix so
-# the box and the Mac resolve identical binaries from one flake.lock.
+# chezmoi, language runtimes and fast-moving CLIs stay in mise. This is the
+# Linux counterpart to nix-darwin's environment.systemPackages, sharing
+# common/package-list.nix so the box and the Mac resolve identical binaries
+# from one flake.lock.
 #
-# Apply:  home-manager switch --flake ~/.nix#gnohj-linux-x86_64
+# Apply:  home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64
 {
   home.username = "gnohj";
   home.homeDirectory = "/home/gnohj";

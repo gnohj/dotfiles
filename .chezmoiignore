@@ -89,7 +89,7 @@ Library/
 .config/spicetify/
 .config/mouseless/
 
-# Nix (Mac-only — no nix layer on the VPS, so flake.nix + common/ are inert there)
+# Nix: only nix-darwin reads ~/.nix; the VPS runs home-manager straight from the chezmoi source tree, so no copy is needed there.
 .nix/
 {{- end }}
 
