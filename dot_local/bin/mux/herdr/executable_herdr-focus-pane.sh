@@ -3,7 +3,6 @@
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-case "${OSTYPE:-}" in linux*) PATH="/home/linuxbrew/.linuxbrew/bin:$PATH" ;; esac
 herdr="${HERDR_BIN_PATH:-herdr}"
 sock="${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}"
 

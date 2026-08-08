@@ -5,7 +5,6 @@
 set -uo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 herdr="${HERDR_BIN_PATH:-herdr}"
 
 # mux_kind() — shared with launcher.sh so there is one definition of "which mux is live".

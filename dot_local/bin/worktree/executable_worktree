@@ -8,7 +8,6 @@ MUX="$HOME/.local/bin/mux/mux"
 
 # Callers (skhd, launcher popups, gh-dash) spawn with a minimal PATH, so pin one that resolves claude/git/treekanga/notifier/clipboard tools.
 export PATH="$HOME/.local/bin:$HOME/.local/bin/mux:$WT_DIR:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 die() { printf 'worktree: %s\n' "$1" >&2; exit "${2:-1}"; }
 

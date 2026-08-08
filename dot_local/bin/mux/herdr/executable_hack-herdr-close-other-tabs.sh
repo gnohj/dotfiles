@@ -13,7 +13,6 @@ set -uo pipefail
 # A type=shell keybinding runs with a MINIMAL PATH, so `env bash` finds macOS's bash 3.2
 # (no mapfile) and /usr/bin/jq rather than the nix ones - hence the portable read loop below.
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 herdr="${HERDR_BIN_PATH:-herdr}"
 
 # One-line breadcrumb, overwritten each run: a keybind that silently no-ops is otherwise

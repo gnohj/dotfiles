@@ -21,7 +21,6 @@
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 herdr="${HERDR_BIN_PATH:-herdr}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }

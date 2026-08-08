@@ -19,9 +19,9 @@
 # Arg 1: session name (#{hook_session_name}).
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
-# (linuxbrew / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
+# (nix profile / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
-[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 source "$HOME/.config/tmux/lib/dev-window.sh"
 
 SESSION="$1"
