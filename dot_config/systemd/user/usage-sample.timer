@@ -1,0 +1,12 @@
+# Mirrors the macOS launchd agent's ~5-minute StartInterval; Persistent=true so a box that was off still samples on boot instead of skipping the gap.
+[Unit]
+Description=Sample CPU/memory every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+# Linux counterpart of the macOS launchd agent; same script and cadence, only the scheduler differs, and without it the VPS has no usage data beyond sar's 9-day window.
+[Unit]
+Description=Append one CPU/memory sample to ~/.local/state/usage/YYYY-MM.csv
+Documentation=file:%h/.local/bin/usage-sample.sh
+
+[Service]
+Type=oneshot
+# systemd user services start near-empty; the script shells out to nproc, awk, ps, and date.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/usage-sample.sh
+# One sample is a handful of /proc reads and a single ps pass; anything slower is wedged.
+TimeoutStartSec=60

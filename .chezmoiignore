@@ -108,4 +108,8 @@ linux-bootstrap.sh
 # nix-darwin launchd agent `github-auto-push` instead.
 .config/systemd/user/github-auto-push.service
 .config/systemd/user/github-auto-push.timer
+
+# Usage sampler — same story: macOS runs the identical script from its launchd agent.
+.config/systemd/user/usage-sample.service
+.config/systemd/user/usage-sample.timer
 {{- end }}
