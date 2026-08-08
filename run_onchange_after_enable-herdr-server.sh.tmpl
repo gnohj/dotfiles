@@ -26,6 +26,7 @@ systemctl --user enable herdr-server.service
 
 if ! systemctl --user is-active --quiet herdr-server.service; then
   echo "herdr-server.service enabled (starts at boot)."
-  echo "To adopt it now — THIS KILLS EVERY RUNNING PANE AND AGENT:"
-  echo "  herdr server stop && systemctl --user start herdr-server.service"
+  echo "To adopt it now - THIS KILLS EVERY RUNNING PANE AND AGENT:"
+  # Not `herdr server stop && systemctl start`: the stop kills the shell before the start runs.
+  echo "  herdr-server-adopt"
 fi

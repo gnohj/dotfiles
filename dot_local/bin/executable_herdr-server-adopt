@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Hands the live server to herdr-server.service from a transient unit, since `herdr server stop` kills the calling shell. DESTROYS EVERY PANE AND AGENT.
+set -uo pipefail
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || { echo "herdr-server-adopt: systemd required" >&2; exit 1; }
+
+UNIT="herdr-server.service"
+SERVER_RE='(.*/)?herdr server'
+say() { printf 'herdr-server-adopt: %s\n' "$*" >&2; }
+
+if [ -z "${HERDR_ADOPT_DETACHED:-}" ]; then
+  MAIN_PID=$(systemctl --user show "$UNIT" -p MainPID --value 2>/dev/null)
+  if [ "${MAIN_PID:-0}" != "0" ] && kill -0 "$MAIN_PID" 2>/dev/null; then
+    say "$UNIT already owns the live server (pid $MAIN_PID) - nothing to do"
+    exit 0
+  fi
+
+  # Resolved here, where the login PATH still exists: a transient unit starts with a near-empty env.
+  HERDR_BIN=$(command -v herdr) || { say "herdr not on PATH"; exit 1; }
+  SELF=$(readlink -f "$0") || exit 1
+
+  say "detaching into herdr-adopt.service; this window is about to die with the panes."
+  say "reconnect, then check: systemctl --user is-active $UNIT"
+  systemd-run --user --collect --quiet --unit=herdr-adopt \
+    --setenv=HERDR_ADOPT_DETACHED=1 \
+    --setenv=HERDR_BIN="$HERDR_BIN" \
+    --setenv=PATH=/usr/local/bin:/usr/bin:/bin \
+    "$SELF" || { say "could not launch the transient unit - nothing was stopped"; exit 1; }
+  exit 0
+fi
+
+# Detached: runs in its own unit, outside the cgroup about to be torn down.
+echo "stopping the current server"
+if pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1; then
+  "${HERDR_BIN:-herdr}" server stop >/dev/null 2>&1
+  # `start` would race the dying server for the socket, so wait it out rather than sleeping blind.
+  for _ in $(seq 1 30); do
+    pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1 || break
+    sleep 1
+  done
+  if pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1; then
+    echo "old server still alive after 30s - refusing to start the unit on a taken socket"
+    exit 1
+  fi
+else
+  echo "no server was running"
+fi
+
+echo "starting $UNIT"
+systemctl --user start "$UNIT" || { echo "start failed"; exit 1; }
+systemctl --user is-active --quiet "$UNIT" || { echo "$UNIT did not stay active"; exit 1; }
+echo "adopted: $UNIT is active (pid $(systemctl --user show "$UNIT" -p MainPID --value))"
