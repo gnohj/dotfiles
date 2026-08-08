@@ -4,6 +4,10 @@ set -eu
 
 root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
 
+# Injected like cs/cr do CLAUDE_CONFIG_DIR, so a second home stays a per-shell override and state stays out of the clone `update` pulls.
+export FM_HOME="${FM_HOME:-$HOME/.local/share/firstmate}"
+mkdir -p "$FM_HOME"
+
 if [ ! -d "$root/.git" ]; then
   echo "fm: no firstmate clone at $root" >&2
   echo "fm: run \`update\` to clone it, or: git clone https://github.com/kunchenguid/firstmate $root" >&2
