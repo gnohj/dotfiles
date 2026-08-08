@@ -1,8 +1,8 @@
 { pkgs, lib }:
 
 # Single source of truth for the Nix-managed CLI toolchain, consumed by BOTH
-# consumers so the Mac and the Linux VPS pull identical binaries from one
-# flake.lock:
+# consumers below. This core is flake.lock-pinned, so the Mac and the Linux VPS
+# get identical binaries; mise-provided tools track latest and may differ:
 #   - nix-darwin  → common/packages.nix    (environment.systemPackages)
 #   - home-manager → home-manager/home.nix (home.packages)
 # Language runtimes stay in mise (~/.config/mise/config.toml), as do the CLIs
@@ -15,7 +15,6 @@ with pkgs;
 [
   # Core development tools
   neovim
-  chezmoi
 
   # CLI utilities
   bat        # Better cat
