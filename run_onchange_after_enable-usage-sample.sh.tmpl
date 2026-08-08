@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Enable the usage-sample timer; Linux/systemd only, and the uname guard makes it a clean no-op on macOS where launchd does this instead.
+# The embedded unit hashes re-run this whenever either unit changes, so daemon-reload picks up edits.
+# service sha256: {{ include "dot_config/systemd/user/usage-sample.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/usage-sample.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+
+# --now is safe here (unlike herdr-server): the oneshot holds no live state, so starting it just appends one sample row.
+systemctl --user enable --now usage-sample.timer
+
+echo "usage-sample.timer enabled (every 5 minutes)."
