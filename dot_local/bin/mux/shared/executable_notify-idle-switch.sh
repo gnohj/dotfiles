@@ -43,8 +43,9 @@ vault\|*)
   # state file always points at the LATEST, but a stack of failures
   # would otherwise hide the earlier ones from `rctrl + '`. Single-slot
   # state is preserved — picker only opens when COUNT > 1.
+  # GNU stat first: on Linux `stat -f` reads its arg as a filesystem and poisons the list.
   RECENT_NOTES=$(find "$VAULT_INBOX" -maxdepth 1 -name '*Worktree-*.md' -mmin -60 -type f 2>/dev/null \
-    | xargs -I{} sh -c 'stat -f "%m %N" "$1" 2>/dev/null || stat -c "%Y %n" "$1" 2>/dev/null' _ {} \
+    | xargs -I{} sh -c 'stat -c "%Y %n" "$1" 2>/dev/null || stat -f "%m %N" "$1" 2>/dev/null' _ {} \
     | sort -rn \
     | awk '{$1=""; sub(/^ /, ""); print}')
 
@@ -72,7 +73,10 @@ vault\|*)
       [ -z "$path" ] && continue
       base=$(basename "$path" .md)
       # base format: YYYY-MM-DD_Worktree-<entry-point>-<outcome>-<slug>
-      mtime=$(stat -f '%Sm' -t '%H:%M' "$path" 2>/dev/null || date -d "@$(stat -c %Y "$path" 2>/dev/null)" '+%H:%M' 2>/dev/null)
+      # GNU stat first: `stat -f` is filesystem mode on Linux and poisons the value.
+      epoch=$(stat -c %Y "$path" 2>/dev/null || stat -f %m "$path" 2>/dev/null)
+      # `date -r <epoch>` is BSD; GNU reads -r as a filename and falls through cleanly.
+      mtime=$(date -r "$epoch" '+%H:%M' 2>/dev/null || date -d "@$epoch" '+%H:%M' 2>/dev/null)
       stripped=${base#*_Worktree-}
       # Entry-point matches the WORKTREE_LOG_TAG family: "worktree-<X>"
       entry=$(printf '%s' "$stripped" | sed -E 's|^(worktree-[a-z]+)-.*|\1|')
