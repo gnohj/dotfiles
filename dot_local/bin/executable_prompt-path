@@ -136,15 +136,21 @@ ref=''
 ref_w=0
 # 📁 non-git, per herdr's vocabulary - it also keeps row 1's leader 3 columns wide outside a repo, so the two rows' text never falls out of step.
 kind_glyph='📁'
-if command -v git >/dev/null 2>&1 && [ -d "$dir" ] &&
-  [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]; then
-  ref="$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)"
-  # Detached (every treehouse pool slot) - the short SHA is the only honest answer.
-  [ -n "$ref" ] || ref="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+inside='' gd='' gcd='' head_ref=''
+if command -v git >/dev/null 2>&1 && [ -d "$dir" ]; then
+  # One call for every git fact (five overran starship's timeout on a cold spawn); --path-format=absolute resolves symlinks for both dirs like the old pwd -P pair.
+  info="$(git -C "$dir" rev-parse --path-format=absolute --is-inside-work-tree --git-dir --git-common-dir --abbrev-ref HEAD 2>/dev/null)"
+  # --abbrev-ref, never a bare HEAD: it holds the output at 4 lines - a bare HEAD emits nothing on an unborn branch and silently shifts these fields.
+  { read -r inside; read -r gd; read -r gcd; read -r head_ref; } <<<"$info"
+fi
+if [ "$inside" = true ]; then
+  ref="$head_ref"
+  # "HEAD" means detached (every treehouse pool slot) or unborn - the short SHA answers the first, symbolic-ref still names the branch for the second.
+  if [ "$ref" = HEAD ]; then
+    ref="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+    [ -n "$ref" ] || ref="$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)"
+  fi
   [ -n "$ref" ] && ref_w=${#ref}
-  # Both sides physical (pwd -P), copied from herdr-sesh-layout.sh: under a logical pwd every symlinked repo reads as a worktree.
-  gd="$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
-  gcd="$(cd "$dir" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
   if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then
     kind_glyph='🌳'
   else
