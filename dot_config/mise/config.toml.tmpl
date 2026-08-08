@@ -1,8 +1,9 @@
-# mise configuration - Language runtimes ONLY
+# mise configuration - language runtimes + fast-moving CLIs
 # https://mise.jdx.dev/configuration.html
 #
-# Migration strategy (see ~/.local/share/chezmoi/dot_nix/README.md): Nix owns
-# system packages & ALL CLI tools; mise (this file) owns language runtimes ONLY;
+# Ownership split (see ~/.local/share/chezmoi/dot_nix/README.md): nix owns the
+# flake-pinned CLI core; mise (this file) owns the language runtimes plus the
+# tools that need same-day upstream releases or aren't in nixpkgs at all;
 # Homebrew (nix-darwin) owns macOS-specific apps & services.
 
 [tools]
@@ -48,7 +49,7 @@ herdr = "latest"                                   # agent multiplexer; on `late
 #   - pnpm (Mac gets it via corepack); treekanga (not in nixpkgs, brew on macOS)
 #   - opencode: Linux-only — the Mac install is a separate tangle (its own installer
 #     shadows an anomalyco/tap build; sst vs anomalyco forks), left unmerged on purpose.
-# NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.nix#gnohj-linux-x86_64`.
+# NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64`.
 # Applying the trim without home-manager active would drop nvim/rg/etc. off the box.
 # starship is NOT here: zinit installs it (gh-r binary + prompt init) on BOTH OSes.
 pnpm = "latest"

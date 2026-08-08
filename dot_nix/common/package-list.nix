@@ -5,8 +5,9 @@
 # flake.lock:
 #   - nix-darwin  → common/packages.nix    (environment.systemPackages)
 #   - home-manager → home-manager/home.nix (home.packages)
-# Language runtimes stay in mise (~/.config/mise/config.toml); fast-moving AI
-# agents stay in mise/npm for freshness. See dot_nix/README.md.
+# Language runtimes stay in mise (~/.config/mise/config.toml), as do the CLIs
+# that need same-day upstream releases (AI agents, herdr, the AXI CLIs,
+# no-mistakes, treehouse) or that nixpkgs doesn't carry. See dot_nix/README.md.
 
 with pkgs;
 

@@ -25,7 +25,7 @@
   outputs = inputs@{ self, nixpkgs, darwin, home-manager, ... }: {
     # Linux VPS user env (packages only) — Determinate nix + home-manager on
     # Ubuntu, layered on the OS you install yourself. Mirror of nix-darwin.
-    # Usage: home-manager switch --flake ~/.nix#gnohj-linux-x86_64
+    # Usage: home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64
     homeConfigurations = {
       gnohj-linux-x86_64 = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {
