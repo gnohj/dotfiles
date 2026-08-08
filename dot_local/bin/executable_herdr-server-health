@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Warns when the live herdr server is not systemd-owned, so its panes survive only at logind's discretion. Report-only; silent when healthy.
+set -uo pipefail
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+UNIT="herdr-server.service"
+say() { printf 'herdr-server-health: %s\n' "$*" >&2; }
+
+PIDS=()
+mapfile -t PIDS < <(pgrep -u "$(id -u)" -fx '(.*/)?herdr server' 2>/dev/null)
+[ "${#PIDS[@]}" -gt 0 ] || exit 0
+
+# Lenient: a second named-session server is normal, so one match means the unit still holds.
+MAIN_PID=$(systemctl --user show "$UNIT" -p MainPID --value 2>/dev/null)
+for pid in "${PIDS[@]}"; do
+  [ "$pid" = "${MAIN_PID:-0}" ] && exit 0
+done
+
+PID="${PIDS[0]}"
+CGROUP=$(sed -n 's|^0::||p' "/proc/$PID/cgroup" 2>/dev/null)
+SINCE=$(ps -o lstart= -p "$PID" 2>/dev/null | sed 's/^ *//')
+
+say "live server (pid $PID, up since ${SINCE:-unknown}) is not owned by $UNIT"
+say "  cgroup: ${CGROUP:-unknown}"
+
+case "$CGROUP" in
+*/session-*.scope)
+  SESSION="${CGROUP##*/session-}"
+  SESSION="${SESSION%.scope}"
+  STATE=$(loginctl show-session "$SESSION" -p State --value 2>/dev/null)
+  say "  parented to SSH login session $SESSION (state: ${STATE:-unknown}) - every pane and agent goes with it"
+  ;;
+esac
+
+KILL=$(grep -rhs '^[[:space:]]*KillUserProcesses[[:space:]]*=' \
+  /etc/systemd/logind.conf /etc/systemd/logind.conf.d/*.conf 2>/dev/null |
+  tail -1 | cut -d= -f2 | tr -d '[:space:]')
+LINGER=$(loginctl show-user "$(id -un)" -p Linger --value 2>/dev/null)
+say "  KillUserProcesses=${KILL:-unset (distro patch, upstream systemd defaults to yes)}, Linger=${LINGER:-unknown}"
+if [ "${KILL:-no}" = "yes" ]; then
+  say "  KillUserProcesses=yes - the next logout takes the server with it"
+fi
+
+if ! systemctl --user is-enabled --quiet "$UNIT" 2>/dev/null; then
+  say "  $UNIT is not enabled either, so it will not take over at boot"
+fi
+
+# Never `herdr server stop && systemctl start`: the stop kills the shell running it, so the start never lands.
+say "adopt it at a clean stopping point - THIS KILLS EVERY RUNNING PANE AND AGENT:"
+say "  herdr-server-adopt"
+exit 1
