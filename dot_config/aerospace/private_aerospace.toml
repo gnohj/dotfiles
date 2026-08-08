@@ -140,9 +140,10 @@ run = "move-node-to-workspace X"
 if.app-id = 'com.anthropic.claudefordesktop'
 run = "move-node-to-workspace X"
 
+# Float-only, no workspace move: aerospace carries even floats across workspaces, overwriting the frame VLC restores for itself.
 [[on-window-detected]]
 if.app-id = 'org.videolan.vlc'
-run = "move-node-to-workspace X"
+run = ['layout floating']
 
 [[on-window-detected]]
 if.app-id = 'com.apple.MobileSMS'
@@ -203,13 +204,10 @@ run = "move-node-to-workspace F"
 if.app-id = 'com.apple.Photos'
 run = "move-node-to-workspace F"
 
-# System Settings is non-resizable (Ventura+); float it in place so a permission prompt pops centered here instead of teleporting the view. center-window.sh sets coords since aerospace can't position floats.
+# System Settings is non-resizable (Ventura+); float it in place so a permission prompt pops centered here instead of teleporting the view.
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
-run = [
-   'layout floating',
-   'exec-and-forget ~/.config/aerospace/center-window.sh "System Settings"',
-]
+run = ['layout floating']
 
 [[on-window-detected]]
 if.app-id = 'net.imput.helium'
