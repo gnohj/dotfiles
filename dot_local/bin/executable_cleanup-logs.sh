@@ -17,7 +17,12 @@ log_message() {
 log_message "Starting log cleanup..."
 
 CURRENT_MONTH=$(date '+%Y%m')
-PREVIOUS_MONTH=$(date -v-1m '+%Y%m')
+# Step back from the 1st, not from today: subtracting a month from the 31st normalizes forward.
+if [[ $(uname) == "Darwin" ]]; then
+  PREVIOUS_MONTH=$(date -v1d -v-1d '+%Y%m')
+else
+  PREVIOUS_MONTH=$(date -d "$(date '+%Y-%m-01') -1 day" '+%Y%m')
+fi
 
 log_message "Keeping logs from: $PREVIOUS_MONTH and $CURRENT_MONTH"
 
