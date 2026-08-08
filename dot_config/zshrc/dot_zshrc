@@ -183,6 +183,11 @@ update() {
     python3 "$HOME/Developer/agents/setup_symlinks.py" ||
       { print -P "%F{red}   agent symlink setup failed%f"; fails=$((fails + 1)); }
   fi
+  # Report-only and silent when healthy; adopting the unit destroys live panes, so it stays manual.
+  if [ -x "$HOME/.local/bin/herdr-server-health" ]; then
+    "$HOME/.local/bin/herdr-server-health" ||
+      { print -P "%F{yellow}   herdr server is not systemd-owned (see above)%f"; fails=$((fails + 1)); }
+  fi
   if (( fails )); then
     print -P "%F{yellow}==> update: done with $fails issue(s)%f"
   else
