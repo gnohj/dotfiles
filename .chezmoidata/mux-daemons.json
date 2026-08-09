@@ -60,11 +60,11 @@
         "note": "drives `claude -p /sb-ticket-log --from-commits` and `/sb-ticket-finish`: both need a real Claude session, same reason as herdr-jira-status. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-sysinfo": {
-        "desc": "herdr sidebar system-info feeder (feeds the $sys metadata token)",
+        "desc": "herdr sidebar system-info feeder (feeds the $sys, $sysres, $repos and $sync metadata tokens)",
         "script": "herdr-sysinfo.py",
         "args": "",
         "interp": "/usr/bin/python3",
-        "token": "$sys",
+        "token": "$sys + $sysres + $repos + $sync",
         "linux": {
           "interp": "",
           "env": [

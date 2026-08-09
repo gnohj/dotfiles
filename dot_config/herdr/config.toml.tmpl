@@ -414,7 +414,10 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. $git red / $git_on green, only ever ONE lit so herdr's " · " never lands between them; per-SIGN color still needs several lit at once - see the /herdr-upgrade watchlist.
 # $pr/$pr_on is the same red/green pair for approvals: – and ◌ ride red $pr, ● rides green $pr_on (herdr-thread-status.py::approval_slots). $ci is still ONE token, so ✗ failure prints in the same color as ✓ success.
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#da858e" }, { token = "$git_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#b7ce97" }], [{ token = "$sys", fg = "#7a90a0" }]]
+# $sys/$sysres/$repos/$sync are pin-only and blank elsewhere, so they ride these rows free; rows 2/3 collapse on the pin.
+# $sys/$sysres split for WIDTH - host@city plus resources is 34 columns against sidebar_width 32.
+# $repos/$sync split for COLOR - a token takes one fg, and unlike $git/$git_on both halves can be lit at once.
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#da858e" }, { token = "$git_on", fg = "#b7ce97" }, { token = "$sys", fg = "#7a90a0" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#b7ce97" }, { token = "$sysres", fg = "#7a90a0" }], [{ token = "$repos", fg = "#da858e" }, { token = "$sync", fg = "#b7ce97" }]]
 
 [session]
 resume_agents_on_restore = true
