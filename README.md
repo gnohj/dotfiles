@@ -6,7 +6,7 @@ My personal dotfiles for macOS and Linux.
 
 ## Key Tools & Configurations
 
-macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/editor/CLI core as a remote dev box over Tailscale.
+macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/editor/CLI core as a remote dev box over Tailscale
 
 ### Shared core (macOS + Linux)
 
