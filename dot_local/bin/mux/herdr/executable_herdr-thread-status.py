@@ -56,7 +56,8 @@ a herdr token's inline fg is unconditional, so one token cannot render – / ◌
 Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
 glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
 
-One workspace opts OUT of all five: the captain's own `🌿 firstmate` sesh session (SESH_LABEL).
+Two workspaces opt OUT of all five: the captain's own `🌿 1stmate-personal` and `🌿 1stmate-work`
+sesh sessions (SESH_LABELS): one code root, two FM_HOMEs, so both are the same checkout.
 It is a read-only `main` checkout of the firstmate repo, so approvals, CI, the vault note and
 Jira are all permanently empty there, and herdr has no per-workspace row layout: the row is
 global, so the only way that row stops rendering as bare placeholders is for its tokens to
@@ -95,8 +96,8 @@ ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
-# The captain's own sesh workspace; NOT `firstmate` or `2ndmate-<id>`, which keep the row.
-SESH_LABEL = "\U0001f33f firstmate"
+# The captain's own sesh workspaces; NOT `firstmate` or `2ndmate-<id>`, which keep the row.
+SESH_LABELS = ("\U0001f33f 1stmate-personal", "\U0001f33f 1stmate-work")
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
@@ -443,7 +444,7 @@ def refresh_once():
     labels = workspace_labels()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
-        if labels.get(workspace) == SESH_LABEL:
+        if labels.get(workspace) in SESH_LABELS:
             # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
             report(workspace, blank_tokens(), seq)
             continue
