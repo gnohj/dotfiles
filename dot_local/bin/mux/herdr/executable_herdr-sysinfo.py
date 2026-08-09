@@ -206,11 +206,12 @@ def meminfo():
     return total - info.get("MemAvailable", info["MemFree"]), total
 
 
+# Rows 3-4 zero-pad every varying cell: herdr re-lays the row out on a length change, so 9% -> 10% reflowed it each tick.
 def uptime():
     # Whole days only - hours churn every poll and the row is glanced at, not read.
     with open("/proc/uptime") as f:
         secs = int(float(f.readline().split()[0]))
-    return f"{secs // 86400}d"
+    return f"{secs // 86400:02d}d"
 
 
 def host_zone():
@@ -252,7 +253,7 @@ class Sampler:
         if prev is None or total <= prev[0]:
             return "--%"
         busy = 1.0 - (idle - prev[1]) / (total - prev[0])
-        return f"{max(0.0, busy) * 100:.0f}%"
+        return f"{max(0.0, busy) * 100:02.0f}%"
 
     def cached_city(self):
         # Tied to CITY_TTL: a longer hold pins a city the disk cache already re-resolved.
@@ -314,7 +315,7 @@ class Sampler:
             pass
         try:
             st = os.statvfs("/")
-            fields["disk"] = f"{(1 - st.f_bavail / st.f_blocks) * 100:.0f}%"
+            fields["disk"] = f"{(1 - st.f_bavail / st.f_blocks) * 100:02.0f}%"
         except (OSError, ZeroDivisionError):
             pass
         try:
@@ -324,7 +325,7 @@ class Sampler:
         try:
             used, total = meminfo()
             fields["mem"], fields["memtot"] = human(used), human(total)
-            fields["memp"] = f"{used / total * 100:.0f}%"
+            fields["memp"] = f"{used / total * 100:02.0f}%"
         except (OSError, KeyError, ZeroDivisionError):
             pass
         try:
