@@ -15,6 +15,7 @@ with pkgs;
 [
   # Core development tools
   neovim
+  chezmoi    # Keep: nix is macOS's only source; Linux's ~/.local/bin copy is bootstrap-only
 
   # CLI utilities
   bat        # Better cat
