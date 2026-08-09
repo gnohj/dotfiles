@@ -251,8 +251,8 @@ class Sampler:
             "behind": f"↓{behind}" if behind else "",
         }
         # Empty halves collapse, so a clean fleet renders nothing and herdr drops the row entirely.
-        parts["sync"] = " · ".join(p for p in (parts["unpushed"], parts["behind"]) if p)
-        parts["repos"] = " · ".join(p for p in (parts["dirty"], parts["sync"]) if p)
+        parts["sync"] = " ".join(p for p in (parts["unpushed"], parts["behind"]) if p)
+        parts["repos"] = " ".join(p for p in (parts["dirty"], parts["sync"]) if p)
 
         def fmt(spec, fallback):
             if not spec:
@@ -456,7 +456,7 @@ def main():
         time.sleep(0.2)
         (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
         if arg == "--print":
-            # repos + sync share a row; herdr joins them, so print them joined here too.
+            # repos + sync share a row; herdr puts its own separator between them.
             for out in (line, res_line, " · ".join(p for p in (repos_line, sync_line) if p)):
                 print(out)
         else:
