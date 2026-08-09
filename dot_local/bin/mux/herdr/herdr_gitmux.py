@@ -37,10 +37,8 @@ CACHE = os.path.join(
 _TMUX_CODE = re.compile(r"(#\[[^]]*\])")
 _NAMED = {"black": 30, "red": 31, "green": 32, "yellow": 33,
           "blue": 34, "magenta": 35, "cyan": 36, "white": 37}
-# Stash and ahead/behind aren't working-tree changes: dropped from the picker column
-# and ignored when sorting "dirty" repos first. Codepoints so no literal glyph lives
-# here; gitmux.yml is untouched, so the tmux status line still shows all of them.
-_NOISE = re.compile("[" + chr(0xEA98) + chr(0x1F446) + chr(0x1F447) + r"]\s*\d*")
+# Stash is dropped (not a working-tree change); ahead/behind deliberately are not - unpushed/unpulled is worth sorting on. Codepoint so no literal glyph lives here.
+_NOISE = re.compile("[" + chr(0xEA98) + r"]\s*\d*")
 
 
 def dwidth(s):

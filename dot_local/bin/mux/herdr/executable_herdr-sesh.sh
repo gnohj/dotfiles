@@ -338,18 +338,25 @@ for p in paths:
     hit = cache.get(p)
     if hit: sym[p] = (hit[1], hit[2], hit[3] if len(hit) > 3 else False)
 
-# Sort: active, sesh.toml config, repos with REAL changes (stash-only is not one), rest — fzf tiebreaks on this input index.
+# Sort: active, repos with git activity (hg.has_changes - working tree plus ahead/behind), sesh.toml config, rest — fzf tiebreaks on this input index.
+# NOTE: this python block is inside a single-quoted bash string, so an apostrophe here ends it - keep comments apostrophe-free.
 def prio(ie):
     i, en = ie
     if en[5]: return (0, i)                                     # active
-    if en[0] == "cfg": return (1, i)                            # curated sesh.toml entries
-    return (2 if sym.get(en[3], ("", 0, False))[2] else 3, i)  # real working-tree changes else rest
+    if sym.get(en[3], ("", 0, False))[2]: return (1, i)         # dirty / unpushed / unpulled
+    if en[0] == "cfg": return (2, i)                            # curated sesh.toml entries
+    return (3, i)
 
 # Render: <emoji> name ❯ path ❯ symbols — one emoji per row (label glyph else kind icon), DISPLAY-width padded so columns align.
 sep = "%s%s%s" % (dim, SEP, RESET)
 ICON_W = 2   # one emoji, 2 display columns
 
-for kind, icon, label, path0, target, active in [en for _, en in sorted(enumerate(entries), key=prio)]:
+# ctrl-g filters HERE rather than in fzf so --view matching, the cursor file and the target dispatch all keep working on a smaller ROWS file.
+ordered = [en for _, en in sorted(enumerate(entries), key=prio)]
+if os.environ.get("SESH_GIT_ONLY") == "1":
+    ordered = [en for en in ordered if sym.get(en[3], ("", 0, False))[2]]
+
+for kind, icon, label, path0, target, active in ordered:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     al = alias_by_path.get(path0, "")
@@ -502,19 +509,29 @@ export FOCUS_FILE="${TMPDIR:-/tmp}/herdr-sesh-pos.$$"
 trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"' EXIT
 
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
+# GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
+GIT_ONLY=0
 while true; do
+  # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
+  export SESH_GIT_ONLY="$GIT_ONLY"
   build_list >"$ROWS_FILE"
+  if [ "$GIT_ONLY" = 1 ]; then PROMPT='󰊢 '; else PROMPT='⚡ '; fi
+  # A filter that hides everything reads as a broken picker, so fall back rather than show a void.
+  if [ "$GIT_ONLY" = 1 ] && [ ! -s "$ROWS_FILE" ]; then
+    GIT_ONLY=0
+    continue
+  fi
   START_POS=$(cat "$FOCUS_FILE" 2>/dev/null) || START_POS=1
   [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
     --no-border --ansi --layout=reverse --list-border --no-sort \
-    --prompt '⚡ ' --gutter=' ' --color "$color_string" \
+    --prompt "$PROMPT" --gutter=' ' --color "$color_string" \
     --input-border --header-border \
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
-    --expect=ctrl-w \
+    --expect=ctrl-w,ctrl-g \
     --sync \
     --bind "start:pos($START_POS)" \
     --bind 'tab:down,btab:up' \
@@ -526,6 +543,13 @@ while true; do
   # With --expect, line 1 is the pressed key (blank on plain enter) and line 2 the selection; on esc both come back empty.
   KEY=$(printf '%s' "$OUT" | head -1)
   SELECTED=$(printf '%s\n' "$OUT" | sed -n '2p')
+
+  # ctrl-g toggles the git-activity view in place; esc from it just exits, same as the full list.
+  if [ "$KEY" = "ctrl-g" ]; then
+    [ "$GIT_ONLY" = 1 ] && GIT_ONLY=0 || GIT_ONLY=1
+    rm -f "$FOCUS_FILE"   # the cursor row is meaningless once the list changes shape
+    continue
+  fi
 
   if [ "$KEY" = "ctrl-w" ]; then
     # 🌳 worktrees scanned live from git; worktree-list emits "🌳 <name>\t<abs-path>".
@@ -548,7 +572,15 @@ while true; do
     continue
   fi
 
-  [ -z "$SELECTED" ] && exit 0
+  if [ -z "$SELECTED" ]; then
+    # esc out of the git view returns to the full picker (as ctrl-w does); only esc from the FULL list closes.
+    if [ "$GIT_ONLY" = 1 ]; then
+      GIT_ONLY=0
+      rm -f "$FOCUS_FILE"
+      continue
+    fi
+    exit 0
+  fi
 
   TARGET="${SELECTED##*$'\t'}"
   rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
