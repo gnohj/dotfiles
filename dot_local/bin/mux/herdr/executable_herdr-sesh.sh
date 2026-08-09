@@ -72,22 +72,25 @@ def real(p):
     try: return os.path.realpath(p).rstrip("/") or p
     except Exception: return p
 
-# path -> alias, keyed by path (not name) so an OPEN workspace keeps its config entry'"'"'s alias.
+# Two indexes over the sesh-aliases.sh rows "<alias>\t<name>\t<path>": by NAME, the only field two
+# entries sharing one path still differ on, and by PATH, the fallback that keeps an OPEN workspace
+# showing its config alias. Path stays last-write-wins; the name lookup is what twins read.
 def load_aliases():
-    out = {}
+    by_name, by_path = {}, {}
     try:
         with open(os.path.join(os.environ["SRC"], "al")) as fh:
             for line in fh:
                 f = line.rstrip("\n").split("\t")
                 if len(f) == 3 and f[0] and f[2]:
                     p = f[2].rstrip("/")
-                    out[p] = f[0]
-                    out.setdefault(real(p), f[0])
+                    if f[1]: by_name.setdefault(f[1], f[0])
+                    by_path[p] = f[0]
+                    by_path.setdefault(real(p), f[0])
     except Exception: pass
-    return out
-alias_by_path = load_aliases()
+    return by_name, by_path
+alias_by_name, alias_by_path = load_aliases()
 # Chips pad to the widest alias so a one-letter one does not pull its name a column left.
-ALIAS_W = max([len(a) for a in alias_by_path.values()] or [0])
+ALIAS_W = max([len(a) for a in list(alias_by_name.values()) + list(alias_by_path.values())] or [0])
 
 def tc(hexs):  # hex "#rrggbb" -> truecolor SGR (matches the popup palette)
     h = (hexs or "").lstrip("#")
@@ -252,37 +255,78 @@ def derive_name(cwd, full):
         return segs[-1] if len(segs) >= 3 else "/".join(segs)
     return os.path.basename(d)
 
-# Collect every entry uniformly: (kind, icon, name, path, target, active).
+# sesh already tags each row config/zoxide, so a second probe for the curated paths is redundant.
+sesh_entries = load("en") or []
+cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.get("Src") == "config"}
+# The identity map: Name -> Path, and Path -> every Name sitting at it. A path holding two names
+# (the firstmate personal/work pair) can no longer name a session on its own - that is the whole
+# reason resolve_entry asks the label first.
+cfg_names, names_by_path = {}, {}
+for e in sesh_entries:
+    if e.get("Src") != "config": continue
+    nm, p = (e.get("Name") or "").strip(), (e.get("Path") or "").rstrip("/")
+    if not nm: continue
+    cfg_names.setdefault(nm, p)
+    # Keyed on the RAW Path, never the realpath: `~/.` (yazi) and `~` (gnohj) are one directory but
+    # two deliberate entries, and folding them together would read as a twin and stop suppressing both.
+    if p: names_by_path.setdefault(p, []).append(nm)
+
+# Which config entry a workspace IS. Name first, since twins differ only by the label they were
+# created with; path second, so every entry alone at its path resolves exactly as it always has.
+# A hand-renamed workspace falls back to the path rule, ambiguous again for a twin - the stated
+# limit of carrying identity on a label, and it degrades to showing both rows, not to a crash.
+def resolve_entry(lname, cwd):
+    if lname and lname in cfg_names: return lname
+    for k in (cwd, real(cwd) if cwd else ""):
+        got = names_by_path.get(k) if k else None
+        if got and len(got) == 1: return got[0]
+    return ""
+
+# Collect every entry uniformly: (kind, icon, name, path, target, active, entry).
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
-active_paths = set()
+active_paths, active_names = set(), set()
 for w in (load("ws") or {}).get("result", {}).get("workspaces", []):
     wid = w.get("workspace_id")
     # This picker builds its own git column from the cwd, so strip any " · <symbols>"
     # suffix a workspace label may carry to avoid a doubled/clipped name.
     label = (w.get("label", "?") or "?").split(" · ", 1)[0].rstrip()
     cwd = wscwd.get(wid, "").rstrip("/")
+    deco, lname = split_label(label)
     # No second row here, so re-expand the ticket tail - but only if the label is still the derived short form.
     if cwd:
-        deco, name0 = split_label(label)
-        if name0 == derive_name(cwd, False):
+        if lname == derive_name(cwd, False):
             label = ("%s %s" % (deco, derive_name(cwd, True))).strip()
-    if cwd: active_paths.update((cwd, real(cwd)))
-    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True))
+        active_paths.update((cwd, real(cwd)))
+    ent = resolve_entry(lname, cwd)
+    if ent: active_names.add(ent)
+    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent))
 
-# sesh already tags each row config/zoxide, so a second probe for the curated paths is redundant.
-sesh_entries = load("en") or []
-cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.get("Src") == "config"}
-seen = set()
+seen_names, seen_paths = set(), set()
 for e in sesh_entries:
     p = (e.get("Path", "") or "").rstrip("/")
-    if not p or p in active_paths or real(p) in active_paths or p in seen: continue
-    seen.add(p)
-    if p in cfg_paths:
-        kind, icon, name = "cfg", "⚙️", (e.get("Name") or os.path.basename(p))  # nice config name
+    if not p: continue
+    nm = (e.get("Name") or "").strip()
+    if e.get("Src") == "config":
+        if not nm or nm in seen_names: continue
+        # Suppress a config entry only when an open workspace resolved to THAT entry, so one twin
+        # being open stops hiding the other. The path test still covers entries no workspace
+        # resolved to, but never a shared path - that collapse is what this change undoes.
+        if nm in active_names: continue
+        if len(names_by_path.get(p, [nm])) == 1 and (p in active_paths or real(p) in active_paths): continue
+        seen_names.add(nm); seen_paths.add(p)
+        kind, icon, name, ent = "cfg", "⚙️", nm, nm                             # nice config name
     else:
-        kind, icon, name = "zox", "📁", (os.path.basename(p) or p)              # dir basename, not full path
-    entries.append((kind, icon, name, p, kind + ":" + p, False))
+        if p in seen_paths or p in active_paths or real(p) in active_paths: continue
+        seen_paths.add(p)
+        nms = names_by_path.get(p, [])
+        # A zoxide row on a curated path still reads ⚙️, but can only carry an entry target when that path names exactly one.
+        if p in cfg_paths and len(nms) == 1:
+            kind, icon, name, ent = "cfg", "⚙️", nms[0], nms[0]
+        else:
+            kind, icon, name, ent = "zox", "📁", (os.path.basename(p) or p), ""  # dir basename, not full path
+    # The target IS the identity: a path repeats across twins, so config rows key on Name and only zoxide rows stay path-keyed.
+    entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent))
 
 # gitmux symbols for EVERY path so non-active repos show status too. Two problems this
 # guards against: (1) running gitmux serially on ~100 dirs would freeze the picker, so
@@ -297,7 +341,7 @@ for e in sesh_entries:
 TTL = 30.0
 now = time.time()
 cache = hg.load()
-paths = [p for _, _, _, p, _, _ in entries if p]
+paths = [en[3] for en in entries if en[3]]
 
 # roots_only off for active paths: only a handful, and a workspace sitting in a subdir of
 # a repo must still report, the way the sidebar poller does for the very same cwd.
@@ -356,10 +400,11 @@ ordered = [en for _, en in sorted(enumerate(entries), key=prio)]
 if os.environ.get("SESH_GIT_ONLY") == "1":
     ordered = [en for en in ordered if sym.get(en[3], ("", 0, False))[2]]
 
-for kind, icon, label, path0, target, active in ordered:
+for kind, icon, label, path0, target, active, ent in ordered:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
-    al = alias_by_path.get(path0, "")
+    # Name lookup first, so twins show their own chip instead of whichever the shared path last wrote.
+    al = (alias_by_name.get(ent) if ent else "") or alias_by_path.get(path0, "")
     chip = ("[%s]" % al).ljust(ALIAS_W + 2) if al else ""
     cw = dwidth(chip) + 1 if chip else 0
     icol = accent if active else dim
@@ -595,7 +640,7 @@ while true; do
         *) exec "$herdr" agent focus "$inner" ;;
       esac
       ;;
-    cfg:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${TARGET#cfg:}" ;;
+    cfg:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" --entry "${TARGET#cfg:}" ;;
     zox:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
     *)             exit 0 ;;
   esac
