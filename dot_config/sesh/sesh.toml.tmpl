@@ -166,8 +166,9 @@ alias = "fm"
 startup_command = "fm"
 
 [[session]]
+# Same code root as 1stmate-personal on purpose - firstmate has one checkout and two FM_HOMEs; the picker keys these two on `name`, not `path`.
 name = "1stmate-work"
-path = "~/Developer/firstmate-work"
+path = "~/Developer/firstmate"
 alias = "fmw"
 startup_command = "fm work"
 {{ if eq .chezmoi.os "darwin" }}

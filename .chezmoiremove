@@ -113,6 +113,11 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 # aic's config - the GitHub Models endpoint it names died 2026-07-30, and it holds a live gh token.
 .aicommitrc
 
+# The ~/Developer/firstmate-work -> firstmate link that gave the two firstmate sesh entries distinct
+# paths. Retired: the picker keys them on the sesh `name` now, so both entries point at the one code
+# root and the link has no reader left. chezmoi removes a symlink here as readily as a file.
+Developer/firstmate-work
+
 # Pre-2026-05-15 copies in ~/scripts, orphaned when private_scripts/ was consolidated into
 # ~/.local/bin (87728e3); chezmoi never removed the deployed originals. By name only - anything
 # hand-placed in ~/scripts stays. agent-sidebar-dashboard.sh was retired, the rest are superseded.
