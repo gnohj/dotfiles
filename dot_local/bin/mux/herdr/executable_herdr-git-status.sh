@@ -71,9 +71,8 @@ HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
 STAGED_SIGN = "●"
 UNSTAGED_SIGNS = ("✖", "✚", "\U000f1036")
 DIRTY_SIGNS = (STAGED_SIGN,) + UNSTAGED_SIGNS
-# ✚ over ● on purpose: ● is already the sidebar's agent state_icon, and reusing it for
-# "repo is dirty" would read as a second status dot on the same panel.
-DIRTY_GLYPH = "✚"
+# The git glyph, matching $repos on the pin; NOT ● (the sidebar's agent state_icon) and no longer ✚ (gitmux's "modified", which this sign is broader than).
+DIRTY_GLYPH = "\U000f02a2"
 CFG = os.environ.get("GITMUX_CFG", os.path.expanduser("~/.config/gitmux/gitmux.yml"))
 TTL = os.environ.get("TTL_MS", "60000")
 seq = str(time.time_ns())                  # ns: monotonic, and above any manual probe seq
