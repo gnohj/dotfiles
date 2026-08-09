@@ -120,8 +120,7 @@ else
     SELECTED=$(printf '%s\n' "$OUT" | sed -n '2p')
 
     if [[ "$KEY" == "ctrl-w" ]]; then
-      # 🌳 worktrees, scanned live from git (worktree-list emits
-      # "🌳 <name>\t<abs-path>"). Show field 1, connect to the hidden path.
+      # Worktrees scanned live from git; worktree-list emits "<glyph> <name>\t<abs-path>", 🌳 linked / 🌿 the repo's own checkout. Show field 1, connect to the hidden path.
       WT=$(worktree-list | fzf "${fzf_common[@]}" \
         --prompt '🌳 ' --delimiter='\t' --with-nth=1 \
         --preview-window=hidden)
