@@ -46,9 +46,10 @@ enough; the only fork is the absolute-path host-city helper on a cache miss.
   herdr-sysinfo.py --once    one refresh pass, then exit
   herdr-sysinfo.py --print   print the rendered line, without touching herdr
 
-The same pass feeds three more tokens onto that pinned space: `$sysres` (cpu/mem/uptime, split off
-`$sys` because host@city plus resources is 34 columns against sidebar_width 32), and the `$repos` /
-`$sync` pair - a fleet-wide git roll-up of dirty, unpushed and unpulled counts across EVERY path
+The same pass feeds four more tokens onto that pinned space: `$sysres` (cpu/mem/disk, split off
+`$sys` because host@city plus resources is 34 columns against sidebar_width 32), `$systime`
+(uptime and the wall-clock time in the box's geolocated zone, on its own row for the same width
+reason), and the `$repos` / `$sync` pair - a fleet-wide git roll-up of dirty, unpushed and unpulled counts across EVERY path
 the sesh picker knows, all of ~/Developer plus every ~/.treehouse slot. That is the half herdr
 cannot show alone: its `$git` token only describes a workspace already open, and the pin is a bare
 ~ workspace with no repo. The pair is two tokens because a token takes ONE fg and both halves can
@@ -65,9 +66,10 @@ Env: HERDR_SYSINFO_INTERVAL  seconds, default 5
      HERDR_SYSINFO_PIN       label of the pinned space, default "🖥️ $USER"
      HERDR_SYSINFO_FORMAT    fields below; default host@city alone (resources live in $sysres)
      HERDR_SYSINFO_RES       $sysres layout; "" disables the token
+     HERDR_SYSINFO_TIME      $systime layout; "" disables the token
      HERDR_REPOS_FORMAT      $repos layout, default "{dirty}"; "" disables the token
      HERDR_SYNC_FORMAT       $sync layout, default "{sync}"; "" disables the token
-Fields: host city hostcity cpu mem memp memtot load disk up time
+Fields: host city hostcity cpu mem memp memtot load disk up time tz
         dirty unpushed behind sync repos
 """
 import fcntl
@@ -79,11 +81,14 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 SOURCE = "sysinfo"
 TOKEN = "sys"
 RES_TOKEN = "sysres"
+TIME_TOKEN = "systime"
 REPOS_TOKEN = "repos"
 SYNC_TOKEN = "sync"
 LINUX = sys.platform.startswith("linux")
@@ -96,13 +101,17 @@ PIN = os.environ.get("HERDR_SYSINFO_PIN") or f"🖥️ {USER}"
 FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or "{hostcity}"
 # Empty off Linux (no /proc). Glyphs and percent-used both mirror the sketchybar cpu/memory widgets.
 RES_FORMAT = os.environ.get("HERDR_SYSINFO_RES") or (
-    " {cpu} ·  {memp} · {up}" if LINUX else "")
+    " {cpu} ·  {memp} · 󰋊 {disk}" if LINUX else "")
+# Uptime and disk swapped rows: disk took uptime's slot beside cpu/mem, uptime took disk's ahead of the clock.
+TIME_FORMAT = os.environ.get("HERDR_SYSINFO_TIME") or ("󰁝 {up} · 󰥔 {time} {tz}" if LINUX else "")
 TTL_MS = int(INTERVAL * 3000 + 5000)
 GRACE = 60.0
 
 CITY_HELPER = os.path.expanduser("~/.local/bin/mux/shared/host-city")
 CITY_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "host-city")
 CITY_TTL = 300
+# Written beside the city cache by the same host-city lookup, so the clock names the city the row names.
+TZ_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "host-tz")
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
 LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
 
@@ -204,6 +213,31 @@ def uptime():
     return f"{secs // 86400}d"
 
 
+def host_zone():
+    """The IANA zone host-city resolved for this box, or None to mean system-local."""
+    try:
+        with open(TZ_CACHE) as f:
+            return ZoneInfo(f.read().strip())
+    except (OSError, ValueError, ZoneInfoNotFoundError):
+        return None
+
+
+def zone_abbrev(stamp):
+    # CDT/CST both read CT: the row names a region, and which half of the year it is is already the clock's job.
+    name = stamp.strftime("%Z")
+    if len(name) == 3 and name[1] in "DS" and name[2] == "T":
+        return name[0] + "T"
+    return name
+
+
+def clock():
+    """(hh:mm, abbrev) in the box's geolocated zone, falling back to system-local."""
+    zone = host_zone()
+    # astimezone() on the fallback, not a bare now(): a naive datetime renders %Z as an empty string.
+    stamp = datetime.now(zone) if zone else datetime.now().astimezone()
+    return stamp.strftime("%H:%M"), zone_abbrev(stamp)
+
+
 class Sampler:
     def __init__(self):
         self.prev = None
@@ -265,7 +299,7 @@ class Sampler:
         return fmt(REPOS_FORMAT, parts["dirty"]), fmt(SYNC_FORMAT, parts["sync"]), parts
 
     def render(self):
-        keys = ("host", "city", "hostcity", "cpu", "mem", "memp", "memtot", "load", "disk", "up", "time")
+        keys = ("host", "city", "hostcity", "cpu", "mem", "memp", "memtot", "load", "disk", "up", "time", "tz")
         fields = {k: "-" for k in keys}
         fields.update(self.render_repos()[2])
         host = os.uname().nodename.split(".")[0]
@@ -273,7 +307,7 @@ class Sampler:
         fields["host"] = host
         fields["city"] = town or "-"
         fields["hostcity"] = f"{host}@{town}" if town else host
-        fields["time"] = time.strftime("%H:%M")
+        fields["time"], fields["tz"] = clock()
         try:
             fields["load"] = f"{os.getloadavg()[0]:.2f}"
         except OSError:
@@ -300,7 +334,7 @@ class Sampler:
         return fields
 
     def sample(self):
-        """(sys_line, res_line) off ONE field build - cpu() is a delta and must be read once a tick."""
+        """(sys_line, res_line, time_line) off ONE field build - cpu() is a delta and must be read once a tick."""
         fields = self.render()
 
         def fmt(spec):
@@ -311,7 +345,7 @@ class Sampler:
             except (KeyError, IndexError):
                 return fields["hostcity"]
 
-        return fmt(FORMAT), fmt(RES_FORMAT)
+        return fmt(FORMAT), fmt(RES_FORMAT), fmt(TIME_FORMAT)
 
 
 def ensure_pin(entries):
@@ -339,7 +373,7 @@ def ensure_pin(entries):
     return {wid}, refreshed
 
 
-def publish(line, res_line="", repos_line="", sync_line="", focused_hint=None):
+def publish(line, res_line="", repos_line="", sync_line="", time_line="", focused_hint=None):
     result = request("workspace.list", {}).get("result") or {}
     entries = result.get("workspaces") or []
     if not entries:
@@ -360,9 +394,10 @@ def publish(line, res_line="", repos_line="", sync_line="", focused_hint=None):
         wanted_res = (res_line or None) if on_target else None
         wanted_repos = (repos_line or None) if on_target else None
         wanted_sync = (sync_line or None) if on_target else None
+        wanted_time = (time_line or None) if on_target else None
         held = entry.get("tokens") or {}
-        fresh = (wanted, wanted_res, wanted_repos, wanted_sync)
-        names = (TOKEN, RES_TOKEN, REPOS_TOKEN, SYNC_TOKEN)
+        fresh = (wanted, wanted_res, wanted_repos, wanted_sync, wanted_time)
+        names = (TOKEN, RES_TOKEN, REPOS_TOKEN, SYNC_TOKEN, TIME_TOKEN)
         # Only redundant CLEARS are skippable: the write is what refreshes ttl_ms, so an unchanged line still needs it.
         if not any(fresh) and not any(held.get(t) is not None for t in names):
             continue
@@ -381,8 +416,8 @@ def stream(sampler):
     req = {"id": SOURCE, "method": "events.subscribe",
            "params": {"subscriptions": [{"type": t} for t in SUBSCRIPTIONS]}}
     conn.sendall((json.dumps(req) + "\n").encode())
-    (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
-    publish(line, res_line, repos_line, sync_line)
+    (line, res_line, time_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+    publish(line, res_line, repos_line, sync_line, time_line)
     deadline = time.monotonic() + INTERVAL
     with conn.makefile("rb") as events:
         while True:
@@ -398,11 +433,11 @@ def stream(sampler):
                 if not str(msg.get("event", "")).endswith(("_focused", "_closed")):
                     continue
                 # Focus moved: retarget the existing line now, no re-sample needed.
-                publish(line, res_line, repos_line, sync_line,
+                publish(line, res_line, repos_line, sync_line, time_line,
                         (msg.get("data") or {}).get("workspace_id"))
                 continue
-            (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
-            publish(line, res_line, repos_line, sync_line)
+            (line, res_line, time_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+            publish(line, res_line, repos_line, sync_line, time_line)
             deadline = time.monotonic() + INTERVAL
 
 
@@ -454,13 +489,13 @@ def main():
     if arg in ("--print", "--once"):
         sampler.sample()          # prime the cpu delta
         time.sleep(0.2)
-        (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+        (line, res_line, time_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
         if arg == "--print":
             # repos + sync share a row; herdr puts its own separator between them.
-            for out in (line, res_line, " · ".join(p for p in (repos_line, sync_line) if p)):
+            for out in (line, res_line, time_line, " · ".join(p for p in (repos_line, sync_line) if p)):
                 print(out)
         else:
-            publish(line, res_line, repos_line, sync_line)
+            publish(line, res_line, repos_line, sync_line, time_line)
         return
     daemon()
 
