@@ -46,16 +46,35 @@ enough; the only fork is the absolute-path host-city helper on a cache miss.
   herdr-sysinfo.py --once    one refresh pass, then exit
   herdr-sysinfo.py --print   print the rendered line, without touching herdr
 
+The same pass feeds three more tokens onto that pinned space: `$sysres` (cpu/mem/uptime, split off
+`$sys` because host@city plus resources is 34 columns against sidebar_width 32), and the `$repos` /
+`$sync` pair - a fleet-wide git roll-up of dirty, unpushed and unpulled counts across EVERY path
+the sesh picker knows, all of ~/Developer plus every ~/.treehouse slot. That is the half herdr
+cannot show alone: its `$git` token only describes a workspace already open, and the pin is a bare
+~ workspace with no repo. The pair is two tokens because a token takes ONE fg and both halves can
+be lit at once - dirty red, arrows green - unlike $git/$git_on where only ever one is.
+
+No scanner and no new dependency: counts are read from the sesh git cache (herdr_gitmux.CACHE)
+that herdr-git-status.sh and the picker already keep warm. That is also the limitation - a path is
+only as fresh as the last poll that visited it. They ride this daemon rather than a second one
+because the pin lookup, event stream and flock already live here, and report_metadata takes a
+token DICT, so each costs one extra key on a request already being sent.
+
 Env: HERDR_SYSINFO_INTERVAL  seconds, default 5
      HERDR_SYSINFO_SCOPE     pin | focused | all, default pin
      HERDR_SYSINFO_PIN       label of the pinned space, default "🖥️ $USER"
-     HERDR_SYSINFO_FORMAT    fields below; default is host@city alone off Linux, and
-                             host@city + cpu/mem/load on Linux
+     HERDR_SYSINFO_FORMAT    fields below; default host@city alone (resources live in $sysres)
+     HERDR_SYSINFO_RES       $sysres layout; "" disables the token
+     HERDR_REPOS_FORMAT      $repos layout, default "{dirty}"; "" disables the token
+     HERDR_SYNC_FORMAT       $sync layout, default "{sync}"; "" disables the token
+     HERDR_REPOS_TTL         seconds between git-cache reads, default 30
 Fields: host city hostcity cpu mem memp memtot load disk up time
+        dirty unpushed behind sync repos
 """
 import fcntl
 import json
 import os
+import re
 import select
 import socket
 import subprocess
@@ -65,6 +84,9 @@ import time
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 SOURCE = "sysinfo"
 TOKEN = "sys"
+RES_TOKEN = "sysres"
+REPOS_TOKEN = "repos"
+SYNC_TOKEN = "sync"
 LINUX = sys.platform.startswith("linux")
 INTERVAL = float(os.environ.get("HERDR_SYSINFO_INTERVAL", "5"))
 SCOPE = os.environ.get("HERDR_SYSINFO_SCOPE", "pin")
@@ -72,10 +94,10 @@ SCOPE = os.environ.get("HERDR_SYSINFO_SCOPE", "pin")
 USER = os.path.basename(os.path.expanduser("~")) or os.environ.get("USER") or "host"
 # "Pinned" is just index 0, recreated if closed - herdr has no such concept, and the line must not chase focus.
 PIN = os.environ.get("HERDR_SYSINFO_PIN") or f"🖥️ {USER}"
-# Off Linux there is no /proc, so cpu/mem would render "-": ship host@city alone there.
-FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or (
-    "{hostcity}  {cpu}  {mem}  {load}" if LINUX else "{hostcity}"
-)
+FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or "{hostcity}"
+# Empty off Linux (no /proc). Glyphs and percent-used both mirror the sketchybar cpu/memory widgets.
+RES_FORMAT = os.environ.get("HERDR_SYSINFO_RES") or (
+    " {cpu} ·  {memp} · {up}" if LINUX else "")
 TTL_MS = int(INTERVAL * 3000 + 5000)
 GRACE = 60.0
 
@@ -84,6 +106,17 @@ CITY_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser
 CITY_TTL = 300
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
 LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
+
+# Two tokens because a herdr token takes ONE fg and dirty (red) can be lit alongside ahead/behind (green).
+REPOS_FORMAT = os.environ.get("HERDR_REPOS_FORMAT", "{dirty}")
+SYNC_FORMAT = os.environ.get("HERDR_SYNC_FORMAT", "{sync}")
+REPOS_TTL = float(os.environ.get("HERDR_REPOS_TTL", "30"))
+# Written by herdr_gitmux.update() from both the sidebar poller and the picker warm pass.
+GIT_CACHE = os.path.join(STATE_DIR, "herdr", "sesh-git-cache.json")
+# Codepoints, not literals, matching herdr_gitmux: these are gitmux.yml's ahead/behind symbols.
+AHEAD, BEHIND = chr(0x1F446), chr(0x1F447)
+_SGR = re.compile(r"\033\[[0-9;]*m")
+_ARROWS = re.compile("[" + AHEAD + BEHIND + r"]\s*\d*")
 
 # workspace.reordered arrived in 0.8.0 with group reordering, which can displace the pin.
 SUBSCRIPTIONS = ["workspace.focused", "tab.focused", "pane.focused", "workspace.closed",
@@ -121,6 +154,29 @@ def city():
         return ""
 
 
+def repo_counts():
+    """(dirty, unpushed, behind) over every path in the sesh git cache, or None if unreadable."""
+    try:
+        with open(GIT_CACHE) as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        return None
+    dirty = unpushed = behind = 0
+    for entry in cache.values():
+        # Entry is [ts, sgr_string, width, has_real_changes]; the glyphs live in the sgr string.
+        if not isinstance(entry, list) or len(entry) < 2:
+            continue
+        flat = _SGR.sub("", entry[1] or "")
+        if AHEAD in flat:
+            unpushed += 1
+        if BEHIND in flat:
+            behind += 1
+        # Whatever survives the arrows is working-tree state; stash was already dropped upstream.
+        if _ARROWS.sub("", flat).strip():
+            dirty += 1
+    return dirty, unpushed, behind
+
+
 def human(kb):
     if kb >= 1024 * 1024:
         return f"{kb / 1048576:.1f}G"
@@ -144,11 +200,10 @@ def meminfo():
 
 
 def uptime():
+    # Whole days only - hours churn every poll and the row is glanced at, not read.
     with open("/proc/uptime") as f:
         secs = int(float(f.readline().split()[0]))
-    days, rem = divmod(secs, 86400)
-    hours = rem // 3600
-    return f"{days}d{hours}h" if days else f"{hours}h{(rem % 3600) // 60}m"
+    return f"{secs // 86400}d"
 
 
 class Sampler:
@@ -156,6 +211,8 @@ class Sampler:
         self.prev = None
         self.city = ""
         self.city_at = 0.0
+        self.repos = None
+        self.repos_at = None
 
     def cpu(self):
         total, idle = cpu_times()
@@ -171,9 +228,45 @@ class Sampler:
             self.city, self.city_at = city(), time.monotonic()
         return self.city
 
+    def cached_repos(self):
+        # Slower than INTERVAL: the cache only moves when a poller or a picker warm pass rewrites it.
+        now = time.monotonic()
+        if self.repos_at is None or now - self.repos_at > REPOS_TTL:
+            counts = repo_counts()
+            if counts is not None:
+                self.repos, self.repos_at = counts, now
+        return self.repos
+
+    def render_repos(self):
+        """(repos_line, sync_line, parts) - fleet-wide and cwd-independent, split red/green."""
+        counts = self.cached_repos()
+        blank = {"dirty": "", "unpushed": "", "behind": "", "repos": "", "sync": ""}
+        if counts is None:
+            return "", "", blank
+        dirty, unpushed, behind = counts
+        parts = {
+            "dirty": f"󰊢 {dirty}" if dirty else "",
+            "unpushed": f"↑{unpushed}" if unpushed else "",
+            "behind": f"↓{behind}" if behind else "",
+        }
+        # Empty halves collapse, so a clean fleet renders nothing and herdr drops the row entirely.
+        parts["sync"] = " · ".join(p for p in (parts["unpushed"], parts["behind"]) if p)
+        parts["repos"] = " · ".join(p for p in (parts["dirty"], parts["sync"]) if p)
+
+        def fmt(spec, fallback):
+            if not spec:
+                return ""
+            try:
+                return spec.format(**parts)
+            except (KeyError, IndexError):
+                return fallback
+
+        return fmt(REPOS_FORMAT, parts["dirty"]), fmt(SYNC_FORMAT, parts["sync"]), parts
+
     def render(self):
         keys = ("host", "city", "hostcity", "cpu", "mem", "memp", "memtot", "load", "disk", "up", "time")
         fields = {k: "-" for k in keys}
+        fields.update(self.render_repos()[2])
         host = os.uname().nodename.split(".")[0]
         town = self.cached_city()
         fields["host"] = host
@@ -203,10 +296,21 @@ class Sampler:
             fields["up"] = uptime()
         except (OSError, IndexError, ValueError):
             pass
-        try:
-            return FORMAT.format(**fields)
-        except (KeyError, IndexError):
-            return fields["hostcity"]
+        return fields
+
+    def sample(self):
+        """(sys_line, res_line) off ONE field build - cpu() is a delta and must be read once a tick."""
+        fields = self.render()
+
+        def fmt(spec):
+            if not spec:
+                return ""
+            try:
+                return spec.format(**fields)
+            except (KeyError, IndexError):
+                return fields["hostcity"]
+
+        return fmt(FORMAT), fmt(RES_FORMAT)
 
 
 def ensure_pin(entries):
@@ -234,7 +338,7 @@ def ensure_pin(entries):
     return {wid}, refreshed
 
 
-def publish(line, focused_hint=None):
+def publish(line, res_line="", repos_line="", sync_line="", focused_hint=None):
     result = request("workspace.list", {}).get("result") or {}
     entries = result.get("workspaces") or []
     if not entries:
@@ -249,16 +353,24 @@ def publish(line, focused_hint=None):
     seq = time.time_ns()
     for entry in entries:
         wid = entry["workspace_id"]
-        wanted = line if wid in targets else None
+        on_target = wid in targets
+        wanted = line if on_target else None
+        # Empty lines are sent as None so herdr drops the token and the row collapses on the pin.
+        wanted_res = (res_line or None) if on_target else None
+        wanted_repos = (repos_line or None) if on_target else None
+        wanted_sync = (sync_line or None) if on_target else None
+        held = entry.get("tokens") or {}
+        fresh = (wanted, wanted_res, wanted_repos, wanted_sync)
+        names = (TOKEN, RES_TOKEN, REPOS_TOKEN, SYNC_TOKEN)
         # Only redundant CLEARS are skippable: the write is what refreshes ttl_ms, so an unchanged line still needs it.
-        if wanted is None and (entry.get("tokens") or {}).get(TOKEN) is None:
+        if not any(fresh) and not any(held.get(t) is not None for t in names):
             continue
         request("workspace.report_metadata", {
             "workspace_id": wid,
             "source": SOURCE,
-            "tokens": {TOKEN: wanted},
+            "tokens": dict(zip(names, fresh)),
             "seq": seq,
-            **({"ttl_ms": TTL_MS} if wanted else {}),
+            **({"ttl_ms": TTL_MS} if any(fresh) else {}),
         })
 
 
@@ -268,8 +380,8 @@ def stream(sampler):
     req = {"id": SOURCE, "method": "events.subscribe",
            "params": {"subscriptions": [{"type": t} for t in SUBSCRIPTIONS]}}
     conn.sendall((json.dumps(req) + "\n").encode())
-    line = sampler.render()
-    publish(line)
+    (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+    publish(line, res_line, repos_line, sync_line)
     deadline = time.monotonic() + INTERVAL
     with conn.makefile("rb") as events:
         while True:
@@ -285,10 +397,11 @@ def stream(sampler):
                 if not str(msg.get("event", "")).endswith(("_focused", "_closed")):
                     continue
                 # Focus moved: retarget the existing line now, no re-sample needed.
-                publish(line, (msg.get("data") or {}).get("workspace_id"))
+                publish(line, res_line, repos_line, sync_line,
+                        (msg.get("data") or {}).get("workspace_id"))
                 continue
-            line = sampler.render()
-            publish(line)
+            (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+            publish(line, res_line, repos_line, sync_line)
             deadline = time.monotonic() + INTERVAL
 
 
@@ -338,10 +451,15 @@ def main():
         return
     sampler = Sampler()
     if arg in ("--print", "--once"):
-        sampler.render()          # prime the cpu delta
+        sampler.sample()          # prime the cpu delta
         time.sleep(0.2)
-        line = sampler.render()
-        print(line) if arg == "--print" else publish(line)
+        (line, res_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+        if arg == "--print":
+            # repos + sync share a row; herdr joins them, so print them joined here too.
+            for out in (line, res_line, " · ".join(p for p in (repos_line, sync_line) if p)):
+                print(out)
+        else:
+            publish(line, res_line, repos_line, sync_line)
         return
     daemon()
 
