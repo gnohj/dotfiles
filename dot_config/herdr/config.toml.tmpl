@@ -315,11 +315,8 @@ pane_scrollbars = false
 # Desktop tab row under the panes (0.8.0, herdrdev/herdr#2117) - desktop client only, inert on the headless VPS.
 tab_bar_position = "bottom"
 
-# Order the Agents panel as an attention queue (blocked/needs-input first) instead
-# of the default "spaces" (grouped by workspace), so the sidebar visually surfaces
-# blocked agents at the top - keeps the panel readable at a glance. Use herdr's
-# native next_agent (prefix+a) to walk the queue.
-agent_panel_sort = "priority"
+# Agents panel grouped by workspace (herdr's default) rather than the "priority" attention queue: an agent staying under its own space is easier to find than one that moves as its state changes. prefix+a still walks blocked agents.
+agent_panel_sort = "spaces"
 
 # Active/focused split-pane border + nav highlight. This `accent` line and the
 # generated [theme.custom] block at the bottom of this file are both retargeted
