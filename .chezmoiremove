@@ -112,3 +112,16 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 
 # aic's config - the GitHub Models endpoint it names died 2026-07-30, and it holds a live gh token.
 .aicommitrc
+
+# Pre-2026-05-15 copies in ~/scripts, orphaned when private_scripts/ was consolidated into
+# ~/.local/bin (87728e3); chezmoi never removed the deployed originals. By name only - anything
+# hand-placed in ~/scripts stays. agent-sidebar-dashboard.sh was retired, the rest are superseded.
+scripts/agent-sidebar-dashboard.sh
+scripts/aic-gitmoji.sh
+scripts/aic-plain.sh
+scripts/cleanup-logs.sh
+scripts/fzf-vim.sh
+scripts/log-ai-cost.sh
+scripts/notify-idle-switch.sh
+scripts/notify-idle.sh
+scripts/open-tmux-attach.sh
