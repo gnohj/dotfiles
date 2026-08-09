@@ -56,6 +56,15 @@ a herdr token's inline fg is unconditional, so one token cannot render – / ◌
 Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
 glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
 
+One workspace opts OUT of all five: the captain's own `🌿 firstmate` sesh session (SESH_LABEL).
+It is a read-only `main` checkout of the firstmate repo, so approvals, CI, the vault note and
+Jira are all permanently empty there, and herdr has no per-workspace row layout: the row is
+global, so the only way that row stops rendering as bare placeholders is for its tokens to
+carry no value. The five are cleared rather than skipped, so a token set by an earlier pass (or
+by an older build of this script) disappears instead of lingering at its stale glyph. Matched on
+the EXACT label: firstmate-the-tool's own home is labelled `firstmate` and secondmate homes
+`2ndmate-<id>`, and those keep the row.
+
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
 that box's thread files and checkouts — the state is per-host and that is correct, since a
 VPS workspace's PR belongs to the VPS checkout. Needs `gh` authenticated on whichever host
@@ -84,6 +93,10 @@ TOKEN = "pr"
 # $pr's green twin, lit only at 2+ approvals; see approval_slots().
 ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
+JIRA_TOKEN = "jira"
+SB_TOKEN = "sb"
+# The captain's own sesh workspace; NOT `firstmate` or `2ndmate-<id>`, which keep the row.
+SESH_LABEL = "\U0001f33f firstmate"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
@@ -173,6 +186,23 @@ def workspace_cwds():
         if ws and cwd and ws not in found:
             found[ws] = cwd
     return found
+
+
+def workspace_labels():
+    """workspace_id -> label. A pane carries no label, so the workspace list is the only source."""
+    raw = out([HERDR, "workspace", "list"], timeout=6)
+    if not raw:
+        return {}
+    try:
+        spaces = json.loads(raw).get("result", {}).get("workspaces", [])
+    except ValueError:
+        return {}
+    return {w.get("workspace_id"): w.get("label") or "" for w in spaces if w.get("workspace_id")}
+
+
+def blank_tokens():
+    """All five tokens empty; report() turns each into a --clear-token, so nothing lingers."""
+    return {JIRA_TOKEN: "", SB_TOKEN: "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}
 
 
 def thread_files():
@@ -410,14 +440,19 @@ def refresh_once():
     # No gh skips only the PR half: $jira and $sb are local reads and still render.
     have_gh = bool(out(["gh", "--version"], timeout=5))
     entries = thread_files()
+    labels = workspace_labels()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
+        if labels.get(workspace) == SESH_LABEL:
+            # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
+            report(workspace, blank_tokens(), seq)
+            continue
         if not os.path.isdir(cwd):
             continue
         branch = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
         if not branch:
             # not a git checkout / detached HEAD
-            report(workspace, {"jira": "", "sb": "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}, seq)
+            report(workspace, blank_tokens(), seq)
             continue
         path, data = thread_for(cwd, branch, entries)
         if not path:
@@ -439,8 +474,8 @@ def refresh_once():
             ci = data.get("ci_status") if data else None
         pr_glyph, pr_on_glyph, ci_glyph = render(approvals, ci)
         report(workspace, {
-            "jira": jira_short(data.get("jira_status") if data else None),
-            "sb": NOTE_GLYPH if note else "",
+            JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
+            SB_TOKEN: NOTE_GLYPH if note else "",
             TOKEN: pr_glyph,
             ON_TOKEN: pr_on_glyph,
             CI_TOKEN: ci_glyph,
@@ -450,7 +485,7 @@ def refresh_once():
 def clear_all():
     seq = str(time.time_ns())
     for workspace in workspace_cwds():
-        report(workspace, {"jira": "", "sb": "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}, seq)
+        report(workspace, blank_tokens(), seq)
 
 
 def main():
