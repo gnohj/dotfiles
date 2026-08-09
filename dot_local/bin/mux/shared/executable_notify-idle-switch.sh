@@ -6,7 +6,6 @@
 
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
-[ "$(uname)" = Linux ] && PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
 
 MUX="${MUX:-$HOME/.local/bin/mux/mux}"
 STATE_FILE="/tmp/notify-idle.latest"
