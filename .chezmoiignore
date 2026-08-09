@@ -68,7 +68,6 @@ tasks
 {{- if ne .chezmoi.os "darwin" }}
 # macOS system scripts (stripped target names)
 mac_system.sh
-mac_dotfiles.sh
 karabiner-driverkit.sh
 claude-desktop-launchers.sh
 
