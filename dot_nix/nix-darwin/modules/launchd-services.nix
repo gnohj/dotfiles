@@ -261,7 +261,7 @@ in
       serviceConfig = {
         ProgramArguments = [
           "/bin/bash"
-          "${homeDir}/Scripts/cleanup-logs.sh"
+          "${homeDir}/.local/bin/cleanup-logs.sh"
         ];
         StartInterval = 259200;  # Run every 72 hours (259200 seconds)
         StandardOutPath = "${homeDir}/.logs/cleanup/launchagent.out.log";
