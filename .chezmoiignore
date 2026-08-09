@@ -94,6 +94,11 @@ Library/
 
 # Linux-only files (skip on macOS)
 {{- if eq .chezmoi.os "darwin" }}
+# wl-copy shim — routes clipboard writes through `to-desktop clip` because herdr-pluck
+# has no OSC 52 path and its wl-copy branch is dead on a headless VPS. macOS needs none
+# of it: pluck picks pbcopy there, and shipping a wl-copy would only shadow a real one.
+.local/bin/wl-copy
+
 # Slim non-Nix toolchain bootstrap — only runs on a Linux VPS. .chezmoiignore
 # matches the TARGET name (source run_onchange_after_linux-bootstrap.sh.tmpl).
 linux-bootstrap.sh

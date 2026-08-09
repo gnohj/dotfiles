@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# wl-copy shim - routes clipboard writes to the machine you are sitting at.
+#
+# WHY THIS EXISTS, and why it is a shim rather than a fix.
+#
+# herdr-pluck (prefix+shift+F, "grab a visible token") copies by shelling out to a
+# system clipboard tool. Its candidate list is gated on the environment: pbcopy on
+# macOS, wl-copy only when WAYLAND_DISPLAY is set, xclip/xsel only when DISPLAY is.
+# It has NO OSC 52 path - checked the whole source. On the headless Linux VPS none of
+# those conditions hold, so the candidate list comes out empty, the copy silently does
+# nothing, and the hint overlay behaves exactly as though it worked.
+#
+# The real /usr/bin/wl-copy is equally useless here: it exists, but there is no Wayland
+# compositor for it to talk to. So this replaces a thing that cannot work with a thing
+# that does, rather than disguising an unrelated tool.
+#
+# to-desktop is the captain's own transport and already reaches the Mac clipboard over
+# an ssh forced-command, falling back to OSC 52. That is the capability pluck should be
+# using and cannot.
+#
+# THE HONEST COST: this only takes effect because WAYLAND_DISPLAY is set in the shell
+# environment, which asserts a Wayland session that does not exist. That assertion is
+# the hack. It is narrow - the picker runs inside a pane, so it inherits the shell - but
+# any other tool that branches on WAYLAND_DISPLAY will also be misled.
+#
+# THE REAL FIX is upstream: an OSC 52 fallback in herdr-pluck's candidate_tools seam, or
+# a configurable copy command. Delete this file and unset WAYLAND_DISPLAY when that lands.
+set -uo pipefail
+
+# wl-copy's own flags are accepted and ignored: pluck passes none today, but a future
+# version passing --trim-newline or --type must not make this fail closed on the caller.
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      echo "wl-copy shim: reads stdin and copies to the desktop clipboard via to-desktop clip." >&2
+      exit 0
+      ;;
+  esac
+done
+
+payload=$(cat)
+
+if ! command -v to-desktop >/dev/null 2>&1; then
+  echo "wl-copy shim: to-desktop not found; clipboard write dropped" >&2
+  exit 1
+fi
+
+printf '%s' "$payload" | to-desktop clip -
