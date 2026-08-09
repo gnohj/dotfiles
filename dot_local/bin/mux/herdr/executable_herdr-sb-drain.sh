@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Supervises `claude -p` for the second-brain work log - a log queue (post-commit hook) and a finish queue (herdr-thread-status on PR merge). A daemon, not a direct hook call, because a blocking post-commit is unusable and batching reads as one story.
+# Supervises `claude -p` for the second-brain work log - a capture queue (start of work), a log queue (post-commit hook) and a finish queue (herdr-thread-status on PR merge). A daemon, not a direct hook call, because a blocking post-commit is unusable and batching reads as one story.
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
@@ -11,6 +11,7 @@ WORK_D="$LOG_Q/.work"
 ATT_D="$LOG_Q/.attempts"
 FAIL_D="$LOG_Q/.failed"
 FINISH_Q="$STATE/sb-ticket-finish-pending"
+CAPTURE_Q="$STATE/sb-ticket-capture-pending"
 LOG="$HOME/.logs/herdr-sb-drain/ticks.log"
 MAX_TRIES=3
 CAP=300
@@ -21,7 +22,7 @@ VAULT_PATH="$HOME/.local/bin/vault-path"
 VAULT_NOTE="$HOME/.local/bin/vault-note"
 ACCOUNT="$HOME/.local/bin/claude-account"
 
-mkdir -p "$(dirname "$LOG")" "$LOG_Q" "$WORK_D" "$ATT_D" "$FAIL_D" "$FINISH_Q"
+mkdir -p "$(dirname "$LOG")" "$LOG_Q" "$WORK_D" "$ATT_D" "$FAIL_D" "$FINISH_Q" "$CAPTURE_Q"
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$LOG"; }
 
 # A tick that outlives its interval would stack; cap it and let the next one retry.
@@ -127,8 +128,61 @@ drain_finish() {
   done
 }
 
+drain_capture() {
+  local f ticket wt ref vault workv acct note
+  for f in "$CAPTURE_Q"/*.json; do
+    [ -e "$f" ] || continue
+    ticket=$(basename "$f" .json)
+    wt=$(jq -r '.worktree // empty' "$f" 2>/dev/null || true)
+
+    # No fallback ref, unlike finish: capture distills the code, so a gone worktree has nothing left to read.
+    if [ -z "$wt" ] || [ ! -d "$wt" ]; then
+      log "DROP capture $ticket — worktree gone"
+      rm -f "$f"
+      continue
+    fi
+    ref="$wt"
+
+    # Same cheap idempotency check finish makes: a note on disk means capture already ran.
+    note=$("$VAULT_NOTE" --ticket "$ticket" "$ref" 2>/dev/null) || note=""
+    if [ -n "$note" ]; then
+      log "SKIP capture $ticket — note already exists"
+      rm -f "$f"
+      continue
+    fi
+
+    vault=$("$VAULT_PATH" "$ref" 2>/dev/null || true)
+    workv=$("$VAULT_PATH" --work 2>/dev/null || true)
+    if [ ! -d "$vault" ] || [ ! -d "$workv" ]; then
+      log "DEFER capture $ticket — vault not mounted"
+      continue
+    fi
+    # Automatic vault writes are authorised for work only, and vault-path is the single owner of
+    # that call - anything it does not resolve to the work vault, ambiguous included, is declined.
+    if [ "$vault" != "$workv" ]; then
+      log "DROP capture $ticket — $ref is not a work worktree"
+      rm -f "$f"
+      continue
+    fi
+    acct=$("$ACCOUNT" cwd "$ref" 2>/dev/null || true)
+
+    if ( cd "$ref" && run_capped "$CAP" env CLAUDE_ACCOUNT="$acct" \
+        "$CLAUDE" -p "/sb-ticket-capture $ticket --worktree $ref" \
+          --permission-mode bypassPermissions \
+          --add-dir "$vault" \
+          --add-dir "$STATE" ); then
+      log "OK capture $ticket"
+      rm -f "$f"
+    else
+      # Keep the job: a failed capture must stay retryable, same rationale as finish.
+      log "RETRY capture $ticket"
+    fi
+  done
+}
+
 drain_once() {
   command -v "$CLAUDE" >/dev/null 2>&1 || [ -x "$CLAUDE" ] || { log "SKIP claude not executable"; return 0; }
+  drain_capture
   drain_log
   drain_finish
   return 0
