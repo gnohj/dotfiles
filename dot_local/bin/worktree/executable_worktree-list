@@ -2,9 +2,15 @@
 # Emit one row per git worktree for the sesh picker's ctrl-w source
 # (see ~/.config/tmux/sesh-popup.sh). Rows are TAB-delimited:
 #
-#     🌳 <display-name>\t<absolute-path>
+#     <glyph> <display-name>\t<absolute-path>
 #
 # fzf shows field 1 (--with-nth=1) and the caller connects to field 2.
+#
+# 🌳 a LINKED worktree, 🌿 the repo's own primary checkout - the same vocabulary as
+# herdr-sesh-layout.sh's workspace labels. `git worktree list` always emits the
+# primary first, so that ordering is the whole classifier; no extra git call. A
+# bare-layout repo's primary IS the .bare dir, dropped below, so its rows are all 🌳.
+# Rows group by repo, so a 🌿 sits with its own trees, not wherever its name sorts.
 #
 # Scan roots:
 #   - every repo under ~/Developer (via its .bare when bare-based, else the
@@ -65,13 +71,23 @@ collect_seeds |
   sort -u -t"$TAB" -k1,1 |
   cut -f2 |
   xargs -P8 -I{} sh -c '
-    wts=$(git -C "$1" worktree list --porcelain 2>/dev/null | sed -n "s/^worktree //p" | grep -v "/\.bare$")
+    all=$(git -C "$1" worktree list --porcelain 2>/dev/null | sed -n "s/^worktree //p")
+    [ -n "$all" ] || exit 0
+    wts=$(printf "%s\n" "$all" | grep -v "/\.bare$")
     [ "$(printf "%s\n" "$wts" | grep -c .)" -gt 1 ] || exit 0
-    printf "%s\n" "$wts"
+    # Sort key, not output: dirname of the common dir is the repo root under both layouts (web/.bare, firstmate/.git).
+    common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+    group=$(dirname "$common")
+    primary=$(printf "%s\n" "$all" | head -n1)
+    printf "%s\n" "$wts" | while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      if [ "$p" = "$primary" ]; then rank=0; glyph="🌿"; else rank=1; glyph="🌳"; fi
+      printf "%s\t%s\t%s\t%s\n" "$group" "$rank" "$glyph" "$p"
+    done
   ' _ {} |
   sort -u |
-  while IFS= read -r p; do
+  while IFS="$TAB" read -r _group _rank glyph p; do
     [ -n "$p" ] || continue
     [ -d "$p" ] || continue
-    printf '🌳 %s\t%s\n' "$(format_name "$p")" "$p"
+    printf '%s %s\t%s\n' "$glyph" "$(format_name "$p")" "$p"
   done

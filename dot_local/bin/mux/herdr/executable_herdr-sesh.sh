@@ -627,7 +627,7 @@ while true; do
   fi
 
   if [ "$KEY" = "ctrl-w" ]; then
-    # 🌳 worktrees scanned live from git; worktree-list emits "🌳 <name>\t<abs-path>".
+    # Worktrees scanned live from git; worktree-list emits "<glyph> <name>\t<abs-path>", 🌳 linked / 🌿 the repo's own checkout, grouped by repo.
     WT=$(worktree-list | fzf \
       --no-border --ansi --layout=reverse --list-border --tiebreak=begin \
       --prompt '🌳 ' --gutter=' ' --color "$color_string" \
