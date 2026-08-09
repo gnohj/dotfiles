@@ -160,10 +160,16 @@ path = "~/.config/opencode"
 alias = "oc"
 
 [[session]]
-name = "firstmate"
+name = "1stmate-personal"
 path = "~/Developer/firstmate"
 alias = "fm"
-startup_command = "git status"
+startup_command = "fm"
+
+[[session]]
+name = "1stmate-work"
+path = "~/Developer/firstmate-work"
+alias = "fmw"
+startup_command = "fm work"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "gnohj-monorepo"
