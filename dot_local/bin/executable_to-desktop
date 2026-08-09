@@ -52,13 +52,16 @@ do_media() {
   esac
 }
 
+# The wl-copy shim's sentinel names no compositor, so it must not read as a display and send a headless box down do_clip.
+real_wayland() { case "${WAYLAND_DISPLAY:-}" in '' | herdr-pluck-shim) ;; *) printf '%s' "$WAYLAND_DISPLAY" ;; esac; }
+
 # DESKTOP_OS is stamped by kitty-remote-quake.sh; its presence means someone upstream owns the display. Rest is fallback for a bare ssh.
 at_desktop() {
   [ -n "${DESKTOP_OS:-}" ] && return 1
   [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" = devbox ] && return 1
   case "$(uname -s)" in
     Darwin) return 0 ;;
-    *) [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] ;;
+    *) [ -n "${DISPLAY:-}$(real_wayland)" ] ;;
   esac
 }
 
