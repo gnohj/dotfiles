@@ -67,7 +67,6 @@ Env: HERDR_SYSINFO_INTERVAL  seconds, default 5
      HERDR_SYSINFO_RES       $sysres layout; "" disables the token
      HERDR_REPOS_FORMAT      $repos layout, default "{dirty}"; "" disables the token
      HERDR_SYNC_FORMAT       $sync layout, default "{sync}"; "" disables the token
-     HERDR_REPOS_TTL         seconds between git-cache reads, default 30
 Fields: host city hostcity cpu mem memp memtot load disk up time
         dirty unpushed behind sync repos
 """
@@ -110,7 +109,6 @@ LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
 # Two tokens because a herdr token takes ONE fg and dirty (red) can be lit alongside ahead/behind (green).
 REPOS_FORMAT = os.environ.get("HERDR_REPOS_FORMAT", "{dirty}")
 SYNC_FORMAT = os.environ.get("HERDR_SYNC_FORMAT", "{sync}")
-REPOS_TTL = float(os.environ.get("HERDR_REPOS_TTL", "30"))
 # Written by herdr_gitmux.update() from both the sidebar poller and the picker warm pass.
 GIT_CACHE = os.path.join(STATE_DIR, "herdr", "sesh-git-cache.json")
 # Codepoints, not literals, matching herdr_gitmux: these are gitmux.yml's ahead/behind symbols.
@@ -229,12 +227,15 @@ class Sampler:
         return self.city
 
     def cached_repos(self):
-        # Slower than INTERVAL: the cache only moves when a poller or a picker warm pass rewrites it.
-        now = time.monotonic()
-        if self.repos_at is None or now - self.repos_at > REPOS_TTL:
+        # Keyed on the cache mtime, not a timer, so the roll-up never lags the $git token reading the same file.
+        try:
+            stamp = os.path.getmtime(GIT_CACHE)
+        except OSError:
+            return self.repos
+        if stamp != self.repos_at:
             counts = repo_counts()
             if counts is not None:
-                self.repos, self.repos_at = counts, now
+                self.repos, self.repos_at = counts, stamp
         return self.repos
 
     def render_repos(self):
