@@ -395,10 +395,29 @@ def prio(ie):
 sep = "%s%s%s" % (dim, SEP, RESET)
 ICON_W = 2   # one emoji, 2 display columns
 
+# What the git view watches, mirroring compute(): active rows count from anywhere inside a checkout, the rest only at its root.
+def in_repo(p):
+    d = p
+    while d and d != "/":
+        if os.path.exists(os.path.join(d, ".git")): return True
+        d = os.path.dirname(d)
+    return False
+
+def watched(p, active):
+    if not p: return False
+    return in_repo(p) if active else os.path.exists(os.path.join(p, ".git"))
+
 # ctrl-g filters HERE rather than in fzf so --view matching, the cursor file and the target dispatch all keep working on a smaller ROWS file.
 ordered = [en for _, en in sorted(enumerate(entries), key=prio)]
 if os.environ.get("SESH_GIT_ONLY") == "1":
-    ordered = [en for en in ordered if sym.get(en[3], ("", 0, False))[2]]
+    dirty = [en for en in ordered if sym.get(en[3], ("", 0, False))[2]]
+    # Nothing dirty lists every repo watched instead of a blank screen; the count rides CLEAN_FILE out to the header.
+    ordered = dirty if dirty else [en for en in ordered if watched(en[3], en[5])]
+    cpath = os.environ.get("CLEAN_FILE")
+    if cpath:
+        try:
+            with open(cpath, "w") as fh: fh.write("" if dirty else str(len(ordered)))
+        except Exception: pass
 
 for kind, icon, label, path0, target, active, ent in ordered:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
@@ -553,7 +572,9 @@ ROWS_FILE="${TMPDIR:-/tmp}/herdr-sesh-rows.$$"
 VIEW_FILE="${TMPDIR:-/tmp}/herdr-sesh-view.$$"
 # Set only for the interactive open, so --list/--warm/--rebuild skip the cursor lookup.
 export FOCUS_FILE="${TMPDIR:-/tmp}/herdr-sesh-pos.$$"
-trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"' EXIT
+# The watched-repo count when the git view found nothing dirty; the header reads it.
+export CLEAN_FILE="${TMPDIR:-/tmp}/herdr-sesh-clean.$$"
+trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE" "$CLEAN_FILE"' EXIT
 
 # Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
 # GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
@@ -562,11 +583,16 @@ while true; do
   # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
   export SESH_GIT_ONLY="$GIT_ONLY"
   build_list >"$ROWS_FILE"
-  # An empty git view stays empty (0/0) and says so, rather than silently reverting to the full list.
+  # Nothing dirty says so in the header and lists what was watched, instead of a bare 0/0 or a silent revert to the full list.
   HEADER=()
   if [ "$GIT_ONLY" = 1 ]; then
     PROMPT='󰊢 '
-    [ -s "$ROWS_FILE" ] || HEADER=(--header '󰊢 all repos clean — nothing to commit, push or pull')
+    CLEAN=$(cat "$CLEAN_FILE" 2>/dev/null) || CLEAN=""
+    if [ -n "$CLEAN" ] && [ "$CLEAN" != 0 ]; then
+      HEADER=(--header "󰊢 all clean - nothing to commit, push or pull · watching $CLEAN repos")
+    elif [ -n "$CLEAN" ]; then
+      HEADER=(--header '󰊢 no git repos in this list')
+    fi
   else
     PROMPT='⚡ '
   fi
