@@ -7,6 +7,8 @@
 # in one place. Pure herdr CLI → runs server-side, works local and over --remote.
 #
 # Usage: herdr-sesh-layout.sh <dir> [label]
+#        herdr-sesh-layout.sh --entry <sesh Name>
+# --entry takes the dir, startup_command and label from the sesh entry of that NAME, which is the only identity two entries sharing one path still differ on.
 # If a workspace already sits at <dir>, it just focuses it (sesh "attach if exists").
 # HERDR_SESH_NO_FOCUS=1 builds it without taking focus, for background callers; the picker leaves it unset.
 set -uo pipefail
@@ -14,10 +16,37 @@ set -uo pipefail
 herdr="${HERDR_BIN_PATH:-herdr}"
 focus_flag=--focus
 [ -n "${HERDR_SESH_NO_FOCUS:-}" ] && focus_flag=--no-focus
-dir="${1:?usage: herdr-sesh-layout.sh <dir> [label]}"
-dir="${dir/#\~/$HOME}"
-
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
+
+# One `sesh list -c -j` pass feeds both the --entry resolution and the startup_command lookup below.
+sesh_json=""
+command -v sesh >/dev/null 2>&1 && sesh_json=$(sesh list -c -j 2>/dev/null)
+
+# entry_shared says whether a SECOND config entry sits at this same path; it is what switches
+# the label derivation and the attach test off the directory and onto the name, below.
+entry_name=""
+entry_shared=""
+case "${1:-}" in
+  --entry) entry_name="${2:?usage: herdr-sesh-layout.sh --entry <sesh Name>}" ;;
+esac
+if [ -n "$entry_name" ]; then
+  [ -n "$sesh_json" ] || { echo "sesh required for --entry"; exit 1; }
+  resolved=$(printf '%s' "$sesh_json" | jq -r --arg n "$entry_name" '
+    (map(select((.Name // "") == $n)) | first) as $e
+    | if $e == null then empty
+      else (($e.Path // "") | rtrimstr("/")) as $p
+        | [$p, (if ([.[] | select(((.Path // "") | rtrimstr("/")) == $p)] | length) > 1
+                then "shared" else "solo" end)] | @tsv
+      end' 2>/dev/null)
+  [ -n "$resolved" ] || { echo "no sesh entry named: $entry_name"; exit 1; }
+  dir="${resolved%%$'\t'*}"
+  entry_shared="${resolved#*$'\t'}"
+  label=""
+else
+  dir="${1:?usage: herdr-sesh-layout.sh <dir> [label] | --entry <sesh Name>}"
+  label="${2:-}"
+fi
+dir="${dir/#\~/$HOME}"
 [ -d "$dir" ] || { echo "not a directory: $dir"; exit 1; }
 
 # Workspace label: the shared sidebar naming rule (session_display_name ->
@@ -42,8 +71,11 @@ command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 # dir. Detection is nesting-safe (rev-parse, not a .git probe): a linked worktree's
 # git-dir differs from the shared common-dir (e.g. web/.bare/worktrees/review vs
 # web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
-label="${2:-}"
-if [ -z "$label" ]; then
+label_explicit="$label"
+if [ -z "$label" ] && [ "$entry_shared" = shared ]; then
+  # Two entries at one path derive byte-identical directory labels, so a twin labels by its sesh Name.
+  label="$entry_name"
+elif [ -z "$label" ]; then
   case "$dir" in
     "$HOME"/Developer/*)
       rel="${dir#"$HOME"/Developer/}"; rel="${rel%/}"
@@ -72,7 +104,9 @@ if [ -z "$label" ]; then
       ;;
   esac
   [ -n "$label" ] || label=$(basename "$dir")
+fi
 
+if [ -z "$label_explicit" ]; then
   glyph="📁"
   if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # Both sides physical (pwd -P): a logical pwd made every symlinked repo read as a worktree.
@@ -90,9 +124,14 @@ fi
 # not the dev layout. Mirror that below. Entries with no explicit startup_command
 # (StartupCommand empty) — plus zoxide/treekanga dirs not in sesh config — fall
 # through to the pen/robot/hammer dev layout.
+#
+# --entry matches the NAME instead, so a twin runs its own command rather than inheriting `first`.
 startup_cmd=""
-if command -v sesh >/dev/null 2>&1; then
-  startup_cmd=$(sesh list -c -j 2>/dev/null | jq -r --arg d "$dir" \
+if [ -n "$sesh_json" ] && [ -n "$entry_name" ]; then
+  startup_cmd=$(printf '%s' "$sesh_json" | jq -r --arg n "$entry_name" \
+    '[.[] | select((.Name // "") == $n) | .StartupCommand // ""] | map(select(. != "")) | first // ""' 2>/dev/null)
+elif [ -n "$sesh_json" ]; then
+  startup_cmd=$(printf '%s' "$sesh_json" | jq -r --arg d "$dir" \
     '[.[] | select((.Path // "" | rtrimstr("/")) == ($d | rtrimstr("/"))) | .StartupCommand // ""] | map(select(. != "")) | first // ""' 2>/dev/null)
 fi
 
@@ -100,8 +139,14 @@ fi
 # The background caller cd's into the new worktree first, so its own pane would read as "already open here" and skip the create.
 self_pane=""
 [ "$focus_flag" = --no-focus ] && self_pane="${HERDR_PANE_ID:-}"
-existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" --arg self "$self_pane" \
-  '[.result.panes[] | select($self == "" or .pane_id != $self) | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
+if [ "$entry_shared" = shared ]; then
+  # Twins report one cwd, so a cwd match focuses the sibling and a second workspace can never exist; the label is the only thing that separates them.
+  existing=$("$herdr" workspace list 2>/dev/null | jq -r --arg l "$label" \
+    '[.result.workspaces[] | select((((.label // "") | split(" · ")[0]) | rtrimstr(" ")) == $l)] | (first // {}).workspace_id // empty' 2>/dev/null)
+else
+  existing=$("$herdr" pane list 2>/dev/null | jq -r --arg d "$dir" --arg self "$self_pane" \
+    '[.result.panes[] | select($self == "" or .pane_id != $self) | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)
+fi
 
 # Home matches by label too: herdr's API carries no workspace root cwd, so a pin whose pane cd'd off ~ gets twinned.
 if [ -z "$existing" ] && [ "${dir%/}" = "${HOME%/}" ]; then
