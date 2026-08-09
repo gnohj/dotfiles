@@ -1,0 +1,12 @@
+# Linux counterpart of the macOS launchd agent `log-cleanup`; same script and cadence, only the scheduler differs, and without it the VPS never prunes ~/.logs at all.
+[Unit]
+Description=Prune ~/.logs to the current and previous month, truncating anything over 100MB
+Documentation=file:%h/.local/bin/cleanup-logs.sh
+
+[Service]
+Type=oneshot
+# systemd user services start near-empty; the script shells out to find, stat, tail, tee, and date.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/cleanup-logs.sh
+# Walks every *.log under ~/.logs and may tail-truncate 100MB files; slower than a single sample, but ten minutes still means wedged.
+TimeoutStartSec=600

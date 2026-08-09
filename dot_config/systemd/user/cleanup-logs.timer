@@ -1,0 +1,13 @@
+# Mirrors the macOS launchd agent's `StartInterval = 259200` (72 hours); Persistent=true so a box that was off still runs one pass on boot instead of skipping the window.
+[Unit]
+Description=Clean up ~/.logs every 72 hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=72h
+# Log pruning is not time-critical; an hour of slack lets systemd coalesce this with other wakeups.
+AccuracySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

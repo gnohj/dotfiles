@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Enable the cleanup-logs timer; Linux/systemd only, and the uname guard makes it a clean no-op on macOS where launchd does this instead.
+# The embedded unit hashes re-run this whenever either unit changes, so daemon-reload picks up edits.
+# service sha256: {{ include "dot_config/systemd/user/cleanup-logs.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/cleanup-logs.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+
+# --now is safe here (unlike herdr-server): the oneshot holds no live state, so starting it just prunes ~/.logs one pass early.
+systemctl --user enable --now cleanup-logs.timer
+
+echo "cleanup-logs.timer enabled (every 72 hours)."
