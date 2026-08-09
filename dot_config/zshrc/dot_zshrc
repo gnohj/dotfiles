@@ -842,24 +842,33 @@ ticket() {
   echo "Opened ticket: $key"
 }
 
-_DIRTY_ROOTS=("$HOME/Developer")
+# Globs, not roots: treehouse nests repos three deep (<pool>/<slot>/<repo>) and a depth-1 walk missed all of them.
+_DIRTY_GLOBS=(
+  "$HOME/Developer/*"
+  "$HOME/Developer/*/*"
+  "$HOME/.treehouse/*/*/*"
+  "$HOME/.local/share/chezmoi"
+)
 
 # Emit "<dirty>\t<path>" per repo; dirty = uncommitted changes or unpushed commits.
+# One `status --porcelain --branch` per repo (header carries ahead), fanned out: ~175 repos took 3s serially.
 _dirty_repos() {
-  local root d state
-  for root in "${_DIRTY_ROOTS[@]}"; do
-    [[ -d "$root" ]] || continue
-    for d in "$root"/*(N-/); do
-      [[ -e "$d/.git" ]] || continue
-      if [[ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]] ||
-        [[ "$(git -C "$d" rev-list --count @{u}..HEAD 2>/dev/null || echo 0)" -gt 0 ]]; then
-        state=true
-      else
-        state=false
-      fi
-      printf '%s\t%s\n' "$state" "${d%/}"
+  local pat d
+  local -a repos
+  for pat in "${_DIRTY_GLOBS[@]}"; do
+    for d in ${~pat}(N-/); do
+      [[ -e "$d/.git" ]] && repos+=("${d%/}")
     done
   done
+  (( ${#repos} )) || return
+  printf '%s\0' "${repos[@]}" | xargs -0 -P 12 -n 1 sh -c '
+    s=$(git -C "$1" status --porcelain --branch 2>/dev/null) || exit 0
+    if [ -n "$(printf "%s\n" "$s" | tail -n +2)" ] || printf "%s" "$s" | head -n 1 | grep -q "ahead "; then
+      printf "true\t%s\n" "$1"
+    else
+      printf "false\t%s\n" "$1"
+    fi
+  ' _ | sort -t$'\t' -k2
 }
 
 # Show dirty/clean state for git repos with a file-level breakdown.
