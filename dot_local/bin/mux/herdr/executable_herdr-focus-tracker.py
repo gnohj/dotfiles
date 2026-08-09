@@ -49,6 +49,18 @@ NUMBERED_LABEL = re.compile(r"^(\d+)\.(.*)$", re.DOTALL)
 AUTO_LABEL = re.compile(r"^\d+$")
 DEFAULT_TAB_TEXT = "\U0001f41f"
 
+# Firstmate owns its own tab and workspace labels and matches them by EXACT string,
+# so renumbering them breaks it silently. Two real failures on 2026-08-09:
+# its seeded-tab prune only fires when the label is still bare "1", and its task
+# recovery selects tabs with label.startswith("fm-"). Renaming "1" to "1.<fish>" and
+# "fm-web" to "1.fm-web" defeats both - spawns fail to converge and orphan discovery
+# goes blind. So this pass leaves firstmate's tabs exactly as firstmate wrote them.
+FIRSTMATE_TAB = re.compile(r"^fm-")
+# Workspaces firstmate owns: its primary home, a secondmate home, and the disposable
+# per-task projection ("└ <task> · p:<token>"). Inside these, an unlabeled tab is a
+# seeded default firstmate is about to prune by exact label, so it must stay bare.
+FIRSTMATE_WORKSPACE = re.compile(r"^(firstmate$|2ndmate-|└ )")
+
 # Labels this daemon wrote and has not yet seen echoed back - see is_self_echo.
 SELF_WRITES = collections.defaultdict(lambda: collections.deque(maxlen=8))
 
@@ -124,6 +136,30 @@ def is_self_echo(tab_id, label):
     return False
 
 
+def restore_firstmate_label(label):
+    """The bare `fm-...` label firstmate wrote, or None when this is not its tab.
+
+    Matches both the untouched form and one an earlier numbering pass already
+    prefixed, so a tab renamed to "1.fm-web" is handed back as "fm-web".
+    """
+    match = NUMBERED_LABEL.match(label)
+    text = match.group(2).strip() if match else label.strip()
+    return text if FIRSTMATE_TAB.match(text) else None
+
+
+def firstmate_workspace_ids():
+    """Workspace ids firstmate owns, by label. Empty when the list cannot be read,
+    which degrades to the previous behaviour rather than skipping everything."""
+    reply = request("workspace.list", {})
+    if not reply or "result" not in reply:
+        return set()
+    return {
+        ws.get("workspace_id")
+        for ws in reply["result"].get("workspaces", [])
+        if FIRSTMATE_WORKSPACE.match((ws.get("label") or "").strip())
+    }
+
+
 def renumber_tabs(typed=None):
     """Give every named tab a `<position>.` prefix, and keep that number honest.
 
@@ -148,12 +184,25 @@ def renumber_tabs(typed=None):
     reply = request("tab.list", {})
     if not reply or "result" not in reply:
         return
+    firstmate_spaces = firstmate_workspace_ids()
     by_workspace = {}
     for tab in reply["result"].get("tabs", []):
         by_workspace.setdefault(tab.get("workspace_id"), []).append(tab)
-    for tabs in by_workspace.values():
+    for workspace_id, tabs in by_workspace.items():
+        # Firstmate matches its own tab labels exactly, so numbering anything inside
+        # its workspaces breaks its prune and its recovery. Leave the whole space alone.
+        if workspace_id in firstmate_spaces:
+            continue
         for position, tab in enumerate(tabs, start=1):
             label = tab.get("label") or ""
+            # A firstmate task tab can also sit in an ordinary workspace. Leave it bare,
+            # and undo a prefix an earlier pass added before this rule existed.
+            bare = restore_firstmate_label(label)
+            if bare is not None:
+                if bare != label:
+                    SELF_WRITES[tab["tab_id"]].append(bare)
+                    request("tab.rename", {"tab_id": tab["tab_id"], "label": bare})
+                continue
             text = typed.get(tab["tab_id"], label_text(label, position))
             desired = f"{position}.{text or DEFAULT_TAB_TEXT}"
             if desired != label:
