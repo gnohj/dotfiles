@@ -77,16 +77,7 @@ export GH_BROWSER="desktop-open"
 # inherit it too. Portable: plain env var, identical behavior on macOS + Linux.
 export GIT_OPTIONAL_LOCKS=0
 
-# herdr-pluck (prefix+shift+F) only considers wl-copy when WAYLAND_DISPLAY is set, and
-# has no OSC 52 path, so on the headless VPS its clipboard candidate list comes out empty
-# and the copy silently no-ops. Setting this makes it pick wl-copy, which ~/.local/bin
-# shims to `to-desktop clip` - the transport that actually reaches the Mac. The picker
-# runs inside a pane, so it inherits this without restarting the herdr server.
-#
-# This ASSERTS A WAYLAND SESSION THAT DOES NOT EXIST. That is the hack, and the reason
-# it is narrow: nothing here is a GUI box, but any tool branching on WAYLAND_DISPLAY is
-# misled. Remove this and the wl-copy shim once herdr-pluck grows an OSC 52 fallback.
-# Linux only - macOS has pbcopy and needs none of this.
+# Fakes a Wayland session so herdr-pluck picks wl-copy, which ~/.local/bin shims to `to-desktop clip`; anything branching on this var is misled.
 {{- if ne .chezmoi.os "darwin" }}
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-herdr-pluck-shim}"
 {{- end }}
