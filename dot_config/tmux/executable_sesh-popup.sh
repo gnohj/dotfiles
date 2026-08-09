@@ -56,25 +56,43 @@ connect_selected() {
 }
 
 if [[ "${1:-}" == "--new-only" ]]; then
-  # cwd of every active tmux session — used to drop entries already open.
+  # cwd of every active tmux session — used to drop entries already open. Names too: two config
+  # entries can share one path (the firstmate pair), and then only the session name tells them apart.
   ACTIVE=$(tmux list-sessions -F '#{session_path}' 2>/dev/null | sort -u || true)
+  ACTIVE_NAMES=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | sort -u || true)
   # `--icons` gives the colored glyph+label rows (config first, then zoxide);
   # `-j` gives the same rows as JSON with Path (for the active filter). Same
-  # query → same order — zip them, drop active/duplicate paths, keep the icon
+  # query → same order — zip them, drop active/duplicate entries, keep the icon
   # line (which `sesh connect` accepts, icon and all).
   ICONS=$("$ROWS" -c -z)
-  LIST=$(sesh list -c -z -j | ICONS="$ICONS" ACTIVE="$ACTIVE" python3 -c '
+  LIST=$(sesh list -c -z -j | ICONS="$ICONS" ACTIVE="$ACTIVE" ACTIVE_NAMES="$ACTIVE_NAMES" python3 -c '
 import sys, json, os
 icons = os.environ.get("ICONS", "").splitlines()
 active = {p.rstrip("/") for p in os.environ.get("ACTIVE", "").splitlines() if p}
-seen = set()
+active_names = {n for n in os.environ.get("ACTIVE_NAMES", "").splitlines() if n}
+entries = json.load(sys.stdin)
+# A zoxide row carries a PATH as its Name, so only config rows can be keyed by name at all.
+at_path = {}
+for e in entries:
+    if e.get("Src") == "config":
+        p = e.get("Path", "").rstrip("/")
+        at_path[p] = at_path.get(p, 0) + 1
+seen, seen_names = set(), set()
 rows = []
-for i, e in enumerate(json.load(sys.stdin)):
+for i, e in enumerate(entries):
     p = e.get("Path", "").rstrip("/")
-    if p in active or p in seen:
-        continue
-    seen.add(p)
-    rows.append(icons[i] if i < len(icons) else e.get("Name", ""))
+    n = (e.get("Name") or "").strip()
+    if e.get("Src") == "config" and at_path.get(p, 0) > 1:
+        # Twins: `sesh connect <Name>` names the tmux session after the entry, which is the only thing that separates them.
+        if n in active_names or n in seen_names:
+            continue
+        seen_names.add(n)
+        seen.add(p)   # still claims the path, so the zoxide row for it stays deduped
+    else:
+        if p in active or p in seen:
+            continue
+        seen.add(p)
+    rows.append(icons[i] if i < len(icons) else n)
 print("\n".join(rows))
 ')
   SELECTED=$(printf '%s\n' "$LIST" | fzf "${fzf_common[@]}")
