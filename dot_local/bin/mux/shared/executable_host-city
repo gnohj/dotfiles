@@ -9,6 +9,8 @@
 set -uo pipefail
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
+# Zone goes to a sibling file, never stdout: that is the tmux host cell's contract, split on "-".
+TZ_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-tz"
 # 5min, not 1h: an exit node flipping changes egress geo instantly.
 TTL=300
 
@@ -24,8 +26,8 @@ file_mtime() {
   printf '%s' "$m"
 }
 
-# Fresh cache -> print it, skip the network entirely.
-if [ -f "$CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
+# Fresh cache -> print it, skip the network. A missing zone counts as stale so old installs backfill.
+if [ -f "$CACHE" ] && [ -f "$TZ_CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
   cat "$CACHE"
   exit 0
 fi
@@ -34,18 +36,23 @@ fi
 # Parse with sed (NOT jq): jq is a mise tool that isn't on PATH in tmux's bare
 # run-shell env on a fresh box, so a jq pipe silently yields an empty city. curl
 # lives in /usr/bin on both platforms, so this only depends on that.
-resp="$(curl -s --max-time 4 'http://ip-api.com/json/?fields=status,city,region' 2>/dev/null || true)"
+resp="$(curl -s --max-time 4 'http://ip-api.com/json/?fields=status,city,region,timezone' 2>/dev/null || true)"
 val() { printf '%s' "$resp" | sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
 city=""
+zone=""
 if [ "$(val status)" = "success" ]; then
   city="$(printf '%s-%s' "$(val city)" "$(val region)" \
     | tr 'A-Z ' 'a-z-' \
     | tr -cd 'a-z0-9-')"
+  # Charset-clamped like the city above: this arrives over plaintext HTTP and lands on disk.
+  zone="$(val timezone | tr -cd 'A-Za-z0-9/_+-')"
 fi
 
 if [ -n "$city" ] && [ "$city" != "-" ]; then
   mkdir -p "$(dirname "$CACHE")"
   printf '%s' "$city" >"$CACHE"
+  # Only ever written next to a good city, so the two never describe different places.
+  [ -n "$zone" ] && printf '%s' "$zone" >"$TZ_CACHE"
   printf '%s' "$city"
 elif [ -f "$CACHE" ]; then
   cat "$CACHE"   # network failed -> last known location
