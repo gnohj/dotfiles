@@ -2455,11 +2455,15 @@ generate_herdr_config() {
   # token (gnohj green). Dim is overlay0; lit is gnohj green, matching $pn_on so
   # both panels light their selected row alike and track the scheme rather than mauve's value.
   # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so each has a green twin.
+  # Pin-only cells ($repos/$sync/$sys/$sysres/$systime) MUST be listed or a theme switch drops them; they take overlay0 to read as background detail.
   # $git_on is $git's green twin - the poller lights whichever matches (all staged vs not), never both.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }], [{ token = "$sys", fg = "%s" }]]' \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color46")"
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }, { token = "$sys", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$sysres", fg = "%s" }], [{ token = "$systime", fg = "%s" }]]' \
+    "$gnohj_color11" "$gnohj_color02" \
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color13" \
+    "$gnohj_color13")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
   # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
