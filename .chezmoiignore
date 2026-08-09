@@ -111,4 +111,8 @@ linux-bootstrap.sh
 # Usage sampler — same story: macOS runs the identical script from its launchd agent.
 .config/systemd/user/usage-sample.service
 .config/systemd/user/usage-sample.timer
+
+# Log cleanup — same story: macOS runs the identical script from its launchd agent `log-cleanup`.
+.config/systemd/user/cleanup-logs.service
+.config/systemd/user/cleanup-logs.timer
 {{- end }}
