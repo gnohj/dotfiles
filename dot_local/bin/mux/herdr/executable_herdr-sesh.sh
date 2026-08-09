@@ -423,7 +423,9 @@ for kind, icon, label, path0, target, active, ent in ordered:
     if kind == "ws":
         rows.extend(agent_rows(target[3:], cw))
 
-print("\n".join(rows))
+# Guarded: joining an empty list still prints a newline, which fzf counts as one blank row.
+if rows:
+    print("\n".join(rows))
 
 # Cursor row: focused pane'"'"'s agent row, else its tab, else its workspace - a popup overlays a pane, so the walk above still sees it (as in herdr-scrollback.sh); HERDR_* env is the fallback.
 fpath = os.environ.get("FOCUS_FILE")
@@ -560,11 +562,13 @@ while true; do
   # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
   export SESH_GIT_ONLY="$GIT_ONLY"
   build_list >"$ROWS_FILE"
-  if [ "$GIT_ONLY" = 1 ]; then PROMPT='󰊢 '; else PROMPT='⚡ '; fi
-  # A filter that hides everything reads as a broken picker, so fall back rather than show a void.
-  if [ "$GIT_ONLY" = 1 ] && [ ! -s "$ROWS_FILE" ]; then
-    GIT_ONLY=0
-    continue
+  # An empty git view stays empty (0/0) and says so, rather than silently reverting to the full list.
+  HEADER=()
+  if [ "$GIT_ONLY" = 1 ]; then
+    PROMPT='󰊢 '
+    [ -s "$ROWS_FILE" ] || HEADER=(--header '󰊢 all repos clean — nothing to commit, push or pull')
+  else
+    PROMPT='⚡ '
   fi
   START_POS=$(cat "$FOCUS_FILE" 2>/dev/null) || START_POS=1
   [ -n "$START_POS" ] || START_POS=1
@@ -573,7 +577,7 @@ while true; do
   OUT=$(fzf <"$ROWS_FILE" \
     --no-border --ansi --layout=reverse --list-border --no-sort \
     --prompt "$PROMPT" --gutter=' ' --color "$color_string" \
-    --input-border --header-border \
+    --input-border --header-border "${HEADER[@]}" \
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
     --expect=ctrl-w,ctrl-g \
