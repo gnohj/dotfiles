@@ -6,7 +6,7 @@
 # thread-state note, wire up sesh/herdr/pbcopy sessions, run codegen, fire
 # notifications, or kill windows — treehouse owns the pool-worktree lifecycle,
 # so all we want is a usable checkout. Just three things:
-#   1. copy .env files from the repo's main worktree (if any are missing here)
+#   1. copy .env files + .no-mistakes.yaml from the repo's main worktree (if missing here)
 #   2. pnpm install via install-deps.sh - backgrounded, and skipped for review-*
 #      leases (review-open.sh runs it after the PR checkout instead)
 #   3. register the path with zoxide
@@ -56,7 +56,7 @@ if command -v zoxide >/dev/null 2>&1; then
   _ZO_DATA_DIR="$HOME/.config/zshrc" zoxide add "$WT" 2>/dev/null || true
 fi
 
-# 1 — copy .env from the repo's MAIN worktree. treehouse paths
+# 1 — copy .env + .no-mistakes.yaml from the repo's MAIN worktree. treehouse paths
 # (~/.treehouse/<pool>/N/…) don't encode the repo like ~/Developer/<repo> does,
 # so derive the repo + its default-branch worktree from the shared bare repo.
 common="$(git -C "$WT" rev-parse --git-common-dir 2>/dev/null || true)"
@@ -75,17 +75,23 @@ if [ -n "$common" ]; then
   repo_name="$(basename "$repo_dir")"
   skip_env=0
   for r in "${ENV_COPY_SKIP[@]}"; do [ "$repo_name" = "$r" ] && skip_env=1; done
-  if [ "$skip_env" -eq 0 ] && [ -n "$def" ] && [ -d "$main_wt" ] && [ "$main_wt" != "$WT" ]; then
-    env_files=(.env .env.local .env.development .env.development.local)
-    if [ -d "$main_wt/apps" ]; then
-      while IFS= read -r abs; do env_files+=("${abs#"$main_wt"/}"); done \
-        < <(find "$main_wt/apps" -maxdepth 2 -type f \( -name '.env' -o -name '.env.*' \) ! -name '.env.example' 2>/dev/null)
+  if [ -n "$def" ] && [ -d "$main_wt" ] && [ "$main_wt" != "$WT" ]; then
+    # Deliberately outside ENV_COPY_SKIP: that list is about inferno's per-target envs, not pipeline config.
+    if [ -f "$main_wt/.no-mistakes.yaml" ] && [ ! -f "$WT/.no-mistakes.yaml" ]; then
+      cp "$main_wt/.no-mistakes.yaml" "$WT/.no-mistakes.yaml" 2>/dev/null && echo "copied .no-mistakes.yaml from main"
     fi
-    for e in "${env_files[@]}"; do
-      if [ -f "$main_wt/$e" ] && [ ! -f "$WT/$e" ]; then
-        mkdir -p "$(dirname "$WT/$e")" 2>/dev/null && cp "$main_wt/$e" "$WT/$e" 2>/dev/null && echo "copied $e from main"
+    if [ "$skip_env" -eq 0 ]; then
+      env_files=(.env .env.local .env.development .env.development.local)
+      if [ -d "$main_wt/apps" ]; then
+        while IFS= read -r abs; do env_files+=("${abs#"$main_wt"/}"); done \
+          < <(find "$main_wt/apps" -maxdepth 2 -type f \( -name '.env' -o -name '.env.*' \) ! -name '.env.example' 2>/dev/null)
       fi
-    done
+      for e in "${env_files[@]}"; do
+        if [ -f "$main_wt/$e" ] && [ ! -f "$WT/$e" ]; then
+          mkdir -p "$(dirname "$WT/$e")" 2>/dev/null && cp "$main_wt/$e" "$WT/$e" 2>/dev/null && echo "copied $e from main"
+        fi
+      done
+    fi
   fi
 fi
 
