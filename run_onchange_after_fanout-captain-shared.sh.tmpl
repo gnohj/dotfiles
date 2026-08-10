@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Fans ~/.config/firstmate/captain-shared.md out to every PRIMARY firstmate home's data/captain-shared.md
+# as a real file. Second mate homes are skipped: their copy is inherited from their parent via
+# firstmate's own propagation (bin/fm-config-push.sh), never authored here.
+# canonical sha256: {{ include "/home/gnohj/.config/firstmate/captain-shared.md" | sha256sum }}
+set -eu
+
+CANONICAL="$HOME/.config/firstmate/captain-shared.md"
+
+if [ ! -f "$CANONICAL" ]; then
+  echo "fanout-captain-shared: canonical file missing: $CANONICAL" >&2
+  exit 1
+fi
+
+for home in "$HOME"/.local/share/firstmate*; do
+  [ -d "$home/data" ] || continue
+  [ -e "$home/.fm-secondmate-home" ] && continue
+
+  dest="$home/data/captain-shared.md"
+
+  if [ -f "$dest" ] && [ ! -L "$dest" ] && cmp -s "$CANONICAL" "$dest"; then
+    continue
+  fi
+
+  tmp="$dest.tmp.$$"
+  rm -f "$tmp"
+  cp "$CANONICAL" "$tmp"
+  mv "$tmp" "$dest"
+  echo "fanout-captain-shared: wrote $dest"
+done
