@@ -33,3 +33,5 @@ http-client.private.env.json
 .99-tmp
 .superpowers/
 .no-mistakes.yaml
+# Untracked no-op shim husky regenerates in every worktree; left visible it blocks teardown.
+.husky/post-commit
