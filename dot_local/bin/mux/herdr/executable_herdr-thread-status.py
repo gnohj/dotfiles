@@ -56,7 +56,7 @@ a herdr token's inline fg is unconditional, so one token cannot render – / ◌
 Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
 glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
 
-Two workspaces opt OUT of all five: the captain's own `🌿 fm-personal` and `🌿 fm-work`
+Two workspaces opt OUT of all five: the captain's own `🦜 fm-personal` and `🦜 fm-work`
 sesh sessions (SESH_LABELS): one code root, two FM_HOMEs, so both are the same checkout.
 It is a read-only `main` checkout of the firstmate repo, so approvals, CI, the vault note and
 Jira are all permanently empty there, and herdr has no per-workspace row layout: the row is
@@ -97,7 +97,7 @@ CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
 # The captain's own sesh workspaces; NOT `firstmate` or `2ndmate-<id>`, which keep the row.
-SESH_LABELS = ("\U0001f33f fm-personal", "\U0001f33f fm-work")
+SESH_LABELS = ("\U0001f99c fm-personal", "\U0001f99c fm-work")
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
