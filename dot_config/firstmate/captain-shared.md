@@ -2,6 +2,8 @@
 
 This file is read by EVERY firstmate home on this machine, and pushed down to every second mate.
 
+In a home that has second mates, this content is **main-authoritative** in that primary home and **read-only in secondmate homes** - it **must not be edited there**, because the next propagation overwrites it. A preference discovered inside a second mate goes back to the **main firstmate** as a **marked status** line or a **document pointer**, never by editing that copy. Firstmate refuses to propagate a source whose first twelve lines omit that warning, so this paragraph is load-bearing: keep it here, keep it near the top, and copy it with the file.
+
 It is NOT a channel between homes. Nothing here is addressed to a particular home, and no home may put something here aimed at another. If a rule needs an audience, it does not belong here.
 
 ## The admission test - read this before adding anything
@@ -130,6 +132,25 @@ On the resulting wake, load the `fm-pr-comments` skill.
 It owns the whole procedure; the two things never to get wrong are that you STEER THE EXISTING WORKER rather than spawning, leasing or relaunching anything, and that the worker rebases onto the moved branch before committing, because a bot lands base-branch merges onto PR branches while the worktree sits idle.
 
 The check is stateless and self-clearing, and goes silent on a merged PR by itself, so nothing needs disarming.
+
+## Never modify a source repo to suit our workflow
+
+Stated by the captain on 2026-08-10: "never against the source repos like firstmate/web/inferno/etc".
+
+When our tooling collides with a repo we consume, the fix goes in OUR hooks, skills, config or placement - never into that repo. This covers firstmate, web, inferno, and any repo we did not create for this purpose.
+
+**This does NOT restrict ordinary product work.** Shipping a feature or a fix through the project's normal delivery path is exactly what the repo is for. The rule is about editing a repo's own tooling, config or conventions so that OUR workflow fits more comfortably.
+
+Why: those repos are shared with other people or owned by someone else. A change that exists only to serve one person's pipeline is clutter to every other contributor, and a local patch forks the environment invisibly - it works until someone else's clone behaves differently and nobody can see why.
+
+Two worked examples from the day it was stated, both of which had already reached a PR before being caught:
+
+- **A private pipeline config** was committed to web, needing a forced add past a global ignore rule. Withdrawn: it is kept unversioned and distributed into each worktree by a hook instead. No other contributor there runs that pipeline.
+- **A skill whose commits collided with pipeline branch custody** was going to be edited in web. Withdrawn: the collision is about WHEN we invoke it, so it is solved by never running it while the pipeline owns the branch. Zero changes to the repo.
+
+The test to apply before opening any such PR: *would a contributor who never uses my tooling want this change?* If no, the fix belongs on our side.
+
+When the collision is a genuine defect rather than a preference, report it upstream to whoever owns that repo and keep working around it meanwhile. Preserve the evidence; do not carry a local patch.
 
 ## Merge approval belongs to the captain
 
