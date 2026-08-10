@@ -2,7 +2,7 @@
 # Fans ~/.config/firstmate/captain-shared.md out to every PRIMARY firstmate home's data/captain-shared.md
 # as a real file. Second mate homes are skipped: their copy is inherited from their parent via
 # firstmate's own propagation (bin/fm-config-push.sh), never authored here.
-# canonical sha256: {{ include "/home/gnohj/.config/firstmate/captain-shared.md" | sha256sum }}
+# canonical sha256: {{ include "dot_config/firstmate/captain-shared.md" | sha256sum }}
 set -eu
 
 CANONICAL="$HOME/.config/firstmate/captain-shared.md"
