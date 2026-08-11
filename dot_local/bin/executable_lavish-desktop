@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# lavish-desktop <html-file> [--reopen] - open a Lavish artifact on the screen the human is at, and print that url.
+set -uo pipefail
+
+file="${1:?usage: lavish-desktop <html-file> [--reopen]}"
+shift
+[ -f "$file" ] || { echo "lavish-desktop: no such file: $file" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "lavish-desktop: jq required" >&2; exit 1; }
+
+# Suppress lavish-axi's own auto-open, else the workstation gets two tabs and the devbox a loopback refusal.
+out=$(env BROWSER= GH_BROWSER= lavish-axi "$file" "$@" 2>&1) || {
+  printf '%s\n' "$out" >&2
+  exit 1
+}
+printf '%s\n' "$out"
+
+local_url=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)
+[ -n "$local_url" ] || { echo "lavish-desktop: could not parse a url from lavish-axi output" >&2; exit 1; }
+
+url="$local_url"
+if [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" = devbox ]; then
+  origin=${local_url%%/session/*}
+  port=${origin##*:}
+  case "$port" in '' | *[!0-9]*) echo "lavish-desktop: unexpected origin: $origin" >&2; exit 1 ;; esac
+
+  # Reused, never torn down here: lavish-axi serves every artifact off this one port.
+  public=$(tailscale serve status --json 2>/dev/null | jq -r --arg p "$port" '
+    (.Web // {}) | to_entries[]
+    | .key as $host | (.value.Handlers // {}) | to_entries[]
+    | select((.value.Proxy // "") | test("127\\.0\\.0\\.1:" + $p + "$"))
+    | "https://" + $host + (if .key == "/" then "" else (.key | sub("/$"; "")) end)' 2>/dev/null | head -n1)
+
+  if [ -z "$public" ]; then
+    host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+    [ -n "$host" ] || { echo "lavish-desktop: tailscale not up - cannot reach the workstation" >&2; exit 1; }
+    tailscale serve --bg --https=8443 "http://127.0.0.1:$port" >/dev/null 2>&1 ||
+      { echo "lavish-desktop: tailscale serve failed for port $port" >&2; exit 1; }
+    public="https://$host:8443"
+  fi
+  url="$public${local_url#"$origin"}"
+fi
+
+"$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1 ||
+  echo "lavish-desktop: to-desktop refused $url - open it by hand" >&2
+echo "desktop_url: $url"
