@@ -7,6 +7,15 @@ shift
 [ -f "$file" ] || { echo "lavish-desktop: no such file: $file" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "lavish-desktop: jq required" >&2; exit 1; }
 
+role=$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)
+
+ts_host=""
+if [ "$role" = devbox ]; then
+  ts_host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+  # Must be exported before lavish-axi starts the server: its Host allowlist is loopback-only, and tailscale serve forwards the real hostname.
+  [ -n "$ts_host" ] && export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:+$LAVISH_AXI_ALLOWED_HOSTS }$ts_host"
+fi
+
 # Suppress lavish-axi's own auto-open, else the workstation gets two tabs and the devbox a loopback refusal.
 out=$(env BROWSER= GH_BROWSER= lavish-axi "$file" "$@" 2>&1) || {
   printf '%s\n' "$out" >&2
@@ -18,7 +27,7 @@ local_url=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}
 [ -n "$local_url" ] || { echo "lavish-desktop: could not parse a url from lavish-axi output" >&2; exit 1; }
 
 url="$local_url"
-if [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" = devbox ]; then
+if [ "$role" = devbox ]; then
   origin=${local_url%%/session/*}
   port=${origin##*:}
   case "$port" in '' | *[!0-9]*) echo "lavish-desktop: unexpected origin: $origin" >&2; exit 1 ;; esac
@@ -31,13 +40,17 @@ if [ "$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)" = dev
     | "https://" + $host + (if .key == "/" then "" else (.key | sub("/$"; "")) end)' 2>/dev/null | head -n1)
 
   if [ -z "$public" ]; then
-    host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
-    [ -n "$host" ] || { echo "lavish-desktop: tailscale not up - cannot reach the workstation" >&2; exit 1; }
+    [ -n "$ts_host" ] || { echo "lavish-desktop: tailscale not up - cannot reach the workstation" >&2; exit 1; }
     tailscale serve --bg --https=8443 "http://127.0.0.1:$port" >/dev/null 2>&1 ||
       { echo "lavish-desktop: tailscale serve failed for port $port" >&2; exit 1; }
-    public="https://$host:8443"
+    public="https://$ts_host:8443"
   fi
   url="$public${local_url#"$origin"}"
+
+  # /health goes through the same Host check but mints no artifact nonce, so probing it cannot expire an open tab.
+  if ! curl -fsS -o /dev/null --max-time 5 "$public/health" 2>/dev/null; then
+    echo "lavish-desktop: $public rejects this host - a server started before LAVISH_AXI_ALLOWED_HOSTS is still running; 'lavish-axi stop' then re-run (keeps sessions, restarts the shared server)" >&2
+  fi
 fi
 
 "$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1 ||
