@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# review-lavish-publish <html-file> - put the artifact on the reviewer's screen and print the url to hand over.
+set -uo pipefail
+
+file="${1:?review-lavish-publish: missing <html-file>}"
+[ -f "$file" ] || { echo "review-lavish-publish: no such file: $file" >&2; exit 2; }
+
+# lavish-desktop owns the routing and always prints `desktop_url:`, even when it cannot open anything.
+if command -v lavish-desktop >/dev/null 2>&1; then
+  exec lavish-desktop "$file"
+fi
+
+# No router installed: fall back to the plain open, which is correct wherever the browser is local.
+exec lavish-axi "$file"

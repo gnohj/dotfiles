@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# review-lavish-teardown <pr> <artifact-dir> <owner/repo> <head-sha> - close this PR's windows; the skill handles the session and artifact.
+set -uo pipefail
+
+pr="${1:?review-lavish-teardown: missing <pr>}"
+# Digits only: this reaches an awk regex downstream, where ".*" would match and close every window.
+case "$pr" in '' | *[!0-9]*) echo "review-lavish-teardown: refusing non-numeric pr: $pr" >&2; exit 2 ;; esac
+wt="$HOME/.config/gh-dash/review-worktree.sh"
+
+# Absent helper is not a failure: a machine without the gh-dash review flow has no windows to close.
+[ -x "$wt" ] || { echo "review-lavish-teardown: no review-worktree.sh - nothing to close for #$pr"; exit 0; }
+
+exec bash "$wt" release "$pr"
