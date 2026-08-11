@@ -131,7 +131,7 @@ acquire() {
 }
 
 release_pr() {
-  local pr="$1" state_file="$STATE_DIR/$1" wt="" p lavish_dir="$LAVISH_DIR/$1"
+  local pr="$1" state_file="$STATE_DIR/$1" wt="" p busy="" lavish_dir="$LAVISH_DIR/$1"
   # Read tolerantly: concurrent sweeps (e.g. closing many windows at once) may
   # remove this file between a test and a read, which would abort under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
@@ -166,17 +166,42 @@ release_pr() {
   # Ended before removal: a live session outlives its file and would keep serving a page whose assets are gone.
   # $pr guarded because it defaults to empty: an unguarded rm -rf would take every artifact, not this one.
   if [ -n "$pr" ] && [ -d "$lavish_dir" ]; then
-    if command -v lavish-axi >/dev/null 2>&1; then
-      lavish-axi end "$lavish_dir/review.html" >/dev/null 2>&1 || true
+    busy="$(lavish_busy "$lavish_dir" || true)"
+    if [ -n "$busy" ]; then
+      _slog "  lavish artifact KEPT for $pr: $busy"
+      notify "📋 Kept PR #$pr review page - $busy"
+    else
+      if command -v lavish-axi >/dev/null 2>&1; then
+        lavish-axi end "$lavish_dir/review.html" >/dev/null 2>&1 || true
+      fi
+      rm -rf "$lavish_dir"
+      _slog "  lavish artifact removed for $pr"
     fi
-    rm -rf "$lavish_dir"
-    _slog "  lavish artifact removed for $pr"
   fi
   return 0
 }
 
+# Prints why an artifact must survive teardown: a page open in a browser is invisible to any window check.
+LAVISH_STATE="${LAVISH_AXI_STATE:-$HOME/.lavish-axi/state.json}"
+lavish_busy() {
+  local dir="$1" n=""
+  command -v jq >/dev/null 2>&1 || return 1
+  if [ -f "$dir/data.js" ]; then
+    n=$(sed 's/^window\.__REVIEW__=//; s/;[[:space:]]*$//' "$dir/data.js" 2>/dev/null |
+      jq -r '(.pendingComments // []) | length' 2>/dev/null)
+    case "$n" in '' | 0 | *[!0-9]*) ;; *) echo "$n unsubmitted comment(s)"; return 0 ;; esac
+  fi
+  if [ -f "$LAVISH_STATE" ] && [ "$(jq -r --arg f "$dir/review.html" \
+    '(.sessions // {}) | to_entries[] | select(.value.file == $f) | .value.status' \
+    "$LAVISH_STATE" 2>/dev/null | head -n1)" = open ]; then
+    echo "review page still open in the browser"
+    return 0
+  fi
+  return 1
+}
+
 sweep_lavish() {
-  local now d pr age
+  local now d pr age busy
   [ -d "$LAVISH_DIR" ] || return 0
   now="$(date +%s)"
   for d in "$LAVISH_DIR"/*; do
@@ -186,6 +211,8 @@ sweep_lavish() {
     [ -e "$STATE_DIR/$pr" ] && continue
     age=$((now - $(_mtime "$d")))
     [ "$age" -lt "$LAVISH_MAX_AGE" ] && continue
+    busy="$(lavish_busy "$d" || true)"
+    if [ -n "$busy" ]; then _slog "  lavish artifact KEPT for $pr: $busy"; continue; fi
     if command -v lavish-axi >/dev/null 2>&1; then
       lavish-axi end "$d/review.html" >/dev/null 2>&1 || true
     fi

@@ -7,7 +7,7 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Octo (auto-review) + hunk + Claude /review-lavish + ENHANCE
+#   full       P        Octo (auto-review) + Claude /review-lavish + ENHANCE
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
@@ -134,9 +134,11 @@ open_claude_hunk() {
     'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
+# $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
 open_claude_review() {
+  local cmd="${2:-review}"
   mux "🤖 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions "/review '"$pr"'"'
+    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
@@ -152,11 +154,8 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     open_octo "$WT" 1
-    PANE="$(open_hunk "$WT" "$MERGE_BASE")"
-    open_hunk_sidebar "$PANE" &
-    open_claude_hunk "$WT" "$PANE" review-lavish
+    open_claude_review "$WT" review-lavish
     open_enhance "$WT"
     ;;
   octo)
