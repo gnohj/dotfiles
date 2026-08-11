@@ -21,6 +21,9 @@
 set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees"
+LAVISH_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-lavish"
+# Backstop for artifacts whose slot was never reclaimed: release_pr is lease-driven and never fires for those.
+LAVISH_MAX_AGE="${GH_REVIEW_LAVISH_MAX_AGE:-604800}"
 
 # sweep grace period: a freshly-acquired lease has its worktree windows created
 # ASYNCHRONOUSLY (gh-dash bindings run review-open.sh detached), so for the first
@@ -128,7 +131,7 @@ acquire() {
 }
 
 release_pr() {
-  local pr="$1" state_file="$STATE_DIR/$1" wt="" p
+  local pr="$1" state_file="$STATE_DIR/$1" wt="" p lavish_dir="$LAVISH_DIR/$1"
   # Read tolerantly: concurrent sweeps (e.g. closing many windows at once) may
   # remove this file between a test and a read, which would abort under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
@@ -159,6 +162,36 @@ release_pr() {
     (cd "$wt" 2>/dev/null && treehouse return "$wt" --force) >/dev/null 2>&1 || true
     rm -f "$state_file"
   fi
+
+  # Ended before removal: a live session outlives its file and would keep serving a page whose assets are gone.
+  # $pr guarded because it defaults to empty: an unguarded rm -rf would take every artifact, not this one.
+  if [ -n "$pr" ] && [ -d "$lavish_dir" ]; then
+    if command -v lavish-axi >/dev/null 2>&1; then
+      lavish-axi end "$lavish_dir/review.html" >/dev/null 2>&1 || true
+    fi
+    rm -rf "$lavish_dir"
+    _slog "  lavish artifact removed for $pr"
+  fi
+  return 0
+}
+
+sweep_lavish() {
+  local now d pr age
+  [ -d "$LAVISH_DIR" ] || return 0
+  now="$(date +%s)"
+  for d in "$LAVISH_DIR"/*; do
+    [ -d "$d" ] || continue
+    pr="${d##*/}"
+    # A live lease means the review is still open, and release_pr owns that one.
+    [ -e "$STATE_DIR/$pr" ] && continue
+    age=$((now - $(_mtime "$d")))
+    [ "$age" -lt "$LAVISH_MAX_AGE" ] && continue
+    if command -v lavish-axi >/dev/null 2>&1; then
+      lavish-axi end "$d/review.html" >/dev/null 2>&1 || true
+    fi
+    rm -rf "$d"
+    _slog "  lavish artifact expired for $pr (age ${age}s, no lease)"
+  done
   return 0
 }
 
@@ -175,6 +208,8 @@ sweep() {
   #   closed and dropped out of gh-dash, which no per-PR release could reach.
   local mode="${1:-confirm}"
   local reclaimed=0
+  # Before the STATE_DIR bail below: an orphaned artifact outlives the lease dir it came from.
+  sweep_lavish
   if [ ! -d "$STATE_DIR" ]; then
     if [ "$mode" = immediate ]; then
       notify "🧹 No idle treehouse review slots to reclaim"
