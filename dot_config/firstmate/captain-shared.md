@@ -1,5 +1,7 @@
 # Captain preferences - shared across every firstmate home
 
+<!-- memory tiers: see the stow skill -->
+
 This file is read by EVERY firstmate home on this machine, and pushed down to every second mate.
 
 In a home that has second mates, this content is **main-authoritative** in that primary home and **read-only in secondmate homes** - it **must not be edited there**, because the next propagation overwrites it. A preference discovered inside a second mate goes back to the **main firstmate** as a **marked status** line or a **document pointer**, never by editing that copy. Firstmate refuses to propagate a source whose first twelve lines omit that warning, so this paragraph is load-bearing: keep it here, keep it near the top, and copy it with the file.
@@ -44,6 +46,12 @@ Lead with the strongest colour present. When nothing is open, still close with o
 This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retired into it. Never emit both.
 
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
+
+## No workarounds for a firstmate gap
+
+The captain's words: "i dont want these hacks/shims." They are evaluating firstmate itself, so a workaround that hides a defect makes the system look healthier than it is - which is worse than the friction it removes.
+
+Do not paper over a gap with a local technique. Use a `--kind captain` backlog hold for durable tracking, let the gap show, and bring the captain the choice rather than applying a mitigation and reporting it afterward.
 
 ## Merge approval belongs to the captain
 
