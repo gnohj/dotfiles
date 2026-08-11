@@ -7,7 +7,7 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Octo (auto-review) + hunk + Claude /hunk-review + ENHANCE
+#   full       P        Octo (auto-review) + hunk + Claude /review-lavish + ENHANCE
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
@@ -127,9 +127,11 @@ open_hunk_sidebar() {
   "$mux_bin" send-keys "$pane" s || true
 }
 
+# $3 picks the review command: `full` adds the Lavish surface, `diff` stays text-only.
 open_claude_hunk() {
+  local cmd="${3:-hunk-review}"
   mux --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/hunk-review '"$pr"' pane=$HUNK_PANE"'
+    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
 open_claude_review() {
@@ -154,7 +156,7 @@ case "$mode" in
     open_octo "$WT" 1
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
     open_hunk_sidebar "$PANE" &
-    open_claude_hunk "$WT" "$PANE"
+    open_claude_hunk "$WT" "$PANE" review-lavish
     open_enhance "$WT"
     ;;
   octo)
