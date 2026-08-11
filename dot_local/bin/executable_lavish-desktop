@@ -7,17 +7,32 @@ shift
 [ -f "$file" ] || { echo "lavish-desktop: no such file: $file" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "lavish-desktop: jq required" >&2; exit 1; }
 
-role=$("$HOME/.local/bin/machine-identity" role 2>/dev/null || echo mac)
+# LAVISH_DESKTOP_MODE=local|tailnet|print overrides this; never detect on $DISPLAY/$WAYLAND_DISPLAY, which herdr shims on headless hosts.
+mode="${LAVISH_DESKTOP_MODE:-auto}"
+if [ "$mode" = auto ]; then
+  if [ -x "$HOME/.local/bin/machine-identity" ]; then
+    case "$("$HOME/.local/bin/machine-identity" role 2>/dev/null)" in
+      devbox) mode=tailnet ;;
+      *) mode=local ;;
+    esac
+  elif [ "$(uname -s)" = Darwin ]; then
+    mode=local
+  elif command -v tailscale >/dev/null 2>&1 && [ -x "$HOME/.local/bin/to-desktop" ]; then
+    mode=tailnet
+  else
+    mode=local
+  fi
+fi
 
 ts_host=""
-if [ "$role" = devbox ]; then
+if [ "$mode" = tailnet ]; then
   ts_host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
   # Must be exported before lavish-axi starts the server: its Host allowlist is loopback-only, and tailscale serve forwards the real hostname.
   [ -n "$ts_host" ] && export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:+$LAVISH_AXI_ALLOWED_HOSTS }$ts_host"
 fi
 
-# Suppress lavish-axi's own auto-open, else the workstation gets two tabs and the devbox a loopback refusal.
-out=$(env BROWSER= GH_BROWSER= lavish-axi "$file" "$@" 2>&1) || {
+# --no-open is the documented switch; this script owns the opening so the workstation never gets two tabs.
+out=$(LAVISH_AXI_NO_OPEN=1 lavish-axi "$file" "$@" 2>&1) || {
   printf '%s\n' "$out" >&2
   exit 1
 }
@@ -27,7 +42,8 @@ local_url=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}
 [ -n "$local_url" ] || { echo "lavish-desktop: could not parse a url from lavish-axi output" >&2; exit 1; }
 
 url="$local_url"
-if [ "$role" = devbox ]; then
+# No tailnet resolved is not fatal: fall through with the local url rather than failing the review.
+if [ "$mode" = tailnet ] && [ -n "$ts_host" ]; then
   origin=${local_url%%/session/*}
   port=${origin##*:}
   case "$port" in '' | *[!0-9]*) echo "lavish-desktop: unexpected origin: $origin" >&2; exit 1 ;; esac
@@ -40,7 +56,6 @@ if [ "$role" = devbox ]; then
     | "https://" + $host + (if .key == "/" then "" else (.key | sub("/$"; "")) end)' 2>/dev/null | head -n1)
 
   if [ -z "$public" ]; then
-    [ -n "$ts_host" ] || { echo "lavish-desktop: tailscale not up - cannot reach the workstation" >&2; exit 1; }
     tailscale serve --bg --https=8443 "http://127.0.0.1:$port" >/dev/null 2>&1 ||
       { echo "lavish-desktop: tailscale serve failed for port $port" >&2; exit 1; }
     public="https://$ts_host:8443"
@@ -53,6 +68,25 @@ if [ "$role" = devbox ]; then
   fi
 fi
 
-"$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1 ||
-  echo "lavish-desktop: to-desktop refused $url - open it by hand" >&2
+# Branched on uname, not `command -v open`: util-linux ships an unrelated `open`, so probing by name picks the wrong binary.
+open_locally() {
+  case "$(uname -s)" in
+    Darwin) command -v open >/dev/null 2>&1 && open "$1" >/dev/null 2>&1 ;;
+    *) command -v xdg-open >/dev/null 2>&1 && xdg-open "$1" >/dev/null 2>&1 ;;
+  esac
+}
+
+# No reachable screen is a valid outcome: hand back a url rather than failing the review.
+if [ "$mode" = print ]; then
+  :
+elif [ -x "$HOME/.local/bin/to-desktop" ] && "$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1; then
+  :
+elif [ "$mode" = local ] && open_locally "$url"; then
+  :
+else
+  case "$url" in
+    http://127.0.0.1:*) echo "lavish-desktop: no route to a browser - open this from a machine that can reach this host" >&2 ;;
+    *) echo "lavish-desktop: could not open a browser - use the url below" >&2 ;;
+  esac
+fi
 echo "desktop_url: $url"
