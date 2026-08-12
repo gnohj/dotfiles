@@ -21,6 +21,7 @@ local items <const> = {
 	TAILSCALE = "widgets.tailscale",
 	MEMORY = "widgets.memory",
 	DISK = "widgets.disk",
+	UPTIME = "widgets.uptime",
 	CPU = "widgets.cpu",
 	GITHUB_NOTIFICATION = "widgets.github_notification",
 	PR_REVIEW_NOTIFICATION = "widgets.pr_review_notification",
