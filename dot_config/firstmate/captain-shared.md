@@ -47,6 +47,16 @@ This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retire
 
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
 
+## Never say a bare "mate" - name which one
+
+"Mate" alone is ambiguous: it can mean a second mate, a crewmate, or the other first mate. Always say which, and name it:
+
+- **second mate** - a persistent firstmate owning a domain, with its own home and charter. Name it: "the web second mate", never "the mate".
+- **first mate** - firstmate itself. More than one runs per machine, so say "the work first mate" or "the personal first mate", never "the other home".
+- **crewmate** - spawned for one task. Say "crewmate", never "worker" - the captain corrected this on 2026-08-12 and it overrides the `crewmate -> worker` translation in `AGENTS.md` section 9. **Ship** and **scout** are both crewmates rather than peers of one: a ship crewmate delivers a project change, a scout crewmate delivers a report and never a PR. Say "scout" only to narrow which kind.
+
+Asked for on 2026-08-12 after a whole session of "the mate" that only meant the web second mate.
+
 ## No workarounds for a firstmate gap
 
 The captain's words: "i dont want these hacks/shims." They are evaluating firstmate itself, so a workaround that hides a defect makes the system look healthier than it is - which is worse than the friction it removes.
@@ -79,7 +89,7 @@ Expose it tailnet-only with `tailscale serve` - never `funnel` - then push it wi
 
 **A write into the artifact directory reloads the page.** The server watches those files and pushes a reload over SSE, so editing `data.js` alone is enough - re-opening the artifact is not required. Anything the reviewer holds in page memory dies with that reload, and there is no storage to restore it from, so never write into a live artifact directory to say something. `--agent-reply` touches no watched file and is the safe channel.
 
-**The three paragraphs above are duplicated on purpose in `shared/skills/review-lavish/SKILL.md`.** They serve different readers - this file reaches every home for any artifact, that skill travels to people who never see this file - so neither can drop them. They are one set of facts in two places: **change one, check the other**, or they will drift into disagreeing about the same behaviour. Everything else here is preference (Silk, change markers, the tailnet route) and belongs only here.
+**The three paragraphs above are duplicated on purpose in `shared/skills/review-lavish/SKILL.md`.** They serve different readers - this file reaches every home for any artifact, that skill travels to people who never see this file - so neither can drop them. They are one set of facts in two places: **change one, check the other**, or they will drift into disagreeing about the same behaviour. **Compare the facts, never the strings** - the two copies are deliberately worded for their different readers, so an exact-phrase grep reports drift that is not there and invites "fixing" a non-existent problem. Everything else here is preference (the light/dark theme, change markers, the tailnet route) and belongs only here.
 
 **Four ways a Lavish surface breaks silently:** never open the captain's live session in a browser here (it becomes a second client and their messages start failing with `409`); Mermaid itself renders fine here - verified with mermaid@11 rendering into a plain container inside the artifact iframe - so the older "no Mermaid" rule is withdrawn; what remains unconfirmed is only the `.mermaid` whiteboard conversion, and an unrendered block cannot convert, so check `mermaid.run()` actually ran before blaming the feature; always reply through Lavish's own channel or the captain watches a spinner forever; and **one poll per artifact**, stopped before every reply, because concurrent polls drain feedback destructively and end with the page refusing to render. Match on `/proc/<pid>/cmdline` when stopping one - a `pkill -f` pattern that appears in your own command line kills your own shell.
 
