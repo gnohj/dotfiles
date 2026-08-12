@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Renders the session's thinking-effort level as "(high)" from payload JSON on stdin, replacing ccstatusline's widget, which prints "(default)" when unresolved.
+
+command -v jq >/dev/null 2>&1 || exit 0
+
+payload="$(cat)"
+
+level="$(printf '%s' "$payload" | jq -r '.effort.level // empty' 2>/dev/null)"
+
+if [ -z "$level" ]; then
+  transcript="$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/null)"
+  if [ -n "$transcript" ] && [ -r "$transcript" ]; then
+    # Newest line first, and capped: anything older is superseded by the settings fallback below, and an uncapped scan blows the widget timeout on a long session.
+    level="$(tail -n 3000 "$transcript" 2>/dev/null | awk '{ a[NR] = $0 } END { for (i = NR; i > 0; i--) print a[i] }' | jq -Rr 'fromjson? | (.message.content? // empty) | select(type == "string")' 2>/dev/null | awk '
+      /^<local-command-stdout>Set effort level to / {
+        if (match($0, /Set effort level to [a-zA-Z0-9-]+/))
+          print substr($0, RSTART + 20, RLENGTH - 20)
+        exit
+      }
+      /^<local-command-stdout>Set model to / {
+        if (match($0, / with [a-zA-Z0-9-]+ effort<\/local-command-stdout>$/)) {
+          s = substr($0, RSTART + 6, RLENGTH - 6)
+          sub(/ effort<\/local-command-stdout>$/, "", s)
+          print s
+        }
+        exit
+      }')"
+  fi
+fi
+
+if [ -z "$level" ]; then
+  settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+  [ -r "$settings" ] && level="$(jq -r '.effortLevel // empty' "$settings" 2>/dev/null)"
+fi
+
+level="$(printf '%s' "$level" | tr '[:upper:]' '[:lower:]')"
+[[ $level =~ ^[a-z0-9-]{2,20}$ && $level =~ [a-z0-9] ]] || exit 0
+
+# Same "?" marker the built-in widget uses, so a level this script has never heard of still renders instead of vanishing.
+case "$level" in
+low | medium | high | xhigh | max) ;;
+*) level="$level?" ;;
+esac
+
+dim="#536571"
+accent="#a7cfbd"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+if [ -r "$active" ]; then
+  # shellcheck disable=SC1090
+  . "$active" >/dev/null 2>&1
+  dim="${gnohj_color13:-$dim}"
+  accent="${gnohj_color03:-$accent}"
+fi
+
+rgb() { printf '%d;%d;%d' "$((16#${1:1:2}))" "$((16#${1:3:2}))" "$((16#${1:5:2}))"; }
+
+printf '\033[38;2;%sm(\033[38;2;%sm%s\033[38;2;%sm)\033[0m' \
+  "$(rgb "$dim")" "$(rgb "$accent")" "$level" "$(rgb "$dim")"
