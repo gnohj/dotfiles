@@ -188,6 +188,24 @@ def _save(cache):
     os.replace(tmp, CACHE)
 
 
+def drop(paths):
+    """Forget paths, so the next render recomputes them instead of showing stale symbols.
+
+    Used after the picker runs a git action on a row: rather than recompute here (which
+    would have to re-derive the roots_only rule and could disagree with the poller), the
+    entry is removed and build_list's own "missing" pass fills it back in.
+    """
+    try:
+        with open(CACHE + ".wlock", "a+") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            cache = load()
+            hits = [p for p in paths if cache.pop(p, None) is not None]
+            if hits:
+                _save(cache)
+    except Exception:
+        pass
+
+
 def update(entries, keep=None):
     """Merge entries into the cache under a write lock, optionally pruning to keep.
 

@@ -15,11 +15,15 @@
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
 #   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
+#   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare treekanga container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
+#   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
+#   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
 #   ctrl-b  → abort
 #
 # Subcommands (used by fzf's reload/execute binds, not called directly):
 #   --list            print the merged rows ("<display>\t<kind>:<target>")
 #   --delete <target> delete one "<kind>:<target>"
+#   --git <act> <dir> run pull/push/lazygit against <dir>, then forget its cached git symbols so the rebuild recomputes them
 #   --view <rows> <view> <q> [--rebuild]   filter <rows> into <view>, print an fzf action
 set -uo pipefail
 
@@ -170,7 +174,7 @@ for lst in tabs_by_ws.values():
     lst.sort(key=lambda t: (t.get("number") or 0, t.get("tab_id") or ""))
 
 # Connectors live INSIDE the name column so the ❯ separator holds its screen column at any depth.
-def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailcol=""):
+def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailcol="", path=""):
     lab = dclip(prefix + text, NAME_W)
     nm = "%s%s%s%s%s%s" % (dim, prefix, tcol, lab[len(prefix):], RESET,
                            " " * max(NAME_W - dwidth(lab), 0))
@@ -181,7 +185,7 @@ def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailco
     if t: cell += "%s · %s%s%s" % (dim, tailcol or dim, t, RESET)
     cell += " " * max(PATH_W - dwidth(r) - (dwidth(t) + 3 if t else 0), 0)
     body = "%s %s  %s  %s" % (" " * ICON_W, nm, sep, cell)
-    return (name or text) + TAB + body + TAB + target
+    return (name or text) + TAB + body + TAB + path + TAB + target
 
 # Account = which config root owns the session.
 CLAUDE_ROOTS = [(os.path.join(home, ".claude-work"), "work"), (os.path.join(home, ".claude"), "personal")]
@@ -213,13 +217,15 @@ def agent_rows(wid, pad=0):
     out = []
     # Clears the parent'"'"'s alias chip so the tree hangs off its name, not the chip.
     sp = " " * pad
+    # Children inherit the workspace cwd, so a git action fires on the same repo from any row of the tree.
+    wpath = (wscwd.get(wid) or "").rstrip("/")
     tabs = tabs_by_ws.get(wid, [])
     for ti, tb in enumerate(tabs):
         tlast = ti == len(tabs) - 1
         kids = agents_by_tab.get(tb.get("tab_id"), [])
         label = (tb.get("label") or ("t%s" % (tb.get("number") or "?"))).strip()
         out.append(tree_row(sp + "%s " % ("└─" if tlast else "├─"), label, fg, "", dim,
-                            "tab:" + (tb.get("tab_id") or "")))
+                            "tab:" + (tb.get("tab_id") or ""), path=wpath))
         stem = sp + ("   " if tlast else "│  ")
         for ai, ag in enumerate(kids):
             st = ag.get("agent_status") or "unknown"
@@ -232,7 +238,7 @@ def agent_rows(wid, pad=0):
             out.append(tree_row("%s%s " % (stem, branch),
                                 "%s %s" % (AGENT_GLYPH.get(st, "✧"), title), col,
                                 state, col, "agent:" + (ag.get("pane_id") or ""), name=title,
-                                tail=ident, tailcol=icol))
+                                tail=ident, tailcol=icol, path=wpath))
     return out
 
 def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
@@ -436,9 +442,9 @@ for kind, icon, label, path0, target, active, ent in ordered:
     nm = "%s%s%s%s%s%s" % ((accent + chip + RESET + " ") if chip else "", ncol, lab, RESET,
                           (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
     pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
-    # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 stays last for fzf {-1}.
+    # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 is the raw path ctrl-f/ctrl-p act on; the target stays LAST so fzf {-1} and the awk $NF still find it.
     # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
-    rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + target)
+    rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + path0 + TAB + target)
     if kind == "ws":
         rows.extend(agent_rows(target[3:], cw))
 
@@ -532,6 +538,87 @@ END {
     printf 'reload-sync(cat %s)+pos(%s)\n' "$VIEW" "${POS:-1}"
     exit 0
     ;;
+  --git)
+    # Runs in the path field 3 carries; fzf already trims that field, but a stray tab is stripped so it can never reach git as part of a path.
+    ACTION="${2:-}"
+    GPATH="${3:-}"
+    GPATH="${GPATH%%$'\t'*}"
+    # Only reached on a failure, so the message survives fzf redrawing over this screen.
+    pause() { printf '\n[press any key] '; read -rsn1 -t 30 _ 2>/dev/null; echo; }
+
+    [ -n "$GPATH" ] || { echo "no directory on this row"; pause; exit 0; }
+    git -C "$GPATH" rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repo: $GPATH"; pause; exit 0; }
+    # A treekanga container (.bare + worktrees) is a BARE repo, where --show-toplevel fatals - falling back to the dir itself keeps those rows working.
+    ROOT=$(git -C "$GPATH" rev-parse --show-toplevel 2>/dev/null)
+    [ -n "$ROOT" ] || ROOT="$GPATH"
+    BRANCH=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    # Which worktree holds the branch, so a bare container acts on its checkout instead of a ref git refuses to touch.
+    WT=$(git -C "$ROOT" worktree list --porcelain 2>/dev/null |
+      awk -v b="branch refs/heads/$BRANCH" '/^worktree /{p=substr($0,10)} $0==b{print p; exit}')
+    # Same reason lazygit-herdr.sh sets it: without this a pull fires web's post-merge `pnpm i` + build-packages on every keypress.
+    export HUSKY=0
+    printf '\033[1m%s\033[0m  %s\n\n' "${ROOT/#$HOME/\~}" "$BRANCH"
+
+    rc=0
+    case "$ACTION" in
+      pull)
+        # lazygit's f is fastForward(), not a bare fetch: pull --ff-only inside whichever worktree holds the branch, and a ref-only fast-forward only when no worktree does.
+        UP=$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+        AHEAD=$(git -C "$ROOT" rev-list --count "$UP..HEAD" 2>/dev/null)
+        if [ -z "$UP" ]; then
+          echo "no upstream for $BRANCH - nothing to fast-forward"; rc=1
+        elif [ "${AHEAD:-0}" != 0 ]; then
+          # lazygit refuses outright here; fetching anyway costs nothing and is what refreshes the row's counts.
+          echo "❯ git fetch   (ahead $AHEAD, so no fast-forward - push or rebase first)"
+          git -C "$ROOT" fetch || rc=$?
+        elif [ -n "$WT" ]; then
+          # Not necessarily $ROOT: a bare container's branch is checked out in a SIBLING worktree, and git refuses to fetch into a ref that is.
+          echo "❯ git -C ${WT/#$HOME/\~} pull --ff-only"
+          git -C "$WT" pull --ff-only || rc=$?
+        else
+          echo "❯ git fetch ${UP%%/*} ${UP#*/}:$BRANCH"
+          git -C "$ROOT" fetch "${UP%%/*}" "${UP#*/}:$BRANCH" || rc=$?
+        fi
+        ;;
+      push)
+        if git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+          echo "❯ git push"
+          git -C "$ROOT" push || rc=$?
+        elif [ -z "$BRANCH" ] || [ "$BRANCH" = HEAD ]; then
+          echo "detached HEAD - nothing to push"; rc=1
+        else
+          # Creating the remote branch is the one outward-facing step here, so it asks first (as lazygit does).
+          printf 'no upstream - push and set origin/%s? [y/N] ' "$BRANCH"
+          read -r ANS
+          case "$ANS" in
+            [yY]*) echo "❯ git push -u origin $BRANCH"; git -C "$ROOT" push -u origin "$BRANCH" || rc=$? ;;
+            *) echo "skipped" ;;
+          esac
+        fi
+        ;;
+      lazygit)
+        # cd, not -p: lazygit's -p expands to --git-dir=<dir>/.git/, which fatals on a linked worktree where .git is a FILE. ${WT:-$ROOT} also keeps a bare container opening the checkout that holds its branch.
+        if command -v lazygit >/dev/null 2>&1; then
+          (cd "${WT:-$ROOT}" && lazygit) || true
+        else
+          echo "lazygit not found"; rc=1
+        fi
+        ;;
+      *) echo "unknown git action: $ACTION"; rc=1 ;;
+    esac
+
+    # Forgetting beats recomputing here: the caller's --rebuild refills it under build_list's own roots_only rule.
+    python3 -c '
+import sys, os
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/herdr"))
+import herdr_gitmux as hg
+hg.drop(sys.argv[1:])
+' "$GPATH" "$ROOT" 2>/dev/null
+
+    [ "$rc" = 0 ] || pause
+    exit 0
+    ;;
   --delete)
     case "${2:-}" in
       ws:* | agent:*)
@@ -576,7 +663,7 @@ export FOCUS_FILE="${TMPDIR:-/tmp}/herdr-sesh-pos.$$"
 export CLEAN_FILE="${TMPDIR:-/tmp}/herdr-sesh-clean.$$"
 trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE" "$CLEAN_FILE"' EXIT
 
-# Looped so ctrl-w's worktree sub-picker can return here on esc - fzf binds aren't modal, so re-entering the loop is the only way to get "esc = back". Mirrors the tmux sesh popup.
+# Looped so ctrl-g can re-enter with a different view, and so the picker comes back after lazygit exits. esc no longer returns here from a sub-menu: it closes the popup from wherever you are.
 # GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
 GIT_ONLY=0
 while true; do
@@ -587,11 +674,15 @@ while true; do
   HEADER=()
   if [ "$GIT_ONLY" = 1 ]; then
     PROMPT='󰊢 '
+    # The keys work in the full list too, but this is the view they are FOR, so only it spends a header line on them.
+    HINT='ctrl-f pull · ctrl-p push · ctrl-g lazygit · esc close'
     CLEAN=$(cat "$CLEAN_FILE" 2>/dev/null) || CLEAN=""
     if [ -n "$CLEAN" ] && [ "$CLEAN" != 0 ]; then
-      HEADER=(--header "󰊢 all clean - nothing to commit, push or pull · watching $CLEAN repos")
+      HEADER=(--header "󰊢 all clean - nothing to commit, push or pull · watching $CLEAN repos · $HINT")
     elif [ -n "$CLEAN" ]; then
       HEADER=(--header '󰊢 no git repos in this list')
+    else
+      HEADER=(--header "󰊢 $HINT")
     fi
   else
     PROMPT='⚡ '
@@ -613,14 +704,23 @@ while true; do
     --bind 'ctrl-j:down,ctrl-k:up' \
     --bind 'ctrl-b:abort' \
     --bind "change:transform($SELF --view $ROWS_FILE $VIEW_FILE {q})" \
-    --bind "ctrl-d:execute-silent($SELF --delete {-1})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)")
+    --bind "ctrl-d:execute-silent($SELF --delete {-1})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)" \
+    --bind "ctrl-f:execute($SELF --git pull {3})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)" \
+    --bind "ctrl-p:execute($SELF --git push {3})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)")
 
   # With --expect, line 1 is the pressed key (blank on plain enter) and line 2 the selection; on esc both come back empty.
   KEY=$(printf '%s' "$OUT" | head -1)
   SELECTED=$(printf '%s\n' "$OUT" | sed -n '2p')
 
-  # ctrl-g toggles the git-activity view in place; esc from it just exits, same as the full list.
+  # ctrl-g means "git" in both views: turn the git filter on from the full list, open the row's lazygit once already in it.
   if [ "$KEY" = "ctrl-g" ]; then
+    # Deliberately one-way: the git view is now a leaf, left by acting on a row or by esc closing the popup.
+    if [ "$GIT_ONLY" = 1 ] && [ -n "$SELECTED" ]; then
+      LGPATH=$(printf '%s' "$SELECTED" | cut -f3)
+      [ -n "$LGPATH" ] && "$SELF" --git lazygit "$LGPATH"
+      rm -f "$FOCUS_FILE"
+      continue
+    fi
     [ "$GIT_ONLY" = 1 ] && GIT_ONLY=0 || GIT_ONLY=1
     rm -f "$FOCUS_FILE"   # the cursor row is meaningless once the list changes shape
     continue
@@ -643,19 +743,12 @@ while true; do
       rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # exec replaces us, so the EXIT trap never runs
       exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WT_PATH"
     fi
-    # esc in the worktree view → fall through and re-show the default picker.
-    continue
-  fi
-
-  if [ -z "$SELECTED" ]; then
-    # esc out of the git view returns to the full picker (as ctrl-w does); only esc from the FULL list closes.
-    if [ "$GIT_ONLY" = 1 ]; then
-      GIT_ONLY=0
-      rm -f "$FOCUS_FILE"
-      continue
-    fi
+    # esc in the worktree view closes the popup outright rather than re-showing the picker behind it.
     exit 0
   fi
+
+  # esc (and ctrl-b) closes the popup from every view, the git and worktree menus included.
+  [ -z "$SELECTED" ] && exit 0
 
   TARGET="${SELECTED##*$'\t'}"
   rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
