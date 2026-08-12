@@ -80,4 +80,7 @@ export GIT_OPTIONAL_LOCKS=0
 # Fakes a Wayland session so herdr-pluck picks wl-copy, which ~/.local/bin shims to `to-desktop clip`; anything branching on this var is misled.
 {{- if ne .chezmoi.os "darwin" }}
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-herdr-pluck-shim}"
+
+# Lavish reads its allowlist once at server start and outlives its starter, so every shell sets it; cached because `tailscale status` is too slow per-shell.
+export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:-$(cat "$HOME/.cache/tailnet-host" 2>/dev/null)}"
 {{- end }}

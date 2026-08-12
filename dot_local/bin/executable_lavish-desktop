@@ -29,6 +29,8 @@ if [ "$mode" = tailnet ]; then
   ts_host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
   # Must be exported before lavish-axi starts the server: its Host allowlist is loopback-only, and tailscale serve forwards the real hostname.
   [ -n "$ts_host" ] && export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:+$LAVISH_AXI_ALLOWED_HOSTS }$ts_host"
+  # Seed the cache .zshenv reads, so every later shell exports this without paying for a tailscale call.
+  [ -n "$ts_host" ] && { mkdir -p "$HOME/.cache" && printf '%s\n' "$ts_host" > "$HOME/.cache/tailnet-host"; } 2>/dev/null
 fi
 
 # --no-open is the documented switch; this script owns the opening so the workstation never gets two tabs.
