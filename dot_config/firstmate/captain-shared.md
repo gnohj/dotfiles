@@ -17,7 +17,22 @@ Does the rule name a repo, a ticket system, a branch convention, a deploy target
 
 **Keep this file SHORT.** Propagation needs the captain's own `chezmoi apply`, and that control is only real while the diff stays short enough to read. The default is NOT shared: a rule earns its way in. Nothing enforces this mechanically - the guard is this header, the versioned diff, and the captain's apply.
 
+**Second test, applied to everything before it goes inline: is it CONDITIONAL?** Ask whether a session that never touches the topic still needs it.
+
+- **Needed in every message or every session** - inline here. The status block, the vocabulary rules, merge authority, the never-PR rules.
+- **Needed only in a nameable situation** - a skill under `~/Developer/agents/shared/skills/`, with a ONE-LINE trigger here and the rules stated only there. That directory is loaded by every firstmate home, so nothing loses reach; it just costs tokens when the topic comes up instead of always.
+
+This is not theory. On 2026-08-12 this file grew 2,924 -> 5,168 in a single day, and one conditional section - the artifact rules - was 40 percent of it, paid by four agents on every session that never built an artifact. Moving it out returned 1,852 tokens to every home with nothing lost. The captain's instruction: **keep using this pattern, so we do not drift, accumulate, and hit the limit again.** When in doubt, write it in the skill and leave a trigger - a rule inline costs four agents forever, and a rule in a skill costs only the sessions that need it.
+
 <!-- rules begin below this line -->
+
+## NEVER commit or open a PR to the firstmate repo
+
+Stated 2026-08-12: "we never commit or open PRs to the first mate repo ever. We only edit our user-based files."
+
+`kunchenguid/firstmate` is a stranger's public project the captain only uses; he has read access and no fork. Anything that feels like it belongs in firstmate's own `AGENTS.md`, skills or scripts goes into OUR files instead - this file for preferences, a home's `data/captain.md` for domain rules, `data/learnings.md` for operational facts, or a local skill. A firstmate rule that conflicts with the captain's preference is overridden HERE, never edited there.
+
+This overrides firstmate's own `AGENTS.md` section 1, which instructs shipping shared tracked changes through its PR path. Do not follow that. Before dispatching any task whose only output is a PR, confirm a push target exists; a task that cannot ship should never be started.
 
 ## Never modify a source repo to suit our workflow
 
@@ -57,6 +72,10 @@ Presentation only: it never replaces the escalation rules in `AGENTS.md` section
 
 Asked for on 2026-08-12 after a whole session of "the mate" that only meant the web second mate.
 
+**Name the absolute path of every file you changed, every time.** Stated 2026-08-12. Not "the dispatch config" or "my learnings" - write `/home/gnohj/.local/share/firstmate-work/config/crew-dispatch.json`. The captain cannot verify, open, or revert a change described by a nickname, and a home-relative path is ambiguous across four homes. Same for a file created, deleted, or moved. When a turn changed several, list them.
+
+**Never use a word the captain has not used, unless you define it in the same breath.** Stated 2026-08-12 after "deriving truth from the forge" - "forge" means GitHub and should have said GitHub. The root cause is not one word: firstmate's own instruction files are written in machine vocabulary (forge, wake, drain, stale, gate, poll, custody, endpoint) and reading them all session makes those words feel normal. **Firstmate's internal vocabulary is never automatically captain-facing vocabulary.** Say GitHub, not the forge. Say notification, not wake. Say checked, not drained. If a precise term genuinely earns its place, define it once in the sentence that introduces it and then use it.
+
 ## No workarounds for a firstmate gap
 
 The captain's words: "i dont want these hacks/shims." They are evaluating firstmate itself, so a workaround that hides a defect makes the system look healthier than it is - which is worse than the friction it removes.
@@ -67,31 +86,11 @@ Do not paper over a gap with a local technique. Use a `--kind captain` backlog h
 
 Every project runs with autonomy off. No home merges its own work and none treats a green pipeline as permission. Report the outcome with the full PR URL and wait.
 
-## Anything visual reaches the captain's desktop, never a localhost URL
+## Building anything visual - load the skill first
 
-The captain works from a MacBook against a headless Linux VPS, so `127.0.0.1` here reaches nothing they can see. Never hand them a loopback URL or an SSH tunnel command.
+Before creating, updating, serving or tearing down ANY visual surface the captain will look at - an artifact, a Lavish review page, a preview, a diagram, a served static page - load the `building-an-artifact` skill. It owns the theme rule and why a named theme silently fails, reader-relative change markers, the sandbox limits that break storage and local data loading, one-poll-per-artifact, and how a surface reaches his desktop rather than a localhost URL he cannot see.
 
-Expose it tailnet-only with `tailscale serve` - never `funnel` - then push it with `to-desktop open <https-url>`. `~/.local/bin/to-desktop` owns that routing and validates that only http(s) may cross; `desktop-open` is its `$BROWSER`-shaped wrapper. Use `~/Developer/agents/shared/skills/preview/` for a plain static page, and Lavish when the captain should answer or annotate.
-
-**Tear it down when finished** - stop the server AND remove only the routes you added, verifying the captain's own entries survive. Tear down on an explicit end OR on completion of the work the surface existed for, never on silence. If genuinely ambiguous, ask once.
-
-## Building an artifact
-
-**DaisyUI `light` / `dark`, with a toggle** - `<html data-theme="light">` plus a control offering both. Never pick a theme because the content "calls for it"; the tool's guidance invites that and is overridden here. Build with semantic tokens so the theme is one attribute.
-
-**Why not a named theme.** `daisyui.css` bundles ONLY `light` and `dark`; every other theme (silk, luxury, dim...) lives in a separate `themes.css`. A `data-theme` naming a theme that is not loaded matches no rule and falls back to `light` through `:root` - so the page renders a perfectly reasonable light theme while silently ignoring the one asked for. This is not hypothetical: the previous "silk always" rule was being satisfied in markup and discarded in output. The two bundled themes make that failure impossible and drop a stylesheet. A hand-rolled page with its own CSS has no theme to set: make it light by building it light.
-
-**Reader-relative change markers, keyed on what the READER has seen** - never "what changed in this update", which is fiction because an agent republishes several times per conversation. Per-block `id` and version in one array at the top of the page script, with a `read` flag the agent sets once the captain has seen that round. **There is no browser storage**: the artifact iframe is an opaque origin, so `localStorage`, `sessionStorage` and cookies all throw - the page source is the only durable read-state. Never encode the KIND in colour; give markers their own channel and let a WORD carry it (`ADDED`, `CHANGED`, `REMOVED`). Mark the end element that changed, never a wrapper. Marks DIM, never vanish, and dim the labels only - never the prose. Dwell ~2.5s before counting a block read. Every control works in-page with no reload. A top strip titled "Not read yet" carries a LIVE count that decrements and collapses.
-
-**The artifact iframe is sandboxed without `allow-same-origin`, which is one root cause behind most of the list below.** Lavish serves its chrome at `/session/:key` and embeds the artifact at `/artifact/:key` under `sandbox="allow-scripts allow-forms allow-popups allow-downloads"`. No `allow-same-origin` means the artifact's origin is `null`, so: `localStorage`, `sessionStorage` and cookies all throw; `fetch()` of a sibling file fails as cross-origin with no CORS headers, so **load local data with a classic `<script src>`, never `fetch`**; the page cannot call out to anything, so it can never check its own freshness; and Mermaid's whiteboard handoff does not activate (Mermaid itself renders fine; only the Excalidraw conversion is absent, and the cause is unconfirmed). `window.lavish.*` works only because it `postMessage`s to the parent chrome frame, which owns a real origin and makes the HTTP call. A CDN like `esm.sh` still works, because it sends CORS headers - which makes it a misleading test of whether local loading works.
-
-**The agent is never pushed to; it pulls.** `lavish-axi poll` is a blocking `GET /api/poll` whose stdout landing in the transcript IS the delivery mechanism. There is no socket, no pane, and no knowledge of the multiplexer anywhere in the server. That is why the poll must stay in the foreground, why a dead poll is silence rather than an error, and why nothing can wake an agent that has stopped polling. Queued feedback survives regardless, since the queue lives in the server process.
-
-**A write into the artifact directory reloads the page.** The server watches those files and pushes a reload over SSE, so editing `data.js` alone is enough - re-opening the artifact is not required. Anything the reviewer holds in page memory dies with that reload, and there is no storage to restore it from, so never write into a live artifact directory to say something. `--agent-reply` touches no watched file and is the safe channel.
-
-**The three paragraphs above are duplicated on purpose in `shared/skills/review-lavish/SKILL.md`.** They serve different readers - this file reaches every home for any artifact, that skill travels to people who never see this file - so neither can drop them. They are one set of facts in two places: **change one, check the other**, or they will drift into disagreeing about the same behaviour. **Compare the facts, never the strings** - the two copies are deliberately worded for their different readers, so an exact-phrase grep reports drift that is not there and invites "fixing" a non-existent problem. Everything else here is preference (the light/dark theme, change markers, the tailnet route) and belongs only here.
-
-**Four ways a Lavish surface breaks silently:** never open the captain's live session in a browser here (it becomes a second client and their messages start failing with `409`); Mermaid itself renders fine here - verified with mermaid@11 rendering into a plain container inside the artifact iframe - so the older "no Mermaid" rule is withdrawn; what remains unconfirmed is only the `.mermaid` whiteboard conversion, and an unrendered block cannot convert, so check `mermaid.run()` actually ran before blaming the feature; always reply through Lavish's own channel or the captain watches a spinner forever; and **one poll per artifact**, stopped before every reply, because concurrent polls drain feedback destructively and end with the page refusing to render. Match on `/proc/<pid>/cmdline` when stopping one - a `pkill -f` pattern that appears in your own command line kills your own shell.
+Moved out of this file on 2026-08-12: those rules were 2,115 estimated tokens, 40 percent of a file every home loads on every session, and they apply only when a surface is actually being built. Do NOT restate them here - a second copy is a copy that drifts.
 
 ## Arm the review-comment loop on every PR firstmate opens
 
@@ -103,4 +102,6 @@ On the resulting wake, load the `fm-pr-comments` skill - it owns the procedure. 
 
 Reply on the parent status channel as `<verb>: corr=<id> <note>`.
 
-An interim measure while the shipped `bin/fm-secondmate-report.sh` emits a bracketed form the classifier cannot read, making a mate's blocker invisible to its parent. Retire it once `bin/fm-classify-lib.sh` parses the bracketed form - it is the weakest entry here, passing only by failing the exclusion test rather than describing the captain.
+PERMANENT, not interim - reclassified 2026-08-12. The shipped `bin/fm-secondmate-report.sh` emits a bracketed form that `bin/fm-classify-lib.sh` cannot parse, so a second mate's blocker or decision reads as `unknown` and goes invisible to its parent. Fixing that file would mean a PR to the firstmate repo, which is now forbidden outright, so this rule can never be retired and must be treated as load-bearing rather than temporary.
+
+Same shape, same cause: write a decision key BEFORE the verb colon - `needs-decision [key=slug]: note`, never `needs-decision: note [key=slug]`, which silently parses as `default` and makes `fm-send --resolve-key <slug>` fail with "no open decision with that key". Cost us a failed decision delivery on 2026-08-12.
