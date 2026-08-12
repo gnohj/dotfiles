@@ -131,40 +131,15 @@ acquire() {
 }
 
 release_pr() {
-  local pr="$1" state_file="$STATE_DIR/$1" wt="" p busy="" lavish_dir="$LAVISH_DIR/$1"
-  # Read tolerantly: concurrent sweeps (e.g. closing many windows at once) may
-  # remove this file between a test and a read, which would abort under set -e.
+  # Digits only: this interpolates into an rm -rf path, and an empty value makes the tab pattern match every "#".
+  case "${1:-}" in '' | *[!0-9]*) return 0 ;; esac
+  local pr="$1" state_file="$STATE_DIR/$1" wt="" busy="" lavish_dir="$LAVISH_DIR/$1"
+  # Read tolerantly: a concurrent sweep may remove this file between the test and the read, aborting under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
 
-  # Close every window/tab whose label carries "#<pr>" (e.g. "2.🐙 #19156").
-  "$MUX" tabs \
-    | awk -F'\t' -v pr="$pr" '$2 ~ ("#" pr "([^0-9]|$)") { print $1 }' \
-    | while IFS= read -r id; do
-        [ -n "$id" ] && "$MUX" close "$id" || true
-      done || true
+  # Order is load-bearing: the caller lives in the window this closes, so survivable work runs first and the fatal steps last.
 
-  # The review's processes — hunk, the Octo nvim, and their node/claude helpers —
-  # ignore the SIGHUP from their tmux window closing and reparent to the tmux
-  # server. Orphaned, they hold a hunk daemon session (which then collides on the
-  # reused pool slot) and an fff LMDB reader slot (eventually MDB_READERS_FULL).
-  # treehouse's own "return terminates processes" misses them. Reap every process
-  # still rooted in this worktree so those resources drop.
-  if [ -n "$wt" ] && [ -d "$wt" ] && command -v lsof >/dev/null 2>&1; then
-    lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" '
-      /^p/ { pid = substr($0, 2) }
-      /^n/ { if (substr($0, 2) == wt) print pid }
-    ' | while read -r p; do kill "$p" 2>/dev/null || true; done || true
-  fi
-
-  if [ -n "$wt" ]; then
-    # cd into the worktree so `treehouse return` has a valid repo context even
-    # when invoked from the tmux hook (arbitrary cwd).
-    (cd "$wt" 2>/dev/null && treehouse return "$wt" --force) >/dev/null 2>&1 || true
-    rm -f "$state_file"
-  fi
-
-  # Ended before removal: a live session outlives its file and would keep serving a page whose assets are gone.
-  # $pr guarded because it defaults to empty: an unguarded rm -rf would take every artifact, not this one.
+  # 1. Artifact + session, ended before removal or a live session serves a page whose assets are gone. $pr guarded: empty would rm every artifact.
   if [ -n "$pr" ] && [ -d "$lavish_dir" ]; then
     busy="$(lavish_busy "$lavish_dir" || true)"
     if [ -n "$busy" ]; then
@@ -178,6 +153,31 @@ release_pr() {
       _slog "  lavish artifact removed for $pr"
     fi
   fi
+
+  # 2. Drop our own record of the lease before anything can kill us.
+  [ -n "$wt" ] && rm -f "$state_file"
+
+  # 3. The fatal tail, detached so the caller dying partway through cannot leave the pool leased. setsid is util-linux; macOS falls back to nohup.
+  _detach() { if command -v setsid >/dev/null 2>&1; then setsid "$@"; else nohup "$@"; fi; }
+  (
+    _detach bash -c '
+      # Out of the worktree first, or the reap below matches this tail own cwd and kills it before it closes the tabs.
+      cd / 2>/dev/null || true
+      wt="$1"; pr="$2"; mux="$3"
+      if [ -n "$wt" ] && [ -d "$wt" ]; then
+        (cd "$wt" 2>/dev/null && treehouse return "$wt" --force) >/dev/null 2>&1 || true
+        if command -v lsof >/dev/null 2>&1; then
+          lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" "
+            /^p/ { pid = substr(\$0, 2) }
+            /^n/ { if (substr(\$0, 2) == wt) print pid }
+          " | while read -r p; do kill "$p" 2>/dev/null || true; done || true
+        fi
+      fi
+      "$mux" tabs \
+        | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 }" \
+        | while IFS= read -r id; do [ -n "$id" ] && "$mux" close "$id" || true; done || true
+    ' _ "$wt" "$pr" "$MUX" >/dev/null 2>&1 &
+  ) 2>/dev/null
   return 0
 }
 
