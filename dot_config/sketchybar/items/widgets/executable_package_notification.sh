@@ -67,6 +67,13 @@ BREW_OUTPUT=$(zsh -c 'arch -arm64 /opt/homebrew/bin/brew outdated 2>/dev/null')
 
 log_message "DEBUG" "Raw brew output: '$BREW_OUTPUT'"
 
+BREW_PINNED=$(zsh -c 'arch -arm64 /opt/homebrew/bin/brew list --pinned 2>/dev/null')
+
+if [[ -n "$BREW_PINNED" ]]; then
+  BREW_OUTPUT=$(echo "$BREW_OUTPUT" | grep -vxF -f <(echo "$BREW_PINNED"))
+  log_message "DEBUG" "Brew output after dropping pinned ($(echo "$BREW_PINNED" | tr '\n' ' ')): '$BREW_OUTPUT'"
+fi
+
 if [[ -n "$BREW_OUTPUT" && "$BREW_OUTPUT" != "" ]]; then
   BREW_COUNT=$(echo "$BREW_OUTPUT" | grep -c '^[[:space:]]*[^[:space:]]')
   log_message "DEBUG" "Brew count: $BREW_COUNT"
@@ -119,17 +126,12 @@ TOTAL_COUNT=$((BREW_COUNT + MAS_COUNT + MISE_COUNT + NIX_COUNT))
 COLOR=$RED
 LABEL="$TOTAL_COUNT"
 
-# Hide entirely when nothing needs updating — clean menu bar; only show when there
-# are pending updates (or a timeout '?', which is an error state worth seeing).
-if [ $TIMEOUT_OCCURRED -eq 0 ] && [ $TOTAL_COUNT -eq 0 ]; then
-  sketchybar --set "$NAME" drawing=off
-  log_message "INFO" "No pending updates — widget hidden"
-  exit 0
-fi
-
 if [ $TIMEOUT_OCCURRED -eq 1 ]; then
   COLOR=$GREY
   LABEL="?"
+elif [ $TOTAL_COUNT -eq 0 ]; then
+  COLOR=$GREEN
+  LABEL="􀆅"
 elif [ $TOTAL_COUNT -le 9 ]; then
   COLOR=$WHITE
 elif [ $TOTAL_COUNT -le 29 ]; then
