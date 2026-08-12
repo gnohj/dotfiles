@@ -2443,6 +2443,12 @@ generate_herdr_config() {
   # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
   # colors pass via env so the perl expressions need no shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
+  # Selected-row fill: gnohj_color13 at 50%, derived so it tracks a theme switch; 90% was only dL* 4.4 and read as unchanged.
+  local herdr_sel_bg
+  herdr_sel_bg="$(printf '#%02x%02x%02x' \
+    "$((0x${gnohj_color13:1:2} * 50 / 100))" \
+    "$((0x${gnohj_color13:3:2} * 50 / 100))" \
+    "$((0x${gnohj_color13:5:2} * 50 / 100))")"
   local herdr_target="$HOME/.config/herdr/config.toml"
   # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
   local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
@@ -2456,14 +2462,15 @@ generate_herdr_config() {
   # both panels light their selected row alike and track the scheme rather than mauve's value.
   # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so each has a green twin.
   # Pin-only cells ($repos/$sync/$sys/$sysres/$systime) MUST be listed or a theme switch drops them; they take overlay0 to read as background detail.
+  # $sys/$sysres/$systime take an _on twin like $br: their dim fg is overlay0, too near surface_dim to read on the selected row.
   # $git_on is $git's green twin - the poller lights whichever matches (all staged vs not), never both.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }, { token = "$sys", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$sysres", fg = "%s" }], [{ token = "$systime", fg = "%s" }]]' \
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
     "$gnohj_color11" "$gnohj_color02" \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" \
-    "$gnohj_color11" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color13" \
-    "$gnohj_color13")"
+    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
+    "$gnohj_color13" "$gnohj_color02")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
   # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
@@ -2493,10 +2500,8 @@ $herdr_begin
 [theme.custom]
 panel_bg = "reset"
 # surface_dim drives the sidebar active/selected row bg and surface0 the inactive
-# tab bg (verified live against herdr 0.7.3). Both set to gnohj_color26 - the same
-# dark tint used for the active-session row - so the
-# active item reads as that subtle near-bg fill. surface1 tracks them for a flat ramp.
-surface_dim = "$gnohj_color26"
+# tab bg (verified live against herdr 0.7.3). surface_dim = gnohj_color13 at 50% (herdr_sel_bg), a clear step under the sesh picker's fzf bg+; surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
+surface_dim = "$herdr_sel_bg"
 surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
 overlay0 = "$gnohj_color13"

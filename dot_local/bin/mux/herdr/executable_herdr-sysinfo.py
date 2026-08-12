@@ -89,6 +89,10 @@ SOURCE = "sysinfo"
 TOKEN = "sys"
 RES_TOKEN = "sysres"
 TIME_TOKEN = "systime"
+# _on twins: the slot used while the pin is FOCUSED, so publish() can hand it a color the dim slot cannot carry.
+ON_TOKEN = "sys_on"
+RES_ON_TOKEN = "sysres_on"
+TIME_ON_TOKEN = "systime_on"
 REPOS_TOKEN = "repos"
 SYNC_TOKEN = "sync"
 LINUX = sys.platform.startswith("linux")
@@ -397,8 +401,17 @@ def publish(line, res_line="", repos_line="", sync_line="", time_line="", focuse
         wanted_sync = (sync_line or None) if on_target else None
         wanted_time = (time_line or None) if on_target else None
         held = entry.get("tokens") or {}
-        fresh = (wanted, wanted_res, wanted_repos, wanted_sync, wanted_time)
-        names = (TOKEN, RES_TOKEN, REPOS_TOKEN, SYNC_TOKEN, TIME_TOKEN)
+        # Each pin cell rides a dim/_on pair, exactly one lit: inline fg is unconditional, so only a slot swap recolors the focused row (as $br/$br_on).
+        lit = on_target and bool(entry.get("focused"))
+        pairs = []
+        for dim_name, on_name, value in ((TOKEN, ON_TOKEN, wanted),
+                                         (RES_TOKEN, RES_ON_TOKEN, wanted_res),
+                                         (TIME_TOKEN, TIME_ON_TOKEN, wanted_time)):
+            pairs.append((dim_name, None if lit else value))
+            pairs.append((on_name, value if lit else None))
+        pairs += [(REPOS_TOKEN, wanted_repos), (SYNC_TOKEN, wanted_sync)]
+        names = tuple(name for name, _ in pairs)
+        fresh = tuple(value for _, value in pairs)
         # Only redundant CLEARS are skippable: the write is what refreshes ttl_ms, so an unchanged line still needs it.
         if not any(fresh) and not any(held.get(t) is not None for t in names):
             continue
