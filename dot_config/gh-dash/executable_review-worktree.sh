@@ -186,10 +186,26 @@ LAVISH_STATE="${LAVISH_AXI_STATE:-$HOME/.lavish-axi/state.json}"
 lavish_busy() {
   local dir="$1" n=""
   command -v jq >/dev/null 2>&1 || return 1
+  # jq rejects data.js (a JS object literal) silently, reading unposted comments as zero - parse it with node instead.
   if [ -f "$dir/data.js" ]; then
-    n=$(sed 's/^window\.__REVIEW__=//; s/;[[:space:]]*$//' "$dir/data.js" 2>/dev/null |
-      jq -r '(.pendingComments // []) | length' 2>/dev/null)
-    case "$n" in '' | 0 | *[!0-9]*) ;; *) echo "$n unsubmitted comment(s)"; return 0 ;; esac
+    if command -v node >/dev/null 2>&1; then
+      n=$(node -e '
+        global.window = {};
+        try { require(require("path").resolve(process.argv[1])); } catch { process.exit(1); }
+        const r = global.window.__REVIEW__;
+        if (!r || typeof r !== "object") process.exit(1);
+        process.stdout.write(String((r.pendingComments || []).length));
+      ' "$dir/data.js" 2>/dev/null) || n=""
+    else
+      # No node: jq reads only the artifacts that happen to be strict JSON, so an empty answer means unknown, not zero.
+      n=$(sed 's/^window\.__REVIEW__=//; s/;[[:space:]]*$//' "$dir/data.js" 2>/dev/null |
+        jq -r '(.pendingComments // []) | length' 2>/dev/null)
+    fi
+    case "$n" in
+      0) ;;
+      '' | *[!0-9]*) echo "data.js unreadable - keeping it rather than guessing"; return 0 ;;
+      *) echo "$n unsubmitted comment(s)"; return 0 ;;
+    esac
   fi
   if [ -f "$LAVISH_STATE" ] && [ "$(jq -r --arg f "$dir/review.html" \
     '(.sessions // {}) | to_entries[] | select(.value.file == $f) | .value.status' \
