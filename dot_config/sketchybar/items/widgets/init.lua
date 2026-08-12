@@ -1,6 +1,7 @@
 require("items.widgets.calendar")
 require("items.widgets.battery")
 require("items.widgets.wifi") -- Full WiFi with upload/download speeds
+require("items.widgets.uptime") -- Right-side items lay out right-to-left, so this order puts it between wifi and disk
 require("items.widgets.disk")
 require("items.widgets.memory")
 require("items.widgets.cpu")
