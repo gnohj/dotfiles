@@ -1276,6 +1276,7 @@ alias theme='~/.config/colorscheme/colorscheme-selector.sh'
 
 # PR-review retrospectives as a table; run from the agents monorepo, not the ~/.claude symlink, so it resolves for any account or agent.
 alias retro-review='~/Developer/agents/shared/skills/review-lavish/review-lavish-state retro'
+alias retro-work='~/Developer/agents/shared/skills/retro-work/retro-work-state retro'
 
 #-------------------------------------------------------------------------------
 #                  Paths
