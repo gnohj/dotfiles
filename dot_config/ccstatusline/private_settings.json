@@ -16,6 +16,13 @@
         "color": "hex:a3b8c6"
       },
       {
+        "id": "effort",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-effort",
+        "timeout": 400,
+        "preserveColors": true
+      },
+      {
         "id": "ctxdot",
         "type": "custom-text",
         "customText": "·",
@@ -110,12 +117,8 @@
   "minimalistMode": false,
   "powerline": {
     "enabled": false,
-    "separators": [
-      ""
-    ],
-    "separatorInvertBackground": [
-      false
-    ],
+    "separators": [""],
+    "separatorInvertBackground": [false],
     "startCaps": [],
     "endCaps": [],
     "autoAlign": false,
