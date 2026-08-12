@@ -9,6 +9,9 @@ _mux_path="$_mux_path:$HOME/.bun/bin"
 # ~/.local/bin MUST stay ahead of /usr/bin: tmux 3.6b lives there, apt ships 3.4, and the mismatch fails every tmux call.
 _mux_path="$_mux_path:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
+# herdr's real bin dir first: the mise shim costs ~46ms a call against 2ms, and the dir holds only herdr, so it shadows nothing.
+_mux_path="$HOME/.local/share/mise/installs/herdr/latest:$_mux_path"
+
 # mise shims are appended, never prepended, so nix and homebrew keep front precedence.
 export PATH="$_mux_path:$PATH:$HOME/.local/share/mise/shims"
 unset _mux_path
