@@ -68,7 +68,7 @@ dir="${dir/#\~/$HOME}"
 #
 # A type glyph is prepended to the derived name so the sidebar reads its kind at a
 # glance: 🌳 linked git worktree, 🌿 plain git repo (a branch checkout), 📁 non-git
-# dir, 🖥️ home, 🦜 the fm-personal / fm-work firstmate homes (one shared checkout).
+# dir, 🖥️ home, 🚢 the fm-personal / fm-work firstmate homes (one shared checkout).
 # Detection is nesting-safe (rev-parse, not a .git probe): a linked worktree's
 # git-dir differs from the shared common-dir (e.g. web/.bare/worktrees/review vs
 # web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
@@ -116,7 +116,7 @@ if [ -z "$label_explicit" ]; then
     if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then glyph="🌳"; else glyph="🌿"; fi
   fi
   [ "${dir%/}" = "${HOME%/}" ] && glyph="🖥️"
-  case "$label" in fm-personal|fm-work) glyph="🦜" ;; esac
+  case "$label" in fm-personal|fm-work) glyph="🚢" ;; esac
   label="$glyph $label"
 fi
 
