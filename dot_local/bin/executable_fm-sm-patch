@@ -75,6 +75,7 @@ EDITS = [
     ("""# adjacent old-format firstmate/... or 2ndmate-<id>/... projections may extend""",
      """# adjacent old-format firstmate/... or ⛵⠀sm-<id>/... projections may extend"""),
 ]
+# NOT an edit: herdr.sh:552 compares a re-derived projection label against the one journaled at create time, so shortening it invalidates every journal and projections spawn flat.
 
 applied = already = 0
 for anchor, repl in EDITS:
