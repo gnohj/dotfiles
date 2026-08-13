@@ -2466,10 +2466,10 @@ generate_herdr_config() {
   # $git_on is $git's green twin - the poller lights whichever matches (all staged vs not), never both.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$git", fg = "%s" }, { token = "$git_on", fg = "%s" }, { token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
     "$gnohj_color04" "$gnohj_color04" \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
-    "$gnohj_color11" "$gnohj_color02" "$gnohj_color03" "$gnohj_color05" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color13" "$gnohj_color02")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
@@ -2480,16 +2480,16 @@ generate_herdr_config() {
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
   # Row 2 is $pbr/$pgit, same colors as the spaces row's $br/$git so both panels read alike.
   local herdr_agent_rows herdr_claude_rows herdr_pane_git
-  herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "tab", fg = "%s" }], ["agent", { token = "state_text", dim = false }]]' \
-    "$gnohj_color02")"
-  herdr_pane_git="$(printf '[{ token = "$pbr", fg = "%s" }, { token = "$pbr_on", fg = "%s", dim = false }, { token = "$pgit", fg = "%s", dim = false }, { token = "$pgit_on", fg = "%s", dim = false }]' \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color11" "$gnohj_color02")"
-  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "tab", fg = "%s" }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
-    "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_agent_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$ptab", fg = "%s" }, { token = "$ptab_on", fg = "%s", dim = false }], ["agent", { token = "state_text", dim = false }]]' \
+    "$gnohj_color13" "$gnohj_color02")"
+  herdr_pane_git="$(printf '[{ token = "$pgit", fg = "%s", dim = false }, { token = "$pgit_on", fg = "%s", dim = false }, { token = "$pbr", fg = "%s" }, { token = "$pbr_on", fg = "%s", dim = false }]' \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02")"
+  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace", { token = "$ptab", fg = "%s" }, { token = "$ptab_on", fg = "%s", dim = false }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "$act", fg = "%s", dim = false }, { token = "state_text", dim = false }]]' \
+    "$gnohj_color13" "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "tab", fg = "%s" }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "%s", dim = false }]]' \
-    "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_store_rows="$(printf '[["state_icon", "workspace", { token = "$ptab", fg = "%s" }, { token = "$ptab_on", fg = "%s", dim = false }], %s, [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "$act", fg = "%s", dim = false }, { token = "state_text", dim = false }]]' \
+    "$gnohj_color13" "$gnohj_color02" "$herdr_pane_git" "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"

@@ -358,7 +358,7 @@ enabled = false
 # terminal renders at ~0.52x toward the bg - no fg can undo it. state_text/$act opt out; tab and
 # pane stay dim so the name/summary lines recede.
 [ui.sidebar.agents]
-rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent", { token = "state_text", dim = false }]]
+rows = [["state_icon", "workspace", { token = "$ptab", fg = "#536571" }, { token = "$ptab_on", fg = "#b7ce97", dim = false }], ["agent", { token = "state_text", dim = false }]]
 
 # `state_text` spells out idle/working/blocked/done next to the age, because state_icon
 # alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
@@ -366,7 +366,7 @@ rows = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], ["agent"
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }, { token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
+claude = [["state_icon", "workspace", { token = "$ptab", fg = "#536571" }, { token = "$ptab_on", fg = "#b7ce97", dim = false }], [{ token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }, { token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
 
 # Row 2 = $pbr/$pgit: the pane's worktree when it differs from its workspace's; empty rows collapse.
 #
@@ -376,8 +376,8 @@ claude = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ tok
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }, { token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
-opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }, { token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "state_text", dim = false }, { token = "$act", fg = "#a3b8c6", dim = false }]]
+pi = [["state_icon", "workspace", { token = "$ptab", fg = "#536571" }, { token = "$ptab_on", fg = "#b7ce97", dim = false }], [{ token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }, { token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
+opencode = [["state_icon", "workspace", { token = "$ptab", fg = "#536571" }, { token = "$ptab_on", fg = "#b7ce97", dim = false }], [{ token = "$pgit", fg = "#da858e", dim = false }, { token = "$pgit_on", fg = "#b7ce97", dim = false }, { token = "$pbr", fg = "#536571" }, { token = "$pbr_on", fg = "#b7ce97", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
@@ -417,7 +417,7 @@ opencode = [["state_icon", "workspace", { token = "tab", fg = "#b7ce97" }], [{ t
 # Row 4 is $systime alone: nothing else in the sidebar has a 4th line, so it collapses everywhere except the pin.
 # Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale; pin cells take overlay0 to read as background detail.
 # $repos/$sync split for COLOR - a token takes one fg, and unlike $git/$git_on both halves can be lit at once.
-rows = [["state_icon", "workspace", { token = "$repos", fg = "#a3b8c6" }, { token = "$sync", fg = "#a3b8c6" }], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$git", fg = "#da858e" }, { token = "$git_on", fg = "#b7ce97" }, { token = "$sys", fg = "#536571" }, { token = "$sys_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$sb", fg = "#dab183" }, { token = "$jira", fg = "#b7ce97" }, { token = "$sysres", fg = "#536571" }, { token = "$sysres_on", fg = "#b7ce97" }], [{ token = "$systime", fg = "#536571" }, { token = "$systime_on", fg = "#b7ce97" }]]
+rows = [["state_icon", "workspace", { token = "$repos", fg = "#a3b8c6" }, { token = "$sync", fg = "#a3b8c6" }], [{ token = "$git", fg = "#da858e" }, { token = "$git_on", fg = "#b7ce97" }, { token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$sys", fg = "#536571" }, { token = "$sys_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }, { token = "$sysres", fg = "#536571" }, { token = "$sysres_on", fg = "#b7ce97" }], [{ token = "$systime", fg = "#536571" }, { token = "$systime_on", fg = "#b7ce97" }]]
 
 [session]
 resume_agents_on_restore = true

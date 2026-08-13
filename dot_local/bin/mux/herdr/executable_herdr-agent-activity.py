@@ -57,7 +57,20 @@ except ImportError:  # sibling absent: every on-disk age degrades; a path-kind s
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 INTERVAL = int(os.environ.get("HERDR_ACTIVITY_INTERVAL", "20"))
 TTL_MS = (INTERVAL + 30) * 1000  # outlive a couple of missed passes
+from herdr_label import row_indent
+
 SOURCE = "agent-activity"
+# Agent rows indent under the workspace TEXT; only a CUSTOM token can hold the pad (herdr owns state_text and agent), which is why the row leads with $act.
+_WS_LABELS = {}
+
+def ws_indent(workspace_id, fetch):
+    """Blank cells for a pane's rows, from its workspace label. Cached per pass - one extra call."""
+    if not _WS_LABELS:
+        reply = fetch("workspace.list", {})
+        for ws in ((reply or {}).get("result") or reply or {}).get("workspaces", []) or []:
+            _WS_LABELS[ws.get("workspace_id")] = ws.get("label") or ""
+    return row_indent(_WS_LABELS.get(workspace_id, ""))
+
 TOKEN = "act"
 
 # Raw epochs for herdr-last-active-agent.sh (prefix+'). The sidebar token is a FORMATTED
@@ -165,6 +178,7 @@ def report_all():
     now = time.time()
     seq = time.time_ns()  # ns: monotonic, and above any manual probe seq
     epochs = {}
+    _WS_LABELS.clear()  # labels can change between passes; the pad follows the glyph
     for agent in reply["result"].get("snapshot", {}).get("agents", []):
         pane_id = agent.get("pane_id")
         if not pane_id:
@@ -199,7 +213,7 @@ def report_all():
             "source": SOURCE,
             "seq": seq,
             "ttl_ms": TTL_MS,
-            "tokens": {TOKEN: value},  # null clears — herdr has no clear_tokens field
+            "tokens": {TOKEN: (ws_indent(agent.get("workspace_id"), rpc) + value) if value else value},  # null clears — herdr has no clear_tokens field
         })
     write_state(epochs)
 

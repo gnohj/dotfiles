@@ -80,7 +80,20 @@ except ImportError:  # sibling absent: on-disk titles degrade, an OSC-titled ses
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 
+from herdr_label import row_indent
+
 SOURCE = "auto-summary"
+# Agent rows indent under the workspace TEXT; only a CUSTOM token can hold the pad (herdr owns state_text and agent), which is why the row leads with $act.
+_WS_LABELS = {}
+
+def ws_indent(workspace_id, fetch):
+    """Blank cells for a pane's rows, from its workspace label. Cached per pass - one extra call."""
+    if not _WS_LABELS:
+        reply = fetch("workspace.list", {})
+        for ws in ((reply or {}).get("result") or reply or {}).get("workspaces", []) or []:
+            _WS_LABELS[ws.get("workspace_id")] = ws.get("label") or ""
+    return row_indent(_WS_LABELS.get(workspace_id, ""))
+
 SUBSCRIPTIONS = ["pane.updated", "pane.created", "pane.closed"]
 
 WORDS = int(os.environ.get("HERDR_SUMMARY_WORDS", "4"))
@@ -415,6 +428,7 @@ def apply(pane, cache, recheck_width=False):
     if previous and previous[1] == slug and previous[2] == lit:
         cache[pane_id] = (raw, slug, lit)
         return
+    pad = ws_indent(pane.get("workspace_id"), lambda m, p: request(m, p))
     result = request(
         "pane.report_metadata",
         {
@@ -422,7 +436,8 @@ def apply(pane, cache, recheck_width=False):
             "seq": time.time_ns(),
             "source": SOURCE,
             "title": slug,
-            "tokens": {"pn": None if lit else slug, "pn_on": slug if lit else None},
+            # Title stays unpadded - that is the pane BORDER label, not a sidebar row.
+            "tokens": {"pn": None if lit else pad + slug, "pn_on": pad + slug if lit else None},
         },
     )
     if result is not None:
@@ -431,6 +446,7 @@ def apply(pane, cache, recheck_width=False):
 
 def sweep(cache):
     """Full reconcile, re-measuring widths — the backstop for panes that emit no events."""
+    _WS_LABELS.clear()  # labels can change between sweeps; the pad follows the glyph
     result = request("pane.list", {})
     for pane in (result or {}).get("panes", []):
         apply(pane, cache, recheck_width=True)

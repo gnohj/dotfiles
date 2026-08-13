@@ -261,11 +261,15 @@ for w, c in ws_cwd.items():
     picker[c] = entry
     label = ws_label.get(w, "")
     br = branch(c, keep_key=label.startswith("└ "))
-    if br:
-        br = row_indent(label) + br
+    # $git leads row 2 now, so the pad rides it when lit and the branch otherwise - it has to sit on whatever starts the row or the row shifts by a glyph.
+    pad = row_indent(label)
+    lead_git = bool(sym)
+    if br and not lead_git:
+        br = pad + br
     lit = w in focused
-    report("workspace", w, (("git", "" if staged_only else sym),
-                            ("git_on", sym if staged_only else ""),
+    git_val = (pad + sym) if lead_git else sym
+    report("workspace", w, (("git", "" if staged_only else git_val),
+                            ("git_on", git_val if staged_only else ""),
                             ("br", "" if lit else br), ("br_on", br if lit else "")))
 
 # Compared on the worktree ROOT, not the cwd string - a subdirectory of the same tree is not another checkout.
@@ -284,8 +288,13 @@ for p in plist:
     sym, staged_only, entry = sign(tree)
     picker[tree] = entry
     lit = bool(p.get("focused"))
-    report("pane", pid, (("pgit", "" if staged_only else sym),
-                         ("pgit_on", sym if staged_only else ""),
+    # Agent row 1 indents like $pn and $act beside it, and $pgit leads it now - so the pad rides the glyph when lit and the branch otherwise.
+    pane_pad = row_indent(ws_label.get(w, ""))
+    pgit_val = (pane_pad + sym) if sym else sym
+    if not sym:
+        name = pane_pad + name
+    report("pane", pid, (("pgit", "" if staged_only else pgit_val),
+                         ("pgit_on", pgit_val if staged_only else ""),
                          ("pbr", "" if lit else name), ("pbr_on", name if lit else "")))
 
 hg.update(picker)
