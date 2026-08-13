@@ -61,7 +61,7 @@ sys.dont_write_bytecode = True             # no __pycache__ in the deployed scri
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
 try:
     import herdr_gitmux as hg              # shared with herdr-sesh.sh — see its docstring
-    from herdr_label import row_indent, is_agent_home  # shared with thread-status + sysinfo, so the writers cannot drift
+    from herdr_label import row_indent  # shared with thread-status + sysinfo, so the writers cannot drift
 except Exception:
     sys.exit(0)                            # mid-apply window; the next pass picks it up
 
@@ -114,43 +114,39 @@ def default_branch(cwd):
         _DEFAULT_BRANCH[root] = ref.split("/", 1)[1] if "/" in ref else ref
     return _DEFAULT_BRANCH[root]
 
-def home_branch(cwd):
-    """`<line>(<sha>)` for an agent home, so every home reads the same regardless of checkout shape.
+def detached_head(cwd):
+    """Short sha when HEAD is DETACHED, else "".
 
-    fm-personal/fm-work sit on a real branch, while a secondmate home is LEASED AT A DETACHED HEAD
-    (firstmate's bin/fm-update.sh) so one worktree can hold the branch and the rest advance freely.
-    Branch-only would print nothing for the leased ones and sha-only says nothing about which line
-    they are on, so both are shown, and a trailing `*` marks the head as detached. The line is only
-    claimed when the sha really is an ancestor of it - an arbitrary detached checkout falls back to
-    the bare sha rather than asserting a line it is not on.
+    raw_branch() collapses branch-or-sha, which is right for identity but wrong for display: a
+    detached checkout has to read as detached rather than as a branch that happens to look like a
+    sha. Every detached row renders `(<sha>)*`, homes included.
     """
-    head = out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
-    name = raw_branch(cwd)
-    if name and name != head:
-        return f"{name}({head})" if head else name
-    base = default_branch(cwd)
-    if base and subprocess.run(["git", "-C", cwd, "merge-base", "--is-ancestor", "HEAD",
-                                f"origin/{base}"], capture_output=True).returncode == 0:
-        return f"{base}({head})*"
-    return head or name
+    if out(["git", "-C", cwd, "branch", "--show-current"]).strip():
+        return ""
+    return out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
 
 def branch(cwd, keep_key=False):
-    """Branch text for row 2.
+    """Row 2 text: `<line>(<sha>)`, with a trailing `*` when HEAD is detached.
 
-    Default drops the ticket key, because an ordinary ticket workspace's row 1 already ends in the
-    number (web/infra/24314) - see [ui.sidebar.spaces] in config.toml for that and the width it buys.
+    The sha rides every row because a branch name alone does not say which commit a checkout is
+    parked on, and several of these are pinned rather than tracking - a leased secondmate home, a
+    treehouse pool slot. A detached checkout names its line only when the sha really is an ancestor
+    of it, so an arbitrary one reads `(<sha>)*` rather than claiming a branch it is not on.
 
-    keep_key is for a PROJECTED worktree, whose row 1 is the truncated task label rather than that
-    clean `<repo>/<number>`. There the row is VERBATIM - `fm/` and all - because its job is to say
-    what branch the work is actually on. Firstmate always names these `fm/<task-id>` (fm-brief.sh
-    creates it, fm-merge-local.sh and fm-review-diff.sh reconstruct it), so dropping the prefix would
-    render a branch name that does not exist, and a branch skipping the PROJECT-1234 convention would
-    read as correct rather than as the anomaly it is.
+    keep_key leaves a projection's ticket key on: its row 1 is a truncated task label, not the clean
+    `<repo>/<number>` an ordinary ticket worktree gets, so row 2 there names the branch as created.
     """
-    if keep_key:
-        return raw_branch(cwd)
-    name = OWNER_PREFIX.sub("", raw_branch(cwd))
-    return TICKET_PREFIX.sub("", name) or name
+    head = out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    if detached_head(cwd):
+        base = default_branch(cwd)
+        on_line = bool(base) and subprocess.run(
+            ["git", "-C", cwd, "merge-base", "--is-ancestor", "HEAD", f"origin/{base}"],
+            capture_output=True).returncode == 0
+        return f"{base}({head})*" if on_line else f"({head})*"
+    name = raw_branch(cwd)
+    if not keep_key:
+        name = TICKET_PREFIX.sub("", OWNER_PREFIX.sub("", name)) or name
+    return f"{name}({head})" if head else name
 
 # --path-format=absolute is load-bearing: bare --git-common-dir is relative in a checkout, absolute in a worktree.
 _IDENT = {}
@@ -264,7 +260,7 @@ for w, c in ws_cwd.items():
     sym, staged_only, entry = sign(c)
     picker[c] = entry
     label = ws_label.get(w, "")
-    br = home_branch(c) if is_agent_home(label) else branch(c, keep_key=label.startswith("└ "))
+    br = branch(c, keep_key=label.startswith("└ "))
     if br:
         br = row_indent(label) + br
     lit = w in focused
