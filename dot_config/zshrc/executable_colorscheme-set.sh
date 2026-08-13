@@ -2463,11 +2463,11 @@ generate_herdr_config() {
   # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so each has a green twin.
   # Pin-only cells ($repos/$sync/$sys/$sysres/$systime) MUST be listed or a theme switch drops them; they take overlay0 to read as background detail.
   # $sys/$sysres/$systime take an _on twin like $br: their dim fg is overlay0, too near surface_dim to read on the selected row.
-  # $git_on is $git's green twin - the poller lights whichever matches (all staged vs not), never both.
+  # $repos/$sync split by content and both can be lit; each takes an _on twin so the roll-up dims while the pin is unfocused.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws", fg = "%s" }, { token = "$ws_dirty", fg = "%s" }, { token = "$ws_sync", fg = "%s" }, { token = "$repos", fg = "%s" }, { token = "$sync", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
-    "$gnohj_color14" "$gnohj_color11" "$gnohj_color05" "$gnohj_color04" "$gnohj_color04" \
+  herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws", fg = "%s" }, { token = "$ws_dirty", fg = "%s" }, { token = "$ws_sync", fg = "%s" }, { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
+    "$gnohj_color14" "$gnohj_color11" "$gnohj_color05" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
     "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color13" "$gnohj_color02")"

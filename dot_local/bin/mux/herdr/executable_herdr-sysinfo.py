@@ -51,9 +51,10 @@ The same pass feeds four more tokens onto that pinned space: `$sysres` (cpu/mem/
 (uptime and the wall-clock time in the box's geolocated zone, on its own row for the same width
 reason), and the `$repos` / `$sync` pair - a fleet-wide git roll-up of dirty, unpushed and unpulled counts across EVERY path
 the sesh picker knows, all of ~/Developer plus every ~/.treehouse slot. That is the half herdr
-cannot show alone: its `$git` token only describes a workspace already open, and the pin is a bare
-~ workspace with no repo. The pair is two tokens because a token takes ONE fg and both halves can
-be lit at once - dirty red, arrows green - unlike $git/$git_on where only ever one is.
+cannot show alone: the sidebar's own colouring only describes a workspace already open, and the pin
+is a bare ~ workspace with no repo. The roll-up is two tokens because a token takes ONE fg and both
+halves can be lit at once - dirty and arrows - so they split by CONTENT, not by focus. Each half
+then rides its own `_on` twin, since a lone token cannot dim while the pin sits unfocused.
 
 No scanner and no new dependency: counts are read from the sesh git cache (herdr_gitmux.CACHE)
 that herdr-git-status.sh and the picker already keep warm. That is also the limitation - a path is
@@ -97,6 +98,9 @@ RES_ON_TOKEN = "sysres_on"
 TIME_ON_TOKEN = "systime_on"
 REPOS_TOKEN = "repos"
 SYNC_TOKEN = "sync"
+# Each roll-up half gets its own _on twin: repos/sync split by CONTENT and both can be lit at once, so one shared focus pair would not do.
+REPOS_ON_TOKEN = "repos_on"
+SYNC_ON_TOKEN = "sync_on"
 LINUX = sys.platform.startswith("linux")
 INTERVAL = float(os.environ.get("HERDR_SYSINFO_INTERVAL", "5"))
 SCOPE = os.environ.get("HERDR_SYSINFO_SCOPE", "pin")
@@ -408,10 +412,11 @@ def publish(line, res_line="", repos_line="", sync_line="", time_line="", focuse
         pairs = []
         for dim_name, on_name, value in ((TOKEN, ON_TOKEN, wanted),
                                          (RES_TOKEN, RES_ON_TOKEN, wanted_res),
-                                         (TIME_TOKEN, TIME_ON_TOKEN, wanted_time)):
+                                         (TIME_TOKEN, TIME_ON_TOKEN, wanted_time),
+                                         (REPOS_TOKEN, REPOS_ON_TOKEN, wanted_repos),
+                                         (SYNC_TOKEN, SYNC_ON_TOKEN, wanted_sync)):
             pairs.append((dim_name, None if lit else value))
             pairs.append((on_name, value if lit else None))
-        pairs += [(REPOS_TOKEN, wanted_repos), (SYNC_TOKEN, wanted_sync)]
         names = tuple(name for name, _ in pairs)
         fresh = tuple(value for _, value in pairs)
         # Only redundant CLEARS are skippable: the write is what refreshes ttl_ms, so an unchanged line still needs it.
