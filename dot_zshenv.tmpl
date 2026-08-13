@@ -58,7 +58,8 @@ export XDG_STATE_HOME="$HOME/.local/state"
 # shell. Colon-separated (Unix). ~/Developer + ~/.treehouse: work repos and pooled
 # PR-review worktrees; ~/.local/share/chezmoi: the dotfiles source itself, so mise
 # loads its own config there cleanly instead of warning/erroring.
-export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi"
+# ~/.no-mistakes: the pipeline's per-run repo copies, created per run id so nothing narrower can scope them.
+export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi:$HOME/.no-mistakes"
 
 # Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: herdr's panes skip it.
 export BROWSER="desktop-open"

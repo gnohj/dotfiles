@@ -118,4 +118,7 @@ linux-bootstrap.sh
 # Log cleanup — same story: macOS runs the identical script from its launchd agent `log-cleanup`.
 .config/systemd/user/cleanup-logs.service
 .config/systemd/user/cleanup-logs.timer
+
+# mise trust list for user services — read by the systemd user manager, so inert on macOS.
+.config/environment.d/
 {{- end }}
