@@ -85,6 +85,7 @@ from herdr_label import row_indent
 SOURCE = "auto-summary"
 # Agent rows indent under the workspace TEXT; only a CUSTOM token can hold the pad (herdr owns state_text and agent), which is why the row leads with $act.
 _WS_LABELS = {}
+_TAB_POS = {}
 
 def ws_indent(workspace_id, fetch):
     """Blank cells for a pane's rows, from its workspace label. Cached per pass - one extra call."""
@@ -94,7 +95,31 @@ def ws_indent(workspace_id, fetch):
             _WS_LABELS[ws.get("workspace_id")] = ws.get("label") or ""
     return row_indent(_WS_LABELS.get(workspace_id, ""))
 
-SUBSCRIPTIONS = ["pane.updated", "pane.created", "pane.closed"]
+
+def tab_prefix(tab_id, fetch):
+    """`<n>.` for the pane's tab, matching the number its LABEL carries; "" when unknown.
+
+    Position within the workspace, never the tab's own `number` - that is a creation counter
+    which climbs as tabs close, so a lone tab can report 15 and a tab labelled "2.state" can
+    report 4. herdr-focus-tracker.py numbers labels off the same enumeration, so the two agree
+    everywhere it numbers; inside a firstmate workspace it leaves labels bare on purpose, and
+    the row still carries the position because that is what selects the tab.
+    """
+    if not _TAB_POS:
+        reply = fetch("tab.list", {})
+        by_workspace = {}
+        for tab in ((reply or {}).get("result") or reply or {}).get("tabs", []) or []:
+            by_workspace.setdefault(tab.get("workspace_id"), []).append(tab.get("tab_id"))
+        for ids in by_workspace.values():
+            for position, tid in enumerate(ids, start=1):
+                _TAB_POS[tid] = position
+    position = _TAB_POS.get(tab_id)
+    return f"{position}." if position else ""
+
+SUBSCRIPTIONS = ["pane.updated", "pane.created", "pane.closed",
+                 "tab.created", "tab.closed", "tab.moved"]
+# These renumber every tab after the one that moved, so a prefix shifts with no pane event of its own; tab.renamed is absent because the prefix reads tab ORDER, not the label.
+TAB_ORDER_EVENTS = {"tab_created", "tab_closed", "tab_moved"}
 
 WORDS = int(os.environ.get("HERDR_SUMMARY_WORDS", "4"))
 RECONCILE_SECS = int(os.environ.get("HERDR_SUMMARY_RECONCILE", "45"))
@@ -421,14 +446,17 @@ def apply(pane, cache, recheck_width=False):
         return
     lit = bool(pane.get("focused"))
     previous = cache.get(pane_id)
+    # In the cache key so a renumbered tab rewrites the row - the slug alone would not have moved.
+    tab = tab_prefix(pane.get("tab_id"), lambda m, p: request(m, p))
     # Steady state costs nothing: an unchanged title skips even the width lookup.
-    if previous and previous[0] == raw and previous[2] == lit and not recheck_width:
+    if previous and previous[0] == raw and previous[2] == lit and previous[3] == tab and not recheck_width:
         return
     slug = truncate(raw, budget_for(pane_id))
-    if previous and previous[1] == slug and previous[2] == lit:
-        cache[pane_id] = (raw, slug, lit)
+    if previous and previous[1] == slug and previous[2] == lit and previous[3] == tab:
+        cache[pane_id] = (raw, slug, lit, tab)
         return
     pad = ws_indent(pane.get("workspace_id"), lambda m, p: request(m, p))
+    row = pad + tab + slug
     result = request(
         "pane.report_metadata",
         {
@@ -436,17 +464,18 @@ def apply(pane, cache, recheck_width=False):
             "seq": time.time_ns(),
             "source": SOURCE,
             "title": slug,
-            # Title stays unpadded - that is the pane BORDER label, not a sidebar row.
-            "tokens": {"pn": None if lit else pad + slug, "pn_on": pad + slug if lit else None},
+            # Title stays bare - that is the pane BORDER label, which sits in the tab it names.
+            "tokens": {"pn": None if lit else row, "pn_on": row if lit else None},
         },
     )
     if result is not None:
-        cache[pane_id] = (raw, slug, lit)
+        cache[pane_id] = (raw, slug, lit, tab)
 
 
 def sweep(cache):
     """Full reconcile, re-measuring widths — the backstop for panes that emit no events."""
     _WS_LABELS.clear()  # labels can change between sweeps; the pad follows the glyph
+    _TAB_POS.clear()    # and tabs open/close between sweeps, which reshuffles every position after them
     result = request("pane.list", {})
     for pane in (result or {}).get("panes", []):
         apply(pane, cache, recheck_width=True)
@@ -474,6 +503,12 @@ def handle(msg, cache):
         apply(data.get("pane") or {}, cache)
     elif event == "pane_closed":
         cache.pop(data.get("closed_pane_id") or data.get("pane_id"), None)
+    elif event in TAB_ORDER_EVENTS:
+        # Re-apply every pane: the prefix is in the cache key, so only a moved number rewrites.
+        _TAB_POS.clear()
+        result = request("pane.list", {})
+        for pane in (result or {}).get("panes", []):
+            apply(pane, cache)
 
 
 def session(cache):
