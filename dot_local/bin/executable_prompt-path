@@ -196,7 +196,8 @@ emit() {
 }
 
 if [ "$mode" = git-ref ]; then
-  [ -n "$ref" ] || exit 0
+  # Row 2's leader is the ONLY place 🏢/🏠 appears, so a non-git dir still renders: collapsing on an absent ref would take the account glyph down with it.
+  [ -n "$ref" ] || [ "$account_glyph" = 1 ] || exit 0
   # 🏢/🏠 rendered HERE rather than as its own widget so one process owns row 2's leader: near token expiry the glyph grows a "!", and only the process that also sizes the text can take that column back.
   lead='   ' lead_w=$LEADER_W
   if [ "$account_glyph" = 1 ]; then
