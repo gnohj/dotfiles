@@ -366,7 +366,7 @@ rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = fal
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
+claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
@@ -374,8 +374,8 @@ claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { tok
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
-opencode = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }], [{ token = "$act", fg = "#a3b8c6", dim = false }, { token = "state_text", dim = false }]]
+pi = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+opencode = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and

@@ -2480,12 +2480,12 @@ generate_herdr_config() {
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
   local herdr_agent_rows herdr_claude_rows herdr_pane_git
   herdr_agent_rows='rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = false }]]'
-  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "$act", fg = "%s", dim = false }, { token = "state_text", dim = false }]]' \
-    "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
+    "$gnohj_color04" "$gnohj_color02")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }], [{ token = "$act", fg = "%s", dim = false }, { token = "state_text", dim = false }]]' \
-    "$gnohj_color04" "$gnohj_color02" "$gnohj_color04")"
+  herdr_store_rows="$(printf '[["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
+    "$gnohj_color04" "$gnohj_color02")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2564,15 +2564,15 @@ EOF
     HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
       'if (/^rows\s*=/ && /state_text/ && !/\$ws/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
 
-    # 1d) rows_by_agent.claude: keyed on $act, the token only this row carries.
+    # 1d) rows_by_agent.claude: keyed on $pn, the token only the agent row sets carry.
     HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
-      'if (/^claude\s*=/ && /\$act/) { $_ = $ENV{HERDR_CLAUDE_ROWS} . "\n" }' "$herdr_file"
+      'if (/^claude\s*=/ && /\$pn/) { $_ = $ENV{HERDR_CLAUDE_ROWS} . "\n" }' "$herdr_file"
 
-    # 1e) rows_by_agent.pi / .opencode: keyed on state_text so a plain `pi = …` elsewhere
+    # 1e) rows_by_agent.pi / .opencode: keyed on $pn so a plain `pi = …` elsewhere
     #     in the file (a theme key, a plugin id) can never be rewritten by accident.
     for herdr_agent_key in pi opencode; do
       HERDR_AGENT_KEY="$herdr_agent_key" HERDR_STORE_ROWS="$herdr_store_rows" perl -i -pe \
-        'if (/^\Q$ENV{HERDR_AGENT_KEY}\E\s*=/ && /state_text/) {
+        'if (/^\Q$ENV{HERDR_AGENT_KEY}\E\s*=/ && /\$pn/) {
            $_ = "$ENV{HERDR_AGENT_KEY} = $ENV{HERDR_STORE_ROWS}\n" }' "$herdr_file"
     done
 
