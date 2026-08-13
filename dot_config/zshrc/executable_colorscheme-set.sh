@@ -2467,7 +2467,7 @@ generate_herdr_config() {
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
   local herdr_rows
   herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws", fg = "%s" }, { token = "$ws_dirty", fg = "%s" }, { token = "$ws_sync", fg = "%s" }, { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
-    "$gnohj_color14" "$gnohj_color11" "$gnohj_color05" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
+    "$gnohj_color14" "$gnohj_color01" "$gnohj_color05" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
     "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color13" "$gnohj_color02")"
