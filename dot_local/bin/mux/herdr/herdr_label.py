@@ -10,12 +10,18 @@ The pad is U+2800 BRAILLE PATTERN BLANK, never spaces: herdr trims leading white
 value (plain space, NBSP and U+2007 figure space all verified stripped), while U+2800 survives
 because it is a printable symbol rather than whitespace, and still renders as one blank cell.
 """
+import os
 import re
 import unicodedata
 
 INDENT_CELL = "⠀"
+# The sysinfo pin: its rows carry host stats, so other writers leave them alone. Mirrors PIN in herdr-sysinfo.py.
+PIN_LABEL = os.environ.get("HERDR_SYSINFO_PIN") or "🖥️ %s" % (
+    os.path.basename(os.path.expanduser("~")) or os.environ.get("USER") or "host")
 # Agent HOMES, never their task worktrees. `sm-<id>` is the local patch's spelling, `2ndmate-<id>` upstream's, kept so an unpatched checkout still resolves.
 AGENT_HOME_RE = re.compile(r"^(?:fm-personal|fm-work|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
+# herdr-sesh-layout.sh collapses a ticket worktree's last segment to the bare NUMBER: web/infra/24314.
+TICKET_LABEL_RE = re.compile(r"/[0-9]+$")
 _VARIATION_SELECTOR_16 = "️"
 _ZERO_WIDTH = ("Mn", "Me", "Cf")
 
@@ -65,9 +71,27 @@ def bare_label(label):
     return (label or "")[glyph_run(label):].strip()
 
 
+def is_pin(label):
+    """True for the sysinfo pin row, which reports host stats rather than any checkout's state."""
+    return (label or "") == PIN_LABEL
+
+
 def is_agent_home(label):
     """True for a firstmate / secondmate / captain home row, whatever glyph the sidebar prefixes."""
     return bool(AGENT_HOME_RE.match(bare_label(label)))
+
+
+def wants_branch(label):
+    """True where row 1's branch says something row 0 does not.
+
+    A `└ ` projection qualifies (its label is a truncated task name), as does a per-task worktree -
+    either bucketed to a third segment or ending in the collapsed ticket number. A home, a `…/review`
+    pool slot and a plain repo checkout all sit on a permanent line, so the branch there is noise.
+    """
+    if (label or "").startswith("└ "):
+        return True
+    text = bare_label(label)
+    return text.count("/") >= 2 or bool(TICKET_LABEL_RE.search(text))
 
 
 def row_indent(label):
