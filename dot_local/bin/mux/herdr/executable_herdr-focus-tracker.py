@@ -77,8 +77,6 @@ BRANCH_TTL_MS = 38000
 
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
 SUMMARY_SOURCE = "auto-summary"
-# This daemon's own source: nothing else writes the agent-row tab label - see paint_tab_label.
-TAB_LABEL_SOURCE = "tab-label"
 
 # Events that can move which pane is focused, and so need the accent re-slotted.
 PANE_PAINT_EVENTS = {"workspace_focused", "tab_focused", "pane_focused", "pane_closed"}
@@ -304,44 +302,6 @@ def paint_row3():
         })
 
 
-def paint_tab_label():
-    """Mirror each agent pane's TAB LABEL into `$ptab`/`$ptab_on` so it can dim by focus.
-
-    The built-in `tab` token cannot do it. All three configurations were checked on screen: a bare
-    `tab` renders dim on every row including the selected one, `fg` alone renders dim everywhere,
-    and `fg` + `dim = false` renders bright everywhere. herdr exposes no focus-varying style for it,
-    and `dim` is a static boolean, so the only way to get the split is the same two-slot trick
-    paint_branch and paint_panes already use - a custom pair, exactly one ever populated.
-
-    Unlike those two, this pass is also the WRITER: no other daemon publishes a tab label, so it
-    resolves tab.list itself rather than only moving a value someone else set. Deliberately no
-    ttl_ms - a label that expired between focus events would blank the column.
-    """
-    tabs = request("tab.list", {})
-    panes = request("pane.list", {})
-    if not tabs or not panes or "result" not in tabs or "result" not in panes:
-        return
-    labels = {t.get("tab_id"): (t.get("label") or "") for t in tabs["result"].get("tabs", [])}
-    for pane in panes["result"].get("panes", []):
-        # Agent panes only: the agents panel is the only place these two tokens are rendered.
-        if not pane.get("agent"):
-            continue
-        value = labels.get(pane.get("tab_id"), "")
-        if not value:
-            continue
-        tokens = pane.get("tokens") or {}
-        focused = bool(pane.get("focused"))
-        want_lit = value if focused else None
-        want_dim = None if focused else value
-        if (tokens.get("ptab") or None, tokens.get("ptab_on") or None) == (want_dim, want_lit):
-            continue
-        request("pane.report_metadata", {
-            "pane_id": pane["pane_id"],
-            "seq": time.time_ns(),
-            "source": TAB_LABEL_SOURCE,
-            "tokens": {"ptab": want_dim, "ptab_on": want_lit},
-        })
-
 
 def paint_panes():
     """Move each agent pane's summary between `$pn` (dim) and `$pn_on` (accent) by focus.
@@ -506,14 +466,12 @@ def handle(mru, msg):
         # pane_closed - tab_closed fires just on the API path, so this is the one that
         # catches a tab closed from the UI.
         renumber_tabs()
-        paint_tab_label()
     else:
         return False
     # Unlike the branch row, this one DOES track within-tab pane hops - that is the point of it.
     if event in PANE_PAINT_EVENTS:
         paint_panes()
         # Same events, because the tab label dims by PANE focus like the summary beside it.
-        paint_tab_label()
     # Only when the ACTIVE space actually moved: within-tab pane hops fire constantly and
     # cannot change which space is lit. The two early `return False` paths above are all
     # tab-label events, which never move focus, so they need no repaint.
@@ -540,7 +498,6 @@ def session(mru):
     paint_branch()
     paint_row3()
     paint_panes()
-    paint_tab_label()
     with conn.makefile("rb") as stream:
         for raw in stream:
             raw = raw.strip()
