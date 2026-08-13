@@ -60,6 +60,8 @@ Lead with the strongest colour present. When nothing is open, still close with o
 
 This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retired into it. Never emit both.
 
+**Every PR mention carries its branch name too.** Stated 2026-08-13. Number, full URL, and branch - `PR 19512 (fm/IHRWEB-backport-skill) https://github.com/iheartradio/web/pull/19512`. The captain works in branches, so a number alone does not say which local copy it corresponds to. This applies anywhere a PR is named, not only in the status block.
+
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
 
 ## Never say a bare "mate" - name which one
@@ -91,6 +93,10 @@ Every project runs with autonomy off. No home merges its own work and none treat
 Before creating, updating, serving or tearing down ANY visual surface the captain will look at - an artifact, a Lavish review page, a preview, a diagram, a served static page - load the `building-an-artifact` skill. It owns the theme rule and why a named theme silently fails, reader-relative change markers, the sandbox limits that break storage and local data loading, one-poll-per-artifact, and how a surface reaches his desktop rather than a localhost URL he cannot see.
 
 Moved out of this file on 2026-08-12: those rules were 2,115 estimated tokens, 40 percent of a file every home loads on every session, and they apply only when a surface is actually being built. Do NOT restate them here - a second copy is a copy that drifts.
+
+## Spawning any agent - load the skill first
+
+Before spawning, relaunching or resuming ANY agent, load the `spawning-an-agent` skill. It owns why a spawn fails with "Not logged in" while the captain is signed in, the one-command token injection that fixes it, why the account must be named explicitly or the wrong identity is injected silently, and the credentials file that looks like proof of authentication but belongs to a different service.
 
 ## Arm the review-comment loop on every PR firstmate opens
 
