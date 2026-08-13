@@ -102,7 +102,10 @@ CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
 # Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
-ROW3_ORDER = ("pr", "pr_on", "ci", "sb", "jira")
+# Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
+ROW3_ORDER =("pr", "pr_on", "pr_d", "ci", "ci_d", "sb", "sb_d", "jira", "jira_d")
+# Zone -> (lit slot, lit slot for the green twin or None, dim slot). Shared with the focus tracker.
+ROW3_ZONES = (("pr", "pr_on", "pr_d"), ("ci", None, "ci_d"), ("sb", None, "sb_d"), ("jira", None, "jira_d"))
 # A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
 REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
@@ -197,7 +200,11 @@ def workspace_cwds():
 
 
 def workspace_labels():
-    """workspace_id -> label. A pane carries no label, so the workspace list is the only source."""
+    """workspace_id -> (label, focused). One call, because row 3 needs both.
+
+    Focus decides the lit-or-dim slot; the focus TRACKER repaints on change, this only has to agree
+    with it so a slow poll never drags a row back to the wrong slot - same contract as $br/$br_on.
+    """
     raw = out([HERDR, "workspace", "list"], timeout=6)
     if not raw:
         return {}
@@ -205,12 +212,29 @@ def workspace_labels():
         spaces = json.loads(raw).get("result", {}).get("workspaces", [])
     except ValueError:
         return {}
-    return {w.get("workspace_id"): w.get("label") or "" for w in spaces if w.get("workspace_id")}
+    return {w.get("workspace_id"): (w.get("label") or "", bool(w.get("focused")))
+            for w in spaces if w.get("workspace_id")}
+
+
+def row3_slots(values, focused):
+    """Place each zone's value in its lit or dim slot; the other stays empty and emits no separator."""
+    slots = {name: "" for name in ROW3_ORDER}
+    for lit, lit_on, dim in ROW3_ZONES:
+        value = values.get(lit_on) or values.get(lit) if lit_on else values.get(lit)
+        if not value:
+            continue
+        if not focused:
+            slots[dim] = value
+        elif lit_on and value == values.get(lit_on):
+            slots[lit_on] = value
+        else:
+            slots[lit] = value
+    return slots
 
 
 def blank_tokens():
     """All five tokens empty; report() turns each into a --clear-token, so nothing lingers."""
-    return {JIRA_TOKEN: "", SB_TOKEN: "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}
+    return {name: "" for name in ROW3_ORDER}
 
 
 
@@ -452,7 +476,8 @@ def refresh_once():
     labels = workspace_labels()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
-        if is_agent_home(labels.get(workspace)):
+        label, focused = labels.get(workspace, ("", False))
+        if is_agent_home(label):
             # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
             report(workspace, blank_tokens(), seq)
             continue
@@ -486,13 +511,14 @@ def refresh_once():
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
         pr_glyph, pr_on_glyph, ci_glyph = render(approvals, ci)
-        report(workspace, indent_first({
+        values = {
             JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
             SB_TOKEN: NOTE_GLYPH if note else "",
             TOKEN: pr_glyph,
             ON_TOKEN: pr_on_glyph,
             CI_TOKEN: ci_glyph,
-        }, labels.get(workspace), ROW3_ORDER), seq)
+        }
+        report(workspace, indent_first(row3_slots(values, focused), label, ROW3_ORDER), seq)
 
 
 def clear_all():
