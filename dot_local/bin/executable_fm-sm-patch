@@ -1,33 +1,55 @@
 #!/usr/bin/env bash
-# Re-applies the local "⛵⠀sm-<id>" label patch to third-party firstmate; --update reverts and pulls first. Pattern-anchored, idempotent, refuses on a missing anchor.
+# Re-applies the local "⛵⠀sm-<id>" label patch to third-party firstmate across EVERY worktree (a secondmate home is itself a leased checkout); --update reverts, runs fm-update.sh, re-applies. Pattern-anchored, idempotent, refuses on a missing anchor.
 set -uo pipefail
 
 REPO="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
-FILE="$REPO/bin/backends/herdr.sh"
+REL="bin/backends/herdr.sh"
 
-[ -f "$FILE" ] || { echo "✗ not found: $FILE" >&2; exit 1; }
+[ -d "$REPO/.git" ] || [ -f "$REPO/.git" ] || { echo "✗ no firstmate clone at $REPO" >&2; exit 1; }
 
-if [ "${1:-}" = "--revert" ]; then
-  git -C "$REPO" checkout -- bin/backends/herdr.sh || exit 1
-  echo "✓ reverted bin/backends/herdr.sh to upstream"
-  exit 0
-fi
+# Every checkout sharing this repo's object store: the main clone plus each secondmate home.
+worktrees() {
+  git -C "$REPO" worktree list --porcelain 2>/dev/null |
+    sed -n 's/^worktree //p' |
+    while read -r wt; do [ -f "$wt/$REL" ] && printf '%s\n' "$wt"; done
+}
 
-if [ "${1:-}" = "--update" ]; then
-  # Refuse on any OTHER dirty file: reverting is only safe for the one file this script owns.
-  other=$(git -C "$REPO" status --porcelain | grep -v ' bin/backends/herdr.sh$' || true)
-  if [ -n "$other" ]; then
-    echo "✗ other local changes present - resolve these first, they are not mine to revert:" >&2
-    printf '%s\n' "$other" >&2
-    exit 1
-  fi
-  git -C "$REPO" checkout -- bin/backends/herdr.sh 2>/dev/null
-  echo "→ pulling upstream"
-  git -C "$REPO" pull --ff-only || { echo "✗ pull failed - patch NOT re-applied, tree is clean upstream" >&2; exit 1; }
-  exec "$0"
-fi
+# Firstmate HOMES that register secondmates, never the code root; an explicit FM_HOME wins.
+homes() {
+  if [ -n "${FM_HOME:-}" ]; then printf '%s\n' "$FM_HOME"; return; fi
+  local h found=0
+  for h in "$HOME"/.local/share/firstmate*; do
+    [ -f "$h/data/secondmates.md" ] && { printf '%s\n' "$h"; found=1; }
+  done
+  # No registry anywhere: still update the main repo, just with no secondmates to advance.
+  [ "$found" = 1 ] || printf '%s\n' "$REPO"
+}
 
-python3 - "$FILE" <<'PY'
+revert_all() {
+  local wt n=0
+  while read -r wt; do
+    # HEAD, not a bare `checkout -- FILE`: that restores from the INDEX, so an ever-staged patch reverts to itself and fm-update.sh then skips the repo as dirty.
+    git -C "$wt" checkout HEAD -- "$REL" 2>/dev/null && n=$((n + 1))
+  done < <(worktrees)
+  echo "✓ reverted $REL in $n worktree(s)"
+}
+
+# Only this one file is ever ours to throw away; anything else dirty is the operator's own work.
+assert_only_ours_dirty() {
+  local wt other found=0
+  while read -r wt; do
+    other=$(git -C "$wt" status --porcelain -- . 2>/dev/null | grep -v " $REL\$" || true)
+    if [ -n "$other" ]; then
+      [ "$found" = 0 ] && echo "✗ other local changes present - not mine to revert:" >&2
+      found=1
+      printf '  %s\n%s\n' "$wt" "$other" >&2
+    fi
+  done < <(worktrees)
+  [ "$found" = 0 ] || exit 1
+}
+
+apply_one() {
+  python3 - "$1" <<'PY'
 import sys, pathlib
 
 path = pathlib.Path(sys.argv[1])
@@ -65,11 +87,64 @@ for anchor, repl in EDITS:
         sys.exit(f"✗ anchor missing and patch not present - upstream rewrote this:\n    {anchor[:90]}")
 
 path.write_text(src)
-print(f"✓ {applied} edit(s) applied, {already} already in place")
+print(f"{applied} applied, {already} already in place")
 PY
-rc=$?
-[ $rc -eq 0 ] || exit $rc
+}
 
-bash -n "$FILE" || { echo "✗ patched file fails syntax check - reverting" >&2; git -C "$REPO" checkout -- bin/backends/herdr.sh; exit 1; }
-echo "✓ syntax ok"
-git -C "$REPO" status --short
+apply_all() {
+  local wt out rc=0
+  while read -r wt; do
+    out=$(apply_one "$wt/$REL") || { printf '✗ %s\n%s\n' "$wt" "$out" >&2; rc=1; continue; }
+    if bash -n "$wt/$REL"; then
+      printf '✓ %-52s %s\n' "${wt/#$HOME/\~}" "$out"
+    else
+      echo "✗ ${wt} failed syntax check - reverting that worktree" >&2
+      git -C "$wt" checkout HEAD -- "$REL"
+      rc=1
+    fi
+  done < <(worktrees)
+  return $rc
+}
+
+case "${1:-}" in
+  --revert)
+    revert_all
+    ;;
+  --update)
+    assert_only_ours_dirty
+    revert_all
+    # firstmate's OWN updater, which advances every registered secondmate too; FM_HOME is load-bearing, since bare it defaults to the registry-less code root and reports success over zero secondmates.
+    rc=0
+    while read -r home; do
+      echo "→ fm-update.sh  (FM_HOME=${home/#$HOME/\~})"
+      if ! out=$(FM_HOME="$home" "$REPO/bin/fm-update.sh" 2>&1); then
+        printf '%s\n' "$out" >&2
+        echo "✗ update failed - patch NOT re-applied, worktrees left clean" >&2
+        exit 1
+      fi
+      printf '%s\n' "$out" | sed 's/^/    /'
+      # Only a LIVE secondmate that actually changed is listed; "none" or absent means nothing owed.
+      ids=$(printf '%s\n' "$out" | sed -n 's/^nudge-secondmates: //p' | tr -d '\r')
+      case "$ids" in
+        ''|none) ;;
+        *)
+          for id in $ids; do
+            echo "→ nudge $id"
+            FM_HOME="$home" "$REPO/bin/fm-send.sh" "$id" \
+              'firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.' \
+              || { echo "  ✗ nudge failed for $id - it may need a manual re-read" >&2; rc=1; }
+          done
+          ;;
+      esac
+    done < <(homes)
+    apply_all || rc=1
+    exit $rc
+    ;;
+  '')
+    apply_all
+    ;;
+  *)
+    echo "usage: fm-sm-patch [--update|--revert]" >&2
+    exit 2
+    ;;
+esac
