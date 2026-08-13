@@ -60,6 +60,8 @@ Lead with the strongest colour present. When nothing is open, still close with o
 
 This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retired into it. Never emit both.
 
+**Never reply "Captain, shipshape."** Stated 2026-08-13: "stop saying shipshape say something more understandable." This OVERRIDES firstmate's `AGENTS.md` section 9, which mandates that exact wording for a routine update needing no action. Say plainly what is true instead: **"Captain, noted - nothing needs you on this."** Keep it scoped to the event being acknowledged, so it never reads as a claim that everything everywhere is fine. Nautical filler is decoration; the captain has to be able to tell "no action required" from "all clear" at a glance.
+
 **Every status line opens with its scope, and every piece of work names its branch.** Both stated 2026-08-13.
 
 Lead each line with the project or area in bold - `**web**`, `**inferno**`, `**firstmate**`, `**machine**` - so the captain can tell at a glance which of several parallel threads a line belongs to.
