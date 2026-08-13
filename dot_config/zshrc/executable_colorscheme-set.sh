@@ -2554,14 +2554,15 @@ EOF
         'if (/^\[ui\]\s*$/) { $_ .= "accent = \"$ENV{HERDR_ACCENT}\"\n" }' "$herdr_file"
     fi
 
-    # 1b) rows: matched on $git + token= so only the styled spaces row is touched.
+    # 1b) rows: matched on $ws + token= so only the styled spaces row is touched. Keyed on $ws since
+    #     the workspace name replaced $git here - matching the dead token silently skipped the rewrite.
     HERDR_ROWS="$herdr_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /\$git/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
+      'if (/^rows\s*=/ && /\$ws/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
 
-    # 1c) agents rows: the OTHER `rows =` line (no $git). state_text keeps it from
+    # 1c) agents rows: the OTHER `rows =` line (no $ws). state_text keeps it from
     #     matching any future unstyled row, so the two row lines can't be confused.
     HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /state_text/ && !/\$git/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
+      'if (/^rows\s*=/ && /state_text/ && !/\$ws/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
 
     # 1d) rows_by_agent.claude: keyed on $act, the token only this row carries.
     HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
