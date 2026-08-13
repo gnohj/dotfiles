@@ -10,9 +10,12 @@ The pad is U+2800 BRAILLE PATTERN BLANK, never spaces: herdr trims leading white
 value (plain space, NBSP and U+2007 figure space all verified stripped), while U+2800 survives
 because it is a printable symbol rather than whitespace, and still renders as one blank cell.
 """
+import re
 import unicodedata
 
 INDENT_CELL = "⠀"
+# Agent HOMES, never their task worktrees. `sm-<id>` is the local patch's spelling, `2ndmate-<id>` upstream's, kept so an unpatched checkout still resolves.
+AGENT_HOME_RE = re.compile(r"^(?:fm-personal|fm-work|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
 _VARIATION_SELECTOR_16 = "️"
 _ZERO_WIDTH = ("Mn", "Me", "Cf")
 
@@ -60,6 +63,11 @@ def bare_label(label):
     very row that matcher existed to suppress.
     """
     return (label or "")[glyph_run(label):].strip()
+
+
+def is_agent_home(label):
+    """True for a firstmate / secondmate / captain home row, whatever glyph the sidebar prefixes."""
+    return bool(AGENT_HOME_RE.match(bare_label(label)))
 
 
 def row_indent(label):

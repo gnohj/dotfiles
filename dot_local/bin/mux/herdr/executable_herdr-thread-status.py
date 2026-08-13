@@ -87,7 +87,7 @@ import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from herdr_label import bare_label, indent_first  # noqa: E402  (needs the path above)
+from herdr_label import indent_first, is_agent_home  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
@@ -101,8 +101,6 @@ ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
-# Agent HOMES, never their task worktrees. `sm-<id>` is the local patch's spelling, `2ndmate-<id>` upstream's, kept so an unpatched firstmate still suppresses the row.
-AGENT_HOME_RE = re.compile(r"^(?:fm-personal|fm-work|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
 # Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
 ROW3_ORDER = ("pr", "pr_on", "ci", "sb", "jira")
 THREADS_DIR = os.path.join(
@@ -212,10 +210,6 @@ def blank_tokens():
     """All five tokens empty; report() turns each into a --clear-token, so nothing lingers."""
     return {JIRA_TOKEN: "", SB_TOKEN: "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}
 
-
-def is_agent_home(label):
-    """True for a firstmate / secondmate / captain home row, whatever glyph the sidebar prefixes."""
-    return bool(AGENT_HOME_RE.match(bare_label(label)))
 
 
 def thread_files():

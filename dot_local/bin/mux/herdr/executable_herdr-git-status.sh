@@ -61,7 +61,7 @@ sys.dont_write_bytecode = True             # no __pycache__ in the deployed scri
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
 try:
     import herdr_gitmux as hg              # shared with herdr-sesh.sh — see its docstring
-    from herdr_label import row_indent     # row geometry shared with thread-status + sysinfo, so three writers cannot drift
+    from herdr_label import row_indent, is_agent_home  # shared with thread-status + sysinfo, so the writers cannot drift
 except Exception:
     sys.exit(0)                            # mid-apply window; the next pass picks it up
 
@@ -101,8 +101,55 @@ def key_of(name):
     m = TICKET_PREFIX.match(name)
     return m.group(0) if m else ""
 
-def branch(cwd):
+# firstmate's owner segment (fm/) names the owner of a workspace you are already inside, so it goes; lookahead keeps an ordinary feature/foo whole.
+OWNER_PREFIX = re.compile(r"^[a-z][A-Za-z0-9_.-]*/(?=[A-Z]+-)")
+
+_DEFAULT_BRANCH = {}
+
+def default_branch(cwd):
+    """The repo's default branch via origin/HEAD, or "" when there is no remote to ask."""
+    root = ident(cwd)[1] or cwd
+    if root not in _DEFAULT_BRANCH:
+        ref = out(["git", "-C", cwd, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).strip()
+        _DEFAULT_BRANCH[root] = ref.split("/", 1)[1] if "/" in ref else ref
+    return _DEFAULT_BRANCH[root]
+
+def home_branch(cwd):
+    """`<line>(<sha>)` for an agent home, so every home reads the same regardless of checkout shape.
+
+    fm-personal/fm-work sit on a real branch, while a secondmate home is LEASED AT A DETACHED HEAD
+    (firstmate's bin/fm-update.sh) so one worktree can hold the branch and the rest advance freely.
+    Branch-only would print nothing for the leased ones and sha-only says nothing about which line
+    they are on, so both are shown, and a trailing `*` marks the head as detached. The line is only
+    claimed when the sha really is an ancestor of it - an arbitrary detached checkout falls back to
+    the bare sha rather than asserting a line it is not on.
+    """
+    head = out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
     name = raw_branch(cwd)
+    if name and name != head:
+        return f"{name}({head})" if head else name
+    base = default_branch(cwd)
+    if base and subprocess.run(["git", "-C", cwd, "merge-base", "--is-ancestor", "HEAD",
+                                f"origin/{base}"], capture_output=True).returncode == 0:
+        return f"{base}({head})*"
+    return head or name
+
+def branch(cwd, keep_key=False):
+    """Branch text for row 2.
+
+    Default drops the ticket key, because an ordinary ticket workspace's row 1 already ends in the
+    number (web/infra/24314) - see [ui.sidebar.spaces] in config.toml for that and the width it buys.
+
+    keep_key is for a PROJECTED worktree, whose row 1 is the truncated task label rather than that
+    clean `<repo>/<number>`. There the row is VERBATIM - `fm/` and all - because its job is to say
+    what branch the work is actually on. Firstmate always names these `fm/<task-id>` (fm-brief.sh
+    creates it, fm-merge-local.sh and fm-review-diff.sh reconstruct it), so dropping the prefix would
+    render a branch name that does not exist, and a branch skipping the PROJECT-1234 convention would
+    read as correct rather than as the anomaly it is.
+    """
+    if keep_key:
+        return raw_branch(cwd)
+    name = OWNER_PREFIX.sub("", raw_branch(cwd))
     return TICKET_PREFIX.sub("", name) or name
 
 # --path-format=absolute is load-bearing: bare --git-common-dir is relative in a checkout, absolute in a worktree.
@@ -202,6 +249,9 @@ ws_cwd = {}
 for p in plist:
     # Spawn cwd, never the foreground: a pane that cd'd into another worktree must not become the baseline.
     w, c = p.get("workspace_id"), (p.get("cwd") or "").rstrip("/")
+    # EXCEPT a firstmate projection (`└ `), which spawns in the read-only clone and works in the task worktree, so its spawn cwd reports the clone's default branch forever - the foreground IS the baseline there, as thread-status already assumes.
+    if w and ws_label.get(w, "").startswith("└ "):
+        c = (p.get("foreground_cwd") or c or "").rstrip("/")
     if w and c and w not in ws_cwd:
         ws_cwd[w] = c
 
@@ -213,9 +263,10 @@ for w, c in ws_cwd.items():
     # Two slots for one glyph, same trick as $br/$br_on: a custom token takes ONE flat inline fg.
     sym, staged_only, entry = sign(c)
     picker[c] = entry
-    br = branch(c)
+    label = ws_label.get(w, "")
+    br = home_branch(c) if is_agent_home(label) else branch(c, keep_key=label.startswith("└ "))
     if br:
-        br = row_indent(ws_label.get(w, "")) + br
+        br = row_indent(label) + br
     lit = w in focused
     report("workspace", w, (("git", "" if staged_only else sym),
                             ("git_on", sym if staged_only else ""),
