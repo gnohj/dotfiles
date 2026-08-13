@@ -84,6 +84,10 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from herdr_label import row_indent  # noqa: E402  (needs the path above)
+
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 SOURCE = "sysinfo"
 TOKEN = "sys"
@@ -394,12 +398,14 @@ def publish(line, res_line="", repos_line="", sync_line="", time_line="", focuse
     for entry in entries:
         wid = entry["workspace_id"]
         on_target = wid in targets
-        wanted = line if on_target else None
+        # PIN carries a glyph (🖥️ <user>), so rows 2-4 need its width or they start left of the label's text - see herdr_label.py.
+        pad = row_indent(PIN)
+        wanted = (pad + line) if on_target and line else None
         # Empty lines are sent as None so herdr drops the token and the row collapses on the pin.
-        wanted_res = (res_line or None) if on_target else None
+        wanted_res = (pad + res_line) if on_target and res_line else None
         wanted_repos = (repos_line or None) if on_target else None
         wanted_sync = (sync_line or None) if on_target else None
-        wanted_time = (time_line or None) if on_target else None
+        wanted_time = (pad + time_line) if on_target and time_line else None
         held = entry.get("tokens") or {}
         # Each pin cell rides a dim/_on pair, exactly one lit: inline fg is unconditional, so only a slot swap recolors the focused row (as $br/$br_on).
         lit = on_target and bool(entry.get("focused"))

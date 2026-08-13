@@ -61,6 +61,7 @@ sys.dont_write_bytecode = True             # no __pycache__ in the deployed scri
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
 try:
     import herdr_gitmux as hg              # shared with herdr-sesh.sh — see its docstring
+    from herdr_label import row_indent     # row geometry shared with thread-status + sysinfo, so three writers cannot drift
 except Exception:
     sys.exit(0)                            # mid-apply window; the next pass picks it up
 
@@ -183,11 +184,12 @@ except Exception:
 # The swap itself is herdr-focus-tracker.py's job, event-driven off workspace.focused; this
 # pass only has to agree with it, or every poll would drag the accent back to the wrong space.
 try:
-    focused = {w["workspace_id"] for w in
-               json.loads(out([HERDR, "workspace", "list"]))["result"]["workspaces"]
-               if w.get("focused")}
+    _spaces = json.loads(out([HERDR, "workspace", "list"]))["result"]["workspaces"]
+    focused = {w["workspace_id"] for w in _spaces if w.get("focused")}
+    ws_label = {w["workspace_id"]: w.get("label") or "" for w in _spaces}
 except Exception:
     focused = set()
+    ws_label = {}
 
 def cwd_of(p):
     return (p.get("foreground_cwd") or p.get("cwd") or "").rstrip("/")
@@ -212,6 +214,8 @@ for w, c in ws_cwd.items():
     sym, staged_only, entry = sign(c)
     picker[c] = entry
     br = branch(c)
+    if br:
+        br = row_indent(ws_label.get(w, "")) + br
     lit = w in focused
     report("workspace", w, (("git", "" if staged_only else sym),
                             ("git_on", sym if staged_only else ""),
