@@ -103,6 +103,8 @@ JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
 # Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
 ROW3_ORDER = ("pr", "pr_on", "ci", "sb", "jira")
+# A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
+REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
@@ -452,6 +454,10 @@ def refresh_once():
     for workspace, cwd in workspace_cwds().items():
         if is_agent_home(labels.get(workspace)):
             # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
+            report(workspace, blank_tokens(), seq)
+            continue
+        if os.path.basename(cwd.rstrip("/")) == REVIEW_POOL_LEAF:
+            # The branch row still renders - that one comes from the checkout itself and is true.
             report(workspace, blank_tokens(), seq)
             continue
         if not os.path.isdir(cwd):
