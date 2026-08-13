@@ -56,15 +56,18 @@ a herdr token's inline fg is unconditional, so one token cannot render – / ◌
 Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
 glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
 
-Two workspaces opt OUT of all five: the captain's own `🦜 fm-personal` and `🦜 fm-work`
-sesh sessions (SESH_LABELS): one code root, two FM_HOMEs, so both are the same checkout.
-It is a read-only `main` checkout of the firstmate repo, so approvals, CI, the vault note and
-Jira are all permanently empty there, and herdr has no per-workspace row layout: the row is
-global, so the only way that row stops rendering as bare placeholders is for its tokens to
-carry no value. The five are cleared rather than skipped, so a token set by an earlier pass (or
-by an older build of this script) disappears instead of lingering at its stale glyph. Matched on
-the EXACT label: firstmate-the-tool's own home is labelled `firstmate` and secondmate homes
-`2ndmate-<id>`, and those keep the row.
+Agent HOME workspaces opt OUT of all five (AGENT_HOME_RE): the captain's own `fm-personal` and
+`fm-work` sesh sessions (one code root, two FM_HOMEs, so both are the same checkout), plus
+firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
+permanent branch of a read-only checkout, so approvals, CI, the vault note and Jira are all
+permanently empty there, and herdr has no per-workspace row layout: the row is global, so the
+only way it stops rendering as bare placeholders is for its tokens to carry no value. The five
+are cleared rather than skipped, so a token set by an earlier pass (or by an older build of this
+script) disappears instead of lingering at its stale glyph.
+
+Their PROJECTED TASK WORKTREES are not homes and keep the whole row - those are the `└ <branch>`
+children carrying a real ticket branch, which is exactly where the badge earns its place. The
+match is on label SHAPE, never on the sidebar glyph, which is presentation and does change.
 
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
 that box's thread files and checkouts — the state is per-host and that is correct, since a
@@ -83,6 +86,8 @@ import sys
 import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from herdr_label import bare_label, indent_first  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
@@ -96,8 +101,10 @@ ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
-# The captain's own sesh workspaces; NOT `firstmate` or `2ndmate-<id>`, which keep the row.
-SESH_LABELS = ("\U0001f99c fm-personal", "\U0001f99c fm-work")
+# Agent HOMES, never their task worktrees. `sm-<id>` is the local patch's spelling, `2ndmate-<id>` upstream's, kept so an unpatched firstmate still suppresses the row.
+AGENT_HOME_RE = re.compile(r"^(?:fm-personal|fm-work|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
+# Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
+ROW3_ORDER = ("pr", "pr_on", "ci", "sb", "jira")
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
@@ -204,6 +211,11 @@ def workspace_labels():
 def blank_tokens():
     """All five tokens empty; report() turns each into a --clear-token, so nothing lingers."""
     return {JIRA_TOKEN: "", SB_TOKEN: "", TOKEN: "", ON_TOKEN: "", CI_TOKEN: ""}
+
+
+def is_agent_home(label):
+    """True for a firstmate / secondmate / captain home row, whatever glyph the sidebar prefixes."""
+    return bool(AGENT_HOME_RE.match(bare_label(label)))
 
 
 def thread_files():
@@ -444,7 +456,7 @@ def refresh_once():
     labels = workspace_labels()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
-        if labels.get(workspace) in SESH_LABELS:
+        if is_agent_home(labels.get(workspace)):
             # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
             report(workspace, blank_tokens(), seq)
             continue
@@ -474,13 +486,13 @@ def refresh_once():
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
         pr_glyph, pr_on_glyph, ci_glyph = render(approvals, ci)
-        report(workspace, {
+        report(workspace, indent_first({
             JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
             SB_TOKEN: NOTE_GLYPH if note else "",
             TOKEN: pr_glyph,
             ON_TOKEN: pr_on_glyph,
             CI_TOKEN: ci_glyph,
-        }, seq)
+        }, labels.get(workspace), ROW3_ORDER), seq)
 
 
 def clear_all():
