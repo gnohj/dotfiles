@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Re-applies the local "⛵⠀sm-<id>" label patch to third-party firstmate; --update reverts and pulls first. Pattern-anchored, idempotent, refuses on a missing anchor.
+set -uo pipefail
+
+REPO="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
+FILE="$REPO/bin/backends/herdr.sh"
+
+[ -f "$FILE" ] || { echo "✗ not found: $FILE" >&2; exit 1; }
+
+if [ "${1:-}" = "--revert" ]; then
+  git -C "$REPO" checkout -- bin/backends/herdr.sh || exit 1
+  echo "✓ reverted bin/backends/herdr.sh to upstream"
+  exit 0
+fi
+
+if [ "${1:-}" = "--update" ]; then
+  # Refuse on any OTHER dirty file: reverting is only safe for the one file this script owns.
+  other=$(git -C "$REPO" status --porcelain | grep -v ' bin/backends/herdr.sh$' || true)
+  if [ -n "$other" ]; then
+    echo "✗ other local changes present - resolve these first, they are not mine to revert:" >&2
+    printf '%s\n' "$other" >&2
+    exit 1
+  fi
+  git -C "$REPO" checkout -- bin/backends/herdr.sh 2>/dev/null
+  echo "→ pulling upstream"
+  git -C "$REPO" pull --ff-only || { echo "✗ pull failed - patch NOT re-applied, tree is clean upstream" >&2; exit 1; }
+  exec "$0"
+fi
+
+python3 - "$FILE" <<'PY'
+import sys, pathlib
+
+path = pathlib.Path(sys.argv[1])
+src = path.read_text()
+
+# (anchor, replacement). Anchor absent AND replacement absent = upstream changed it: refuse.
+EDITS = [
+    ("""      printf '2ndmate-%s' "$id\"""",
+     """      printf '⛵⠀sm-%s' "$id\""""),
+    ("""(.label | test("^2ndmate-[^/]+$"))""",
+     """(.label | test("^(⛵⠀)?sm-[^/]+$"))"""),
+    ("""test("^(firstmate|2ndmate-[^/]+)/.+ · p:[A-Za-z0-9_-]{22}$")""",
+     """test("^(firstmate|(⛵⠀)?sm-[^/]+)/.+ · p:[A-Za-z0-9_-]{22}$")"""),
+    ("""    2ndmate-*/*) task=${task#*/} ;;""",
+     """    ⛵⠀sm-*/*) task=${task#*/} ;;"""),
+    # Comments too, so the patched file explains itself to the next reader.
+    ("""# home resolves to "2ndmate-<secondmate-id>", so its tasks land in their own""",
+     """# home resolves to "⛵⠀sm-<secondmate-id>" (LOCAL PATCH, was "2ndmate-<id>"), so its tasks land in their own"""),
+    ("""# Removes firstmate/, 2ndmate-<id>/, and a presentation-level fm- owner""",
+     """# Removes firstmate/, ⛵⠀sm-<id>/, and a presentation-level fm- owner"""),
+    ("""# <parent-label> is the owning FM_HOME label (firstmate or 2ndmate-<id>).""",
+     """# <parent-label> is the owning FM_HOME label (firstmate or ⛵⠀sm-<id>)."""),
+    ("""# adjacent old-format firstmate/... or 2ndmate-<id>/... projections may extend""",
+     """# adjacent old-format firstmate/... or ⛵⠀sm-<id>/... projections may extend"""),
+]
+
+applied = already = 0
+for anchor, repl in EDITS:
+    if anchor in src:
+        src = src.replace(anchor, repl)
+        applied += 1
+    elif repl in src:
+        already += 1
+    else:
+        sys.exit(f"✗ anchor missing and patch not present - upstream rewrote this:\n    {anchor[:90]}")
+
+path.write_text(src)
+print(f"✓ {applied} edit(s) applied, {already} already in place")
+PY
+rc=$?
+[ $rc -eq 0 ] || exit $rc
+
+bash -n "$FILE" || { echo "✗ patched file fails syntax check - reverting" >&2; git -C "$REPO" checkout -- bin/backends/herdr.sh; exit 1; }
+echo "✓ syntax ok"
+git -C "$REPO" status --short

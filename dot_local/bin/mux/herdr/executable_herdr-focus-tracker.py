@@ -59,7 +59,7 @@ FIRSTMATE_TAB = re.compile(r"^fm-")
 # Workspaces firstmate owns: its primary home, a secondmate home, and the disposable
 # per-task projection ("└ <task> · p:<token>"). Inside these, an unlabeled tab is a
 # seeded default firstmate is about to prune by exact label, so it must stay bare.
-FIRSTMATE_WORKSPACE = re.compile(r"^(firstmate$|2ndmate-|└ )")
+FIRSTMATE_WORKSPACE = re.compile(r"^(firstmate$|(⛵⠀)?sm-|2ndmate-|└ )")
 
 # Labels this daemon wrote and has not yet seen echoed back - see is_self_echo.
 SELF_WRITES = collections.defaultdict(lambda: collections.deque(maxlen=8))
