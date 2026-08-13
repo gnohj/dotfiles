@@ -60,7 +60,11 @@ Lead with the strongest colour present. When nothing is open, still close with o
 
 This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retired into it. Never emit both.
 
-**Every PR mention carries its branch name too.** Stated 2026-08-13. Number, full URL, and branch - `PR 19512 (fm/IHRWEB-backport-skill) https://github.com/iheartradio/web/pull/19512`. The captain works in branches, so a number alone does not say which local copy it corresponds to. This applies anywhere a PR is named, not only in the status block.
+**Every status line opens with its scope, and every piece of work names its branch.** Both stated 2026-08-13.
+
+Lead each line with the project or area in bold - `**web**`, `**inferno**`, `**firstmate**`, `**machine**` - so the captain can tell at a glance which of several parallel threads a line belongs to.
+
+Name the branch whenever work is referenced, not only once a PR exists. With a PR: number, full URL, and branch, as `PR 19512 (fm/IHRWEB-backport-skill) https://github.com/iheartradio/web/pull/19512`. Before a PR exists: the branch the work will land on. "No branch or PR yet" is not acceptable when the branch is already decided - the captain works in branches, and a bare number or a bare description does not say which local copy it corresponds to.
 
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
 
