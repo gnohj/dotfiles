@@ -15,6 +15,9 @@ log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$LOG"; }
 acct_dir="$(CLAUDE_ACCOUNT="${HERDR_JIRA_ACCOUNT:-work}" "$HOME/.local/bin/claude-account" dir 2>/dev/null || true)"
 [ -n "$acct_dir" ] && export CLAUDE_CONFIG_DIR="$acct_dir"
 
+# Marker the moshi hooks check, so a tick sends no "0 updated" phone push; MOSHI_HOOK_CONFIG_DIR cannot do it - the daemon holds the pairing, not the config dir.
+export HERDR_JIRA_POLL=1
+
 refresh_once() {
   command -v claude >/dev/null 2>&1 || { log "SKIP claude not on PATH"; return 0; }
   local out; out=$(mktemp)
