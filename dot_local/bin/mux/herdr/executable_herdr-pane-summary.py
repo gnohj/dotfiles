@@ -88,11 +88,19 @@ _WS_LABELS = {}
 _TAB_POS = {}
 
 def ws_indent(workspace_id, fetch):
-    """Blank cells for a pane's rows, from its workspace label. Cached per pass - one extra call."""
-    if not _WS_LABELS:
+    """Blank cells for a pane's rows, from its workspace label. Cached per pass - one extra call.
+
+    A MISS refetches rather than falling back to "". SUBSCRIPTIONS carries no workspace event, so a
+    workspace opened between sweeps is absent from a cache filled on an earlier pass, and the
+    pane_created that follows it would otherwise pad the new workspace's rows with nothing - which
+    is how a fresh agent row sat flush left while every older one lined up under its label.
+    """
+    if not _WS_LABELS or workspace_id not in _WS_LABELS:
         reply = fetch("workspace.list", {})
         for ws in ((reply or {}).get("result") or reply or {}).get("workspaces", []) or []:
             _WS_LABELS[ws.get("workspace_id")] = ws.get("label") or ""
+        # Pin a genuinely unknown id so a pane whose workspace is gone cannot refetch on every event.
+        _WS_LABELS.setdefault(workspace_id, "")
     return row_indent(_WS_LABELS.get(workspace_id, ""))
 
 
@@ -416,7 +424,7 @@ def desired(pane):
 
 
 def apply(pane, cache, recheck_width=False):
-    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written, lit).
+    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written, lit, tab, pad).
 
     The slug goes out THREE ways in one write: `title` (the pane border, and herdr's built-in
     `pane` sidebar token) plus the `$pn`/`$pn_on` token pair the agents-panel row reads. The
@@ -429,6 +437,10 @@ def apply(pane, cache, recheck_width=False):
     sweep. Slot correctness is really paint_panes' job - it repaints on every focus event -
     but this pane object's `focused` can be stale, and without `lit` in the key the unchanged
     slug would short-circuit the write and leave the mis-slot standing until the title changed.
+
+    `pad` is in the key for the same reason, and it is why the sweep resolves a wrong pad at all:
+    a row written with the wrong indent has an unchanged slug/lit/tab, so it used to return here
+    before ws_indent was ever consulted and kept its bad indent for the life of the pane.
     """
     pane_id = pane.get("pane_id")
     if not pane_id:
@@ -452,10 +464,11 @@ def apply(pane, cache, recheck_width=False):
     if previous and previous[0] == raw and previous[2] == lit and previous[3] == tab and not recheck_width:
         return
     slug = truncate(raw, budget_for(pane_id))
-    if previous and previous[1] == slug and previous[2] == lit and previous[3] == tab:
-        cache[pane_id] = (raw, slug, lit, tab)
-        return
+    # Before the short-circuit below, not after: a stale pad is invisible in slug/lit/tab.
     pad = ws_indent(pane.get("workspace_id"), lambda m, p: request(m, p))
+    if previous and previous[1] == slug and previous[2] == lit and previous[3] == tab and previous[4] == pad:
+        cache[pane_id] = (raw, slug, lit, tab, pad)
+        return
     row = pad + tab + slug
     result = request(
         "pane.report_metadata",
@@ -469,7 +482,7 @@ def apply(pane, cache, recheck_width=False):
         },
     )
     if result is not None:
-        cache[pane_id] = (raw, slug, lit, tab)
+        cache[pane_id] = (raw, slug, lit, tab, pad)
 
 
 def sweep(cache):
