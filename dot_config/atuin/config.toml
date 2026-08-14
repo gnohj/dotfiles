@@ -33,6 +33,13 @@ history_filter = [
 [sync]
 records = true
 
+# `?` on an empty prompt opens the assistant. Needs a Hub account, which links to the CLI account above rather than replacing it.
+[ai]
+enabled = true
+
+# Auto-approves every permission check, including command execution and file edits.
+yolo = true
+
 # any [keymap.*] section makes atuin ignore [keys], so scroll-past-edge exit is dropped via the j/down rebinds below.
 
 # jk exits vim-insert back to vim-normal (mirrors zsh-vi-mode); esc still works too.
