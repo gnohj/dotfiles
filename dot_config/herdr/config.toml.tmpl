@@ -341,10 +341,18 @@ position = "top-right"
 [ui.sound]
 enabled = false
 
-# Sidebar agent rows. The STATE itself is fully native — `state_icon` renders herdr's own
-# agent_status (idle/working/blocked/done/unknown), detected by the manifests in
-# ~/.local/state/herdr/agent-detection/ and streamed as pane_agent_status_changed. What
-# herdr has no notion of is TIME: nothing in `herdr api schema` carries a timestamp (only
+# Sidebar agent rows. The STATE is still detected natively - agent_status
+# (idle/working/blocked/done/unknown) comes from the manifests in
+# ~/.local/state/herdr/agent-detection/ and is streamed as pane_agent_status_changed - but row 1 no
+# longer uses the built-in `state_icon`. TEMPORARY, remove when herdrdev/herdr#2282 reaches a build:
+# state_dot() in 0.8.0 src/ui/status.rs hardcodes ● for blocked AND working AND done, and
+# [theme.custom] paints done (teal) and blocked (red) the same value, so those two states are
+# indistinguishable. #2282 adds `[ui] status_indicators = "symbols"` upstream and retires all of
+# this; until then the mark is painted by herdr-agent-activity.py into the $si_* slots below -
+# see MARK_BY_STATUS there for why the slot IS the color and why the label rides along. Costs:
+# row 1 takes the state color, the label comes from workspace.list so a rename lags one poll, and
+# a dead poller blanks row 1 once the TTL expires (row 2 still carries the pane name).
+# What herdr has no notion of is TIME: nothing in `herdr api schema` carries a timestamp (only
 # state_change_seq, a counter). So the age is a CUSTOM $act token fed by
 # herdr-agent-activity.py from the agent's session-JSONL tail. claude only — it is the one
 # agent whose transcript timestamps each
@@ -358,7 +366,7 @@ enabled = false
 # terminal renders at ~0.52x toward the bg - no fg can undo it. state_text/$act opt out; tab and
 # pane stay dim so the name/summary lines recede.
 [ui.sidebar.agents]
-rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = false }]]
+rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], ["agent", { token = "state_text", dim = false }]]
 
 # `state_text` spells out idle/working/blocked/done next to the age, because state_icon
 # alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
@@ -366,7 +374,7 @@ rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = fal
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
@@ -374,8 +382,8 @@ claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { tok
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
-opencode = [["state_icon", "workspace"], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+pi = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
