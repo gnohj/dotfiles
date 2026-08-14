@@ -2479,13 +2479,21 @@ generate_herdr_config() {
   # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
   local herdr_agent_rows herdr_claude_rows herdr_pane_git
-  herdr_agent_rows='rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = false }]]'
-  herdr_claude_rows="$(printf 'claude = [["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
-    "$gnohj_color04" "$gnohj_color02")"
+  # Row 1 is the $si_* state-mark slots, NOT the built-in state_icon. TEMPORARY - restore
+  # "state_icon", "workspace" here and drop $si_* once herdrdev/herdr#2282 reaches a build; see
+  # herdr-agent-activity.py::MARK_BY_STATUS for why. Slots mirror the [theme.custom] state colors
+  # below in state order: green idle, red blocked+done, yellow working, overlay0 unknown.
+  local herdr_marks
+  herdr_marks="$(printf '{ token = "$si_o", fg = "%s" }, { token = "$si_r", fg = "%s" }, { token = "$si_b", fg = "%s" }, { token = "$si_g", fg = "%s" }' \
+    "$gnohj_color05" "$gnohj_color11" "$gnohj_color04" "$gnohj_color13")"
+  herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
+    "$herdr_marks")"
+  herdr_claude_rows="$(printf 'claude = [[%s], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
+    "$herdr_marks" "$gnohj_color04" "$gnohj_color02")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[["state_icon", "workspace"], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
-    "$gnohj_color04" "$gnohj_color02")"
+  herdr_store_rows="$(printf '[[%s], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
+    "$herdr_marks" "$gnohj_color04" "$gnohj_color02")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
