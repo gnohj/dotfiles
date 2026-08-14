@@ -89,7 +89,11 @@ TOKEN = "act"
 # fg, so the slot IS the color ($br/$br_on widened to four) and done/blocked share the red one.
 # Unused slots are cleared to None, not "": an absent token is dropped before herdr computes
 # separators (tokens.rs resolves Custom via tokens.get), an empty string still counts as visible.
-MARK_SLOTS = ("si_o", "si_r", "si_b", "si_g")
+#
+# Each color also gets an `_on` twin carrying `dim = false`, because inline style is unconditional
+# and cannot vary by focus - the same reason $pn/$pn_on exist. Row 1 used to be built-in tokens and
+# so took `text` on the active entry; custom tokens do not, so without this the focused row renders
+# at herdr's default ~0.52x agent dim and the active workspace name reads as greyed out.
 MARK_BY_STATUS = {
     "idle": ("si_o", "○"),      # seen, ready - orange, matching herdr's own idle glyph
     "done": ("si_r", "○"),      # finished but NOT yet seen - the state that needed telling apart
@@ -97,6 +101,7 @@ MARK_BY_STATUS = {
     "blocked": ("si_r", "●"),
     "unknown": ("si_g", "·"),
 }
+MARK_SLOTS = tuple(s for base in ("si_o", "si_r", "si_b", "si_g") for s in (base, base + "_on"))
 
 # Raw epochs for herdr-last-active-agent.sh (prefix+'). The sidebar token is a FORMATTED
 # string ("8m ago") and so can't be sorted; the recency jump needs the numbers. Written
@@ -184,18 +189,21 @@ def format_age(then_epoch, now):
     return time.strftime("%b %d", time.localtime(then_epoch))
 
 
-def state_mark(status, workspace_id, fetch):
+def state_mark(status, workspace_id, fetch, focused=False):
     """Row-1 tokens: the glyph plus the workspace label, in the slot whose fg matches the state.
 
     The label rides in the SAME token because a second token on the row would earn a " · " -
     tokens.rs::separator gives a bare space only after the built-in state_icon. That makes the
     label ours to supply, so it lags a rename by one pass and vanishes with the poller.
+
+    The focused agent takes the `_on` twin of its colour, which is the only one carrying
+    `dim = false` - see MARK_SLOTS for why focus cannot come from the style itself.
     """
     slot, glyph = MARK_BY_STATUS.get(status or "unknown", MARK_BY_STATUS["unknown"])
     _load_ws_labels(fetch)
     label = _WS_LABELS.get(workspace_id, "")
     marks = dict.fromkeys(MARK_SLOTS)  # every slot None; the live one is set below
-    marks[slot] = f"{glyph} {label}" if label else glyph
+    marks[slot + "_on" if focused else slot] = f"{glyph} {label}" if label else glyph
     return marks
 
 
@@ -250,7 +258,8 @@ def report_all():
             epochs[pane_id] = stamp
         tokens = {TOKEN: (ws_indent(agent.get("workspace_id"), rpc) + value) if value else value}  # null clears — herdr has no clear_tokens field
         # Pushed for EVERY agent unlike $act: the state comes from herdr, so it is never a guess.
-        tokens.update(state_mark(agent.get("agent_status"), agent.get("workspace_id"), rpc))
+        tokens.update(state_mark(agent.get("agent_status"), agent.get("workspace_id"), rpc,
+                                 bool(agent.get("focused"))))
         rpc("pane.report_metadata", {
             "pane_id": pane_id,
             "source": SOURCE,

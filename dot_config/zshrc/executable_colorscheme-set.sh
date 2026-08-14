@@ -2483,9 +2483,14 @@ generate_herdr_config() {
   # "state_icon", "workspace" here and drop $si_* once herdrdev/herdr#2282 reaches a build; see
   # herdr-agent-activity.py::MARK_BY_STATUS for why. Slots mirror the [theme.custom] state colors
   # below in state order: green idle, red blocked+done, yellow working, overlay0 unknown.
-  local herdr_marks
-  herdr_marks="$(printf '{ token = "$si_o", fg = "%s" }, { token = "$si_r", fg = "%s" }, { token = "$si_b", fg = "%s" }, { token = "$si_g", fg = "%s" }' \
-    "$gnohj_color05" "$gnohj_color11" "$gnohj_color04" "$gnohj_color13")"
+  # Each colour is a dim/lit pair like $pn/$pn_on: only the _on twin lifts the agent-row dim, and
+  # focus picks the twin, since a custom token's inline style cannot vary by focus on its own.
+  local herdr_marks m
+  herdr_marks=""
+  for m in "$gnohj_color05:si_o" "$gnohj_color11:si_r" "$gnohj_color04:si_b" "$gnohj_color13:si_g"; do
+    herdr_marks="${herdr_marks:+$herdr_marks, }$(printf '{ token = "$%s", fg = "%s" }, { token = "$%s_on", fg = "%s", dim = false }' \
+      "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
+  done
   herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
     "$herdr_marks")"
   herdr_claude_rows="$(printf 'claude = [[%s], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
