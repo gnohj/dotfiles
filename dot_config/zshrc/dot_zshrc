@@ -95,7 +95,9 @@ fi
 up() {
   if [[ "$OSTYPE" == darwin* ]]; then
     print -P "%F{cyan}==> nix: flake update + darwin-rebuild switch%f"
-    nix flake update --flake ~/.nix || true
+    # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
+    local ghtok=$(gh auth token 2>/dev/null)
+    NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake ~/.nix || true
     sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
 
     print -P "%F{cyan}==> chezmoi: apply%f"
@@ -115,7 +117,9 @@ up() {
     print -P "%F{cyan}==> nix: flake update + home-manager switch%f"
     # On Linux ~/.nix is gitignored (no nix-darwin), so the flake lives in the chezmoi source.
     local nixflake="$HOME/.local/share/chezmoi/dot_nix"
-    command -v nix >/dev/null 2>&1 && nix flake update --flake "$nixflake" || true
+    # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
+    local ghtok=$(gh auth token 2>/dev/null)
+    command -v nix >/dev/null 2>&1 && NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake "$nixflake" || true
     command -v home-manager >/dev/null 2>&1 && home-manager switch --flake "$nixflake#gnohj-linux-x86_64" || true
     # home-manager doesn't manage the nix daemon; upgrade nix itself (best-effort).
     command -v nix >/dev/null 2>&1 && sudo -i nix upgrade-nix 2>/dev/null || true

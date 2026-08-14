@@ -23,7 +23,9 @@ trap 'rm -rf "$TMP"' EXIT
 cp -R "$SRC/." "$TMP/" || exit 1
 
 say "==> nix-preview: building updated config in a temp copy (live flake.lock untouched)…"
-( cd "$TMP" && nix flake update >/dev/null 2>&1 )
+# Output is discarded, so an anonymous 403 would silently preview the OLD lock as if updated.
+ghtok=$(gh auth token 2>/dev/null)
+( cd "$TMP" && NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update >/dev/null 2>&1 )
 if [ "$(uname)" = Darwin ]; then
   ( cd "$TMP" && darwin-rebuild build --flake ".#$FLAKE" >/dev/null 2>&1 )
 else
