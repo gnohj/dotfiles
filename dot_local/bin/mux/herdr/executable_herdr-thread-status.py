@@ -269,6 +269,13 @@ def thread_for(cwd, branch, entries):
       * worktree collides for the review pool, where a batch of threads all sit in the one
         `…/review` checkout.
 
+    A worktree hit must ALSO still be on the thread's branch. Treehouse slots are recycled:
+    `…/web-130256/1/web` carried IHRWEB-24272 until it merged, then got re-checked-out onto an
+    unrelated backport branch, and nothing deletes the thread file unless the worktree is torn
+    down through tkrm. The path alone therefore stayed a unique hit and handed the new branch
+    the old ticket's `jira_status: Completed`. `branch` is written once at creation and never
+    rewritten by persist(), so it is a reliable witness of which checkout the file describes.
+
     Ambiguity therefore resolves to no match rather than a guess: a wrong PR badge is worse
     than none. Filenames are never used — they are the ticket key for a ticket branch and a
     slug otherwise, so they key nothing reliably.
@@ -276,7 +283,10 @@ def thread_for(cwd, branch, entries):
     def only(matches):
         return matches[0] if len(matches) == 1 else (None, None)
 
-    hit = only([(p, d) for p, d in entries if (d.get("worktree") or "").rstrip("/") == cwd])
+    def here(entry):
+        return (entry.get("worktree") or "").rstrip("/") == cwd
+
+    hit = only([(p, d) for p, d in entries if here(d) and (not branch or d.get("branch") == branch)])
     if hit[0] or not branch:
         return hit
     return only([(p, d) for p, d in entries if d.get("branch") == branch])
