@@ -93,6 +93,14 @@ Name the branch whenever work is referenced, not only once a PR exists. With a P
 
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
 
+**ENFORCEMENT, because this rule has now been missed repeatedly.** It keeps failing for one reason: it is a thing to remember at a moment, with nothing tying it to an artifact. Rules that survive are the ones written into the dispatch itself, the way `HUSKY=0` does.
+
+So: **the vault note is a PRECONDITION of dispatch, not a companion to it.** No ticketed work is dispatched until its note exists on disk, and **the dispatch message must name the note's path.** If the path cannot be stated, the note does not exist and the dispatch does not go. That ties the rule to something already being produced instead of to memory.
+
+Verify the file exists with `find`, never a glob - a failed zsh glob aborts the whole command and reports absence, which is how a real note was nearly overwritten on 2026-08-13.
+
+Missed on IHRWEB-24273 on 2026-08-14: the work was dispatched, split, and half-finished before the captain noticed there was no note.
+
 ## Never say a bare "mate" - name which one
 
 "Mate" alone can mean a second mate, a crewmate, or the other first mate. Always say which, and name it:
@@ -119,6 +127,20 @@ Every project runs with autonomy off. No home merges its own work and none treat
 
 Before creating, updating, serving or tearing down ANY visual surface the captain will look at - artifact, Lavish review page, preview, diagram, served static page - load the `building-an-artifact` skill. It owns the theme rule and why a named theme silently fails, reader-relative change markers, the sandbox limits that break storage and local data loading, one-poll-per-artifact, and how a surface reaches his desktop rather than a localhost URL he cannot see. Do NOT restate those rules here - a second copy is a copy that drifts.
 
+## Every crewmate gets its OWN projected workspace - always
+
+Stated 2026-08-14. A crewmate must never run as a pane INSIDE its mate's own workspace (`⛵ sm-web`, `⛵ sm-inferno`). It gets its own projected child workspace with its own label, every time, so the captain can see each piece of work as a separate row in the spaces sidebar.
+
+**A worker can be alive and correct and still be wrong here.** Seen the same day: `web-19546-review-watch` was running, holding, and its check armed - but its projection never materialised. The presentation journal recorded the workspace it intended to create (`w61`) while the agent actually landed in `w3P:p3`, a pane inside `sm-web`. It appeared in the agents panel and was **absent from spaces entirely**.
+
+**So verify the projection after every spawn, not just that the agent started.** Check the recorded window is a child workspace rather than the parent's, and that a labelled row exists in `herdr workspace list`. Invisible work is the thing this rule exists to prevent.
+
+**RELAUNCH CANNOT REPAIR A FAILED PROJECTION - it fails identically forever.** `bin/fm-control.sh <id> relaunch` starts a replacement in the SAME recorded window by design; preserving that endpoint is its purpose, so asking it to negotiate a new workspace asks it to do the one thing it is built not to do. Proven 2026-08-14: relaunching `web-19546-review-watch` returned the identical `default:w3P:p3` parent pane. **Only a FRESH SPAWN can create a new workspace.**
+
+**The fallback announces itself and is easy to read past.** The spawn prints `no exact herdr presentation token match ... spawning FLAT`. **That word `flat` is the failure, not a warning** - treat it as a failed spawn and act, rather than noting it and moving on.
+
+**Repair without dropping the watch:** spawn a NEW task, confirm it projected, and only then retire the old one. Never tear the old one down first - that leaves the PR unwatched in the gap, which is the exact thing the rule above forbids.
+
 ## Spawning any agent - load the skill first
 
 Before spawning, relaunching or resuming ANY agent, load the `spawning-an-agent` skill. It owns why a spawn fails with "Not logged in" while the captain is signed in, the one-command token injection that fixes it, why the account must be named explicitly or the wrong identity is injected silently, and the credentials file that looks like proof of authentication but belongs to a different service.
@@ -126,6 +148,21 @@ Before spawning, relaunching or resuming ANY agent, load the `spawning-an-agent`
 ## PR review comments - load the skill first
 
 On every PR firstmate opens, arm the review-comment loop right after `bin/fm-pr-check.sh`, then load the `fm-pr-comments` skill on the resulting wake. That skill owns the arming command, the procedure, and the two things never to get wrong: steer the existing crewmate rather than spawning, and rebase onto the moved branch before committing.
+
+**A review watch ACTS - it is not a relay - and there are FOUR outcomes, not three.** Stated 2026-08-14.
+
+1. **The comment is right** and the correction sits inside what the PR already does - fix it, rebase onto the moved branch first, `HUSKY=0` push, reply naming the commit, then resolve. Routine work; it does not come back to the captain.
+2. **The comment is wrong** - reply with the reasoning and evidence and leave the thread OPEN for a human. Refuting a reviewer is legitimate; closing the thread on our own say-so is not.
+3. **It cannot figure it out** - stop, escalate to the captain, resolve nothing. Not knowing is a reportable outcome, not something to guess at or paper over with a plausible-looking fix.
+4. **It is above its authority** - a product decision, scope beyond the accepted change, anything destructive or irreversible - stop, escalate to the captain, resolve nothing.
+
+Never a silent resolve, and never a resolve before a reply. Outcomes 3 and 4 travel the whole chain - crewmate to its mate's status, mate to firstmate, firstmate to the captain - because a worker that stalls quietly on a reviewer's point looks identical to one that is finished.
+
+**NEVER tear down a ship task while its PR is open and unmerged.** Stated 2026-08-14 after the two mates made opposite calls on identically-placed PRs the same night: one held its workers, the other tore down at green and silently lost the watch. **Teardown removes the review-comment watch along with everything else**, so a reviewer's comment then lands with nobody listening - which is exactly how three Copilot threads on PR 19546 sat unanswered while it was being reported as ready.
+
+Landing means MERGED. A pushed branch and a green PR are not landing.
+
+**The accepted cost, stated so nobody trades it away for quiet:** an idle worker generates a stale wake on most turns, because the turn-end check has no concept of a deliberate wait. That noise is the price of the watch and the captain has chosen to pay it. Do not tear down early to stop the wakes, and do not "helpfully" clean up a parked worker whose PR is still open.
 
 ## Second mate status replies use the plain form
 
