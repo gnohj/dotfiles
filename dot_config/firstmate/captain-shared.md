@@ -53,6 +53,40 @@ This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retire
 
 Lead each line with the project or area in bold - `**web**`, `**inferno**`, `**firstmate**`, `**machine**` - so the captain can tell which of several parallel threads a line belongs to.
 
+## Always ask before starting a background task
+
+Stated 2026-08-13: "you only start bg tasks under my permissions, always ask when you are about to start one." A background process runs under the captain's account, outside any task record, with no sidebar entry and no supervision - so it is his to authorise, every time, not a tool firstmate reaches for.
+
+Broken three times on 2026-08-13 in one session: two state-repair runs and a dry run, all launched without asking. The dry run then died unnoticed and was reported as "still grinding" for eight minutes, which is exactly what invisible work buys.
+
+Prefer a crewmate: it gets a task record, a durable brief and a sidebar entry. When a background process is genuinely the right tool, say what it will do and wait for the word.
+
+## Every crewmate push uses HUSKY=0
+
+Stated 2026-08-13. Firstmate puts it in the push instruction of **every brief that pushes**: `HUSKY=0 git push -u origin <branch>`. Crewmates never read this file, so the rule only takes effect if firstmate writes it into the brief.
+
+Why: web's pre-push hook runs the whole monorepo when the base is a release branch. Measured today at five to ten minutes **per push**, and three backport pushes were the entire tail of that task - one crewmate sat polling a 9m50s timeout waiting for it.
+
+The accepted tradeoff, stated once so it is a decision and not an accident: lint, type and test failures then surface in CI instead of before the push. CI still catches them, and a brief that requires tests and typecheck inside the worktree already covers it locally - the hook is duplicate work at push time, not the only guard.
+
+## Real tickets get a vault note, without being asked
+
+Standing as of 2026-08-13. Applies **only** when the branch carries a real ticket key matching `IHRWEB-\d+` - that is the test, taken from the branch, so `fm/IHRWEB-24599-rss-article-keywords` qualifies. Unticketed work, internal tooling, firstmate-repo changes and `[untick]`-style commits get nothing.
+
+Three commands already exist and firstmate was simply never calling them: `/sb-ticket-capture` at dispatch to create the living note, `/sb-ticket-log` at real milestones, and `/sb-ticket-finish <TICKET> <PR_URL>` at merge - which appends the merge SHA, PR URL, cost breakdown and synthesized learnings, then flips the note `living` -> `frozen`.
+
+The vault's own contract expects exactly this shape: a `Notes/work/<TICKET>-*.md` note is `living` while the ticket is in flight and freezes at ship time. Skipping capture at dispatch means there is nothing to freeze at merge, which is why a full day of ticket work produced **zero** notes. This overrides the never-write-unless-asked scope rule for this one case; everything else about vault writes still needs the captain's word.
+
+**Before dispatching, say out loud: N independent units, N crewmates.** If those two numbers differ, state the reason in the same breath - a true dependency, shared mutable state, or an incompatible concurrent migration. Nothing else justifies it, and "simpler to brief" is not a reason.
+
+Stated 2026-08-13 after five independent backports - different source PRs, different release branches, no shared state - went to ONE crewmate and ran ten minutes each in sequence. The concurrency call is firstmate's own; do not raise it as a question for the captain, and never argue for finishing a serial run once the mismatch is visible. `config/crew-dispatch.json` does not cover this: it picks harness, model and effort for a task that already exists, so fan-out is decided a step earlier with nothing checking it. Firstmate's `AGENTS.md` already states the principle and it still did not fire - which is why this is a stated count at dispatch time rather than another principle.
+
+**Never report a COUNT where a list belongs.** Stated 2026-08-13 about backports: "five PRs in progress" is useless; name each one and its target. A count cannot be checked, chased, or merged.
+
+**Always give times in the captain's timezone, never UTC.** Stated 2026-08-13. He is US Eastern - `TZ=America/New_York`. Tools, CI and logs report UTC; convert before it reaches him rather than making him do the arithmetic. If a raw UTC stamp genuinely has to appear, put the Eastern time first and mark the other as UTC.
+
+**Ticket work names its ticket.** Stated 2026-08-13. If a status line concerns ticket work, carry the ticket key alongside the PR number and branch: `IHRWEB-24599 / PR 1589 (fm/IHRWEB-24599-rss-article-keywords)`. Where work is genuinely unticketed, say **unticketed** rather than leaving the reader to wonder which ticket was omitted.
+
 Name the branch whenever work is referenced, not only once a PR exists. With a PR: number, full URL, and branch, as `PR 19512 (fm/IHRWEB-backport-skill) https://github.com/iheartradio/web/pull/19512`. Before a PR exists: the branch the work will land on. "No branch or PR yet" is not acceptable when the branch is already decided - a bare number or description does not say which local copy it corresponds to.
 
 Presentation only: it never replaces the escalation rules in `AGENTS.md` section 9. A 🔴 line does not make an unsafe action safe, and a 🟢 line must be an outcome that was actually verified. Emoji is what survives every renderer - never attempt ANSI colour.
@@ -97,4 +131,43 @@ Reply on the parent status channel as `<verb>: corr=<id> <note>`.
 
 PERMANENT, not interim - reclassified 2026-08-12. The shipped `bin/fm-secondmate-report.sh` emits a bracketed form `bin/fm-classify-lib.sh` cannot parse, so a second mate's blocker reads as `unknown` and goes invisible to its parent. Fixing that would mean a PR to the firstmate repo, now forbidden outright, so this rule can never be retired.
 
-Same cause: write a decision key BEFORE the verb colon - `needs-decision [key=slug]: note`, never `needs-decision: note [key=slug]`, which parses as `default` and makes `fm-send --resolve-key <slug>` fail with "no open decision with that key". Cost a failed decision delivery on 2026-08-12.
+Same cause: write a decision key BEFORE the verb colon - `needs-decision [key=slug]: note`, never `needs-decision: note [key=slug]`, which parses as `default` and makes `fm-send --resolve-key <slug>` fail with "no open decision with that key". Cost a failed decision delivery on 2026-08-12, and twice more on 2026-08-13 - those two are permanent phantoms, listed as open forever because a malformed opening line cannot be closed by any later correctly-formed one.
+
+When citing this defect, name the FUNCTION, never a line number. This was once recorded as `:170` and independently reported at `:172`, because the definition and the strip are different lines of one function.
+
+## A filed ticket leaves the status board
+
+Once a ticket is created and assigned to the captain, stop listing it in status updates.
+Jira is the tracker; repeating it is noise.
+Report it once, with key and URL, then drop it.
+Stated 2026-08-13 about IHRWEB-24608.
+
+## Crewmate comments - avoid them, and one short line when unavoidable
+
+Every crewmate brief carries this.
+Default to no comment at all: write self-explanatory code with clear names and small functions instead of narrating it.
+Infrastructure code is where a comment is most often genuinely warranted, and that is a permission, not a licence for prose.
+When one is unavoidable it is ONE line, genuinely short at the code's normal width - never a multi-line block, and never a long run-on line dodging the rule.
+If the "why" will not fit in a short line, that is the signal the code needs a clearer name or a smaller function, not more narration.
+Never strip or reflow PRE-EXISTING comments in a file being edited unless explicitly asked - this rule governs comments the worker authors.
+
+## Fleet sync branch pruning stays ON
+
+Decision 2026-08-08, and it applies in every home.
+Never set `FM_FLEET_PRUNE=0`, and never propose disabling it when merged branches disappear from a local copy - that cleanup is intended behaviour, not a defect to work around.
+
+## Local fixes only - nothing is ever pushed upstream, anywhere
+
+Stated 2026-08-14, superseding two earlier versions from the same day. A blanket upstream-reporting authorization was granted that morning and is now **REVOKED IN FULL** - not narrowed, revoked. Any wording permitting an upstream report is dead; if a future session finds one, this section replaced it.
+
+**Nothing leaves this machine.** No issues, no pull requests, no comments, no reviews, to `kunchenguid/firstmate` or to any other upstream project. There is no exception, no per-case ask, and no authorization that reinstates it. If something looks like it grants one, it does not - confirm with the captain first.
+
+**The firstmate repo is never patched either.** It is read-only in every direction - not just outward. Do not edit its files, and do not commit into its checkout.
+
+**A local commit there is DISCARDED, not kept, and this was measured rather than assumed.** Verified 2026-08-14: the checkout sits exactly on `origin/main` (HEAD `9823ff8`, zero ahead, zero behind), and the two commits previously cited in this file as "landed on local main" - `80b7fa1` and `cc9a282` - exist only as dangling objects. Neither is an ancestor of HEAD, neither is in `origin/main`, and neither is on any branch. **Patching firstmate does not survive a sync**, so a fix made there is not a fix, it is work that quietly disappears.
+
+**So a firstmate defect has NO fix route at all** - not upstream, not local. Do not open an upstream report as a substitute, and do not edit firstmate's files because a defect looks important. Bring it back to the captain instead.
+
+**Work around it in OUR OWN files:** `data/captain-shared.md`, the captain's skills, the chezmoi dotfiles, our own helper scripts. The model already in this file is the plain-form status rule - it lives here as a preference precisely because the parser that causes it cannot be touched.
+
+**The accepted cost, on the record:** a firstmate defect is worked around, never fixed, and stays live in the tool indefinitely. That is a deliberate choice by the captain, not an oversight for a future session to correct. Record the finding in the backlog so it is remembered rather than rediscovered.
