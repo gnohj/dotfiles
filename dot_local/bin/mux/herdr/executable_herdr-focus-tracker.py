@@ -78,6 +78,12 @@ BRANCH_TTL_MS = 38000
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
 SUMMARY_SOURCE = "auto-summary"
 
+# herdr-agent-activity.py's source and TTL, shared for the same reason again. One dim/lit pair per
+# state colour, of which exactly one slot is ever non-empty - MARK_SLOTS there is the mirror.
+ACTIVITY_SOURCE = "agent-activity"
+ACTIVITY_TTL_MS = 50000
+MARK_PAIRS = tuple((b, b + "_on") for b in ("si_o", "si_r", "si_b", "si_g"))
+
 # Events that can move which pane is focused, and so need the accent re-slotted.
 PANE_PAINT_EVENTS = {"workspace_focused", "tab_focused", "pane_focused", "pane_closed"}
 
@@ -323,9 +329,10 @@ def paint_panes():
     pane left mispainted while the daemon was down. Panes holding neither slot are skipped, so
     a pane that never earned a summary is never given one here.
 
-    TWO pairs, two sources: `$pn` is herdr-pane-summary.py's, `$pbr` herdr-git-status.sh's. They
-    cannot move in one call - a token is only clearable by the source that set it, so a single
-    write would strand the other pair's dim half lit. `$pgit` carries a fixed color and needs none.
+    Pairs from three sources: `$pn` is herdr-pane-summary.py's, `$pbr` herdr-git-status.sh's, and
+    the four `$si_*` row-1 state marks herdr-agent-activity.py's. They cannot move in one call - a
+    token is only clearable by the source that set it, so a single write would strand another
+    pair's dim half lit. `$pgit` carries a fixed color and needs none.
     """
     reply = request("pane.list", {})
     if not reply or "result" not in reply:
@@ -335,7 +342,8 @@ def paint_panes():
         focused = bool(pane.get("focused"))
         for source, dim_key, lit_key, ttl_ms in (
                 (SUMMARY_SOURCE, "pn", "pn_on", None),
-                (BRANCH_SOURCE, "pbr", "pbr_on", BRANCH_TTL_MS)):
+                (BRANCH_SOURCE, "pbr", "pbr_on", BRANCH_TTL_MS),
+                *((ACTIVITY_SOURCE, d, l, ACTIVITY_TTL_MS) for d, l in MARK_PAIRS)):
             dim, lit = tokens.get(dim_key) or "", tokens.get(lit_key) or ""
             value = lit or dim
             if not value:

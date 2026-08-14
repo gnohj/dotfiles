@@ -366,7 +366,7 @@ enabled = false
 # terminal renders at ~0.52x toward the bg - no fg can undo it. state_text/$act opt out; tab and
 # pane stay dim so the name/summary lines recede.
 [ui.sidebar.agents]
-rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], ["agent", { token = "state_text", dim = false }]]
+rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], ["agent", { token = "state_text", dim = false }]]
 
 # `state_text` spells out idle/working/blocked/done next to the age, because state_icon
 # alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
@@ -374,7 +374,7 @@ rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" 
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
@@ -382,8 +382,8 @@ claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
-opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_r", fg = "#da858e" }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_g", fg = "#536571" }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+pi = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
