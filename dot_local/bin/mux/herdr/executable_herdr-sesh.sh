@@ -152,7 +152,7 @@ for pn in (load("pn") or {}).get("result", {}).get("panes", []):
 
 # All width N/Na so columns hold; working is steady (fzf is static, a spinner would sit frozen) and blocked is ! since ❯ is the column separator.
 AGENT_GLYPH = {"working": "➤", "blocked": "!", "done": "✔", "idle": "✓"}
-# The four palette tokens herdr paints state_icon with ([theme.custom] green/yellow/red/teal) - keep in sync or the picker and sidebar disagree.
+# The four herdr state colours ([theme.custom] green/yellow/red/teal, mirrored by the sidebar's $si_* slots) - keep in sync or the picker and sidebar disagree.
 AGENT_COLOR = {
     "working": tc(os.environ.get("WORKING")), "blocked": tc(os.environ.get("BLOCKED")),
     "done":    tc(os.environ.get("DONE")),    "idle":    tc(os.environ.get("IDLING")),
