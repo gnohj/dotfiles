@@ -414,6 +414,8 @@ refresher:
   refreshInterval: 10
 os:
   editPreset: nvim
+  # lazygit's clipboard lib has no OSC 52 tier; to-desktop does, and >/dev/tty escapes lazygit's captured stdout.
+  copyToClipboardCmd: "printf '%s' {{text}} | to-desktop clip - >/dev/tty"
 gui:
   showFileTree: true
   showBottomLine: false
