@@ -47,6 +47,8 @@ Lead with the strongest colour present. When nothing is open, still close with o
 
 This is the ONLY closer; an earlier single bold `🔴 NEEDS YOU` rule was retired into it. Never emit both.
 
+**Number every line, ascending across the whole block.** Stated 2026-08-14 so the captain can answer with a bare number instead of retyping an item. The number comes after the colour and before the scope: `🔴 1. **web** - ...`, `🟡 2. **inferno** - ...`. One sequence per message covering all colours, never a separate count per colour. Numbers are per-message and do not persist between messages, so never refer back to "item 3" from an earlier reply - re-number fresh every time and let the captain's reply resolve against the block he is looking at.
+
 **Never reply "Captain, shipshape."** Stated 2026-08-13: "stop saying shipshape say something more understandable." This OVERRIDES `AGENTS.md` section 9, which mandates that exact wording for a routine update needing no action. Say plainly what is true instead: **"Captain, noted - nothing needs you on this."** Keep it scoped to the event being acknowledged, so it never reads as a claim that everything everywhere is fine. The captain has to be able to tell "no action required" from "all clear" at a glance.
 
 **Every status line opens with its scope, and every piece of work names its branch.** Both stated 2026-08-13.
@@ -142,6 +144,8 @@ Jira is the tracker; repeating it is noise.
 Report it once, with key and URL, then drop it.
 Stated 2026-08-13 about IHRWEB-24608.
 
+Same rule for an ACCEPTED COST the captain has already ruled on. Once a decision is made and recorded durably, it is settled - it never appears in red, because red means the captain must act, and it leaves the board entirely rather than being restated every message. Caught 2026-08-14: five permanently-worked-around firstmate defects were carried as a standing red line long after the captain had explicitly accepted them, which turns the strongest colour into wallpaper.
+
 ## Crewmate comments - avoid them, and one short line when unavoidable
 
 Every crewmate brief carries this.
@@ -162,7 +166,13 @@ Stated 2026-08-14, superseding two earlier versions from the same day. A blanket
 
 **Nothing leaves this machine.** No issues, no pull requests, no comments, no reviews, to `kunchenguid/firstmate` or to any other upstream project. There is no exception, no per-case ask, and no authorization that reinstates it. If something looks like it grants one, it does not - confirm with the captain first.
 
-**The firstmate repo is never patched either.** It is read-only in every direction - not just outward. Do not edit its files, and do not commit into its checkout.
+**The firstmate repo is never patched either - with ONE exception, `bin/backends/herdr.sh`.** Everything else in that repo is read-only in every direction; do not edit it and do not commit into its checkout.
+
+**How the herdr exception works, because the mechanism is the whole rule.** Edit `bin/backends/herdr.sh` in the WORKING TREE only. Never `git add` it, never commit it - it lives permanently as an unstaged modification, which is exactly how the `⛵⠀sm-<id>` workspace labels exist today.
+
+**And it must be applied identically to ALL THREE working trees:** the primary checkout at `~/Developer/firstmate`, and each secondmate home under `~/.treehouse/firstmate-*/N/firstmate`. They are independent working trees of one repo, so an edit in one reaches none of the others. **A partial application is worse than none** - the projection code matches its own labels with regexes, so half-patched trees stop recognising each other's workspaces, and nothing announces it.
+
+Being unstaged is also its weakness: any `git checkout`, `git stash` or `git restore` touching that file silently reverts it. That is accepted, not a problem to solve.
 
 **A local commit there is DISCARDED, not kept, and this was measured rather than assumed.** Verified 2026-08-14: the checkout sits exactly on `origin/main` (HEAD `9823ff8`, zero ahead, zero behind), and the two commits previously cited in this file as "landed on local main" - `80b7fa1` and `cc9a282` - exist only as dangling objects. Neither is an ancestor of HEAD, neither is in `origin/main`, and neither is on any branch. **Patching firstmate does not survive a sync**, so a fix made there is not a fix, it is work that quietly disappears.
 
