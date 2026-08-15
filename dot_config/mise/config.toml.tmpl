@@ -9,7 +9,7 @@
 [tools]
 # Note: Node 22 is also installed for Neovim Copilot (see ~/.config/nvim/lua/plugins/copilot.lua)
 node = { version = 'lts', postinstall = 'corepack enable' }
-lua = '5.4'
+lua = '5.5'
 python = 'latest'
 go = 'latest'
 rust = 'latest'
@@ -61,7 +61,7 @@ pnpm = "latest"
 "github:garrettkrohn/treekanga" = "latest"          # not in nixpkgs; brew on macOS
 "github:sst/opencode" = "latest"                   # OpenCode (linux-x64 release binary; Mac has its own installer/brew)
 # Pinned to web's @pulumi/pulumi SDK (packages/infra), whose automation API shells out to this CLI, so a local run can't write stack state CI reads back; Linux-only like opencode - the Mac has its own pulumi.
-pulumi = "3.207.0"
+pulumi = "3.257.0"
 "npm:hunkdiff" = { version = "latest", allow_builds = ["hunkdiff"] }   # hunk: gh-dash PR review viewer (native binary; Mac gets it via brew)
 {{- end }}
 
