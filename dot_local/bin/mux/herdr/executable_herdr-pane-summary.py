@@ -83,6 +83,15 @@ SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herd
 from herdr_label import row_indent
 
 SOURCE = "auto-summary"
+# Slot suffix IS the colour, matching MARK_BY_STATUS in herdr-agent-activity.py so row 2 cannot disagree with row 1.
+PN_STATE_SLOT = {"idle": "pn_b", "done": "pn_g", "blocked": "pn_r", "working": "pn_o"}
+PN_SLOTS = tuple(s for b in ("pn_o", "pn_r", "pn_b", "pn_g", "pn_x") for s in (b, b + "_on"))
+PN_CLEAR = dict.fromkeys(PN_SLOTS)
+
+
+def pn_slot(pane, lit):
+    base = PN_STATE_SLOT.get(pane.get("agent_status") or "unknown", "pn_x")
+    return base + "_on" if lit else base
 # Agent rows indent under the workspace TEXT; only a CUSTOM token can hold the pad (herdr owns state_text and agent), which is why the row leads with $act.
 _WS_LABELS = {}
 _TAB_POS = {}
@@ -424,18 +433,18 @@ def desired(pane):
 
 
 def apply(pane, cache, recheck_width=False):
-    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written, lit, tab, pad).
+    """Reconcile one pane. `cache` maps pane_id -> (raw slug, slug as written, slot, tab, pad).
 
     The slug goes out THREE ways in one write: `title` (the pane border, and herdr's built-in
-    `pane` sidebar token) plus the `$pn`/`$pn_on` token pair the agents-panel row reads. The
-    pair exists because a custom `$token` takes one flat inline `fg` and cannot vary by focus,
-    so the two-tone is rebuilt by hand exactly as row 2 of the spaces panel does it for the
-    branch - see herdr-focus-tracker.py::paint_panes. Exactly one slot ever holds the text;
-    an empty token renders nothing, not even a separator.
+    `pane` sidebar token) plus one of the `$pn_*` slots the agents-panel row reads. Those exist
+    because a custom `$token` takes one flat inline `fg` that can vary by NEITHER focus nor state,
+    so both are rebuilt by hand: the suffix carries the state colour and the `_on` twin the focus,
+    exactly as row 1's `$si_*` does - see herdr-focus-tracker.py::paint_panes. Exactly one slot
+    ever holds the text; an empty token renders nothing, not even a separator.
 
-    `lit` is part of the cache key so a pane whose slot is wrong gets rewritten on the next
-    sweep. Slot correctness is really paint_panes' job - it repaints on every focus event -
-    but this pane object's `focused` can be stale, and without `lit` in the key the unchanged
+    `slot` is part of the cache key so a pane whose slot is wrong gets rewritten on the next
+    sweep. Focus correctness is really paint_panes' job - it repaints on every focus event -
+    but this pane object's `focused` can be stale, and without `slot` in the key the unchanged
     slug would short-circuit the write and leave the mis-slot standing until the title changed.
 
     `pad` is in the key for the same reason, and it is why the sweep resolves a wrong pad at all:
@@ -453,21 +462,22 @@ def apply(pane, cache, recheck_width=False):
                 "clear_title": True,
                 "pane_id": pane_id,
                 "source": SOURCE,
-                "tokens": {"pn": None, "pn_on": None},
+                "tokens": dict(PN_CLEAR),
             })
         return
-    lit = bool(pane.get("focused"))
+    # State AND focus in one value: without the state here a colour change would wait on a title change.
+    slot = pn_slot(pane, bool(pane.get("focused")))
     previous = cache.get(pane_id)
     # In the cache key so a renumbered tab rewrites the row - the slug alone would not have moved.
     tab = tab_prefix(pane.get("tab_id"), lambda m, p: request(m, p))
     # Steady state costs nothing: an unchanged title skips even the width lookup.
-    if previous and previous[0] == raw and previous[2] == lit and previous[3] == tab and not recheck_width:
+    if previous and previous[0] == raw and previous[2] == slot and previous[3] == tab and not recheck_width:
         return
     slug = truncate(raw, budget_for(pane_id))
-    # Before the short-circuit below, not after: a stale pad is invisible in slug/lit/tab.
+    # Before the short-circuit below, not after: a stale pad is invisible in slug/slot/tab.
     pad = ws_indent(pane.get("workspace_id"), lambda m, p: request(m, p))
-    if previous and previous[1] == slug and previous[2] == lit and previous[3] == tab and previous[4] == pad:
-        cache[pane_id] = (raw, slug, lit, tab, pad)
+    if previous and previous[1] == slug and previous[2] == slot and previous[3] == tab and previous[4] == pad:
+        cache[pane_id] = (raw, slug, slot, tab, pad)
         return
     row = pad + tab + slug
     result = request(
@@ -478,11 +488,11 @@ def apply(pane, cache, recheck_width=False):
             "source": SOURCE,
             "title": slug,
             # Title stays bare - that is the pane BORDER label, which sits in the tab it names.
-            "tokens": {"pn": None if lit else row, "pn_on": row if lit else None},
+            "tokens": {n: (row if n == slot else None) for n in PN_SLOTS},
         },
     )
     if result is not None:
-        cache[pane_id] = (raw, slug, lit, tab, pad)
+        cache[pane_id] = (raw, slug, slot, tab, pad)
 
 
 def sweep(cache):
@@ -504,7 +514,7 @@ def clear_all():
                     "clear_title": True,
                     "pane_id": pane["pane_id"],
                     "source": SOURCE,
-                    "tokens": {"pn": None, "pn_on": None},
+                    "tokens": dict(PN_CLEAR),
                 },
             )
 

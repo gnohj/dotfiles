@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# herdr-git-status.sh — colour each open herdr workspace's NAME by its working-tree state, using
-# the SAME gitmux.yml as the tmux status line + the ctrl+t picker. There is no glyph any more: the
-# name itself carries it, red when dirty and amber when the tree is ahead or behind its upstream.
-# That means replacing the built-in `workspace` token with $ws/$ws_dirty/$ws_sync, since herdr
+# herdr-git-status.sh — colour each open herdr workspace's NAME by its AGENT state, using the SAME
+# gitmux.yml as the tmux status line + the ctrl+t picker for the working-tree read. There is no
+# glyph any more: the name itself carries the colour, and a dirty tree is a trailing * on it.
+# That means replacing the built-in `workspace` token with $ws plus a $ws_<state> pair, since herdr
 # styles a token by one flat inline fg and has no state-varying form (skills/herdr-upgrade/
 # watchlist.md item 2). Wired in dot_config/herdr/config.toml ([ui.sidebar.spaces]).
 #
@@ -72,8 +72,9 @@ UNSTAGED_SIGNS = ("✖", "✚", "\U000f1036")
 DIRTY_SIGNS = (STAGED_SIGN,) + UNSTAGED_SIGNS
 # gitmux's ahead/behind markers, the same pair herdr-sysinfo.py counts for $sync.
 SYNC_SIGNS = ("\U0001f446", "\U0001f447")
-# Workspace-name slots: exactly one ever holds the label, and its color IS the git state.
-WS_SLOTS = ("ws", "ws_dirty", "ws_sync")
+# Suffix IS the colour, so a remap is a slot move here; unknown stays bare on `ws` for herdr's own text/subtext0. Mirror of MARK_BY_STATUS in herdr-agent-activity.py.
+WS_STATE_SLOT = {"idle": "ws_b", "done": "ws_g", "blocked": "ws_r", "working": "ws_o"}
+WS_SLOTS = ("ws",) + tuple(s for b in ("ws_o", "ws_r", "ws_b", "ws_g") for s in (b, b + "_on"))
 CFG = os.environ.get("GITMUX_CFG", os.path.expanduser("~/.config/gitmux/gitmux.yml"))
 TTL = os.environ.get("TTL_MS", "60000")
 
@@ -204,9 +205,12 @@ try:
     _spaces = json.loads(out([HERDR, "workspace", "list"]))["result"]["workspaces"]
     focused = {w["workspace_id"] for w in _spaces if w.get("focused")}
     ws_label = {w["workspace_id"]: w.get("label") or "" for w in _spaces}
+    # herdr's own rolled-up state, the same value the row's state_icon dot uses - never our guess.
+    ws_status = {w["workspace_id"]: w.get("agent_status") or "unknown" for w in _spaces}
 except Exception:
     focused = set()
     ws_label = {}
+    ws_status = {}
 
 def cwd_of(p):
     return (p.get("foreground_cwd") or p.get("cwd") or "").rstrip("/")
@@ -234,12 +238,17 @@ for w, label in ws_label.items():
     if c and os.path.isdir(c):
         dirty, needs_sync, entry = sign(c)
         picker[c] = entry
-    # The pin reports the fleet roll-up in $repos, so its own name never carries a checkout's state.
+    # The pin reports the fleet roll-up in $repos, so its own name never carries a state colour or sign.
     slot = "ws"
+    name = label
     if not is_pin(label):
-        slot = "ws_dirty" if dirty else "ws_sync" if needs_sync else "ws"
+        base = WS_STATE_SLOT.get(ws_status.get(w) or "unknown")
+        # Picks the focus twin here as well as in the tracker, so an 8s pass never drags the lit slot back.
+        slot = (base + "_on" if w in focused else base) if base else "ws"
+        # Inside the name token on purpose: a second token would earn a " · " from tokens.rs::separator.
+        name = label + "*" if dirty else label
     # No ttl: an expired name would blank the row entirely, unlike a branch that just goes quiet.
-    report("workspace", w, tuple((n, label if n == slot else "") for n in WS_SLOTS), ttl="")
+    report("workspace", w, tuple((n, name if n == slot else "") for n in WS_SLOTS), ttl="")
     if is_pin(label):
         # Rows below belong to sysinfo. Cleared, not skipped, so a stale branch goes rather than lingering.
         report("workspace", w, (("br", ""), ("br_on", "")))

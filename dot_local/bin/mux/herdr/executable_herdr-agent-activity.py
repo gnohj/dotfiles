@@ -94,14 +94,15 @@ TOKEN = "act"
 # and cannot vary by focus - the same reason $pn/$pn_on exist. Row 1 used to be built-in tokens and
 # so took `text` on the active entry; custom tokens do not, so without this the focused row renders
 # at herdr's default ~0.52x agent dim and the active workspace name reads as greyed out.
+# Slot suffix IS the colour (o orange, r red, b blue, g green, x grey), so a remap is a slot move, never a colour edit.
 MARK_BY_STATUS = {
-    "idle": ("si_o", "○"),      # seen, ready - orange, matching herdr's own idle glyph
-    "done": ("si_r", "○"),      # finished but NOT yet seen - the state that needed telling apart
-    "working": ("si_b", "●"),
-    "blocked": ("si_r", "●"),
-    "unknown": ("si_g", "·"),
+    "idle": ("si_b", "○"),      # seen, ready - blue
+    "done": ("si_g", "○"),      # finished but NOT yet seen - green, the state that needed telling apart
+    "working": ("si_o", "●"),   # orange
+    "blocked": ("si_r", "●"),   # red, and its OWN slot now that done is green
+    "unknown": ("si_x", "·"),
 }
-MARK_SLOTS = tuple(s for base in ("si_o", "si_r", "si_b", "si_g") for s in (base, base + "_on"))
+MARK_SLOTS = tuple(s for base in ("si_o", "si_r", "si_b", "si_g", "si_x") for s in (base, base + "_on"))
 
 # Raw epochs for herdr-last-active-agent.sh (prefix+'). The sidebar token is a FORMATTED
 # string ("8m ago") and so can't be sorted; the recency jump needs the numbers. Written

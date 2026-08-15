@@ -366,7 +366,7 @@ enabled = false
 # terminal renders at ~0.52x toward the bg - no fg can undo it. state_text/$act opt out; tab and
 # pane stay dim so the name/summary lines recede.
 [ui.sidebar.agents]
-rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], ["agent", { token = "state_text", dim = false }]]
+rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$si_g", fg = "#b7ce97" }, { token = "$si_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$si_x", fg = "#536571" }, { token = "$si_x_on", fg = "#536571", dim = false, bold = true }], ["agent", { token = "state_text", dim = false }]]
 
 # `state_text` spells out idle/working/blocked/done next to the age, because state_icon
 # alone is ambiguous at a glance. The literal `agent` token is dropped from THIS row on
@@ -374,7 +374,7 @@ rows = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab18
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$si_g", fg = "#b7ce97" }, { token = "$si_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$si_x", fg = "#536571" }, { token = "$si_x_on", fg = "#536571", dim = false, bold = true }], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
@@ -382,8 +382,8 @@ claude = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab
 # daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
 # first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
 # (pi's transcript timestamps, opencode's session.time_updated).
-pi = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
-opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false }, { token = "$si_g", fg = "#536571" }, { token = "$si_g_on", fg = "#536571", dim = false }], [{ token = "$pn", fg = "#a3b8c6" }, { token = "$pn_on", fg = "#b7ce97", dim = false }]]
+pi = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$si_g", fg = "#b7ce97" }, { token = "$si_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$si_x", fg = "#536571" }, { token = "$si_x_on", fg = "#536571", dim = false, bold = true }], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
+opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$si_r", fg = "#da858e" }, { token = "$si_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$si_b", fg = "#a3b8c6" }, { token = "$si_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$si_g", fg = "#b7ce97" }, { token = "$si_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$si_x", fg = "#536571" }, { token = "$si_x_on", fg = "#536571", dim = false, bold = true }], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
@@ -423,7 +423,8 @@ opencode = [[{ token = "$si_o", fg = "#dab183" }, { token = "$si_o_on", fg = "#d
 # Row 4 is $systime alone: nothing else in the sidebar has a 4th line, so it collapses everywhere except the pin.
 # Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale; pin cells take overlay0 to read as background detail.
 # $repos/$sync split by CONTENT (both halves can be lit at once); each then takes an _on twin so the roll-up dims while the pin is unfocused.
-rows = [["state_icon", { token = "$ws", fg = "#b8c9d3" }, { token = "$ws_dirty", fg = "#c0aed2" }, { token = "$ws_sync", fg = "#dab183" }, { token = "$repos", fg = "#536571" }, { token = "$repos_on", fg = "#a3b8c6" }, { token = "$sync", fg = "#536571" }, { token = "$sync_on", fg = "#a3b8c6" }], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$sys", fg = "#536571" }, { token = "$sys_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }, { token = "$sysres", fg = "#536571" }, { token = "$sysres_on", fg = "#b7ce97" }], [{ token = "$systime", fg = "#536571" }, { token = "$systime_on", fg = "#b7ce97" }]]
+# Row 1's name is AGENT-STATE coloured - one dim/lit pair per state, herdr-git-status.sh picking the family from workspace.list's agent_status and herdr-focus-tracker.py::paint_ws the twin, because herdr colours that name by focus alone. $ws stays bare and holds `unknown`: with no fg it takes text/subtext0, which already splits on focus.
+rows = [["state_icon", { token = "$ws" }, { token = "$ws_o", fg = "#715c44" }, { token = "$ws_o_on", fg = "#dab183", bold = true }, { token = "$ws_r", fg = "#714549" }, { token = "$ws_r_on", fg = "#da858e", bold = true }, { token = "$ws_b", fg = "#545f66" }, { token = "$ws_b_on", fg = "#a3b8c6", bold = true }, { token = "$ws_g", fg = "#5f6b4e" }, { token = "$ws_g_on", fg = "#b7ce97", bold = true }, { token = "$repos", fg = "#536571" }, { token = "$repos_on", fg = "#a3b8c6" }, { token = "$sync", fg = "#536571" }, { token = "$sync_on", fg = "#a3b8c6" }], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$sys", fg = "#536571" }, { token = "$sys_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }, { token = "$sysres", fg = "#536571" }, { token = "$sysres_on", fg = "#b7ce97" }], [{ token = "$systime", fg = "#536571" }, { token = "$systime_on", fg = "#b7ce97" }]]
 
 [session]
 resume_agents_on_restore = true
@@ -478,9 +479,10 @@ pane_history = true
 panel_bg = "reset"
 # surface_dim drives the sidebar active/selected row bg and surface0 the inactive
 # tab bg (verified live against herdr 0.7.3). surface_dim = gnohj_color13 at 50% (herdr_sel_bg), a clear step under the sesh picker's fzf bg+; surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
-surface_dim = "#293238"
+surface_dim = "#131617"
 surface0 = "#1e2528"
 surface1 = "#1e2528"
+# overlay0 is ONE token for ALL sidebar chrome - the spaces/agents headers, new/menu/grouped, the · separators, the └─ connectors, both scrollbars, the «/» toggle. Recoloring the headers alone is impossible; gnohj_color03 was tried and reverted.
 overlay0 = "#536571"
 overlay1 = "#7a90a0"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
@@ -490,11 +492,9 @@ overlay1 = "#7a90a0"
 # line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
 # pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
 # Shared by the spaces AND agents sections, so none of them can be set per-panel.
-# text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
-# longer differs in COLOR from the inactive ones - the active cue is the surface_dim row
-# fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
-subtext0 = "#a3b8c6"
-text = "#a3b8c6"
+# text/subtext0 are SPLIT again - the only focus-varying dim without a twin token, so $ws stays bare to receive it; $ws_dirty/$ws_sync are retired and a dirty tree is now a trailing * inside the name token.
+subtext0 = "#536571"
+text = "#b8c9d3"
 # mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
 # use ($br/$br_on replaced it) - kept in step with $br_on/$pn_on for intent, not for render.
 mauve = "#b7ce97"
@@ -504,15 +504,14 @@ mauve = "#b7ce97"
 # overlay0. There is no per-state config key, so anything else using these tokens
 # shifts with them. Mapped 1:1 onto the agent chips:
 # @chip_idle / @chip_working / @chip_input / @chip_done.
-green = "#dab183"
-yellow = "#a3b8c6"
+# These paint the SPACES row's state_icon dot, so they must track WS_STATE_SLOT or the dot disagrees with the name beside it: idle blue, working orange, blocked red, done green.
+green = "#a3b8c6"
+yellow = "#dab183"
 red = "#da858e"
 # blue = fallback for custom metadata tokens; $git/$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "#b7ce97"
-# teal = the done state, and status.rs is its ONLY consumer - so pointing it at
-# gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
-# matching @chip_done and @chip_input, which are already the same color.
-teal = "#da858e"
+# teal = done, status.rs its only consumer, so gnohj_color02 matches the $si_g/$ws_g slots - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
+teal = "#b7ce97"
 peach = "#dc988e"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 # <<< colorscheme-set: herdr theme palette <<<

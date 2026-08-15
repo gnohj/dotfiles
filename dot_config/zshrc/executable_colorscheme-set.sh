@@ -2445,12 +2445,12 @@ generate_herdr_config() {
   # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
   # colors pass via env so the perl expressions need no shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
-  # Selected-row fill: gnohj_color13 at 50%, derived so it tracks a theme switch; 90% was only dL* 4.4 and read as unchanged.
+  # Selected-row fill at 12%. NEVER "reset": widgets.rs::panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this is also the ink on the accent-backed active tab and must stay dark.
   local herdr_sel_bg
   herdr_sel_bg="$(printf '#%02x%02x%02x' \
-    "$((0x${gnohj_color13:1:2} * 50 / 100))" \
-    "$((0x${gnohj_color13:3:2} * 50 / 100))" \
-    "$((0x${gnohj_color13:5:2} * 50 / 100))")"
+    "$((0x${gnohj_color04:1:2} * 12 / 100))" \
+    "$((0x${gnohj_color04:3:2} * 12 / 100))" \
+    "$((0x${gnohj_color04:5:2} * 12 / 100))")"
   local herdr_target="$HOME/.config/herdr/config.toml"
   # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
   local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
@@ -2467,9 +2467,19 @@ generate_herdr_config() {
   # $sys/$sysres/$systime take an _on twin like $br: their dim fg is overlay0, too near surface_dim to read on the selected row.
   # $repos/$sync split by content and both can be lit; each takes an _on twin so the roll-up dims while the pin is unfocused.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
+  # Row 1's name is AGENT-STATE coloured: herdr colours it by focus alone, so state rides the slot and the _on twin makes both colour and bold focus-conditional; dim halves derive at 52% to keep their hue. Bare $ws holds `unknown` on text/subtext0.
+  herdr_dim() {
+    printf '#%02x%02x%02x' \
+      "$((0x${1:1:2} * 52 / 100))" "$((0x${1:3:2} * 52 / 100))" "$((0x${1:5:2} * 52 / 100))"
+  }
+  local herdr_ws_o herdr_ws_r herdr_ws_b herdr_ws_g
+  herdr_ws_o="$(herdr_dim "$gnohj_color05")"
+  herdr_ws_r="$(herdr_dim "$gnohj_color11")"
+  herdr_ws_b="$(herdr_dim "$gnohj_color04")"
+  herdr_ws_g="$(herdr_dim "$gnohj_color02")"
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws", fg = "%s" }, { token = "$ws_dirty", fg = "%s" }, { token = "$ws_sync", fg = "%s" }, { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
-    "$gnohj_color14" "$gnohj_color01" "$gnohj_color05" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
+  herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws" }, { token = "$ws_o", fg = "%s" }, { token = "$ws_o_on", fg = "%s", bold = true }, { token = "$ws_r", fg = "%s" }, { token = "$ws_r_on", fg = "%s", bold = true }, { token = "$ws_b", fg = "%s" }, { token = "$ws_b_on", fg = "%s", bold = true }, { token = "$ws_g", fg = "%s" }, { token = "$ws_g_on", fg = "%s", bold = true }, { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
+    "$herdr_ws_o" "$gnohj_color05" "$herdr_ws_r" "$gnohj_color11" "$herdr_ws_b" "$gnohj_color04" "$herdr_ws_g" "$gnohj_color02" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
     "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color13" "$gnohj_color02")"
@@ -2487,20 +2497,21 @@ generate_herdr_config() {
   # below in state order: green idle, red blocked+done, yellow working, overlay0 unknown.
   # Each colour is a dim/lit pair like $pn/$pn_on: only the _on twin lifts the agent-row dim, and
   # focus picks the twin, since a custom token's inline style cannot vary by focus on its own.
-  local herdr_marks m
-  herdr_marks=""
-  for m in "$gnohj_color05:si_o" "$gnohj_color11:si_r" "$gnohj_color04:si_b" "$gnohj_color13:si_g"; do
-    herdr_marks="${herdr_marks:+$herdr_marks, }$(printf '{ token = "$%s", fg = "%s" }, { token = "$%s_on", fg = "%s", dim = false }' \
+  # Row 2 ($pn_*) is built from the SAME loop as row 1 ($si_*) so the two can never drift; no dim halves to derive here, since `dim = false` just lifts the panel's own fade.
+  local herdr_marks herdr_pn m
+  herdr_marks="" herdr_pn=""
+  for m in "$gnohj_color05:o" "$gnohj_color11:r" "$gnohj_color04:b" "$gnohj_color02:g" "$gnohj_color13:x"; do
+    herdr_marks="${herdr_marks:+$herdr_marks, }$(printf '{ token = "$si_%s", fg = "%s" }, { token = "$si_%s_on", fg = "%s", dim = false, bold = true }' \
+      "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
+    herdr_pn="${herdr_pn:+$herdr_pn, }$(printf '{ token = "$pn_%s", fg = "%s" }, { token = "$pn_%s_on", fg = "%s", dim = false, bold = true }' \
       "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
   done
   herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
     "$herdr_marks")"
-  herdr_claude_rows="$(printf 'claude = [[%s], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
-    "$herdr_marks" "$gnohj_color04" "$gnohj_color02")"
+  herdr_claude_rows="$(printf 'claude = [[%s], [%s]]' "$herdr_marks" "$herdr_pn")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[[%s], [{ token = "$pn", fg = "%s" }, { token = "$pn_on", fg = "%s", dim = false }]]' \
-    "$herdr_marks" "$gnohj_color04" "$gnohj_color02")"
+  herdr_store_rows="$(printf '[[%s], [%s]]' "$herdr_marks" "$herdr_pn")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2515,6 +2526,7 @@ panel_bg = "reset"
 surface_dim = "$herdr_sel_bg"
 surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
+# overlay0 is ONE token for ALL sidebar chrome - the spaces/agents headers, new/menu/grouped, the · separators, the └─ connectors, both scrollbars, the «/» toggle. Recoloring the headers alone is impossible; gnohj_color03 was tried and reverted.
 overlay0 = "$gnohj_color13"
 overlay1 = "$gnohj_color46"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
@@ -2524,11 +2536,9 @@ overlay1 = "$gnohj_color46"
 # line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
 # pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
 # Shared by the spaces AND agents sections, so none of them can be set per-panel.
-# text = gnohj blue, deliberately the SAME value as subtext0: the active name line no
-# longer differs in COLOR from the inactive ones - the active cue is the surface_dim row
-# fill plus bold. text is still the only focus-varying token (inline row fg is unconditional).
-subtext0 = "$gnohj_color04"
-text = "$gnohj_color04"
+# text/subtext0 are SPLIT again - the only focus-varying dim without a twin token, so \$ws stays bare to receive it; \$ws_dirty/\$ws_sync are retired and a dirty tree is now a trailing * inside the name token.
+subtext0 = "$gnohj_color13"
+text = "$gnohj_color14"
 # mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
 # use (\$br/\$br_on replaced it) - kept in step with \$br_on/\$pn_on for intent, not for render.
 mauve = "$gnohj_color02"
@@ -2538,15 +2548,14 @@ mauve = "$gnohj_color02"
 # overlay0. There is no per-state config key, so anything else using these tokens
 # shifts with them. Mapped 1:1 onto the agent chips:
 # @chip_idle / @chip_working / @chip_input / @chip_done.
-green = "$gnohj_color05"
-yellow = "$gnohj_color04"
+# These paint the SPACES row's state_icon dot, so they must track WS_STATE_SLOT or the dot disagrees with the name beside it: idle blue, working orange, blocked red, done green.
+green = "$gnohj_color04"
+yellow = "$gnohj_color05"
 red = "$gnohj_color11"
 # blue = fallback for custom metadata tokens; \$git/\$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "$gnohj_color02"
-# teal = the done state, and status.rs is its ONLY consumer - so pointing it at
-# gnohj_color11 (red, = blocked) makes done and blocked read alike with no side effects,
-# matching @chip_done and @chip_input, which are already the same color.
-teal = "$gnohj_color11"
+# teal = done, status.rs its only consumer, so gnohj_color02 matches the \$si_g/\$ws_g slots - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
+teal = "$gnohj_color02"
 peach = "$gnohj_color06"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 $herdr_end
