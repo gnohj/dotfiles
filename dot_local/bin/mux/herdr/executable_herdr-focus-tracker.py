@@ -77,12 +77,16 @@ BRANCH_TTL_MS = 38000
 
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
 SUMMARY_SOURCE = "auto-summary"
+# Mirrors PN_SLOTS in herdr-pane-summary.py; same letters as MARK_PAIRS so rows 1 and 2 cannot disagree.
+PN_PAIRS = tuple((b, b + "_on") for b in ("pn_o", "pn_r", "pn_b", "pn_g", "pn_x"))
 
 # herdr-agent-activity.py's source and TTL, shared for the same reason again. One dim/lit pair per
 # state colour, of which exactly one slot is ever non-empty - MARK_SLOTS there is the mirror.
 ACTIVITY_SOURCE = "agent-activity"
 ACTIVITY_TTL_MS = 50000
-MARK_PAIRS = tuple((b, b + "_on") for b in ("si_o", "si_r", "si_b", "si_g"))
+MARK_PAIRS = tuple((b, b + "_on") for b in ("si_o", "si_r", "si_b", "si_g", "si_x"))
+# Mirrors WS_STATE_SLOT in herdr-git-status.sh; bare `ws` is absent since herdr's text/subtext0 already splits it.
+WS_PAIRS = tuple((b, b + "_on") for b in ("ws_o", "ws_r", "ws_b", "ws_g"))
 
 # Events that can move which pane is focused, and so need the accent re-slotted.
 PANE_PAINT_EVENTS = {"workspace_focused", "tab_focused", "pane_focused", "pane_closed"}
@@ -266,6 +270,44 @@ def paint_branch():
         })
 
 
+def paint_ws():
+    """Move the workspace NAME between the dim and lit slot OF ITS STATE COLOUR by focus.
+
+    paint_branch's problem one axis wider: herdr styles the spaces name by focus alone
+    (src/ui/sidebar.rs::name_style) and never by state, so the name carries both - the poller owns
+    which state family, this owns which twin inside it. Family-agnostic, so a state change between
+    passes needs no handling here.
+
+    NO ttl_ms, unlike paint_branch: an expired row-1 token blanks the workspace NAME rather than
+    just going quiet, which is why herdr-git-status.sh reports it with ttl="" too. `source` MUST
+    stay BRANCH_SOURCE - a token is only clearable by the source that set it, and that poller
+    writes these same slots.
+    """
+    reply = request("workspace.list", {})
+    if not reply or "result" not in reply:
+        return
+    for ws in reply["result"].get("workspaces", []):
+        tokens = ws.get("tokens") or {}
+        focused = bool(ws.get("focused"))
+        want = {}
+        for dim, lit in WS_PAIRS:
+            value = tokens.get(lit) or tokens.get(dim) or ""
+            if not value:
+                continue
+            want[dim] = "" if focused else value
+            want[lit] = value if focused else ""
+        if not want:
+            continue
+        if all((tokens.get(k) or "") == v for k, v in want.items()):
+            continue
+        request("workspace.report_metadata", {
+            "seq": time.time_ns(),
+            "source": BRANCH_SOURCE,
+            "tokens": {k: (v or None) for k, v in want.items()},
+            "workspace_id": ws["workspace_id"],
+        })
+
+
 def paint_row3():
     """Move row 3 (PR / CI / vault note / Jira) between its lit and dim slots by focus.
 
@@ -341,7 +383,7 @@ def paint_panes():
         tokens = pane.get("tokens") or {}
         focused = bool(pane.get("focused"))
         for source, dim_key, lit_key, ttl_ms in (
-                (SUMMARY_SOURCE, "pn", "pn_on", None),
+                *((SUMMARY_SOURCE, d, l, None) for d, l in PN_PAIRS),
                 (BRANCH_SOURCE, "pbr", "pbr_on", BRANCH_TTL_MS),
                 *((ACTIVITY_SOURCE, d, l, ACTIVITY_TTL_MS) for d, l in MARK_PAIRS)):
             dim, lit = tokens.get(dim_key) or "", tokens.get(lit_key) or ""
@@ -485,6 +527,7 @@ def handle(mru, msg):
     # tab-label events, which never move focus, so they need no repaint.
     if mru.cur_ws != was_ws:
         paint_branch()
+        paint_ws()
         paint_row3()
     return True
 
@@ -504,6 +547,7 @@ def session(mru):
     # Same reason for the branch row: focus can move while this daemon is down, which leaves
     # the accent stuck on whichever space was lit at the time.
     paint_branch()
+    paint_ws()
     paint_row3()
     paint_panes()
     with conn.makefile("rb") as stream:
