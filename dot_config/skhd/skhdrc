@@ -52,7 +52,7 @@ lalt - j : /opt/homebrew/bin/aerospace workspace J
 lalt - k : /opt/homebrew/bin/aerospace workspace K
 lalt - m : /opt/homebrew/bin/aerospace workspace M
 lalt - q : /opt/homebrew/bin/aerospace workspace Q
-lalt - r : /opt/homebrew/bin/aerospace workspace R; open -a kitty               # open kitty on workspace R
+lalt - r : /opt/homebrew/bin/aerospace workspace R
 lalt - s : /opt/homebrew/bin/aerospace workspace S
 lalt - t : /opt/homebrew/bin/aerospace workspace T
 lalt - y : /opt/homebrew/bin/aerospace workspace Y                              # notes / obsidian / reminders
