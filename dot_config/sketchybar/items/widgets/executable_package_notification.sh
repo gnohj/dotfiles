@@ -144,6 +144,6 @@ sketchybar --set "$NAME" \
   drawing=on \
   label="$LABEL" \
   label.color="$COLOR" \
-  icon.color="$MAGENTA"
+  icon.color="$ICON_BLUE"
 
 log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT, Nix: $NIX_COUNT)"

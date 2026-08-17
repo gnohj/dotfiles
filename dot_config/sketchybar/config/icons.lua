@@ -320,9 +320,14 @@ local text <const> = {
 			router = "󰑩",
 		},
 		vpn = {
-			-- nf-md-shield-lock / nf-md-shield-off-outline; swap if your font lacks them
-			on = "󰦝",
+			-- nf-md-shield (plain) / nf-md-shield-off-outline; the slash alone marks "not protected", so `on` carries no extra mark.
+			on = "󰒘",
 			off = "󰦞",
+		},
+		lock = {
+			-- SF Symbols lock.fill / lock.open.fill, reached by font fallback; this font's own nf-md lock glyphs draw the wrong shapes.
+			locked = "􀎡",
+			unlocked = "􀎥",
 		},
 		tailscale = {
 			-- nf-fa-connectdevelop mesh glyph

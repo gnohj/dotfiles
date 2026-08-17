@@ -35,7 +35,7 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 	update_freq = 10,
 	icon = {
 		string = "",
-		color = colors.light_blue,
+		color = colors.blue,
 		padding_right = 2,
 	},
 	label = {

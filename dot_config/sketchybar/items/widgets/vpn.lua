@@ -4,9 +4,7 @@ local colors = require("config.colors")
 local dimens = require("config.dimens")
 
 -- Private Internet Access exit-location indicator. Always visible.
--- Icon color reflects connection state (green connected, yellow transitioning,
--- red exposed); label shows the exit country code. Data comes from the piactl
--- CLI via vpn.sh. Left-click opens the PIA app.
+-- Palette blue in every state; the glyph carries it (plain shield connected, slashed shield not), the label shows the exit country code from piactl via vpn.sh, and left-click opens the PIA app.
 local vpn = sbar.add("item", constants.items.VPN, {
 	position = "right",
 	padding_left = 0,
@@ -14,13 +12,13 @@ local vpn = sbar.add("item", constants.items.VPN, {
 	update_freq = 30,
 	icon = {
 		string = settings.icons.text.vpn.off,
-		color = colors.grey,
+		color = colors.blue,
 		padding_left = 0,
 		padding_right = 2,
 	},
 	label = {
 		string = "—",
-		color = colors.grey,
+		color = colors.blue,
 		padding_left = 0,
 	},
 	script = "~/.config/sketchybar/items/widgets/vpn.sh",

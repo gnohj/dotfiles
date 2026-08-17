@@ -47,7 +47,7 @@ if [ "$BUTTON" = "left" ]; then
   else
     if [[ $MIC_VOLUME -lt 60 ]]; then
       osascript -e 'set volume input volume 60'
-      sketchybar -m --set mic label="$MIC_SHORT-60" icon= icon.color="$WHITE" label.color="$WHITE"
+      sketchybar -m --set mic label="$MIC_SHORT-60" icon= icon.color="$ICON_BLUE" label.color="$GREEN"
     elif [[ $MIC_VOLUME -gt 0 ]]; then
       osascript -e 'set volume input volume 0'
       sketchybar -m --set mic label="$MIC_SHORT-0" icon= icon.color="$RED" label.color="$RED"

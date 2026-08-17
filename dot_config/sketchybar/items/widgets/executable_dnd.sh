@@ -31,7 +31,7 @@ else
 fi
 
 if [ "$state" = "on" ]; then
-  sketchybar --set "$NAME" icon.color="$MAGENTA"
+  sketchybar --set "$NAME" icon.color="$ICON_BLUE"
 else
-  sketchybar --set "$NAME" icon.color="$YELLOW"
+  sketchybar --set "$NAME" icon.color="$RED"
 fi

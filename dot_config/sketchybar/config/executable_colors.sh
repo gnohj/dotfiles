@@ -7,6 +7,8 @@ export WHITE=0xff${gnohj_color14#\#}
 export RED=0xff${gnohj_color11#\#}
 export GREEN=0xff${gnohj_color02#\#}
 export BLUE=0xff${gnohj_color03#\#}
+# color04 is the palette's actual blue; BLUE above is aqua and predates it, so renaming it would recolour other widgets.
+export ICON_BLUE=0xff${gnohj_color04#\#}
 export YELLOW=0xff${gnohj_color12#\#}
 export ORANGE=0xff${gnohj_color06#\#}
 export MAGENTA=0xff${gnohj_color01#\#}

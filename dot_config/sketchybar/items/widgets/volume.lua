@@ -10,7 +10,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	label = {
 		string = "??%",
 		padding_left = -6,
-		polor = settings.colors.light_green,
+		color = settings.colors.green,
 	},
 })
 
@@ -63,7 +63,7 @@ volumeValue:subscribe("volume_change", function(env)
 		volumeValue:set({
 			icon = {
 				string = icon,
-				color = settings.colors.yellow,
+				color = settings.colors.blue,
 			},
 			label = {
 				string = hasVolume and lead .. volume .. "%" or "",
