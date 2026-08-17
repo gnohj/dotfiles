@@ -13,9 +13,6 @@ ROW_FONT="SpaceMono Nerd Font:Regular:12.0"
 ROW_WIDTH=400
 row_fmt() { printf '%-16s %-21s %5s  %-7s' "$1" "$2" "$3" "$4"; }
 
-# Refresh first so opening the popover never shows a poll that is up to 5 minutes old.
-"$HOME/.config/sketchybar/items/widgets/agent-quota.sh" >/dev/null 2>&1
-
 args=(--remove '/agent_quota\.row\..*/' --set "$NAME" popup.drawing=toggle)
 
 args+=(--add item agent_quota.row.hdr "popup.$NAME"
