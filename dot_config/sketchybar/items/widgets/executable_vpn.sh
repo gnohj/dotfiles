@@ -3,7 +3,7 @@
 #   piactl get connectionstate  -> Connected | Connecting | Disconnected | ...
 #   piactl get region           -> region id, e.g. "ca-toronto", "us-georgia"
 #
-# Color = connection state (green connected, yellow transitioning, red exposed).
+# Color = always ICON_BLUE (not BLUE, which is the palette's aqua and predates the real blue); the glyph carries the state, so the bar never recolours.
 # Label  = "<COUNTRY>" or, for US/Canada, "<COUNTRY>-<STATE>" (e.g. US-GA, CA-ON).
 # PIA region suffixes are a mix of state names (us-georgia), city names
 # (us-atlanta -> GA), and directionals (us-east -> US-E); region_label maps them.
@@ -15,7 +15,7 @@ source "$HOME/.config/sketchybar/config/colors.sh"
 NAME="${NAME:-widgets.vpn}"
 
 # Nerd Font shield glyphs (mirror config/icons.lua vpn.on / vpn.off)
-ICON_ON="󰦝"
+ICON_ON="󰒘"
 ICON_OFF="󰦞"
 
 # Map a PIA region id to a display label. US/CA regions resolve to a
@@ -72,17 +72,17 @@ label="$(region_label "$region")"
 
 case "$state" in
   Connected)
-    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$GREEN" \
+    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ICON_BLUE" \
       icon.padding_right=2 \
-      label="$label" label.color="$GREEN" label.drawing=on ;;
+      label="$label" label.color="$ICON_BLUE" label.drawing=on ;;
   Connecting | Disconnecting | DisconnectingToReconnect | Interrupting | StillNeedsRetry)
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$YELLOW" \
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" \
       icon.padding_right=2 \
-      label="…" label.color="$YELLOW" label.drawing=on ;;
+      label="…" label.color="$ICON_BLUE" label.drawing=on ;;
   *)
-    # Disconnected / Interrupted / unknown -> not protected. Red shield only;
+    # Disconnected / Interrupted / unknown -> not protected. Slashed shield only;
     # the exit region is moot when not connected, so hide the label entirely.
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$RED" \
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" \
       icon.padding_right=0 \
       label.drawing=off ;;
 esac

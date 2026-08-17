@@ -33,7 +33,7 @@ local uptime = sbar.add("item", constants.items.UPTIME, {
 	update_freq = 1800,
 	icon = {
 		string = "󰜷",
-		color = colors.light_blue,
+		color = colors.blue,
 		padding_left = 13,
 		padding_right = 2,
 	},

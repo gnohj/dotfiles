@@ -244,8 +244,8 @@ done
 if command -v sketchybar >/dev/null 2>&1; then
   source "$HOME/.config/sketchybar/config/colors.sh" 2>/dev/null
   if ((count > 0)); then
-    sketchybar --set "$NAME" icon.color="${RED:-0xffed8796}" label="$count" label.color="${RED:-0xffed8796}"
+    sketchybar --set "$NAME" icon.color="${ICON_BLUE:-0xffa3b8c6}" label="$count" label.color="${RED:-0xffed8796}"
   else
-    sketchybar --set "$NAME" icon.color="${GREEN:-0xffa6da95}" label="􀆅" label.color="${GREEN:-0xffa6da95}"
+    sketchybar --set "$NAME" icon.color="${ICON_BLUE:-0xffa3b8c6}" label="􀆅" label.color="${GREEN:-0xffa6da95}"
   fi
 fi

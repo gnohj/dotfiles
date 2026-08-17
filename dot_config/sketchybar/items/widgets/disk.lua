@@ -32,7 +32,7 @@ local disk = sbar.add("item", constants.items.DISK, {
 	update_freq = 300,
 	icon = {
 		string = "󰋊",
-		color = colors.light_blue,
+		color = colors.blue,
 		padding_right = 2,
 	},
 	label = {

@@ -22,10 +22,10 @@ exit_node="$(printf '%s' "$json" | jq -r 'first(.Peer[]? | select(.ExitNode==tru
 case "$state" in
   Running)
     if [ -n "$exit_node" ]; then
-      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$GREEN" \
+      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" \
         label="$exit_node" label.color="$GREEN" label.drawing=on
     else
-      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$GREEN" label.drawing=off
+      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" label.drawing=off
     fi
     ;;
   Starting | Stopping)

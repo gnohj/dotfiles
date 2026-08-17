@@ -9,7 +9,7 @@ local errors = sbar.add("item", "widgets.errors_notification", {
 	updates = "on",
 	icon = {
 		string = "􀇾", -- exclamationmark.triangle
-		color = colors.green,
+		color = colors.blue,
 		padding_left = 0,
 		padding_right = 2,
 	},

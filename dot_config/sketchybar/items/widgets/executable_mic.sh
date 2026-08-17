@@ -46,18 +46,8 @@ if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
   sketchybar -m --set mic label="" icon= icon.color="$YELLOW" label.color="$YELLOW"
 else
   if [[ $MIC_VOLUME -eq 0 ]]; then
-    sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$RED"
-  elif [[ $MIC_VOLUME -gt 0 && $MIC_VOLUME -lt 90 ]]; then
-    if [[ "$MIC_NAME" == TONOR* || "$MIC_NAME" == AirPods* ]]; then
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
-    else
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
-    fi
-  elif [[ $MIC_VOLUME -ge 90 ]]; then
-    if [[ "$MIC_NAME" == TONOR* || "$MIC_NAME" == AirPods* ]]; then
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$ORANGE" label.color="$BLUE"
-    else
-      sketchybar -m --set mic label="$MIC_LABEL " icon= icon.color="$RED" label.color="$ORANGE"
-    fi
+    sketchybar -m --set mic label="$MIC_LABEL" icon= icon.color="$RED" label.color="$RED"
+  else
+    sketchybar -m --set mic label="$MIC_LABEL" icon= icon.color="$ICON_BLUE" label.color="$GREEN"
   fi
 fi
