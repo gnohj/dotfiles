@@ -7,6 +7,7 @@ require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.volume")
 require("items.widgets.mic")
+require("items.widgets.agent_quota") -- Claude (work + personal), Codex, Copilot quota headroom
 require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle
 require("items.widgets.tailscale") -- Tailscale tailnet connection indicator
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
