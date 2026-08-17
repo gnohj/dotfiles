@@ -12,6 +12,7 @@
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
 #   claude     A        Claude /review
+#   fan        F        Octo + sealed Opus/Codex finders + Lavish merge owner + ENHANCE
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -145,6 +146,37 @@ open_enhance() {
   mux "✨ #$pr" "$1" "ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
 }
 
+# Brief goes to a file so no quoting form has to survive whichever shell the multiplexer uses.
+write_finder_brief() {
+  local wt="$1" model="$2"
+  mkdir -p "$wt/.review"
+  cat >"$wt/.review/brief-$model.txt" <<EOF
+Review PR $pr in this worktree. Work alone: do NOT read .review/findings-*.json from any other model.
+Do NOT post to GitHub, do NOT build a Lavish page, do NOT write data.js.
+Write ONLY .review/findings-$model.json, shaped {"model":"$model","findings":[{file,line,side,severity,kind,summary,detail,comment}]},
+severity one of blocker|important|minor|question, kind one of breaking|bug|refactor|perf|test|style|docs|wording.
+When that file is complete and valid JSON, create .review/$model.done as the last action.
+EOF
+}
+
+# Sealed-bid: each finder writes its own file plus a .done marker and never reads a sibling's.
+open_finder_claude() {
+  write_finder_brief "$1" opus
+  mux --no-focus "🔎1 #$pr opus" "$1" \
+    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'
+}
+
+# workspace-write, not the bypass flag: a finder only reads the checkout and writes one JSON file.
+open_finder_codex() {
+  write_finder_brief "$1" codex
+  mux --no-focus "🔎2 #$pr codex" "$1" \
+    'codex exec --sandbox workspace-write "$(cat .review/brief-codex.txt)"'
+}
+
+open_fanout_owner() {
+  mux "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+}
+
 case "$mode" in
   full)
     window_opts=(--no-focus)
@@ -156,6 +188,22 @@ case "$mode" in
     install_deps "$WT"
     open_octo "$WT" 1
     open_claude_review "$WT" review-lavish
+    open_enhance "$WT"
+    ;;
+  fan)
+    window_opts=(--no-focus)
+    WT="$("$wt_script" acquire "$pr")"
+    BASE="$(base_ref)"
+    HEAD="$(head_ref)"
+    git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
+    git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
+    mkdir -p "$WT/.review"
+    # One lease serves every window: review reads the checkout, so no finder needs its own worktree.
+    open_octo "$WT" 1
+    open_finder_claude "$WT"
+    open_finder_codex "$WT"
+    open_fanout_owner "$WT"
     open_enhance "$WT"
     ;;
   octo)

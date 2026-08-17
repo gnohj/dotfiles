@@ -90,6 +90,10 @@ keybindings:
       name: 🤖 Run Claude /review on PR
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh claude {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
+    - key: F
+      name: 🔎 Fan-out review - sealed Opus + Codex, merged onto one Lavish page
+      command: >
+        nohup bash $HOME/.config/gh-dash/review-open.sh fan {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: R # Reclaim idle TREEHOUSE review-pool slots only (leased ~/.treehouse worktrees whose review windows are closed). Does NOT touch your personal git worktrees.
       name: 🧹 Reclaim idle treehouse review slots (pool only, not personal worktrees)
       command: >
