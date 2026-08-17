@@ -3,6 +3,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
+source "$HOME/.config/sketchybar/items/widgets/mic-name.sh"
 
 # This is basically the same as the `toggle_devices()` function in
 toggle_mics() {
@@ -39,16 +40,17 @@ if [ "$BUTTON" = "left" ]; then
 
   # Get the current microphone volume
   MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
+  MIC_SHORT=$(mic_short_name "$MIC_NAME")
 
   if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
     sketchybar -m --set mic label="" icon=
   else
     if [[ $MIC_VOLUME -lt 60 ]]; then
       osascript -e 'set volume input volume 60'
-      sketchybar -m --set mic label="$MIC_NAME 60" icon= icon.color="$WHITE" label.color="$WHITE"
+      sketchybar -m --set mic label="$MIC_SHORT-60" icon= icon.color="$WHITE" label.color="$WHITE"
     elif [[ $MIC_VOLUME -gt 0 ]]; then
       osascript -e 'set volume input volume 0'
-      sketchybar -m --set mic label="$MIC_NAME 0" icon= icon.color="$RED" label.color="$RED"
+      sketchybar -m --set mic label="$MIC_SHORT-0" icon= icon.color="$RED" label.color="$RED"
     fi
   fi
 elif [ "$BUTTON" = "right" ] || [ "$MODIFIER" = "shift" ]; then
