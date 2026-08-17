@@ -40,10 +40,12 @@ Two independent reviews of this PR were produced BEFORE this session and sealed 
 Each file is {\"model\":..., \"findings\":[{file,line,side,severity,kind,summary,detail,comment}]} - already the page's schema.
 
 Your job is to MERGE them, not to review from scratch:
-- Same file+line raised by BOTH models: keep it, and say in detail that both models raised it independently.
-- Raised by ONE model: keep it, naming the source model in detail.
-- The two DISAGREE about the same code: render it as severity question rather than dropping either side.
-Never drop a finding silently.${MISSING}"
+- Same file+line raised by BOTH models: keep it.
+- Raised by ONE model: keep it.
+- The two DISAGREE about the same code: render it as severity question rather than dropping either side, and write both positions out in detail.
+Never drop a finding silently.
+Every merged finding carries models[], naming which finders raised it: both slugs when they agree, one when only that model reached it.
+models[] IS the attribution and the page renders it as a pill, so never restate it in prose - no \"raised by X alone\" or \"both models reached it\" openers. detail carries only what the finding itself argues.${MISSING}"
 fi
 
 eval "$($HOME/.local/bin/claude-account env)"
