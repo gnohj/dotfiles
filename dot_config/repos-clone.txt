@@ -27,3 +27,5 @@ git@github.com:gnohj/colorscheme.git ~/Developer/colorscheme
 # Its runtime dirs (projects/ state/ data/ config/) are gitignored, so pulls stay clean.
 # Deliberately absent from repos-autopush.txt - never auto-commit into someone else's repo.
 https://github.com/kunchenguid/firstmate.git ~/Developer/firstmate
+# vision is an Agent Skills package (same author), cloned like firstmate so `update` fast-forwards it: `npx skills add -g` would instead symlink the autopushed agents monorepo at a machine-local npx cache the other box lacks.
+https://github.com/kunchenguid/vision.git ~/Developer/vision
