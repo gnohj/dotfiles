@@ -166,11 +166,11 @@ open_finder_claude() {
     'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'
 }
 
-# workspace-write, not the bypass flag: a finder only reads the checkout and writes one JSON file.
-open_finder_codex() {
-  write_finder_brief "$1" codex
-  mux --no-focus "🔎2 #$pr codex" "$1" \
-    'codex exec --sandbox workspace-write "$(cat .review/brief-codex.txt)"'
+# Pinned explicitly so the finder never drifts with pi's settings.json defaults.
+open_finder_pi() {
+  write_finder_brief "$1" gpt
+  mux --keep-open --no-focus "🔎2 #$pr gpt" "$1" \
+    'echo "◐ gpt-5.6-sol reviewing - pi -p stays silent until it seals findings-gpt.json"; pi -p --no-session --provider github-copilot --model gpt-5.6-sol --thinking high "$(cat .review/brief-gpt.txt)"'
 }
 
 open_fanout_owner() {
@@ -198,11 +198,13 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
+    # A retried F re-adopts the same lease, so a prior run's .done markers would satisfy the wait instantly.
+    rm -rf "${WT:?acquire returned no worktree}/.review"
     mkdir -p "$WT/.review"
     # One lease serves every window: review reads the checkout, so no finder needs its own worktree.
     open_octo "$WT" 1
     open_finder_claude "$WT"
-    open_finder_codex "$WT"
+    open_finder_pi "$WT"
     open_fanout_owner "$WT"
     open_enhance "$WT"
     ;;
