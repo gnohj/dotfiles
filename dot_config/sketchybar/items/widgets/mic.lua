@@ -11,7 +11,7 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	label = {
 		drawing = true,
 		padding_left = -8,
-		padding_right = 12,
+		padding_right = 8,
 		font = "MesloLGM Nerd Font:Regular:12.0",
 	},
 	script = "~/.config/sketchybar/items/widgets/mic.sh",

@@ -3,72 +3,24 @@ local settings = require("config.settings")
 
 local popupWidth <const> = settings.dimens.graphics.popup.width + 20
 
-sbar.exec("killall network_load >/dev/null; $CONFIG_DIR/bridge/network_load/bin/network_load en0 network_update 2.0")
-
-local wifiUp = sbar.add("item", constants.items.WIFI .. ".up", {
+-- Battery's box carries its own trailing label padding, so 2 here lands at the same 10px the icon-only run uses.
+local wifi = sbar.add("item", constants.items.WIFI, {
 	position = "right",
-	width = 0,
-	icon = {
-		padding_left = 0,
-		padding_right = 0,
-		font = {
-			style = settings.fonts.styles.bold,
-			size = 10.0,
-		},
-		string = settings.icons.text.wifi.upload,
-	},
-	label = {
-		font = {
-			family = settings.fonts.numbers,
-			style = settings.fonts.styles.bold,
-			size = 10.0,
-		},
-		color = settings.colors.orange,
-		string = "??? Bps",
-	},
-	y_offset = 4,
-})
-
-local wifiDown = sbar.add("item", constants.items.WIFI .. ".down", {
-	position = "right",
-	icon = {
-		padding_left = 0,
-		padding_right = 0,
-		font = {
-			style = settings.fonts.styles.bold,
-			size = 10.0,
-		},
-		string = settings.icons.text.wifi.download,
-	},
-	label = {
-		font = {
-			family = settings.fonts.numbers,
-			style = settings.fonts.styles.bold,
-			size = 10,
-		},
-		color = settings.colors.blue,
-		string = "??? Bps",
-	},
-	y_offset = -4,
-})
-
-local wifi = sbar.add("item", constants.items.WIFI .. ".padding", {
-	position = "right",
+	padding_left = 2,
+	padding_right = settings.dimens.padding.gap,
 	label = { drawing = false },
-	padding_right = -8,
-})
-
-local wifiBracket = sbar.add("bracket", constants.items.WIFI .. ".bracket", {
-	wifi.name,
-	wifiUp.name,
-	wifiDown.name,
-}, {
+	icon = {
+		string = settings.icons.text.wifi.disconnected,
+		color = settings.colors.magenta,
+		padding_left = 0,
+		padding_right = 0,
+	},
 	popup = { align = "center" },
 })
 
 local ssid = sbar.add("item", {
 	align = "center",
-	position = "popup." .. wifiBracket.name,
+	position = "popup." .. wifi.name,
 	width = popupWidth,
 	height = 16,
 	icon = {
@@ -88,7 +40,7 @@ local ssid = sbar.add("item", {
 })
 
 local hostname = sbar.add("item", {
-	position = "popup." .. wifiBracket.name,
+	position = "popup." .. wifi.name,
 	background = {
 		height = 16,
 	},
@@ -109,7 +61,7 @@ local hostname = sbar.add("item", {
 })
 
 local ip = sbar.add("item", {
-	position = "popup." .. wifiBracket.name,
+	position = "popup." .. wifi.name,
 	background = {
 		height = 16,
 	},
@@ -129,7 +81,7 @@ local ip = sbar.add("item", {
 })
 
 local router = sbar.add("item", {
-	position = "popup." .. wifiBracket.name,
+	position = "popup." .. wifi.name,
 	background = {
 		height = 16,
 	},
@@ -148,26 +100,6 @@ local router = sbar.add("item", {
 	},
 })
 
-wifiUp:subscribe("network_update", function(env)
-	local upColor = (env.upload == "000 Bps") and settings.colors.grey or settings.colors.light_green
-	local downColor = (env.download == "000 Bps") and settings.colors.grey or settings.colors.blue
-
-	wifiUp:set({
-		icon = { color = upColor },
-		label = {
-			string = env.upload,
-			color = upColor,
-		},
-	})
-	wifiDown:set({
-		icon = { color = downColor },
-		label = {
-			string = env.download,
-			color = downColor,
-		},
-	})
-end)
-
 wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 	wifi:set({
 		icon = {
@@ -184,7 +116,7 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 
 		if ipConnected then
 			wifiIcon = settings.icons.text.wifi.connected
-			wifiColor = settings.colors.light_blue
+			wifiColor = settings.colors.blue
 		end
 
 		wifi:set({
@@ -199,7 +131,7 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 
 			if isVPNConnected then
 				wifiIcon = settings.icons.text.wifi.vpn
-				wifiColor = settings.colors.green
+				wifiColor = settings.colors.blue
 			end
 
 			wifi:set({
@@ -213,7 +145,7 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 end)
 
 local function hideDetails()
-	wifiBracket:set({ popup = { drawing = false } })
+	wifi:set({ popup = { drawing = false } })
 end
 
 local function toggleDetails(env)
@@ -222,10 +154,10 @@ local function toggleDetails(env)
 		return
 	end
 
-	local shouldDrawDetails = wifiBracket:query().popup.drawing == "off"
+	local shouldDrawDetails = wifi:query().popup.drawing == "off"
 
 	if shouldDrawDetails then
-		wifiBracket:set({ popup = { drawing = true } })
+		wifi:set({ popup = { drawing = true } })
 		sbar.exec("networksetup -getcomputername", function(result)
 			hostname:set({ label = result })
 		end)
@@ -252,8 +184,6 @@ local function copyLabelToClipboard(env)
 	end)
 end
 
-wifiUp:subscribe("mouse.clicked", toggleDetails)
-wifiDown:subscribe("mouse.clicked", toggleDetails)
 wifi:subscribe("mouse.clicked", toggleDetails)
 
 ssid:subscribe("mouse.clicked", copyLabelToClipboard)
