@@ -3,6 +3,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
+source "$HOME/.config/sketchybar/items/widgets/mic-name.sh"
 MIC_NAME_FILE="$HOME/.logs/sketchybar/mic_name"
 
 CURRENT_MIC=$(SwitchAudioSource -t input -c)
@@ -38,7 +39,8 @@ echo "$VALIDATED_MIC_NAME" >"$MIC_NAME_FILE"
 
 MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
 
-MIC_LABEL="$MIC_NAME-$MIC_VOLUME"
+# Raw MIC_NAME still drives the preferred-device colour tests below; only the label shortens.
+MIC_LABEL="$(mic_short_name "$MIC_NAME")-$MIC_VOLUME"
 
 if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
   sketchybar -m --set mic label="" icon= icon.color="$YELLOW" label.color="$YELLOW"
