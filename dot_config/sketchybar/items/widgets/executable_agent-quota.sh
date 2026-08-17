@@ -48,6 +48,13 @@ personal=$(jq -r '
 
 all=$(printf '%s\n%s\n' "$rows" "$personal" | grep -v '^[[:space:]]*$' || true)
 
+# Claude's quota endpoint rate limits, so a throttled provider keeps its last-known rows marked stale rather than vanishing.
+if [ -n "$all" ] && [ -s "$CACHE" ]; then
+  all=$(awk -F'\t' -v OFS='\t' '
+    FNR == NR { seen[$1] = 1; print; next }
+    !($1 in seen) { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
+fi
+
 if [ -z "$all" ]; then
   sketchybar -m --set agent_quota icon.color="$GREY"
   : >"$CACHE"
@@ -68,10 +75,8 @@ if [ "$low" -le 15 ]; then
   COLOR="$RED"
 elif [ "$low" -le 35 ]; then
   COLOR="$ORANGE"
-elif [ "$low" -le 60 ]; then
-  COLOR="$YELLOW"
 else
-  COLOR="$GREEN"
+  COLOR="$ICON_BLUE"
 fi
 
 sketchybar -m --set agent_quota icon.color="$COLOR"
