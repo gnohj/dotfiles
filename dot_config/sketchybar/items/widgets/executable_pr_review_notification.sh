@@ -1,5 +1,6 @@
 #!/bin/bash
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+# gh is nix-provided, so /run/current-system/sw/bin has to lead: it is what let the old `zsh -c` wrapper (dropped below) find gh at all, via ~/.zshenv.
+export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 
@@ -57,10 +58,22 @@ is_bot_author() {
   return 1
 }
 
-# Query GitHub for PRs requesting my review (run through zsh for proper environment)
-PR_JSON=$(zsh -c 'gh search prs --review-requested=@me --state=open --json author,number,title,repository 2>/dev/null')
+# REST search, not `gh search prs`: that command hard-503s from GitHub's search backend while this endpoint answers the identical query, so the badge sat hidden. Reshaped to that command's JSON, leaving the filters below untouched.
+PR_ERR="$(mktemp)"
+trap 'rm -f "$PR_ERR"' EXIT
+PR_JSON="$(gh api -X GET search/issues \
+  -f q='review-requested:@me state:open type:pr' \
+  -f per_page=100 \
+  --jq '[.items[] | {author: {login: .user.login}, number: .number, title: .title, repository: {nameWithOwner: (.repository_url | split("/repos/")[1])}}]' 2>"$PR_ERR")"
+gh_status=$?
 
-if [[ -z "$PR_JSON" || "$PR_JSON" == "[]" ]]; then
+# A failed query is NOT "zero PRs". Leave the badge exactly as it was instead of hiding it — swallowing the error into a 0 is what made every GitHub hiccup look like an empty review queue.
+if [ "$gh_status" -ne 0 ] || [ -z "$PR_JSON" ]; then
+  log_message "ERROR" "PR query failed (exit $gh_status): $(tr -d '\n' <"$PR_ERR" | cut -c1-300)"
+  exit 0
+fi
+
+if [[ "$PR_JSON" == "[]" ]]; then
   PR_COUNT=0
   echo "[]" > "$PR_DATA_FILE"
   log_message "INFO" "No PRs found requesting review"
@@ -74,11 +87,10 @@ else
   log_message "INFO" "Found $PR_COUNT PRs (after filtering bots)"
 fi
 
-# Hide entirely when nothing is awaiting review — clean menu bar; the widget only
-# appears when there's actually something to act on.
+# Green check when the queue is empty, matching the errors and package badges. It used to hide instead, which made "nothing to review" indistinguishable from the broken query above.
 if [ "$PR_COUNT" -eq 0 ]; then
-  sketchybar --set "$NAME" drawing=off
-  log_message "INFO" "No PRs awaiting review — widget hidden"
+  sketchybar --set "$NAME" drawing=on icon.color="$ICON_BLUE" label="􀆅" label.color="$GREEN"
+  log_message "INFO" "No PRs awaiting review — green check shown"
   exit 0
 fi
 

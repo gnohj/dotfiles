@@ -15,7 +15,7 @@ local pr_review = sbar.add("item", "widgets.pr_review_notification", {
 		padding_right = 2,
 	},
 	label = {
-		string = "?",
+		string = "􀆅",
 		padding_left = 0,
 		padding_right = 0,
 	},
