@@ -147,9 +147,9 @@ cmd_window() {
       [ -n "$name" ] && [ -n "$tab_id" ] && [ -n "$num" ] &&
         "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
       if [ -n "$keep" ]; then
-        "$herdr" pane run "$pane" "$command" >/dev/null 2>&1
+        herdr_pane_run "$pane" "$command"
       else
-        "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+        herdr_pane_run "$pane" "$command; exit"
       fi
       [ -n "$print_pane" ] && printf '%s\n' "$pane"
       return 0
@@ -181,6 +181,25 @@ cmd_window() {
   esac
 }
 
+# herdr pane run intermittently delivers the text without the committing newline, stranding the command at the prompt; an idle pane lists its own shell as the only foreground process.
+herdr_pane_run() {
+  local pane="${1:?herdr_pane_run: missing <pane-id>}" command="${2:?herdr_pane_run: missing <command>}"
+  local waited=0 info n
+  "$herdr" pane run "$pane" "$command" >/dev/null 2>&1
+  while [ "$waited" -lt 15 ]; do
+    info="$("$herdr" pane process-info --pane "$pane" 2>/dev/null)"
+    # A vanished pane means the command already ran and `; exit` closed it.
+    case "$info" in *pane_not_found*) return 0 ;; esac
+    n="$(printf '%s' "$info" | jq -r '.result.process_info as $p |
+      [$p.foreground_processes[]? | select(.pid != $p.shell_pid)] | length' 2>/dev/null)"
+    case "$n" in ''|null|0) ;; *) return 0 ;; esac
+    sleep 0.2
+    waited=$((waited + 1))
+  done
+  # Nothing is running, so the shell is idle at a prompt and this commits the stranded line.
+  "$herdr" pane send-keys "$pane" enter >/dev/null 2>&1
+}
+
 # Panes sharing the caller's herdr tab; 1 on failure, so the split isn't mis-sized.
 herdr_tab_pane_count() {
   local tab n
@@ -209,7 +228,7 @@ cmd_split() {
       pane="$("$herdr" pane split --current --direction right --ratio "$ratio" \
         --cwd "$cwd" --focus 2>/dev/null | jq -r '.result.pane.pane_id // empty' 2>/dev/null)"
       [ -n "$pane" ] || die "herdr pane split failed"
-      "$herdr" pane run "$pane" "$command; exit" >/dev/null 2>&1
+      herdr_pane_run "$pane" "$command; exit"
       ;;
     tmux)
       if [ "$(tmux list-panes 2>/dev/null | wc -l | tr -d ' ')" = 1 ]; then
