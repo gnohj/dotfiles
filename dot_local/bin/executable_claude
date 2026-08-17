@@ -36,6 +36,16 @@ if [ -z "$_bin" ]; then
   exit 127
 fi
 
+# An explicit config dir must also pick the token's account: firstmate homes resolve personal by remote, so a work profile would otherwise get the personal token.
+if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+  for _a in work personal; do
+    [ "$(CLAUDE_ACCOUNT="$_a" claude-account dir 2>/dev/null)" = "$CLAUDE_CONFIG_DIR" ] && {
+      export CLAUDE_ACCOUNT="$_a"
+      break
+    }
+  done
+fi
+
 # Already-exported values win, so a pinned pane (cw / CLAUDE_ACCOUNT) keeps its account.
 _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
 [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
