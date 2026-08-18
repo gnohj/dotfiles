@@ -317,6 +317,7 @@ local text <const> = {
 			download = "",
 			connected = "󰖩",
 			disconnected = "󰖪",
+			hotspot = "󰌷",
 			router = "󰑩",
 		},
 		vpn = {
