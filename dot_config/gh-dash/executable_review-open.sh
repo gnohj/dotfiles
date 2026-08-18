@@ -166,11 +166,11 @@ open_finder_claude() {
     'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'
 }
 
-# Pinned explicitly so the finder never drifts with pi's settings.json defaults.
+# Pinned so the finder never drifts with pi's settings.json defaults; interactive because -p buffers until the seal.
 open_finder_pi() {
   write_finder_brief "$1" gpt
   mux --keep-open --no-focus "🔎2 #$pr gpt" "$1" \
-    'echo "◐ gpt-5.6-sol reviewing - pi -p stays silent until it seals findings-gpt.json"; pi -p --no-session --provider github-copilot --model gpt-5.6-sol --thinking high "$(cat .review/brief-gpt.txt)"'
+    'pi --no-session --provider github-copilot --model gpt-5.6-sol --thinking high "$(cat .review/brief-gpt.txt)"'
 }
 
 open_fanout_owner() {
