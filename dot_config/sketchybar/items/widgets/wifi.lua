@@ -117,6 +117,12 @@ wifi:subscribe({ "wifi_change", "system_woke", "forced" }, function()
 		if ipConnected then
 			wifiIcon = settings.icons.text.wifi.connected
 			wifiColor = settings.colors.blue
+
+			-- iOS reserves 172.20.10.0/28 for Personal Hotspot, so the prefix alone identifies tethering.
+			if ip:match("^172%.20%.10%.") then
+				wifiIcon = settings.icons.text.wifi.hotspot
+				wifiColor = settings.colors.yellow
+			end
 		end
 
 		wifi:set({
