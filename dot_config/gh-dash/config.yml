@@ -71,7 +71,7 @@ keybindings:
         $HOME/.local/bin/mux/mux window --popup "🐙 New Issue" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
     - key: P
-      name: 🤖 Review PR - Octo + Lavish agent review + ENHANCE
+      name: 🤖 Review PR - Octo + Lavish agent review
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh full {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: enter
@@ -91,7 +91,7 @@ keybindings:
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh claude {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: F
-      name: 🔎 Fan-out review - sealed Opus + Codex, merged onto one Lavish page
+      name: 🔎 Fan-out review - sealed Opus + gpt, merged onto one Lavish page
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh fan {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: R # Reclaim idle TREEHOUSE review-pool slots only (leased ~/.treehouse worktrees whose review windows are closed). Does NOT touch your personal git worktrees.
