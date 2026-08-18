@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Agent quota: tightest remaining window across Claude (both accounts), Codex and Copilot.
+# Agent quota: remaining Claude windows plus a single collapsed GitHub Copilot model-usage row.
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -27,15 +27,24 @@ def reset_in($s):
   end;'
 
 # Only the work config dir holds a Claude Code OAuth blob; personal uses a token quota-axi cannot read.
-snap=$(CLAUDE_CONFIG_DIR="$HOME/.claude-work" "$QUOTA_AXI" --json 2>/dev/null || true)
-
-rows=$(printf '%s' "$snap" | jq -r "$RESET_FMT"'
+claude_rows=$(printf '%s' "$(CLAUDE_CONFIG_DIR="$HOME/.claude-work" "$QUOTA_AXI" --provider claude --json 2>/dev/null || true)" | jq -r "$RESET_FMT"'
   .providers[]?
-  | (if .provider == "claude" then "Claude work" else .label end) as $name
+  | select(.provider == "claude")
   | .windows[]?
   | select(.percentRemaining != null)
-  | [$name, .label, (.percentRemaining | tostring), reset_in(.resetsAt)]
+  | ["Claude work", .label, (.percentRemaining | tostring), reset_in(.resetsAt)]
   | @tsv' 2>/dev/null || true)
+
+# Copilot business seats are token-billed: percent_remaining is pinned at 100 and meaningless, so collapse to one credits-used row.
+COPILOT_CREDITS="$HOME/.local/bin/copilot-credits"
+cop_rows=""
+if [ -x "$COPILOT_CREDITS" ]; then
+  cop_rows=$("$COPILOT_CREDITS" --json 2>/dev/null | jq -r "$RESET_FMT"'
+    (.snapshots.premium_interactions.credits_used // 0) as $c
+    | ((.reset // "") | if . == "" then "" else . + "T00:00:00Z" end) as $riso
+    | ["GitHub Copilot", "premium used", "\($c)cr", reset_in($riso)]
+    | @tsv' 2>/dev/null || true)
+fi
 
 # Only live personal source; u.fh/u.sd are percent USED and it records no Fable field.
 PU="$HOME/Library/Application Support/Claude/plan-usage-history.json"
@@ -46,13 +55,13 @@ personal=$(jq -r '
     "Claude personal\tweek\t\(100 - (.u.sd // 0))\t",
     "Claude personal\tFable week\t-\t"' "$PU" 2>/dev/null || true)
 
-all=$(printf '%s\n%s\n' "$rows" "$personal" | grep -v '^[[:space:]]*$' || true)
+all=$(printf '%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
 
-# Claude's quota endpoint rate limits, so a throttled provider keeps its last-known rows marked stale rather than vanishing.
+# Throttled providers keep last-known rows marked stale rather than vanishing; only Claude/Copilot carry over, so dropped ones age out instead of lingering.
 if [ -n "$all" ] && [ -s "$CACHE" ]; then
   all=$(awk -F'\t' -v OFS='\t' '
     FNR == NR { seen[$1] = 1; print; next }
-    !($1 in seen) { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
+    !($1 in seen) && ($1 ~ /^Claude/ || $1 == "GitHub Copilot") { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
 fi
 
 if [ -z "$all" ]; then

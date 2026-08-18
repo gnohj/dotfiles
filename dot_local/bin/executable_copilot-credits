@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Copilot credits_used/overage per window, the real signal for token-billed seats that always report percent_remaining=100. Usage: copilot-credits [--json]
+set -euo pipefail
+
+cfg="${GITHUB_COPILOT_APPS_JSON:-${XDG_CONFIG_HOME:-$HOME/.config}/github-copilot/apps.json}"
+[ -f "$cfg" ] || { echo "copilot-credits: no apps.json at $cfg" >&2; exit 1; }
+
+command -v jq >/dev/null 2>&1 || { echo "copilot-credits: jq required" >&2; exit 1; }
+
+token="$(jq -r 'to_entries | map(.value.oauth_token // empty) | .[0] // empty' "$cfg")"
+[ -n "$token" ] || { echo "copilot-credits: no oauth_token in $cfg" >&2; exit 1; }
+
+resp="$(curl -fsS \
+  -H "authorization: Bearer $token" \
+  -H "accept: application/json" \
+  -H "user-agent: GitHubCopilotCLI/1.0" \
+  https://api.github.com/copilot_internal/user)" || {
+    echo "copilot-credits: request failed (token expired? re-auth Copilot)" >&2; exit 1; }
+
+if [ "${1:-}" = "--json" ]; then
+  echo "$resp" | jq '{plan: .copilot_plan, reset: .quota_reset_date, snapshots: .quota_snapshots}'
+  exit 0
+fi
+
+echo "$resp" | jq -r '
+  "plan: \(.copilot_plan)   resets: \(.quota_reset_date)",
+  (.quota_snapshots | to_entries[] |
+    "  \(.key): credits_used=\(.value.credits_used)  overage=\(.value.overage_count)  unlimited=\(.value.unlimited)  remaining%=\(.value.percent_remaining)")'
