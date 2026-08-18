@@ -15,7 +15,7 @@
 #
 #   review-worktree.sh acquire <pr-number>   # prints the worktree path
 #   review-worktree.sh release <pr-number>   # return ONE slot by PR, kills its windows
-#   review-worktree.sh reclaim               # return EVERY idle slot now (gh-dash R)
+#   review-worktree.sh reclaim               # return EVERY idle slot now, then finish any submitted-but-untorn review (gh-dash R)
 #   review-worktree.sh sweep                 # same, but two-strike deferred (auto; disabled)
 
 set -euo pipefail
@@ -182,6 +182,19 @@ release_pr() {
   return 0
 }
 
+# Backstop for a review whose agent submitted then ended before its teardown: finish verifies on GitHub and refuses otherwise.
+reconcile_artifacts() {
+  local s out
+  for s in "$HOME/Developer/agents/shared/skills/review-lavish/review-lavish-state" \
+    "$HOME/.claude-work/skills/review-lavish/review-lavish-state" \
+    "$HOME/.claude/skills/review-lavish/review-lavish-state"; do
+    [ -x "$s" ] || continue
+    out="$("$s" reconcile 2>&1 || true)"
+    [ -n "$out" ] && printf '%s\n' "$out" | while IFS= read -r l; do _slog "  reconcile: $l"; done
+    return 0
+  done
+}
+
 # Prints why an artifact must survive teardown: a page open in a browser is invisible to any window check.
 LAVISH_STATE="${LAVISH_AXI_STATE:-$HOME/.lavish-axi/state.json}"
 lavish_busy() {
@@ -331,7 +344,7 @@ case "$cmd" in
   acquire) acquire "$pr" ;;
   release) release_pr "$pr" ;;
   sweep) sweep ;;
-  reclaim) sweep immediate ;;
+  reclaim) sweep immediate; reconcile_artifacts ;;
   *)
     echo "unknown command: $cmd" >&2
     exit 2
