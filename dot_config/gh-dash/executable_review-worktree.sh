@@ -165,7 +165,8 @@ release_pr() {
       cd / 2>/dev/null || true
       wt="$1"; pr="$2"; mux="$3"
       if [ -n "$wt" ] && [ -d "$wt" ]; then
-        (cd "$wt" 2>/dev/null && treehouse return "$wt" --force) >/dev/null 2>&1 || true
+        # No cd into $wt: --force reaps by cwd, so from inside it treehouse racily kills itself and the slot stays leased.
+        treehouse return "$wt" --force >/dev/null 2>&1 || true
         if command -v lsof >/dev/null 2>&1; then
           lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" "
             /^p/ { pid = substr(\$0, 2) }
