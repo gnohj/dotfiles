@@ -12,7 +12,7 @@
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
 #   claude     A        Claude /review
-#   fan        F        Octo + sealed Opus/gpt finders + Lavish merge owner + ENHANCE
+#   fan        F        Octo + sealed Opus/gpt finders + Lavish merge owner
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -205,7 +205,6 @@ case "$mode" in
     open_finder_claude "$WT"
     open_finder_pi "$WT"
     open_fanout_owner "$WT"
-    open_enhance "$WT"
     ;;
   octo)
     WT="$("$wt_script" acquire "$pr")"
