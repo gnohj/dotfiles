@@ -14,6 +14,18 @@ target="$(printf '%s' "$payload" | jq -r --arg w "$window" '.rate_limits[$w].res
 # Digits only before it reaches $(( )): bash evaluates array subscripts there, so a crafted resets_at would execute commands.
 case "$target" in '' | *[!0-9]*) exit 0 ;; esac
 
+# Persist the epoch for the sketchybar quota widget, which has no session payload; known windows only, since $window is caller-supplied and would escape the log dir.
+case "$window" in
+  five_hour | seven_day)
+    case "${CLAUDE_CONFIG_DIR:-}" in
+      *.claude-work) _acct=work ;;
+      *) _acct=personal ;;
+    esac
+    _rdir="$HOME/.logs/sketchybar"
+    mkdir -p "$_rdir" 2>/dev/null && printf '%s' "$target" >"$_rdir/claude_reset_${_acct}_${window}" 2>/dev/null || true
+    ;;
+esac
+
 # Truncated, not rounded, so the countdown stays monotonic; zero units are dropped ("1d 5h 44m" but plain "44m"), and under a minute collapses to "<1m".
 awk -v remaining="$((target - now))" 'BEGIN {
   if (remaining <= 0) { print "now"; exit }

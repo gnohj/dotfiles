@@ -70,6 +70,29 @@ if [ -z "$all" ]; then
   exit 0
 fi
 
+# Fill the RESETS column for Claude rows from the epochs claude-usage-reset captured live (session -> five_hour, week -> seven_day).
+fmt_reset_epoch() {
+  local target="$1" d
+  case "$target" in '' | *[!0-9]*) printf ''; return ;; esac
+  d=$((target - $(date +%s)))
+  if [ "$d" -le 0 ]; then printf 'now'
+  elif [ "$d" -lt 3600 ]; then printf '%dm' $((d / 60))
+  elif [ "$d" -lt 86400 ]; then printf '%dh%dm' $((d / 3600)) $(((d % 3600) / 60))
+  else printf '%dd' $((d / 86400)); fi
+}
+captured_reset() {
+  local acct win
+  case "$1" in "Claude personal") acct=personal ;; "Claude work") acct=work ;; *) return ;; esac
+  case "$2" in session) win=five_hour ;; week) win=seven_day ;; *) return ;; esac
+  local f="$HOME/.logs/sketchybar/claude_reset_${acct}_${win}"
+  [ -f "$f" ] && fmt_reset_epoch "$(cat "$f")"
+}
+all=$(printf '%s\n' "$all" | while IFS=$'\t' read -r prov win pct reset; do
+  [ -n "$prov" ] || continue
+  captured=$(captured_reset "$prov" "$win")
+  [ -n "$captured" ] && reset="$captured"
+  printf '%s\t%s\t%s\t%s\n' "$prov" "$win" "$pct" "$reset"
+done)
 printf '%s\n' "$all" >"$CACHE"
 
 # A `-` row is uncertainty, not headroom, so it never sets the floor.
