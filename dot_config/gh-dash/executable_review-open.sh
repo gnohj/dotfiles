@@ -7,12 +7,12 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Octo (auto-review) + Claude /review-lavish + ENHANCE
+#   full       P        Octo (auto-review) + Claude /review-lavish
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
 #   claude     A        Claude /review
-#   fan        F        Octo + sealed Opus/Codex finders + Lavish merge owner + ENHANCE
+#   fan        F        Octo + sealed Opus/gpt finders + Lavish merge owner + ENHANCE
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -188,7 +188,6 @@ case "$mode" in
     install_deps "$WT"
     open_octo "$WT" 1
     open_claude_review "$WT" review-lavish
-    open_enhance "$WT"
     ;;
   fan)
     window_opts=(--no-focus)
