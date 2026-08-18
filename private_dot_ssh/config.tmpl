@@ -1,5 +1,9 @@
 Host github.com
   AddKeysToAgent yes
+  # Without these a wifi blip leaves ssh hung ~2h until TCP keepalive finally reaps it.
+  ConnectTimeout 10
+  ServerAliveInterval 15
+  ServerAliveCountMax 3
 {{- if eq .chezmoi.os "darwin" }}
   # macOS: sign with the keychain-held identity key. On the VPS this block is
   # omitted — no private key on the box, git rides the forwarded agent instead.
