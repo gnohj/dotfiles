@@ -38,8 +38,6 @@ work the daemon EXITS when the socket is gone (herdr down), rather than spinning
 supervisor restarts it when the socket returns. Stdlib only — no herdr binary, no PATH,
 no jq — so systemd's minimal env and a bare VPS python3 are enough.
 
-Also paints the row-1 state mark into the $si_* tokens - TEMPORARY, see MARK_BY_STATUS below and
-item 7 in the herdr-upgrade skill's watchlist.md.
 
   herdr-agent-activity.py           daemon: refresh every $HERDR_ACTIVITY_INTERVAL seconds
   herdr-agent-activity.py --once    one pass over every agent, then exit (smoke test)
@@ -67,7 +65,7 @@ SOURCE = "agent-activity"
 _WS_LABELS = {}
 
 def _load_ws_labels(fetch):
-    """Fill the per-pass label cache. One workspace.list call, shared by the pad and the mark."""
+    """Fill the per-pass label cache. One workspace.list call, feeding the agent-row pad."""
     if not _WS_LABELS:
         reply = fetch("workspace.list", {})
         for ws in ((reply or {}).get("result") or reply or {}).get("workspaces", []) or []:
@@ -80,29 +78,6 @@ def ws_indent(workspace_id, fetch):
     return row_indent(_WS_LABELS.get(workspace_id, ""))
 
 TOKEN = "act"
-
-# Row-1 state mark. TEMPORARY - delete this block, state_mark() and the $si_* tokens from
-# dot_config/herdr/config.toml.tmpl once herdrdev/herdr#2282 lands in a build; it adds
-# `[ui] status_indicators = "symbols"` and does this natively. Until then: 0.8.0's state_dot()
-# hardcodes ● for blocked, working AND done and only the color is configurable, so done and blocked
-# render identically and the mark is painted here instead. A custom token takes ONE unconditional
-# fg, so the slot IS the color ($br/$br_on widened to four) and done/blocked share the red one.
-# Unused slots are cleared to None, not "": an absent token is dropped before herdr computes
-# separators (tokens.rs resolves Custom via tokens.get), an empty string still counts as visible.
-#
-# Each color also gets an `_on` twin carrying `dim = false`, because inline style is unconditional
-# and cannot vary by focus - the same reason $pn/$pn_on exist. Row 1 used to be built-in tokens and
-# so took `text` on the active entry; custom tokens do not, so without this the focused row renders
-# at herdr's default ~0.52x agent dim and the active workspace name reads as greyed out.
-# Slot suffix IS the colour (o orange, r red, b blue, g green, x grey), so a remap is a slot move, never a colour edit.
-MARK_BY_STATUS = {
-    "idle": ("si_b", "○"),      # seen, ready - blue
-    "done": ("si_g", "○"),      # finished but NOT yet seen - green, the state that needed telling apart
-    "working": ("si_o", "●"),   # orange
-    "blocked": ("si_r", "●"),   # red, and its OWN slot now that done is green
-    "unknown": ("si_x", "·"),
-}
-MARK_SLOTS = tuple(s for base in ("si_o", "si_r", "si_b", "si_g", "si_x") for s in (base, base + "_on"))
 
 # Raw epochs for herdr-last-active-agent.sh (prefix+'). The sidebar token is a FORMATTED
 # string ("8m ago") and so can't be sorted; the recency jump needs the numbers. Written
@@ -190,24 +165,6 @@ def format_age(then_epoch, now):
     return time.strftime("%b %d", time.localtime(then_epoch))
 
 
-def state_mark(status, workspace_id, fetch, focused=False):
-    """Row-1 tokens: the glyph plus the workspace label, in the slot whose fg matches the state.
-
-    The label rides in the SAME token because a second token on the row would earn a " · " -
-    tokens.rs::separator gives a bare space only after the built-in state_icon. That makes the
-    label ours to supply, so it lags a rename by one pass and vanishes with the poller.
-
-    The focused agent takes the `_on` twin of its colour, which is the only one carrying
-    `dim = false` - see MARK_SLOTS for why focus cannot come from the style itself.
-    """
-    slot, glyph = MARK_BY_STATUS.get(status or "unknown", MARK_BY_STATUS["unknown"])
-    _load_ws_labels(fetch)
-    label = _WS_LABELS.get(workspace_id, "")
-    marks = dict.fromkeys(MARK_SLOTS)  # every slot None; the live one is set below
-    marks[slot + "_on" if focused else slot] = f"{glyph} {label}" if label else glyph
-    return marks
-
-
 def write_state(epochs):
     """Atomic pane_id -> epoch dump, so a reader can never catch a half-written file."""
     try:
@@ -258,9 +215,6 @@ def report_all():
             value = format_age(stamp, now)
             epochs[pane_id] = stamp
         tokens = {TOKEN: (ws_indent(agent.get("workspace_id"), rpc) + value) if value else value}  # null clears — herdr has no clear_tokens field
-        # Pushed for EVERY agent unlike $act: the state comes from herdr, so it is never a guess.
-        tokens.update(state_mark(agent.get("agent_status"), agent.get("workspace_id"), rpc,
-                                 bool(agent.get("focused"))))
         rpc("pane.report_metadata", {
             "pane_id": pane_id,
             "source": SOURCE,
