@@ -2445,12 +2445,24 @@ generate_herdr_config() {
   # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
   # colors pass via env so the perl expressions need no shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
-  # Selected-row fill: gnohj_color13 at 50%, derived so it tracks a theme switch (90% was only dL* 4.4 and read as unchanged); never "reset" - panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this doubles as the ink on the accent-backed active tab and must stay dark.
+  # Selected-row fill: gnohj_color04 relit to 20% lightness - a plain RGB multiply drops HSL saturation as it darkens (why the old color13*50% read grey), and awk carries the float math without adding python3 to the VPS theme path. Never "reset": panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this doubles as the ink on the accent-backed active tab and must stay dark.
+  herdr_relight() {
+    awk -v R="$((0x${1:1:2}))" -v G="$((0x${1:3:2}))" -v B="$((0x${1:5:2}))" -v L="$2" 'BEGIN{
+      r=R/255; g=G/255; b=B/255
+      mx=(r>g?(r>b?r:b):(g>b?g:b)); mn=(r<g?(r<b?r:b):(g<b?g:b)); l=(mx+mn)/2; d=mx-mn
+      if(d==0){h=0;s=0} else {
+        s=(l>0.5)?d/(2-mx-mn):d/(mx+mn)
+        if(mx==r) h=((g-b)/d+((g<b)?6:0)); else if(mx==g) h=(b-r)/d+2; else h=(r-g)/d+4
+        h/=6 }
+      q=(L<0.5)?L*(1+s):L+s-L*s; p=2*L-q
+      split("0 0 0",o)
+      for(i=1;i<=3;i++){ t=h+(i==1?1/3:(i==2?0:-1/3)); if(t<0)t++; if(t>1)t--
+        if(t<1/6) v=p+(q-p)*6*t; else if(t<1/2) v=q; else if(t<2/3) v=p+(q-p)*(2/3-t)*6; else v=p
+        o[i]=int(v*255+0.5) }
+      printf "#%02x%02x%02x", o[1], o[2], o[3] }'
+  }
   local herdr_sel_bg
-  herdr_sel_bg="$(printf '#%02x%02x%02x' \
-    "$((0x${gnohj_color13:1:2} * 50 / 100))" \
-    "$((0x${gnohj_color13:3:2} * 50 / 100))" \
-    "$((0x${gnohj_color13:5:2} * 50 / 100))")"
+  herdr_sel_bg="$(herdr_relight "$gnohj_color04" 0.20)"
   local herdr_target="$HOME/.config/herdr/config.toml"
   # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
   local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
@@ -2467,19 +2479,9 @@ generate_herdr_config() {
   # $sys/$sysres/$systime take an _on twin like $br: their dim fg is overlay0, too near surface_dim to read on the selected row.
   # $repos/$sync split by content and both can be lit; each takes an _on twin so the roll-up dims while the pin is unfocused.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
-  # Row 1's name is AGENT-STATE coloured: herdr colours it by focus alone, so state rides the slot and the _on twin makes both colour and bold focus-conditional; dim halves derive at 52% to keep their hue. Bare $ws holds `unknown` on text/subtext0.
-  herdr_dim() {
-    printf '#%02x%02x%02x' \
-      "$((0x${1:1:2} * 52 / 100))" "$((0x${1:3:2} * 52 / 100))" "$((0x${1:5:2} * 52 / 100))"
-  }
-  local herdr_ws_o herdr_ws_r herdr_ws_b herdr_ws_g
-  herdr_ws_o="$(herdr_dim "$gnohj_color05")"
-  herdr_ws_r="$(herdr_dim "$gnohj_color11")"
-  herdr_ws_b="$(herdr_dim "$gnohj_color04")"
-  herdr_ws_g="$(herdr_dim "$gnohj_color02")"
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", { token = "$ws" }, { token = "$ws_o", fg = "%s" }, { token = "$ws_o_on", fg = "%s", bold = true }, { token = "$ws_r", fg = "%s" }, { token = "$ws_r_on", fg = "%s", bold = true }, { token = "$ws_b", fg = "%s" }, { token = "$ws_b_on", fg = "%s", bold = true }, { token = "$ws_g", fg = "%s" }, { token = "$ws_g_on", fg = "%s", bold = true }, { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
-    "$herdr_ws_o" "$gnohj_color05" "$herdr_ws_r" "$gnohj_color11" "$herdr_ws_b" "$gnohj_color04" "$herdr_ws_g" "$gnohj_color02" "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
+    "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
     "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color13" "$gnohj_color02")"
@@ -2491,27 +2493,20 @@ generate_herdr_config() {
   # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
   local herdr_agent_rows herdr_claude_rows herdr_pane_git
-  # Row 1 is the $si_* state-mark slots, NOT the built-in state_icon. TEMPORARY - restore
-  # "state_icon", "workspace" here and drop $si_* once herdrdev/herdr#2282 reaches a build; see
-  # herdr-agent-activity.py::MARK_BY_STATUS for why. Slots mirror the [theme.custom] state colors
-  # below in state order: green idle, red blocked+done, yellow working, overlay0 unknown.
-  # Each colour is a dim/lit pair like $pn/$pn_on: only the _on twin lifts the agent-row dim, and
-  # focus picks the twin, since a custom token's inline style cannot vary by focus on its own.
-  # Row 2 ($pn_*) is built from the SAME loop as row 1 ($si_*) so the two can never drift; no dim halves to derive here, since `dim = false` just lifts the panel's own fade.
-  local herdr_marks herdr_pn m
-  herdr_marks="" herdr_pn=""
+  # Row 1 is the built-in state_icon again (0.8.2 status_indicators = "symbols" gives done its own glyph, retiring the $si_* slots); row 2 ($pn_*) stays a dim/lit pair like $br/$br_on, since a custom token's inline style cannot vary by focus on its own.
+  local herdr_pn m
+  herdr_pn=""
   for m in "$gnohj_color05:o" "$gnohj_color11:r" "$gnohj_color04:b" "$gnohj_color02:g" "$gnohj_color13:x"; do
-    herdr_marks="${herdr_marks:+$herdr_marks, }$(printf '{ token = "$si_%s", fg = "%s" }, { token = "$si_%s_on", fg = "%s", dim = false, bold = true }' \
-      "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
     herdr_pn="${herdr_pn:+$herdr_pn, }$(printf '{ token = "$pn_%s", fg = "%s" }, { token = "$pn_%s_on", fg = "%s", dim = false, bold = true }' \
       "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
   done
+  local herdr_state_row='"state_icon", "workspace"'
   herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
-    "$herdr_marks")"
-  herdr_claude_rows="$(printf 'claude = [[%s], [%s]]' "$herdr_marks" "$herdr_pn")"
+    "$herdr_state_row")"
+  herdr_claude_rows="$(printf 'claude = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
   # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
-  herdr_store_rows="$(printf '[[%s], [%s]]' "$herdr_marks" "$herdr_pn")"
+  herdr_store_rows="$(printf '[[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2521,8 +2516,9 @@ generate_herdr_config() {
 $herdr_begin
 [theme.custom]
 panel_bg = "reset"
-# surface_dim drives the sidebar active/selected row bg and surface0 the inactive
-# tab bg (verified live against herdr 0.7.3). surface_dim = gnohj_color13 at 50% (herdr_sel_bg), a clear step under the sesh picker's fzf bg+; surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
+# selection_bg must be PINNED, not left unset: the active row resolves as selection_bg-unless-Reset, so an unset one lets the terminal theme grey beat active_row_bg. Both take herdr_sel_bg, surface_dim shares it for dividers and the active-tab ink, and surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
+selection_bg = "$herdr_sel_bg"
+active_row_bg = "$herdr_sel_bg"
 surface_dim = "$herdr_sel_bg"
 surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
@@ -2554,7 +2550,7 @@ yellow = "$gnohj_color05"
 red = "$gnohj_color11"
 # blue = fallback for custom metadata tokens; \$git/\$sys now carry inline fg, so it no longer decides the git-sign color.
 blue = "$gnohj_color02"
-# teal = done, status.rs its only consumer, so gnohj_color02 matches the \$si_g/\$ws_g slots - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
+# teal = done, status.rs its only consumer, so gnohj_color02 matches the \$ws_g slot - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
 teal = "$gnohj_color02"
 peach = "$gnohj_color06"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
