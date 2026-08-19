@@ -1046,8 +1046,13 @@ cw() {
 alias cauto='unset CLAUDE_ACCOUNT && echo "CLAUDE_ACCOUNT cleared → auto (by git remote)"'
 
 # Pi agent shortcuts (parallel to cs/cr but 3-letter — `pn`/`pr` are taken
-alias pis='pi'         # pi start (new session)
-alias pir='pi -r'      # pi resume (interactive session picker)
+# Same appended operating contract cs/cr use; skipped when absent so a fresh box still launches.
+_pi_sp() {
+	local sp="$HOME/Developer/agents/shared/system-prompt.md"
+	[ -f "$sp" ] && print -r -- --append-system-prompt "$sp"
+}
+pis() { pi $(_pi_sp) "$@"; }      # pi start (new session)
+pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
 
 # Opencode shortcuts (parallel to cs/cr, pis/pir). Plain pass-throughs:
 # --dangerously-skip-permissions is documented upstream but rejected by

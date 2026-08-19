@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # Claude Code: start a new session, attaching the cwd's active vault (work repo → second-brain-work, else personal; see vault-path).
 # Account (config dir + token) comes from the ~/.local/bin/claude wrapper; export CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN first to override per-pane.
+
+# Optional so a machine that has not cloned the agents monorepo yet still launches; claude hard-errors on a missing file.
+sp="$HOME/Developer/agents/shared/system-prompt.md"
+sp_arg=()
+[ -f "$sp" ] && sp_arg=(--append-system-prompt-file "$sp")
+
 exec "$HOME/.local/bin/claude" \
   --dangerously-skip-permissions \
   --add-dir "$("$HOME/.local/bin/vault-path")" \
+  "${sp_arg[@]}" \
   "$@"

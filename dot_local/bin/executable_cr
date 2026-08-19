@@ -6,6 +6,11 @@
 #                    handoff). Selecting nothing just leaves you in nvim.
 # Account (config dir + token) comes from the ~/.local/bin/claude wrapper; export CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN first to override per-pane.
 
+# Optional so a machine that has not cloned the agents monorepo yet still launches; claude hard-errors on a missing file.
+sp="$HOME/Developer/agents/shared/system-prompt.md"
+sp_arg=()
+[ -f "$sp" ] && sp_arg=(--append-system-prompt-file "$sp")
+
 # The session id must sit immediately after --resume, or --resume takes no value
 # and reopens the native picker.
 _resume() {
@@ -15,6 +20,7 @@ _resume() {
     --dangerously-skip-permissions \
     --resume "$id" \
     --add-dir "$("$HOME/.local/bin/vault-path")" \
+    "${sp_arg[@]}" \
     "$@"
 }
 
