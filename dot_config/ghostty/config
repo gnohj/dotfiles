@@ -50,6 +50,8 @@ font-style-italic = "Italic"
 font-style-bold-italic = "Bold Italic"
 # Nerd Fonts patch U+26A1, so force the color emoji face to match kitty (new windows only).
 font-codepoint-map = U+26A1=Apple Color Emoji
+# herdr 0.8.2 status_indicators="symbols" uses U+25D0, the one glyph of its five JetBrainsMono lacks; Menlo is monospace so it falls back at a matching size instead of an oversized system face.
+font-codepoint-map = U+25D0=Menlo
 adjust-cell-width = -5%
 adjust-cell-height = 10%
 adjust-underline-thickness = 40%
