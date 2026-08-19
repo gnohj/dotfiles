@@ -2445,12 +2445,12 @@ generate_herdr_config() {
   # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
   # colors pass via env so the perl expressions need no shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
-  # Selected-row fill at 12%. NEVER "reset": widgets.rs::panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this is also the ink on the accent-backed active tab and must stay dark.
+  # Selected-row fill: gnohj_color13 at 50%, derived so it tracks a theme switch (90% was only dL* 4.4 and read as unchanged); never "reset" - panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this doubles as the ink on the accent-backed active tab and must stay dark.
   local herdr_sel_bg
   herdr_sel_bg="$(printf '#%02x%02x%02x' \
-    "$((0x${gnohj_color04:1:2} * 12 / 100))" \
-    "$((0x${gnohj_color04:3:2} * 12 / 100))" \
-    "$((0x${gnohj_color04:5:2} * 12 / 100))")"
+    "$((0x${gnohj_color13:1:2} * 50 / 100))" \
+    "$((0x${gnohj_color13:3:2} * 50 / 100))" \
+    "$((0x${gnohj_color13:5:2} * 50 / 100))")"
   local herdr_target="$HOME/.config/herdr/config.toml"
   # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
   local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
