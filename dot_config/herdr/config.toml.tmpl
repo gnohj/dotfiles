@@ -314,8 +314,12 @@ show_agent_labels_on_pane_borders = true
 # Reclaim the scrollbar column (0.8.0): pane names gain a cell and selection stays terminal-native; scrolling is unaffected.
 pane_scrollbars = false
 
-# Desktop tab row under the panes (0.8.0, herdrdev/herdr#2117) - desktop client only, inert on the headless VPS.
+# Desktop tab row under the panes (0.8.0, herdrdev/herdr#2117). "Desktop" is herdr's WIDE layout, the other side of mobile_width_threshold - not a separate GUI client, so this and tab_bar_right both render in the terminal client.
 tab_bar_position = "bottom"
+
+# The status bar herdr refused to add (#341), shipped in 0.8.2 as right-aligned tab-bar entries - what herdr-sysinfo.py's pinned-space $sys/$repos tokens existed to fake. Entries resolve on the SERVER, so over --remote this reports the box the panes run on, the same semantic that daemon was built for; it reuses --print rather than a second renderer, and awk joins the non-empty lines so $sync's ↑/↓ appear once non-zero. Plain text ONLY - no fg, no width, no ansi field, and ANSI in command output prints its escape bytes literally (verified 0.8.2), so the colour those sidebar tokens carried has no equivalent here.
+tab_bar_right_separator = " · "
+tab_bar_right = [{ type = "command", command = 'whoami', interval_seconds = 3600, timeout_seconds = 5 }, { type = "command", command = '''{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-sysinfo.py --print | awk 'NF{printf "%s%s", sep, $0; sep=" · "} END{print ""}' ''', interval_seconds = 5, timeout_seconds = 5 }]
 
 # Agents panel grouped by workspace (herdr's default) rather than the "priority" attention queue: an agent staying under its own space is easier to find than one that moves as its state changes. prefix+a still walks blocked agents.
 agent_panel_sort = "spaces"
@@ -406,19 +410,14 @@ opencode = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, {
 # leaves `$git` empty and an absent token emits no separator at all. The sign keeps its own
 # color regardless: apply_token_style lets an inline fg override the contextual default.
 #
-# The 4th `$sys` row is the tmux host cell's twin, fed by herdr-sysinfo.py onto one pinned space (herdr has no status bar - herdrdev/herdr#341 - so a metadata token is the only persistent surface); the macOS/VPS field split lives in HERDR_SYSINFO_FORMAT, not here.
-# `$systime` rides the same daemon: the clock in the box's GEOLOCATED zone with its abbreviation (16:39 CT), not the system zone, which is UTC here while the row above says dallas-tx. Laid out in HERDR_SYSINFO_TIME rather than here.
+# The host cell moved OUT of these rows into tab_bar_right (0.8.2 gave herdr the status bar #341 had refused), so there is no 4th row and no `$sys`/`$systime` pair here any more; the geolocated clock is still herdr-sysinfo.py's, since herdr's own datetime entry renders in the server's system zone, which is UTC on the VPS while the host cell says dallas-tx.
 # $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
 # Inline per-token fg (0.7.5), retargeted by generate_herdr_config. $git red / $git_on green, only ever ONE lit so herdr's " · " never lands between them; per-SIGN color still needs several lit at once - see the /herdr-upgrade watchlist.
 # $pr/$pr_on is the same red/green pair for approvals: – and ◌ ride red $pr, ● rides green $pr_on (herdr-thread-status.py::approval_slots). $ci is still ONE token, so ✗ failure prints in the same color as ✓ success.
 [ui.sidebar.spaces]
-# $sys/$sysres/$systime/$repos/$sync are pin-only and blank elsewhere, so they ride these rows free; rows 2/3/4 collapse on the pin, leaving it four lines.
-# $sys/$sysres/$systime split for WIDTH - host@city plus resources is 34 columns against sidebar_width 32.
-# Row 4 is $systime alone: nothing else in the sidebar has a 4th line, so it collapses everywhere except the pin.
-# Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale; pin cells take overlay0 to read as background detail.
-# $repos/$sync split by CONTENT (both halves can be lit at once); each then takes an _on twin so the roll-up dims while the pin is unfocused.
+# Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale. The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, and row 4 went with it.
 # Row 1's name is AGENT-STATE coloured - one dim/lit pair per state, herdr-git-status.sh picking the family from workspace.list's agent_status and herdr-focus-tracker.py::paint_ws the twin, because herdr colours that name by focus alone. $ws stays bare and holds `unknown`: with no fg it takes text/subtext0, which already splits on focus.
-rows = [["state_icon", "workspace", { token = "$repos", fg = "#536571" }, { token = "$repos_on", fg = "#a3b8c6" }, { token = "$sync", fg = "#536571" }, { token = "$sync_on", fg = "#a3b8c6" }], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }, { token = "$sys", fg = "#536571" }, { token = "$sys_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }, { token = "$sysres", fg = "#536571" }, { token = "$sysres_on", fg = "#b7ce97" }], [{ token = "$systime", fg = "#536571" }, { token = "$systime_on", fg = "#b7ce97" }]]
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }]]
 
 [session]
 resume_agents_on_restore = true

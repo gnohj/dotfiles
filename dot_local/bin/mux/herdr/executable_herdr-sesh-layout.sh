@@ -158,7 +158,6 @@ fi
 
 if [ -n "$existing" ]; then
   ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
-  ( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
   [ "$focus_flag" = --no-focus ] && exit 0
   exec "$herdr" workspace focus "$existing" >/dev/null 2>&1
 fi
@@ -175,8 +174,7 @@ tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 # the next poll cycle. Detached so it never blocks this script or dies with it.
 ( "$HOME/.local/bin/mux/herdr/herdr-git-status.sh" --kick >/dev/null 2>&1 & )
 
-# Same for the `$sys` sysinfo daemon - launchd/systemd own its lifecycle now, so this --kick is only a flock-guarded backstop.
-( "$HOME/.local/bin/mux/herdr/herdr-sysinfo.py" --kick >/dev/null 2>&1 & )
+# No sysinfo --kick any more: that daemon is retired, its line lives in tab_bar_right, and a kick here would rebuild the pinned space it maintained.
 
 # herdr tabs default their label to their own number (that's why untouched tabs
 # read "1", "2" … in the bar); a custom emoji label replaces it, dropping the
