@@ -2522,8 +2522,8 @@ active_row_bg = "$herdr_sel_bg"
 surface_dim = "$herdr_sel_bg"
 surface0 = "$gnohj_color26"
 surface1 = "$gnohj_color26"
-# overlay0 is ONE token for ALL sidebar chrome - the spaces/agents headers, new/menu/grouped, the · separators, the └─ connectors, both scrollbars, the «/» toggle. Recoloring the headers alone is impossible; gnohj_color03 was tried and reverted.
-overlay0 = "$gnohj_color13"
+# overlay0 is the shared DIM role, not a sidebar token - spaces/agents headers, new/menu/grouped, the · separators, the «/» toggle, every UNFOCUSED pane border and the unknown state_icon (0.8.2, verified by swinging it magenta; the └─ connectors and the panel divider did NOT follow, contrary to the old note). color13 -> color46 buys header legibility (3.1:1 -> 5.9:1) at a 2.0:1 unfocused border and an unknown dot as bright as a real state; equals overlay1 now, color13 still carries subtext0.
+overlay0 = "$gnohj_color46"
 overlay1 = "$gnohj_color46"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
 # isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
