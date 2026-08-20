@@ -2475,16 +2475,12 @@ generate_herdr_config() {
   # token (gnohj green). Dim is overlay0; lit is gnohj green, matching $pn_on so
   # both panels light their selected row alike and track the scheme rather than mauve's value.
   # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so each has a green twin.
-  # Pin-only cells ($repos/$sync/$sys/$sysres/$systime) MUST be listed or a theme switch drops them; they take overlay0 to read as background detail.
-  # $sys/$sysres/$systime take an _on twin like $br: their dim fg is overlay0, too near surface_dim to read on the selected row.
-  # $repos/$sync split by content and both can be lit; each takes an _on twin so the roll-up dims while the pin is unfocused.
   # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
+  # The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, taking row 4 with it.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$repos", fg = "%s" }, { token = "$repos_on", fg = "%s" }, { token = "$sync", fg = "%s" }, { token = "$sync_on", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }, { token = "$sys", fg = "%s" }, { token = "$sys_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }, { token = "$sysres", fg = "%s" }, { token = "$sysres_on", fg = "%s" }], [{ token = "$systime", fg = "%s" }, { token = "$systime_on", fg = "%s" }]]' \
-    "$gnohj_color13" "$gnohj_color04" "$gnohj_color13" "$gnohj_color04" \
-    "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color02" \
-    "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13" "$gnohj_color13" "$gnohj_color02" \
-    "$gnohj_color13" "$gnohj_color02")"
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }]]' \
+    "$gnohj_color13" "$gnohj_color02" \
+    "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13")"
   # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
   # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
   # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
