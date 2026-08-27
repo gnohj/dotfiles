@@ -35,14 +35,17 @@ claude_rows=$(printf '%s' "$(CLAUDE_CONFIG_DIR="$HOME/.claude-work" "$QUOTA_AXI"
   | ["Claude work", .label, (.percentRemaining | tostring), reset_in(.resetsAt)]
   | @tsv' 2>/dev/null || true)
 
-# Copilot business seats are token-billed: percent_remaining is pinned at 100 and meaningless, so collapse to one credits-used row.
+# Copilot business seats are token-billed and the whole snapshot is inert, not just percent_remaining: entitlement 0,
+# remaining 0, percent_remaining 100, unlimited true - all of it unchanged while the API returns 429 quota exceeded.
+# So there is no remaining figure to show, and the value says "used" outright: it sits under a column headed LEFT,
+# where a bare "43917cr" reads as headroom and hid a real exhaustion on 2026-08-21.
 COPILOT_CREDITS="$HOME/.local/bin/copilot-credits"
 cop_rows=""
 if [ -x "$COPILOT_CREDITS" ]; then
   cop_rows=$("$COPILOT_CREDITS" --json 2>/dev/null | jq -r "$RESET_FMT"'
     (.snapshots.premium_interactions.credits_used // 0) as $c
     | ((.reset // "") | if . == "" then "" else . + "T00:00:00Z" end) as $riso
-    | ["GitHub Copilot", "premium used", "\($c)cr", reset_in($riso)]
+    | ["GitHub Copilot", "premium", "\($c)cr used", reset_in($riso)]
     | @tsv' 2>/dev/null || true)
 fi
 
