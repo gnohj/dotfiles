@@ -115,6 +115,15 @@ local function addDns(name, active)
 	})
 end
 
+-- max_chars truncates without an ellipsis, and byte-based cutting would split multibyte apostrophes.
+local function ellipsize(text, limit)
+	local n = utf8.len(text)
+	if not n or n <= limit then
+		return text
+	end
+	return text:sub(1, utf8.offset(text, limit) - 1) .. "…"
+end
+
 local function addNetwork(ssid, connected, joinArg)
 	addRow({
 		position = "popup." .. wifi.name,
@@ -122,32 +131,18 @@ local function addNetwork(ssid, connected, joinArg)
 			align = "left",
 			string = (connected and settings.icons.text.wifi.connected or settings.icons.text.wifi.router)
 				.. "  "
-				.. ssid,
-			width = rowWidth * 0.6,
+				.. ellipsize(ssid, 22),
+			width = rowWidth * 0.72,
 			color = connected and settings.colors.green or settings.colors.dirty_white,
 		},
 		label = {
 			align = "right",
 			string = connected and "Connected" or "",
-			width = rowWidth * 0.4,
+			width = rowWidth * 0.28,
 			color = settings.colors.green,
 		},
 		-- Rejoining the network you are already on would only drop the link, so it is not a target.
 		click_script = connected and "" or (scriptPath .. " join " .. joinArg),
-	})
-end
-
-local function addAction(icon, text, clickScript)
-	addRow({
-		position = "popup." .. wifi.name,
-		icon = {
-			align = "left",
-			string = icon .. "  " .. text,
-			width = rowWidth,
-			color = settings.colors.grey,
-		},
-		label = { drawing = false },
-		click_script = clickScript or "",
 	})
 end
 
@@ -209,8 +204,6 @@ local function applyPopup(state)
 			addNetwork(network.ssid, network.connected, network.joinArg)
 		end
 	end
-
-	addAction(settings.icons.text.gear, "Wi-Fi Settings", settingsPane)
 end
 
 local function refreshPopup()
@@ -270,6 +263,14 @@ local function toggleDetails(env)
 		clearRows()
 	end
 end
+
+-- Dismiss on leaving the bar, which also closes this panel when another widget's popup takes over.
+wifi:subscribe("mouse.exited.global", function()
+	if wifi:query().popup.drawing == "on" then
+		wifi:set({ popup = { drawing = false } })
+		clearRows()
+	end
+end)
 
 wifi:subscribe({ "wifi_change", "system_woke", "forced", "routine" }, refreshIcon)
 wifi:subscribe(refreshEvent, refreshPopup)

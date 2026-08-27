@@ -93,6 +93,15 @@ end
 local refreshEvent <const> = "bluetooth_refresh"
 sbar.add("event", refreshEvent)
 
+-- max_chars truncates without an ellipsis, and byte-based cutting would split multibyte apostrophes.
+local function ellipsize(text, limit)
+	local n = utf8.len(text)
+	if not n or n <= limit then
+		return text
+	end
+	return text:sub(1, utf8.offset(text, limit) - 1) .. "…"
+end
+
 local function addDevice(section, device)
 	local connected = section == "connected"
 	local action = connected and "disconnect" or "connect"
@@ -100,7 +109,9 @@ local function addDevice(section, device)
 		position = "popup." .. bluetooth.name,
 		icon = {
 			align = "left",
-			string = (minorTypeIcons[device.minorType] or settings.icons.text.bluetooth.default) .. "  " .. device.name,
+			string = (minorTypeIcons[device.minorType] or settings.icons.text.bluetooth.default)
+				.. "  "
+				.. ellipsize(device.name, 22),
 			width = popupWidth * 0.72,
 			color = connected and settings.colors.white or settings.colors.dirty_white,
 		},
@@ -211,8 +222,6 @@ local function applyPopup(state)
 	else
 		addAction(settings.icons.text.gear, "Rebuild nix to enable toggle/scan")
 	end
-
-	addAction(settings.icons.text.gear, "Bluetooth Settings", settingsPane)
 end
 
 local function refreshIcon()
@@ -244,6 +253,14 @@ local function toggleDetails(env)
 		clearRows()
 	end
 end
+
+-- Dismiss on leaving the bar, which also closes this panel when another widget's popup takes over.
+bluetooth:subscribe("mouse.exited.global", function()
+	if bluetooth:query().popup.drawing == "on" then
+		bluetooth:set({ popup = { drawing = false } })
+		clearRows()
+	end
+end)
 
 bluetooth:subscribe({ "forced", "routine", "system_woke" }, refreshIcon)
 bluetooth:subscribe(refreshEvent, refreshPopup)
