@@ -17,6 +17,7 @@ local items <const> = {
 	MESSAGE = "message",
 	VOLUME = "widgets.volume",
 	WIFI = "widgets.wifi",
+	BLUETOOTH = "widgets.bluetooth",
 	VPN = "widgets.vpn",
 	TAILSCALE = "widgets.tailscale",
 	MEMORY = "widgets.memory",

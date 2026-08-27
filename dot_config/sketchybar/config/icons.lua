@@ -294,8 +294,9 @@ local text <const> = {
 		cpu = "",
 		clipboard = "󰅇",
 		switch = {
-			on = "󱨥",
-			off = "󱨦",
+			-- nf-md-toggle_switch: the vertical-pill pair these used to hold reads as a battery, not a toggle.
+			on = "󰔡",
+			off = "󰔢",
 		},
 		volume = {
 			_100 = "",
@@ -319,6 +320,19 @@ local text <const> = {
 			disconnected = "󰖪",
 			hotspot = "󰌷",
 			router = "󰑩",
+		},
+		bluetooth = {
+			on = "󰂯",
+			connected = "󰂱",
+			off = "󰂲",
+			-- Keyed by system_profiler's device_minorType; `default` covers phones, watches and anything unlabelled.
+			headphones = "󰋋",
+			headset = "󰋎",
+			mouse = "󰍽",
+			keyboard = "󰌌",
+			speaker = "󰓃",
+			gamepad = "󰊴",
+			default = "󰂯",
 		},
 		vpn = {
 			-- nf-md-shield (plain) / nf-md-shield-off-outline; the slash alone marks "not protected", so `on` carries no extra mark.
