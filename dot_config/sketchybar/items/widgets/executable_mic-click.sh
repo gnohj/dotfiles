@@ -22,7 +22,14 @@ render_panel() {
   case "$volume" in '' | *[!0-9]*) volume=0 ;; esac
 
   local args=(--remove '/mic\.pop\..*/')
-  [ "$mode" = toggle ] && args+=(--set "$NAME" popup.drawing=toggle)
+  # Resolved, not toggled: opening must close every other popup in the same invocation to hold order.
+  if [ "$mode" = toggle ]; then
+    if [ "$(sketchybar --query "$NAME" | jq -r '.popup.drawing')" = "on" ]; then
+      args+=(--set "$NAME" popup.drawing=off)
+    else
+      args+=(--set '/.*/' popup.drawing=off --set "$NAME" popup.drawing=on)
+    fi
+  fi
 
   args+=(--add slider mic.pop.slider popup."$NAME" "$POPUP_WIDTH"
     --set mic.pop.slider slider.percentage="$volume"

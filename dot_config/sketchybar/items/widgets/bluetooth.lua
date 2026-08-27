@@ -1,4 +1,5 @@
 local constants = require("constants")
+local popup = require("lib.popup")
 local settings = require("config.settings")
 
 local popupWidth <const> = settings.dimens.graphics.popup.large_width
@@ -246,7 +247,7 @@ local function toggleDetails(env)
 	end
 
 	if bluetooth:query().popup.drawing == "off" then
-		bluetooth:set({ popup = { drawing = true } })
+		popup.open_exclusive(bluetooth.name)
 		refreshPopup()
 	else
 		bluetooth:set({ popup = { drawing = false } })

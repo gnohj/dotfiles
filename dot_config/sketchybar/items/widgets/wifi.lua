@@ -1,4 +1,5 @@
 local constants = require("constants")
+local popup = require("lib.popup")
 local settings = require("config.settings")
 
 local popupWidth <const> = 320
@@ -256,7 +257,7 @@ local function toggleDetails(env)
 	end
 
 	if wifi:query().popup.drawing == "off" then
-		wifi:set({ popup = { drawing = true } })
+		popup.open_exclusive(wifi.name)
 		refreshPopup()
 	else
 		wifi:set({ popup = { drawing = false } })
