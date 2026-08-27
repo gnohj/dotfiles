@@ -67,6 +67,25 @@ _mtime() {
   stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
+# macOS ships no `timeout`, and one hung `treehouse return` would otherwise wedge the whole reclaim.
+_bounded() {
+  local secs="$1" pid i=0
+  shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"; return; fi
+  if command -v gtimeout >/dev/null 2>&1; then gtimeout "$secs" "$@"; return; fi
+  "$@" &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null && [ "$i" -lt "$secs" ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM "$pid" 2>/dev/null
+    return 124
+  fi
+  wait "$pid"
+}
+
 # `mux tabs` / `mux pane-cwds` enumerate the live mux, so release + sweep don't branch.
 MUX="${MUX:-$HOME/.local/bin/mux/mux}"
 mux_kind() { "$MUX" kind; }
@@ -154,30 +173,67 @@ release_pr() {
     fi
   fi
 
-  # 2. Drop our own record of the lease before anything can kill us.
-  [ -n "$wt" ] && rm -f "$state_file"
+  # 2. The lease record is the ONLY handle reclaim has, so the tail drops it after the return, never before.
 
-  # 3. The fatal tail, detached so the caller dying partway through cannot leave the pool leased. setsid is util-linux; macOS falls back to nohup.
-  _detach() { if command -v setsid >/dev/null 2>&1; then setsid "$@"; else nohup "$@"; fi; }
+  # 3. The fatal tail, in its own session so the pane treehouse is about to kill cannot take it down.
+  _detach() {
+    if command -v setsid >/dev/null 2>&1; then
+      setsid "$@"
+    elif command -v perl >/dev/null 2>&1; then
+      # macOS has no setsid, and nohup leaves the tail in the caller's process group - killed with the pane.
+      perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV or exit 127' -- "$@"
+    else
+      nohup "$@"
+    fi
+  }
   (
     _detach bash -c '
       # Out of the worktree first, or the reap below matches this tail own cwd and kills it before it closes the tabs.
       cd / 2>/dev/null || true
-      wt="$1"; pr="$2"; mux="$3"
+      wt="$1"; pr="$2"; mux="$3"; log="$4"; sf="$5"
+      # Every step announces itself: the tail is detached with all output discarded, so an unlogged step that dies is indistinguishable from one that worked.
+      _tlog() { printf "%s [%s]   tail #%s: %s\n" "$(date +%H:%M:%S)" "$$" "$pr" "$*" >>"$log" 2>/dev/null || true; }
+      _tlog "started, wt=${wt:-none}"
       if [ -n "$wt" ] && [ -d "$wt" ]; then
         # No cd into $wt: --force reaps by cwd, so from inside it treehouse racily kills itself and the slot stays leased.
-        treehouse return "$wt" --force >/dev/null 2>&1 || true
+        # Logged either side because there is no timeout here - a "returning" with no follow-up line is a hang, which strands every step below it.
+        _tlog "treehouse return starting"
+        if treehouse return "$wt" --force >/dev/null 2>&1; then
+          # Only now: a record dropped before the return leaves a lease reclaim can never see again.
+          rm -f "$sf"
+          _tlog "treehouse returned, lease record dropped"
+        else
+          _tlog "treehouse return FAILED - lease record KEPT so reclaim can retry"
+        fi
         if command -v lsof >/dev/null 2>&1; then
-          lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" "
+          killed=0
+          for p in $(lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" "
             /^p/ { pid = substr(\$0, 2) }
             /^n/ { if (substr(\$0, 2) == wt) print pid }
-          " | while read -r p; do kill "$p" 2>/dev/null || true; done || true
+          "); do kill "$p" 2>/dev/null && killed=$((killed + 1)); done
+          _tlog "killed $killed process(es) holding the worktree as cwd"
         fi
+      else
+        rm -f "$sf"
       fi
-      "$mux" tabs \
-        | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 }" \
-        | while IFS= read -r id; do [ -n "$id" ] && "$mux" close "$id" || true; done || true
-    ' _ "$wt" "$pr" "$MUX" >/dev/null 2>&1 &
+      # Re-enumerate and retry rather than trusting one pass. Only the gpt finder actually depends on this:
+      # review-open.sh gives it --keep-open, so it never self-closes the way every other review tab does when
+      # its command exits - which is why a silently failed close is invisible everywhere except that one tab.
+      attempt=1
+      while [ "$attempt" -le 3 ]; do
+        ids=$("$mux" tabs \
+          | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 }")
+        [ -n "$ids" ] || break
+        _tlog "close pass $attempt: $(printf %s "$ids" | tr "\n" " ")"
+        for id in $ids; do "$mux" close "$id" >/dev/null 2>&1 || true; done
+        sleep 2
+        attempt=$((attempt + 1))
+      done
+      left=$("$mux" tabs \
+        | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 \"=\" \$2 }" | tr "\n" " ")
+      # A tab that survives three passes is almost certainly mux close skipping the last tab in its workspace, which is a deliberate silent no-op there.
+      if [ -n "$left" ]; then _tlog "LEFTOVER after 3 passes: $left"; else _tlog "all matching tabs closed"; fi
+    ' _ "$wt" "$pr" "$MUX" "$SWEEP_LOG" "$state_file" >/dev/null 2>&1 &
   ) 2>/dev/null
   return 0
 }
@@ -252,6 +308,37 @@ sweep_lavish() {
   return 0
 }
 
+# Backstop for a lease whose state file is gone: sweep() reads only STATE_DIR, so such a slot stays
+# leased forever and invisible. Ask treehouse for its own leases; --if-lease-holder skips a re-leased slot.
+ORPHANS_FREED=0
+sweep_orphan_leases() {
+  local cwds="$1" wins="$2" f holder pr wt
+  ORPHANS_FREED=0
+  command -v jq >/dev/null 2>&1 || { _slog "  orphan sweep skipped: no jq"; return 0; }
+  command -v treehouse >/dev/null 2>&1 || return 0
+  for f in "$HOME"/.treehouse/*/treehouse-state.json; do
+    [ -f "$f" ] || continue
+    while IFS=$'\t' read -r holder wt; do
+      [ -n "$holder" ] && [ -n "$wt" ] && [ -d "$wt" ] || continue
+      pr="${holder#review-}"
+      case "$pr" in '' | *[!0-9]*) continue ;; esac
+      # A live record means sweep() above owns this lease; releasing it here would double-release.
+      [ -e "$STATE_DIR/$pr" ] && continue
+      if printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)"; then
+        _slog "  keep orphan lease $pr: window #${pr} still open"
+      elif cwd_in_worktree "$cwds" "$wt"; then
+        _slog "  keep orphan lease $pr: pane present in $wt"
+      elif _bounded 90 treehouse return "$wt" --force --if-lease-holder "$holder" >/dev/null 2>&1; then
+        ORPHANS_FREED=$((ORPHANS_FREED + 1))
+        _slog "  RELEASE orphan lease $pr: no state file, no window, no pane - returned $wt"
+      else
+        _slog "  orphan lease $pr: treehouse return failed or timed out for $wt"
+      fi
+    done < <(jq -r '.worktrees[]? | select(.leased and ((.lease_holder // "") | startswith("review-"))) | "\(.lease_holder)\t\(.path)"' "$f" 2>/dev/null)
+  done
+  return 0
+}
+
 # Return every leased review slot whose PR no longer has any tmux window.
 # Return every leased slot whose worktree no longer has ANY open pane in it.
 # Keyed on the worktree path (the state-file contents), NOT the PR label or a
@@ -265,14 +352,8 @@ sweep() {
   #   closed and dropped out of gh-dash, which no per-PR release could reach.
   local mode="${1:-confirm}"
   local reclaimed=0
-  # Before the STATE_DIR bail below: an orphaned artifact outlives the lease dir it came from.
   sweep_lavish
-  if [ ! -d "$STATE_DIR" ]; then
-    if [ "$mode" = immediate ]; then
-      notify "🧹 No idle treehouse review slots to reclaim"
-    fi
-    return 0
-  fi
+  # No bail on a missing STATE_DIR: an orphaned lease outlives its record, which is exactly the empty case.
   sleep 0.3 # debounce: let the just-closed window/tab finish unlinking
   local cwds wins f pr wt now age total
   [ "$(mux_kind)" = none ] && return 0
@@ -331,6 +412,8 @@ sweep() {
     fi
   done
   if [ "$mode" = immediate ]; then
+    sweep_orphan_leases "$cwds" "$wins"
+    reclaimed=$((reclaimed + ORPHANS_FREED))
     if [ "$reclaimed" -gt 0 ]; then
       notify "🧹 Reclaimed $reclaimed idle treehouse review slot$([ "$reclaimed" -eq 1 ] || echo s)"
     else
