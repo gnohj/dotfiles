@@ -102,10 +102,21 @@ fi
 # nix: daily-cached nix-preview count (background-refreshed ~once/day); fall back to flake-lock staleness if no cache yet.
 if command -v nix >/dev/null 2>&1; then
   NIX_CACHE="$HOME/.cache/sketchybar/nix-preview.count"
-  if [ ! -f "$NIX_CACHE" ] || [ -n "$(find "$NIX_CACHE" -mtime +0 2>/dev/null)" ]; then
+  # stat, not `-nt`: the generation is a symlink and `-nt` derefs it to a store path stamped epoch 1.
+  _mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+  NIX_GENERATION=/run/current-system
+  [ -e "$NIX_GENERATION" ] || NIX_GENERATION="$HOME/.local/state/nix/profiles/home-manager"
+  NIX_STALE=0
+  if [ -e "$NIX_GENERATION" ] && [ "$(_mtime "$NIX_GENERATION")" -gt "$(_mtime "$NIX_CACHE")" ]; then
+    NIX_STALE=1
+  fi
+  if [ ! -f "$NIX_CACHE" ] || [ "$NIX_STALE" = 1 ] || [ -n "$(find "$NIX_CACHE" -mtime +0 2>/dev/null)" ]; then
     ("$HOME/.local/bin/nix-preview" --cache-only >/dev/null 2>&1 &)
   fi
-  if [ -f "$NIX_CACHE" ] && [ -s "$NIX_CACHE" ]; then
+  if [ "$NIX_STALE" = 1 ]; then
+    # Nothing honest to show until the refresh lands, and a known-wrong number is worse than none.
+    log_message "DEBUG" "Nix count suppressed: system newer than cache, refresh queued"
+  elif [ -f "$NIX_CACHE" ] && [ -s "$NIX_CACHE" ]; then
     NIX_COUNT=$(tr -dc '0-9' <"$NIX_CACHE")
     NIX_COUNT=${NIX_COUNT:-0}
     log_message "DEBUG" "Nix count (cached preview): $NIX_COUNT"
