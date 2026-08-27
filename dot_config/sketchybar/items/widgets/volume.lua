@@ -9,7 +9,8 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	padding_right = -4,
 	label = {
 		string = "??%",
-		padding_left = -6,
+		-- net 2px to the glyph, matching cpu/memory/mic; the icons above carry no padding of their own.
+		padding_left = -8,
 		color = settings.colors.green,
 	},
 })
@@ -33,11 +34,11 @@ volumeValue:subscribe("volume_change", function(env)
 		local currentOutputDevice = result:sub(1, -2)
 		print("Current Output Device: " .. currentOutputDevice)
 		if volume > 0 and currentOutputDevice == "EarFun Air Pro 3" then
-			icon = "􀟥 "
+			icon = "􀟥"
 		elseif volume > 0 and currentOutputDevice == "Gnohj AirPods Pro" then
-			icon = "􀪷 "
+			icon = "􀪷"
 		elseif volume > 0 and currentOutputDevice == "Thunder Flash" or currentOutputDevice == "AirPods von Anna" then
-			icon = "􀺹 "
+			icon = "􀺹"
 		-- elseif currentOutputDevice == "External Headphones" then
 		-- 	icon = "􀝎 "
 		elseif volume > 60 then
@@ -82,12 +83,12 @@ local function hideVolumeDetails()
 	sbar.remove("/" .. constants.items.VOLUME .. ".device\\.*/")
 end
 
-local function toggleVolumeDetails()
-	-- Remove the right-click sound settings behavior
-	-- if env.BUTTON == "right" then
-	-- 	sbar.exec("open /System/Library/PreferencePanes/Sound.prefpane")
-	-- 	return
-	-- end
+local function toggleVolumeDetails(env)
+	if env.BUTTON == "right" then
+		-- The .prefpane path this used to open is pre-Ventura and now lands on the Settings home screen.
+		sbar.exec("open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
+		return
+	end
 
 	local shouldDraw = volumeBracket:query().popup.drawing == "off"
 	if shouldDraw then
