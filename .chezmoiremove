@@ -130,3 +130,4 @@ scripts/log-ai-cost.sh
 scripts/notify-idle-switch.sh
 scripts/notify-idle.sh
 scripts/open-tmux-attach.sh
+.config/sketchybar/items/widgets/mic-name.sh

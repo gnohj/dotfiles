@@ -3,8 +3,11 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
-source "$HOME/.config/sketchybar/items/widgets/mic-name.sh"
 MIC_NAME_FILE="$HOME/.logs/sketchybar/mic_name"
+
+# `render` repaints from whatever device is current. The slider calls it on every drag, and the
+# auto-switch below would otherwise yank the input back to TONOR the moment you picked something else.
+MODE="${1:-auto}"
 
 CURRENT_MIC=$(SwitchAudioSource -t input -c)
 
@@ -14,7 +17,13 @@ AVAILABLE_INPUTS=$(SwitchAudioSource -a -t input)
 TONOR_DEVICE=$(echo "$AVAILABLE_INPUTS" | grep -i "TONOR")
 AIRPODS_DEVICE=$(echo "$AVAILABLE_INPUTS" | grep -i "AirPods Pro")
 
-if [[ -n "$TONOR_DEVICE" && "$CURRENT_MIC" != "$TONOR_DEVICE" ]]; then
+if [[ "$MODE" != "auto" ]]; then
+  if [[ "$CURRENT_MIC" == *"AirPods"* ]]; then
+    MIC_NAME="AirPods"
+  else
+    MIC_NAME=$(echo "$CURRENT_MIC" | awk '{print $1}')
+  fi
+elif [[ -n "$TONOR_DEVICE" && "$CURRENT_MIC" != "$TONOR_DEVICE" ]]; then
   SwitchAudioSource -t input -s "$TONOR_DEVICE"
   MIC_NAME=$(echo "$TONOR_DEVICE" | awk '{print $1}')
 elif [[ -n "$AIRPODS_DEVICE" && -z "$TONOR_DEVICE" && "$CURRENT_MIC" != "$AIRPODS_DEVICE" ]]; then
@@ -39,8 +48,8 @@ echo "$VALIDATED_MIC_NAME" >"$MIC_NAME_FILE"
 
 MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
 
-# Raw MIC_NAME still drives the preferred-device colour tests below; only the label shortens.
-MIC_LABEL="$(mic_short_name "$MIC_NAME")-$MIC_VOLUME"
+# Device name is dropped from the bar - the popup names it, and this matches the volume widget.
+MIC_LABEL="$MIC_VOLUME%"
 
 if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
   sketchybar -m --set mic label="" icon= icon.color="$YELLOW" label.color="$YELLOW"

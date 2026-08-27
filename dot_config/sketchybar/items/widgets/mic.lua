@@ -7,12 +7,13 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	padding_right = 4,
 	icon = {
 		padding_left = 0,
+		-- 2, not the default 10: cpu/memory/volume all sit their value this close to the glyph.
+		padding_right = 2,
 	},
 	label = {
 		drawing = true,
-		padding_left = -8,
+		padding_left = 0,
 		padding_right = 8,
-		font = "MesloLGM Nerd Font:Regular:12.0",
 	},
 	script = "~/.config/sketchybar/items/widgets/mic.sh",
 	click_script = "~/.config/sketchybar/items/widgets/mic-click.sh",
