@@ -159,18 +159,27 @@ When that file is complete and valid JSON, create .review/$model.done as the las
 EOF
 }
 
+# A finder that dies leaves no marker, so the owner waits out its FULL timeout before falling back - a 429 on
+# the gpt finder cost 30 minutes per fan-out. Seal a .failed on exit whenever the agent's own .done is absent.
+# The exit code only, never the output: both finders are interactive TUIs and piping them through tee to capture
+# an error message hands them a non-tty. The message stays readable in the pane, which is what --keep-open is for.
+seal_on_exit() {
+  printf '; rc=$?; [ -f .review/%s.done ] || printf "finder exited (%%s) without writing %s.done\\n" "$rc" > .review/%s.failed' "$1" "$1" "$1"
+}
+
 # Sealed-bid: each finder writes its own file plus a .done marker and never reads a sibling's.
 open_finder_claude() {
   write_finder_brief "$1" opus
   mux --no-focus "🔎1 #$pr opus" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'
+    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
 # Pinned so the finder never drifts with pi's settings.json defaults; interactive because -p buffers until the seal.
+# The ladder lives in review-finder-pi.sh: gpt-5.6-sol has one door, so a 429 there is only survivable by changing model.
 open_finder_pi() {
   write_finder_brief "$1" gpt
   mux --keep-open --no-focus "🔎2 #$pr gpt" "$1" \
-    'pi --no-session --provider github-copilot --model gpt-5.6-sol --thinking high "$(cat .review/brief-gpt.txt)"'
+    '"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
 open_fanout_owner() {
@@ -203,7 +212,15 @@ case "$mode" in
     # One lease serves every window: review reads the checkout, so no finder needs its own worktree.
     open_octo "$WT" 1
     open_finder_claude "$WT"
-    open_finder_pi "$WT"
+    # Ask BEFORE spawning: with every second-model rung pruned or refusing, the gpt tab only ever renders an error
+    # and the owner then waits for a seal that cannot arrive. Degrade to a one-finder review up front instead, and
+    # tell the owner to expect one bid so it merges immediately rather than sitting out its timeout.
+    if (cd "$WT" && "$HOME/.config/gh-dash/review-finder-pi.sh" --check >/dev/null 2>&1); then
+      open_finder_pi "$WT"
+    else
+      echo "review-open: no second finder is available (copilot/codex both refusing) - single-finder review"
+      window_opts+=(--env REVIEW_FANOUT_EXPECTED=1)
+    fi
     open_fanout_owner "$WT"
     ;;
   octo)
