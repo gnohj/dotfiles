@@ -107,9 +107,10 @@ up() {
     command -v brew >/dev/null 2>&1 && brew upgrade || true
 
     print -P "%F{cyan}==> mise: self-update + install/upgrade (runtimes + AI agents)%f"
+    # Same lesson as the flake above, and mise needs it MORE: anonymous GitHub is 60 requests/hr per IP, which one multi-tool pass exhausts, and mise then 403s mid-install (treehouse 2.2.1, 2026-08-21). It reads no token from gh's keyring on its own; an empty value is treated as absent, so this needs no guard.
     mise self-update -y 2>/dev/null || true
-    mise install || true
-    mise upgrade || true
+    MISE_GITHUB_TOKEN=$ghtok mise install || true
+    MISE_GITHUB_TOKEN=$ghtok mise upgrade || true
   else
     print -P "%F{cyan}==> apt: system packages%f"
     sudo apt update && sudo apt full-upgrade -y
@@ -126,7 +127,7 @@ up() {
 
     print -P "%F{cyan}==> mise: self-update + toolchain (respects pins in config.toml)%f"
     mise self-update -y 2>/dev/null || true
-    mise upgrade || true
+    MISE_GITHUB_TOKEN=$ghtok mise upgrade || true
 
     print -P "%F{cyan}==> chezmoi: pull dotfiles + apply (re-fires bootstrap on version bump)%f"
     chezmoi update || true
