@@ -11,6 +11,7 @@
     ./modules/packages.nix
     ./modules/launchd-services.nix
     ./modules/local-dev-auth.nix
+    ./modules/wifi-ssid-sudoers.nix
   ];
 
   # Nix package manager settings
