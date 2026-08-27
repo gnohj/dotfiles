@@ -1,58 +1,54 @@
 #!/usr/bin/env bash
+# Left click opens the input panel (level slider + device list); right click opens Sound settings.
+#
+#   mic-click.sh            # button-driven, from the widget's click_script
+#   mic-click.sh rebuild    # repaint the panel in place, for the rows' own click_scripts
 
 export PATH="/opt/homebrew/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
-source "$HOME/.config/sketchybar/items/widgets/mic-name.sh"
 
-# This is basically the same as the `toggle_devices()` function in
-toggle_mics() {
-  which SwitchAudioSource >/dev/null || exit 0
-  source "$CONFIG_DIR/colors.sh"
+NAME="${NAME:-mic}"
+WIDGETS="$HOME/.config/sketchybar/items/widgets"
+POPUP_WIDTH=200
 
-  args=(--remove '/mic.device\.*/' --set "$NAME" popup.drawing=toggle)
-  COUNTER=0
-  CURRENT="$(SwitchAudioSource -t input -c)"
+# One `sketchybar -m` applies its args in order, so the leading --remove spares the rows added after it.
+render_panel() {
+  command -v SwitchAudioSource >/dev/null || exit 0
+
+  local mode="$1" current volume counter=0 color
+  current="$(SwitchAudioSource -t input -c)"
+  volume="$(osascript -e 'input volume of (get volume settings)')"
+  case "$volume" in '' | *[!0-9]*) volume=0 ;; esac
+
+  local args=(--remove '/mic\.pop\..*/')
+  [ "$mode" = toggle ] && args+=(--set "$NAME" popup.drawing=toggle)
+
+  args+=(--add slider mic.pop.slider popup."$NAME" "$POPUP_WIDTH"
+    --set mic.pop.slider slider.percentage="$volume"
+    slider.highlight_color="$GREEN"
+    click_script="osascript -e \"set volume input volume \$PERCENTAGE\" && $WIDGETS/mic.sh render")
+
+  # Rows repaint the panel instead of recolouring by regex: a backslash in a click_script breaks `--query` JSON.
   while IFS= read -r device; do
-    COLOR=$GREY
-    if [ "${device}" = "$CURRENT" ]; then
-      COLOR=$MAGENTA
-    fi
-    args+=(--add item mic.device.$COUNTER popup."$NAME"
-      --set mic.device.$COUNTER label="${device}"
-      label.color="$COLOR"
-      click_script="SwitchAudioSource -t input -s \"${device}\" && sketchybar --set /mic.device\.*/ label.color=$GREY --set \$NAME label.color=$MAGENTA --set $NAME popup.drawing=off")
-    COUNTER=$((COUNTER + 1))
+    color=$GREY
+    [ "$device" = "$current" ] && color=$MAGENTA
+    args+=(--add item mic.pop.device.$counter popup."$NAME"
+      --set mic.pop.device.$counter label="$device" label.color="$color"
+      click_script="SwitchAudioSource -t input -s $(printf '%q' "$device") && $WIDGETS/mic.sh render && NAME=$NAME $WIDGETS/mic-click.sh rebuild")
+    counter=$((counter + 1))
   done <<<"$(SwitchAudioSource -a -t input)"
 
   sketchybar -m "${args[@]}" >/dev/null
 }
 
-if [ "$BUTTON" = "left" ]; then
-  MIC_NAME=$(SwitchAudioSource -t input -c)
-  # I just want the first word, in case it's too long
-  MIC_NAME=$(echo "$MIC_NAME" | awk '{print $1}')
-
-  # When no microphone is connected, SwitchAudioSource gives me back random
-  # characters and sketchybar shows "Warning: Malformed UTF-8 string"
-  # Validate MIC_NAME as UTF-8, replace invalid sequences with a '?', then compare with original
-  VALIDATED_MIC_NAME=$(echo "$MIC_NAME" | iconv -f UTF-8 -t UTF-8//IGNORE)
-
-  # Get the current microphone volume
-  MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
-  MIC_SHORT=$(mic_short_name "$MIC_NAME")
-
-  if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
-    sketchybar -m --set mic label="" icon=
-  else
-    if [[ $MIC_VOLUME -lt 60 ]]; then
-      osascript -e 'set volume input volume 60'
-      sketchybar -m --set mic label="$MIC_SHORT-60" icon= icon.color="$ICON_BLUE" label.color="$GREEN"
-    elif [[ $MIC_VOLUME -gt 0 ]]; then
-      osascript -e 'set volume input volume 0'
-      sketchybar -m --set mic label="$MIC_SHORT-0" icon= icon.color="$RED" label.color="$RED"
+case "${1:-}" in
+  rebuild) render_panel keep ;;
+  *)
+    if [ "$BUTTON" = "right" ]; then
+      open "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+    else
+      render_panel toggle
     fi
-  fi
-elif [ "$BUTTON" = "right" ] || [ "$MODIFIER" = "shift" ]; then
-  toggle_mics
-fi
+    ;;
+esac
