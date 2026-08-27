@@ -1,4 +1,5 @@
 local constants = require("constants")
+local popup = require("lib.popup")
 local settings = require("config.settings")
 
 local currentAudioDevice = "None"
@@ -92,7 +93,7 @@ local function toggleVolumeDetails(env)
 
 	local shouldDraw = volumeBracket:query().popup.drawing == "off"
 	if shouldDraw then
-		volumeBracket:set({ popup = { drawing = true } })
+		popup.open_exclusive(volumeBracket.name)
 		sbar.exec("SwitchAudioSource -t output -c", function(result)
 			currentAudioDevice = result:sub(1, -2)
 			sbar.exec("SwitchAudioSource -a -t output", function(available)
