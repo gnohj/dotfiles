@@ -34,7 +34,8 @@ sbar.default({
     y_offset = settings.dimens.padding.popup,
     align = "center",
     background = {
-      border_width = 0,
+      border_width = 1,
+      border_color = settings.colors.popup.border,
       corner_radius = settings.dimens.graphics.background.corner_radius,
       color = settings.colors.popup.bg,
       shadow = { drawing = true },

@@ -50,7 +50,8 @@ local colors <const> = {
 
 	popup = {
 		bg = hex_to_sketchybar(colorscheme.gnohj_color10 or "021c31", "f1"),
-		border = hex_to_sketchybar(colorscheme.gnohj_color13 or "4A5F7A"),
+		-- color04 is the same blue the bar icons use, so a popup reads as belonging to its widget.
+		border = hex_to_sketchybar(colorscheme.gnohj_color04 or "987afb"),
 	},
 
 	slider = {
