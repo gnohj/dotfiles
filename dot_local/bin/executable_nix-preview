@@ -40,13 +40,31 @@ if [ ! -e "$TMP/result" ] || [ ! -e "$CUR" ]; then
 fi
 
 DIFF=$(nix store diff-closures "$CUR" "$TMP/result" 2>/dev/null)
-COUNT=$(printf '%s\n' "$DIFF" | grep -c '→')
+
+# Count the profile's direct references, not closure entries: one nixpkgs bump rewrites hundreds of transitive versions.
+# Packages live under sw/ on a darwin system and home-path/ on a home-manager profile.
+declared() {
+  local root="$1"
+  for sub in sw home-path ""; do
+    [ -e "$root/$sub" ] && { root="$root/$sub"; break; }
+  done
+  nix-store -q --references "$root" 2>/dev/null |
+    sed 's|^/nix/store/[a-z0-9]*-||' |
+    sort
+}
+base_names() { sed -E 's/-[0-9][^-]*(-[a-z]+)?$//' | sort -u; }
+
+COUNT=$(comm -3 <(declared "$CUR") <(declared "$TMP/result") | sed 's/^[[:space:]]*//' | base_names | grep -c .)
 printf '%s\n' "${COUNT:-0}" > "$CACHE"
 
 if [ "$QUIET" = 0 ]; then
-  if [ -n "$DIFF" ]; then
-    printf '==> %s package(s) would change on the next `up`:\n\n' "$COUNT"
+  if [ "$COUNT" -gt 0 ]; then
+    printf '==> %s declared package(s) would change on the next `up`:\n\n' "$COUNT"
+    comm -3 <(declared "$CUR") <(declared "$TMP/result") | sed 's/^[[:space:]]*/  /'
+    printf '\n==> full closure diff (%s transitive changes):\n\n' "$(printf '%s\n' "$DIFF" | grep -c '→')"
     printf '%s\n' "$DIFF"
+  elif [ -n "$DIFF" ]; then
+    printf 'nix: no declared package changes; %s transitive closure change(s) only.\n' "$(printf '%s\n' "$DIFF" | grep -c '→')"
   else
     echo "nix: nothing would change — flake already current."
   fi
