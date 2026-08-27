@@ -16,6 +16,9 @@ in
     # Security tools (macOS-specific)
     pinentry_mac  # Password entry dialog for rbw/GPG on macOS
 
+    # Sketchybar bluetooth widget: system_profiler covers reads, blueutil is the only write path
+    blueutil
+
     # Lua environment for sketchybar AeroSpaceLua integration
     # Includes lua-cjson and luaposix (with broken flag overridden)
     # This enables direct socket communication with AeroSpace to prevent freezing
@@ -27,7 +30,7 @@ in
     nerd-fonts.hasklug        # Ghostty/Kitty primary (Hasklig Nerd Font)
     nerd-fonts.roboto-mono    # Ghostty alternate
     nerd-fonts.space-mono     # Sketchybar
-    nerd-fonts.meslo-lg       # Sketchybar mic widget (MesloLGM)
+    nerd-fonts.meslo-lg       # Sketchybar errors popup header (MesloLGM)
     nerd-fonts.jetbrains-mono # Ghostty alternate option
   ];
 
