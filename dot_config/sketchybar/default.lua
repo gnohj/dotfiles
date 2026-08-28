@@ -45,7 +45,7 @@ sbar.default({
     blur_radius = settings.dimens.graphics.blur_radius,
   },
   slider = {
-    highlight_color = settings.colors.orange,
+    highlight_color = settings.colors.green,
     background = {
       height = settings.dimens.graphics.slider.height,
       corner_radius = settings.dimens.graphics.background.corner_radius,

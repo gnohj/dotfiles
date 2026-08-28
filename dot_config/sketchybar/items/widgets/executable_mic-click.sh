@@ -27,13 +27,25 @@ render_panel() {
     if [ "$(sketchybar --query "$NAME" | jq -r '.popup.drawing')" = "on" ]; then
       args+=(--set "$NAME" popup.drawing=off)
     else
-      args+=(--set '/.*/' popup.drawing=off --set "$NAME" popup.drawing=on)
+      "$WIDGETS/popup-close-others.sh" "$NAME"
+      args+=(--set "$NAME" popup.drawing=on)
     fi
   fi
 
+  local on=off
+  [ "$volume" -gt 0 ] && on=on
+  args+=(--add item mic.pop.header popup."$NAME"
+    --set mic.pop.header
+    icon="$([ "$on" = on ] && printf '\xef\x84\xb0' || printf '\xef\x84\xb1')  Input"
+    icon.align=left icon.width=$((POPUP_WIDTH * 7 / 10))
+    icon.color="$([ "$on" = on ] && echo "$ICON_BLUE" || echo "$GREY")" icon.font.style=Bold
+    label="$([ "$on" = on ] && printf '\xf3\xb0\x94\xa1' || printf '\xf3\xb0\x94\xa2')"
+    label.align=right label.width=$((POPUP_WIDTH * 3 / 10)) label.font.size=18
+    label.color="$([ "$on" = on ] && echo "$GREEN" || echo "$GREY")"
+    click_script="$WIDGETS/mic.sh mute-toggle && NAME=$NAME $WIDGETS/mic-click.sh rebuild")
+
   args+=(--add slider mic.pop.slider popup."$NAME" "$POPUP_WIDTH"
     --set mic.pop.slider slider.percentage="$volume"
-    slider.highlight_color="$GREEN"
     click_script="osascript -e \"set volume input volume \$PERCENTAGE\" && $WIDGETS/mic.sh render")
 
   # Rows repaint the panel instead of recolouring by regex: a backslash in a click_script breaks `--query` JSON.
