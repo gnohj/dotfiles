@@ -16,6 +16,7 @@ if [ "$BUTTON" = "right" ] || [ "$drawing" = "on" ]; then
 fi
 
 CLOSE="sketchybar --set $NAME popup.drawing=off --remove /${NAME}.opt\.*/"
+"$HOME/.config/sketchybar/items/widgets/popup-close-others.sh" "$NAME"
 args=(--remove "/${NAME}.opt\.*/" --set "$NAME" popup.drawing=on)
 i=0
 add_row() { # label color
