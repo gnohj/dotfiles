@@ -13,7 +13,13 @@ ROW_FONT="SpaceMono Nerd Font:Regular:12.0"
 ROW_WIDTH=400
 row_fmt() { printf '%-16s %-21s %5s  %-7s' "$1" "$2" "$3" "$4"; }
 
-args=(--remove '/agent_quota\.row\..*/' --set "$NAME" popup.drawing=toggle)
+args=(--remove '/agent_quota\.row\..*/')
+if [ "$(sketchybar --query "$NAME" | jq -r '.popup.drawing')" = "on" ]; then
+  args+=(--set "$NAME" popup.drawing=off)
+else
+  "$HOME/.config/sketchybar/items/widgets/popup-close-others.sh" "$NAME"
+  args+=(--set "$NAME" popup.drawing=on)
+fi
 
 args+=(--add item agent_quota.row.hdr "popup.$NAME"
   --set agent_quota.row.hdr

@@ -1,9 +1,10 @@
 local constants = require("constants")
+local popup = require("lib.popup")
 local settings = require("config.settings")
 
 local isCharging = false
 
-local battery = sbar.add("item", constants.items.battery, {
+local battery = sbar.add("item", constants.items.BATTERY, {
 	position = "right",
 	update_freq = 60,
 })
@@ -80,7 +81,11 @@ end)
 battery:subscribe("mouse.clicked", function(env)
 	local drawing = battery:query().popup.drawing
 
-	battery:set({ popup = { drawing = "toggle" } })
+	if drawing == "off" then
+		popup.open_exclusive(battery.name)
+	else
+		battery:set({ popup = { drawing = false } })
+	end
 
 	if drawing == "off" then
 		sbar.exec("pmset -g batt", function(batteryInfo)
