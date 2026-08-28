@@ -377,9 +377,7 @@ claude = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { t
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
 # constant "pi"/"opencode" in place of the pane summary. Both rows are fed by the same two
-# daemons as claude's: herdr-pane-summary.py fills `pane` from their session stores (pi's
-# first user message, opencode's stored title) and herdr-agent-activity.py fills `$act`
-# (pi's transcript timestamps, opencode's session.time_updated).
+# herdr-pane-summary.py reads stored names; herdr-agent-activity.py reads transcript update times.
 pi = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
 opencode = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
 

@@ -20,8 +20,7 @@ the pane converges on the real summary.
 pi and opencode DO set an OSC title, but never a session one: pi shows `π - <cwd basename>`
 and opencode prefixes its own with `OC | `, so slugging those gives a name that is either
 the directory or a wasted segment. For them the session store is authoritative instead and
-their OSC title is never consulted (`STORE_READERS` below), read from two sources - pi's
-first user message and opencode's stored session title.
+their OSC title is never consulted (`STORE_READERS` below): Pi uses its generated name with a first-user fallback, and opencode uses its stored session title.
 
 Where every one of those stores lives is owned by the sibling herdr_agent_stores module,
 shared with herdr-agent-activity.py.
@@ -166,6 +165,7 @@ CLAUDE_COMMAND_CLOSE = "</command-name>"
 CLAUDE_ARGS_OPEN = "<command-args>"
 CLAUDE_ARGS_CLOSE = "</command-args>"
 _title_cache = {}
+_pi_session_cache = {}
 
 
 def request(method, params):
@@ -343,8 +343,35 @@ def claude_transcript_title(ref, cwd):
     return None
 
 
+def pi_session_name(path):
+    offset, name = _pi_session_cache.get(path, (0, None))
+    try:
+        size = os.path.getsize(path)
+        if size < offset:
+            offset, name = 0, None
+        with open(path, "rb") as handle:
+            handle.seek(offset)
+            chunk = handle.read()
+    except OSError:
+        return name
+    end = chunk.rfind(b"\n")
+    if end == -1:
+        return name
+    for raw in chunk[:end].splitlines():
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        if entry.get("type") != "session_info":
+            continue
+        value = entry.get("name")
+        name = value.strip() if isinstance(value, str) and value.strip() else None
+    _pi_session_cache[path] = (offset + end + 1, name)
+    return name
+
+
 def pi_first_user_title(path):
-    """First user message in a pi transcript — pi emits no LLM title, so this is the signal."""
+    """First user message in a pi transcript - fallback until Pi has a session name."""
     try:
         with open(path, "rb") as handle:
             head = handle.read(HEAD_BYTES).decode("utf-8", "replace")
@@ -374,7 +401,7 @@ def pi_title(ref, cwd):
     path = ref.get("value") if ref.get("kind") == "path" else None
     if not path and cwd and stores:
         path = stores.pi_newest_session(cwd)
-    return pi_first_user_title(path) if path else None
+    return (pi_session_name(path) or pi_first_user_title(path)) if path else None
 
 
 def opencode_title(ref, cwd):
