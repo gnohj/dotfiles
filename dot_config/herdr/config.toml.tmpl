@@ -142,7 +142,7 @@ width = "48%"
 height = "70%"
 description = "sesh-style session picker"
 
-# prefix+e/u → the ported tmux scrollback popup (isolated baleia nvim, transparent): e opens at the bottom, u on the last "^❯ " prompt with `n` walking back.
+# prefix+e/u → the ported tmux scrollback popup: e opens at the bottom, u on the last Claude or Pi user prompt with `n` walking back.
 [[keys.command]]
 key = "prefix+e"
 type = "popup"
@@ -277,6 +277,25 @@ key = "prefix+shift+f"
 type = "plugin_action"
 command = "rmarganti.herdr-pluck.pluck"
 description = "pluck: copy a visible token (URL/path/SHA) via hints"
+
+# herdr-annotate captures terminal selections and exports comments as agent-ready Markdown.
+[[keys.command]]
+key = "prefix+shift+c"
+type = "plugin_action"
+command = "annotate.capture"
+description = "annotate selected terminal text"
+
+[[keys.command]]
+key = "prefix+m"
+type = "plugin_action"
+command = "annotate.manage"
+description = "manage terminal annotations"
+
+[[keys.command]]
+key = "prefix+shift+m"
+type = "plugin_action"
+command = "annotate.copy-context"
+description = "copy terminal annotations as agent context"
 
 [terminal]
 # Linux only: the systemd-spawned server inherits SHELL=/bin/bash; macOS needs no pin and has no /usr/bin/zsh.
