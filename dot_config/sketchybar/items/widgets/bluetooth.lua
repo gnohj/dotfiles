@@ -9,8 +9,8 @@ local settingsPane <const> = "open 'x-apple.systempreferences:com.apple.Bluetoot
 -- sbar.exec, not the item's `script` property: an item carrying both `script` and `popup` never receives it.
 local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	position = "right",
-	-- Disk's box sits to the left and ends tight, so this opens the seam back up to the run's spacing.
-	padding_left = 8,
+	-- Cancels disk's item padding_right of -5, so its label's own 10 is the whole seam.
+	padding_left = 5,
 	padding_right = settings.dimens.padding.gap,
 	update_freq = 30,
 	label = { drawing = false },

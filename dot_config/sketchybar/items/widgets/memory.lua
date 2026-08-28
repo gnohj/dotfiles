@@ -47,6 +47,8 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 		string = "??%",
 		color = colors.green,
 		padding_left = 0,
+		-- Real padding, not the trailing spaces this used to append: a glyph is not a spacing unit.
+		padding_right = 10,
 	},
 })
 

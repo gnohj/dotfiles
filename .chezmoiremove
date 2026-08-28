@@ -131,3 +131,7 @@ scripts/notify-idle-switch.sh
 scripts/notify-idle.sh
 scripts/open-tmux-attach.sh
 .config/sketchybar/items/widgets/mic-name.sh
+
+# Retired rbw vault indicator; Bitwarden state no longer belongs in SketchyBar.
+.config/sketchybar/items/widgets/rbw_lock.lua
+.config/sketchybar/items/widgets/rbw_lock.sh
