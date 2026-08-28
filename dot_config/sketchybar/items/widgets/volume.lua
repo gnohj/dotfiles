@@ -22,6 +22,62 @@ local volumeBracket = sbar.add("bracket", constants.items.VOLUME .. ".bracket", 
 	},
 })
 
+local popupWidth <const> = settings.dimens.graphics.popup.width
+local muteToggle <const> = "osascript -e 'set volume output muted not (output muted of (get volume settings))'"
+
+sbar.add("event", "sound_refresh")
+
+-- Slider tracks the level the same way the mic bar label does: red when there is nothing to hear.
+local function levelColor(level, muted)
+	if muted or level == 0 then
+		return settings.colors.red
+	elseif level <= 25 then
+		return settings.colors.yellow
+	end
+	return settings.colors.green
+end
+
+-- Header mirrors the bluetooth/wifi panels: device name on the left, a real mute toggle on the right.
+local volumeHeader = sbar.add("item", constants.items.VOLUME .. ".header", {
+	position = "popup." .. volumeBracket.name,
+	icon = {
+		align = "left",
+		string = settings.icons.text.volume._100 .. "  Output",
+		width = popupWidth * 0.7,
+		color = settings.colors.blue,
+		font = { style = settings.fonts.styles.bold },
+	},
+	label = {
+		align = "right",
+		string = settings.icons.text.switch.on,
+		width = popupWidth * 0.3,
+		color = settings.colors.green,
+		font = { size = 18 },
+	},
+	click_script = muteToggle .. " && sketchybar --trigger sound_refresh",
+})
+
+local function updateHeader()
+	sbar.exec("osascript -e 'output muted of (get volume settings)'", function(muted)
+		local on = not muted:match("true")
+		sbar.exec("osascript -e 'output volume of (get volume settings)'", function(level)
+			volumeSlider:set({ slider = { highlight_color = levelColor(tonumber(level) or 0, not on) } })
+		end)
+		volumeHeader:set({
+			icon = {
+				string = (on and settings.icons.text.volume._100 or settings.icons.text.volume._0) .. "  Output",
+				color = on and settings.colors.blue or settings.colors.grey,
+			},
+			label = {
+				string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
+				color = on and settings.colors.green or settings.colors.grey,
+			},
+		})
+	end)
+end
+
+volumeValue:subscribe("sound_refresh", updateHeader)
+
 local volumeSlider = sbar.add("slider", constants.items.VOLUME .. ".slider", settings.dimens.graphics.popup.width, {
 	position = "popup." .. volumeBracket.name,
 	click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
@@ -59,7 +115,9 @@ volumeValue:subscribe("volume_change", function(env)
 		end
 
 		-- volumeIcon:set({ label = icon })
-		volumeSlider:set({ slider = { percentage = volume } })
+		volumeSlider:set({
+			slider = { percentage = volume, highlight_color = levelColor(volume, false) },
+		})
 
 		local hasVolume = volume ~= 0
 		volumeValue:set({
@@ -94,6 +152,7 @@ local function toggleVolumeDetails(env)
 	local shouldDraw = volumeBracket:query().popup.drawing == "off"
 	if shouldDraw then
 		popup.open_exclusive(volumeBracket.name)
+		updateHeader()
 		sbar.exec("SwitchAudioSource -t output -c", function(result)
 			currentAudioDevice = result:sub(1, -2)
 			sbar.exec("SwitchAudioSource -a -t output", function(available)

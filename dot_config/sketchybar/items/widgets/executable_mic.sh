@@ -9,6 +9,23 @@ MIC_NAME_FILE="$HOME/.logs/sketchybar/mic_name"
 # auto-switch below would otherwise yank the input back to TONOR the moment you picked something else.
 MODE="${1:-auto}"
 
+# No system input-muted flag exists, so mute is level 0 with the previous level parked in a state file.
+LEVEL_STATE="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar/mic_level"
+if [ "$MODE" = "mute-toggle" ]; then
+  mkdir -p "$(dirname "$LEVEL_STATE")"
+  cur="$(osascript -e 'input volume of (get volume settings)')"
+  case "$cur" in '' | *[!0-9]*) cur=0 ;; esac
+  if [ "$cur" -gt 0 ]; then
+    printf '%s\n' "$cur" >"$LEVEL_STATE"
+    osascript -e 'set volume input volume 0'
+  else
+    restore="$(cat "$LEVEL_STATE" 2>/dev/null)"
+    case "$restore" in '' | *[!0-9]* | 0) restore=60 ;; esac
+    osascript -e "set volume input volume $restore"
+  fi
+  MODE=render
+fi
+
 CURRENT_MIC=$(SwitchAudioSource -t input -c)
 
 AVAILABLE_INPUTS=$(SwitchAudioSource -a -t input)
@@ -47,6 +64,16 @@ VALIDATED_MIC_NAME=$(echo "$MIC_NAME" | iconv -f UTF-8 -t UTF-8//IGNORE)
 echo "$VALIDATED_MIC_NAME" >"$MIC_NAME_FILE"
 
 MIC_VOLUME=$(osascript -e 'input volume of (get volume settings)')
+
+# Slider tracks the level too, but only when the panel exists - `render` also runs on every drag.
+if [ "$MIC_VOLUME" -eq 0 ] 2>/dev/null; then
+  SLIDER_COLOR="$RED"
+elif [ "$MIC_VOLUME" -le 25 ] 2>/dev/null; then
+  SLIDER_COLOR="$YELLOW"
+else
+  SLIDER_COLOR="$GREEN"
+fi
+sketchybar --set mic.pop.slider slider.highlight_color="$SLIDER_COLOR" >/dev/null 2>&1
 
 # Device name is dropped from the bar - the popup names it, and this matches the volume widget.
 MIC_LABEL="$MIC_VOLUME%"
