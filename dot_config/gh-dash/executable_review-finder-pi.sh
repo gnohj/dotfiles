@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # review-finder-pi.sh <slot> - run the second finder for <slot>, walking a quota-aware ladder when a rung refuses.
 #
-# gpt-5.6-sol has exactly ONE door in pi's catalog (github-copilot), so a refusal there cannot be routed around at
-# the provider level - only by changing model, and usually harness. Rungs are therefore <harness>|<provider>|<model>.
+# Provider fallback keeps the model fixed; rungs are <harness>|<provider>|<model>.
 #
 # Two hard-won constraints shape this:
 #   * pi does NOT exit when a call fails. It prints the error and returns to its prompt, so "the command returned"
@@ -28,10 +27,9 @@ slot="${1:?review-finder-pi: missing <slot>}"
 brief=".review/brief-$slot.txt"
 [ "$CHECK" = 1 ] || [ -f "$brief" ] || { echo "review-finder-pi: no $brief" >&2; exit 2; }
 
-# Only the subscriptions that actually exist: claude (already finder 1), copilot, and codex. The pi|openai rung is
-# deliberately absent - that key authenticates and then answers "You have no credits remaining", so it is a rung that
-# always costs a turn and never seals. Add it back only if the account is funded.
-LADDER="${REVIEW_FINDER_LADDER-pi|github-copilot|gpt-5.6-sol codex|-|-}"
+# Dispatch picks the model; quota picks Codex subscription, Copilot, then CLI, excluding the unfunded OpenAI API.
+FINDER_MODEL="${REVIEW_FINDER_MODEL:-gpt-5.6-sol}"
+LADDER="${REVIEW_FINDER_LADDER-pi|openai-codex|$FINDER_MODEL pi|github-copilot|$FINDER_MODEL codex|-|-}"
 THINKING="${REVIEW_FINDER_THINKING:-high}"
 RUNG_TIMEOUT="${REVIEW_FINDER_RUNG_TIMEOUT:-600}"
 
@@ -42,8 +40,8 @@ RUNG_TIMEOUT="${REVIEW_FINDER_RUNG_TIMEOUT:-600}"
 DEAD=$(quota-axi 2>/dev/null | awk -F, '/auth_required|unavailable|exhausted_now/ {print $1}' | tr -d ' ' | sort -u)
 [ -n "$DEAD" ] && echo "review-finder-pi: quota-axi reports unusable: $(printf '%s' "$DEAD" | tr '\n' ' ')"
 
-# quota-axi calls the Copilot provider "copilot"; pi calls it "github-copilot".
-quota_name() { case "$1" in github-copilot) echo copilot ;; *) echo "$1" ;; esac; }
+# Normalizing provider names lets Codex exhaustion skip both its Pi and CLI rungs.
+quota_name() { case "$1" in github-copilot) echo copilot ;; openai-codex) echo codex ;; *) echo "$1" ;; esac; }
 
 sealed=0
 for rung in $LADDER; do

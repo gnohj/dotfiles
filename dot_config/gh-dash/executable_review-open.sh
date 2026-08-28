@@ -65,6 +65,14 @@ wt_script="$HOME/.config/gh-dash/review-worktree.sh"
 
 cd "$repo_path"
 
+# Scope-driven profile, shared by every mode so P and F reason at the same depth on the same PR.
+REVIEW_CLAUDE_MODEL="" REVIEW_CLAUDE_EFFORT="" REVIEW_FINDER_MODEL="" REVIEW_FINDER_THINKING="" REVIEW_FINDER_RUNG_TIMEOUT="" REVIEW_DISPATCH_TIER=""
+IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT REVIEW_DISPATCH_TIER < <("$HOME/.config/gh-dash/review-dispatch.sh" "$pr" "$repo" 2>/dev/null) || true
+: "${REVIEW_CLAUDE_MODEL:=claude-opus-5}" "${REVIEW_CLAUDE_EFFORT:=high}"
+: "${REVIEW_FINDER_MODEL:=gpt-5.6-sol}" "${REVIEW_FINDER_THINKING:=high}" "${REVIEW_FINDER_RUNG_TIMEOUT:=600}"
+export REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT
+echo "review-open: dispatch ${REVIEW_DISPATCH_TIER:-?} -> claude $REVIEW_CLAUDE_MODEL/$REVIEW_CLAUDE_EFFORT, gpt $REVIEW_FINDER_MODEL/$REVIEW_FINDER_THINKING, timeout ${REVIEW_FINDER_RUNG_TIMEOUT}s"
+
 base_ref() { gh pr view "$pr" --json baseRefName -q .baseRefName; }
 head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 
@@ -139,7 +147,7 @@ open_claude_hunk() {
 open_claude_review() {
   local cmd="${2:-review}"
   mux "🤖 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"'"'
+    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
@@ -171,15 +179,22 @@ seal_on_exit() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   mux --no-focus "🔎1 #$pr opus" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
+    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
-# Pinned so the finder never drifts with pi's settings.json defaults; interactive because -p buffers until the seal.
-# The ladder lives in review-finder-pi.sh: gpt-5.6-sol has one door, so a 429 there is only survivable by changing model.
+# The finder is pinned; $2 labels the tab with the rung resolved by --check.
 open_finder_pi() {
   write_finder_brief "$1" gpt
-  mux --keep-open --no-focus "🔎2 #$pr gpt" "$1" \
+  mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
+    --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
+    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" "🔎2 #$pr ${2:-gpt}" "$1" \
     '"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
+}
+
+# "pi|openai-codex|gpt-5.6-sol" -> "sol"; a harness-only rung like "codex|-|-" keeps the harness name.
+finder_label() {
+  local rung="$1" model="${1##*|}"
+  case "$model" in '' | '-') printf '%s' "${rung%%|*}" ;; *) printf '%s' "${model##*-}" ;; esac
 }
 
 open_fanout_owner() {
@@ -215,8 +230,8 @@ case "$mode" in
     # Ask BEFORE spawning: with every second-model rung pruned or refusing, the gpt tab only ever renders an error
     # and the owner then waits for a seal that cannot arrive. Degrade to a one-finder review up front instead, and
     # tell the owner to expect one bid so it merges immediately rather than sitting out its timeout.
-    if (cd "$WT" && "$HOME/.config/gh-dash/review-finder-pi.sh" --check >/dev/null 2>&1); then
-      open_finder_pi "$WT"
+    if RUNG=$(cd "$WT" && "$HOME/.config/gh-dash/review-finder-pi.sh" --check 2>/dev/null | tail -n1); [ -n "$RUNG" ]; then
+      open_finder_pi "$WT" "$(finder_label "$RUNG")"
     else
       echo "review-open: no second finder is available (copilot/codex both refusing) - single-finder review"
       window_opts+=(--env REVIEW_FANOUT_EXPECTED=1)
