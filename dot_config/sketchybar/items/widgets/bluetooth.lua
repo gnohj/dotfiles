@@ -9,8 +9,8 @@ local settingsPane <const> = "open 'x-apple.systempreferences:com.apple.Bluetoot
 -- sbar.exec, not the item's `script` property: an item carrying both `script` and `popup` never receives it.
 local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	position = "right",
-	-- Battery's box carries its own trailing label padding, so 2 here lands at the same 10px the icon-only run uses.
-	padding_left = 2,
+	-- Disk's box sits to the left and ends tight, so this opens the seam back up to the run's spacing.
+	padding_left = 8,
 	padding_right = settings.dimens.padding.gap,
 	update_freq = 30,
 	label = { drawing = false },
@@ -58,6 +58,10 @@ local sectionTitles <const> = {
 }
 
 -- Per-generation row names: SbarLua flushes a remove and the re-add together, so a name match would swallow the new rows.
+-- Most reopens are byte-identical, so skip the rebuild and its layout churn entirely.
+local lastResult = nil
+local opening = false
+local removePattern = nil
 local generation = 0
 local rowCount = 0
 
@@ -67,12 +71,12 @@ local function addRow(options)
 	return row
 end
 
+-- The remove rides in the same invocation as the adds, so nothing is torn down mid-layout.
 local function clearRows()
-	-- Guarded: sbar.remove on an empty set logs "No match found for regex" every close.
-	if rowCount > 0 then
-		sbar.remove("/" .. constants.items.BLUETOOTH .. ".r" .. generation .. "\\.*/")
-		rowCount = 0
-	end
+	lastResult = nil
+	removePattern = rowCount > 0 and ("/" .. constants.items.BLUETOOTH .. ".r" .. generation .. "\\.*/") or nil
+	rowCount = 0
+	pending = {}
 	generation = generation + 1
 end
 
@@ -94,15 +98,6 @@ end
 local refreshEvent <const> = "bluetooth_refresh"
 sbar.add("event", refreshEvent)
 
--- max_chars truncates without an ellipsis, and byte-based cutting would split multibyte apostrophes.
-local function ellipsize(text, limit)
-	local n = utf8.len(text)
-	if not n or n <= limit then
-		return text
-	end
-	return text:sub(1, utf8.offset(text, limit) - 1) .. "…"
-end
-
 local function addDevice(section, device)
 	local connected = section == "connected"
 	local action = connected and "disconnect" or "connect"
@@ -112,7 +107,7 @@ local function addDevice(section, device)
 			align = "left",
 			string = (minorTypeIcons[device.minorType] or settings.icons.text.bluetooth.default)
 				.. "  "
-				.. ellipsize(device.name, 22),
+				.. popup.ellipsize(device.name, 22),
 			width = popupWidth * 0.72,
 			color = connected and settings.colors.white or settings.colors.dirty_white,
 		},
@@ -223,6 +218,9 @@ local function applyPopup(state)
 	else
 		addAction(settings.icons.text.gear, "Rebuild nix to enable toggle/scan")
 	end
+
+	popup.build(bluetooth.name, removePattern, pending, opening)
+	opening = false
 end
 
 local function refreshIcon()
@@ -234,9 +232,18 @@ end
 -- No in-flight guard: callbacks are serial, and a flag would deadlock the panel the first time one failed to fire.
 local function refreshPopup()
 	sbar.exec(scriptPath .. " list", function(result)
+		if result == lastResult and rowCount > 0 then
+			if opening then
+				bluetooth:set({ popup = { drawing = true } })
+				opening = false
+			end
+			return
+		end
 		local state = parse(result)
 		applyIcon(state)
 		applyPopup(state)
+		-- After, not before: applyPopup clears the rows, and clearRows invalidates this.
+		lastResult = result
 	end)
 end
 
@@ -247,21 +254,14 @@ local function toggleDetails(env)
 	end
 
 	if bluetooth:query().popup.drawing == "off" then
-		popup.open_exclusive(bluetooth.name)
+		opening = true
+		popup.close_others(bluetooth.name)
 		refreshPopup()
 	else
+		-- Rows are left in place: reopening with unchanged content then costs no layout churn at all.
 		bluetooth:set({ popup = { drawing = false } })
-		clearRows()
 	end
 end
-
--- Dismiss on leaving the bar, which also closes this panel when another widget's popup takes over.
-bluetooth:subscribe("mouse.exited.global", function()
-	if bluetooth:query().popup.drawing == "on" then
-		bluetooth:set({ popup = { drawing = false } })
-		clearRows()
-	end
-end)
 
 bluetooth:subscribe({ "forced", "routine", "system_woke" }, refreshIcon)
 bluetooth:subscribe(refreshEvent, refreshPopup)

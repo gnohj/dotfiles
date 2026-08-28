@@ -47,20 +47,27 @@ local header = sbar.add("item", constants.items.WIFI .. ".header", {
 local refreshEvent <const> = "wifi_refresh"
 sbar.add("event", refreshEvent)
 
+-- Most reopens are byte-identical, so skip the rebuild and its layout churn entirely.
+local lastResult = nil
+local opening = false
+local removePattern = nil
 local generation = 0
 local rowCount = 0
 
+local pending = {}
+
 local function addRow(options)
-	local row = sbar.add("item", constants.items.WIFI .. ".r" .. generation .. "." .. rowCount, options)
+	options.name = constants.items.WIFI .. ".r" .. generation .. "." .. rowCount
+	pending[#pending + 1] = options
 	rowCount = rowCount + 1
-	return row
 end
 
+-- The remove rides in the same invocation as the adds, so nothing is torn down mid-layout.
 local function clearRows()
-	if rowCount > 0 then
-		sbar.remove("/" .. constants.items.WIFI .. ".r" .. generation .. "\\.*/")
-		rowCount = 0
-	end
+	lastResult = nil
+	removePattern = rowCount > 0 and ("/" .. constants.items.WIFI .. ".r" .. generation .. "\\.*/") or nil
+	rowCount = 0
+	pending = {}
 	generation = generation + 1
 end
 
@@ -116,15 +123,6 @@ local function addDns(name, active)
 	})
 end
 
--- max_chars truncates without an ellipsis, and byte-based cutting would split multibyte apostrophes.
-local function ellipsize(text, limit)
-	local n = utf8.len(text)
-	if not n or n <= limit then
-		return text
-	end
-	return text:sub(1, utf8.offset(text, limit) - 1) .. "…"
-end
-
 local function addNetwork(ssid, connected, joinArg)
 	addRow({
 		position = "popup." .. wifi.name,
@@ -132,7 +130,7 @@ local function addNetwork(ssid, connected, joinArg)
 			align = "left",
 			string = (connected and settings.icons.text.wifi.connected or settings.icons.text.wifi.router)
 				.. "  "
-				.. ellipsize(ssid, 22),
+				.. popup.ellipsize(ssid, 22),
 			width = rowWidth * 0.72,
 			color = connected and settings.colors.green or settings.colors.dirty_white,
 		},
@@ -205,11 +203,23 @@ local function applyPopup(state)
 			addNetwork(network.ssid, network.connected, network.joinArg)
 		end
 	end
+
+	popup.build(wifi.name, removePattern, pending, opening)
+	opening = false
 end
 
 local function refreshPopup()
 	sbar.exec(scriptPath .. " list", function(result)
+		if result == lastResult and rowCount > 0 then
+			if opening then
+				wifi:set({ popup = { drawing = true } })
+				opening = false
+			end
+			return
+		end
 		applyPopup(parse(result))
+		-- After, not before: applyPopup clears the rows, and clearRows invalidates this.
+		lastResult = result
 	end)
 end
 
@@ -257,21 +267,14 @@ local function toggleDetails(env)
 	end
 
 	if wifi:query().popup.drawing == "off" then
-		popup.open_exclusive(wifi.name)
+		opening = true
+		popup.close_others(wifi.name)
 		refreshPopup()
 	else
+		-- Rows are left in place: reopening with unchanged content then costs no layout churn at all.
 		wifi:set({ popup = { drawing = false } })
-		clearRows()
 	end
 end
-
--- Dismiss on leaving the bar, which also closes this panel when another widget's popup takes over.
-wifi:subscribe("mouse.exited.global", function()
-	if wifi:query().popup.drawing == "on" then
-		wifi:set({ popup = { drawing = false } })
-		clearRows()
-	end
-end)
 
 wifi:subscribe({ "wifi_change", "system_woke", "forced", "routine" }, refreshIcon)
 wifi:subscribe(refreshEvent, refreshPopup)
