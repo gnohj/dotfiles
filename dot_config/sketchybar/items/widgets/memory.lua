@@ -1,11 +1,13 @@
 ---@diagnostic disable-next-line: undefined-global
 local constants = require("constants")
+local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
 -- Memory usage percentage (matching btop: used = active + wired, over hw.memsize)
 local function get_memory_percentage(callback)
-	sbar.exec([[total=$(sysctl -n hw.memsize); vm_stat | awk -v total="$total" '
+	sbar.exec(
+		[[total=$(sysctl -n hw.memsize); vm_stat | awk -v total="$total" '
     /page size/ {pagesize=$8}
     /Pages active/ {active=$3}
     /Pages wired/ {wired=$4}
@@ -19,18 +21,21 @@ local function get_memory_percentage(callback)
       } else {
         printf "0"
       }
-    }']], function(result)
-		local percentage = tonumber(result)
-		if percentage and callback then
-			callback(percentage)
-		elseif callback then
-			callback(0)
+    }']],
+		function(result)
+			local percentage = tonumber(result)
+			if percentage and callback then
+				callback(percentage)
+			elseif callback then
+				callback(0)
+			end
 		end
-	end)
+	)
 end
 
 local memory = sbar.add("item", constants.items.MEMORY, {
 	position = "right",
+	popup = { align = "center" },
 	padding_left = -5,
 	update_freq = 10,
 	icon = {
@@ -58,3 +63,10 @@ end
 memory:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
+
+syspanel.attach(memory, {
+	icon = "",
+	title = "Memory",
+	section = "TOP PROCESSES",
+	mode = "memory",
+})

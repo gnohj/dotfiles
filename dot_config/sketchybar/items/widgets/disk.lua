@@ -1,4 +1,5 @@
 local constants = require("constants")
+local syspanel = require("lib.syspanel")
 local colors = require("config.colors")
 
 -- counts the APFS reserve as used, matching duf rather than df's capacity column
@@ -27,6 +28,7 @@ end
 
 local disk = sbar.add("item", constants.items.DISK, {
 	position = "right",
+	popup = { align = "center" },
 	padding_left = -5,
 	padding_right = -5,
 	update_freq = 300,
@@ -55,3 +57,10 @@ end
 disk:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
+
+syspanel.attach(disk, {
+	icon = "󰋊",
+	title = "Disk",
+	section = "VOLUMES",
+	mode = "disk",
+})

@@ -1,28 +1,33 @@
 local constants = require("constants")
+local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
 
 -- CPU usage percentage (matching btop: proper 1s sample window, not back-to-back)
 local function get_cpu_percentage(callback)
-	sbar.exec([[top -l 2 -n 0 -s 1 | grep "CPU usage" | tail -1 | awk '{
+	sbar.exec(
+		[[top -l 2 -n 0 -s 1 | grep "CPU usage" | tail -1 | awk '{
       user = $3
       sys = $5
       gsub(/%/, "", user)
       gsub(/%/, "", sys)
       total = user + sys
       printf "%.0f", total
-    }']], function(result)
-		local percentage = tonumber(result)
-		if percentage and callback then
-			callback(percentage)
-		elseif callback then
-			callback(0)
+    }']],
+		function(result)
+			local percentage = tonumber(result)
+			if percentage and callback then
+				callback(percentage)
+			elseif callback then
+				callback(0)
+			end
 		end
-	end)
+	)
 end
 
 local cpu = sbar.add("item", constants.items.CPU, {
 	position = "right",
+	popup = { align = "center" },
 	update_freq = 10,
 	icon = {
 		string = "",
@@ -49,3 +54,10 @@ end
 cpu:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
+
+syspanel.attach(cpu, {
+	icon = "",
+	title = "CPU",
+	section = "TOP PROCESSES",
+	mode = "cpu",
+})
