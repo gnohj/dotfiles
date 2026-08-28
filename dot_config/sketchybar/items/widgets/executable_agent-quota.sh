@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Agent quota: remaining Claude windows plus a single collapsed GitHub Copilot model-usage row.
+# Agent quota: remaining Claude and Codex windows plus a single collapsed GitHub Copilot model-usage row.
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -35,19 +35,31 @@ claude_rows=$(printf '%s' "$(CLAUDE_CONFIG_DIR="$HOME/.claude-work" "$QUOTA_AXI"
   | ["Claude work", .label, (.percentRemaining | tostring), reset_in(.resetsAt)]
   | @tsv' 2>/dev/null || true)
 
-# Copilot business seats are token-billed and the whole snapshot is inert, not just percent_remaining: entitlement 0,
-# remaining 0, percent_remaining 100, unlimited true - all of it unchanged while the API returns 429 quota exceeded.
-# So there is no remaining figure to show, and the value says "used" outright: it sits under a column headed LEFT,
-# where a bare "43917cr" reads as headroom and hid a real exhaustion on 2026-08-21.
+# Copilot business seats expose consumed credits, not reliable remaining headroom.
 COPILOT_CREDITS="$HOME/.local/bin/copilot-credits"
 cop_rows=""
 if [ -x "$COPILOT_CREDITS" ]; then
   cop_rows=$("$COPILOT_CREDITS" --json 2>/dev/null | jq -r "$RESET_FMT"'
     (.snapshots.premium_interactions.credits_used // 0) as $c
     | ((.reset // "") | if . == "" then "" else . + "T00:00:00Z" end) as $riso
-    | ["GitHub Copilot", "premium", "\($c)cr used", reset_in($riso)]
+    | ["GitHub Copilot", "premium", "\($c)cr", reset_in($riso)]
     | @tsv' 2>/dev/null || true)
 fi
+
+# Ignore stale Codex snapshots because signed-out zeroes mean unknown, not exhausted.
+codex_rows=$(printf '%s' "$("$QUOTA_AXI" --provider codex --json 2>/dev/null || true)" | jq -r "$RESET_FMT"'
+  .providers[]?
+  | select(.provider == "codex")
+  | select((.state.stale // false) | not)
+  | .windows[]?
+  | select(.percentRemaining != null)
+  # Model-scoped Codex windows carry the model name; only the plan week is unqualified.
+  | (if .id == "weekly" then "week"
+     elif (.id | endswith(":5h")) then "Spark session"
+     elif (.id | endswith(":7d")) then "Spark week"
+     else empty end) as $w
+  | ["Codex", $w, (.percentRemaining | tostring), reset_in(.resetsAt)]
+  | @tsv' 2>/dev/null || true)
 
 # Only live personal source; u.fh/u.sd are percent USED and it records no Fable field.
 PU="$HOME/Library/Application Support/Claude/plan-usage-history.json"
@@ -58,13 +70,13 @@ personal=$(jq -r '
     "Claude personal\tweek\t\(100 - (.u.sd // 0))\t",
     "Claude personal\tFable week\t-\t"' "$PU" 2>/dev/null || true)
 
-all=$(printf '%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
+all=$(printf '%s\n%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$codex_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
 
 # Throttled providers keep last-known rows marked stale rather than vanishing; only Claude/Copilot carry over, so dropped ones age out instead of lingering.
 if [ -n "$all" ] && [ -s "$CACHE" ]; then
   all=$(awk -F'\t' -v OFS='\t' '
     FNR == NR { seen[$1] = 1; print; next }
-    !($1 in seen) && ($1 ~ /^Claude/ || $1 == "GitHub Copilot") { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
+    !($1 in seen) && ($1 ~ /^Claude/ || $1 == "GitHub Copilot" || $1 == "Codex") { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
 fi
 
 if [ -z "$all" ]; then
@@ -96,6 +108,7 @@ all=$(printf '%s\n' "$all" | while IFS=$'\t' read -r prov win pct reset; do
   [ -n "$captured" ] && reset="$captured"
   printf '%s\t%s\t%s\t%s\n' "$prov" "$win" "$pct" "$reset"
 done)
+all=$(printf '%s\n' "$all" | sort -t"$(printf '\t')" -k1,1 -s)
 printf '%s\n' "$all" >"$CACHE"
 
 # A `-` row is uncertainty, not headroom, so it never sets the floor.
