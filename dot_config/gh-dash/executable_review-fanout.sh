@@ -61,7 +61,7 @@ Model attribution for models[] - use these, not the slot names:$RAN"
   MERGE_BRIEF="
 
 Two independent reviews of this PR were produced BEFORE this session and sealed on disk: ${sealed}.
-Each file is {\"model\":..., \"findings\":[{file,line,side,severity,kind,summary,detail,comment}]} - already the page's schema.
+Each file is {\"model\":..., \"findings\":[{file,line,side,severity,kind,summary,detail:{issue,why,fix,tradeoff,snippets:[{label,file,code}],evidence:[]},comment}]} - already the page's schema.
 
 Your job is to MERGE them, not to review from scratch:
 - Same file+line raised by BOTH models: keep it.
@@ -69,7 +69,9 @@ Your job is to MERGE them, not to review from scratch:
 - The two DISAGREE about the same code: render it as severity question rather than dropping either side, and write both positions out in detail.
 Never drop a finding silently.
 Every merged finding carries models[], naming which finders raised it: both slugs when they agree, one when only that model reached it.
-models[] IS the attribution and the page renders it as a pill, so never restate it in prose - no \"raised by X alone\" or \"both models reached it\" openers. detail carries only what the finding itself argues.${RAN}${MISSING}"
+models[] IS the attribution and the page renders it as a pill, so never restate it in prose - no \"raised by X alone\" or \"both models reached it\" openers.
+detail stays structured and under 140 prose words: issue, why, and fix are one or two sentences, tradeoff is one explicit sentence, and at most two snippets hold only exact code that cannot stay out of prose.
+After the required E2E pass, add at most three evidence items that reference exact check names and say whether each check supports, contradicts, limits, or is required by the finding; never invent a check.${RAN}${MISSING}"
 fi
 
 eval "$($HOME/.local/bin/claude-account env)"

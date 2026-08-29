@@ -161,8 +161,11 @@ write_finder_brief() {
   cat >"$wt/.review/brief-$model.txt" <<EOF
 Review PR $pr in this worktree. Work alone: do NOT read .review/findings-*.json from any other model.
 Do NOT post to GitHub, do NOT build a Lavish page, do NOT write data.js.
-Write ONLY .review/findings-$model.json, shaped {"model":"$model","findings":[{file,line,side,severity,kind,summary,detail,comment}]},
+Write ONLY .review/findings-$model.json, shaped {"model":"$model","findings":[{file,line,side,severity,kind,summary,detail:{issue,why,fix,tradeoff,snippets:[{label,file,code}],evidence:[]},comment}]},
 severity one of blocker|important|minor|question, kind one of breaking|bug|refactor|perf|test|style|docs|wording.
+Keep issue, why, and fix to one or two sentences each, tradeoff to one sentence, and all four under 140 words total.
+Tradeoff says "None identified." when empty; use at most two snippets and keep code out of the prose fields.
+Leave evidence empty because the page owner runs and links the final E2E checks after this finder completes.
 When that file is complete and valid JSON, create .review/$model.done as the last action.
 EOF
 }
