@@ -13,7 +13,7 @@ local calendar = sbar.add("item", constants.items.CALENDAR, {
 calendar:subscribe({ "forced", "routine", "system_woke" }, function(env)
 	calendar:set({
 		label = {
-			string = os.date("%a %H:%M"),
+			string = os.date("%a %d %b, %H:%M"),
 			color = settings.colors.green,
 		},
 	})
