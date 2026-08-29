@@ -61,6 +61,18 @@
         "preserveColors": true
       },
       {
+        "id": "harness",
+        "type": "custom-text",
+        "customText": "claude",
+        "color": "hex:536571"
+      },
+      {
+        "id": "harnessDot",
+        "type": "custom-text",
+        "customText": "·",
+        "color": "hex:536571"
+      },
+      {
         "id": "l5h",
         "type": "custom-text",
         "customText": "5h:",

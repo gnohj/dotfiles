@@ -2396,6 +2396,8 @@ generate_ccstatusline_config() {
   "ctx":        "hex:${gnohj_color14#\#}",
   "sesscost":   "hex:${gnohj_color02#\#}",
   "mocost":     "hex:${gnohj_color13#\#}",
+  "harness":    "hex:${gnohj_color13#\#}",
+  "harnessDot": "hex:${gnohj_color13#\#}",
   "l5h":        "hex:${gnohj_color03#\#}",
   "sessreset":  "hex:${gnohj_color13#\#}",
   "l7d":        "hex:${gnohj_color03#\#}",
