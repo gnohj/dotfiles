@@ -148,4 +148,5 @@ keybind = ctrl+physical:zero=text:\x01\x30
 # background-blur = true
 
 background-opacity = 0.875
+background-opacity-cells = true
 # background-opacity = 1.0
