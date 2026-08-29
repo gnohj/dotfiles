@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# Agent-idle notifier + rctrl-' marker (Claude `Stop` hook). uname-branched: Mac fires the banner locally; Linux writes the marker then reverse-SSHes the banner to the Mac (Track A). Marker written FIRST so rctrl-' works even when the banner can't be delivered.
-
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
+
+[ -n "${HERDR_SOCKET_PATH:-}" ] && exit 0
 
 # Log every invocation with caller info so we can spot rogue triggers.
 LOG_DIR="$HOME/.logs"
@@ -14,16 +14,8 @@ mkdir -p "$LOG_DIR"
   echo "  cwd: $PWD"
 } >> "$LOG_DIR/notify-idle.log" 2>&1
 
-# Session + pane from whichever multiplexer hosts this agent; herdr's workspace is the session.
-if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
-  SESSION="$("${HERDR_BIN_PATH:-herdr}" workspace get "${HERDR_WORKSPACE_ID:-}" 2>/dev/null \
-    | jq -r '.result.workspace.label // empty' 2>/dev/null | sed 's/^[^[:alnum:]]*//')"
-  PANE_ID="${HERDR_PANE_ID:-}"
-else
-  SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
-  # Stable pane id (%N) of the agent's own pane (the Stop hook inherits TMUX_PANE), so rctrl-' lands on the exact pane even when a session hosts several agents.
-  PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
-fi
+SESSION="${TMUX:+$(tmux display-message -p '#S' 2>/dev/null)}"
+PANE_ID="${TMUX:+$(tmux display-message -p '#{pane_id}' 2>/dev/null)}"
 BRANCH="$(git -C "$PWD" branch --show-current 2>/dev/null)"
 
 # Only notify inside the normal multiplexer+git workflow; otherwise it's noise.
@@ -34,10 +26,7 @@ fi
 # Marker for rctrl-' — written FIRST and on every OS, so the jump works even if the banner delivery below fails.
 echo "${PANE_ID:-$SESSION}" > /tmp/notify-idle.latest 2>/dev/null || true
 
-# Terminal hosting the session (for the banner icon). Inside tmux use client_termtype, not $TERM (the server keeps the first client's TERM forever). herdr has no client-termtype concept, so $TERM is already the right answer there.
-TERM_ID=""
-[ -z "${HERDR_SOCKET_PATH:-}" ] && [ -n "$SESSION" ] &&
-  TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
+TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
 TERM_ID="${TERM_ID:-${TERM:-}}"
 
 # Which agent fired the hook — walk up the process tree (claude = direct child; opencode = zx-shell grandparent).
