@@ -334,12 +334,18 @@ in
     };
   };
 
-  # Teams resubmits a respawn watchdog each launch that relaunches the app on any signal death, making force-kills look like crashes.
+  # Vendor jobs disabled here stay disabled even when their applications recreate the plist.
   system.activationScripts.postActivation.text = lib.mkAfter ''
+    primaryUid=$(id -u ${lib.escapeShellArg config.system.primaryUser})
+
     echo "🚫 Refusing the Microsoft Teams respawn watchdog..." >&2
-    teamsUid=$(id -u ${config.system.primaryUser})
-    launchctl disable "gui/$teamsUid/com.microsoft.teams2.respawn" || true
-    # disable only refuses future loads; evict a live watchdog or it relaunches the app once more.
-    launchctl bootout "gui/$teamsUid/com.microsoft.teams2.respawn" 2>/dev/null || true
+    launchctl disable "gui/$primaryUid/com.microsoft.teams2.respawn" || true
+    launchctl bootout "gui/$primaryUid/com.microsoft.teams2.respawn" 2>/dev/null || true
+
+    echo "🚫 Disabling Google and Microsoft update schedulers..." >&2
+    for label in com.google.GoogleUpdater.wake com.microsoft.update.agent; do
+      launchctl disable "gui/$primaryUid/$label" || true
+      launchctl bootout "gui/$primaryUid/$label" 2>/dev/null || true
+    done
   '';
 }
