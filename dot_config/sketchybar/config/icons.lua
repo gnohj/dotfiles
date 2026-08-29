@@ -292,6 +292,7 @@ local text <const> = {
 		apple = "",
 		gear = "",
 		cpu = "",
+		clock = "󰥔",
 		clipboard = "󰅇",
 		switch = {
 			-- nf-md-toggle_switch: the vertical-pill pair these used to hold reads as a battery, not a toggle.

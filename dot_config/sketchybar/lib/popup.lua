@@ -60,10 +60,6 @@ function M.build(parent, removePattern, rows, open)
 	if removePattern then
 		args[#args + 1] = "--remove " .. shq(removePattern)
 	end
-	-- Opened separately, sketchybar lays the popup out while empty and never re-lays it out: a blank panel.
-	if open then
-		args[#args + 1] = "--set " .. parent .. " popup.drawing=on"
-	end
 	for _, row in ipairs(rows) do
 		args[#args + 1] = "--add item " .. row.name .. " popup." .. parent
 		args[#args + 1] = "--set " .. row.name
@@ -72,6 +68,10 @@ function M.build(parent, removePattern, rows, open)
 		if row.click_script ~= nil and row.click_script ~= "" then
 			args[#args + 1] = "click_script=" .. shq(row.click_script)
 		end
+	end
+	-- SketchyBar measures the popup at this command, so every row must already exist.
+	if open then
+		args[#args + 1] = "--set " .. parent .. " popup.drawing=on"
 	end
 	sbar.exec(table.concat(args, " "))
 end

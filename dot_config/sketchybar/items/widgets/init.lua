@@ -11,6 +11,7 @@ require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.volume")
 require("items.widgets.mic")
+require("items.widgets.schedules")
 require("items.widgets.agent_quota") -- Claude (work + personal), Codex, Copilot quota headroom
 require("items.widgets.errors_notification") -- Unified errors: service-log errors + orphan processes
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
