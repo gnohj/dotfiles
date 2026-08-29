@@ -14,6 +14,7 @@ OWNERS="
 widgets.wifi
 widgets.bluetooth
 widgets.battery
+widgets.schedules
 widgets.volume.bracket
 mic
 agent_quota

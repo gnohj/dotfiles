@@ -31,6 +31,7 @@ local items <const> = {
 	MAS_NOTIFICATION = "widgets.mas_notification",
 	BATTERY = "widgets.battery",
 	CALENDAR = "widgets.calendar",
+	SCHEDULES = "widgets.schedules",
 }
 
 -- aerospace CLI commands removed - now using AeroSpaceLua socket connection
