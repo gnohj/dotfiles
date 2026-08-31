@@ -28,18 +28,14 @@ local header = sbar.add("item", constants.items.BLUETOOTH .. ".header", {
 	icon = {
 		align = "left",
 		string = settings.icons.text.bluetooth.on .. "  Bluetooth",
-		width = popupWidth * 0.7,
+		width = popupWidth - 52,
+		padding_left = 12,
+		padding_right = 0,
 		color = settings.colors.blue,
 		font = { style = settings.fonts.styles.bold },
 	},
-	label = {
-		align = "right",
-		string = settings.icons.text.switch.off,
-		width = popupWidth * 0.3,
-		color = settings.colors.grey,
-		font = { size = 18 },
-	},
-	click_script = scriptPath .. " toggle",
+	label = popup.close_label(),
+	click_script = popup.close_script(bluetooth.name),
 })
 
 local minorTypeIcons <const> = {
@@ -64,11 +60,12 @@ local opening = false
 local removePattern = nil
 local generation = 0
 local rowCount = 0
+local pending = {}
 
 local function addRow(options)
-	local row = sbar.add("item", constants.items.BLUETOOTH .. ".r" .. generation .. "." .. rowCount, options)
+	options.name = constants.items.BLUETOOTH .. ".r" .. generation .. "." .. rowCount
+	pending[#pending + 1] = options
 	rowCount = rowCount + 1
-	return row
 end
 
 -- The remove rides in the same invocation as the adds, so nothing is torn down mid-layout.
@@ -197,10 +194,23 @@ local function applyPopup(state)
 			string = (on and settings.icons.text.bluetooth.on or settings.icons.text.bluetooth.off) .. "  Bluetooth",
 			color = on and settings.colors.blue or settings.colors.grey,
 		},
-		label = {
-			string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
-			color = on and settings.colors.green or settings.colors.grey,
+	})
+	addRow({
+		position = "popup." .. bluetooth.name,
+		icon = {
+			align = "left",
+			string = "Bluetooth power",
+			width = popupWidth * 0.8,
+			color = on and settings.colors.dirty_white or settings.colors.grey,
 		},
+		label = {
+			align = "right",
+			string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
+			width = popupWidth * 0.2,
+			color = on and settings.colors.green or settings.colors.grey,
+			font = { size = 18 },
+		},
+		click_script = scriptPath .. " toggle",
 	})
 
 	for _, kind in ipairs({ "connected", "paired", "available" }) do
@@ -253,14 +263,11 @@ local function toggleDetails(env)
 		return
 	end
 
-	if bluetooth:query().popup.drawing == "off" then
+	popup.toggle(bluetooth, function()
 		opening = true
 		popup.close_others(bluetooth.name)
 		refreshPopup()
-	else
-		-- Rows are left in place: reopening with unchanged content then costs no layout churn at all.
-		bluetooth:set({ popup = { drawing = false } })
-	end
+	end)
 end
 
 bluetooth:subscribe({ "forced", "routine", "system_woke" }, refreshIcon)

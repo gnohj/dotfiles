@@ -37,20 +37,33 @@ local function levelColor(level, muted)
 	return settings.colors.green
 end
 
--- Header mirrors the bluetooth/wifi panels: device name on the left, a real mute toggle on the right.
 local volumeHeader = sbar.add("item", constants.items.VOLUME .. ".header", {
 	position = "popup." .. volumeBracket.name,
 	icon = {
 		align = "left",
 		string = settings.icons.text.volume._100 .. "  Output",
-		width = popupWidth * 0.7,
+		width = popupWidth - 52,
+		padding_left = 12,
+		padding_right = 0,
 		color = settings.colors.blue,
 		font = { style = settings.fonts.styles.bold },
+	},
+	label = popup.close_label(),
+	click_script = popup.close_script(volumeBracket.name),
+})
+
+local volumeToggle = sbar.add("item", constants.items.VOLUME .. ".toggle", {
+	position = "popup." .. volumeBracket.name,
+	icon = {
+		align = "left",
+		string = "Output enabled",
+		width = popupWidth * 0.8,
+		color = settings.colors.dirty_white,
 	},
 	label = {
 		align = "right",
 		string = settings.icons.text.switch.on,
-		width = popupWidth * 0.3,
+		width = popupWidth * 0.2,
 		color = settings.colors.green,
 		font = { size = 18 },
 	},
@@ -68,6 +81,9 @@ local function updateHeader()
 				string = (on and settings.icons.text.volume._100 or settings.icons.text.volume._0) .. "  Output",
 				color = on and settings.colors.blue or settings.colors.grey,
 			},
+		})
+		volumeToggle:set({
+			icon = { color = on and settings.colors.dirty_white or settings.colors.grey },
 			label = {
 				string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
 				color = on and settings.colors.green or settings.colors.grey,
@@ -134,10 +150,6 @@ volumeValue:subscribe("volume_change", function(env)
 end)
 
 local function hideVolumeDetails()
-	local drawing = volumeBracket:query().popup.drawing == "on"
-	if not drawing then
-		return
-	end
 	volumeBracket:set({ popup = { drawing = false } })
 	sbar.remove("/" .. constants.items.VOLUME .. ".device\\.*/")
 end
@@ -149,8 +161,7 @@ local function toggleVolumeDetails(env)
 		return
 	end
 
-	local shouldDraw = volumeBracket:query().popup.drawing == "off"
-	if shouldDraw then
+	popup.toggle(volumeBracket, function()
 		popup.open_exclusive(volumeBracket.name)
 		updateHeader()
 		sbar.exec("SwitchAudioSource -t output -c", function(result)
@@ -180,9 +191,7 @@ local function toggleVolumeDetails(env)
 				end
 			end)
 		end)
-	else
-		hideVolumeDetails()
-	end
+	end, hideVolumeDetails)
 end
 
 local function changeVolume(env)

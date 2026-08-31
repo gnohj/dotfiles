@@ -13,17 +13,14 @@ function M.attach(item, opts)
 		icon = {
 			align = "left",
 			string = opts.icon .. "  " .. opts.title,
-			width = popupWidth * 0.6,
+			width = popupWidth - 52,
+			padding_left = 12,
+			padding_right = 0,
 			color = settings.colors.blue,
 			font = { style = settings.fonts.styles.bold },
 		},
-		label = {
-			align = "right",
-			string = "",
-			width = popupWidth * 0.4,
-			color = settings.colors.green,
-			font = { style = settings.fonts.styles.bold },
-		},
+		label = popup.close_label(),
+		click_script = popup.close_script(item.name),
 	})
 
 	local rowCount, generation, removePattern, pending = 0, 0, nil, {}
@@ -77,8 +74,9 @@ function M.attach(item, opts)
 		opening = false
 	end
 
-	local function refresh()
-		header:set({ label = { string = (item:query().label.value or ""):gsub("%s+$", "") } })
+	local function refresh(state)
+		local value = type(state.label) == "table" and state.label.value or ""
+		header:set({ icon = { string = opts.icon .. "  " .. opts.title .. "  " .. value:gsub("%s+$", "") } })
 		sbar.exec(scriptPath .. " " .. opts.mode, render)
 	end
 
@@ -86,13 +84,11 @@ function M.attach(item, opts)
 		if env.BUTTON == "right" then
 			return
 		end
-		if item:query().popup.drawing == "off" then
+		popup.toggle(item, function(state)
 			opening = true
 			popup.close_others(item.name)
-			refresh()
-		else
-			item:set({ popup = { drawing = false } })
-		end
+			refresh(state)
+		end)
 	end)
 end
 

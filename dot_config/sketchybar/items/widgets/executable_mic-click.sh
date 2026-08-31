@@ -21,15 +21,14 @@ render_panel() {
   volume="$(osascript -e 'input volume of (get volume settings)')"
   case "$volume" in '' | *[!0-9]*) volume=0 ;; esac
 
-  local args=(--remove '/mic\.pop\..*/')
-  # Resolved, not toggled: opening must close every other popup in the same invocation to hold order.
+  local args=(--remove '/mic\.pop\..*/') open=0
   if [ "$mode" = toggle ]; then
     if [ "$(sketchybar --query "$NAME" | jq -r '.popup.drawing')" = "on" ]; then
-      args+=(--set "$NAME" popup.drawing=off)
-    else
-      "$WIDGETS/popup-close-others.sh" "$NAME"
-      args+=(--set "$NAME" popup.drawing=on)
+      sketchybar --set "$NAME" popup.drawing=off
+      return
     fi
+    "$WIDGETS/popup-close-others.sh" "$NAME"
+    open=1
   fi
 
   local on=off
@@ -37,10 +36,16 @@ render_panel() {
   args+=(--add item mic.pop.header popup."$NAME"
     --set mic.pop.header
     icon="$([ "$on" = on ] && printf '\xef\x84\xb0' || printf '\xef\x84\xb1')  Input"
-    icon.align=left icon.width=$((POPUP_WIDTH * 7 / 10))
+    icon.align=left icon.width=$((POPUP_WIDTH - 52)) icon.padding_left=12 icon.padding_right=0
     icon.color="$([ "$on" = on ] && echo "$ICON_BLUE" || echo "$GREY")" icon.font.style=Bold
+    label="×" label.align=center label.width=40 label.padding_left=0 label.padding_right=0 label.font.size=22 label.color="$RED"
+    click_script="sketchybar --set $NAME popup.drawing=off")
+
+  args+=(--add item mic.pop.toggle popup."$NAME"
+    --set mic.pop.toggle icon="Input enabled" icon.align=left icon.width=$((POPUP_WIDTH * 8 / 10))
+    icon.color="$([ "$on" = on ] && echo "$WHITE" || echo "$GREY")"
     label="$([ "$on" = on ] && printf '\xf3\xb0\x94\xa1' || printf '\xf3\xb0\x94\xa2')"
-    label.align=right label.width=$((POPUP_WIDTH * 3 / 10)) label.font.size=18
+    label.align=right label.width=$((POPUP_WIDTH * 2 / 10)) label.font.size=18
     label.color="$([ "$on" = on ] && echo "$GREEN" || echo "$GREY")"
     click_script="$WIDGETS/mic.sh mute-toggle && NAME=$NAME $WIDGETS/mic-click.sh rebuild")
 
@@ -58,6 +63,7 @@ render_panel() {
     counter=$((counter + 1))
   done <<<"$(SwitchAudioSource -a -t input)"
 
+  [ "$open" = 1 ] && args+=(--set "$NAME" popup.drawing=on)
   sketchybar -m "${args[@]}" >/dev/null
 }
 

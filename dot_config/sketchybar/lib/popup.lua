@@ -1,6 +1,12 @@
+local settings = require("config.settings")
+
 local M = {}
 
 local closeOthers <const> = "~/.config/sketchybar/items/widgets/popup-close-others.sh"
+
+local function shq(s)
+	return "'" .. (tostring(s):gsub("'", "'\\''")) .. "'"
+end
 
 -- The owner list lives in that script alone, shared with the shell click scripts.
 function M.close_others(name)
@@ -12,6 +18,36 @@ function M.open_exclusive(name)
 	sbar.exec(closeOthers .. " " .. name .. " && sketchybar --set " .. name .. " popup.drawing=on")
 end
 
+function M.toggle(item, onOpen, onClose)
+	sbar.exec("sketchybar --query " .. shq(item.name), function(state)
+		local isOpen = type(state) == "table" and state.popup and state.popup.drawing == "on"
+		if isOpen then
+			item:set({ popup = { drawing = false } })
+			if onClose then
+				onClose()
+			end
+		else
+			onOpen(type(state) == "table" and state or {})
+		end
+	end)
+end
+
+function M.close_label()
+	return {
+		align = "center",
+		string = "×",
+		width = 40,
+		padding_left = 0,
+		padding_right = 0,
+		color = settings.colors.red,
+		font = { size = 22, style = settings.fonts.styles.bold },
+	}
+end
+
+function M.close_script(parent)
+	return "sketchybar --set " .. shq(parent) .. " popup.drawing=off"
+end
+
 -- max_chars truncates without an ellipsis, and byte-based cutting would split multibyte apostrophes.
 function M.ellipsize(text, limit)
 	local n = utf8.len(text)
@@ -19,10 +55,6 @@ function M.ellipsize(text, limit)
 		return text
 	end
 	return text:sub(1, utf8.offset(text, limit) - 1) .. "…"
-end
-
-local function shq(s)
-	return "'" .. (tostring(s):gsub("'", "'\\''")) .. "'"
 end
 
 local function props(prefix, t, out)

@@ -9,17 +9,19 @@ local battery = sbar.add("item", constants.items.BATTERY, {
 	update_freq = 60,
 })
 
-local batteryPopup = sbar.add("item", {
+local popupWidth <const> = settings.dimens.graphics.popup.width
+local batteryPopup = sbar.add("item", battery.name .. ".header", {
 	position = "popup." .. battery.name,
-	width = "dynamic",
-	label = {
-		padding_right = settings.dimens.padding.label,
-		padding_left = settings.dimens.padding.label,
-	},
 	icon = {
-		padding_left = 0,
+		align = "left",
+		string = "Battery",
+		width = popupWidth - 52,
+		padding_left = 12,
 		padding_right = 0,
+		color = settings.colors.blue,
 	},
+	label = popup.close_label(),
+	click_script = popup.close_script(battery.name),
 })
 
 battery:subscribe({ "routine", "power_source_change", "system_woke" }, function()
@@ -78,21 +80,14 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 	end)
 end)
 
-battery:subscribe("mouse.clicked", function(env)
-	local drawing = battery:query().popup.drawing
-
-	if drawing == "off" then
+battery:subscribe("mouse.clicked", function()
+	popup.toggle(battery, function()
 		popup.open_exclusive(battery.name)
-	else
-		battery:set({ popup = { drawing = false } })
-	end
-
-	if drawing == "off" then
 		sbar.exec("pmset -g batt", function(batteryInfo)
 			local found, _, remaining = batteryInfo:find("(%d+:%d+) remaining")
 			local label = found and ("Time remaining: " .. remaining .. "h")
 				or (isCharging and "Charging" or "No estimate")
-			batteryPopup:set({ label = label })
+			batteryPopup:set({ icon = { string = label } })
 		end)
-	end
+	end)
 end)
