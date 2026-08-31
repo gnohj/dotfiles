@@ -26,17 +26,14 @@ local header = sbar.add("item", constants.items.SCHEDULES .. ".header", {
 	icon = {
 		align = "left",
 		string = settings.icons.text.clock .. "  Schedules",
-		width = popupWidth * 0.62,
+		width = popupWidth - 52,
+		padding_left = 12,
+		padding_right = 0,
 		color = settings.colors.blue,
 		font = { style = settings.fonts.styles.bold },
 	},
-	label = {
-		align = "right",
-		string = "",
-		width = popupWidth * 0.38,
-		color = settings.colors.green,
-		font = { style = settings.fonts.styles.bold },
-	},
+	label = popup.close_label(),
+	click_script = popup.close_script(schedules.name),
 })
 
 local statusColors <const> = {
@@ -98,9 +95,8 @@ end
 local function render(state)
 	clearRows()
 	header:set({
-		label = {
-			string = state.active .. "/" .. state.total .. " active",
-			color = state.problems > 0 and settings.colors.yellow or settings.colors.green,
+		icon = {
+			string = settings.icons.text.clock .. "  Schedules  " .. state.active .. "/" .. state.total .. " active",
 		},
 	})
 
@@ -160,13 +156,11 @@ local function toggleDetails(env)
 	if env.BUTTON == "right" then
 		return
 	end
-	if schedules:query().popup.drawing == "off" then
+	popup.toggle(schedules, function()
 		opening = true
 		popup.close_others(schedules.name)
 		refresh()
-	else
-		schedules:set({ popup = { drawing = false } })
-	end
+	end)
 end
 
 schedules:subscribe({ "forced", "routine", "system_woke" }, refresh)

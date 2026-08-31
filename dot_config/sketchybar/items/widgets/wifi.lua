@@ -29,18 +29,14 @@ local header = sbar.add("item", constants.items.WIFI .. ".header", {
 	icon = {
 		align = "left",
 		string = settings.icons.text.wifi.connected .. "  Wi-Fi",
-		width = rowWidth * 0.7,
+		width = rowWidth - 52,
+		padding_left = 12,
+		padding_right = 0,
 		color = settings.colors.blue,
 		font = { style = settings.fonts.styles.bold },
 	},
-	label = {
-		align = "right",
-		string = settings.icons.text.switch.off,
-		width = rowWidth * 0.3,
-		color = settings.colors.grey,
-		font = { size = 18 },
-	},
-	click_script = scriptPath .. " toggle",
+	label = popup.close_label(),
+	click_script = popup.close_script(wifi.name),
 })
 
 -- Per-generation row names, as in the bluetooth panel: a remove and the re-add flush together.
@@ -180,10 +176,23 @@ local function applyPopup(state)
 			string = settings.icons.text.wifi.connected .. "  " .. (state.ssid ~= "" and state.ssid or "Wi-Fi"),
 			color = on and settings.colors.blue or settings.colors.grey,
 		},
-		label = {
-			string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
-			color = on and settings.colors.green or settings.colors.grey,
+	})
+	addRow({
+		position = "popup." .. wifi.name,
+		icon = {
+			align = "left",
+			string = "Wi-Fi power",
+			width = rowWidth * 0.8,
+			color = on and settings.colors.dirty_white or settings.colors.grey,
 		},
+		label = {
+			align = "right",
+			string = on and settings.icons.text.switch.on or settings.icons.text.switch.off,
+			width = rowWidth * 0.2,
+			color = on and settings.colors.green or settings.colors.grey,
+			font = { size = 18 },
+		},
+		click_script = scriptPath .. " toggle",
 	})
 
 	for _, stat in ipairs(state.stats) do
@@ -266,14 +275,11 @@ local function toggleDetails(env)
 		return
 	end
 
-	if wifi:query().popup.drawing == "off" then
+	popup.toggle(wifi, function()
 		opening = true
 		popup.close_others(wifi.name)
 		refreshPopup()
-	else
-		-- Rows are left in place: reopening with unchanged content then costs no layout churn at all.
-		wifi:set({ popup = { drawing = false } })
-	end
+	end)
 end
 
 wifi:subscribe({ "wifi_change", "system_woke", "forced", "routine" }, refreshIcon)

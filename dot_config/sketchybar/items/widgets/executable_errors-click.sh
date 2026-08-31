@@ -17,7 +17,7 @@ fi
 
 CLOSE="sketchybar --set $NAME popup.drawing=off --remove /${NAME}.opt\.*/"
 "$HOME/.config/sketchybar/items/widgets/popup-close-others.sh" "$NAME"
-args=(--remove "/${NAME}.opt\.*/" --set "$NAME" popup.drawing=on)
+args=(--remove "/${NAME}.opt\.*/")
 i=0
 add_row() { # label color
   args+=(--add item "${NAME}.opt.$i" popup."$NAME"
@@ -26,8 +26,16 @@ add_row() { # label color
   i=$((i + 1))
 }
 add_header() {
-  args+=(--add item "${NAME}.opt.$i" popup."$NAME"
-    --set "${NAME}.opt.$i" label="$1" label.color="$GREY" label.font="$HEADER_FONT" icon.drawing=off)
+  if [ "$i" -eq 0 ]; then
+    args+=(--add item "${NAME}.opt.$i" popup."$NAME"
+      --set "${NAME}.opt.$i" icon="$1" icon.color="$GREY" icon.font="$HEADER_FONT" icon.width=368 icon.align=left
+      icon.padding_left=12 icon.padding_right=0
+      label="×" label.align=center label.width=40 label.padding_left=0 label.padding_right=0 label.color="$RED" label.font.size=22
+      click_script="$CLOSE")
+  else
+    args+=(--add item "${NAME}.opt.$i" popup."$NAME"
+      --set "${NAME}.opt.$i" label="$1" label.color="$GREY" label.font="$HEADER_FONT" icon.drawing=off)
+  fi
   i=$((i + 1))
 }
 
@@ -66,4 +74,5 @@ else
   emit_zombies
 fi
 
+args+=(--set "$NAME" popup.drawing=on)
 sketchybar -m "${args[@]}" >/dev/null
