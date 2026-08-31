@@ -20,9 +20,8 @@ PLIST_LOCATIONS = (
 SECTION_ORDER = {
     "NIX · LAUNCHD": 0,
     "USER · LAUNCHD": 1,
-    "APP · LAUNCHD": 2,
-    "CLAUDE · COWORK": 3,
-    "MACOS · CRON": 4,
+    "CLAUDE · COWORK": 2,
+    "MACOS · CRON": 3,
 }
 KNOWN_NAMES = {
     "org.nixos.claude-cost-refresh": "Claude cost refresh",
@@ -33,13 +32,6 @@ KNOWN_NAMES = {
     "org.nixos.usage-sampler": "Usage sampler",
     "org.nixos.nix-gc": "Nix garbage collection",
     "org.nixos.nix-optimise": "Nix store optimise",
-    "org.git-scm.git.daily": "Git maintenance daily",
-    "org.git-scm.git.hourly": "Git maintenance hourly",
-    "org.git-scm.git.weekly": "Git maintenance weekly",
-    "com.google.GoogleUpdater.wake": "Google updater",
-    "com.microsoft.update.agent": "Microsoft updater",
-    "com.microsoft.EdgeUpdater.wake.system": "Edge updater",
-    "us.zoom.updater": "Zoom updater",
 }
 
 
@@ -81,7 +73,7 @@ def section_for(label, path):
         return "NIX · LAUNCHD"
     if path.parent == HOME / "Library/LaunchAgents" and label.startswith("com.gnohj."):
         return "USER · LAUNCHD"
-    return "APP · LAUNCHD"
+    return None
 
 
 def disabled_labels(domain):
@@ -200,6 +192,9 @@ def plist_jobs(now, cache):
             if not interval and not calendar:
                 continue
             label = str(plist.get("Label") or path.stem)
+            section = section_for(label, path)
+            if section is None:
+                continue
             state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain])
             if state["status"] in {"disabled", "unloaded", "failed", "running"}:
                 remaining = state["status"]
@@ -211,7 +206,7 @@ def plist_jobs(now, cache):
             jobs.append(
                 {
                     "name": friendly_name(label),
-                    "section": section_for(label, path),
+                    "section": section,
                     "status": state["status"],
                     "remaining": remaining,
                     "active": state["active"],
