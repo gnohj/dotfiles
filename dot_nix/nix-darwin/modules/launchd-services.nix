@@ -56,6 +56,27 @@ in
       };
     };
 
+    gh-auto-review = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/gh-auto-review
+            exec ${pkgs.bash}/bin/bash ${homeDir}/.config/gh-dash/auto-review.sh
+          ''
+        ];
+        StartInterval = 3600;
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = daemonPath;
+          LANG = "en_US.UTF-8";
+        };
+        StandardOutPath = "${homeDir}/.logs/gh-auto-review/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/gh-auto-review/launchagent.err.log";
+      };
+    };
+
     # SKHD - Hotkey daemon for window management (used with AeroSpace)
     # Uses wrapper script that waits for secure keyboard entry to clear
     skhd = {

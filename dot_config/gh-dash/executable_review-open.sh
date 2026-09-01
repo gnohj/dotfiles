@@ -29,6 +29,8 @@ mode="${1:?review-open: missing <mode>}"
 pr="${2:?review-open: missing <pr-number>}"
 repo="${3:?review-open: missing <repo-name>}"
 repo_path="${4:?review-open: missing <repo-path>}"
+case "$pr" in '' | *[!0-9]*) echo "review-open: PR must be numeric" >&2; exit 2 ;; esac
+[[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "review-open: invalid repository" >&2; exit 2; }
 
 # Detached from gh-dash's terminal, so send our own output to a log and surface
 # failures (e.g. treehouse pool exhausted) as a multiplexer message instead of
@@ -147,7 +149,7 @@ open_claude_hunk() {
 open_claude_review() {
   local cmd="${2:-review}"
   mux "🤖 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; claude --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
+    'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
@@ -204,9 +206,16 @@ open_fanout_owner() {
   mux "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
+background_review() {
+  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1)
+  if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
+    window_opts+=(--env LAVISH_DESKTOP_MODE=print --env AUTO_REVIEW=1)
+  fi
+}
+
 case "$mode" in
   full)
-    window_opts=(--no-focus)
+    background_review
     WT="$("$wt_script" acquire "$pr")"
     BASE="$(base_ref)"
     HEAD="$(head_ref)"
@@ -216,8 +225,18 @@ case "$mode" in
     open_octo "$WT" 1
     open_claude_review "$WT" review-lavish
     ;;
+  resume)
+    background_review
+    WT="$("$wt_script" acquire "$pr")"
+    BASE="$(base_ref)"
+    HEAD="$(head_ref)"
+    git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
+    git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
+    open_claude_review "$WT" review-lavish
+    ;;
   fan)
-    window_opts=(--no-focus)
+    background_review
     WT="$("$wt_script" acquire "$pr")"
     BASE="$(base_ref)"
     HEAD="$(head_ref)"
