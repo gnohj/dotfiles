@@ -18,16 +18,22 @@ function M.open_exclusive(name)
 	sbar.exec(closeOthers .. " " .. name .. " && sketchybar --set " .. name .. " popup.drawing=on")
 end
 
-function M.toggle(item, onOpen, onClose)
+function M.query(item, callback)
 	sbar.exec("sketchybar --query " .. shq(item.name), function(state)
-		local isOpen = type(state) == "table" and state.popup and state.popup.drawing == "on"
+		local value = type(state) == "table" and state or {}
+		callback(value.popup and value.popup.drawing == "on", value)
+	end)
+end
+
+function M.toggle(item, onOpen, onClose)
+	M.query(item, function(isOpen, state)
 		if isOpen then
 			item:set({ popup = { drawing = false } })
 			if onClose then
 				onClose()
 			end
 		else
-			onOpen(type(state) == "table" and state or {})
+			onOpen(state)
 		end
 	end)
 end

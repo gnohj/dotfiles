@@ -6,6 +6,7 @@ local events <const> = {
 	UPDATE_WINDOWS = "update_windows",
 	SEND_MESSAGE = "send_message",
 	HIDE_MESSAGE = "hide_message",
+	SCHEDULES_TOGGLE = "schedules_toggle",
 }
 
 local items <const> = {

@@ -26,6 +26,7 @@ SECTION_ORDER = {
 KNOWN_NAMES = {
     "org.nixos.claude-cost-refresh": "Claude cost refresh",
     "org.nixos.github-auto-push": "GitHub auto push",
+    "org.nixos.gh-auto-review": "Automatic PR reviews",
     "org.nixos.log-cleanup": "Log cleanup",
     "org.nixos.sb-audit-reminder": "Vault audit reminder",
     "org.nixos.sketchybar-watchdog": "SketchyBar watchdog",
@@ -163,11 +164,9 @@ def interval_remaining(label, interval, runs, now, cache):
     jobs = cache.setdefault("jobs", {})
     previous = jobs.get(label, {})
     last_seen = previous.get("last_seen")
-    if previous and runs is not None and previous.get("runs") != runs:
+    if last_seen is None or (previous and runs is not None and previous.get("runs") != runs):
         last_seen = now.timestamp()
     jobs[label] = {"runs": runs, "last_seen": last_seen}
-    if last_seen is None:
-        return f"every {human_duration(interval)}"
     elapsed = max(0, now.timestamp() - last_seen)
     remaining = interval - (elapsed % interval)
     return human_duration(remaining)
@@ -196,6 +195,7 @@ def plist_jobs(now, cache):
             if section is None:
                 continue
             state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain])
+            runnable = domain.startswith("gui/") and state["active"]
             if state["status"] in {"disabled", "unloaded", "failed", "running"}:
                 remaining = state["status"]
             elif interval:
@@ -211,6 +211,8 @@ def plist_jobs(now, cache):
                     "remaining": remaining,
                     "active": state["active"],
                     "problem": state["problem"],
+                    "run_kind": "launchd" if runnable else "",
+                    "run_target": f"{domain}/{label}" if runnable else "",
                 }
             )
     return jobs
@@ -388,7 +390,14 @@ def main():
             current_section = job["section"]
             count = sum(candidate["section"] == current_section for candidate in jobs)
             emit("section", current_section, count)
-        emit("job", job["name"], job["remaining"], job["status"])
+        emit(
+            "job",
+            job["name"],
+            job["remaining"],
+            job["status"],
+            job.get("run_kind", ""),
+            job.get("run_target", ""),
+        )
 
 
 if __name__ == "__main__":

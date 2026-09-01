@@ -5,6 +5,8 @@ local settings = require("config.settings")
 local popupWidth <const> = 360
 local scriptPath <const> = "~/.config/sketchybar/items/widgets/schedules-panel.py"
 
+sbar.add("event", constants.events.SCHEDULES_TOGGLE)
+
 local schedules = sbar.add("item", constants.items.SCHEDULES, {
 	position = "right",
 	display = "active",
@@ -148,7 +150,13 @@ local function refresh()
 		updateIcon(state)
 		if opening then
 			render(state)
+			return
 		end
+		popup.query(schedules, function(isOpen)
+			if isOpen then
+				render(state)
+			end
+		end)
 	end)
 end
 
@@ -165,3 +173,4 @@ end
 
 schedules:subscribe({ "forced", "routine", "system_woke" }, refresh)
 schedules:subscribe("mouse.clicked", toggleDetails)
+schedules:subscribe(constants.events.SCHEDULES_TOGGLE, toggleDetails)
