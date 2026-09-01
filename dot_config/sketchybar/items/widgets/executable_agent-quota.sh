@@ -80,8 +80,9 @@ if [ -n "$all" ] && [ -s "$CACHE" ]; then
 fi
 
 if [ -z "$all" ]; then
-  sketchybar -m --set agent_quota icon.color="$GREY"
   : >"$CACHE"
+  [ "${AGENT_QUOTA_OUTPUT_ONLY:-}" = 1 ] && exit 0
+  sketchybar -m --set agent_quota icon.color="$GREY"
   exit 0
 fi
 
@@ -110,6 +111,10 @@ all=$(printf '%s\n' "$all" | while IFS=$'\t' read -r prov win pct reset; do
 done)
 all=$(printf '%s\n' "$all" | sort -t"$(printf '\t')" -k1,1 -s)
 printf '%s\n' "$all" >"$CACHE"
+if [ "${AGENT_QUOTA_OUTPUT_ONLY:-}" = 1 ]; then
+  printf '%s\n' "$all"
+  exit 0
+fi
 
 # A `-` row is uncertainty, not headroom, so it never sets the floor.
 low=$(printf '%s\n' "$all" | awk -F'\t' '$3 ~ /^[0-9]+$/ { if (m == "" || $3 < m) m = $3 } END { print (m == "" ? -1 : m) }')

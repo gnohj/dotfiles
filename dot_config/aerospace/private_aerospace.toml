@@ -142,6 +142,10 @@ run = "move-node-to-workspace X"
 
 # Float-only, no workspace move: aerospace carries even floats across workspaces, overwriting the frame VLC restores for itself.
 [[on-window-detected]]
+if.app-id = 'com.kunchenguid.baby-menu'
+run = ['layout floating']
+
+[[on-window-detected]]
 if.app-id = 'org.videolan.vlc'
 run = ['layout floating']
 

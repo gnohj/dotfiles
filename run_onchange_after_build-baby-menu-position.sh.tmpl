@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# baby-menu-position.swift: {{ include "dot_local/share/baby-menu/baby-menu-position.swift" | sha256sum }}
+
+set -euo pipefail
+
+[ "$(uname -s)" = Darwin ] || exit 0
+source_file="$HOME/.local/share/baby-menu/baby-menu-position.swift"
+target_file="$HOME/.local/bin/baby-menu-position"
+temporary_file="${target_file}.tmp.$$"
+trap 'rm -f "$temporary_file"' EXIT
+/usr/bin/xcrun swiftc -O "$source_file" -o "$temporary_file"
+/bin/chmod 755 "$temporary_file"
+/bin/mv "$temporary_file" "$target_file"
