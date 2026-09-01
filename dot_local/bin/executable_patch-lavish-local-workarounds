@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(mise where npm:lavish-axi 2>/dev/null) || exit 0
+package="$root/lib/node_modules/lavish-axi"
+files=(
+  "$root/bin/lavish-axi"
+  "$package/dist/cli.mjs"
+  "$package/dist/chrome-client.js"
+)
+
+python3 - "${files[@]}" <<'PY'
+from pathlib import Path
+import sys
+
+middleware_original = 'if (hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_resume = 'const libraryResume = req.method === "POST" && /^\\/api\\/[a-f0-9]{16}\\/resume-review$/.test(req.path) && req.get("origin") === "null";\n    if (!libraryResume && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_remove = 'const libraryAction = req.method === "POST" && /^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file)$/.test(req.path) && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_key_actions = 'const libraryAction = req.method === "POST" && /^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_favorite = 'const libraryAction = req.method === "POST" && (/^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) || /^\\/api\\/library\\/[a-f0-9]{12}\\/favorite$/.test(req.path) || req.path === "/api/teardown-archived") && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_bulk = 'const libraryAction = req.method === "POST" && (/^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) || req.path === "/api/teardown-archived") && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+middleware_actions = 'const libraryAction = req.method === "POST" && (/^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) || req.path === "/api/teardown-archived" || req.path === "/api/refresh-library") && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
+session_route = '  app.post("/api/sessions", async (req, res, next) => {'
+connection_routes = r'''  app.get("/api/review-connections", async (_req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const processTable = spawnSync("ps", ["-axo", "command="], { encoding: "utf8" }).stdout || "";
+      const connections = {};
+      for (const session of await store.listSessions()) {
+        const match = session.file.match(/\/gh-review-lavish\/([0-9]+)\/review\.html$/);
+        const presence = computePresence(session.key, activePolls, deliveredFeedback);
+        const reviewProcessActive = match && processTable.includes(`/review-lavish ${match[1]}`);
+        connections[session.key] = presence === "listening" ? "listening" : reviewProcessActive ? presence === "working" ? "working" : "starting" : "disconnected";
+      }
+      res.json({ connections });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post("/api/:key/resume-review", async (req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const session = await store.findByKey(req.params.key);
+      const match = session?.file?.match(/\/gh-review-lavish\/([0-9]+)\/review\.html$/);
+      if (!session || !match || session.status !== "open" || !existsSync3(session.file)) {
+        res.status(409).json({ state: "unavailable" });
+        return;
+      }
+      const presence = computePresence(session.key, activePolls, deliveredFeedback);
+      if (presence !== "waiting") {
+        res.json({ state: presence });
+        return;
+      }
+      const processTable = spawnSync("ps", ["-axo", "command="], { encoding: "utf8" }).stdout || "";
+      if (processTable.includes(`/review-lavish ${match[1]}`)) {
+        res.status(202).json({ state: "starting" });
+        return;
+      }
+      const helper = path8.join(os3.homedir(), ".local/bin/review-lavish-resume");
+      if (!existsSync3(helper)) {
+        res.status(503).json({ state: "unavailable" });
+        return;
+      }
+      const child = spawn(helper, [match[1]], { detached: true, stdio: "ignore", env: { ...process.env } });
+      child.on("error", (error) => logEvent?.(`review resume failed key=${session.key} error=${error.message}`));
+      child.unref();
+      logEvent?.(`review resume started key=${session.key} pr=${match[1]}`);
+      res.status(202).json({ state: "starting" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+refresh_route = r'''  app.post("/api/refresh-library", async (_req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const script = path8.join(os3.homedir(), "Developer/agents/shared/skills/lavish-library/library.py");
+      if (!existsSync3(script)) {
+        res.status(503).json({ state: "unavailable" });
+        return;
+      }
+      const result = spawnSync("python3", [script, "refresh"], { encoding: "utf8", timeout: 30000, env: { ...process.env } });
+      if (result.status !== 0) {
+        res.status(409).json({ state: "refused", error: String(result.stderr || "").trim().slice(0, 500) });
+        return;
+      }
+      res.json({ state: "refreshed" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+favorite_route = r'''  app.post("/api/library/:id/favorite", async (req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const value = String(req.query.value || "");
+      if (!/^[a-f0-9]{12}$/.test(req.params.id) || !/^[01]$/.test(value)) {
+        res.status(400).json({ state: "invalid" });
+        return;
+      }
+      const script = path8.join(os3.homedir(), "Developer/agents/shared/skills/lavish-library/library.py");
+      if (!existsSync3(script)) {
+        res.status(503).json({ state: "unavailable" });
+        return;
+      }
+      const result = spawnSync("python3", [script, "favorite", req.params.id, value], { encoding: "utf8", timeout: 30000, env: { ...process.env } });
+      if (result.status !== 0) {
+        res.status(409).json({ state: "refused", error: String(result.stderr || "").trim().slice(0, 500) });
+        return;
+      }
+      res.json({ state: value === "1" ? "favorite" : "ordinary" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+bulk_teardown_route = r'''  app.post("/api/teardown-archived", async (_req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const script = path8.join(os3.homedir(), "Developer/agents/shared/skills/lavish-library/library.py");
+      if (!existsSync3(script)) {
+        res.status(503).json({ state: "unavailable" });
+        return;
+      }
+      const child = spawn("python3", [script, "hide-archived"], { detached: true, stdio: "ignore", env: { ...process.env } });
+      child.on("error", (error) => logEvent?.(`archived teardown failed error=${error.message}`));
+      child.unref();
+      logEvent?.("archived teardown started");
+      res.status(202).json({ state: "tearing-down" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+teardown_route = r'''  app.post("/api/:key/teardown-artifact", async (req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const session = await store.findByKey(req.params.key);
+      if (!session || !session.file) {
+        res.status(409).json({ state: "unavailable" });
+        return;
+      }
+      let helper = path8.join(os3.homedir(), ".local/bin/lavish-library-teardown");
+      let helperArgs = [session.file];
+      if (!existsSync3(helper)) {
+        const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_lavish-library-teardown");
+        if (!existsSync3(sourceHelper)) {
+          res.status(503).json({ state: "unavailable" });
+          return;
+        }
+        helper = "/bin/bash";
+        helperArgs = [sourceHelper, session.file];
+      }
+      const child = spawn(helper, helperArgs, { detached: true, stdio: "ignore", env: { ...process.env } });
+      child.on("error", (error) => logEvent?.(`artifact teardown failed key=${session.key} error=${error.message}`));
+      child.unref();
+      logEvent?.(`artifact teardown started key=${session.key}`);
+      res.status(202).json({ state: "tearing-down" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+remove_route = r'''  app.post("/api/:key/remove-review-file", async (req, res, next) => {
+    try {
+      res.setHeader("access-control-allow-origin", "*");
+      const session = await store.findByKey(req.params.key);
+      const match = session?.file?.match(/\/gh-review-lavish\/([0-9]+)\/review\.html$/);
+      if (!session || !match || session.status !== "ended" || !existsSync3(session.file)) {
+        res.status(409).json({ state: "unavailable" });
+        return;
+      }
+      let helper = path8.join(os3.homedir(), ".local/bin/review-lavish-remove-file");
+      let helperArgs = [match[1]];
+      if (!existsSync3(helper)) {
+        const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_review-lavish-remove-file");
+        if (!existsSync3(sourceHelper)) {
+          res.status(503).json({ state: "unavailable" });
+          return;
+        }
+        helper = "/bin/bash";
+        helperArgs = [sourceHelper, match[1]];
+      }
+      const result = spawnSync(helper, helperArgs, { encoding: "utf8", timeout: 30000, env: { ...process.env } });
+      if (result.status !== 0) {
+        res.status(409).json({ state: "refused", error: String(result.stderr || "").trim().slice(0, 500) });
+        return;
+      }
+      logEvent?.(`review file removed key=${session.key} pr=${match[1]}`);
+      res.json({ state: "removed" });
+    } catch (error) {
+      next(error);
+    }
+  });
+'''
+
+server_rules = (
+    ('let annotationMode = true;', 'let annotationMode = false;', 'let annotationMode = false;', False),
+    ('id="annotation" type="button" aria-pressed="true"', 'id="annotation" type="button" aria-pressed="false"', 'id="annotation" type="button" aria-pressed="false"', False),
+    (
+        'app.get("/session/:key", async (req, res, next) => {\n    try {\n      const chromeLoad = await store.issueReviewerHandoff(req.params.key);',
+        'app.get("/session/:key", async (req, res, next) => {\n    try {\n      if (req.query.reopen === "1") {\n        const existing = await store.findByKey(req.params.key);\n        if (existing?.status === "ended" && existsSync3(existing.file)) {\n          await store.upsertSession(existing.file, existing.url);\n          clearFeedbackDelivery(req.params.key, activePolls, deliveredFeedback, events);\n        }\n      }\n      const chromeLoad = await store.issueReviewerHandoff(req.params.key);',
+        'if (req.query.reopen === "1") {',
+        False,
+    ),
+    (middleware_resume, middleware_actions, 'refresh-library', True),
+    (middleware_remove, middleware_actions, 'refresh-library', True),
+    (middleware_key_actions, middleware_actions, 'refresh-library', True),
+    (middleware_favorite, middleware_actions, 'refresh-library', True),
+    (middleware_bulk, middleware_actions, 'refresh-library', True),
+    (middleware_original, middleware_actions, 'refresh-library', False),
+    (session_route, connection_routes + session_route, 'app.get("/api/review-connections"', False),
+    (
+        'const match = session.file.match(/\\/gh-review-lavish\\/([0-9]+)\\/review\\.html$/);\n        if (!match) continue;\n        const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
+        'const match = session.file.match(/\\/gh-review-lavish\\/([0-9]+)\\/review\\.html$/);\n        const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : match && processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
+        'match && processTable.includes(`/review-lavish ${match[1]}`)',
+        True,
+    ),
+    (
+        'const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : match && processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
+        'const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        const reviewProcessActive = match && processTable.includes(`/review-lavish ${match[1]}`);\n        connections[session.key] = presence === "listening" ? "listening" : reviewProcessActive ? presence === "working" ? "working" : "starting" : "disconnected";',
+        'const reviewProcessActive = match &&',
+        True,
+    ),
+    (session_route, remove_route + session_route, 'app.post("/api/:key/remove-review-file"', False),
+    (session_route, teardown_route + session_route, 'app.post("/api/:key/teardown-artifact"', False),
+    (session_route, bulk_teardown_route + session_route, 'app.post("/api/teardown-archived"', False),
+    (session_route, refresh_route + session_route, 'app.post("/api/refresh-library"', False),
+    (
+        'const helper = path8.join(os3.homedir(), ".local/bin/review-lavish-remove-file");\n      if (!existsSync3(helper)) {\n        res.status(503).json({ state: "unavailable" });\n        return;\n      }\n      const result = spawnSync(helper, [match[1]], { encoding: "utf8", timeout: 30000, env: { ...process.env } });',
+        'let helper = path8.join(os3.homedir(), ".local/bin/review-lavish-remove-file");\n      let helperArgs = [match[1]];\n      if (!existsSync3(helper)) {\n        const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_review-lavish-remove-file");\n        if (!existsSync3(sourceHelper)) {\n          res.status(503).json({ state: "unavailable" });\n          return;\n        }\n        helper = "/bin/bash";\n        helperArgs = [sourceHelper, match[1]];\n      }\n      const result = spawnSync(helper, helperArgs, { encoding: "utf8", timeout: 30000, env: { ...process.env } });',
+        'const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_review-lavish-remove-file")',
+        True,
+    ),
+)
+
+rules = {
+    "lavish-axi": server_rules,
+    "cli.mjs": server_rules,
+    "chrome-client.js": (
+        ('let annotation = true;', 'let annotation = false;', 'let annotation = false;', False),
+    ),
+}
+
+for value in sys.argv[1:]:
+    path = Path(value)
+    text = path.read_text()
+    changed = False
+    if favorite_route in text:
+        text = text.replace(favorite_route, "")
+        changed = True
+    for old, new, marker, optional in rules[path.name]:
+        if marker in text:
+            continue
+        if text.count(old) == 1:
+            text = text.replace(old, new)
+            changed = True
+        elif not optional:
+            raise SystemExit(f"patch-lavish-local-workarounds: unsupported {path}: expected exactly one patch marker")
+    if changed:
+        path.write_text(text)
+PY

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pr="${1:?usage: review-lavish-remove-file <pr-number>}"
+case "$pr" in '' | *[!0-9]*) echo "review-lavish-remove-file: PR must be numeric" >&2; exit 2 ;; esac
+
+root=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-lavish")
+dir="$root/$pr"
+file="$dir/review.html"
+if [ -e "$file" ]; then
+  resolved=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$file")
+  [ "$resolved" = "$file" ] || { echo "review-lavish-remove-file: retained file escapes its state directory" >&2; exit 1; }
+fi
+state="${LAVISH_AXI_STATE:-$HOME/.lavish-axi/state.json}"
+lease="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees/$pr"
+[ -f "$file" ] || { echo "review-lavish-remove-file: no retained file for PR $pr" >&2; exit 1; }
+[ ! -e "$lease" ] || { echo "review-lavish-remove-file: PR $pr still has a review worktree" >&2; exit 1; }
+
+status=$(jq -r --arg file "$file" '(.sessions // {}) | to_entries[] | select(.value.file == $file) | .value.status' "$state" 2>/dev/null | head -n1)
+[ "$status" = ended ] || { echo "review-lavish-remove-file: PR $pr session is not ended" >&2; exit 1; }
+
+state_helper=""
+for candidate in "$HOME/Developer/agents/shared/skills/review-lavish/review-lavish-state" "$HOME/.claude-work/skills/review-lavish/review-lavish-state" "$HOME/.claude/skills/review-lavish/review-lavish-state"; do
+  if [ -x "$candidate" ]; then state_helper="$candidate"; break; fi
+done
+[ -n "$state_helper" ] || { echo "review-lavish-remove-file: review state helper is unavailable" >&2; exit 1; }
+reason=$("$state_helper" busy "$pr" 2>/dev/null || true)
+[ -z "$reason" ] || { echo "review-lavish-remove-file: $reason" >&2; exit 1; }
+
+rm -rf "${dir:?}"
+python3 "$HOME/Developer/agents/shared/skills/lavish-library/library.py" refresh >/dev/null
+printf 'removed retained review file: PR %s\n' "$pr"
