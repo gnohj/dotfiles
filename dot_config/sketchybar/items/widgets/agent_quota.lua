@@ -17,11 +17,7 @@ local agent_quota = sbar.add("item", "agent_quota", {
 	label = {
 		drawing = false,
 	},
-	popup = {
-		align = "right",
-	},
 	script = "~/.config/sketchybar/items/widgets/agent-quota.sh",
-	click_script = "~/.config/sketchybar/items/widgets/agent-quota-click.sh",
 })
 
 agent_quota:subscribe({ "forced", "routine", "system_woke" })

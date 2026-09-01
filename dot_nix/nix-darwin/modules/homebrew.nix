@@ -28,6 +28,7 @@
       "pulumi/tap"
       "sst/tap"
       "koekeishiya/formulae"
+      "kunchenguid/tap"
       "morantron/tmux-fingers"
       "tonisives/tap"
       "vjeantet/tap"
@@ -106,6 +107,7 @@
       "kitty" # adhoc-signed Nix build fails launch constraints; use cask
 
       # Productivity
+      "kunchenguid/tap/baby-menu"
       "bitwarden"
       "obsidian"
       "raycast"

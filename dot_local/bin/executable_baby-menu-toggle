@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+monitor=${BABY_MENU_MONITOR:-$(/opt/homebrew/bin/aerospace list-monitors --focused --format '%{monitor-name}')}
+positioner=${BABY_MENU_POSITIONER:-$HOME/.local/bin/baby-menu-position}
+source_positioner="$HOME/.local/share/chezmoi/dot_local/share/baby-menu/baby-menu-position.swift"
+running=false
+visible=false
+
+if pgrep -x "Baby Menu" >/dev/null 2>&1; then
+  running=true
+  window_count=$(/usr/bin/osascript -e 'tell application "System Events" to tell process "Baby Menu" to count windows' 2>/dev/null || printf 0)
+  [ "$window_count" -gt 0 ] && visible=true
+fi
+
+click_tray() {
+  /usr/bin/osascript <<'APPLESCRIPT'
+tell application "System Events"
+  tell process "Baby Menu"
+    repeat with candidateBar in menu bars
+      repeat with candidateItem in menu bar items of candidateBar
+        set itemDescription to ""
+        set itemTitle to ""
+        try
+          set itemDescription to description of candidateItem
+        end try
+        try
+          set itemTitle to title of candidateItem
+        end try
+        if itemDescription contains "baby-menu" or itemDescription is "status menu" or itemTitle contains "baby-menu" then
+          click candidateItem
+          return
+        end if
+      end repeat
+    end repeat
+  end tell
+end tell
+error "baby-menu tray item is unavailable"
+APPLESCRIPT
+}
+
+if $visible; then
+  click_tray
+  exit 0
+fi
+
+if [ -x "$positioner" ]; then
+  "$positioner" "$monitor" >/dev/null 2>&1 &
+else
+  /usr/bin/swift "$source_positioner" "$monitor" >/dev/null 2>&1 &
+fi
+
+if ! $running; then
+  exec /usr/bin/open --env BABY_MENU_OPEN_POPOVER_ON_START=1 -a "Baby Menu"
+fi
+
+click_tray
