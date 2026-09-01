@@ -7,6 +7,7 @@ after-login-command = []
 after-startup-command = [
   # SketchyBar is managed by nix-darwin LaunchAgent; reload it so it picks up workspace changes.
   'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
+  'layout --workspace Q --root v_accordion',
 ]
 
 start-at-login = true
@@ -159,7 +160,7 @@ run = "move-node-to-workspace M"
 
 [[on-window-detected]]
 if.app-id = 'ru.starmel.OpenSuperWhisper' # free local dictation
-run = ['layout floating', 'move-node-to-workspace K']
+run = ['layout floating', 'move-node-to-workspace O']
 
 [[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
@@ -175,7 +176,7 @@ run = "move-node-to-workspace R"
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Terminal'
-run = "move-node-to-workspace J"
+run = "move-node-to-workspace N"
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
@@ -230,9 +231,10 @@ D = 3
 E = 1
 F = 3
 G = 3
-K = 3
 L = 3
 M = 3
+N = 3
+O = 3
 Q = 1
 R = 3
 S = 3

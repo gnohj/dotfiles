@@ -28,6 +28,8 @@ hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - sa
 
 # Aerospace - Focus commands
 lalt - h : /opt/homebrew/bin/aerospace focus left
+lalt - j : /opt/homebrew/bin/aerospace focus down
+lalt - k : /opt/homebrew/bin/aerospace focus up
 lalt - l : /opt/homebrew/bin/aerospace focus right
 
 # Aerospace - Layout commands
@@ -36,6 +38,8 @@ lalt - 0x2B : /opt/homebrew/bin/aerospace layout accordion horizontal vertical  
 
 # Aerospace - Move commands
 lalt + shift - h : /opt/homebrew/bin/aerospace move left
+lalt + shift - j : /opt/homebrew/bin/aerospace move down
+lalt + shift - k : /opt/homebrew/bin/aerospace move up
 lalt + shift - l : /opt/homebrew/bin/aerospace move right
 
 # Aerospace - Resize commands
@@ -49,9 +53,9 @@ lalt - d : /opt/homebrew/bin/aerospace workspace D
 lalt - e : /opt/homebrew/bin/aerospace workspace E
 lalt - f : /opt/homebrew/bin/aerospace workspace F
 lalt - g : /opt/homebrew/bin/aerospace workspace G
-lalt - j : /opt/homebrew/bin/aerospace workspace J
-lalt - k : /opt/homebrew/bin/aerospace workspace K
 lalt - m : /opt/homebrew/bin/aerospace workspace M
+lalt - n : /opt/homebrew/bin/aerospace workspace N
+lalt - o : /opt/homebrew/bin/aerospace workspace O
 lalt - q : /opt/homebrew/bin/aerospace workspace Q
 lalt - r : /opt/homebrew/bin/aerospace workspace R
 lalt - s : /opt/homebrew/bin/aerospace workspace S
@@ -69,11 +73,10 @@ lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
 lalt + shift - c : /opt/homebrew/bin/aerospace move-node-to-workspace C
 lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
 lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
-lalt + shift - f : /opt/homebrew/bin/aerospace move-node-to-workspace F
 lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
-lalt + shift - j : /opt/homebrew/bin/aerospace move-node-to-workspace J
-lalt + shift - k : /opt/homebrew/bin/aerospace move-node-to-workspace K
 lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
+lalt + shift - n : /opt/homebrew/bin/aerospace move-node-to-workspace N
+lalt + shift - o : /opt/homebrew/bin/aerospace move-node-to-workspace O
 lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
 lalt + shift - r : /opt/homebrew/bin/aerospace move-node-to-workspace R
 lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
@@ -97,20 +100,12 @@ lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wra
 # Aerospace - Service mode
 lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
-# Block unused lalt keys. skhd is first-wins on duplicate hotkeys, so this MUST stay below the workspace bindings above or these no-ops shadow them.
+# Block unused lalt keys.
 lalt - i : :
-lalt - n : :
-lalt - o : :
 lalt - p : :
-lalt - r : :
-lalt - u : :
 
 # Block unused lalt + shift letter combinations
 lalt + shift - i : :
-lalt + shift - n : :
-lalt + shift - o : :
 lalt + shift - p : :
-lalt + shift - r : :
-lalt + shift - u : :
 lalt + shift - y : :
 

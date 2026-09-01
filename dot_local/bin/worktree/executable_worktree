@@ -444,10 +444,7 @@ cmd_runner() {
 cleanup() {
   pkill -P \$\$ 2>/dev/null
   # Capture our tty BEFORE the watcher subshell — once we exit, /dev/tty is gone.
-  # AppleScript matches the Terminal window owning this tty and closes it
-  # explicitly, rather than relying on Terminal's "When shell exits" preference
-  # (which varies, and shipped wrong on at least one machine — leaving piles of
-  # orphan windows visible in workspace J).
+  # Close the Terminal window by tty because its shell-exit preference can leave orphan windows in workspace N.
   local our_tty
   our_tty=\$(tty 2>/dev/null)
   ( ( sleep 1; osascript -e 'on run argv
