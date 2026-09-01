@@ -10,4 +10,8 @@ wt="$HOME/.config/gh-dash/review-worktree.sh"
 # Absent helper is not a failure: a machine without the gh-dash review flow has no windows to close.
 [ -x "$wt" ] || { echo "review-lavish-teardown: no review-worktree.sh - nothing to close for #$pr"; exit 0; }
 
-exec bash "$wt" release "$pr"
+bash "$wt" release "$pr"
+rc=$?
+library="$HOME/Developer/agents/shared/skills/lavish-library/library.py"
+[ -f "$library" ] && python3 "$library" refresh >/dev/null 2>&1 || true
+exit "$rc"

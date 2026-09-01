@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+raw_path="${1:?usage: lavish-library-teardown <artifact-path>}"
+path=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve(strict=False))' "$raw_path")
+
+case "$path" in
+  */gh-review-lavish/[0-9]*/review.html)
+    pr="${path%/review.html}"
+    pr="${pr##*/}"
+    state_helper=""
+    for candidate in "$HOME/Developer/agents/shared/skills/review-lavish/review-lavish-state" "$HOME/.claude-work/skills/review-lavish/review-lavish-state" "$HOME/.claude/skills/review-lavish/review-lavish-state"; do
+      if [ -x "$candidate" ]; then state_helper="$candidate"; break; fi
+    done
+    [ -n "$state_helper" ] || { echo "lavish-library-teardown: review state helper is unavailable" >&2; exit 1; }
+    "$state_helper" finish "$pr" --force
+    ;;
+  *)
+    if [ -f "$path" ]; then lavish-axi end "$path" >/dev/null 2>&1 || true; fi
+    ;;
+esac
+
+python3 "$HOME/Developer/agents/shared/skills/lavish-library/library.py" hide "$path" >/dev/null
+printf 'torn down: %s\n' "$path"

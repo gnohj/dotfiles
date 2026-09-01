@@ -65,6 +65,9 @@ pulumi = "3.207.0"
 "npm:hunkdiff" = { version = "latest", allow_builds = ["hunkdiff"] }   # hunk: gh-dash PR review viewer (native binary; Mac gets it via brew)
 {{- end }}
 
+[hooks]
+postinstall = "~/.local/bin/patch-lavish-local-workarounds"
+
 [settings]
 # aube (mise's default npm installer) wraps every npm bin in a `node` shim that can't exec a native-binary CLI (claude-code, codex); the npm backend makes a direct symlink instead.
 npm.package_manager = "npm"

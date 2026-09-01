@@ -7,8 +7,37 @@ file="${1:?review-lavish-publish: missing <html-file>}"
 
 # lavish-desktop owns the routing and always prints `desktop_url:`, even when it cannot open anything.
 if command -v lavish-desktop >/dev/null 2>&1; then
-  exec lavish-desktop "$file"
+  publisher=(lavish-desktop)
+else
+  publisher=(lavish-axi)
 fi
 
-# No router installed: fall back to the plain open, which is correct wherever the browser is local.
-exec lavish-axi "$file"
+observe_library() {
+  library="$HOME/Developer/agents/shared/skills/lavish-library/library.py"
+  [ -f "$library" ] || return 0
+  python3 "$library" observe "$file" >/dev/null 2>&1 || printf 'review-lavish-publish: Library observation failed for %s\n' "$file" >&2
+}
+
+if [ "${AUTO_REVIEW:-}" = 1 ]; then
+  out="$(LAVISH_AXI_NO_OPEN=1 "${publisher[@]}" "$file" 2>&1)"
+  rc=$?
+  printf '%s\n' "$out"
+  [ "$rc" -eq 0 ] || exit "$rc"
+  observe_library
+  url="$(printf '%s\n' "$out" | sed -n 's/^desktop_url: //p' | tail -n1)"
+  if [ -z "$url" ]; then
+    url="$(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)"
+  fi
+  if [ -n "$url" ]; then
+    pr="${file%/review.html}"
+    pr="${pr##*/}"
+    printf -v open_cmd '/usr/bin/open %q' "$url"
+    "$HOME/.local/bin/mac-notify" -t "PR #$pr review ready" -m "Click to open the review page" -g "gh-auto-review-$pr" -T 30 -s Pop -e "$open_cmd" >/dev/null 2>&1 || true
+  fi
+  exit 0
+fi
+
+"${publisher[@]}" "$file"
+rc=$?
+[ "$rc" -eq 0 ] && observe_library
+exit "$rc"

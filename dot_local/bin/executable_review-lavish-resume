@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pr="${1:?usage: review-lavish-resume <pr-number> [owner/repo]}"
+case "$pr" in '' | *[!0-9]*) echo "review-lavish-resume: PR must be numeric" >&2; exit 2 ;; esac
+
+artifact="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-lavish/$pr/review.html"
+data="${artifact%/*}/data.js"
+[ -f "$artifact" ] || { echo "review-lavish-resume: no review artifact for PR $pr" >&2; exit 1; }
+
+for command_name in gh herdr jq; do
+  command -v "$command_name" >/dev/null 2>&1 || { echo "review-lavish-resume: $command_name is unavailable" >&2; exit 1; }
+done
+
+repo="${2:-}"
+if [ -z "$repo" ] && [ -f "$data" ]; then
+  repo=$(sed 's/^window\.__REVIEW__=//; s/;[[:space:]]*$//' "$data" | jq -r '.repo // empty' 2>/dev/null || true)
+fi
+case "$repo" in
+  iheartradio/web) repo_path="$HOME/Developer/web/review" ;;
+  iheartradio/inferno-monorepo) repo_path="$HOME/Developer/inferno/review" ;;
+  *) echo "review-lavish-resume: pass a supported owner/repo" >&2; exit 1 ;;
+esac
+
+workspace_id=$(herdr pane list 2>/dev/null | jq -r --arg path "$repo_path" '[.result.panes[]? | select((.foreground_cwd // .cwd // "") == $path)] | first | .workspace_id // empty')
+[ -n "$workspace_id" ] || { echo "review-lavish-resume: the $repo review workspace is not open" >&2; exit 1; }
+
+if herdr tab list 2>/dev/null | jq -e --arg workspace "$workspace_id" --arg pr "$pr" 'any(.result.tabs[]?; .workspace_id == $workspace and ((.label // "") | test("🤖 #" + $pr + "([^0-9]|$)")))' >/dev/null; then
+  echo "review-lavish-resume: an agent tab for PR $pr is already open" >&2
+  exit 1
+fi
+
+socket=$(herdr status server 2>/dev/null | awk '$1 == "socket:" { print $2; exit }')
+[ -n "$socket" ] || { echo "review-lavish-resume: Herdr server is unavailable" >&2; exit 1; }
+
+launcher="${GH_REVIEW_OPEN:-$HOME/.config/gh-dash/review-open.sh}"
+[ -f "$launcher" ] || { echo "review-lavish-resume: review launcher is unavailable" >&2; exit 1; }
+if [ -x "$launcher" ]; then launcher_command=("$launcher"); else launcher_command=(bash "$launcher"); fi
+
+HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path"
+printf 'review agent restarted: %s#%s in workspace %s\n' "$repo" "$pr" "$workspace_id"
