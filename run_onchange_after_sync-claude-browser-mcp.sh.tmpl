@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# source: {{ include "dot_config/claude-mcp-servers.txt" | sha256sum }}
+set -euo pipefail
+
+[ "$(uname -s)" = Darwin ] || exit 0
+command -v claude >/dev/null 2>&1 || exit 0
+
+for config_dir in "" "$HOME/.claude-work"; do
+  if [ -n "$config_dir" ]; then
+    mkdir -p "$config_dir"
+    export CLAUDE_CONFIG_DIR="$config_dir"
+  else
+    unset CLAUDE_CONFIG_DIR
+  fi
+  claude mcp remove chrome-devtools -s user >/dev/null 2>&1 || true
+  claude mcp add -s user chrome-devtools -- chrome-devtools-mcp-launch >/dev/null
+done
+unset CLAUDE_CONFIG_DIR

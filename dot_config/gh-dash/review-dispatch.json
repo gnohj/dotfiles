@@ -6,6 +6,7 @@
         "maxFiles": 3
       },
       "use": {
+        "mode": "full",
         "claude": {
           "model": "claude-sonnet-5",
           "effort": "medium"
@@ -24,6 +25,7 @@
         "maxFiles": 25
       },
       "use": {
+        "mode": "fan",
         "claude": {
           "model": "claude-opus-5",
           "effort": "high"
@@ -39,6 +41,7 @@
     {
       "when": {},
       "use": {
+        "mode": "fan",
         "claude": {
           "model": "claude-opus-5",
           "effort": "xhigh"
@@ -53,6 +56,7 @@
     }
   ],
   "default": {
+    "mode": "fan",
     "claude": {
       "model": "claude-opus-5",
       "effort": "high"
