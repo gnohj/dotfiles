@@ -86,7 +86,7 @@ with pkgs;
 ]
 
 # macOS-only — GUI/hardware-bound or sourced elsewhere on Linux.
-++ lib.optionals pkgs.stdenv.isDarwin [
+++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
   rbw        # Bitwarden CLI — Linux VPS uses scoped tokens (option B), not rbw
   android-tools  # adb/fastboot for a USB Android phone — pointless headless
   scrcpy         # Mirror a USB Android phone — pointless headless
@@ -98,6 +98,6 @@ with pkgs;
 # newer rustc than nixpkgs ships (nix can only build 18.16.1 there); x86_64-linux
 # builds current atuin straight from the binary cache. The rest of the old Homebrew
 # CLIs (gitmux/sesh/television) are shared-core above now — one source, both OSes.
-++ lib.optionals pkgs.stdenv.isLinux [
+++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
   atuin       # shell history
 ]
