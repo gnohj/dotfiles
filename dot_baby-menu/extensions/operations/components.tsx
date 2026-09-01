@@ -207,7 +207,10 @@ export function OperationsView() {
       if (!direction) return;
 
       event.preventDefault();
-      scrollContainer.current?.scrollBy({
+      const scrollRegion =
+        scrollContainer.current?.closest<HTMLElement>(".pop-body") ??
+        scrollContainer.current;
+      scrollRegion?.scrollBy({
         top: direction * (event.repeat ? 48 : 96),
         behavior: event.repeat ? "auto" : "smooth",
       });
@@ -224,7 +227,7 @@ export function OperationsView() {
     <div
       ref={scrollContainer}
       tabIndex={-1}
-      className="flex max-h-[660px] flex-col gap-5 overflow-y-auto pb-1 pt-1 focus:outline-none"
+      className="flex flex-col gap-5 pb-1 pt-1 focus:outline-none"
     >
       <header className="flex items-start justify-between gap-4">
         <div>
