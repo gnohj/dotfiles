@@ -580,7 +580,7 @@ alias zstatus='zinit status'
 alias cz='chezmoi'
 alias czd='chezmoi diff'
 alias czs='chezmoi status'
-alias cza='chezmoi status | awk '\''{print $2}'\'' | while read -r file; do [ -n "$file" ] && chezmoi add "$HOME/$file"; done'
+alias cza='chezmoi re-add'
 
 # tmux profiles — the default `tmux`/`sesh` flow uses ~/.config/tmux/tmux.conf
 # (base + agentic HUD). These select the alternate profiles:
