@@ -10,9 +10,24 @@ let
         custom_name = "Discord";
       }
       {
+        url = "https://teams.microsoft.com/v2/";
+        default_launch_container = "window";
+        custom_name = "Microsoft Teams";
+      }
+      {
+        url = "https://outlook.office.com/mail/";
+        default_launch_container = "window";
+        custom_name = "Outlook";
+      }
+      {
         url = "https://www.reddit.com/";
         default_launch_container = "window";
         custom_name = "Reddit";
+      }
+      {
+        url = "https://app.slack.com/client";
+        default_launch_container = "window";
+        custom_name = "Slack";
       }
       {
         url = "https://www.twitch.tv/";
@@ -29,6 +44,11 @@ let
         default_launch_container = "window";
         custom_name = "YouTube";
       }
+      {
+        url = "https://app.zoom.us/wc";
+        default_launch_container = "window";
+        custom_name = "Zoom";
+      }
     ];
   };
 in
@@ -36,5 +56,7 @@ in
   system.activationScripts.postActivation.text = lib.mkAfter ''
     /usr/bin/install -d -m 0755 "/Library/Managed Preferences"
     /usr/bin/install -m 0644 ${heliumPolicy} "/Library/Managed Preferences/net.imput.helium.plist"
+    # Direct plist replacement bypasses cfprefsd's cache, so refresh it before Helium reads policy.
+    /usr/bin/killall cfprefsd 2>/dev/null || true
   '';
 }

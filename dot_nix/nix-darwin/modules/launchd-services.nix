@@ -382,10 +382,6 @@ in
   system.activationScripts.postActivation.text = lib.mkAfter ''
     primaryUid=$(id -u ${lib.escapeShellArg config.system.primaryUser})
 
-    echo "🚫 Refusing the Microsoft Teams respawn watchdog..." >&2
-    launchctl disable "gui/$primaryUid/com.microsoft.teams2.respawn" || true
-    launchctl bootout "gui/$primaryUid/com.microsoft.teams2.respawn" 2>/dev/null || true
-
     echo "🚫 Disabling Google and Microsoft update schedulers..." >&2
     for label in com.google.GoogleUpdater.wake com.microsoft.update.agent; do
       launchctl disable "gui/$primaryUid/$label" || true
