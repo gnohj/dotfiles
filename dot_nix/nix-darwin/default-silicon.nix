@@ -8,6 +8,7 @@
     # macOS-specific modules
     ./modules/system-settings.nix
     ./modules/homebrew.nix
+    ./modules/helium-pwas.nix
     ./modules/packages.nix
     ./modules/launchd-services.nix
     ./modules/local-dev-auth.nix

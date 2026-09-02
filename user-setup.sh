@@ -597,7 +597,6 @@ if ! mas account &>/dev/null 2>&1; then
   echo "    Sign in via App Store.app, then install:"
   echo "      mas install 497799835   # Xcode"
   echo "      mas install 1193539993  # Brother iPrint&Scan"
-  echo "      mas install 310633997   # WhatsApp Messenger"
   echo ""
 fi
 
