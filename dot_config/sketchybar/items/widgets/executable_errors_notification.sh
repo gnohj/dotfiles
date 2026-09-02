@@ -3,7 +3,7 @@
 if ((BASH_VERSINFO[0] < 4)) && [[ -x /run/current-system/sw/bin/bash ]]; then
   exec /run/current-system/sw/bin/bash "$0" "$@"
 fi
-# errors monitor -> sketchybar "errors" badge: service-log errors + daemon stderr + dead herdr daemons + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE.
+# errors monitor -> sketchybar "errors" badge: service-log errors + daemon stderr + dead herdr daemons + ppid-1 orphans (fff/treehouse/cpu) + unreaped zombies. Env: ERRORS_DRYRUN, ORPHAN_THRESHOLD (default 70), ZOMBIE_THRESHOLD, ZOMBIE_MIN_AGE, GUI_ZOMBIE_THRESHOLD (default 25).
 shopt -s nullglob
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
 
@@ -12,6 +12,8 @@ THRESHOLD="${ORPHAN_THRESHOLD:-70}"
 # A zombie costs only a pid slot, so badge a parent only once it leaks (count) or clearly hangs (age).
 ZOMBIE_THRESHOLD="${ZOMBIE_THRESHOLD:-3}"
 ZOMBIE_MIN_AGE="${ZOMBIE_MIN_AGE:-600}"
+# GUI apps fork a fixed set at launch and never reap it (Chromium: one per force-installed PWA), so age only measures uptime; count alone can show a leak.
+GUI_ZOMBIE_THRESHOLD="${GUI_ZOMBIE_THRESHOLD:-25}"
 SAMPLE_SECS=2
 TREEHOUSE="$HOME/.treehouse"
 LOOKBACK_MIN=30
@@ -132,9 +134,14 @@ done
 zombie_rows=()
 for pp in "${!z_count[@]}"; do
   n=${z_count[$pp]}; age=${z_age[$pp]:-0}
-  ((n >= ZOMBIE_THRESHOLD || age >= ZOMBIE_MIN_AGE)) || continue
   # ps comm= keeps names with spaces intact ("Raycast Helper (Extensions)"); splitting the argv would truncate them.
-  pname=$(ps -o comm= -p "$pp" 2>/dev/null); pname=${pname##*/}
+  pcomm=$(ps -o comm= -p "$pp" 2>/dev/null); pname=${pcomm##*/}
+  # Mirrors the orphan filter, which already exempts GUI app bundles.
+  if [[ "$pcomm" == *.app/Contents/MacOS/* ]]; then
+    ((n >= GUI_ZOMBIE_THRESHOLD)) || continue
+  else
+    ((n >= ZOMBIE_THRESHOLD || age >= ZOMBIE_MIN_AGE)) || continue
+  fi
   zombie_rows+=("zombie|$pp|$n|${pname:-gone}|$(hms "$age")")
   log "ZOMBIE parent=$pp comm=${pname:-gone} count=$n oldest=${age}s"
 done
