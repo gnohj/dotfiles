@@ -203,35 +203,6 @@ server_rules = (
         'if (req.query.reopen === "1") {',
         False,
     ),
-    (middleware_resume, middleware_actions, 'refresh-library', True),
-    (middleware_remove, middleware_actions, 'refresh-library', True),
-    (middleware_key_actions, middleware_actions, 'refresh-library', True),
-    (middleware_favorite, middleware_actions, 'refresh-library', True),
-    (middleware_bulk, middleware_actions, 'refresh-library', True),
-    (middleware_original, middleware_actions, 'refresh-library', False),
-    (session_route, connection_routes + session_route, 'app.get("/api/review-connections"', False),
-    (
-        'const match = session.file.match(/\\/gh-review-lavish\\/([0-9]+)\\/review\\.html$/);\n        if (!match) continue;\n        const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
-        'const match = session.file.match(/\\/gh-review-lavish\\/([0-9]+)\\/review\\.html$/);\n        const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : match && processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
-        'match && processTable.includes(`/review-lavish ${match[1]}`)',
-        True,
-    ),
-    (
-        'const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        connections[session.key] = presence !== "waiting" ? presence : match && processTable.includes(`/review-lavish ${match[1]}`) ? "starting" : "disconnected";',
-        'const presence = computePresence(session.key, activePolls, deliveredFeedback);\n        const reviewProcessActive = match && processTable.includes(`/review-lavish ${match[1]}`);\n        connections[session.key] = presence === "listening" ? "listening" : reviewProcessActive ? presence === "working" ? "working" : "starting" : "disconnected";',
-        'const reviewProcessActive = match &&',
-        True,
-    ),
-    (session_route, remove_route + session_route, 'app.post("/api/:key/remove-review-file"', False),
-    (session_route, teardown_route + session_route, 'app.post("/api/:key/teardown-artifact"', False),
-    (session_route, bulk_teardown_route + session_route, 'app.post("/api/teardown-archived"', False),
-    (session_route, refresh_route + session_route, 'app.post("/api/refresh-library"', False),
-    (
-        'const helper = path8.join(os3.homedir(), ".local/bin/review-lavish-remove-file");\n      if (!existsSync3(helper)) {\n        res.status(503).json({ state: "unavailable" });\n        return;\n      }\n      const result = spawnSync(helper, [match[1]], { encoding: "utf8", timeout: 30000, env: { ...process.env } });',
-        'let helper = path8.join(os3.homedir(), ".local/bin/review-lavish-remove-file");\n      let helperArgs = [match[1]];\n      if (!existsSync3(helper)) {\n        const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_review-lavish-remove-file");\n        if (!existsSync3(sourceHelper)) {\n          res.status(503).json({ state: "unavailable" });\n          return;\n        }\n        helper = "/bin/bash";\n        helperArgs = [sourceHelper, match[1]];\n      }\n      const result = spawnSync(helper, helperArgs, { encoding: "utf8", timeout: 30000, env: { ...process.env } });',
-        'const sourceHelper = path8.join(os3.homedir(), ".local/share/chezmoi/dot_local/bin/executable_review-lavish-remove-file")',
-        True,
-    ),
 )
 
 rules = {
@@ -246,9 +217,28 @@ for value in sys.argv[1:]:
     path = Path(value)
     text = path.read_text()
     changed = False
-    if favorite_route in text:
-        text = text.replace(favorite_route, "")
-        changed = True
+    if path.name in {"lavish-axi", "cli.mjs"}:
+        route_markers = (
+            '  app.get("/api/review-connections"',
+            '  app.post("/api/:key/resume-review"',
+            '  app.post("/api/:key/remove-review-file"',
+            '  app.post("/api/:key/teardown-artifact"',
+            '  app.post("/api/teardown-archived"',
+            '  app.post("/api/refresh-library"',
+            '  app.post("/api/library/:id/favorite"',
+        )
+        starts = [text.find(marker) for marker in route_markers if marker in text]
+        if starts:
+            start = min(starts)
+            end = text.find(session_route, start)
+            if end < 0:
+                raise SystemExit(f"patch-lavish-local-workarounds: cannot remove retired Library routes from {path}")
+            text = text[:start] + text[end:]
+            changed = True
+        for middleware in (middleware_actions, middleware_favorite, middleware_bulk, middleware_key_actions, middleware_remove, middleware_resume):
+            if middleware in text:
+                text = text.replace(middleware, middleware_original)
+                changed = True
     for old, new, marker, optional in rules[path.name]:
         if marker in text:
             continue
