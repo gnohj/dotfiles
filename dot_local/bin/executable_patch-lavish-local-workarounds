@@ -21,6 +21,20 @@ middleware_favorite = 'const libraryAction = req.method === "POST" && (/^\\/api\
 middleware_bulk = 'const libraryAction = req.method === "POST" && (/^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) || req.path === "/api/teardown-archived") && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
 middleware_actions = 'const libraryAction = req.method === "POST" && (/^\\/api\\/[a-f0-9]{16}\\/(resume-review|remove-review-file|teardown-artifact)$/.test(req.path) || req.path === "/api/teardown-archived" || req.path === "/api/refresh-library") && req.get("origin") === "null";\n    if (!libraryAction && hasPresentOriginOrReferer(req) && !isSameOriginRequest(req, allowedHostnames, allowAnyHostname)) {'
 session_route = '  app.post("/api/sessions", async (req, res, next) => {'
+session_open_original = '''      await watchSession(session, watchers, events, logEvent, reloadDebounceMs);
+      res.json({
+        key,
+        file,
+        url,
+        status: "opened",'''
+session_open_connected = '''      await watchSession(session, watchers, events, logEvent, reloadDebounceMs);
+      const browserConnected = [...sseClients.values()].includes(key);
+      if (browserConnected) events.emit("reload", key);
+      res.json({
+        key,
+        file,
+        url,
+        status: browserConnected ? "connected" : "opened",'''
 connection_routes = r'''  app.get("/api/review-connections", async (_req, res, next) => {
     try {
       res.setHeader("access-control-allow-origin", "*");
@@ -195,6 +209,7 @@ remove_route = r'''  app.post("/api/:key/remove-review-file", async (req, res, n
 '''
 
 server_rules = (
+    (session_open_original, session_open_connected, 'const browserConnected = [...sseClients.values()].includes(key);', False),
     ('let annotationMode = true;', 'let annotationMode = false;', 'let annotationMode = false;', False),
     ('id="annotation" type="button" aria-pressed="true"', 'id="annotation" type="button" aria-pressed="false"', 'id="annotation" type="button" aria-pressed="false"', False),
     (
