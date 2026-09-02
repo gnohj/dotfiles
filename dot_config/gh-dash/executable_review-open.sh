@@ -7,12 +7,12 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Octo (auto-review) + Claude /review-lavish
+#   full       P        Octo PR view + Claude /review-lavish
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   enhance    E        ENHANCE
 #   claude     A        Claude /review
-#   fan        F        Octo + sealed Opus/gpt finders + Lavish merge owner
+#   fan        F        Octo PR view + sealed Opus/gpt finders + Lavish merge owner
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -82,9 +82,7 @@ head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
 
 open_octo() {
-  local cwd="$1" auto="$2" extra=""
-  [ "$auto" = 1 ] && extra=' --cmd "let g:octo_auto_review=1"'
-  mux "🐙 #$pr" "$cwd" "nvim --cmd \"let g:zen_disabled=1\"$extra -c \":silent Octo pr edit $pr\""
+  mux "🐙 #$pr" "$1" "nvim --cmd \"let g:zen_disabled=1\" -c \":silent Octo pr edit $pr\""
 }
 
 # --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
@@ -222,7 +220,7 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    open_octo "$WT" 1
+    open_octo "$WT"
     open_claude_review "$WT" review-lavish
     ;;
   resume)
@@ -247,7 +245,7 @@ case "$mode" in
     rm -rf "${WT:?acquire returned no worktree}/.review"
     mkdir -p "$WT/.review"
     # One lease serves every window: review reads the checkout, so no finder needs its own worktree.
-    open_octo "$WT" 1
+    open_octo "$WT"
     open_finder_claude "$WT"
     # Ask BEFORE spawning: with every second-model rung pruned or refusing, the gpt tab only ever renders an error
     # and the owner then waits for a seal that cannot arrive. Degrade to a one-finder review up front instead, and
@@ -266,7 +264,7 @@ case "$mode" in
     git -C "$WT" fetch origin "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    open_octo "$WT" 0
+    open_octo "$WT"
     ;;
   diff)
     WT="$("$wt_script" acquire "$pr")"
