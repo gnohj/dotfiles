@@ -25,9 +25,26 @@ esac
 workspace_id=$(herdr pane list 2>/dev/null | jq -r --arg path "$repo_path" '[.result.panes[]? | select((.foreground_cwd // .cwd // "") == $path)] | first | .workspace_id // empty')
 [ -n "$workspace_id" ] || { echo "review-lavish-resume: the $repo review workspace is not open" >&2; exit 1; }
 
-if herdr tab list 2>/dev/null | jq -e --arg workspace "$workspace_id" --arg pr "$pr" 'any(.result.tabs[]?; .workspace_id == $workspace and ((.label // "") | test("🤖 #" + $pr + "([^0-9]|$)")))' >/dev/null; then
-  echo "review-lavish-resume: an agent tab for PR $pr is already open" >&2
-  exit 1
+existing_tab=$(herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '[.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("🤖 #" + $pr + "([^0-9]|$)")))] | first | .tab_id // empty')
+if [ -n "$existing_tab" ]; then
+  existing_agent=$(herdr agent list 2>/dev/null | jq -r --arg tab "$existing_tab" '[.result.agents[]? | select(.tab_id == $tab and .agent == "claude")] | first | [.pane_id, .agent_status] | @tsv')
+  IFS=$'\t' read -r existing_pane existing_status <<<"$existing_agent"
+  [ -n "${existing_pane:-}" ] || { echo "review-lavish-resume: the existing PR $pr tab has no Claude agent" >&2; exit 1; }
+  case "$existing_status" in
+    idle | done)
+      herdr agent prompt "$existing_pane" "/review-lavish $pr" --wait --until working --timeout 10000 >/dev/null
+      printf 'review agent resumed: %s#%s in pane %s\n' "$repo" "$pr" "$existing_pane"
+      exit 0
+      ;;
+    working | blocked)
+      echo "review-lavish-resume: the agent for PR $pr is already $existing_status" >&2
+      exit 1
+      ;;
+    *)
+      echo "review-lavish-resume: the agent for PR $pr has unknown state" >&2
+      exit 1
+      ;;
+  esac
 fi
 
 socket=$(herdr status server 2>/dev/null | awk '$1 == "socket:" { print $2; exit }')
@@ -37,5 +54,5 @@ launcher="${GH_REVIEW_OPEN:-$HOME/.config/gh-dash/review-open.sh}"
 [ -f "$launcher" ] || { echo "review-lavish-resume: review launcher is unavailable" >&2; exit 1; }
 if [ -x "$launcher" ]; then launcher_command=("$launcher"); else launcher_command=(bash "$launcher"); fi
 
-HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path"
-printf 'review agent restarted: %s#%s in workspace %s\n' "$repo" "$pr" "$workspace_id"
+nohup env HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1 &
+printf 'review agent restart queued: %s#%s in workspace %s\n' "$repo" "$pr" "$workspace_id"
