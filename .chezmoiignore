@@ -84,6 +84,7 @@ Library/
 .baby-menu/
 .local/bin/baby-menu-toggle
 .local/bin/media-control-bridge
+.local/bin/pwa-icons
 .local/share/baby-menu/
 .config/kanata/
 .config/raycast/
