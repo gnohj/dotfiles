@@ -94,7 +94,7 @@ if.app-id = 'com.apple.mail'
 run = "move-node-to-workspace G"
 
 [[on-window-detected]]
-if.app-id = 'com.hnc.Discord'
+if.app-id = 'net.imput.helium.app.pliiebkcmokkgndfalahlmimanmbjlab'
 run = "move-node-to-workspace D"
 
 [[on-window-detected]]
@@ -114,15 +114,19 @@ if.app-id = 'app.zen-browser.zen'
 run = "move-node-to-workspace Z"
 
 [[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml' # YouTube App (PWA)
+if.app-id = 'net.imput.helium.app.agimnkijcaahngcdmfeangaknmldooml' # YouTube App (PWA)
 run = "move-node-to-workspace A"
 
 [[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.lodlkdfmihgonocnmddehnfgiljnadcf' # Twitter X App (PWA)
+if.app-id = 'net.imput.helium.app.lodlkdfmihgonocnmddehnfgiljnadcf' # Twitter X App (PWA)
 run = "move-node-to-workspace A"
 
 [[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.lgnggepjiihbfdbedefdhcffnmhcahbm' # Reddit App (PWA)
+if.app-id = 'net.imput.helium.app.lgnggepjiihbfdbedefdhcffnmhcahbm' # Reddit App (PWA)
+run = "move-node-to-workspace A"
+
+[[on-window-detected]]
+if.app-id = 'net.imput.helium.app.comkdlimbkhemidbbpchhepidbmjpnhh'
 run = "move-node-to-workspace A"
 
 [[on-window-detected]]

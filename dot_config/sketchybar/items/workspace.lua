@@ -58,7 +58,7 @@ local spaceConfigs = {
 	["T"] = { name = "Terminal", app = "Ghostty" },
 	["Y"] = { name = "Notes", app = "Notes" },
 	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude" } },
-	["A"] = { name = "YouTube", app = "YouTube" },
+	["A"] = { name = "Social", apps = { "YouTube", "Reddit", "Twitch", "X" } },
 	["M"] = { name = "Texting", app = "Messages" },
 	["K"] = { name = "Settings", apps = { "System Settings", "OpenSuperWhisper" } },
 	["Z"] = { name = "Brave", app = "Zen" },

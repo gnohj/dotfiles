@@ -92,7 +92,6 @@
       "zen"
 
       # Communication
-      "discord"
       "microsoft-outlook"
       "microsoft-teams"
       "slack"
@@ -153,7 +152,6 @@
     # Install manually after signing in to the App Store:
     #   mas install 497799835   # Xcode
     #   mas install 1193539993  # Brother iPrint&Scan
-    #   mas install 310633997   # WhatsApp Messenger
     masApps = {};
   };
 }
