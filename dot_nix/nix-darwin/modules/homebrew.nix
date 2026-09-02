@@ -92,12 +92,6 @@
       "microsoft-edge"
       "zen"
 
-      # Communication
-      "microsoft-outlook"
-      "microsoft-teams"
-      "slack"
-      "zoom"
-
       # Development
       "android-studio"
       "docker-desktop"  # Renamed from "docker"

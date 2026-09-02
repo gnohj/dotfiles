@@ -94,6 +94,11 @@ if.app-id = 'com.apple.mail'
 run = "move-node-to-workspace G"
 
 [[on-window-detected]]
+# Helium generates the PWA bundle id at install time, so match the app name instead.
+if.app-name-regex-substring = '(?i)outlook'
+run = "move-node-to-workspace G"
+
+[[on-window-detected]]
 if.app-id = 'net.imput.helium.app.pliiebkcmokkgndfalahlmimanmbjlab'
 run = "move-node-to-workspace D"
 
@@ -146,6 +151,11 @@ run = "move-node-to-workspace X"
 if.app-id = 'com.anthropic.claudefordesktop'
 run = "move-node-to-workspace X"
 
+[[on-window-detected]]
+# Helium generates the PWA bundle id at install time, so match the app name instead.
+if.app-name-regex-substring = '(?i)zoom'
+run = "move-node-to-workspace X"
+
 # Float-only, no workspace move: aerospace carries even floats across workspaces, overwriting the frame VLC restores for itself.
 [[on-window-detected]]
 if.app-id = 'com.kunchenguid.baby-menu'
@@ -168,7 +178,7 @@ if.app-id = 'ru.starmel.OpenSuperWhisper' # free local dictation
 run = ['layout floating', 'move-node-to-workspace O']
 
 [[on-window-detected]]
-if.app-id = 'com.microsoft.teams2'
+if.app-id = 'net.imput.helium.app.cifhbcnohmdccbgoicgdjpfamggdegmo'
 run = "move-node-to-workspace E"
 
 [[on-window-detected]]
@@ -184,12 +194,12 @@ if.app-id = 'com.apple.Terminal'
 run = "move-node-to-workspace N"
 
 [[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
+if.app-id = 'net.imput.helium.app.hbbnngdahoedgkehefkoocdjcimcpamj'
 if.window-title-regex-substring = '(?i)huddle'
 run = ['move-node-to-workspace W', 'layout floating']
 
 [[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
+if.app-id = 'net.imput.helium.app.hbbnngdahoedgkehefkoocdjcimcpamj'
 run = "move-node-to-workspace W"
 
 
