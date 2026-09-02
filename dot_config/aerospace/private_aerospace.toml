@@ -107,10 +107,6 @@ if.app-id = 'com.apple.Notes'
 run = "move-node-to-workspace Y"
 
 [[on-window-detected]]
-if.app-id = 'md.obsidian'
-run = "move-node-to-workspace Y"
-
-[[on-window-detected]]
 # Matches both the native app and the Helium PWA, whose bundle id is generated at install time.
 if.app-name-regex-substring = '(?i)spotify'
 run = "move-node-to-workspace S"

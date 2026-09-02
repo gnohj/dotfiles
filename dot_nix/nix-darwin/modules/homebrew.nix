@@ -103,7 +103,6 @@
       # Productivity
       "kunchenguid/tap/baby-menu"
       "bitwarden"
-      "obsidian"
       "raycast"
       "whimsical"
 
@@ -121,7 +120,6 @@
       "aldente"
       "appcleaner"
       "betterdisplay"
-      "localsend"
       "macshot"
 
       # Input Devices
