@@ -64,7 +64,7 @@
         "id": "harness",
         "type": "custom-text",
         "customText": "claude",
-        "color": "hex:536571"
+        "color": "hex:a7cfbd"
       },
       {
         "id": "harnessDot",
