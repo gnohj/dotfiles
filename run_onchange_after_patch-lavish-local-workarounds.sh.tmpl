@@ -1,0 +1,8 @@
+#!/bin/bash
+# workaround hash: {{ include "dot_local/bin/executable_patch-lavish-local-workarounds" | sha256sum }}
+
+set -euo pipefail
+
+helper="{{ .chezmoi.homeDir }}/.local/bin/patch-lavish-local-workarounds"
+[ -x "$helper" ] || exit 0
+"$helper"
