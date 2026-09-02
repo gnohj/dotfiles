@@ -20,6 +20,7 @@
     # Taps (third-party repositories)
     taps = [
       "anomalyco/tap"
+      "blacktop/tap"
       "FelixKratz/formulae"
       "garrettkrohn/treekanga"
       "nikitabobko/tap"
@@ -45,6 +46,7 @@
       "FelixKratz/formulae/borders"
       "media-control" # now-playing bridge for the Spotify PWA (no AppleScript dictionary)
       "FelixKratz/formulae/sketchybar"
+      "blacktop/tap/lporg" # save/restore the Launchpad grid; a cask churn wipes it otherwise
       "kanata"
       "koekeishiya/formulae/skhd"
 

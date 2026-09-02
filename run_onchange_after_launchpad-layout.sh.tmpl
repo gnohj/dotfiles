@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Restore the Launchpad grid; uname-guarded to no-op on Linux, and the hash below re-runs it when the layout changes.
+# layout sha256: {{ include "dot_config/launchpad/layout.yaml" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Darwin" ] || exit 0
+
+LAYOUT="$HOME/.config/launchpad/layout.yaml"
+[ -f "$LAYOUT" ] || exit 0
+
+# On a fresh machine brew has not run yet, so there is nothing to organize and no binary to do it with.
+if ! command -v lporg >/dev/null 2>&1; then
+  echo "lporg not installed yet; run 'lporg load --config $LAYOUT' after darwin-rebuild."
+  exit 0
+fi
+
+lporg load --config "$LAYOUT"
+echo "Launchpad layout restored from $LAYOUT."
