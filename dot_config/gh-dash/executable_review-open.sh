@@ -205,9 +205,13 @@ open_fanout_owner() {
 }
 
 background_review() {
-  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1)
+  local desktop_mode=tailnet
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
-    window_opts+=(--env LAVISH_DESKTOP_MODE=print --env AUTO_REVIEW=1)
+    desktop_mode=print
+  fi
+  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env LAVISH_DESKTOP_MODE="$desktop_mode")
+  if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
+    window_opts+=(--env AUTO_REVIEW=1)
   fi
 }
 

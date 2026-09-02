@@ -26,6 +26,10 @@ fi
 
 ts_host=""
 if [ "$mode" = tailnet ]; then
+  https_port="${LAVISH_DESKTOP_HTTPS_PORT:-10001}"
+  case "$https_port" in
+    '' | *[!0-9]*) echo "lavish-desktop: invalid HTTPS port: $https_port" >&2; exit 1 ;;
+  esac
   ts_host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
   # Must be exported before lavish-axi starts the server: its Host allowlist is loopback-only, and tailscale serve forwards the real hostname.
   [ -n "$ts_host" ] && export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:+$LAVISH_AXI_ALLOWED_HOSTS }$ts_host"
@@ -41,6 +45,7 @@ out=$(LAVISH_AXI_NO_OPEN=1 lavish-axi "$file" "$@" 2>&1) || {
 printf '%s\n' "$out"
 
 local_url=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)
+session_status=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*status:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)
 [ -n "$local_url" ] || { echo "lavish-desktop: could not parse a url from lavish-axi output" >&2; exit 1; }
 
 url="$local_url"
@@ -51,16 +56,23 @@ if [ "$mode" = tailnet ] && [ -n "$ts_host" ]; then
   case "$port" in '' | *[!0-9]*) echo "lavish-desktop: unexpected origin: $origin" >&2; exit 1 ;; esac
 
   # Reused, never torn down here: lavish-axi serves every artifact off this one port.
-  public=$(tailscale serve status --json 2>/dev/null | jq -r --arg p "$port" '
+  serve_status=$(tailscale serve status --json 2>/dev/null || printf '{}')
+  public=$(printf '%s\n' "$serve_status" | jq -r --arg p "$port" '
     (.Web // {}) | to_entries[]
     | .key as $host | (.value.Handlers // {}) | to_entries[]
     | select((.value.Proxy // "") | test("127\\.0\\.0\\.1:" + $p + "$"))
     | "https://" + $host + (if .key == "/" then "" else (.key | sub("/$"; "")) end)' 2>/dev/null | head -n1)
 
   if [ -z "$public" ]; then
-    tailscale serve --bg --https=8443 "http://127.0.0.1:$port" >/dev/null 2>&1 ||
+    route_host="$ts_host:$https_port"
+    occupied=$(printf '%s\n' "$serve_status" | jq -r --arg host "$route_host" '.Web[$host].Handlers["/"].Proxy // empty' 2>/dev/null)
+    if [ -n "$occupied" ]; then
+      echo "lavish-desktop: HTTPS port $https_port already proxies $occupied" >&2
+      exit 1
+    fi
+    tailscale serve --yes --bg --https="$https_port" "http://127.0.0.1:$port" >/dev/null 2>&1 ||
       { echo "lavish-desktop: tailscale serve failed for port $port" >&2; exit 1; }
-    public="https://$ts_host:8443"
+    public="https://$route_host"
   fi
   url="$public${local_url#"$origin"}"
 
@@ -79,7 +91,7 @@ open_locally() {
 }
 
 # No reachable screen is a valid outcome: hand back a url rather than failing the review.
-if [ "$mode" = print ]; then
+if [ "$mode" = print ] || [ "$session_status" = connected ]; then
   :
 elif [ -x "$HOME/.local/bin/to-desktop" ] && "$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1; then
   :
