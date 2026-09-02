@@ -7,6 +7,11 @@ case "$OSTYPE" in
   *) export LANG="${LANG:-C.UTF-8}" ;;
 esac
 
+# A launcher app started from a herdr pane leaks HERDR_* into every app it opens; a login parent means a real terminal window, not a pane - drop the stale identity there.
+if [[ -n "$HERDR_ENV" && "$(ps -o comm= -p $PPID 2>/dev/null)" == (*/|)login ]]; then
+  unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH HERDR_BIN_PATH
+fi
+
 # ~/.local/bin must be on PATH for EVERY zsh, not just interactive ones. .zshenv
 # is sourced by all invocations (login, non-login, interactive or not); .zshrc is
 # interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
