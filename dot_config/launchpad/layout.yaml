@@ -1,0 +1,153 @@
+apps:
+  pages:
+    - number: 1
+      items:
+        - folder: Apple
+          pages:
+            - number: 1
+              items:
+                - Mail
+                - Calendar
+                - FaceTime
+                - Maps
+                - Photos
+                - Notes
+                - Tips
+                - Weather
+                - Preview
+                - Stickies
+                - Shortcuts
+                - Reminders
+                - Contacts
+                - Messages
+                - Podcasts
+                - TV
+                - Stocks
+                - Siri
+                - Music
+                - News
+                - Voice Memos
+                - Dictionary
+                - Home
+                - Books
+                - Photo Booth
+                - Freeform
+                - Chess
+        - folder: Utilities
+          pages:
+            - number: 1
+              items:
+                - App Store
+                - Calculator
+                - Passwords
+                - Find My
+                - TextEdit
+                - Time Machine
+                - Font Book
+                - Mission Control
+                - Automator
+                - Image Capture
+                - QuickTime Player
+                - System Settings
+                - Clock
+                - Image Playground
+                - iPhone Mirroring
+        - folder: 3rd Party Utilities
+          pages:
+            - number: 1
+              items:
+                - vlc-multi
+                - Zen
+                - Raycast
+                - SF Symbols
+                - AeroSpace
+                - Mouseless
+                - Homerow
+                - BetterDisplay
+                - AlDente
+                - macshot
+                - OpenSuperWhisper
+                - Baby Menu
+                - Whimsical
+                - pinentry-mac
+                - Logi Options+
+                - Brother iPrint&Scan
+                - Android Studio
+                - Docker
+                - VLC
+                - Claude Code URL Handler
+                - OrphanAlert
+        - folder: Other
+          pages:
+            - number: 1
+              items:
+                - Grapher
+                - VoiceOver Utility
+                - AirPort Utility
+                - Migration Assistant
+                - Terminal
+                - Activity Monitor
+                - Console
+                - System Information
+                - Script Editor
+                - Disk Utility
+                - Digital Color Meter
+                - ColorSync Utility
+                - Screenshot
+                - Bluetooth File Exchange
+                - Audio MIDI Setup
+                - Screen Sharing
+                - Print Center
+                - Xcode
+        - folder: Browsers
+          pages:
+            - number: 1
+              items:
+                - Firefox
+                - Google Chrome
+                - Microsoft Edge
+                - Helium
+                - Safari
+        - folder: PWAs
+          pages:
+            - number: 1
+              items:
+                - Spotify
+                - Zoom
+                - YouTube
+                - X
+                - Twitch
+                - Slack
+                - Reddit
+                - Outlook
+                - Microsoft Teams
+                - Discord
+        - AppCleaner
+        - Ghostty
+        - kitty
+        - Bitwarden
+        - Private Internet Access
+        - Surfshark
+        - Tailscale
+        - Claude
+        - claude-personal
+        - claude-work
+widgets:
+  pages: []
+dock_items:
+  apps:
+    - /System/Applications/Mail.app
+    - /System/Applications/Calendar.app
+    - /System/Applications/Reminders.app
+    - /Applications/Google Chrome.app
+    - /Applications/Helium.app
+    - /Applications/Ghostty.app
+  settings:
+    autohide: true
+    largesize: 51
+    magnification: true
+    minimize-to-application: false
+    mru-spaces: false
+    show-recents: false
+    tilesize: 31
+desktop: {}
