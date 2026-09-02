@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Reshape Chromium/Chrome PWA app.icns to macOS proportions; re-run after any (re)install.
+
+set -euo pipefail
+
+MAGICK="${MAGICK:-/run/current-system/sw/bin/magick}"
+CANVAS=1024
+CONTENT=824   # macOS leaves ~10% margin per side
+LOGO=725      # inset for logos that carry no background of their own
+RADIUS=184    # ~22.4% of CONTENT, approximates the squircle
+OPAQUE_MIN=0.98
+
+command -v "$MAGICK" >/dev/null 2>&1 || { echo "magick not found at $MAGICK" >&2; exit 1; }
+
+CHROMIUM_APPS="$HOME/Applications/Chromium Apps.localized"
+CHROMIUM_RES="$HOME/Library/Application Support/net.imput.helium/Default/Web Applications/Manifest Resources"
+CHROME_APPS="$HOME/Applications/Chrome Apps.localized"
+CHROME_RES="$HOME/Library/Application Support/Google/Chrome/Default/Web Applications/Manifest Resources"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# PNG24/PNG32 are explicit: libpng downgrades an all-white tile to grayscale, desaturating the logo.
+"$MAGICK" -size "${CONTENT}x${CONTENT}" xc:black -fill white \
+  -draw "roundrectangle 0,0,$((CONTENT-1)),$((CONTENT-1)),$RADIUS,$RADIUS" \
+  -alpha off "PNG24:$work/mask.png"
+"$MAGICK" -size "${CONTENT}x${CONTENT}" xc:white "PNG24:$work/white.png"
+"$MAGICK" "PNG24:$work/white.png" "PNG24:$work/mask.png" \
+  -compose CopyOpacity -composite "PNG32:$work/tile.png"
+
+# Largest cached manifest icon, preferring maskable (full-bleed by design).
+best_source() {
+  local dir=$1 best="" best_w=0 f w
+  for sub in "Icons Maskable" "Icons"; do
+    [ -d "$dir/$sub" ] || continue
+    for f in "$dir/$sub"/*.png; do
+      [ -f "$f" ] || continue
+      w=$(basename "$f" .png)
+      case "$w" in ''|*[!0-9]*) continue ;; esac
+      if [ "$w" -gt "$best_w" ]; then best_w=$w; best=$f; fi
+    done
+    [ -n "$best" ] && break
+  done
+  [ -n "$best" ] && printf '%s\t%s\n' "$best" "$best_w"
+}
+
+reshape() {
+  local src=$1 out=$2 alpha opaque set spec
+  alpha=$("$MAGICK" "$src" -alpha extract -format '%[fx:mean]' info:)
+  opaque=$(awk -v a="$alpha" -v m="$OPAQUE_MIN" 'BEGIN{print (a>=m)?1:0}')
+
+  if [ "$opaque" = "1" ]; then
+    # Already a solid tile - only the corners need rounding.
+    "$MAGICK" "$src" -resize "${CONTENT}x${CONTENT}!" "PNG32:$work/scaled.png"
+    "$MAGICK" "PNG32:$work/scaled.png" "PNG24:$work/mask.png" \
+      -compose CopyOpacity -composite "PNG32:$work/shaped.png"
+  else
+    # Bare logo - give it a tile to sit on instead of cropping it.
+    "$MAGICK" "PNG32:$work/tile.png" \( "$src" -resize "${LOGO}x${LOGO}" \) \
+      -gravity center -compose over -composite "PNG32:$work/shaped.png"
+  fi
+
+  "$MAGICK" "PNG32:$work/shaped.png" -background none -gravity center \
+    -extent "${CANVAS}x${CANVAS}" "PNG32:$work/master.png"
+
+  set="$work/icon.iconset"
+  rm -rf "$set"; mkdir -p "$set"
+  for spec in 16:16x16 32:16x16@2x 32:32x32 64:32x32@2x \
+              128:128x128 256:128x128@2x 256:256x256 512:256x256@2x \
+              512:512x512 1024:512x512@2x; do
+    "$MAGICK" "PNG32:$work/master.png" -resize "${spec%%:*}x${spec%%:*}" \
+      "PNG32:$set/icon_${spec#*:}.png"
+  done
+
+  iconutil -c icns "$set" -o "$out"
+}
+
+changed=0
+process() {
+  local apps_dir=$1 resources=$2 app name icns id found src width
+  [ -d "$apps_dir" ] || return 0
+  for app in "$apps_dir"/*.app; do
+    [ -d "$app" ] || continue
+    name=$(basename "$app" .app)
+    icns="$app/Contents/Resources/app.icns"
+    [ -f "$icns" ] || continue
+
+    id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)
+    id=${id##*.}
+    if [ -z "$id" ] || [ ! -d "$resources/$id" ]; then
+      printf '%-26s skipped (no cached icons)\n' "$name"; continue
+    fi
+
+    found=$(best_source "$resources/$id") || true
+    if [ -z "$found" ]; then
+      printf '%-26s skipped (no source png)\n' "$name"; continue
+    fi
+    src=${found%%$'\t'*}; width=${found##*$'\t'}
+
+    reshape "$src" "$icns"
+    touch "$app"
+    printf '%-26s rebuilt from %sx%s %s\n' "$name" "$width" "$width" "$(basename "$(dirname "$src")")"
+    changed=$((changed + 1))
+  done
+}
+
+process "$CHROMIUM_APPS" "$CHROMIUM_RES"
+process "$CHROME_APPS" "$CHROME_RES"
+
+if [ "$changed" -gt 0 ]; then
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -f "$HOME/Applications" >/dev/null 2>&1 || true
+  killall Dock 2>/dev/null || true
+  echo "Rebuilt $changed icon(s); Dock restarted."
+else
+  echo "No icons rebuilt."
+fi
