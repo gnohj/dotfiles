@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-monitor=${BABY_MENU_MONITOR:-$(/opt/homebrew/bin/aerospace list-monitors --focused --format '%{monitor-name}')}
-positioner=${BABY_MENU_POSITIONER:-$HOME/.local/bin/baby-menu-position}
-source_positioner="$HOME/.local/share/chezmoi/dot_local/share/baby-menu/baby-menu-position.swift"
 running=false
 visible=false
 
@@ -42,12 +39,6 @@ APPLESCRIPT
 if $visible; then
   click_tray
   exit 0
-fi
-
-if [ -x "$positioner" ]; then
-  "$positioner" "$monitor" >/dev/null 2>&1 &
-else
-  /usr/bin/swift "$source_positioner" "$monitor" >/dev/null 2>&1 &
 fi
 
 if ! $running; then
