@@ -33,6 +33,9 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 # The retired curl|sh installer's binary - mise owns herdr now, and this unmanaged copy shadowed the shim on PATH.
 .local/bin/herdr
 
+# Pi loads the canonical shared skill from gnohj/agents; remove the stale standalone copy that causes a duplicate-name warning.
+.agents/skills/no-mistakes/SKILL.md
+
 # herdr helper scripts moved into .local/bin/mux/herdr/ (the folder can't be named
 # `herdr` — that's the herdr binary). Remove the flat copies so they don't shadow.
 .local/bin/hack-herdr-last-tab.sh
