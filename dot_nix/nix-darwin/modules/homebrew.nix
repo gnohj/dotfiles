@@ -43,6 +43,7 @@
 
       # System services & window management
       "FelixKratz/formulae/borders"
+      "media-control" # now-playing bridge for the Spotify PWA (no AppleScript dictionary)
       "FelixKratz/formulae/sketchybar"
       "kanata"
       "koekeishiya/formulae/skhd"
@@ -133,7 +134,6 @@
       "logi-options+"
 
       # Media
-      "spotify"
       "vlc"
 
       # VPN & Security
