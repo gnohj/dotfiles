@@ -84,7 +84,7 @@ def disabled_labels(domain):
 
 def launch_state(label, domain, plist_disabled, disabled):
     if plist_disabled or label in disabled:
-        return {"status": "disabled", "runs": None, "active": False, "problem": True}
+        return {"status": "disabled", "runs": None, "active": False, "problem": False}
     result = run(["/bin/launchctl", "print", f"{domain}/{label}"])
     if result.returncode != 0:
         return {"status": "unloaded", "runs": None, "active": False, "problem": True}
@@ -195,7 +195,8 @@ def plist_jobs(now, cache):
             if section is None:
                 continue
             state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain])
-            runnable = domain.startswith("gui/") and state["active"]
+            manageable = domain.startswith("gui/")
+            runnable = manageable and state["active"]
             if state["status"] in {"disabled", "unloaded", "failed", "running"}:
                 remaining = state["status"]
             elif interval:
@@ -213,6 +214,10 @@ def plist_jobs(now, cache):
                     "problem": state["problem"],
                     "run_kind": "launchd" if runnable else "",
                     "run_target": f"{domain}/{label}" if runnable else "",
+                    "toggle_kind": "launchd" if manageable else "",
+                    "toggle_target": f"{domain}/{label}" if manageable else "",
+                    "toggle_source": str(path) if manageable else "",
+                    "enabled": state["status"] not in {"disabled", "unloaded"},
                 }
             )
     return jobs
@@ -397,6 +402,10 @@ def main():
             job["status"],
             job.get("run_kind", ""),
             job.get("run_target", ""),
+            job.get("toggle_kind", ""),
+            job.get("toggle_target", ""),
+            job.get("toggle_source", ""),
+            "true" if job.get("enabled") else "false",
         )
 
 

@@ -10,6 +10,9 @@ export type ScheduleJob = {
   remaining: string;
   status: string;
   runTarget: string | null;
+  toggleTarget: string | null;
+  toggleSource: string | null;
+  enabled: boolean;
 };
 
 export type ScheduleSection = {
@@ -20,6 +23,12 @@ export type ScheduleSection = {
 export type RunScheduleResult = {
   target: string;
   pid: number | null;
+  logPath: string;
+};
+
+export type ToggleScheduleResult = {
+  target: string;
+  enabled: boolean;
   logPath: string;
 };
 

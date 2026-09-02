@@ -1,3 +1,4 @@
+import { Switch } from "@babymenu/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subscribeToOperationsRefresh } from "./refresh";
 import type {
@@ -5,6 +6,7 @@ import type {
   QuotaRow,
   RunScheduleResult,
   ScheduleJob,
+  ToggleScheduleResult,
 } from "./types";
 
 const statusColor: Record<string, string> = {
@@ -58,12 +60,18 @@ function QuotaLine({ row }: { row: QuotaRow }) {
 
 function ScheduleLine({
   job,
+  busy,
   running,
+  toggling,
   onRun,
+  onToggle,
 }: {
   job: ScheduleJob;
+  busy: boolean;
   running: boolean;
+  toggling: boolean;
   onRun: () => void;
+  onToggle: (enabled: boolean) => void;
 }) {
   return (
     <div className="flex items-center gap-2 border-b border-line-faint py-2 last:border-0">
@@ -80,11 +88,20 @@ function ScheduleLine({
         <button
           type="button"
           onClick={onRun}
-          disabled={running || job.status === "running"}
+          disabled={busy || job.status === "running"}
           className="rounded-sm border border-line px-2 py-1 text-xxs uppercase tracking-caps text-ink-muted transition-colors hover:border-signal-live/40 hover:text-ink-strong disabled:opacity-40"
         >
           {running ? "Running" : "Run"}
         </button>
+      ) : null}
+      {job.toggleTarget ? (
+        <Switch
+          checked={job.enabled}
+          onCheckedChange={onToggle}
+          disabled={busy}
+          aria-label={`${job.enabled ? "Disable" : "Enable"} ${job.name}`}
+          title={toggling ? "Updating schedule" : "Toggle schedule"}
+        />
       ) : null}
     </div>
   );
@@ -115,6 +132,7 @@ export function OperationsView() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [runningTarget, setRunningTarget] = useState<string | null>(null);
+  const [togglingTarget, setTogglingTarget] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const api = window.babyMenu;
@@ -141,7 +159,7 @@ export function OperationsView() {
   const runSchedule = useCallback(
     async (job: ScheduleJob) => {
       const api = window.babyMenu;
-      if (!api || !job.runTarget || runningTarget) return;
+      if (!api || !job.runTarget || runningTarget || togglingTarget) return;
 
       setRunningTarget(job.runTarget);
       setNotice("");
@@ -162,7 +180,35 @@ export function OperationsView() {
         setRunningTarget(null);
       }
     },
-    [refresh, runningTarget],
+    [refresh, runningTarget, togglingTarget],
+  );
+
+  const toggleSchedule = useCallback(
+    async (job: ScheduleJob, enabled: boolean) => {
+      const api = window.babyMenu;
+      if (!api || !job.toggleTarget || runningTarget || togglingTarget) return;
+
+      setTogglingTarget(job.toggleTarget);
+      setNotice("");
+      try {
+        const result = await api.capabilities.invoke<ToggleScheduleResult>(
+          "operations",
+          "toggleSchedule",
+          { target: job.toggleTarget, enabled },
+        );
+        setError("");
+        setNotice(
+          `${job.name} ${result.enabled ? "enabled" : "disabled"} · ${result.logPath}`,
+        );
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        await refresh();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setTogglingTarget(null);
+      }
+    },
+    [refresh, runningTarget, togglingTarget],
   );
 
   useEffect(() => {
@@ -316,8 +362,11 @@ export function OperationsView() {
                   <ScheduleLine
                     key={`${section.name}:${job.name}`}
                     job={job}
+                    busy={runningTarget !== null || togglingTarget !== null}
                     running={runningTarget === job.runTarget}
+                    toggling={togglingTarget === job.toggleTarget}
                     onRun={() => void runSchedule(job)}
+                    onToggle={(enabled) => void toggleSchedule(job, enabled)}
                   />
                 ))}
               </div>

@@ -1,13 +1,14 @@
 import { execFile } from "node:child_process";
 import { appendFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type {
   OperationsDashboard,
   QuotaRow,
   RunScheduleResult,
   ScheduleJob,
   ScheduleSection,
+  ToggleScheduleResult,
 } from "./types";
 
 const home = homedir();
@@ -61,6 +62,17 @@ function parseQuotas(output: string): QuotaRow[] {
     });
 }
 
+function commandSucceeds(file: string, args: string[]): Promise<boolean> {
+  return new Promise((resolveResult) => {
+    execFile(
+      file,
+      args,
+      { env: process.env, timeout: 30_000, maxBuffer: 2 * 1024 * 1024 },
+      (error) => resolveResult(!error),
+    );
+  });
+}
+
 function parseSchedules(
   output: string,
 ): Pick<
@@ -75,8 +87,18 @@ function parseSchedules(
 
   for (const line of output.split("\n")) {
     if (!line) continue;
-    const [kind, first = "", second = "", third = "", fourth = "", fifth = ""] =
-      line.split("\t");
+    const [
+      kind,
+      first = "",
+      second = "",
+      third = "",
+      fourth = "",
+      fifth = "",
+      sixth = "",
+      seventh = "",
+      eighth = "",
+      ninth = "",
+    ] = line.split("\t");
     if (kind === "summary") {
       activeSchedules = Number(first) || 0;
       problemSchedules = Number(second) || 0;
@@ -94,6 +116,9 @@ function parseSchedules(
         remaining: second,
         status: third,
         runTarget: fourth === "launchd" && fifth ? fifth : null,
+        toggleTarget: sixth === "launchd" && seventh ? seventh : null,
+        toggleSource: sixth === "launchd" && eighth ? eighth : null,
+        enabled: ninth === "true",
       };
       current.jobs.push(job);
     }
@@ -121,6 +146,47 @@ function runTargetFrom(input: unknown): string {
   return target;
 }
 
+function toggleRequestFrom(input: unknown): {
+  target: string;
+  enabled: boolean;
+} {
+  if (
+    !input ||
+    typeof input !== "object" ||
+    !("target" in input) ||
+    !("enabled" in input)
+  ) {
+    throw new Error("Missing schedule toggle request");
+  }
+  const target = input.target;
+  const enabled = input.enabled;
+  const expectedTarget = new RegExp(
+    `^gui/${process.getuid()}/[A-Za-z0-9._-]+$`,
+  );
+  if (
+    typeof target !== "string" ||
+    !expectedTarget.test(target) ||
+    typeof enabled !== "boolean"
+  ) {
+    throw new Error("Invalid schedule toggle request");
+  }
+  return { target, enabled };
+}
+
+function manageableSource(source: string): boolean {
+  const resolvedSource = resolve(source);
+  const allowedDirectories = [
+    resolve(join(home, "Library/LaunchAgents")),
+    resolve("/Library/LaunchAgents"),
+  ];
+  return (
+    resolvedSource.endsWith(".plist") &&
+    allowedDirectories.some(
+      (directory) => dirname(resolvedSource) === directory,
+    )
+  );
+}
+
 export const actions = {
   async getDashboard(): Promise<OperationsDashboard> {
     const errors: string[] = [];
@@ -144,6 +210,66 @@ export const actions = {
       errors,
       refreshedAt: new Date().toISOString(),
     };
+  },
+
+  async toggleSchedule(input: unknown): Promise<ToggleScheduleResult> {
+    const { target, enabled } = toggleRequestFrom(input);
+    const startedAt = Date.now();
+    await logAction({
+      action: "toggleSchedule",
+      status: "requested",
+      target,
+      enabled,
+    });
+
+    try {
+      const scheduleResult = await execute("/usr/bin/python3", [
+        schedulesScript,
+      ]);
+      const dashboard = parseSchedules(scheduleResult);
+      const job = dashboard.schedules
+        .flatMap((section) => section.jobs)
+        .find((candidate) => candidate.toggleTarget === target);
+      if (!job?.toggleSource || !manageableSource(job.toggleSource)) {
+        throw new Error("Schedule is not available to toggle");
+      }
+
+      if (enabled !== job.enabled) {
+        if (enabled) {
+          await execute("/bin/launchctl", ["enable", target]);
+          if (!(await commandSucceeds("/bin/launchctl", ["print", target]))) {
+            await execute("/bin/launchctl", [
+              "bootstrap",
+              target.slice(0, target.lastIndexOf("/")),
+              job.toggleSource,
+            ]);
+          }
+        } else {
+          await execute("/bin/launchctl", ["disable", target]);
+          if (await commandSucceeds("/bin/launchctl", ["print", target])) {
+            await execute("/bin/launchctl", ["bootout", target]);
+          }
+        }
+      }
+
+      await logAction({
+        action: "toggleSchedule",
+        status: enabled ? "enabled" : "disabled",
+        target,
+        durationMs: Date.now() - startedAt,
+      });
+      return { target, enabled, logPath: actionLog };
+    } catch (cause) {
+      await logAction({
+        action: "toggleSchedule",
+        status: "failed",
+        target,
+        enabled,
+        durationMs: Date.now() - startedAt,
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
+      throw cause;
+    }
   },
 
   async runSchedule(input: unknown): Promise<RunScheduleResult> {
