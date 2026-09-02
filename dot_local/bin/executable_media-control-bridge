@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Push Now Playing changes into sketchybar; the PWA posts none of the notifications the native app did.
+
+set -uo pipefail
+
+MEDIA_CONTROL=/opt/homebrew/bin/media-control
+SKETCHYBAR=/opt/homebrew/bin/sketchybar
+
+[ -x "$MEDIA_CONTROL" ] || { echo "media-control not found at $MEDIA_CONTROL" >&2; exit 1; }
+[ -x "$SKETCHYBAR" ] || { echo "sketchybar not found at $SKETCHYBAR" >&2; exit 1; }
+
+"$MEDIA_CONTROL" stream --no-artwork | while IFS= read -r _; do
+  "$SKETCHYBAR" --trigger spotify_poll 2>/dev/null || true
+done &
+pipeline=$!
+
+# Backgrounded so the trap is reachable: bash defers handlers during a foreground pipeline.
+trap 'pkill -P $$ 2>/dev/null' EXIT INT TERM
+
+wait "$pipeline"

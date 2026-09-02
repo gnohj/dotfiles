@@ -1,10 +1,17 @@
 local constants = require("constants")
 local settings = { colors = require("config.colors") }
+local cjson = require("cjson")
+
+local MEDIA_CONTROL = "/opt/homebrew/bin/media-control"
+local JQ = "/run/current-system/sw/bin/jq"
+-- The PWA feed gives a 150px thumbnail (native gave 640px), so fix the size and render 1:1.
+local ARTWORK_PX = 32
 
 local isPlaying = false
 local isSpotifyRunning = false
 local lastTrackInfo = ""
 local lastClickTime = 0
+local spotifyBundleIds = { ["com.spotify.client"] = true }
 
 local LOG_DIR = os.getenv("HOME") .. "/.logs/sketchybar"
 local LOG_FILE = LOG_DIR .. "/spotify_" .. os.date("%Y%m") .. ".log"
@@ -19,11 +26,34 @@ local function log_message(level, message)
 	end
 end
 
--- Delay event registration to avoid deadlock during init
-sbar.exec("sleep 0.1 && sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged")
+-- Now Playing is a global feed and PWA bundle ids are generated at install time, so discover them.
+local function refreshSpotifyBundleIds()
+	local discover = [[
+		for app in "$HOME/Applications/"*"Apps.localized/"*.app; do
+			case "$(basename "$app")" in
+				*[Ss]potify*)
+					/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null
+					;;
+			esac
+		done
+	]]
+
+	sbar.exec(discover, function(result)
+		local ids = { ["com.spotify.client"] = true }
+		for id in (result or ""):gmatch("[^\r\n]+") do
+			local trimmed = id:match("^%s*(.-)%s*$")
+			if trimmed ~= "" then
+				ids[trimmed] = true
+			end
+		end
+		spotifyBundleIds = ids
+	end)
+end
 
 log_message("INFO", "Initializing Spotify widget")
 local initialPosition = "left"
+
+sbar.exec("sleep 0.1 && sketchybar --add event spotify_poll")
 
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	position = initialPosition,
@@ -39,7 +69,7 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	background = {
 		image = {
 			corner_radius = 2,
-			scale = 0.05,
+			scale = 1.0,
 			drawing = false,
 		},
 		drawing = true,
@@ -51,10 +81,10 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	scroll_texts = true,
 	padding_right = 0,
 	padding_left = 0,
-	drawing = false, -- start hidden (like .icon/.play) so an empty slot isn't
-	-- reserved before the first update / when Spotify isn't running
+	drawing = false, -- start hidden like .icon/.play so no empty slot is reserved before the first update
 	updates = true,
-	update_freq = 3,
+	-- spotify_poll from media-control-bridge is the real refresh; this is the dead-bridge safety net.
+	update_freq = 30,
 })
 
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
@@ -65,261 +95,198 @@ local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
 	drawing = false,
 })
 
+local function hideWidget()
+	if isSpotifyRunning then
+		spotify:set({ drawing = false })
+		spotifyIcon:set({ drawing = false })
+		playIcon:set({ drawing = false })
+		isSpotifyRunning = false
+		lastTrackInfo = ""
+	end
+end
+
+local function applyArtwork(trackKey)
+	local artworkPath = "/tmp/spotify_" .. trackKey .. ".jpg"
+	local extract = MEDIA_CONTROL
+		.. " get 2>/dev/null | "
+		.. JQ
+		.. " -r '.artworkData // empty' | /usr/bin/base64 -d > '"
+		.. artworkPath
+		.. ".part' 2>/dev/null; if [ -s '"
+		.. artworkPath
+		.. ".part' ]; then /usr/bin/sips -z "
+		.. ARTWORK_PX
+		.. " "
+		.. ARTWORK_PX
+		.. " '"
+		.. artworkPath
+		.. ".part' >/dev/null 2>&1; /bin/mv '"
+		.. artworkPath
+		.. ".part' '"
+		.. artworkPath
+		.. "'; echo ok; else /bin/rm -f '"
+		.. artworkPath
+		.. ".part'; fi"
+
+	sbar.exec(extract, function(result)
+		if not result or not result:match("ok") then
+			return
+		end
+		spotifyIcon:set({
+			drawing = true,
+			icon = {
+				drawing = false,
+			},
+			background = {
+				height = 16,
+				image = {
+					string = artworkPath,
+					corner_radius = 2,
+					scale = 1.0,
+					drawing = true,
+				},
+			},
+		})
+	end)
+end
+
 local function updateSpotifyInfo()
-	-- Quick check first - avoid AppleScript if Spotify isn't running
-	sbar.exec("pgrep -x Spotify", function(result)
-		if result == "" then
-			if isSpotifyRunning then
-				spotify:set({ drawing = false })
-				spotifyIcon:set({ drawing = false })
-				playIcon:set({ drawing = false })
-				isSpotifyRunning = false
-				lastTrackInfo = ""
-			end
+	sbar.exec(MEDIA_CONTROL .. " get --no-artwork 2>/dev/null", function(result)
+		-- SbarLua already decodes JSON stdout into a table; a string only arrives if that failed.
+		local data = result
+		if type(data) == "string" then
+			local ok, decoded = pcall(cjson.decode, data)
+			data = ok and decoded or nil
+		end
+
+		if type(data) ~= "table" then
+			hideWidget()
+			return
+		end
+
+		if not spotifyBundleIds[data.bundleIdentifier or ""] then
+			hideWidget()
+			return
+		end
+
+		local trackName = data.title or ""
+		if trackName == "" then
+			hideWidget()
 			return
 		end
 
 		isSpotifyRunning = true
 
-		local spotifyScript = [[
-			tell application "System Events"
-				if exists (processes where name is "Spotify") then
-					tell application "Spotify"
-						if player state is playing then
-							set trackName to name of current track
-							set artistName to artist of current track
-							set albumName to album of current track
-							set artworkUrl to artwork url of current track
-							return "playing|" & trackName & "|" & artistName & "|" & albumName & "|" & artworkUrl
-						else if player state is paused then
-							set trackName to name of current track
-							set artistName to artist of current track
-							set albumName to album of current track
-							set artworkUrl to artwork url of current track
-							return "paused|" & trackName & "|" & artistName & "|" & albumName & "|" & artworkUrl
-						else
-							return "stopped"
-						end if
-					end tell
-				else
-					return "not_running"
-				end if
-			end tell
-		]]
+		local artistName = data.artist or "" -- Empty for podcasts
+		local albumName = data.album or ""
+		local playerState = data.playing and "playing" or "paused"
 
-		-- Wrap osascript in a timeout to prevent hanging (5 second timeout)
-		local timeoutCmd = [[
-			(
-				osascript -e ']] .. spotifyScript .. [[' &
-				pid=$!
-				( sleep 5; kill -9 $pid 2>/dev/null ) &
-				wait $pid 2>/dev/null
-			)
-		]]
+		local currentTrackInfo = trackName .. "|" .. artistName .. "|" .. albumName .. "|" .. playerState
 
-		sbar.exec(timeoutCmd, function(_result)
-			local status = _result:match("^[^\n]*")
+		if currentTrackInfo == lastTrackInfo then
+			return
+		end
+		lastTrackInfo = currentTrackInfo
 
-			if status == "not_running" or status == "stopped" or status == "" or status == nil then
-				if status == nil or status == "" then
-					log_message("WARN", "AppleScript timed out or returned empty result")
-				end
-				if isSpotifyRunning then
-					spotify:set({ drawing = false })
-					spotifyIcon:set({ drawing = false })
-					playIcon:set({ drawing = false })
-					isSpotifyRunning = false
-					lastTrackInfo = ""
-				end
-				return
-			end
+		isPlaying = data.playing == true
 
-			-- Split by | while preserving empty fields
-			local parts = {}
-			local start = 1
-			while true do
-				local pipePos = status:find("|", start, true)
-				if not pipePos then
-					table.insert(parts, status:sub(start))
-					break
-				end
-				table.insert(parts, status:sub(start, pipePos - 1))
-				start = pipePos + 1
-			end
+		-- Podcasts have empty artist name
+		local displayText
+		local isPodcast = artistName == ""
 
-			local playerState = parts[1] or ""
-			local trackName = parts[2] or "Unknown Track"
-			local artistName = parts[3] or "" -- Empty for podcasts
-			local albumName = parts[4] or ""
-			local artworkUrl = parts[5] or ""
+		if isPodcast then
+			-- Ads carry neither artist nor album, so the separator would lead with a bare dash.
+			displayText = albumName == "" and trackName or (albumName .. " - " .. trackName)
+			log_message("INFO", "Podcast detected: " .. displayText)
+		else
+			-- Music: show artist - track
+			displayText = artistName .. " - " .. trackName
+			log_message("INFO", "Music detected: " .. displayText)
+		end
 
-			local currentTrackInfo = trackName
-				.. "|"
-				.. artistName
-				.. "|"
-				.. albumName
-				.. "|"
-				.. playerState
-				.. "|"
-				.. artworkUrl
+		local playIconString = isPlaying and "⏸" or "▶"
+		local playIconSize = isPlaying and "20.0" or "18.0"
+		local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
 
-			if currentTrackInfo ~= lastTrackInfo then
-				lastTrackInfo = currentTrackInfo
+		spotifyIcon:set({
+			drawing = true,
+			icon = {
+				string = isPodcast and "🎙" or "􀑬",
+				color = settings.colors.blue,
+				padding_right = 0,
+				drawing = true,
+			},
+			background = {
+				image = {
+					drawing = false,
+				},
+			},
+		})
 
-				isPlaying = playerState == "playing"
+		applyArtwork((currentTrackInfo:gsub("[^%w]", "")))
 
-				-- Podcasts have empty artist name
-				local displayText
-				local isPodcast = (artistName == "" or artistName == nil)
+		spotify:set({
+			drawing = true,
+			icon = {
+				string = displayText,
+				color = isPlaying and settings.colors.light_blue or settings.colors.dirty_white,
+				padding_left = 5,
+				padding_right = 5,
+				max_chars = 20,
+			},
+			label = {
+				string = "",
+			},
+		})
 
-				if isPodcast then
-					-- Podcast: show album (podcast title) - track (episode title)
-					displayText = albumName .. " - " .. trackName
-					local artworkStatus = (artworkUrl ~= "" and artworkUrl ~= "none" and "available" or "none")
-					log_message("INFO", "Podcast detected: " .. displayText .. " | Artwork: " .. artworkStatus)
-					print("Podcast detected: " .. displayText .. " | Artwork: " .. artworkStatus)
-				else
-					-- Music: show artist - track
-					displayText = artistName .. " - " .. trackName
-					local artworkStatus = (artworkUrl ~= "" and artworkUrl ~= "none" and "available" or "none")
-					log_message("INFO", "Music detected: " .. displayText .. " | Artwork: " .. artworkStatus)
-					print("Music detected: " .. displayText .. " | Artwork: " .. artworkStatus)
-				end
-				local playIconString = isPlaying and "⏸" or "▶"
-				local playIconSize = isPlaying and "20.0" or "18.0"
-				local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
-
-				local hasArtwork = artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing")
-				local iconString = (isPodcast and not hasArtwork) and "🎙" or "􀑬"
-				spotifyIcon:set({
-					drawing = true,
-					icon = {
-						string = iconString,
-						color = settings.colors.blue,
-						padding_right = 0,
-						drawing = true,
-					},
-					background = {
-						image = {
-							drawing = false,
-						},
-					},
-				})
-
-				if artworkUrl ~= "" and artworkUrl ~= "none" and not artworkUrl:match("missing") then
-					local urlHash = string.gsub(artworkUrl, "[^%w]", "")
-					local artworkPath = "/tmp/spotify_" .. urlHash .. ".jpg"
-
-					sbar.exec("curl -s -L -o '" .. artworkPath .. "' '" .. artworkUrl .. "'", function()
-						sbar.exec("ls -la '" .. artworkPath .. "'", function(lsResult)
-							if lsResult ~= "" and not lsResult:match("No such file") then
-								spotifyIcon:set({
-									drawing = true,
-									icon = {
-										drawing = false,
-									},
-									background = {
-										height = 16,
-										image = {
-											string = artworkPath,
-											corner_radius = 2,
-											scale = 0.05,
-											drawing = true,
-										},
-									},
-								})
-							end
-						end)
-					end)
-				end
-
-				spotify:set({
-					drawing = true,
-					icon = {
-						string = displayText,
-						color = isPlaying and settings.colors.light_blue or settings.colors.dirty_white,
-						padding_left = 5,
-						padding_right = 5,
-						max_chars = 20,
-					},
-					label = {
-						string = "",
-					},
-				})
-
-				playIcon:set({
-					drawing = true,
-					icon = {
-						string = playIconString,
-						color = color,
-						font = "SF Pro:Regular:" .. playIconSize,
-						padding_left = 8,
-						padding_right = 0,
-					},
-				})
-			end
-		end)
+		playIcon:set({
+			drawing = true,
+			icon = {
+				string = playIconString,
+				color = color,
+				font = "SF Pro:Regular:" .. playIconSize,
+				padding_left = 8,
+				padding_right = 0,
+			},
+		})
 	end)
 end
 
-spotify:subscribe("spotify_change", function(env)
-	log_message("INFO", "Event triggered: spotify_change - Spotify playback state changed")
-	updateSpotifyInfo()
-end)
-
-spotify:subscribe("spotify_poll", function()
-	log_message("DEBUG", "Event triggered: spotify_poll - Manual poll requested")
+spotify:subscribe({ "routine", "forced", "spotify_poll", "front_app_switched" }, function()
 	updateSpotifyInfo()
 end)
 
 spotify:subscribe("system_woke", function()
 	log_message("INFO", "Event triggered: system_woke - Refreshing state")
+	refreshSpotifyBundleIds()
 	updateSpotifyInfo()
 end)
 
-spotify:subscribe("mouse.clicked", function()
+local function togglePlayback(source)
 	local currentTime = os.time()
 	if currentTime - lastClickTime < 1 then
-		log_message("DEBUG", "Event triggered: mouse.clicked on spotify (debounced)")
+		log_message("DEBUG", "Event triggered: mouse.clicked on " .. source .. " (debounced)")
 		return
 	end
 	lastClickTime = currentTime
 
-	log_message("INFO", "Event triggered: mouse.clicked on spotify - toggling play/pause")
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
+	log_message("INFO", "Event triggered: mouse.clicked on " .. source .. " - toggling play/pause")
+	sbar.exec(MEDIA_CONTROL .. " toggle-play-pause")
 	lastTrackInfo = ""
-	-- Wait a bit for Spotify to update, then poll
+	-- Wait a bit for the player to update, then poll
 	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
+end
+
+spotify:subscribe("mouse.clicked", function()
+	togglePlayback("spotify")
 end)
 
 spotifyIcon:subscribe("mouse.clicked", function()
-	local currentTime = os.time()
-	if currentTime - lastClickTime < 1 then
-		log_message("DEBUG", "Event triggered: mouse.clicked on spotify.icon (debounced)")
-		return
-	end
-	lastClickTime = currentTime
-
-	log_message("INFO", "Event triggered: mouse.clicked on spotify.icon - toggling play/pause")
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
-	lastTrackInfo = ""
-	-- Wait a bit for Spotify to update, then poll
-	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
+	togglePlayback("spotify.icon")
 end)
 
 playIcon:subscribe("mouse.clicked", function()
-	local currentTime = os.time()
-	if currentTime - lastClickTime < 1 then
-		log_message("DEBUG", "Event triggered: mouse.clicked on spotify.play (debounced)")
-		return
-	end
-	lastClickTime = currentTime
-
-	log_message("INFO", "Event triggered: mouse.clicked on spotify.play - toggling play/pause")
-	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
-	lastTrackInfo = ""
-	-- Wait a bit for Spotify to update, then poll
-	sbar.exec("sleep 0.3 && sketchybar --trigger spotify_poll")
+	togglePlayback("spotify.play")
 end)
 
 sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
@@ -330,17 +297,12 @@ sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
 	position = initialPosition,
 })
 
--- Kill any lingering display-monitor.sh from a previous session; the
--- widget no longer responds to monitor changes, so the background poller
--- has nothing to consume its events.
+-- The widget no longer handles monitor changes, so a leftover display-monitor.sh has no consumer.
 sbar.exec("pkill -f display-monitor.sh 2>/dev/null")
 
+sbar.exec("/usr/bin/find /tmp -maxdepth 1 -name 'spotify_*.jpg' -mtime +1 -delete 2>/dev/null")
+
 log_message("INFO", "Running initial widget update")
+refreshSpotifyBundleIds()
 updateSpotifyInfo()
 log_message("INFO", "Spotify widget initialization complete")
-
--- Polling fallback: update on the regular update_freq interval
-spotify:subscribe("front_app_switched", function()
-	log_message("DEBUG", "Event triggered: front_app_switched - Updating Spotify info")
-	updateSpotifyInfo()
-end)

@@ -180,6 +180,29 @@ in
       };
     };
 
+    # Bridges MediaRemote's push stream into the spotify widget; launchd-owned so a sketchybar restart can't orphan it.
+    media-control-bridge = {
+      serviceConfig = {
+        # bash -c wrapper: launchd doesn't auto-create StandardOut/ErrPath parent dirs, so `mkdir -p` keeps the service from failing silently.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/media-control
+            exec ${pkgs.bash}/bin/bash ${homeDir}/.local/bin/media-control-bridge
+          ''
+        ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        ThrottleInterval = 10;
+        EnvironmentVariables = {
+          PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+        };
+        StandardOutPath = "${homeDir}/.logs/media-control/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/media-control/launchagent.err.log";
+      };
+    };
+
     # Fitness Workout Sync — moved to Claude Desktop Cowork scheduled task
     # (runs on Max subscription instead of API credits)
 
