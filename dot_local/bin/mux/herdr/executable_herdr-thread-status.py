@@ -118,6 +118,19 @@ FINISH_QUEUE = os.path.join(
 )
 # Same ticket-key shape treekanga's worktree_setup.sh matches, so both writers agree on the id.
 TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
+# Lowercase fallback for branches like `fm/web-ihrweb-24720-...`; tried only AFTER the strict pass, so every branch that resolves today keeps resolving to the same key.
+TICKET_RE_LOOSE = re.compile(r"([A-Za-z]+-[0-9]+)")
+
+
+def ticket_key(text):
+    """The ticket in `text` as an UPPERCASE key, or None.
+
+    Uppercase-first, so a branch carrying both a real key and a lowercase near-miss still picks
+    the real one. The result is upper()ed either way: the key is the thread FILENAME, and a
+    lowercase twin would sit beside the canonical file as a second record of one ticket.
+    """
+    match = TICKET_RE.search(text) or TICKET_RE_LOOSE.search(text)
+    return match.group(1).upper() if match else None
 # worktree_setup.sh derives tmux_session by stripping this prefix; mirrored so the two agree.
 DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 
@@ -197,6 +210,46 @@ def workspace_cwds():
         if ws and cwd and ws not in found:
             found[ws] = cwd
     return found
+
+
+def label_task_id(label):
+    """The task id a fleet workspace label carries, or None.
+
+    Labels look like `\u2514 web-ihrweb-24720-d2-archive-traffic \u00b7 p:sLXd...`: a tree glyph,
+    the id, then a bullet-separated pane hint. Agent homes are filtered out before this.
+    """
+    text = label.split(" \u00b7 ")[0]
+    text = text.strip().lstrip("\u2514\u251c\u2500\u2502 ").strip()
+    return text or None
+
+
+def worktree_branch_for(cwd, label):
+    """(worktree, branch) for the checkout this workspace's task actually works in.
+
+    A crewmate's shell can sit in the SHARED clone while its work lives in a task worktree - the
+    shell reports `master`, which carries no ticket, so every badge on that row goes blank even
+    though the task has a branch and a PR. `git worktree list` from the shared clone enumerates
+    every sibling worktree, so the task's own branch is one cheap local call away.
+
+    Deliberately narrow: it engages only when the current branch has no ticket, and only on an
+    EXACT id match, so it can never relabel a workspace that already resolves.
+    """
+    task = label_task_id(label)
+    if not task:
+        return None, None
+    raw = out(["git", "-C", cwd, "worktree", "list", "--porcelain"], timeout=6)
+    if not raw:
+        return None, None
+    path = None
+    for line in raw.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree "):].strip()
+        elif line.startswith("branch ") and path:
+            branch = line[len("branch "):].strip()
+            short = branch[len("refs/heads/"):] if branch.startswith("refs/heads/") else branch
+            if short == task or short.endswith("/" + task):
+                return path, short
+    return None, None
 
 
 def workspace_labels():
@@ -306,14 +359,14 @@ def create_thread(cwd, branch):
     copied from worktree_setup.sh so the two writers cannot disagree, and O_EXCL makes losing a
     concurrent race against it a no-op rather than a clobber.
     """
-    match = TICKET_RE.search(branch)
-    if not match:
+    key = ticket_key(branch)
+    if not key:
         return None, None
-    path = os.path.join(THREADS_DIR, match.group(1) + ".json")
+    path = os.path.join(THREADS_DIR, key + ".json")
     url = out(["git", "-C", cwd, "config", "--get", "remote.origin.url"], timeout=4) or ""
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     data = {
-        "id": match.group(1),
+        "id": key,
         "kind": "ticket",
         "repo": re.sub(r"\.git$", "", os.path.basename(url)) or None,
         "branch": branch,
@@ -324,15 +377,18 @@ def create_thread(cwd, branch):
         "created_at": now,
         "last_seen_at": now,
     }
-    try:
-        os.makedirs(THREADS_DIR, exist_ok=True)
-        with open(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
-            json.dump(data, handle, indent=2)
-    except FileExistsError:
-        return None, None  # already written (by us on a past pass, or by worktree_setup.sh)
-    except OSError:
-        return None, None
-    return path, data
+    # Siblings on ONE ticket fall back to a per-branch name; thread_for() keys on the worktree and branch FIELDS, never the filename, and `id` stays the bare key so Jira still resolves.
+    for candidate in (path, os.path.join(THREADS_DIR, key + "__" + re.sub(r"[^A-Za-z0-9._-]", "-", branch) + ".json")):
+        try:
+            os.makedirs(THREADS_DIR, exist_ok=True)
+            with open(os.open(candidate, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
+                json.dump(data, handle, indent=2)
+        except FileExistsError:
+            continue  # taken by us on a past pass, by worktree_setup.sh, or by a sibling branch
+        except OSError:
+            return None, None
+        return candidate, data
+    return None, None
 
 
 def fetch(branch, worktree):
@@ -498,6 +554,11 @@ def refresh_once():
         if not os.path.isdir(cwd):
             continue
         branch = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
+        if branch and not ticket_key(branch):
+            # Shell parked in the shared clone: follow the task's own worktree instead.
+            alt_cwd, alt_branch = worktree_branch_for(cwd, label)
+            if alt_cwd and os.path.isdir(alt_cwd):
+                cwd, branch = alt_cwd, alt_branch
         if not branch:
             # not a git checkout / detached HEAD
             report(workspace, blank_tokens(), seq)
