@@ -409,6 +409,32 @@ def fetch(branch, worktree):
     return url, approvals, parts[2] if len(parts) > 2 else "", True
 
 
+def ticket_pr_fallback(key, worktree, entries):
+    """(pr_url, approvals, ci_status) for the TICKET when this branch has no PR of its own.
+
+    Several branches can feed one ticket's single PR - the three IHRWEB-24273 workspaces all
+    contribute to one, and none of them carries a PR itself, so every badge on those rows stayed
+    empty while the ticket's PR sat there with real review and CI state. The ticket is what the
+    row is about, so the ticket's PR is the honest thing to show.
+
+    Only ever a FALLBACK: a branch with its own PR keeps reporting that one, never the ticket's.
+    """
+    if not key:
+        return None, None, None
+    url = next((d.get("pr_url") for _, d in entries
+                if d.get("id") == key and d.get("pr_url")), None)
+    if not url:
+        return None, None, None
+    # PR_JQ starts at `.[0]` for `gh pr list`'s array, so `gh pr view`'s single object is wrapped rather than the filter duplicated.
+    raw = out(["gh", "pr", "view", url, "--json",
+               "url,latestReviews,statusCheckRollup", "--jq", "[.] | " + PR_JQ], cwd=worktree)
+    if not raw:
+        return None, None, None
+    parts = raw.split("\t")
+    approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+    return parts[0] or None, approvals, parts[2] if len(parts) > 2 else ""
+
+
 def enqueue_finish(path, data, cwd):
     """A known PR left the open set — if it MERGED, queue the vault-note freeze for herdr-sb-drain.
 
@@ -432,7 +458,8 @@ def enqueue_finish(path, data, cwd):
     data["pr_merged_at"] = (parts[1] if len(parts) > 1 and parts[1]
                             else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     data["merge_commit"] = parts[2] if len(parts) > 2 and parts[2] else None
-    ticket = os.path.basename(path)[:-len(".json")]
+    # From the record's `id`, not the filename: a `<KEY>__<branch>.json` sibling would hand herdr-sb-drain a key no Jira ticket answers to.
+    ticket = data.get("id") or os.path.basename(path)[:-len(".json")]
     try:
         os.makedirs(FINISH_QUEUE, exist_ok=True)
         # O_EXCL: never re-queue a freeze the drain is already working through.
@@ -563,16 +590,29 @@ def refresh_once():
             # not a git checkout / detached HEAD
             report(workspace, blank_tokens(), seq)
             continue
+        # A branch can carry no ticket at all (`fm/pr19552-increment`); the workspace label is the last source before giving up.
+        key = ticket_key(branch) or ticket_key(label)
         path, data = thread_for(cwd, branch, entries)
         if not path:
             # No match can also mean AMBIGUOUS, which is why create_thread() skips an existing filename.
             path, data = create_thread(cwd, branch)
             if path:
                 entries.append((path, data))
+        if not data and not ticket_key(branch) and key:
+            # Read-only: this row does not own that ticket's file, and persisting would let one workspace's PR overwrite another's.
+            data = next((d for _, d in entries if d.get("id") == key), None)
+            path = None
         note = vault_note(cwd)
         url, approvals, ci, reached = fetch(branch, cwd) if have_gh else (None, None, None, False)
+        # Captured BEFORE the fallback: borrowing the ticket's still-open PR would suppress the vault-note freeze forever.
+        own_pr_url = url
+        if have_gh and reached and not url:
+            # No PR on this branch - show the TICKET's PR rather than an empty row.
+            alt_url, alt_approvals, alt_ci = ticket_pr_fallback(key, cwd, entries)
+            if alt_url:
+                url, approvals, ci = alt_url, alt_approvals, alt_ci
         # Must run BEFORE persist, which clears pr_url to None once the PR leaves the open set.
-        if path and data and reached and url == "" and data.get("pr_url"):
+        if path and data and reached and own_pr_url == "" and data.get("pr_url"):
             enqueue_finish(path, data, cwd)
         if path and (reached or note != (data.get("vault_note") or "")):
             persist(path, data, url, approvals, ci, note)
