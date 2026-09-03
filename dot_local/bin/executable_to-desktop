@@ -68,9 +68,12 @@ at_desktop() {
 # herdr relays OSC 52 as a protocol-level clipboard write, so this reaches the workstation even over --remote.
 osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"; }
 
+# TO_DESKTOP_BACKGROUND=1 opens without foregrounding the browser, for an unattended caller (a gh-dash review). Unset, opening still raises it.
 do_open() {
+  local bg=()
+  [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ] && bg=(-g)
   case "$(uname -s)" in
-    Darwin) open "$1" ;;
+    Darwin) open ${bg[@]+"${bg[@]}"} "$1" ;;
     # BROWSER unset: it names desktop-open, which calls back here, so xdg-open honoring it would ping-pong.
     *) (env -u BROWSER xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
   esac
@@ -104,7 +107,8 @@ do_paste_image() {
 do_browser_debug() {
   [ "$(uname -s)" = Darwin ] || die "browser-debug: workstation is not macOS"
   lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1 && return 0
-  open -na 'Google Chrome' --args --remote-debugging-port=9222 --user-data-dir="$HOME/.cache/chrome-cdp-profile"
+  # -g so a devbox arming its CDP host never steals the workstation's focus; the occlusion flags keep the unfocused window compositing, or screenshots come back stale.
+  open -g -na 'Google Chrome' --args --remote-debugging-port=9222 --user-data-dir="$HOME/.cache/chrome-cdp-profile" --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding
 }
 
 # Fixed argv, no caller input: the browser list is hardcoded, so the restricted key can't steer the query.
