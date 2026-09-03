@@ -73,8 +73,8 @@ dir="${dir/#\~/$HOME}"
 # git-dir differs from the shared common-dir (e.g. web/.bare/worktrees/review vs
 # web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
 label_explicit="$label"
-# Twins share a path, and fm-settings' leaf reads as the fm-work home it is not - both label by sesh Name.
-if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ]; }; then
+# Twins share a path, and a leaf can read as something it is not (fm-settings, chezmoi) - all label by sesh Name.
+if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ] || [ "$entry_name" = dotfiles ]; }; then
   label="$entry_name"
 elif [ -z "$label" ]; then
   case "$dir" in
