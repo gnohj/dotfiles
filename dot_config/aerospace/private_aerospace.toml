@@ -220,10 +220,10 @@ run = "move-node-to-workspace F"
 if.app-id = 'com.apple.Photos'
 run = "move-node-to-workspace F"
 
-# System Settings is non-resizable (Ventura+); float it in place so a permission prompt pops centered here instead of teleporting the view.
+# System Settings is non-resizable (Ventura+), so float it rather than let it fight the tiling layout.
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
-run = ['layout floating']
+run = ['layout floating', 'move-node-to-workspace F']
 
 [[on-window-detected]]
 if.app-id = 'net.imput.helium'
