@@ -23,12 +23,18 @@ SECTION_ORDER = {
     "CLAUDE · COWORK": 2,
     "MACOS · CRON": 3,
 }
+# Only launchd jobs that actually invoke a model; claude-cost-refresh just parses ccusage output.
+AI_LABELS = {
+    "org.nixos.gh-auto-review",
+}
+AI_COMMAND_RE = re.compile(r"(^|/)(claude|pi|opencode|ollama|llm)(\s|$)")
 KNOWN_NAMES = {
     "org.nixos.claude-cost-refresh": "Claude cost refresh",
     "org.nixos.github-auto-push": "GitHub auto push",
     "org.nixos.gh-auto-review": "Automatic PR reviews",
     "org.nixos.log-cleanup": "Log cleanup",
     "org.nixos.sb-audit-reminder": "Vault audit reminder",
+    "org.nixos.screenshot-cleanup": "Screenshot cleanup",
     "org.nixos.sketchybar-watchdog": "SketchyBar watchdog",
     "org.nixos.usage-sampler": "Usage sampler",
     "org.nixos.nix-gc": "Nix garbage collection",
@@ -218,6 +224,7 @@ def plist_jobs(now, cache):
                     "toggle_target": f"{domain}/{label}" if manageable else "",
                     "toggle_source": str(path) if manageable else "",
                     "enabled": state["status"] not in {"disabled", "unloaded"},
+                    "ai": label in AI_LABELS,
                 }
             )
     return jobs
@@ -325,6 +332,7 @@ def cron_jobs(now):
                 "remaining": remaining,
                 "active": True,
                 "problem": remaining == "unknown",
+                "ai": bool(AI_COMMAND_RE.search(command or "")),
             }
         )
     return jobs
@@ -375,6 +383,7 @@ def claude_jobs(now):
                 "remaining": remaining,
                 "active": status == "scheduled",
                 "problem": status == "scheduled" and remaining == "unknown",
+                "ai": True,
             }
         )
     return jobs
@@ -388,7 +397,7 @@ def main():
     jobs.sort(key=lambda job: (SECTION_ORDER[job["section"]], job["name"].lower()))
     active = sum(job["active"] for job in jobs)
     problems = sum(job["problem"] for job in jobs)
-    emit("summary", active, problems, len(jobs))
+    emit("summary", active, problems, len(jobs), sum(bool(job.get("ai")) for job in jobs))
     current_section = None
     for job in jobs:
         if job["section"] != current_section:
@@ -406,6 +415,7 @@ def main():
             job.get("toggle_target", ""),
             job.get("toggle_source", ""),
             "true" if job.get("enabled") else "false",
+            "true" if job.get("ai") else "false",
         )
 
 

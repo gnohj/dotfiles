@@ -77,12 +77,17 @@ function parseSchedules(
   output: string,
 ): Pick<
   OperationsDashboard,
-  "schedules" | "activeSchedules" | "problemSchedules" | "totalSchedules"
+  | "schedules"
+  | "activeSchedules"
+  | "problemSchedules"
+  | "totalSchedules"
+  | "aiSchedules"
 > {
   const sections: ScheduleSection[] = [];
   let activeSchedules = 0;
   let problemSchedules = 0;
   let totalSchedules = 0;
+  let aiSchedules = 0;
   let current: ScheduleSection | undefined;
 
   for (const line of output.split("\n")) {
@@ -98,11 +103,13 @@ function parseSchedules(
       seventh = "",
       eighth = "",
       ninth = "",
+      tenth = "",
     ] = line.split("\t");
     if (kind === "summary") {
       activeSchedules = Number(first) || 0;
       problemSchedules = Number(second) || 0;
       totalSchedules = Number(third) || 0;
+      aiSchedules = Number(fourth) || 0;
       continue;
     }
     if (kind === "section") {
@@ -119,6 +126,7 @@ function parseSchedules(
         toggleTarget: sixth === "launchd" && seventh ? seventh : null,
         toggleSource: sixth === "launchd" && eighth ? eighth : null,
         enabled: ninth === "true",
+        ai: tenth === "true",
       };
       current.jobs.push(job);
     }
@@ -129,6 +137,7 @@ function parseSchedules(
     activeSchedules,
     problemSchedules,
     totalSchedules,
+    aiSchedules,
   };
 }
 
