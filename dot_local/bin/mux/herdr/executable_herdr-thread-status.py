@@ -247,7 +247,8 @@ def worktree_branch_for(cwd, label):
         elif line.startswith("branch ") and path:
             branch = line[len("branch "):].strip()
             short = branch[len("refs/heads/"):] if branch.startswith("refs/heads/") else branch
-            if short == task or short.endswith("/" + task):
+            # Case-insensitive: task id and branch need not agree on the ticket's case.
+            if short.lower() == task.lower() or short.lower().endswith("/" + task.lower()):
                 return path, short
     return None, None
 

@@ -45,8 +45,14 @@ dir="${1:-$PWD}"
 if [ -z "$TICKET" ]; then
   [ -d "$dir" ] || exit 1
   branch=$(git -C "$dir" branch --show-current 2>/dev/null) || exit 1
-  [[ "$branch" =~ ([A-Z]+-[0-9]+) ]] || exit 1
-  TICKET="${BASH_REMATCH[1]}"
+  # Uppercase first, then case-insensitive so `fm/web-ihrweb-24720-...` resolves; normalised because the key names the file (2026-09-02 branch-naming rule).
+  if [[ "$branch" =~ ([A-Z]+-[0-9]+) ]]; then
+    TICKET="${BASH_REMATCH[1]}"
+  elif [[ "$branch" =~ ([A-Za-z]+-[0-9]+) ]]; then
+    TICKET="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:lower:]' '[:upper:]')"
+  else
+    exit 1
+  fi
 fi
 
 # Vault follows the dir (work repo → work vault); --work/--personal forward to vault-path.
