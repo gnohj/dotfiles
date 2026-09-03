@@ -205,13 +205,20 @@ open_fanout_owner() {
 }
 
 background_review() {
-  local desktop_mode=tailnet
+  local desktop_mode=tailnet cdp=""
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
     desktop_mode=print
   fi
-  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env LAVISH_DESKTOP_MODE="$desktop_mode")
+  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env LAVISH_DESKTOP_MODE="$desktop_mode" --env LAVISH_DESKTOP_BACKGROUND=1)
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
     window_opts+=(--env AUTO_REVIEW=1)
+  fi
+  # The skill picks headed at runtime for visual/login PRs, so pre-start one and hand drivers a CDP endpoint; with no endpoint the headless env above still stands.
+  if [ "${REVIEW_NO_BROWSER:-}" != 1 ] && cdp="$("$HOME/.local/bin/chrome-headed-bg" ensure "review-$pr" 2>&1)" && [ -n "$cdp" ]; then
+    echo "review-open: headed browser attached at $cdp (background, no focus)"
+    window_opts+=(--env AGENT_BROWSER_CDP_URL="$cdp" --env CHROME_DEVTOOLS_AXI_BROWSER_URL="$cdp" --env PLAYWRIGHT_MCP_CDP_ENDPOINT="$cdp")
+  else
+    echo "review-open: no background browser (${cdp:-unavailable}) - drivers stay headless"
   fi
 }
 

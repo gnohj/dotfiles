@@ -173,9 +173,12 @@ release_pr() {
     fi
   fi
 
-  # 2. The lease record is the ONLY handle reclaim has, so the tail drops it after the return, never before.
+  # 2. The background browser this PR's drivers attached to. Before the tail, which kills the pane this runs in.
+  "$HOME/.local/bin/chrome-headed-bg" stop "review-$pr" >/dev/null 2>&1 || true
 
-  # 3. The fatal tail, in its own session so the pane treehouse is about to kill cannot take it down.
+  # 3. The lease record is the ONLY handle reclaim has, so the tail drops it after the return, never before.
+
+  # 4. The fatal tail, in its own session so the pane treehouse is about to kill cannot take it down.
   _detach() {
     if command -v setsid >/dev/null 2>&1; then
       setsid "$@"
@@ -284,6 +287,21 @@ lavish_busy() {
     return 0
   fi
   return 1
+}
+
+# A background browser outlives its review whenever release_pr never ran, and nothing else reaps it: drop any whose PR has neither a lease record nor a window.
+sweep_chrome() {
+  local wins="$1" name pr
+  while IFS=$'\t' read -r name _; do
+    case "$name" in review-*) ;; *) continue ;; esac
+    pr="${name#review-}"
+    case "$pr" in '' | *[!0-9]*) continue ;; esac
+    [ -e "$STATE_DIR/$pr" ] && continue
+    printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)" && continue
+    "$HOME/.local/bin/chrome-headed-bg" stop "$name" >/dev/null 2>&1 || true
+    _slog "  stopped orphan background browser for $pr"
+  done < <("$HOME/.local/bin/chrome-headed-bg" list 2>/dev/null)
+  return 0
 }
 
 sweep_lavish() {
@@ -411,6 +429,7 @@ sweep() {
       _slog "  defer $pr: window-less but unconfirmed (needs ${SWEEP_CONFIRM}s sustained absence) — likely transient churn"
     fi
   done
+  sweep_chrome "$wins"
   if [ "$mode" = immediate ]; then
     sweep_orphan_leases "$cwds" "$wins"
     reclaimed=$((reclaimed + ORPHANS_FREED))
