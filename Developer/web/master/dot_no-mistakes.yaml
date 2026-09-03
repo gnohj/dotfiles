@@ -273,3 +273,26 @@ test:
     # committing them under .no-mistakes/evidence would push them to the branch
     # and render them on the PR, which is the same outcome by another route.
     store_in_repo: false
+
+pr:
+  instructions: |
+    The PR title MUST begin with the ticket key in square brackets, exactly
+    `[IHRWEB-XXXX] ` followed by the rest of the subject - web's convention, and
+    what the captain reads the PR list by. This applies on EVERY run, including a
+    rerun that rewrites an existing title: preserve the prefix rather than
+    regenerating the subject without it.
+
+    Measured 2026-09-02 on PR 19820: the title was renamed five times, the prefix
+    added by hand twice and stripped by a run within minutes both times. A
+    direct-PR branch keeps its prefix only because no pipeline step ever rewrites
+    its title, so this instruction is the only thing standing between a
+    no-mistakes-mode PR and an untraceable subject line.
+
+    Source the key from the branch name, which carries it in either case -
+    `fm/IHRWEB-24720-...` and `fm/web-ihrweb-24720-...` are both in use. Normalize
+    it to uppercase. When the branch carries no ticket at all, take it from the
+    changeset's linked ticket reference; only when neither exists is an
+    unprefixed title correct.
+
+    Never emit the key twice: a subject that already starts with the prefix is
+    already correct and must be left alone.
