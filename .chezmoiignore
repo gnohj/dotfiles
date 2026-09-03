@@ -86,6 +86,7 @@ Library/
 .local/bin/baby-menu-toggle
 .local/bin/media-control-bridge
 .local/bin/pwa-icons
+.local/bin/screenshot-cleanup.sh
 .local/share/baby-menu/
 .config/kanata/
 .config/raycast/
