@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# chrome-headed-bg {ensure|env|url|stop} <name> | list - a headed Chrome over CDP; we own the `open -g` launch because a driver that execs Chrome itself steals focus.
+set -uo pipefail
+
+# macOS only: `open -g` is the only primitive that launches without foregrounding. Elsewhere print nothing and exit 0, so callers fail open onto their headless env.
+[ "$(uname -s)" = Darwin ] || exit 0
+
+APP="${CHROME_HEADED_BG_APP:-Google Chrome}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chrome-headed-bg"
+PROFILE_ROOT="$HOME/.cache/chrome-headed-bg"
+PORT_LO="${CHROME_HEADED_BG_PORT_LO:-9300}"
+PORT_HI="${CHROME_HEADED_BG_PORT_HI:-9399}"
+READY_TIMEOUT="${CHROME_HEADED_BG_TIMEOUT:-20}"
+
+die() { printf 'chrome-headed-bg: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+# One shell word, and it interpolates into an rm -rf path, so anything else is refused rather than sanitized.
+check_name() {
+  case "${1:-}" in
+    '' | . | .. | *[!A-Za-z0-9._-]*) die "invalid name: ${1:-<empty>}" 2 ;;
+  esac
+}
+
+profile_dir() { printf '%s/%s' "$PROFILE_ROOT" "$1"; }
+port_file() { printf '%s/%s' "$STATE_DIR" "$1"; }
+
+listening() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+# Both the port AND our profile: another Chrome (or `to-desktop browser-debug`) answering that port is not ours to drive or kill.
+pids_for() {
+  pgrep -f -- "--remote-debugging-port=$2" 2>/dev/null | while read -r p; do
+    ps -o command= -p "$p" 2>/dev/null | grep -qF -- "--user-data-dir=$(profile_dir "$1")" && printf '%s\n' "$p"
+  done
+}
+
+alive() { [ -n "$(pids_for "$1" "$2")" ]; }
+
+free_port() {
+  local p="$PORT_LO"
+  while [ "$p" -le "$PORT_HI" ]; do
+    listening "$p" || { printf '%s' "$p"; return 0; }
+    p=$((p + 1))
+  done
+  return 1
+}
+
+# --disable-*-backgrounding / CalculateNativeWinOcclusion: an unfocused, occluded window stops compositing, and every screenshot after the first comes back stale.
+launch() {
+  local name="$1" port="$2" profile
+  profile="$(profile_dir "$name")"
+  mkdir -p "$profile"
+  open -g -na "$APP" --args \
+    --remote-debugging-port="$port" \
+    --user-data-dir="$profile" \
+    --no-first-run \
+    --no-default-browser-check \
+    --disable-features=CalculateNativeWinOcclusion \
+    --disable-backgrounding-occluded-windows \
+    --disable-renderer-backgrounding \
+    about:blank || return 1
+  local i=0
+  while [ "$i" -lt "$((READY_TIMEOUT * 4))" ]; do
+    curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null && return 0
+    sleep 0.25
+    i=$((i + 1))
+  done
+  return 1
+}
+
+ensure() {
+  local name="$1" port
+  mkdir -p "$STATE_DIR"
+  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
+  case "$port" in '' | *[!0-9]*) port="" ;; esac
+  if [ -n "$port" ] && alive "$name" "$port"; then
+    printf 'http://127.0.0.1:%s\n' "$port"
+    return 0
+  fi
+  rm -f "$(port_file "$name")"
+  port="$(free_port)" || die "no free port in $PORT_LO-$PORT_HI"
+  launch "$name" "$port" || die "$APP never answered CDP on port $port"
+  printf '%s\n' "$port" >"$(port_file "$name")"
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
+
+url_of() {
+  local name="$1" port
+  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
+  case "$port" in '' | *[!0-9]*) return 1 ;; esac
+  alive "$name" "$port" || return 1
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
+
+stop() {
+  local name="$1" port profile p i=0
+  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
+  profile="$(profile_dir "$name")"
+  case "$port" in
+    '' | *[!0-9]*) ;;
+    *)
+      for p in $(pids_for "$name" "$port"); do kill "$p" 2>/dev/null; done
+      # Chrome writes its profile all the way down, so removing it mid-exit leaves half a tree and a directory-not-empty per entry. Wait it out.
+      while [ "$i" -lt 40 ] && alive "$name" "$port"; do
+        sleep 0.25
+        i=$((i + 1))
+      done
+      ;;
+  esac
+  rm -f "$(port_file "$name")"
+  # Guarded: an empty name would have made this the whole cache root.
+  if [ -n "$name" ] && [ -d "$profile" ]; then
+    rm -rf "$profile" 2>/dev/null || { sleep 1; rm -rf "$profile" 2>/dev/null; }
+  fi
+  return 0
+}
+
+list() {
+  local f name url
+  [ -d "$STATE_DIR" ] || return 0
+  for f in "$STATE_DIR"/*; do
+    [ -f "$f" ] || continue
+    name="${f##*/}"
+    if url="$(url_of "$name")"; then
+      printf '%s\t%s\n' "$name" "$url"
+    else
+      rm -f "$f"
+    fi
+  done
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  ensure)
+    check_name "${2:-}"
+    ensure "$2"
+    ;;
+  env)
+    check_name "${2:-}"
+    u="$(ensure "$2")" || exit 1
+    # Both drivers attach instead of launching; the third is our own chrome-devtools-mcp-launch wrapper.
+    printf 'export CHROME_DEVTOOLS_AXI_BROWSER_URL=%s PLAYWRIGHT_MCP_CDP_ENDPOINT=%s AGENT_BROWSER_CDP_URL=%s\n' "$u" "$u" "$u"
+    ;;
+  url)
+    check_name "${2:-}"
+    url_of "$2"
+    ;;
+  stop)
+    check_name "${2:-}"
+    stop "$2"
+    ;;
+  list) list ;;
+  *)
+    echo "usage: chrome-headed-bg {ensure|env|url|stop} <name> | list" >&2
+    exit 2
+    ;;
+esac
