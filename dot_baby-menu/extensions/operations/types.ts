@@ -13,6 +13,7 @@ export type ScheduleJob = {
   toggleTarget: string | null;
   toggleSource: string | null;
   enabled: boolean;
+  ai: boolean;
 };
 
 export type ScheduleSection = {
@@ -38,6 +39,7 @@ export type OperationsDashboard = {
   activeSchedules: number;
   problemSchedules: number;
   totalSchedules: number;
+  aiSchedules: number;
   errors: string[];
   refreshedAt: string;
 };

@@ -81,6 +81,14 @@ function ScheduleLine({
       <span className="min-w-0 flex-1 truncate text-sm text-ink">
         {job.name}
       </span>
+      {job.ai ? (
+        <span
+          title="Spends model tokens every time it fires"
+          className="shrink-0 rounded-sm border border-signal-warn/50 px-1.5 py-px text-xxs uppercase tracking-caps text-signal-warn"
+        >
+          AI
+        </span>
+      ) : null}
       <span className="shrink-0 font-mono text-xs text-ink-soft">
         {job.remaining}
       </span>
@@ -345,7 +353,7 @@ export function OperationsView() {
           >
             {dashboard?.problemSchedules
               ? `${dashboard.problemSchedules} need attention`
-              : `${dashboard?.totalSchedules ?? 0} tracked`}
+              : `${dashboard?.totalSchedules ?? 0} tracked · ${dashboard?.aiSchedules ?? 0} AI`}
           </span>
         </div>
         <div className="flex flex-col gap-3">

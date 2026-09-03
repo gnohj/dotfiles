@@ -66,18 +66,35 @@ local function clearRows()
 	generation = generation + 1
 end
 
+-- Split every tab: a fixed pattern drops the job row's trailing fields, the AI flag included.
+local function fields(line)
+	local out = {}
+	for field in (line .. "\t"):gmatch("([^\t]*)\t") do
+		out[#out + 1] = field
+	end
+	return out
+end
+
 local function parse(result)
-	local state = { active = 0, problems = 0, total = 0, rows = {} }
+	local state = { active = 0, problems = 0, total = 0, ai = 0, rows = {} }
 	for line in result:gmatch("[^\r\n]+") do
-		local kind, first, second, third = line:match("^([^\t]*)\t([^\t]*)\t?([^\t]*)\t?(.*)$")
+		local row = fields(line)
+		local kind = row[1]
 		if kind == "summary" then
-			state.active = tonumber(first) or 0
-			state.problems = tonumber(second) or 0
-			state.total = tonumber(third) or 0
+			state.active = tonumber(row[2]) or 0
+			state.problems = tonumber(row[3]) or 0
+			state.total = tonumber(row[4]) or 0
+			state.ai = tonumber(row[5]) or 0
 		elseif kind == "section" then
-			table.insert(state.rows, { kind = kind, title = first, count = second })
+			table.insert(state.rows, { kind = kind, title = row[2], count = row[3] })
 		elseif kind == "job" then
-			table.insert(state.rows, { kind = kind, name = first, remaining = second, status = third })
+			table.insert(state.rows, {
+				kind = kind,
+				name = row[2],
+				remaining = row[3],
+				status = row[4],
+				ai = row[11] == "true",
+			})
 		end
 	end
 	return state
@@ -98,7 +115,14 @@ local function render(state)
 	clearRows()
 	header:set({
 		icon = {
-			string = settings.icons.text.clock .. "  Schedules  " .. state.active .. "/" .. state.total .. " active",
+			string = settings.icons.text.clock
+				.. "  Schedules  "
+				.. state.active
+				.. "/"
+				.. state.total
+				.. " active · "
+				.. state.ai
+				.. " AI",
 		},
 	})
 
@@ -122,11 +146,13 @@ local function render(state)
 			})
 		else
 			local color = statusColors[row.status] or settings.colors.grey
+			-- The AI suffix eats name width, so trim the name by the same amount to keep one line.
+			local name = popup.ellipsize(row.name, row.ai and 22 or 27) .. (row.ai and "  · AI" or "")
 			addRow({
 				position = "popup." .. schedules.name,
 				icon = {
 					align = "left",
-					string = "●  " .. popup.ellipsize(row.name, 27),
+					string = "●  " .. name,
 					width = popupWidth * 0.68,
 					color = color,
 				},
