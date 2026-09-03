@@ -319,6 +319,22 @@ in
       };
     };
 
+    # Screenshot Cleanup - 04:00 daily; the script name-matches because that folder is also the real downloads folder.
+    screenshot-cleanup = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/.local/bin/screenshot-cleanup.sh"
+        ];
+        StartCalendarInterval = [{
+          Hour = 4;
+          Minute = 0;
+        }];
+        StandardOutPath = "${homeDir}/.logs/screenshot-cleanup/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/screenshot-cleanup/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
