@@ -70,6 +70,7 @@ tasks
 mac_system.sh
 karabiner-driverkit.sh
 claude-desktop-launchers.sh
+msteams-url-handler.sh
 
 # macOS LaunchAgents/Daemons
 Library/
@@ -85,6 +86,7 @@ Library/
 .baby-menu/
 .local/bin/baby-menu-toggle
 .local/bin/media-control-bridge
+.local/bin/msteams-open
 .local/bin/pwa-icons
 .local/bin/screenshot-cleanup.sh
 .local/share/baby-menu/

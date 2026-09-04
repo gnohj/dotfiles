@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Rewrite an msteams: deep link into the Teams PWA's in-scope /v2/ fragment form and open it there.
+set -euo pipefail
+
+BUNDLE_ID="${TEAMS_PWA_BUNDLE_ID:-net.imput.helium.app.cifhbcnohmdccbgoicgdjpfamggdegmo}"
+LOG="$HOME/.logs/msteams-open.log"
+
+url="${1:-}"
+[ -n "$url" ] || exit 0
+
+# Both spellings in the wild: `msteams:/l/meetup-join/…` and `msteams://teams.microsoft.com/l/…`.
+path="$url"
+path="${path#msteams-enterprise:}"
+path="${path#msteams:}"
+path="${path#//teams.microsoft.com}"
+case "$path" in /*) ;; *) path="/$path" ;; esac
+
+# The path rides in the FRAGMENT: a bare /l/... URL is outside the app's /v2/ scope and gets dropped.
+case "$path" in
+  /l/meetup-join/*) target="https://teams.microsoft.com/v2/?meetingjoin=true#$path" ;;
+  *)                target="https://teams.microsoft.com/v2/#$path" ;;
+esac
+
+mkdir -p "$(dirname "$LOG")"
+printf '[%s] %s -> %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$url" "$target" >>"$LOG"
+
+exec open -b "$BUNDLE_ID" "$target"
