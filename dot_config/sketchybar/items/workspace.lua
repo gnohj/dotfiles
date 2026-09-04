@@ -46,7 +46,7 @@ end
 local spaceConfigs = {
 	["Q"] = { name = "Browser", app = "Google Chrome" },
 	["W"] = { name = "Slack", app = "Slack" },
-	["E"] = { name = "Teams", app = "Microsoft Teams (PWA)" },
+	["E"] = { name = "Teams", app = "Microsoft Teams" },
 	["B"] = { name = "Helium", app = "Helium" },
 	["G"] = { name = "Mail", apps = { "Mail", "Outlook (PWA)" } },
 	["R"] = { name = "Kitty", app = "kitty" },
