@@ -205,8 +205,9 @@ if [ "$mode" = git-ref ]; then
     g="$("$HOME/.local/bin/claude-account-glyph" "$dir" 2>/dev/null)"
     # Measured, never ${#g}: the emoji is 2 columns of multibyte and the "!" arrives wrapped in ANSI.
     if [ -n "$g" ]; then
-      lead_w=3
-      case "$g" in *'!'*) lead_w=4 ;; esac
+      # Two glyphs when the config dir and the token disagree; patterns rather than a fork, since this runs per render.
+      case "$g" in *🏢*🏢* | *🏢*🏠* | *🏠*🏢* | *🏠*🏠*) lead_w=5 ;; *) lead_w=3 ;; esac
+      case "$g" in *'!'*) lead_w=$((lead_w + 1)) ;; esac
       lead="$g "
     fi
   fi

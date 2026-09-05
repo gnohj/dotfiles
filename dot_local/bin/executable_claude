@@ -37,7 +37,9 @@ if [ -z "$_bin" ]; then
 fi
 
 # An explicit config dir must also pick the token's account: firstmate homes resolve personal by remote, so a work profile would otherwise get the personal token.
-if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+# A deliberate pin outranks that inference, so a spawned pane bills the account you pinned.
+if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] &&
+  [ "$(claude-account pin 2>/dev/null || echo auto)" = auto ]; then
   for _a in work personal; do
     [ "$(CLAUDE_ACCOUNT="$_a" claude-account dir 2>/dev/null)" = "$CLAUDE_CONFIG_DIR" ] && {
       export CLAUDE_ACCOUNT="$_a"
@@ -51,6 +53,8 @@ _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
 [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
 _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
 [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+# Claude Code strips the token from children, so CLAUDE_ACCOUNT is the only way a status line can name who is paying.
+[ -z "${CLAUDE_ACCOUNT:-}" ] && export CLAUDE_ACCOUNT="$(claude-account resolve 2>/dev/null || true)"
 claude-account seed-config
 
 exec "$_bin" "$@"

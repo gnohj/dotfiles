@@ -2,25 +2,58 @@
 # Account glyph for the Claude Code status line: 🏢 work, 🏠 personal.
 # Rendered by prompt-path as row 2's leader (~/.config/ccstatusline/settings.json), which passes the session dir - ccstatusline never sets a widget's cwd, so $PWD alone is whatever directory Claude Code launched from.
 #
-# Mirrors claude-account's precedence (env > pin > path) rather than shelling out to it: a personal session leaves CLAUDE_ACCOUNT unset by design, so the path rule alone would mislabel a pinned-personal pane in a work repo.
+# Two INDEPENDENT axes, because the launchers let a pane override either one: CLAUDE_CONFIG_DIR decides WHERE state lives, CLAUDE_CODE_OAUTH_TOKEN decides WHO the session acts as. Both are read from the live env rather than inferred, and both glyphs render when they disagree.
 dir="${1:-$PWD}"
-acct="${CLAUDE_ACCOUNT:-}"
-pin="$HOME/.local/state/claude/account-override"
-[ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
-case "$acct" in
-personal | work) ;;
-*) case "$dir" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+
+# Identify the live token by matching the 0600 mirrors: one file read each, no Keychain fork per render.
+tok_acct=""
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  for a in work personal; do
+    stored=""
+    [ -r "$HOME/.local/state/claude/oauth-$a" ] && read -r stored <"$HOME/.local/state/claude/oauth-$a"
+    [ -n "$stored" ] && [ "$stored" = "$CLAUDE_CODE_OAUTH_TOKEN" ] && { tok_acct="$a"; break; }
+  done
+fi
+
+# Claude Code strips CLAUDE_CODE_OAUTH_TOKEN from children, so a status line reads the identity from CLAUDE_ACCOUNT instead.
+if [ -z "$tok_acct" ]; then
+  case "${CLAUDE_ACCOUNT:-}" in work | personal) tok_acct="$CLAUDE_ACCOUNT" ;; esac
+fi
+
+# An unset CLAUDE_CONFIG_DIR means personal only inside a wrapper-launched session, which a live token proves; bare it just means we are not in one.
+case "${CLAUDE_CONFIG_DIR:-}" in
+*/.claude-work) dir_acct=work ;;
+"") [ -n "$tok_acct" ] && dir_acct=personal || dir_acct="" ;;
+*) dir_acct=personal ;;
 esac
 
-# No trailing space: ccstatusline trims widget output (NBSP included), so the gap must come from its own `defaultPadding`.
-case "$acct" in
-work) printf '🏢' ;;
-*) printf '🏠' ;;
-esac
+# Neither axis observable (glyph run outside a session): fall back to the old env > pin > path inference.
+if [ -z "$dir_acct" ] && [ -z "$tok_acct" ]; then
+  acct="${CLAUDE_ACCOUNT:-}"
+  pin="$HOME/.local/state/claude/account-override"
+  [ -z "$acct" ] && [ -r "$pin" ] && acct="$(tr -d '[:space:]' <"$pin")"
+  case "$acct" in
+  personal | work) ;;
+  *) case "$dir" in */Developer/web* | */Developer/inferno* | */Developer/actions* | */.treehouse/*) acct=work ;; *) acct=personal ;; esac ;;
+  esac
+  dir_acct="$acct"
+fi
+
+glyph_for() { case "$1" in work) printf '🏢' ;; *) printf '🏠' ;; esac; }
+
+# An unidentifiable token asserts nothing: show the dir alone rather than claiming a mismatch we cannot prove.
+if [ -n "$tok_acct" ] && [ -n "$dir_acct" ] && [ "$tok_acct" != "$dir_acct" ]; then
+  glyph_for "$dir_acct"; glyph_for "$tok_acct"
+elif [ -n "$dir_acct" ]; then
+  glyph_for "$dir_acct"
+else
+  glyph_for "$tok_acct"
+fi
 
 # Trailing "!" when this account's stored OAuth token nears its assumed expiry, so a token dies between sessions instead of mid-task. Reads the epoch claude-account precomputes: one file read, no fork per render.
+warn_acct="${tok_acct:-$dir_acct}"
 exp=""
-expfile="$HOME/.local/state/claude/oauth-$acct.expires"
+expfile="$HOME/.local/state/claude/oauth-$warn_acct.expires"
 [ -r "$expfile" ] && read -r exp <"$expfile"
 case "$exp" in '' | *[!0-9]*) exit 0 ;; esac
 
