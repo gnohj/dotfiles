@@ -20,12 +20,13 @@ branches="$(gh api graphql -f query='
     nodes { ... on PullRequest {
       headRefName isDraft
       reviewThreads(first:100) { nodes {
-        isResolved isOutdated comments(first:1) { nodes { author { login } } } } } } } } }' 2>/dev/null |
+        isResolved isOutdated comments(first:1) { nodes { author { login __typename } } } } } } } } }' 2>/dev/null |
   jq -r --arg me "$ME" '
     .data.search.nodes[] | select(.isDraft | not)
     | select([ .reviewThreads.nodes[]
                | select(.isResolved == false and .isOutdated == false)
-               | .comments.nodes[0].author.login | select(. != $me) ] | length > 0)
+               | .comments.nodes[0].author
+               | select(. != null and .__typename != "Bot" and .login != $me) ] | length > 0)
     | .headRefName' 2>/dev/null || true)"
 
 # A failed or empty query must match nothing rather than every PR, which an empty filter would do.
