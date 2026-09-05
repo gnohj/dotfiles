@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Rewrite gh-dash's "Unresolved" section to name the PRs holding review threads waiting on me.
+# Search carries no qualifier for review threads, so they are resolved over GraphQL and named by
+# head branch - the one qualifier search ORs when repeated.
+set -eu
+
+CONFIG="${GH_DASH_CONFIG:-$HOME/.config/gh-dash/config.yml}"
+BEGIN="# >>> gh-dash-unresolved: generated, do not edit >>>"
+END="# <<< gh-dash-unresolved <<<"
+ME="${GITHUB_LOGIN:-gnohj}"
+[ -f "$CONFIG" ] || exit 0
+
+branches="$(gh api graphql -f query='
+{ search(query:"is:pr is:open author:@me archived:false", type:ISSUE, first:30) {
+    nodes { ... on PullRequest {
+      headRefName isDraft
+      reviewThreads(first:100) { nodes {
+        isResolved isOutdated comments(first:1) { nodes { author { login } } } } } } } } }' 2>/dev/null |
+  jq -r --arg me "$ME" '
+    .data.search.nodes[] | select(.isDraft | not)
+    | select([ .reviewThreads.nodes[]
+               | select(.isResolved == false and .isOutdated == false)
+               | .comments.nodes[0].author.login | select(. != $me) ] | length > 0)
+    | .headRefName' 2>/dev/null || true)"
+
+# A failed or empty query must match nothing rather than every PR, which an empty filter would do.
+filter="is:open author:@me head:__none__"
+if [ -n "$branches" ]; then
+  filter="is:open author:@me"
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    filter="$filter head:$b"
+  done <<<"$branches"
+fi
+
+tmp="$(mktemp)"
+awk -v b="$BEGIN" -v e="$END" -v f="$filter" '
+  $0 ~ b { print; print "  # Search has no qualifier for review threads, so the PRs holding one are resolved over GraphQL and";
+           print "  # named here by head branch, which search does OR when repeated. Refreshed by the ghd wrapper.";
+           print "  - title: Unresolved"; print "    filters: " f; skip = 1; next }
+  $0 ~ e { skip = 0 }
+  !skip  { print }
+' "$CONFIG" >"$tmp" && mv -f "$tmp" "$CONFIG"

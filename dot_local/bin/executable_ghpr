@@ -10,7 +10,7 @@ json="$(gh api graphql -f query='
       number title url isDraft repository { nameWithOwner }
       reviewThreads(first:100) { nodes {
         isResolved isOutdated path
-        comments(first:1) { nodes { author { login } bodyText } } } } } } } }')"
+        comments(first:1) { nodes { author { login } bodyText url } } } } } } } }')"
 
 printf '%s' "$json" | jq -r --arg me "$ME" '
   [ .data.search.nodes[] | select(.isDraft | not)
@@ -18,10 +18,11 @@ printf '%s' "$json" | jq -r --arg me "$ME" '
         threads: [ .reviewThreads.nodes[]
                    | select(.isResolved == false and .isOutdated == false)
                    | { who: .comments.nodes[0].author.login, path: .path,
+                       link: .comments.nodes[0].url,
                        said: (.comments.nodes[0].bodyText | gsub("\\s+"; " ") | .[0:90]) }
                    | select(.who != $me) ] }
     | select(.threads | length > 0) ]
   | if length == 0 then "nothing waiting on you" else
-      .[] | "\(.repo)#\(.number)  \(.threads|length) waiting\n  \(.title)\n  \(.url)\n" +
-            ( [ .threads[] | "    @\(.who)  \(.path // "conversation")\n      \(.said)" ] | join("\n") ) + "\n"
+      .[] | "\(.repo)#\(.number)  \(.threads|length) waiting\n  \(.title)\n  \(.url)/files\n" +
+            ( [ .threads[] | "    @\(.who)  \(.path // "conversation")\n      \(.said)\n      \(.link)" ] | join("\n") ) + "\n"
     end'
