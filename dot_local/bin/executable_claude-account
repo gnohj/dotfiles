@@ -48,6 +48,8 @@ WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
 # the cwd rule for EVERY new session (cs / cr / dashboard spawns). Absent/empty
 # = auto (fall back to the per-dir git-remote rule). CLAUDE_ACCOUNT still wins.
 PIN_FILE="$HOME/.local/state/claude/account-override"
+# "<path>\t<account>" lines: a path is the only identity a spawned mate carries, since fm-spawn forwards one variable and it is not this one.
+PATH_PINS="$HOME/.local/state/claude/account-by-path"
 
 # Account a directory maps to, by its git remote org. iHeart (or any configured
 # work org) → work; personal repos / non-git dirs → personal.
@@ -92,14 +94,35 @@ set_pin() {
 
 # Effective account, highest precedence first: per-shell CLAUDE_ACCOUNT env >
 # sticky pin file > the cwd git-remote rule.
+# Longest match wins, so a worktree can differ from the checkout it sits under.
+path_pin() {
+  local dir="${1:-$PWD}" best="" best_len=0 line path acct
+  [ -r "$PATH_PINS" ] || return 0
+  while IFS="$(printf '\t')" read -r path acct; do
+    [ -n "$path" ] || continue
+    case "$path" in \#*) continue ;; esac
+    case "$acct" in personal | work) ;; *) continue ;; esac
+    case "$dir" in "$path" | "$path"/*)
+      [ "${#path}" -gt "$best_len" ] && { best="$acct"; best_len="${#path}"; }
+      ;;
+    esac
+  done <"$PATH_PINS"
+  # Never fail: under `set -e` a non-zero "no mapping" would abort every caller of resolve_account instead of falling through to the pin.
+  [ -n "$best" ] && echo "$best"
+  return 0
+}
+
 resolve_account() {
-  local pin
+  local pin ppin
   case "${CLAUDE_ACCOUNT:-}" in
   personal | work)
     echo "$CLAUDE_ACCOUNT"
     return
     ;;
   esac
+  # A path pin outranks the global one: it is the only way one mate can differ from the fleet.
+  ppin="$(path_pin "$PWD")"
+  [ -n "$ppin" ] && { echo "$ppin"; return; }
   pin="$(read_pin)"
   case "$pin" in
   personal | work)
@@ -494,6 +517,29 @@ billing-day) cat "$(billing_day_file "${2:-$(resolve_account)}")" 2>/dev/null ||
 pin)
   if [ $# -ge 2 ]; then set_pin "$2"; else read_pin; fi
   ;;
+# Per-path pin, for billing one checkout differently from the fleet it belongs to; "auto" removes a mapping.
+path-pin)
+  case $# in
+  1) [ -r "$PATH_PINS" ] && cat "$PATH_PINS" || true ;;
+  2) path_pin "$2" ;;
+  *)
+    _p="${2%/}"
+    case "$_p" in /*) ;; *) echo "claude-account: path-pin needs an absolute path" >&2; exit 2 ;; esac
+    # A tab or newline in the path would split the TSV and silently re-map some other directory.
+    case "$_p" in *$'\t'* | *$'\n'*) echo "claude-account: path-pin refuses a path containing a tab or newline" >&2; exit 2 ;; esac
+    case "$3" in
+    personal | work | auto) ;;
+    *) echo "claude-account: path-pin account must be work, personal or auto" >&2; exit 2 ;;
+    esac
+    mkdir -p "$(dirname "$PATH_PINS")"
+    _t="$(mktemp)"
+    [ -r "$PATH_PINS" ] && awk -F'\t' -v p="$_p" '$1 != p' "$PATH_PINS" >"$_t"
+    [ "$3" = auto ] || printf '%s\t%s\n' "$_p" "$3" >>"$_t"
+    mv -f "$_t" "$PATH_PINS"
+    echo "claude-account: $_p → $3"
+    ;;
+  esac
+  ;;
 # Print shell `export` lines for the current dir's account, for launchers that
 # can't use cs/cr (e.g. gh-dash): `eval "$(claude-account env)" && claude …`.
 # Emits nothing for personal-with-no-token (native config), so eval is a no-op.
@@ -559,7 +605,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|seed-config|set-token <a>|token-status [a]|token-age [a]|token-check [--probe]|set-token-lifetime <d>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|path-pin [<dir> [<a>]]|seed-config|set-token <a>|token-status [a]|token-age [a]|token-check [--probe]|set-token-lifetime <d>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
