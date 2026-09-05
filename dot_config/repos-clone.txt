@@ -20,6 +20,7 @@ git@github.com:gnohj/gnohj-monorepo.git ~/Developer/gnohj-monorepo
 # git@github.com:gnohj/project-fitness.git ~/Developer/projects/fitness
 git@github.com:gnohj/agents.git ~/Developer/agents
 git@github.com:gnohj/colorscheme.git ~/Developer/colorscheme
+git@github.com:gnohj/fm-compass.git ~/Developer/fm-compass
 # firstmate is an upstream "agent distro" (kunchenguid, same author as treehouse and
 # no-mistakes): there is no binary to install, the clone itself IS the tool. That is why
 # it is here and NOT in nix or mise - it needs a writable checkout the agent runs from.
