@@ -4,11 +4,15 @@
 # head branch - the one qualifier search ORs when repeated.
 set -eu
 
-CONFIG="${GH_DASH_CONFIG:-$HOME/.config/gh-dash/config.yml}"
+# Read from the chezmoi-managed config, written to a cache copy gh-dash is pointed at with --config:
+# writing back would be reverted by the next `chezmoi apply`, which is what left the section empty.
+SRC="$HOME/.config/gh-dash/config.yml"
+OUT="${GH_DASH_GENERATED:-${XDG_CACHE_HOME:-$HOME/.cache}/gh-dash/config.yml}"
 BEGIN="# >>> gh-dash-unresolved: generated, do not edit >>>"
 END="# <<< gh-dash-unresolved <<<"
 ME="${GITHUB_LOGIN:-gnohj}"
-[ -f "$CONFIG" ] || exit 0
+[ -f "$SRC" ] || exit 0
+mkdir -p "${OUT%/*}"
 
 branches="$(gh api graphql -f query='
 { search(query:"is:pr is:open author:@me archived:false", type:ISSUE, first:30) {
@@ -40,4 +44,5 @@ awk -v b="$BEGIN" -v e="$END" -v f="$filter" '
            print "  - title: Unresolved"; print "    filters: " f; skip = 1; next }
   $0 ~ e { skip = 0 }
   !skip  { print }
-' "$CONFIG" >"$tmp" && mv -f "$tmp" "$CONFIG"
+' "$SRC" >"$tmp" && mv -f "$tmp" "$OUT"
+printf '%s\n' "$OUT"
