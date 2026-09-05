@@ -68,13 +68,13 @@ dir="${dir/#\~/$HOME}"
 #
 # A type glyph is prepended to the derived name so the sidebar reads its kind at a
 # glance: 🌳 linked git worktree, 🌿 plain git repo (a branch checkout), 📁 non-git
-# dir, 🖥️ home, 🚢 the fm-personal / fm-work firstmate homes (one shared checkout).
+# dir, 🖥️ home, 🚢 the fm firstmate home.
 # Detection is nesting-safe (rev-parse, not a .git probe): a linked worktree's
 # git-dir differs from the shared common-dir (e.g. web/.bare/worktrees/review vs
 # web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
 label_explicit="$label"
 # Twins share a path, and a leaf can read as something it is not (fm-settings, chezmoi) - all label by sesh Name.
-if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ] || [ "$entry_name" = dotfiles ]; }; then
+if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ] || [ "$entry_name" = dotfiles ] || [ "$entry_name" = fm ]; }; then
   label="$entry_name"
 elif [ -z "$label" ]; then
   case "$dir" in
@@ -116,7 +116,7 @@ if [ -z "$label_explicit" ]; then
     if [ -n "$gd" ] && [ -n "$gcd" ] && [ "$gd" != "$gcd" ]; then glyph="🌳"; else glyph="🌿"; fi
   fi
   [ "${dir%/}" = "${HOME%/}" ] && glyph="🖥️"
-  case "$label" in fm-personal|fm-work) glyph="🚢" ;; esac
+  case "$label" in fm) glyph="🚢" ;; esac
   label="$glyph $label"
 fi
 
