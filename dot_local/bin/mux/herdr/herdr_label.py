@@ -19,7 +19,7 @@ INDENT_CELL = "⠀"
 PIN_LABEL = os.environ.get("HERDR_SYSINFO_PIN") or "🖥️ %s" % (
     os.path.basename(os.path.expanduser("~")) or os.environ.get("USER") or "host")
 # Agent HOMES, never their task worktrees. `sm-<id>` is the local patch's spelling, `2ndmate-<id>` upstream's, kept so an unpatched checkout still resolves.
-AGENT_HOME_RE = re.compile(r"^(?:fm-personal|fm-work|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
+AGENT_HOME_RE = re.compile(r"^(?:fm|firstmate|sm-[^/]+|2ndmate-[^/]+)$")
 # herdr-sesh-layout.sh collapses a ticket worktree's last segment to the bare NUMBER: web/infra/24314.
 TICKET_LABEL_RE = re.compile(r"/[0-9]+$")
 _VARIATION_SELECTOR_16 = "️"
@@ -48,7 +48,7 @@ def _cells(text):
 def glyph_run(label):
     """Length in CHARACTERS of the leading glyph plus its separator, or 0 when there is no glyph.
 
-    Covers both spellings in play: `🚢 fm-personal` and `└ <task>` separate with an ASCII space,
+    Covers both spellings in play: `🚢 fm` and `└ <task>` separate with an ASCII space,
     while firstmate's patched `⛵⠀sm-<id>` uses U+2800 - deliberately, because an ASCII space there
     splits the label when it rides an unquoted shell argument, which is a real path in that codebase.
     """

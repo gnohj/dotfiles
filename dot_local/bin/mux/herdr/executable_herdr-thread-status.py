@@ -56,9 +56,8 @@ a herdr token's inline fg is unconditional, so one token cannot render – / ◌
 Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
 glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
 
-Agent HOME workspaces opt OUT of all five (AGENT_HOME_RE): the captain's own `fm-personal` and
-`fm-work` sesh sessions (one code root, two FM_HOMEs, so both are the same checkout), plus
-firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
+Agent HOME workspaces opt OUT of all five (AGENT_HOME_RE): the captain's own `fm` sesh session,
+plus firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
 permanent branch of a read-only checkout, so approvals, CI, the vault note and Jira are all
 permanently empty there, and herdr has no per-workspace row layout: the row is global, so the
 only way it stops rendering as bare placeholders is for its tokens to carry no value. The five

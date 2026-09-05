@@ -114,8 +114,8 @@ startup_command = "ghd"
 
 [[session]]
 name = "fm-settings"
-path = "~/.local/share/firstmate-work"
-alias = "fmws"
+path = "~/.local/share/firstmate"
+alias = "fms"
 startup_command = "n"
 
 [[session]]
@@ -166,17 +166,16 @@ path = "~/.config/opencode"
 alias = "oc"
 
 [[session]]
-name = "fm-personal"
+name = "fm"
 path = "~/Developer/firstmate"
 alias = "fm"
 startup_command = "fm"
 
 [[session]]
-# Same code root as fm-personal on purpose - firstmate has one checkout and two FM_HOMEs; the picker keys these two on `name`, not `path`.
-name = "fm-work"
-path = "~/Developer/firstmate"
-alias = "fmw"
-startup_command = "fm work"
+name = "fm-compass"
+path = "~/Developer/fm-compass"
+alias = "fmc"
+startup_command = "git status"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "gnohj-monorepo"
