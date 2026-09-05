@@ -45,5 +45,28 @@ if [ ! -s "$CACHE" ] || [ "$CONFIG" -nt "$CACHE" ]; then
   fi
 fi
 
+# Secondmate homes come and go without touching sesh.toml, so they are emitted past the cache rather
+# than parsed into it: "sm" plus the shortest prefix that separates them, so smi/smw stay stable.
+mates() {
+  local d n suffix a i clash other osuffix
+  for d in "$HOME"/.local/share/firstmate-sm-*; do
+    [ -d "$d" ] || continue
+    n="${d##*/firstmate-}"
+    suffix="${n#sm-}"
+    a="sm${suffix:0:1}"
+    for i in 1 2 3 4; do
+      a="sm${suffix:0:i}"
+      clash=""
+      for other in "$HOME"/.local/share/firstmate-sm-*; do
+        [ "$other" = "$d" ] && continue
+        osuffix="${other##*/firstmate-sm-}"
+        [ "${osuffix:0:i}" = "${suffix:0:i}" ] && clash=1
+      done
+      [ -n "$clash" ] || break
+    done
+    printf '%s\t%s\t%s\n' "$a" "$n" "$d"
+  done
+}
+
 # Unwritable cache dir is not fatal; fall back to parsing straight to stdout.
-[ -s "$CACHE" ] && cat "$CACHE" || parse
+{ [ -s "$CACHE" ] && cat "$CACHE" || parse; mates; }
