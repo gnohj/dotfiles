@@ -656,11 +656,7 @@ btop2() {
 # Github Dash
 # Refreshed before launch, not on a timer: gh-dash reads its config once at start, so the Unresolved
 # section is only ever as current as the moment it opened.
-ghd() {
-  local cfg
-  cfg="$(gh-dash-unresolved 2>/dev/null)" || cfg=""
-  if [ -n "$cfg" ] && [ -s "$cfg" ]; then command gh-dash --config "$cfg" "$@"; else command gh-dash "$@"; fi
-}
+alias ghd='gh-dash --config "$(gh-dash-unresolved)"'
 
 # RTK token savings graph
 alias rtkg='rtk gain --graph'

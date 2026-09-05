@@ -11,8 +11,9 @@ OUT="${GH_DASH_GENERATED:-${XDG_CACHE_HOME:-$HOME/.cache}/gh-dash/config.yml}"
 BEGIN="# >>> gh-dash-unresolved: generated, do not edit >>>"
 END="# <<< gh-dash-unresolved <<<"
 ME="${GITHUB_LOGIN:-gnohj}"
+# Always prints a usable config path, so `--config "$(...)"` never sees an empty argument.
 [ -f "$SRC" ] || exit 0
-mkdir -p "${OUT%/*}"
+mkdir -p "${OUT%/*}" 2>/dev/null || { printf '%s\n' "$SRC"; exit 0; }
 
 branches="$(gh api graphql -f query='
 { search(query:"is:pr is:open author:@me archived:false", type:ISSUE, first:30) {
@@ -44,5 +45,5 @@ awk -v b="$BEGIN" -v e="$END" -v f="$filter" '
            print "  - title: Unresolved"; print "    filters: " f; skip = 1; next }
   $0 ~ e { skip = 0 }
   !skip  { print }
-' "$SRC" >"$tmp" && mv -f "$tmp" "$OUT"
+' "$SRC" >"$tmp" && mv -f "$tmp" "$OUT" || { rm -f "$tmp"; printf '%s\n' "$SRC"; exit 0; }
 printf '%s\n' "$OUT"
