@@ -226,6 +226,19 @@ EOF_ID
       "$primary" "$pinned" "$live" "$lockpid" "$pin" "$resolved" "$live_acct" "$live_dir" "$p_model" "$p_effort" "$FM_HOME" "$ROOT" \
       "$(cd "$ROOT" 2>/dev/null && CLAUDE_ACCOUNT="$resolved" claude-account dir 2>/dev/null || true)" "$projects" "$primary_pane"
     # Model names come from the harnesses' own settings, so a cold fleet still offers real choices with no catalogue to maintain.
+    # Per-harness vocabularies, asked of each harness rather than listed here: pi enumerates its own
+    # catalogue, and claude names its aliases and effort levels in its help output.
+    printf '"catalog":{"pi":{"models":['
+    pi --list-models 2>/dev/null | awk 'NR>1 && NF>1 {printf "%s\"%s/%s\"", (n++?",":""), $1, $2}'
+    printf '],"efforts":['
+    pi --help 2>/dev/null | awk -F'level: ' '/--thinking <level>/{gsub(/ /,"",$2); n=split($2,a,","); for(i=1;i<=n;i++) printf "%s\"%s\"", (i>1?",":""), a[i]}'
+    printf ']},"claude":{"models":['
+    { "$HOME/.local/bin/claude" --help 2>/dev/null | awk '/--model <model>/,/^ *-n,/' | grep -oE "'[a-z0-9._-]+'" | tr -d "'"
+      jq -r '.model // empty' "$HOME/Developer/agents/claude/settings.json" 2>/dev/null
+    } | grep . | sort -u | awk '{printf "%s\"%s\"", (n++?",":""), $0}'
+    printf '],"efforts":['
+    "$HOME/.local/bin/claude" --help 2>/dev/null | awk '/--effort <level>/{f=1} f && /\(/{gsub(/.*\(|\).*/,""); gsub(/ /,""); n=split($0,a,","); for(i=1;i<=n;i++) printf "%s\"%s\"", (i>1?",":""), a[i]; exit}'
+    printf ']}},'
     printf '"models":['
     { jq -r '.model // empty, (.models[]? )' "$HOME/Developer/agents/pi/settings.json" 2>/dev/null
       jq -r '.model // empty' "$HOME/Developer/agents/claude/settings.json" 2>/dev/null
