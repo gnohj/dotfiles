@@ -1,5 +1,6 @@
 #!/bin/bash
-# Unresolved review threads on MY open PRs - the "someone asked and is waiting on me" count.
+# Unresolved review threads on MY open PRs that a PERSON opened - the "someone is waiting on me" count.
+# Bots are dropped by GraphQL's own author __typename rather than by a list of logins to maintain.
 # GraphQL, not search: GitHub's search index carries no qualifier for review threads, so
 # review:changes_requested is the closest it gets and misses every question asked without one.
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -25,7 +26,7 @@ JSON="$(gh api graphql -f query='
       number title isDraft repository { nameWithOwner }
       reviewThreads(first:100) { nodes {
         isResolved isOutdated
-        comments(first:1) { nodes { author { login } } } } } } } } }' 2>"$ERR")"
+        comments(first:1) { nodes { author { login __typename } } } } } } } } }' 2>"$ERR")"
 status=$?
 
 # A failed query is NOT zero: leave the badge as it was rather than turning an outage into "all clear".
@@ -39,8 +40,8 @@ ROWS="$(printf '%s' "$JSON" | jq -c --arg me "$ME" '
     | { repo: .repository.nameWithOwner, number: .number, title: .title,
         waiting: ([ .reviewThreads.nodes[]
                     | select(.isResolved == false and .isOutdated == false)
-                    | .comments.nodes[0].author.login
-                    | select(. != $me) ] | length) }
+                    | .comments.nodes[0].author
+                    | select(. != null and .__typename != "Bot" and .login != $me) ] | length) }
     | select(.waiting > 0) ]' 2>/dev/null)"
 [ -n "$ROWS" ] || ROWS="[]"
 printf '%s' "$ROWS" >"$DATA_FILE"
