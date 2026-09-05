@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Report the fleet's account and home state: what is true on disk, what the live session holds, and which is which.
+set -u
+
+# Never inherit FM_HOME: a session older than a home rename holds a dead path and children would follow it.
+export FM_HOME="$HOME/.local/share/firstmate"
+
+HOME_DIR="$HOME/.local/share/firstmate"
+PIN_FILE="$HOME/.local/state/claude/account-override"
+b() { printf '\033[1m%s\033[0m\n' "$1"; }
+kv() { printf '  %-26s %s\n' "$1" "$2"; }
+fp() { [ -n "${1:-}" ] && printf '%s' "$1" | shasum -a 256 | cut -c1-12 || printf 'none'; }
+# BSD ps carries the environment, procfs does elsewhere; this repo runs on both.
+proc_env() { # <pid> -> its environment, one VAR=value per line
+  if [ "$(uname)" = Darwin ]; then
+    ps -Eww -p "$1" -o command= 2>/dev/null | tr ' ' '\n'
+  else
+    tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  fi
+}
+
+age() { [ -f "$1" ] && echo "$(( $(date +%s) - $(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1") ))s" || echo "absent"; }
+
+b "FLEET (on disk - true from anywhere)"
+kv "home" "$HOME_DIR $([ -d "$HOME_DIR" ] && echo "(exists)" || echo "(MISSING)")"
+kv "size" "$(du -sh "$HOME_DIR" 2>/dev/null | cut -f1)"
+kv "session lock" "$(head -1 "$HOME_DIR/state/.lock" 2>/dev/null || echo 'not held')"
+kv "watcher beacon" "$(age "$HOME_DIR/state/.last-watcher-beat") old"
+kv "queued wakes" "$(wc -l < "$HOME_DIR/state/.wake-queue" 2>/dev/null | tr -d ' ' || echo 0)"
+if [ -e "$HOME/.local/share/firstmate-work" ]; then
+  n=$(find "$HOME/.local/share/firstmate-work" -type f 2>/dev/null | wc -l | tr -d ' ')
+  kv "retired name" "PRESENT with $n file(s) - recreated by a pre-rename process; empty is harmless, non-empty is not"
+else
+  kv "retired name" "gone"
+fi
+
+echo
+b "ACCOUNT (who pays)"
+pin=$(claude-account pin 2>/dev/null || echo '?')
+kv "pin" "$pin"
+kv "pin file" "$PIN_FILE $([ -f "$PIN_FILE" ] && echo '(present)' || echo '(absent = auto)')"
+kv "fleet state dir" "${CLAUDE_CONFIG_DIR:-$HOME/.claude-work}"
+resolved=$(env -u CLAUDE_ACCOUNT bash -c '
+  cfg="'"$HOME/.claude-work"'"
+  p=$(claude-account pin 2>/dev/null || echo auto)
+  if [ "$p" != auto ]; then printf "%s (from the pin)" "$p"; exit 0; fi
+  for a in work personal; do
+    [ "$(CLAUDE_ACCOUNT=$a claude-account dir 2>/dev/null)" = "$cfg" ] && { printf "%s (inferred from the state dir)" "$a"; exit 0; }
+  done
+  printf "unresolved"')
+kv "a new agent would use" "$resolved"
+kv "work token" "$(fp "$(CLAUDE_ACCOUNT=work claude-account token 2>/dev/null)")"
+kv "personal token" "$(fp "$(CLAUDE_ACCOUNT=personal claude-account token 2>/dev/null)")"
+
+echo
+b "QUOTA (5h / 7d used)"
+for a in work personal; do
+  read -r _ w5 _ w7 _ <<<"$(claude-account usage "$a" 2>/dev/null)"
+  kv "$a" "$(awk -v a="${w5:-}" -v b="${w7:-}" 'BEGIN{if(a=="")print "unknown"; else printf "%d%% / %d%%", a*100, b*100}')"
+done
+
+echo
+b "SECOND MATES"
+if [ -f "$HOME_DIR/data/secondmates.md" ]; then
+  while IFS= read -r line; do
+    case "$line" in "- "*) ;; *) continue ;; esac
+    id=${line#- }; id=${id%% *}
+    mh=$(printf '%s' "$line" | sed -n 's/.*home: \([^;)]*\).*/\1/p')
+    pane=$(grep -m1 '^herdr_pane_id=' "$HOME_DIR/state/$id.meta" 2>/dev/null | cut -d= -f2-)
+    pid=$(herdr pane process-info --pane "${pane:-none}" 2>/dev/null | python3 -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+for x in d.get("result",{}).get("process_info",{}).get("foreground_processes",[]):
+    if x.get("argv0")=="claude": print(x["pid"]); break' 2>/dev/null)
+    if [ -n "$pid" ]; then
+      tok=$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)
+      kv "$id" "alive pane=$pane token=$(fp "$tok")$([ -z "$tok" ] && echo ' (state-dir credential)')"
+    else
+      kv "$id" "NO LIVE AGENT  home=${mh:-?}"
+    fi
+  done < "$HOME_DIR/data/secondmates.md"
+else
+  kv "registry" "absent"
+fi
+
+echo
+b "LOCAL PATCHES"
+P="$HOME/Developer/agents/shared/skills/firstmate-patch/fm-patch.sh"
+[ -x "$P" ] && "$P" status 2>&1 | sed 's/^/  /' || kv "fm-patch.sh" "not found"
+
+echo
+b "THIS SHELL (only meaningful inside a fleet session)"
+kv "FM_HOME" "${FM_HOME:-<unset>}"
+kv "CLAUDE_CONFIG_DIR" "${CLAUDE_CONFIG_DIR:-<unset>}"
+kv "CLAUDE_ACCOUNT" "${CLAUDE_ACCOUNT:-<unset>}"
+kv "token in env" "$(fp "${CLAUDE_CODE_OAUTH_TOKEN:-}")"
+if [ -z "${FM_HOME:-}" ]; then
+  echo "  note: this is a bare shell, not a fleet session - the four values above are"
+  echo "        expected to be empty and say nothing about the running fleet."
+fi

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Route `fm` to the pane holding state/.lock rather than spawning a rival that takes it. Exit 0 = routed; exit 1 = launch here.
+set -eu
+
+root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
+
+# tmux and bare shells have no workspace to route to; only herdr owns this concept.
+[ -n "${HERDR_SOCKET_PATH:-}" ] || exit 1
+herdr="$(command -v herdr 2>/dev/null)" || exit 1
+
+fleet="$("$HOME/.local/bin/fm-fleet-converge" json 2>/dev/null)" || fleet=""
+live_pane=""
+[ -n "$fleet" ] && live_pane="$(printf '%s' "$fleet" |
+  jq -r '.primary | select((.pid // "") != "") | .pane // empty' 2>/dev/null)"
+
+# A live primary owns its pane outright: focus it rather than starting a second one anywhere.
+if [ -n "$live_pane" ]; then
+  [ "$live_pane" = "${HERDR_PANE_ID:-}" ] && exit 1
+  "$herdr" workspace focus "${live_pane%%:*}" >/dev/null 2>&1 || true
+  "$herdr" pane focus "$live_pane" >/dev/null 2>&1 || true
+  echo "fm: the fleet is already sailing in $live_pane - focused it." >&2
+  echo "fm: to browse or edit it from here instead, run: fm-compass" >&2
+  exit 0
+fi
+
+panes="$("$herdr" pane list 2>/dev/null)" || exit 1
+ws="$(printf '%s' "$panes" | jq -r --arg d "$root" \
+  '[.result.panes[] | select((.foreground_cwd // .cwd) == $d)] | (first // {}).workspace_id // empty' 2>/dev/null)"
+
+# Pane ids are "<workspace>:<pane>", so the caller's own workspace needs no second API call.
+[ "$ws" = "${HERDR_PANE_ID%%:*}" ] && exit 1
+
+# No workspace yet: the sesh entry's own startup_command is `fm`, so building it launches the primary.
+[ -n "$ws" ] || exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" --entry fm
+
+# Nothing is running there now, so handing the pane a command lands in its shell rather than a prompt.
+target="$(printf '%s' "$panes" | jq -r --arg d "$root" --arg w "$ws" \
+  '[.result.panes[] | select(.workspace_id == $w) | select((.foreground_cwd // .cwd) == $d)] | (first // {}).pane_id // empty' 2>/dev/null)"
+"$herdr" workspace focus "$ws" >/dev/null 2>&1 || true
+[ -n "$target" ] || exit 0
+"$herdr" pane focus "$target" >/dev/null 2>&1 || true
+"$herdr" pane run "$target" "fm" >/dev/null 2>&1 || true

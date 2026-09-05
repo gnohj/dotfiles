@@ -1,0 +1,621 @@
+#!/usr/bin/env bash
+# Read (tree), report (plan) or perform (apply) the fleet moves a primary harness/account pick implies; harness, model, effort and credential are all fixed at launch, so reaching a live mate means replacing it.
+set -uo pipefail
+
+MODE="${1:-tree}"
+HARNESS="${2:-}"
+ACCT="${3:-}"
+MODEL="${4:-}"
+EFFORT="${5:-}"
+# Exported, not just set: fm-secondmate-restart.sh refuses to resolve mates without an explicit home.
+export FM_HOME="${FM_HOME:-$HOME/.local/share/firstmate}"
+ROOT="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
+SELF="$(basename "$0")"
+
+# BSD ps carries the environment, procfs does elsewhere; this repo runs on both.
+proc_env() { # <pid> -> its environment, one VAR=value per line
+  if [ "$(uname)" = Darwin ]; then
+    ps -Eww -p "$1" -o command= 2>/dev/null | tr ' ' '\n'
+  else
+    tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  fi
+}
+
+
+field() { grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2-; }
+
+# A secondmate is a standalone clone ~/.local/bin/worktree never touches, so nothing tells it who it is; resolved per call to follow the pin.
+live_pid() { # <pane> -> the claude pid running in it, if any
+  herdr pane process-info --pane "$1" 2>/dev/null | python3 -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+for p in d.get("result",{}).get("process_info",{}).get("foreground_processes",[]):
+    if p.get("argv0")=="claude":
+        print(p["pid"]); break
+' 2>/dev/null
+}
+
+# A relaunch reuses the pane's own shell, so one older than the PATH fix skips the wrapper; the only repair is replacing that shell, and `exec` hides whether it already was.
+DISPATCH_WHY=""
+dispatchable() { # <id> <home> -> 0 when a relaunch will be allowed to land; DISPATCH_WHY says why not
+  local id="$1" home="$2" row st
+  DISPATCH_WHY=""
+  # No tasks-axi is "cannot judge", not "refuse" - firstmate stays the authority either way.
+  command -v tasks-axi >/dev/null 2>&1 || return 0
+  if ! row="$(tasks-axi show "$id" --file "$home/data/backlog.md" 2>&1)"; then
+    # A missing row is a refusal, not an unknown: firstmate declines to dispatch a worker no record owns.
+    case "$row" in
+    *NOT_FOUND*) DISPATCH_WHY="it has no backlog row in $(basename "$home"), so firstmate has no record to recreate it from"; return 1 ;;
+    *) return 0 ;;
+    esac
+  fi
+  st="$(printf '%s' "$row" | sed -n 's/^ *state: *//p' | head -1)"
+  case "$st" in in_flight | queued) ;; *) DISPATCH_WHY="its record is '$st', and only in_flight or queued can be dispatched"; return 1 ;; esac
+  [ "$(printf '%s' "$row" | sed -n 's/^ *held: *//p' | head -1)" = yes ] &&
+    { DISPATCH_WHY="its row is held, which needs the captain's word"; return 1; }
+  [ "$(printf '%s' "$row" | sed -n 's/^ *blocked: *//p' | head -1)" = yes ] &&
+    { DISPATCH_WHY="its row is blocked"; return 1; }
+  return 0
+}
+
+settle_account() { # <id> <pane> <home> <pin>
+  local id="$1" pane="$2" home="$3" pin="$4" acct
+  # Nothing running means the relaunch failed, not that the account is wrong; stopping it again would only deepen that.
+  [ -n "$(live_pid "$pane")" ] || { echo "$SELF: $id has no live agent; leaving it alone"; return 0; }
+  acct="$(mate_identity "$pane" claude | cut -f1)"
+  if [ "$acct" = "$pin" ]; then echo "$SELF: $id is on '$pin'"; return 0; fi
+  echo "$SELF: $id came back on '${acct:-unknown}'; its pane shell cannot reach the wrapper, replacing that shell"
+  FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$id" exit >/dev/null 2>&1 || true
+  sleep 4
+  herdr pane run "$pane" "exec zsh" >/dev/null 2>&1 || true
+  sleep 4
+  FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$id" relaunch \
+    --note "Relaunched to move onto the $pin account. The prior conversation is not carried over - re-read the brief and the local copy before continuing." 2>&1 | tail -1
+}
+
+preserve_store() {
+  # The same constant ~/.local/bin/fm exports: the store belongs to the FLEET, not to whoever pays.
+  export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude-work}"
+  echo "$SELF: restarting with store $CLAUDE_CONFIG_DIR"
+}
+
+ids_in() {
+  local home="$1" kind="$2" m
+  for m in "$home"/state/*.meta; do
+    [ -f "$m" ] || continue
+    [ "$(field "$m" kind)" = "$kind" ] && basename "$m" .meta
+  done
+  return 0
+}
+
+join_ids() { tr '\n' ' ' | sed 's/ *$//'; }
+sm_ids="$(ids_in "$FM_HOME" secondmate | join_ids)"
+
+# <secondmate-home> per id, so crew enumeration and fm-control both address the right home.
+home_of() { field "$FM_HOME/state/$1.meta" home; }
+
+# The credential is injected at launch, so the process env is the only truth; the meta records the harness, never the identity.
+pane_pids=""
+tok_personal=""; tok_work=""
+[ -r "$HOME/.local/state/claude/oauth-personal" ] && read -r tok_personal <"$HOME/.local/state/claude/oauth-personal"
+[ -r "$HOME/.local/state/claude/oauth-work" ] && read -r tok_work <"$HOME/.local/state/claude/oauth-work"
+
+# One python3 pass over all panes: the herdr calls are ~5ms, the interpreter start is not, and per-mate cost more than the rest of the snapshot.
+build_pane_pids() {
+  local panes="$1" p
+  [ -n "$panes" ] || return 0
+  for p in $panes; do
+    printf '%s\t' "$p"
+    herdr pane process-info --pane "$p" 2>/dev/null | tr -d '\n'
+    printf '\n'
+  done | python3 -c '
+import json,sys
+for line in sys.stdin:
+    pane,_,raw = line.partition("\t")
+    try: d = json.loads(raw)
+    except Exception: continue
+    fg = d.get("result",{}).get("process_info",{}).get("foreground_processes",[])
+    if not fg: continue
+    claude = next((p for p in fg if p.get("argv0") == "claude"), None)
+    # The claude pid answers "which account"; any foreground pid answers "is anything still running here" for every harness.
+    print(pane + "\t" + str((claude or fg[0])["pid"]) + "\t" + ("1" if claude else "0"))
+' 2>/dev/null
+}
+
+# Which account a CONFIG DIR is logged into, from the oauthAccount claude stores beside it.
+dir_account() { # <config-dir> -> work|personal|unknown
+  local d="${1:-}" cj email label
+  cj="${d:+$d/.claude.json}"; cj="${cj:-$HOME/.claude.json}"
+  [ -r "$cj" ] || { printf 'unknown'; return; }
+  email="$(python3 -c '
+import json,sys
+try: print((json.load(open(sys.argv[1])).get("oauthAccount") or {}).get("emailAddress",""))
+except Exception: pass
+' "$cj" 2>/dev/null)"
+  [ -n "$email" ] || { printf 'unknown'; return; }
+  label="$(claude-account label-for-email "$email" 2>/dev/null)"
+  printf '%s (dir)' "${label:-unknown}"
+}
+
+pid_identity() { # <pid> -> "<account>\t<config-dir>"
+  local pid="$1" penv tok dir acct=""
+  penv="$(proc_env "$pid")"
+  tok="$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"
+  dir="$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CONFIG_DIR=//p' | head -1)"
+  if [ -z "$tok" ]; then acct="$(dir_account "$dir")"
+  elif [ -n "$tok_work" ] && [ "$tok" = "$tok_work" ]; then acct="work"
+  elif [ -n "$tok_personal" ] && [ "$tok" = "$tok_personal" ]; then acct="personal"
+  else acct="unrecognized"; fi
+  printf '%s\t%s' "$acct" "$dir"
+}
+
+mate_identity() { # <pane> <harness> -> "<account>\t<config-dir>\t<live>"
+  local pane="$1" harness="$2" pid isclaude penv tok dir acct=""
+  [ -n "$pane" ] || { printf '\t\t'; return; }
+  pid="$(printf '%s\n' "$pane_pids" | awk -F'\t' -v p="$pane" '$1==p{print $2; exit}')"
+  isclaude="$(printf '%s\n' "$pane_pids" | awk -F'\t' -v p="$pane" '$1==p{print $3; exit}')"
+  [ -n "$pid" ] || { printf '\t\t'; return; }
+  [ "$harness" = claude ] && [ "$isclaude" = 1 ] || { printf '\t\t1'; return; }
+  penv="$(proc_env "$pid")"
+  tok="$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"
+  dir="$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CONFIG_DIR=//p' | head -1)"
+  if [ -z "$tok" ]; then
+    # No injected token means the store's own credential is in play, so read whose it is rather than reporting "unattributed".
+    acct="$(dir_account "$dir")"
+  elif [ -n "$tok_work" ] && [ "$tok" = "$tok_work" ]; then acct="work"
+  elif [ -n "$tok_personal" ] && [ "$tok" = "$tok_personal" ]; then acct="personal"
+  else acct="unrecognized"; fi
+  printf '%s\t%s\t1' "$acct" "$dir"
+}
+
+if [ "$MODE" = json ]; then
+  all_panes=""
+  for id in $sm_ids; do
+    home="$(home_of "$id")"
+    all_panes="$all_panes $(field "$FM_HOME/state/$id.meta" herdr_pane_id)"
+    for t in $(ids_in "$home" ship; ids_in "$home" scout); do
+      all_panes="$all_panes $(field "$home/state/$t.meta" herdr_pane_id)"
+    done
+  done
+  pane_pids="$(build_pane_pids "$all_panes")"
+  primary="claude"; pinned=""
+  [ -r "$FM_HOME/config/primary-harness" ] && { read -r primary <"$FM_HOME/config/primary-harness"; pinned=1; }
+  live=""; lockpid=""
+  [ -r "$FM_HOME/state/.lock" ] && read -r lockpid <"$FM_HOME/state/.lock"
+  if [ -n "$lockpid" ] && kill -0 "$lockpid" 2>/dev/null; then
+    live="$(ps -p "$lockpid" -o comm= 2>/dev/null | sed 's|.*/||;s/^-//')"
+  fi
+  sm_line="$(awk 'NF && $1 !~ /^#/ {print; exit}' "$FM_HOME/config/secondmate-harness" 2>/dev/null)"
+  {
+    printf '{"schema":1,'
+    # The primary records no pane, so narrow by panes at the code root and confirm against the pid the session lock holds.
+    primary_pane=""
+    if [ -n "$lockpid" ]; then
+      for cand in $(herdr pane list 2>/dev/null | python3 -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+root=sys.argv[1]
+print(" ".join(p["pane_id"] for p in d.get("result",{}).get("panes",[])
+                if p.get("cwd")==root or p.get("foreground_cwd")==root))
+' "$ROOT" 2>/dev/null); do
+        if herdr pane process-info --pane "$cand" 2>/dev/null | grep -q "\"pid\":$lockpid"; then
+          primary_pane="$cand"; break
+        fi
+      done
+    fi
+    # The home's registered projects, from the registry firstmate keeps in data/projects.md.
+    projects="$(awk '/^- /{sub(/^- /,""); sub(/ .*$/,""); printf "%s%s", sep, $0; sep=", "}' \
+      "$FM_HOME/data/projects.md" 2>/dev/null)"
+    pin="$(claude-account pin 2>/dev/null || echo auto)"
+    # What `auto` actually derives to from the firstmate root, so the preview never makes the captain guess.
+    resolved="$pin"
+    [ "$pin" = auto ] && resolved="$(cd "$ROOT" 2>/dev/null && claude-account resolve 2>/dev/null || echo unknown)"
+    # Empty means the harness picks; the compass renders that as "default" rather than inventing a name.
+    p_model=""; [ -r "$FM_HOME/config/primary-model" ] && read -r p_model <"$FM_HOME/config/primary-model"
+    p_effort=""; [ -r "$FM_HOME/config/primary-effort" ] && read -r p_effort <"$FM_HOME/config/primary-effort"
+    # The pin governs what the fleet SPAWNS; a running primary carries whatever its pane handed it, so read that from the process.
+    live_acct=""; live_dir=""
+    if [ -n "$live" ] && [ "$live" = claude ]; then
+      IFS="$(printf '\t')" read -r live_acct live_dir <<EOF_ID
+$(pid_identity "$lockpid")
+EOF_ID
+    fi
+    printf '"primary":{"configured":"%s","configured_pinned":"%s","live":"%s","pid":"%s","pin":"%s","pin_resolved":"%s","live_account":"%s","live_config_dir":"%s","model":"%s","effort":"%s","home":"%s","root":"%s","config_dir":"%s","projects":"%s","pane":"%s"},' \
+      "$primary" "$pinned" "$live" "$lockpid" "$pin" "$resolved" "$live_acct" "$live_dir" "$p_model" "$p_effort" "$FM_HOME" "$ROOT" \
+      "$(cd "$ROOT" 2>/dev/null && CLAUDE_ACCOUNT="$resolved" claude-account dir 2>/dev/null || true)" "$projects" "$primary_pane"
+    # Model names come from the harnesses' own settings, so a cold fleet still offers real choices with no catalogue to maintain.
+    printf '"models":['
+    { jq -r '.model // empty, (.models[]? )' "$HOME/Developer/agents/pi/settings.json" 2>/dev/null
+      jq -r '.model // empty' "$HOME/Developer/agents/claude/settings.json" 2>/dev/null
+    } | grep . | sort -u | awk 'NR>1{printf ","}{printf "\"%s\"", $0}'
+    printf '],"secondmate_config":"%s","secondmates":[' "$sm_line"
+    first=1
+    for id in $sm_ids; do
+      meta="$FM_HOME/state/$id.meta"; home="$(home_of "$id")"
+      [ "$first" = 1 ] || printf ','; first=0
+      ident="$(mate_identity "$(field "$meta" herdr_pane_id)" "$(field "$meta" harness)")"
+      printf '{"id":"%s","home":"%s","harness":"%s","model":"%s","effort":"%s","projects":"%s","worktree":"%s","pane":"%s","account":"%s","config_dir":"%s","live":"%s","crew":[' \
+        "$id" "$home" "$(field "$meta" harness)" "$(field "$meta" model)" "$(field "$meta" effort)" \
+        "$(field "$meta" projects)" "$(field "$meta" worktree)" "$(field "$meta" herdr_pane_id)" \
+        "$(printf '%s' "$ident" | cut -f1)" "$(printf '%s' "$ident" | cut -f2)" "$(printf '%s' "$ident" | cut -f3)"
+      cfirst=1
+      for t in $(ids_in "$home" ship; ids_in "$home" scout); do
+        cm="$home/state/$t.meta"
+        [ "$cfirst" = 1 ] || printf ','; cfirst=0
+        cident="$(mate_identity "$(field "$cm" herdr_pane_id)" "$(field "$cm" harness)")"
+        printf '{"id":"%s","kind":"%s","harness":"%s","model":"%s","effort":"%s","mode":"%s","pane":"%s","worktree":"%s","pr":"%s","account":"%s","config_dir":"%s","live":"%s"}' \
+          "$t" "$(field "$cm" kind)" "$(field "$cm" harness)" "$(field "$cm" model)" \
+          "$(field "$cm" effort)" "$(field "$cm" mode)" "$(field "$cm" herdr_pane_id)" \
+          "$(field "$cm" worktree)" "$(field "$cm" pr)" "$(printf '%s' "$cident" | cut -f1)" "$(printf '%s' "$cident" | cut -f2)" "$(printf '%s' "$cident" | cut -f3)"
+      done
+      printf ']}'
+    done
+    printf ']}\n'
+  }
+  exit 0
+fi
+
+if [ "$MODE" = tree ]; then
+  # state/.lock holds the live primary's pid whatever harness it runs, so ask the process rather than the config default.
+  primary="claude"
+  [ -r "$FM_HOME/config/primary-harness" ] && read -r primary <"$FM_HOME/config/primary-harness"
+  note="configured; not running"
+  lockpid=""
+  [ -r "$FM_HOME/state/.lock" ] && read -r lockpid <"$FM_HOME/state/.lock"
+  if [ -n "$lockpid" ] && kill -0 "$lockpid" 2>/dev/null; then
+    live="$(ps -p "$lockpid" -o comm= 2>/dev/null | sed 's|.*/||;s/^-//')"
+    [ -n "$live" ] && { primary="$live"; note="live, pid $lockpid"; }
+  fi
+  printf 'firstmate  %s (%s) · home %s · pin %s\n' \
+    "$primary" "$note" "${FM_HOME/#$HOME/\~}" "$(claude-account pin 2>/dev/null || echo auto)"
+  last_sm="${sm_ids##* }"
+  for id in $sm_ids; do
+    meta="$FM_HOME/state/$id.meta"
+    home="$(home_of "$id")"
+    crew="$(ids_in "$home" ship; ids_in "$home" scout)"
+    crew="$(printf '%s' "$crew" | join_ids)"
+    n=$(printf '%s' "$crew" | wc -w | tr -d ' ')
+    [ "$id" = "$last_sm" ] && { b="└─"; c="   "; } || { b="├─"; c="│  "; }
+    printf '%s %-14s %s · %s · %s · %s crew\n' \
+      "$b" "$id" "$(field "$meta" harness)" "$(field "$meta" model)" "$(field "$meta" effort)" "$n"
+    last_c="${crew##* }"
+    for t in $crew; do
+      cm="$home/state/$t.meta"
+      [ "$t" = "$last_c" ] && g="└─" || g="├─"
+      printf '%s%s %-42s %s · %s · %s · %s\n' \
+        "$c" "$g" "$t" "$(field "$cm" harness)" "$(field "$cm" model)" "$(field "$cm" effort)" "$(field "$cm" mode)"
+    done
+  done
+  exit 0
+fi
+
+# Straight from firstmate's own reader; kept out of `json` because it costs ~75ms per task.
+if [ "$MODE" = crew-state ]; then
+  want="${HARNESS:-}"
+  [ -n "$want" ] || { echo "usage: $SELF crew-state <task-id>" >&2; exit 2; }
+  for id in $sm_ids; do
+    home="$(home_of "$id")"
+    [ -f "$home/state/$want.meta" ] || continue
+    # Callers want the state word; the full line stays on stderr for debugging.
+    line="$(FM_HOME="$home" "$ROOT/bin/fm-crew-state.sh" "$want" 2>/dev/null)"
+    printf '%s\n' "$line" >&2
+    printf '%s\n' "$line" | sed -n 's/^state: *\([a-z-]*\).*/\1/p' | head -1
+    exit 0
+  done
+  echo "unknown"
+  exit 0
+fi
+
+# The primary's harness is a durable default plus a sticky pin; neither touches the running session, which is replaced by launching.
+if [ "$MODE" = primary-set ]; then
+  want_h="${HARNESS:-}"
+  want_a="${ACCT:-}"
+  want_m="${MODEL:-}"
+  want_e="${EFFORT:-}"
+  [ -n "$want_h" ] || [ -n "$want_a" ] || [ -n "$want_m" ] || [ -n "$want_e" ] ||
+    { echo "usage: $SELF primary-set <harness|keep> [account] [model] [effort]" >&2; exit 2; }
+  if [ -n "$want_h" ] && [ "$want_h" != keep ]; then
+    cfg="$FM_HOME/config/primary-harness"
+    cur=""; [ -r "$cfg" ] && read -r cur <"$cfg"
+    if [ "$cur" = "$want_h" ]; then
+      echo "$SELF: primary-harness already '$want_h'"
+    else
+      mkdir -p "$(dirname "$cfg")"
+      printf '%s\n' "$want_h" >"$cfg.tmp" && mv -f "$cfg.tmp" "$cfg"
+      echo "$SELF: primary-harness '${cur:-claude (default)}' → '$want_h'"
+    fi
+  fi
+  # "default" clears the file so the harness picks its own, which "keep" (leave as-is) cannot express.
+  for pair in "model:$want_m" "effort:$want_e"; do
+    axis="${pair%%:*}"; want="${pair#*:}"
+    [ -n "$want" ] && [ "$want" != keep ] || continue
+    cfg="$FM_HOME/config/primary-$axis"
+    cur=""; [ -r "$cfg" ] && read -r cur <"$cfg"
+    if [ "$want" = default ]; then
+      [ -n "$cur" ] && { rm -f "$cfg"; echo "$SELF: primary-$axis '$cur' → harness default"; }
+    elif [ "$cur" = "$want" ]; then
+      echo "$SELF: primary-$axis already '$want'"
+    else
+      mkdir -p "$(dirname "$cfg")"
+      printf '%s\n' "$want" >"$cfg.tmp" && mv -f "$cfg.tmp" "$cfg"
+      echo "$SELF: primary-$axis '${cur:-harness default}' → '$want'"
+    fi
+  done
+  if [ -n "$want_a" ] && [ "$want_a" != keep ]; then
+    cur_pin="$(claude-account pin 2>/dev/null || echo auto)"
+    if [ "$cur_pin" = "$want_a" ]; then
+      echo "$SELF: pin already '$want_a'"
+    else
+      claude-account pin "$want_a" >/dev/null 2>&1 && echo "$SELF: pin '$cur_pin' → '$want_a'"
+    fi
+  fi
+  echo "$SELF: the running primary keeps its own harness and credential; relaunch with fm to adopt this"
+  exit 0
+fi
+
+# All three secondmate axes live on one line of config/secondmate-harness, so setting them is one write plus a restart.
+if [ "$MODE" = secondmate-set ]; then
+  want_h="${HARNESS:-}"
+  want_m="${ACCT:-}"
+  want_e="${4:-}"
+  [ -n "$want_h" ] || { echo "usage: $SELF secondmate-set <harness> [model] [effort]" >&2; exit 2; }
+  cfg="$FM_HOME/config/secondmate-harness"
+  cur=""
+  [ -r "$cfg" ] && cur="$(awk 'NF && $1 !~ /^#/ {print; exit}' "$cfg")"
+  # An omitted axis keeps what is already pinned; "default" is firstmate's own spelling for clearing one.
+  set -- $cur
+  # A model belongs to its harness, so a harness change drops an unspecified model rather than pairing them wrongly.
+  [ -n "$want_m" ] || { [ "${1:-}" = "$want_h" ] && want_m="${2:-}"; }
+  [ -n "$want_e" ] || want_e="${3:-}"
+  [ "$want_m" = default ] && want_m=""
+  [ "$want_e" = default ] && want_e=""
+  line="$want_h${want_m:+ $want_m}${want_e:+ $want_e}"
+  if [ "$line" = "$cur" ]; then
+    echo "$SELF: secondmate-harness already '$line'; nothing to do"
+    exit 0
+  fi
+  mkdir -p "$(dirname "$cfg")"
+  printf '%s\n' "$line" >"$cfg.tmp" && mv -f "$cfg.tmp" "$cfg"
+  echo "$SELF: secondmate-harness '$cur' → '$line'"
+  [ -n "$sm_ids" ] || exit 0
+  echo "$SELF: restarting secondmates: $sm_ids"
+  preserve_store
+  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
+  "$ROOT/bin/fm-secondmate-restart.sh" $sm_ids
+  exit 0
+fi
+
+# Crew identity is the one axis outside the dispatch profile, so relaunching with no axis keeps the adapter and replaces only the credential.
+if [ "$MODE" = mate-relaunch ]; then
+  want="${HARNESS:-}"
+  [ -n "$want" ] || { echo "usage: $SELF mate-relaunch <id> [apply]" >&2; exit 2; }
+  owner=""; is_sm=""
+  for id in $sm_ids; do
+    home="$(home_of "$id")"
+    [ "$id" = "$want" ] && { owner="$FM_HOME"; is_sm=1; break; }
+    [ -f "$home/state/$want.meta" ] && { owner="$home"; break; }
+  done
+  [ -n "$owner" ] || { echo "$SELF: no mate named '$want'" >&2; exit 1; }
+  if ! dispatchable "$want" "$owner"; then
+    echo "$SELF: cannot relaunch $want: $DISPATCH_WHY"
+    echo "$SELF: firstmate would stop it and then refuse the replacement, so nothing was touched"
+    exit 1
+  fi
+  if [ "${ACCT:-}" != apply ]; then
+    echo "$SELF: $want is dispatchable; run '$SELF mate-relaunch $want apply' to bring it back"
+    exit 0
+  fi
+  preserve_store
+  if [ -n "$is_sm" ]; then
+    "$ROOT/bin/fm-secondmate-restart.sh" "$want"
+  else
+    FM_HOME="$owner" "$ROOT/bin/fm-control.sh" "$want" relaunch \
+      --note "Relaunched after being found stopped. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
+  fi
+  exit 0
+fi
+
+# Secondmates first: a crewmate belongs to one, so converging the owner afterwards would relaunch its crew twice.
+if [ "$MODE" = all-accounts ]; then
+  rc=0
+  "$0" secondmate-account ${HARNESS:+"$HARNESS"} || rc=$?
+  echo "---"
+  "$0" crew-account ${HARNESS:+"$HARNESS"} || rc=$?
+  exit "$rc"
+fi
+
+# One mate, one account: a spawned agent carries no identity but its cwd, so the pin lives on that path and survives later restarts.
+if [ "$MODE" = mate-account ]; then
+  want="${HARNESS:-}"
+  acct="${ACCT:-}"
+  case "$acct" in
+  work | personal | auto) ;;
+  *) echo "usage: $SELF mate-account <id> <work|personal|auto> [apply]" >&2; exit 2 ;;
+  esac
+  wt=""; owner=""; is_sm=""
+  for id in $sm_ids; do
+    home="$(home_of "$id")"
+    if [ "$id" = "$want" ]; then
+      wt="$(field "$FM_HOME/state/$id.meta" worktree)"; owner="$home"; is_sm=1; break
+    fi
+    if [ -f "$home/state/$want.meta" ]; then
+      wt="$(field "$home/state/$want.meta" worktree)"; owner="$home"; break
+    fi
+  done
+  [ -n "$owner" ] || { echo "$SELF: no mate named '$want'" >&2; exit 1; }
+  [ -n "$wt" ] || { echo "$SELF: $want records no worktree, so it has no path to bill; give it one first" >&2; exit 1; }
+  claude-account path-pin "$wt" "$acct" ||
+    { echo "$SELF: claude-account has no path-pin; run 'chezmoi apply' first" >&2; exit 1; }
+  if [ "${MODEL:-}" != apply ]; then
+    echo "$SELF: $want will run '$acct' from its NEXT launch; run '$SELF mate-account $want $acct apply' to replace it now"
+    echo "$SELF: replacing it keeps its records but LOSES its conversation"
+    exit 0
+  fi
+  preserve_store
+  if [ -n "$is_sm" ]; then
+    "$ROOT/bin/fm-secondmate-restart.sh" "$want"
+  else
+    FM_HOME="$owner" "$ROOT/bin/fm-control.sh" "$want" relaunch \
+      --note "Relaunched to move onto the $acct account. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
+  fi
+  exit 0
+fi
+
+# The secondmate half: separate from crew because a crewmate relaunch costs one task's conversation, a secondmate's the fleet's supervision record.
+if [ "$MODE" = secondmate-account ]; then
+  pin="$(claude-account pin 2>/dev/null || echo auto)"
+  [ "$pin" = auto ] && { echo "$SELF: pin is auto, so the config dir decides the account and no pick can be honored; pin work or personal first"; exit 0; }
+  [ -n "$sm_ids" ] || { echo "$SELF: no secondmates"; exit 0; }
+  [ -x "$HOME/.local/bin/fm-account-converge" ] || { echo "$SELF: fm-account-converge is not installed" >&2; exit 1; }
+  drift="$("$HOME/.local/bin/fm-account-converge" check 2>/dev/null |
+    sed -n 's/^.*: would restart: //p' | join_ids)"
+  # A mate pinned to its own account is not drift: it would come back the same and lose a conversation on every pass.
+  kept=""
+  for id in $drift; do
+    own="$(claude-account path-pin "$(field "$FM_HOME/state/$id.meta" worktree)" 2>/dev/null || true)"
+    if [ -n "$own" ]; then echo "  $id: pinned to '$own' of its own; left alone"; else kept="$kept $id"; fi
+  done
+  drift="$(printf '%s' "${kept# }" | join_ids)"
+  [ -n "$drift" ] || { echo "$SELF: every secondmate already runs '$pin' or an account of its own"; exit 0; }
+  if [ "${HARNESS:-}" != apply ]; then
+    echo "$SELF: would relaunch onto '$pin': $drift"
+    echo "$SELF: each relaunch keeps the mate's records but LOSES its conversation; run '$SELF secondmate-account apply' to proceed"
+    exit 0
+  fi
+  keep=""
+  for id in $drift; do
+    if dispatchable "$id" "$(home_of "$id")"; then keep="$keep $id"
+    else echo "$SELF: $id is held or not dispatchable; NOT stopping it - firstmate would refuse the replacement"; fi
+  done
+  drift="$(printf '%s' "${keep# }" | join_ids)"
+  [ -n "$drift" ] || { echo "$SELF: nothing left to converge"; exit 0; }
+  echo "$SELF: restarting secondmates onto '$pin': $drift"
+  preserve_store
+  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
+  "$ROOT/bin/fm-secondmate-restart.sh" $drift
+  sleep 10
+  for id in $drift; do
+    settle_account "$id" "$(field "$FM_HOME/state/$id.meta" herdr_pane_id)" "$(home_of "$id")" "$pin"
+  done
+  exit 0
+fi
+
+if [ "$MODE" = crew-account ]; then
+  pin="$(claude-account pin 2>/dev/null || echo auto)"
+  [ "$pin" = auto ] && { echo "$SELF: pin is auto, so there is no intended account; nothing to converge"; exit 0; }
+  want="$(CLAUDE_ACCOUNT="$pin" claude-account token 2>/dev/null || true)"
+  [ -n "$want" ] || { echo "$SELF: no token stored for '$pin'; refusing to relaunch blind" >&2; exit 1; }
+  fp() { [ -n "${1:-}" ] && printf '%s' "$1" | shasum -a 256 | cut -c1-12 || printf none; }
+  want_fp="$(fp "$want")"
+
+  drift=""; drift_homes=""
+  for id in $sm_ids; do
+    home="$(home_of "$id")"
+    for t in $(ids_in "$home" ship; ids_in "$home" scout); do
+      cm="$home/state/$t.meta"
+      [ "$(field "$cm" harness)" = claude ] || { echo "  $t: $(field "$cm" harness) - no claude credential to compare"; continue; }
+      pane="$(field "$cm" herdr_pane_id)"
+      [ -n "$pane" ] || { echo "  $t: records no herdr pane; skipped"; continue; }
+      pid="$(live_pid "$pane")"
+      [ -n "$pid" ] || { echo "  $t: no live agent; skipped"; continue; }
+      tok="$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"
+      if [ -z "$tok" ]; then
+        # Worth one marked relaunch: settle_account replaces the pane shell, the only reason a live claude task carries no token.
+        mark="$HOME/.local/state/claude/converge-attempt-$t"
+        prev=""; [ -r "$mark" ] && read -r prev <"$mark"
+        if [ "$prev" = "$pin" ]; then
+          echo "  $t: already relaunched once for '$pin' and still injects none; left alone"
+        else
+          echo "  $t: no injected token; relaunching once so the wrapper can attribute it"
+          drift="$drift $t"; drift_homes="$drift_homes$t\t$home\n"
+        fi
+      elif [ -n "$(claude-account path-pin "$(field "$cm" worktree)" 2>/dev/null || true)" ]; then
+        echo "  $t: pinned to an account of its own; left alone"
+      elif [ "$(fp "$tok")" = "$want_fp" ]; then
+        echo "  $t: already on '$pin'"
+      else
+        echo "  $t: drifted from '$pin'; needs relaunch"
+        drift="$drift $t"; drift_homes="$drift_homes$t\t$home\n"
+      fi
+    done
+  done
+  drift="${drift# }"
+  [ -n "$drift" ] || { echo "$SELF: every live crew task already runs '$pin'"; exit 0; }
+  if [ "${HARNESS:-}" != apply ]; then
+    echo "$SELF: would relaunch:$([ -n "$drift" ] && echo " $drift")"
+    echo "$SELF: each relaunch keeps its dispatch profile but LOSES its conversation; run '$SELF crew-account apply' to proceed"
+    exit 0
+  fi
+  preserve_store
+  printf "$drift_homes" | while IFS="$(printf '\t')" read -r t home; do
+    [ -n "$t" ] || continue
+    if ! dispatchable "$t" "$home"; then
+      echo "$SELF: skipping $t: $DISPATCH_WHY"
+      continue
+    fi
+    echo "$SELF: relaunching $t onto '$pin' (home ${home/#$HOME/\~})"
+    mkdir -p "$HOME/.local/state/claude"; printf '%s\n' "$pin" >"$HOME/.local/state/claude/converge-attempt-$t"
+    FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$t" relaunch \
+      --note "Relaunched to move onto the $pin account. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
+    sleep 8
+    settle_account "$t" "$(field "$home/state/$t.meta" herdr_pane_id)" "$home" "$pin"
+  done
+  exit 0
+fi
+
+[ -n "$HARNESS" ] || { echo "usage: $SELF <tree|plan|apply> [<harness> [account]]" >&2; exit 2; }
+
+crew_pairs=""
+for id in $sm_ids; do
+  home="$(home_of "$id")"
+  for c in $(ids_in "$home" ship; ids_in "$home" scout); do crew_pairs="$crew_pairs$c	$home
+"; done
+done
+
+sm_cfg="$("$ROOT/bin/fm-harness.sh" secondmate 2>/dev/null || true)"
+harness_moves=""
+[ -n "$sm_ids" ] && [ -n "$sm_cfg" ] && [ "$sm_cfg" != "$HARNESS" ] && harness_moves="$sm_ids"
+
+# Only a claude pick has an account to drift; converge refuses anyway when the pin is auto.
+acct_drift=""
+if [ "$HARNESS" = claude ] && [ -n "$ACCT" ] && [ -x "$HOME/.local/bin/fm-account-converge" ]; then
+  acct_drift="$("$HOME/.local/bin/fm-account-converge" check 2>/dev/null |
+    sed -n 's/^.*: would restart: //p' | join_ids)"
+fi
+
+crew_n="$(printf '%s' "$crew_pairs" | grep -c . || true)"
+
+if [ "$MODE" = plan ]; then
+  [ -n "$harness_moves" ] && echo "secondmates pinned to '$sm_cfg': restart $harness_moves onto $HARNESS"
+  [ -n "$acct_drift" ] && echo "secondmates on another account: restart $acct_drift onto $ACCT"
+  # Context on stderr, never stdout: crew are policy-owned, so they must not make a caller think there is drift to converge.
+  [ "${crew_n:-0}" -gt 0 ] && echo "$crew_n crew/scout tasks live (left alone - their profile is policy-owned)" >&2
+  exit 0
+fi
+
+[ "$MODE" = apply ] || { echo "usage: $SELF <tree|plan|apply> [<harness> [account]]" >&2; exit 2; }
+
+# The durable pin first, so every restart below re-resolves to the harness just picked.
+if [ -n "$harness_moves" ]; then
+  cfg="$FM_HOME/config/secondmate-harness"
+  tail_tokens=""
+  [ -r "$cfg" ] && tail_tokens="$(awk 'NF && $1 !~ /^#/ {$1=""; sub(/^ /,""); print; exit}' "$cfg")"
+  mkdir -p "$(dirname "$cfg")"
+  printf '%s%s\n' "$HARNESS" "${tail_tokens:+ $tail_tokens}" >"$cfg.tmp" && mv -f "$cfg.tmp" "$cfg"
+  echo "$SELF: secondmate-harness → $HARNESS${tail_tokens:+ $tail_tokens}"
+fi
+
+# One restart covers both reasons, so an id needing harness AND account moves is replaced once.
+restart="$(printf '%s\n%s\n' "$harness_moves" "$acct_drift" | tr ' ' '\n' | grep . | sort -u | join_ids)"
+if [ -n "$restart" ]; then
+  echo "$SELF: restarting secondmates: $restart"
+  preserve_store
+  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
+  "$ROOT/bin/fm-secondmate-restart.sh" $restart
+fi
+
+[ "${crew_n:-0}" -gt 0 ] &&
+  echo "$SELF: $crew_n crew/scout tasks left running; their harness and model belong to the dispatch profile, not to this pick"
+exit 0

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Tree-shaped fleet menu; prints "launch<TAB><harness><TAB><account>" when the captain chooses to launch, and performs everything else itself.
+set -uo pipefail
+
+FM_HOME="${FM_HOME:-$HOME/.local/share/firstmate}"
+CONV="$HOME/.local/bin/fm-fleet-converge"
+command -v fzf >/dev/null 2>&1 || exit 1
+
+pick() { fzf --delimiter='|' --with-nth=1 --height=~45% --reverse --prompt="$1 > " --header="$2" 2>/dev/null; }
+val() { printf '%s' "${1##*|}"; }
+
+sm_ids() { "$CONV" tree 2>/dev/null | sed -n 's/^[├└]─ \([^ ]*\) .*/\1/p'; }
+
+# Candidates come from what the fleet already runs, so no per-harness catalog is needed; the primary row is skipped, its second field being a home path.
+seen_models() { "$CONV" tree 2>/dev/null | awk -F' · ' '$0 !~ /^firstmate/ && NF>2 {print $2}' | sort -u | grep -v '^$'; }
+seen_efforts() { printf 'xhigh\nhigh\nmedium\nlow\ndefault\n'; }
+
+launch_harness="" launch_acct=""
+
+while true; do
+  tree="$("$CONV" tree 2>/dev/null)"
+  primary_row="$(printf '%s' "$tree" | head -1)"
+  rows="$(printf '▶ launch firstmate|launch|\n')"
+  rows="$rows
+$(printf '%s|node|firstmate\n' "  $primary_row")"
+  while read -r id; do
+    [ -n "$id" ] || continue
+    line="$(printf '%s' "$tree" | grep -m1 "^[├└]─ $id ")"
+    rows="$rows
+$(printf '%s|node|%s\n' "  ${line#?? }" "$id")"
+  done <<<"$(sm_ids)"
+  rows="$rows
+$(printf '  crew accounts (converge onto the pin)|crew|\n')"
+
+  sel="$(printf '%s\n' "$rows" | pick fleet 'enter selects · esc exits')"
+  [ -n "$sel" ] || exit 1
+  kind="$(printf '%s' "$sel" | awk -F'|' '{print $2}')"
+  node="$(val "$sel")"
+
+  case "$kind" in
+  launch) printf 'launch\t%s\t%s\n' "$launch_harness" "$launch_acct"; exit 0 ;;
+  crew)
+    out="$("$CONV" crew-account 2>&1)"
+    printf '%s\n' "$out" | tail -20 >&2
+    printf '%s' "$out" | grep -q 'would relaunch' || { printf 'nothing to converge - press enter\n' >&2; read -r _; continue; }
+    go="$(printf 'no, go back|no\nyes, relaunch them (conversations are lost)|yes\n' | pick 'crew accounts' "$(printf '%s' "$out" | tail -2)")"
+    [ "$(val "${go:-|no}")" = yes ] && "$CONV" crew-account apply >&2
+    printf 'press enter\n' >&2; read -r _
+    ;;
+  node)
+    if [ "$node" = firstmate ]; then
+      h="$(printf 'claude|claude\npi|pi\n' | pick 'primary harness' 'launch target for firstmate')"
+      [ -n "$h" ] || continue
+      launch_harness="$(val "$h")"
+      if [ "$launch_harness" = claude ]; then
+        a="$(printf 'personal|personal\nwork|work\n' | pick 'account pin' 'writes the sticky pin, which every new claude session follows')"
+        launch_acct="$(val "${a:-|}")"
+      else
+        launch_acct=""
+      fi
+      continue
+    fi
+    h="$(printf 'keep|\nclaude|claude\npi|pi\n' | pick "$node harness" 'changing any axis restarts this secondmate')"
+    [ -n "$h" ] || continue
+    m="$( { printf 'keep|\ndefault|default\n'; seen_models | awk '{print $0"|"$0}'; } | pick "$node model" 'keep leaves the pin alone; default clears it')"
+    e="$( { printf 'keep|\n'; seen_efforts | awk '{print $0"|"$0}'; } | pick "$node effort" 'keep leaves the pin alone')"
+    hv="$(val "${h:-|}")" mv="$(val "${m:-|}")" ev="$(val "${e:-|}")"
+    [ -n "$hv" ] || hv="$(printf '%s' "$tree" | sed -n "s/^[├└]─ $node  *\([^ ]*\) .*/\1/p")"
+    "$CONV" secondmate-set "$hv" "$mv" "$ev" >&2
+    printf 'press enter\n' >&2; read -r _
+    ;;
+  esac
+done

@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
-# firstmate has no binary - the clone IS the tool, so resolve its home and hand off to the claude wrapper (its AGENTS.md runs the crew).
+# firstmate has no binary - the clone IS the tool, so resolve its home and hand off to the primary harness (its AGENTS.md runs the crew).
 set -eu
 
 root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
 
-account=personal
-case "${1:-}" in
-personal | work)
-  account=$1
-  shift
-  ;;
-esac
+# --pi / --claude pick the primary harness and are consumed here; everything else passes through untouched.
+flag_harness=""
+args=()
+for a in "$@"; do
+  case "$a" in
+  --claude) flag_harness=claude ;;
+  --pi) flag_harness=pi ;;
+  --pi-signed) flag_harness=pi-signed ;;
+  # Refuse a retired account argument loudly: unhandled, it would become the harness's opening prompt.
+  work | personal)
+    echo "fm: the '$a' argument is retired - one fleet, one home now." >&2
+    echo "fm: to run the fleet on that account:  claude-account pin $a   then:  fm" >&2
+    exit 2
+    ;;
+  *) args+=("$a") ;;
+  esac
+done
+set -- ${args+"${args[@]}"}
 
-# Paired, never from the env: firstmate forwards its account to every crewmate, so a mismatch runs the whole fleet on the wrong subscription.
-case "$account" in
-work) export FM_HOME="$HOME/.local/share/firstmate-work" ;;
-*) export FM_HOME="$HOME/.local/share/firstmate" ;;
-esac
-export CLAUDE_ACCOUNT="$account"
+# One fleet, one home: the work/personal split is retired, so there is no account argument.
+export FM_HOME="$HOME/.local/share/firstmate"
+
 mkdir -p "$FM_HOME"
 
 if [ ! -d "$root/.git" ]; then
@@ -26,5 +34,75 @@ if [ ! -d "$root/.git" ]; then
   exit 1
 fi
 
+# A second primary anywhere else would take state/.lock off the first, so route to its workspace instead.
+if [ -x "$HOME/.local/bin/fm-goto" ] && "$HOME/.local/bin/fm-goto"; then
+  exit 0
+fi
+
+# Primary harness, mirroring firstmate's own gitignored config/<x>-harness convention for crew and secondmates.
+harness="${flag_harness:-${FM_HARNESS:-}}"
+[ -z "$harness" ] && [ -r "$FM_HOME/config/primary-harness" ] &&
+  read -r harness <"$FM_HOME/config/primary-harness"
+harness="${harness:-claude}"
+
+# Empty means the harness picks its own, so an unset file adds no flag at all.
+fm_model=""; [ -r "$FM_HOME/config/primary-model" ] && read -r fm_model <"$FM_HOME/config/primary-model"
+fm_effort=""; [ -r "$FM_HOME/config/primary-effort" ] && read -r fm_effort <"$FM_HOME/config/primary-effort"
+
+# Bare interactive `fm` opens the compass inline, not via the shim, which would exec fm and bounce the captain through a second picker.
+if [ -z "$flag_harness" ] && [ "$#" -eq 0 ] && [ -t 0 ] && [ -t 1 ] &&
+  [ -d "${FM_COMPASS_DIR:-$HOME/Developer/fm-compass}" ] && command -v bun >/dev/null 2>&1; then
+  repo="${FM_COMPASS_DIR:-$HOME/Developer/fm-compass}"
+  [ -d "$repo/node_modules" ] || (cd "$repo" && bun install --frozen-lockfile >/dev/null 2>&1)
+  decision_file="$(mktemp -t fm-compass-decision)"
+  FM_COMPASS_DECISION="$decision_file" bun run "$repo/src/main.tsx" || { rm -f "$decision_file"; exit 0; }
+  if [ -s "$decision_file" ]; then
+    picked_h="$(cut -f2 "$decision_file")"
+    acct="$(cut -f3 "$decision_file")"
+    picked_m="$(cut -f4 "$decision_file")"
+    picked_e="$(cut -f5 "$decision_file")"
+    [ -n "$picked_h" ] && harness="$picked_h"
+    [ -n "$picked_m" ] && fm_model="$picked_m"
+    [ -n "$picked_e" ] && fm_effort="$picked_e"
+  else
+    # No decision means the captain browsed and left; launching a primary would be a surprise.
+    rm -f "$decision_file"; exit 0
+  fi
+  rm -f "$decision_file"
+
+  [ -n "${acct:-}" ] && [ "$acct" != "$(claude-account pin 2>/dev/null || echo auto)" ] &&
+    claude-account pin "$acct" >/dev/null 2>&1 || true
+fi
+
 cd "$root"
-exec "$HOME/.local/bin/claude" --dangerously-skip-permissions "$@"
+case "$harness" in
+claude)
+  # The state store belongs to the FLEET, not to whoever pays, so trust and history never move.
+  export CLAUDE_CONFIG_DIR="$HOME/.claude-work"
+  # Name the account too: the wrapper infers one from an explicit CLAUDE_CONFIG_DIR, reading this fleet store as "bill work" and outranking the pin.
+  export CLAUDE_ACCOUNT="$(claude-account resolve 2>/dev/null || echo personal)"
+  tune=()
+  [ -n "$fm_model" ] && tune+=(--model "$fm_model")
+  [ -n "$fm_effort" ] && tune+=(--effort "$fm_effort")
+  exec "$HOME/.local/bin/claude" --dangerously-skip-permissions ${tune+"${tune[@]}"} "$@"
+  ;;
+pi | pi-signed)
+  command -v "$harness" >/dev/null 2>&1 || { echo "fm: $harness is not installed" >&2; exit 1; }
+  # Loaded by -e rather than --approve: deterministic and trust-free, and the same pair fm-spawn.sh passes for a Pi secondmate.
+  export FM_PI_HARNESS="$harness"
+  # Pi calls the same axis --thinking; supervising a fleet is worth more of it than the global default.
+  tune=()
+  [ -n "$fm_model" ] && tune+=(--model "$fm_model")
+  exec "$harness" \
+    ${tune+"${tune[@]}"} \
+    --thinking "${fm_effort:-${FM_PI_THINKING:-xhigh}}" \
+    -e .pi/extensions/fm-primary-turnend-guard.ts \
+    -e .pi/extensions/fm-primary-pi-watch.ts \
+    "$@"
+  ;;
+*)
+  echo "fm: unknown primary harness '$harness' (want: claude, pi, pi-signed)" >&2
+  echo "fm: set it with FM_HARNESS=<name> fm, or write one name to $FM_HOME/config/primary-harness" >&2
+  exit 2
+  ;;
+esac
