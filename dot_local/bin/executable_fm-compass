@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Launch the fm-compass TUI from its checkout; the repo is the only thing that knows TypeScript, this is just the entry point.
+set -eu
+REPO="${FM_COMPASS_DIR:-$HOME/Developer/fm-compass}"
+[ -d "$REPO" ] || { echo "fm-compass: no checkout at $REPO" >&2; exit 1; }
+command -v bun >/dev/null 2>&1 || { echo "fm-compass: bun is required" >&2; exit 1; }
+[ -d "$REPO/node_modules" ] || (cd "$REPO" && bun install --frozen-lockfile >/dev/null)
+# A file rather than stdout because the renderer owns stdout, and only execing fm can replace a primary that cannot relaunch itself.
+decision_file="$(mktemp -t fm-compass-decision)"
+trap 'rm -f "$decision_file"' EXIT
+FM_COMPASS_DECISION="$decision_file" bun run "$REPO/src/main.tsx" "$@" || exit $?
+[ -s "$decision_file" ] || exit 0
+harness="$(cut -f2 "$decision_file")"
+rm -f "$decision_file"; trap - EXIT
+case "$harness" in
+claude | pi | pi-signed) exec "$HOME/.local/bin/fm" "--$harness" ;;
+*) exec "$HOME/.local/bin/fm" ;;
+esac

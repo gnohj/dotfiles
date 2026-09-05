@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Converge live second mates onto the account pin through firstmate's own restart path; a credential is fixed at launch, so only a replacement moves one.
+set -euo pipefail
+
+# BSD ps carries the environment, procfs does elsewhere; this repo runs on both.
+proc_env() { # <pid> -> its environment, one VAR=value per line
+  if [ "$(uname)" = Darwin ]; then
+    ps -Eww -p "$1" -o command= 2>/dev/null | tr ' ' '\n'
+  else
+    tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  fi
+}
+
+
+MODE=${1:-check}
+FM_HOME=${FM_HOME:-$HOME/.local/share/firstmate}
+ROOT=${FIRSTMATE_DIR:-$HOME/Developer/firstmate}
+SELF=$(basename "$0")
+
+pin=$(claude-account pin 2>/dev/null || echo auto)
+if [ "$pin" = auto ]; then
+  echo "$SELF: pin is auto, so there is no fleet-wide intended account; nothing to converge"
+  exit 0
+fi
+
+want=$(CLAUDE_ACCOUNT="$pin" claude-account token 2>/dev/null || true)
+if [ -z "$want" ]; then
+  echo "$SELF: no token is stored for pinned account '$pin'; refusing rather than relaunching blind" >&2
+  exit 1
+fi
+
+fp() { printf '%s' "${1:-}" | shasum -a 256 | cut -c1-12; }
+want_fp=$(fp "$want")
+
+live_pid() { # <herdr-pane-id>
+  herdr pane process-info --pane "$1" 2>/dev/null | python3 -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+for p in d.get("result",{}).get("process_info",{}).get("foreground_processes",[]):
+    if p.get("argv0")=="claude":
+        print(p["pid"]); break
+' 2>/dev/null || true
+}
+
+drift=""
+unattributed=""
+for meta in "$FM_HOME"/state/*.meta; do
+  [ -f "$meta" ] || continue
+  grep -q '^kind=secondmate$' "$meta" 2>/dev/null || continue
+  id=$(basename "$meta" .meta)
+  pane=$(grep -m1 '^herdr_pane_id=' "$meta" 2>/dev/null | cut -d= -f2- || true)
+  if [ -z "$pane" ]; then
+    echo "$SELF: $id records no herdr pane; skipped"
+    continue
+  fi
+  pid=$(live_pid "$pane")
+  if [ -z "$pid" ]; then
+    echo "$SELF: $id has no live agent; skipped because firstmate recovery owns a dead mate"
+    continue
+  fi
+  tok=$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1 || true)
+  mark="$HOME/.local/state/claude/converge-attempt-$id"
+  if [ -z "$tok" ]; then
+    # No token means the store's own credential is in play - unattributable, not wrong; worth one marked relaunch so the wrapper can attribute it.
+    prev=""; [ -r "$mark" ] && read -r prev <"$mark"
+    if [ "$prev" = "$pin" ]; then
+      echo "$SELF: $id was already relaunched once for '$pin' and still injects no token; NOT relaunching again. Report to the captain."
+      unattributed="$unattributed $id"
+    elif [ -x "$HOME/.local/bin/claude" ]; then
+      echo "$SELF: $id has no injected token; relaunching once so the wrapper can attribute it"
+      # Only a real relaunch spends the one attempt; a check that marked it would refuse the run it just proposed.
+      if [ "$MODE" = apply ]; then
+        mkdir -p "$(dirname "$mark")"
+        printf '%s\n' "$pin" >"$mark"
+      fi
+      drift="$drift $id"
+    else
+      echo "$SELF: $id has NO injected token and no wrapper to inject one; NOT relaunching. Report to the captain."
+      unattributed="$unattributed $id"
+    fi
+  elif [ "$(fp "$tok")" = "$want_fp" ]; then
+    echo "$SELF: $id already on '$pin'; left alone"
+    rm -f "$mark"
+  else
+    echo "$SELF: $id drifted from '$pin'; needs relaunch"
+    drift="$drift $id"
+  fi
+done
+
+drift=${drift# }
+unattributed=${unattributed# }
+[ -n "$unattributed" ] && echo "$SELF: unattributable (no injected token): $unattributed"
+if [ -z "$drift" ]; then
+  if [ -n "$unattributed" ]; then
+    echo "$SELF: no mate needs a relaunch, but the account of $unattributed could not be confirmed"
+  else
+    echo "$SELF: every live second mate already runs the '$pin' account"
+  fi
+  exit 0
+fi
+if [ "$MODE" != apply ]; then
+  echo "$SELF: would restart: $drift"
+  echo "$SELF: run '$SELF apply' to converge them"
+  exit 0
+fi
+# shellcheck disable=SC2086  # deliberate word-split: the restart path takes one id per argument
+exec "$ROOT/bin/fm-secondmate-restart.sh" $drift
