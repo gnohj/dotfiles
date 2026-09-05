@@ -1020,7 +1020,7 @@ alias c='clear'
 # also hands back the matching config dir + OAuth token. `claude`, `cs`, `cr`, and
 # the nvim dashboard all go through it, so just `cd` into a repo and launch.
 # Force a different account for THIS shell with `cw` (toggle) / `cauto` (clear).
-# Account/token injection lives in the ~/.local/bin/claude wrapper, called by ABSOLUTE path: mise activate prepends its node bin ahead of ~/.local/bin, so a bare name resolves to the unwrapped binary.
+# Account/token injection lives in the ~/.local/bin/claude wrapper; absolute paths here predate _local_bin_first and stay because they work whether or not that hook has run.
 claude() {
 	local -a mode
 	# settings.json sets permissions.defaultMode = "bypassPermissions" so herdr's
@@ -1278,6 +1278,8 @@ treehouse-orphans() {
 alias treehouse-prune-global='treehouse prune --global'
 
 alias fman="compgen -c | fzf | xargs man"
+# fleet home, account, quota, mates, patches and supervision in one pass; /fm-state is the in-session form.
+alias fmst="fm-state"
 
 # Colorscheme picker (fzf) → regenerates all theme files + rebuilds bat cache via
 # colorscheme-set.sh. Normally launched from the macOS launcher; this alias runs
@@ -1482,6 +1484,11 @@ if command -v mise &>/dev/null; then
   # a worktree workflow where tool pins rarely change under a live shell.
   autoload -Uz add-zsh-hook
   add-zsh-hook -d precmd _mise_hook_precmd 2>/dev/null
+
+  # mise re-prepends its bin dirs on every cd, burying ~/.local/bin so a bare `claude` skips the token-injecting wrapper firstmate's mates need.
+  _local_bin_first() { path=("$HOME/.local/bin" ${path:#$HOME/.local/bin}) }
+  add-zsh-hook chpwd _local_bin_first
+  _local_bin_first
 fi
 
 # -----------------------------  Sketchybar Mise Notification
