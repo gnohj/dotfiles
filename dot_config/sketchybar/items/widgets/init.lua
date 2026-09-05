@@ -15,4 +15,5 @@ require("items.widgets.agent_quota")
 require("items.widgets.errors_notification") -- Unified errors: service-log errors + orphan processes
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
+require("items.widgets.pr_replies_notification") -- unresolved threads on my own PRs
 require("items.widgets.github_notification")

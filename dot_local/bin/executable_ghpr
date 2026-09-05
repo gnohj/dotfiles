@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Which of my open PRs hold review threads waiting on me, and who asked.
+# GraphQL because GitHub's search index carries no qualifier for review threads.
+set -eu
+
+ME="${GITHUB_LOGIN:-gnohj}"
+json="$(gh api graphql -f query='
+{ search(query:"is:pr is:open author:@me archived:false", type:ISSUE, first:30) {
+    nodes { ... on PullRequest {
+      number title url isDraft repository { nameWithOwner }
+      reviewThreads(first:100) { nodes {
+        isResolved isOutdated path
+        comments(first:1) { nodes { author { login } bodyText } } } } } } } }')"
+
+printf '%s' "$json" | jq -r --arg me "$ME" '
+  [ .data.search.nodes[] | select(.isDraft | not)
+    | { repo: .repository.nameWithOwner, number: .number, title: .title, url: .url,
+        threads: [ .reviewThreads.nodes[]
+                   | select(.isResolved == false and .isOutdated == false)
+                   | { who: .comments.nodes[0].author.login, path: .path,
+                       said: (.comments.nodes[0].bodyText | gsub("\\s+"; " ") | .[0:90]) }
+                   | select(.who != $me) ] }
+    | select(.threads | length > 0) ]
+  | if length == 0 then "nothing waiting on you" else
+      .[] | "\(.repo)#\(.number)  \(.threads|length) waiting\n  \(.title)\n  \(.url)\n" +
+            ( [ .threads[] | "    @\(.who)  \(.path // "conversation")\n      \(.said)" ] | join("\n") ) + "\n"
+    end'
