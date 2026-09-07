@@ -93,7 +93,7 @@ kill_herdr_workspaces_for() {
                 or (((.foreground_cwd // .cwd // "") | startswith($wt + "/"))))
           | .workspace_id ] | unique | .[]' 2>/dev/null \
     | while read -r ws; do
-        [ -n "$ws" ] && "$herdr_bin" workspace close "$ws" >/dev/null 2>&1 || true
+        [ -n "$ws" ] && "$herdr_bin" workspace close "$ws" --group >/dev/null 2>&1 || true
       done
 }
 
