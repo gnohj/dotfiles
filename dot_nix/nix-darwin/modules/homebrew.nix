@@ -105,6 +105,7 @@
       # Productivity
       "kunchenguid/tap/baby-menu"
       "bitwarden"
+      "localsend"
       "raycast"
       "whimsical"
 
