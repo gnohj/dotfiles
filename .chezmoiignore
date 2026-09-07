@@ -101,6 +101,36 @@ Library/
 .nix/
 {{- end }}
 
+# Omarchy desktop (Arch + Hyprland) — a THIRD machine class, distinct from the
+# headless VPS. Everything above already skipped the macOS-only tree; this block
+# skips the handful of targets that would shadow or fight software Omarchy owns.
+# `.chezmoi.osRelease.id` is `omarchy` on this box (ID=omarchy in /etc/os-release).
+{{- if eq .chezmoi.osRelease.id "omarchy" }}
+# Omarchy ships real wl-clipboard at /usr/bin/wl-copy. This shim exists only for
+# boxes that lack it, and .zshrc puts ~/.local/bin ahead of /usr/bin — so on a
+# desktop it shadows the genuine tool with a stand-in.
+.local/bin/wl-copy
+
+# The VPS's remote-host pointer: names the box to reach over Tailscale. This IS
+# a workstation, so there is nothing for it to point at.
+.config/devbox-host
+
+# --- Theme ownership: Omarchy vs. colorscheme-set.sh ----------------------
+# These four are shipped by Omarchy wired into ITS theme engine
+# (`~/.local/state/omarchy/current/theme/*`, repointed by `omarchy theme set`).
+# The repo's copies are wired into colorscheme-set.sh instead. Only one engine
+# can own a file, and applying the repo's copy silently retires `omarchy theme
+# set` for that terminal.
+#
+# DEFAULT BELOW: the repo wins (this box matches the Mac; `omarchy theme set`
+# stops theming the terminals). To hand a file back to Omarchy instead, move it
+# ABOVE this comment so it is ignored — Omarchy's copy then stays untouched.
+#   .config/ghostty/config
+#   .config/kitty/kitty.conf
+#   .config/btop/btop.conf
+#   .config/tmux/tmux.conf
+{{- end }}
+
 # Linux-only files (skip on macOS)
 {{- if eq .chezmoi.os "darwin" }}
 # macOS needs no wl-copy shim: pluck picks pbcopy there, and shipping one would only shadow the real tool.
