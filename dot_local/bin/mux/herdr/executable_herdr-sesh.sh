@@ -14,7 +14,7 @@
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
-#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
+#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
 #   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare treekanga container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
 #   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
 #   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
@@ -631,7 +631,7 @@ hg.drop(sys.argv[1:])
             | jq -r '.result.workspaces[] | select(.focused) | .workspace_id' 2>/dev/null)
         fi
         case "$2" in
-          ws:*) "$herdr" workspace close "$target" >/dev/null 2>&1 ;;
+          ws:*) "$herdr" workspace close "$target" --group >/dev/null 2>&1 ;;
           *)    "$herdr" pane close "$target" >/dev/null 2>&1 ;;
         esac
         [ -n "$focused" ] && [ "$focused" != "$wid" ] &&

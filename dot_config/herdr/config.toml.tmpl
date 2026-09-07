@@ -474,13 +474,6 @@ command = "vim-herdr-navigation.right"
 description = "navigate right (vim/herdr)"
 
 [experimental]
-# Render the Kitty graphics protocol inside herdr panes so yazi image previews,
-# image.nvim, etc. actually draw. herdr sits between yazi and the outer terminal
-# and swallows graphics escapes unless this is on. Outer terminal is ghostty,
-# which is Kitty-graphics-compatible, so the requirement is met. Flagged
-# experimental by herdr (0.7.3) — previews may still be imperfect.
-kitty_graphics = true
-
 # Persist each pane's recent screen content across full herdr server restarts, so
 # panes come back with their output (not just layout + blank scrollback).
 pane_history = true
