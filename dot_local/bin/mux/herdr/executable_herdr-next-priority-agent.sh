@@ -23,16 +23,19 @@ set -uo pipefail
 herdr="${HERDR_BIN_PATH:-herdr}"
 command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 
-result=$("$herdr" agent list 2>/dev/null | jq -r '
+# Every workspace's active pane reports focused==true, so anchor on the focused workspace's.
+fws=$("$herdr" workspace list 2>/dev/null | jq -r '[ .result.workspaces[] | select(.focused == true) | .workspace_id ][0] // ""')
+
+result=$("$herdr" agent list 2>/dev/null | jq -r --arg fws "$fws" '
   (.result.agents // .result // []) as $a
   | ([ $a[] | select(.agent_status == "blocked") ] + [ $a[] | select(.agent_status == "done") ]) as $q
   | ($q | length) as $n
-  | ([ $a[] | select(.focused == true) | .pane_id ][0] // "") as $cur
+  | ([ $a[] | select(.focused == true and .workspace_id == $fws) | .pane_id ][0] // "") as $cur
   | if $n == 0 then "NONE"
     else
-      (([ $q | to_entries[] | select(.value.focused == true) | .key ][0]) // -1) as $i
-      | ($q[ (($i + 1) % $n) ].pane_id) as $t
-      | (if $t == $cur then "SELF" else $t end)
+      (([ $q | to_entries[] | select(.value.pane_id == $cur) | .key ][0]) // -1) as $i
+      | ($q[ (($i + 1) % $n) ]) as $t
+      | (if $t.pane_id == $cur then "SELF" else "\($t.workspace_id) \($t.pane_id)" end)
     end
 ')
 
@@ -40,5 +43,7 @@ case "$result" in
   NONE) exec "$herdr" notification show "No agents need attention" --body "nothing blocked or done right now" >/dev/null 2>&1 ;;
   SELF) exec "$herdr" notification show "Only agent needing attention" --body "you're already on the one that wants you" >/dev/null 2>&1 ;;
   "")   exit 0 ;;
-  *)    exec "$herdr" agent focus "$result" >/dev/null 2>&1 ;;
+  *)    # agent focus alone never carries the view across workspaces, so focus the workspace first.
+        "$herdr" workspace focus "${result%% *}" >/dev/null 2>&1
+        exec "$herdr" agent focus "${result##* }" >/dev/null 2>&1 ;;
 esac
