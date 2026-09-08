@@ -19,6 +19,8 @@ active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
 if [ -r "$active" ]; then
   # shellcheck disable=SC1090
   . "$active" >/dev/null 2>&1
+  # shellcheck disable=SC1091
+  . "$HOME/.config/colorscheme/omarchy-palette.sh" >/dev/null 2>&1 || true
   green="${gnohj_color02:-$green}"
   warn="${gnohj_color01:-$warn}"
   red="${gnohj_color11:-$red}"

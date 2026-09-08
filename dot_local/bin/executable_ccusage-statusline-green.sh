@@ -19,7 +19,7 @@ export PATH="$HOME/.local/share/mise/shims:$HOME/.bun/bin:/opt/homebrew/bin:/run
 green="#a7cfbd"
 active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
 if [ -r "$active" ]; then
-  green="$( (. "$active" >/dev/null 2>&1; printf '%s' "${gnohj_color03:-#a7cfbd}") )"
+  green="$( (. "$active" >/dev/null 2>&1; . "$HOME/.config/colorscheme/omarchy-palette.sh" >/dev/null 2>&1 || true; printf '%s' "${gnohj_color03:-#a7cfbd}") )"
 fi
 hex="${green#\#}"
 r=$((16#${hex:0:2}))

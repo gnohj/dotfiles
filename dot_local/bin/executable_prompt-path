@@ -87,6 +87,8 @@ if [ "$color" = 1 ]; then
   # Theme colours read from the live colorscheme, not hardcoded, so `theme` carries through.
   CS="$HOME/.config/colorscheme/active/active-colorscheme.sh"
   [ -r "$CS" ] && . "$CS" 2>/dev/null
+  # shellcheck disable=SC1091
+  . "$HOME/.config/colorscheme/omarchy-palette.sh" 2>/dev/null || true
   ansi() {
     local h="${1#\#}"
     [ "${#h}" -eq 6 ] || return 1
