@@ -11,6 +11,7 @@ proc_env() { # <pid> -> its environment, one VAR=value per line
   fi
 }
 
+sha256_digest() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
 
 MODE=${1:-check}
 FM_HOME=${FM_HOME:-$HOME/.local/share/firstmate}
@@ -29,7 +30,7 @@ if [ -z "$want" ]; then
   exit 1
 fi
 
-fp() { printf '%s' "${1:-}" | shasum -a 256 | cut -c1-12; }
+fp() { printf '%s' "${1:-}" | sha256_digest | cut -c1-12; }
 want_fp=$(fp "$want")
 
 live_pid() { # <herdr-pane-id>

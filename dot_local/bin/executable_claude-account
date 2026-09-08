@@ -177,6 +177,10 @@ fmt_date() { date -d "@$1" +%F 2>/dev/null || date -r "$1" +%F 2>/dev/null || pr
 
 file_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true; }
 
+sha256_digest() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi
+}
+
 token_lifetime_days() {
   local v=""
   [ -r "$TOKEN_LIFETIME_FILE" ] && v="$(tr -d '[:space:]' <"$TOKEN_LIFETIME_FILE" 2>/dev/null || true)"
@@ -448,7 +452,7 @@ store_token() {
   mkdir -p "$(dirname "$f")"
   (umask 077; printf '%s' "$token" >"$f")
   write_token_dates "$account" "$(now_epoch)"
-  echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | shasum | cut -c1-12))"
+  echo "Stored OAuth token for → $account (sha=$(printf '%s' "$token" | sha256_digest | cut -c1-12))"
   token_age "$account"
 }
 
