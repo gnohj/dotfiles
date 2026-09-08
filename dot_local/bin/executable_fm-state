@@ -27,7 +27,7 @@ kv "home" "$HOME_DIR $([ -d "$HOME_DIR" ] && echo "(exists)" || echo "(MISSING)"
 kv "size" "$(du -sh "$HOME_DIR" 2>/dev/null | cut -f1)"
 kv "session lock" "$(head -1 "$HOME_DIR/state/.lock" 2>/dev/null || echo 'not held')"
 kv "watcher beacon" "$(age "$HOME_DIR/state/.last-watcher-beat") old"
-kv "queued wakes" "$(wc -l < "$HOME_DIR/state/.wake-queue" 2>/dev/null | tr -d ' ' || echo 0)"
+kv "queued wakes" "$([ -r "$HOME_DIR/state/.wake-queue" ] && wc -l < "$HOME_DIR/state/.wake-queue" | tr -d ' ' || printf 0)"
 if [ -e "$HOME/.local/share/firstmate-work" ]; then
   n=$(find "$HOME/.local/share/firstmate-work" -type f 2>/dev/null | wc -l | tr -d ' ')
   kv "retired name" "PRESENT with $n file(s) - recreated by a pre-rename process; empty is harmless, non-empty is not"
