@@ -28,6 +28,8 @@ load_shell_env() {
   _WT_ENV_LOADED=1
   # shellcheck disable=SC1091
   [ -f "$HOME/.zsh_gnohj_env" ] && . "$HOME/.zsh_gnohj_env"
+  # Shims first or node/pnpm resolve to the caller's version (chezmoi's bash, a systemd unit) instead of the one each worktree's .mise.toml pins.
+  export PATH="$HOME/.local/share/mise/shims:$PATH"
   return 0
 }
 
@@ -63,16 +65,30 @@ bootstrap_worktree() {
   fi
 }
 
-# Repair pass for worktrees made before codegen was part of setup (or whose node_modules was wiped). The stamp keeps the every-apply cost at one stat per worktree; installing is left to bootstrap_worktree so this never goes to the network.
+# Repair pass for worktrees made before codegen was part of setup, or whose bootstrap install never landed (expired registry token, offline box) and which nothing on the already-bare path ever retried.
 repair_worktree() {
   local wt="$1"
-  [ -d "$wt/node_modules" ] || return 0
+  # pnpm writes .modules.yaml only once an install completes; a failed install still leaves an empty node_modules/.pnpm, so the directory alone is not proof the deps are there.
+  if [ ! -f "$wt/node_modules/.modules.yaml" ]; then
+    bootstrap_worktree "$wt"
+    return 0
+  fi
   [ -e "$wt/$CODEGEN_STAMP" ] && return 0
   run_codegen "$wt"
 }
 
+# Put back the tree setup_one moved aside, recreating $dest if a failed fetch took it, so the overlay files survive.
+restore_stash() {
+  local dest="$1" stash="$2"
+  [ -n "$stash" ] || return 0
+  mkdir -p "$dest"
+  (cd "$stash" && tar cf - .) | (cd "$dest" && tar xf -) &&
+    echo "  ↳ restored pre-existing files under $dest"
+  rm -rf "$stash"
+}
+
 setup_one() {
-  local url="$1" dest primary="$3"
+  local url="$1" dest primary="$3" stash=""
   dest="${2/#\~/$HOME}"
   if [ -d "$dest/.bare" ]; then
     echo "✓ already bare-worktree: $dest"
@@ -81,9 +97,19 @@ setup_one() {
     repair_worktree "$dest/review"
     return 0
   fi
+  # chezmoi lands overlay files inside the primary worktree before any clone exists, so $dest routinely already exists on a fresh box: stash it, build the bare layout, put it back. A $dest holding a real repo is still left alone.
   if [ -e "$dest" ]; then
-    echo "!! $dest exists but is not a bare-worktree layout — leaving as-is; remove it manually to convert." >&2
-    return 1
+    if [ -n "$(find "$dest" -maxdepth 3 -name .git -print 2>/dev/null | head -n1)" ]; then
+      echo "!! $dest exists and holds a git repo — leaving as-is; remove it manually to convert." >&2
+      return 1
+    fi
+    stash="$(mktemp -d)"
+    if ! (cd "$dest" && tar cf - .) | (cd "$stash" && tar xf -); then
+      echo "!! could not stash existing $dest — leaving as-is." >&2
+      rm -rf "$stash"
+      return 1
+    fi
+    rm -rf "$dest"
   fi
   echo "→ $dest: bare setup of $url"
   mkdir -p "$dest"
@@ -95,11 +121,13 @@ setup_one() {
   if ! git -C "$dest" fetch -q origin; then
     echo "!! fetch failed for $url (SSH access to the org?)" >&2
     rm -rf "$dest"
+    restore_stash "$dest" "$stash"
     return 1
   fi
   git -C "$dest" worktree add -q "$primary" "$primary"
   git -C "$dest" worktree add -q -b "_$primary" review "$primary"
   ensure_upstreams "$dest"
+  restore_stash "$dest" "$stash"
   echo "✓ $dest ready (worktrees: $primary, review→_$primary)"
   bootstrap_worktree "$dest/$primary"
   bootstrap_worktree "$dest/review"
