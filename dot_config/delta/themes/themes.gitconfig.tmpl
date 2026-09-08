@@ -1,0 +1,31 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
+# Auto-generated delta themes configuration
+
+[delta "gnohj-theme"]
+	blame-palette = "{{ $pal.color10 }} {{ $pal.color07 }} {{ $pal.color13 }} {{ $pal.color16 }} {{ $pal.color08 }}"
+	commit-decoration-style = box ul
+	dark = true
+	file-decoration-style = "{{ $pal.color14 }}"
+	file-style = "{{ $pal.color14 }}"
+	hunk-header-decoration-style = box ul
+	hunk-header-file-style = bold
+	hunk-header-line-number-style = bold "{{ $pal.color09 }}"
+	hunk-header-style = file line-number syntax
+	line-numbers-left-style = "{{ $pal.color09 }}"
+	line-numbers-minus-style = bold "{{ $pal.color11 }}"
+	line-numbers-plus-style = bold "{{ $pal.color02 }}"
+	line-numbers-right-style = "{{ $pal.color09 }}"
+	line-numbers-zero-style = "{{ $pal.color09 }}"
+	# Much more visible red for deletions
+	minus-emph-style = bold syntax "#4a1f2a"
+	minus-style = syntax "#2a1319"
+	# Much more visible green for additions
+	plus-emph-style = bold syntax "#1f4a2a"
+	plus-style = syntax "#132a19"
+	map-styles = \
+		bold purple => syntax "{{ $pal.color16 }}", \
+		bold blue => syntax "{{ $pal.color17 }}", \
+		bold cyan => syntax "{{ $pal.color13 }}", \
+		bold yellow => syntax "{{ $pal.color07 }}"
+	# Should match the name of the bat theme
+	syntax-theme = gnohj-theme
