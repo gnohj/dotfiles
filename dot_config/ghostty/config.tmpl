@@ -116,6 +116,9 @@ clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
 clipboard-write = "allow"
 
+# herdr drag-copy writes CLIPBOARD over OSC 52, so Super+V's shift+insert must read it, not PRIMARY
+keybind = shift+insert=paste_from_clipboard
+
 # misc
 confirm-close-surface = false
 auto-update = off
