@@ -781,9 +781,8 @@ EOF
 }
 
 generate_hunk_config() {
-  # Only [custom_theme] is generated, into target + source; 30/32 = add/del bg, 02/11 = fg.
+  # Only [custom_theme] is generated, into the live target; the chezmoi source is a template that resolves the same palette at apply time. 30/32 = add/del bg, 02/11 = fg.
   local hunk_target="$HOME/.config/hunk/config.toml"
-  local hunk_source="$HOME/.local/share/chezmoi/dot_config/hunk/config.toml"
 
   local hunk_begin="# >>> colorscheme-set: hunk theme - generated, do not edit (see generate_hunk_config) >>>"
   local hunk_end="# <<< colorscheme-set: hunk theme <<<"
@@ -840,7 +839,7 @@ EOF
 
   # Idempotent re-append at EOF, where it must stay: TOML bans keys after a table.
   local hunk_file
-  for hunk_file in "$hunk_target" "$hunk_source"; do
+  for hunk_file in "$hunk_target"; do
     [ -f "$hunk_file" ] || continue
     HUNK_BEGIN="$hunk_begin" HUNK_END="$hunk_end" perl -0777 -i -pe \
       's/\n*\Q$ENV{HUNK_BEGIN}\E.*?\Q$ENV{HUNK_END}\E\n?//s' "$hunk_file"
@@ -1746,7 +1745,7 @@ generate_eza_theme() {
   mkdir -p "$eza_conf_dir"
 
   cat >"$eza_theme_file" <<EOF
-# Eza theme with gnohj colors
+# Eza theme, colors from the active palette
 # Auto-generated via colorscheme-set.sh
 
 filekinds:
@@ -2124,11 +2123,8 @@ generate_gh_dash_config() {
   # maintained in the chezmoi source (dot_config/gh-dash/config.yml) and applied
   # by chezmoi. Only the theme: block is theme-dependent, so - exactly like
   # generate_herdr_config - it is managed here as a marker-delimited block appended
-  # at EOF and rewritten from the gnohj_color* palette. Both the live target AND the
-  # chezmoi source are patched (no chezmoi-apply drift), so every non-theme section
-  # has ONE owner: the chezmoi source. Edit keybindings/queries THERE, colors HERE.
+  # at EOF and rewritten from the gnohj_color* palette, into the live target only - the chezmoi source is a template resolving the same palette at apply time. Edit keybindings/queries THERE, colors HERE.
   local gh_dash_target="$HOME/.config/gh-dash/config.yml"
-  local gh_dash_source="$HOME/.local/share/chezmoi/dot_config/gh-dash/config.yml"
 
   local ghd_begin="# >>> colorscheme-set: gh-dash theme - generated, do not edit (see generate_gh_dash_config) >>>"
   local ghd_end="# <<< colorscheme-set: gh-dash theme <<<"
@@ -2160,12 +2156,9 @@ $ghd_end
 EOF
   )"
 
-  # Strip any prior managed block (idempotent) then re-append the fresh one at EOF,
-  # in both the live target and the chezmoi source. [ -f ] || continue mirrors
-  # generate_herdr_config: on a fresh machine (file not applied yet) this is a
-  # no-op until chezmoi lays the base file down, then the next run themes it.
+  # Idempotent re-append at EOF; [ -f ] || continue makes it a no-op until chezmoi lays the base file down.
   local ghd_file
-  for ghd_file in "$gh_dash_target" "$gh_dash_source"; do
+  for ghd_file in "$gh_dash_target"; do
     [ -f "$ghd_file" ] || continue
     GHD_BEGIN="$ghd_begin" GHD_END="$ghd_end" perl -0777 -i -pe \
       's/\n*\Q$ENV{GHD_BEGIN}\E.*?\Q$ENV{GHD_END}\E\n?//s' "$ghd_file"
@@ -2411,7 +2404,6 @@ generate_ccstatusline_config() {
   #
   # "hex:RRGGBB" is ccstatusline's truecolor form - a leading "#" is silently dropped and renders the widget uncolored - and it needs colorLevel 3.
   local ccsl_target="$HOME/.config/ccstatusline/settings.json"
-  local ccsl_source="$HOME/.local/share/chezmoi/dot_config/ccstatusline/private_settings.json"
 
   command -v jq >/dev/null 2>&1 || {
     echo "jq unavailable; skipping ccstatusline theme."
@@ -2438,8 +2430,9 @@ generate_ccstatusline_config() {
 EOF
   )"
 
+  # Target only: the chezmoi source is a template that resolves the same palette at apply time, so writing literal hexes back into it would overwrite the template expressions with one machine's theme.
   local ccsl_file
-  for ccsl_file in "$ccsl_target" "$ccsl_source"; do
+  for ccsl_file in "$ccsl_target"; do
     # Skip a missing file rather than creating one: on a fresh machine chezmoi has not laid the target down yet, and the next run themes it.
     [ -f "$ccsl_file" ] || continue
     local ccsl_tmp
@@ -2474,10 +2467,7 @@ generate_herdr_config() {
   #     else inject under [ui]). Matched to gnohj_color03, identical to the tmux
   #     active-pane border, so the focus cue is the same in herdr and plain tmux.
   #
-  # Both the live target AND the chezmoi source are patched (no `chezmoi apply`
-  # drift; same spirit as tracking active-colorscheme.sh), then a running herdr
-  # is hot-reloaded. perl -i keeps the in-place edits portable across macOS/Linux;
-  # colors pass via env so the perl expressions need no shell-quote gymnastics.
+  # Target only, then hot-reload: the repaint that needs no apply, while config.toml.tmpl resolves the same palette so apply lands identical bytes. perl -i keeps the edits portable; colors pass via env to avoid shell-quote gymnastics.
   local herdr_accent="$gnohj_color03"
   # Selected-row fill: gnohj_color04 relit to 20% lightness - a plain RGB multiply drops HSL saturation as it darkens (why the old color13*50% read grey), and awk carries the float math without adding python3 to the VPS theme path. Never "reset": panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this doubles as the ink on the accent-backed active tab and must stay dark.
   herdr_relight() {
@@ -2495,12 +2485,11 @@ generate_herdr_config() {
         o[i]=int(v*255+0.5) }
       printf "#%02x%02x%02x", o[1], o[2], o[3] }'
   }
+  # Omarchy themes ship their own selection fill; relighting color04 is the fallback for palettes that have none.
   local herdr_sel_bg
-  herdr_sel_bg="$(herdr_relight "$gnohj_color04" 0.20)"
+  herdr_sel_bg="${omarchy_selection_bg:-}"
+  [ -n "$herdr_sel_bg" ] || herdr_sel_bg="$(herdr_relight "$gnohj_color04" 0.20)"
   local herdr_target="$HOME/.config/herdr/config.toml"
-  # Both source names: the config went .tmpl-only, so patching the plain name silently no-op'd.
-  local herdr_source="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml"
-  local herdr_source_tmpl="$HOME/.local/share/chezmoi/dot_config/herdr/config.toml.tmpl"
   # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
   # $sb (note badge) takes gnohj_color05 so it reads apart from the $pr/$jira pair it sits between.
   # Row 2 is the $br/$br_on pair (branch minus its ticket key, fed by herdr-git-status.sh) plus
@@ -2588,8 +2577,9 @@ $herdr_end
 EOF
   )"
 
+  # Same as generate_ccstatusline_config: target only, because config.toml.tmpl resolves this palette itself at apply time.
   local herdr_file herdr_agent_key
-  for herdr_file in "$herdr_target" "$herdr_source" "$herdr_source_tmpl"; do
+  for herdr_file in "$herdr_target"; do
     [ -f "$herdr_file" ] || continue
 
     # 1) [ui] accent: retarget an existing line, else inject under [ui]. The
@@ -2604,15 +2594,13 @@ EOF
         'if (/^\[ui\]\s*$/) { $_ .= "accent = \"$ENV{HERDR_ACCENT}\"\n" }' "$herdr_file"
     fi
 
-    # 1b) rows: matched on $ws + token= so only the styled spaces row is touched. Keyed on $ws since
-    #     the workspace name replaced $git here - matching the dead token silently skipped the rewrite.
+    # 1b) rows: matched on $br, the branch token only the styled spaces row carries. NOT $ws - that token was retired for the built-in `workspace`, so the old selector silently matched nothing and this row kept whatever palette it was born with.
     HERDR_ROWS="$herdr_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /\$ws/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
+      'if (/^rows\s*=/ && /\$br/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
 
-    # 1c) agents rows: the OTHER `rows =` line (no $ws). state_text keeps it from
-    #     matching any future unstyled row, so the two row lines can't be confused.
+    # 1c) agents rows: the OTHER `rows =` line (no $br); state_text keeps it off any future unstyled row.
     HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /state_text/ && !/\$ws/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
+      'if (/^rows\s*=/ && /state_text/ && !/\$br/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
 
     # 1d) rows_by_agent.claude: keyed on $pn, the token only the agent row sets carry.
     HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
@@ -2640,7 +2628,7 @@ EOF
   echo "herdr configuration updated (full palette + accent=$herdr_accent)."
 }
 
-# Omarchy: stop before every theme generator, but emit the behaviour-bearing configs first since this script is their only source.
+# Omarchy: skip the generators it has its own theme file for, but still emit the behaviour-bearing configs and every surface it themes nothing for.
 if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
   generate_lazygit_config
   generate_gitmux_config
@@ -2651,8 +2639,24 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
     generate_starship_config
     strip_theme_colours "$HOME/.config/starship/starship.toml" \
                         "$HOME/.config/starship/starship-infra.toml"
+
+    # Omarchy themes ghostty/kitty/btop/neovim/claude/pi from its own files, but ships nothing for these - so they are still generated here, off the Omarchy palette rather than the repo's.
+    # shellcheck disable=SC1091
+    if [ -r "$HOME/.config/colorscheme/omarchy-palette.sh" ]; then
+      source "$HOME/.config/colorscheme/omarchy-palette.sh"
+      generate_herdr_config
+      generate_ccstatusline_config
+      generate_hunk_config
+      generate_gh_dash_config
+      generate_eza_theme
+      generate_delta_config
+      generate_bat_config
+      generate_lazydocker_config
+    else
+      echo "omarchy-palette.sh not applied yet; skipping the surfaces Omarchy does not theme." >&2
+    fi
   fi
-  echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship." >&2
+  echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship, plus the surfaces Omarchy ships no theme for (herdr, ccstatusline, hunk, gh-dash, eza, delta, bat, lazydocker) from the Omarchy palette." >&2
   echo "To change colours: omarchy theme set <name>" >&2
   exit 0
 fi
