@@ -105,7 +105,7 @@ Library/
 # headless VPS. Everything above already skipped the macOS-only tree; this block
 # skips the handful of targets that would shadow or fight software Omarchy owns.
 # `.chezmoi.osRelease.id` is `omarchy` on this box (ID=omarchy in /etc/os-release).
-{{- if eq .chezmoi.osRelease.id "omarchy" }}
+{{- if eq (get .chezmoi.osRelease "id") "omarchy" }}
 # Omarchy ships real wl-clipboard at /usr/bin/wl-copy. This shim exists only for
 # boxes that lack it, and .zshrc puts ~/.local/bin ahead of /usr/bin — so on a
 # desktop it shadows the genuine tool with a stand-in.

@@ -13,7 +13,7 @@
 term xterm-kitty
 
 # Include theme file (generated dynamically by colorscheme-set.sh)
-{{ if eq .chezmoi.osRelease.id "omarchy" -}}
+{{ if eq (get .chezmoi.osRelease "id") "omarchy" -}}
 # Omarchy owns theming on Arch — see the same swap in ghostty/config.tmpl.
 include ~/.local/state/omarchy/current/theme/kitty.conf
 {{- else -}}

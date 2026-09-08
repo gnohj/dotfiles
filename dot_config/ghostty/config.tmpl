@@ -20,7 +20,7 @@
 term = xterm-ghostty
 
 # color
-{{ if eq .chezmoi.osRelease.id "omarchy" -}}
+{{ if eq (get .chezmoi.osRelease "id") "omarchy" -}}
 # Omarchy owns theming on Arch: `omarchy theme set` repoints this file, so the
 # terminal follows the desktop instead of colorscheme-set.sh (disabled there).
 # The leading ? makes ghostty tolerate the file being absent.
