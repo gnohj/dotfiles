@@ -327,7 +327,10 @@ mouse_capture = true
 # default of 36, and herdr auto-scales within that range, so this is a floor not a fixed size.
 sidebar_width = 32
 
-# Show detected/reported agent labels (claude / codex / etc.) in split-pane
+# Frame single-pane tabs too (0.9.0, herdrdev/herdr#3234); "auto" was split-only. Needs pane_outer_borders, on by default.
+pane_borders = "always"
+
+# Show detected/reported agent labels (claude / codex / etc.) in pane
 # borders when no manual pane name is set.
 show_agent_labels_on_pane_borders = true
 
