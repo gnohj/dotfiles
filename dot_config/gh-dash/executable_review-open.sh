@@ -65,6 +65,9 @@ mux() {
 }
 wt_script="$HOME/.config/gh-dash/review-worktree.sh"
 
+# Claude Code kills a tool call at 120s and every dead poll shows the reviewer "agent not listening"; 600000 is its max.
+POLL_TIMEOUT_ENV=(--env BASH_DEFAULT_TIMEOUT_MS=600000)
+
 cd "$repo_path"
 
 # Scope-driven profile, shared by every mode so P and F reason at the same depth on the same PR.
@@ -146,7 +149,7 @@ open_claude_hunk() {
 # $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
 open_claude_review() {
   local cmd="${2:-review}"
-  mux "🤖 #$pr" "$1" \
+  mux "${POLL_TIMEOUT_ENV[@]}" "🤖 #$pr" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
@@ -201,7 +204,7 @@ finder_label() {
 }
 
 open_fanout_owner() {
-  mux "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+  mux "${POLL_TIMEOUT_ENV[@]}" "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
 background_review() {
