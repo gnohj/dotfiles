@@ -45,6 +45,7 @@ free_port() {
 }
 
 # --disable-*-backgrounding / CalculateNativeWinOcclusion: an unfocused, occluded window stops compositing, and every screenshot after the first comes back stale.
+# --mute-audio: a review drives real product pages, and an autoplaying player in a window nobody can see is the loudest way to learn it launched.
 launch() {
   local name="$1" port="$2" profile
   profile="$(profile_dir "$name")"
@@ -54,6 +55,7 @@ launch() {
     --user-data-dir="$profile" \
     --no-first-run \
     --no-default-browser-check \
+    --mute-audio \
     --disable-features=CalculateNativeWinOcclusion \
     --disable-backgrounding-occluded-windows \
     --disable-renderer-backgrounding \

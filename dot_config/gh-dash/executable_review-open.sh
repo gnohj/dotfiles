@@ -212,7 +212,8 @@ background_review() {
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
     desktop_mode=print
   fi
-  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env LAVISH_DESKTOP_MODE="$desktop_mode" --env LAVISH_DESKTOP_BACKGROUND=1)
+  # CHROME_DEVTOOLS_AXI_CHROME_ARGS covers the case the pre-started browser cannot: a driver that goes headed on its own still launches muted.
+  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env CHROME_DEVTOOLS_AXI_CHROME_ARGS=--mute-audio --env LAVISH_DESKTOP_MODE="$desktop_mode" --env LAVISH_DESKTOP_BACKGROUND=1)
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
     window_opts+=(--env AUTO_REVIEW=1)
   fi
