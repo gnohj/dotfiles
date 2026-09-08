@@ -30,9 +30,6 @@ Library/Containers/net.sonuscape.mouseless/Data/.mouseless
 .config/sketchybar/items/widgets/health_check_notification.sh
 .config/sketchybar/items/widgets/health_check_notification.lua
 
-# The retired curl|sh installer's binary - mise owns herdr now, and this unmanaged copy shadowed the shim on PATH.
-.local/bin/herdr
-
 # Pi loads the canonical shared skill from gnohj/agents; remove the stale standalone copy that causes a duplicate-name warning.
 .agents/skills/no-mistakes/SKILL.md
 
