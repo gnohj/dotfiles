@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Installs the bun globals listed in .config/bun-globals.txt; that manifest is the single source of truth for ~/.bun/bin.
+
+# manifest sha256: {{ include "dot_config/bun-globals.txt" | sha256sum }}
+set -uo pipefail
+
+MANIFEST="$HOME/.config/bun-globals.txt"
+[ -f "$MANIFEST" ] || exit 0
+
+# bun can be missing on a fresh box (mise-install sorts after this), and run_onchange won't retry until the manifest changes, so say so loudly.
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+if ! command -v bun >/dev/null 2>&1; then
+  echo "bun-globals: bun not found - run \`mise install\` then \`chezmoi apply\` again"
+  exit 0
+fi
+
+# chezmoi's env may not have sourced ~/.zshenv, so pin BUN_INSTALL rather than let packages land outside ~/.bun/bin.
+export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+
+WANT=()
+while IFS= read -r line; do
+  line="${line%%#*}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  [ -n "$line" ] && WANT+=("$line")
+done < "$MANIFEST"
+
+[ ${#WANT[@]} -gt 0 ] || exit 0
+
+# Only what is missing: `bun install -g` still hits the network for an already-present package.
+MISSING=()
+for pkg in "${WANT[@]}"; do
+  bin="${pkg##*/}"      # @scope/name -> name
+  bin="${bin%%@*}"      # name@1.2.3  -> name
+  [ -x "$BUN_INSTALL/bin/$bin" ] || MISSING+=("$pkg")
+done
+
+if [ ${#MISSING[@]} -eq 0 ]; then
+  echo "bun-globals: all ${#WANT[@]} package(s) present"
+  exit 0
+fi
+
+echo "==> bun install -g ${MISSING[*]}"
+if bun install -g "${MISSING[@]}"; then
+  echo "bun-globals: installed ${#MISSING[@]} package(s)"
+else
+  echo "!! bun-globals: install failed - retry with: bun install -g ${MISSING[*]}"
+fi
