@@ -1,5 +1,6 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
 {
-  "version": 3,
+  "version": 4,
   "lines": [
     [
       {
@@ -13,7 +14,7 @@
         "id": "model",
         "type": "model",
         "rawValue": true,
-        "color": "hex:a3b8c6"
+        "color": "hex:{{ $pal.color04 | trimPrefix "#" }}"
       },
       {
         "id": "effort",
@@ -26,13 +27,13 @@
         "id": "ctxdot",
         "type": "custom-text",
         "customText": "·",
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
         "id": "ctx",
         "type": "context-percentage",
         "rawValue": true,
-        "color": "hex:b8c9d3"
+        "color": "hex:{{ $pal.color14 | trimPrefix "#" }}"
       },
       {
         "id": "sep1",
@@ -42,14 +43,14 @@
         "id": "sesscost",
         "type": "session-cost",
         "rawValue": true,
-        "color": "hex:b7ce97"
+        "color": "hex:{{ $pal.color02 | trimPrefix "#" }}"
       },
       {
         "id": "mocost",
         "type": "custom-command",
         "commandPath": "$HOME/.local/bin/claude-cost-summary paren",
         "timeout": 2000,
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       }
     ],
     [
@@ -64,19 +65,19 @@
         "id": "harness",
         "type": "custom-text",
         "customText": "claude",
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
         "id": "harnessDot",
         "type": "custom-text",
         "customText": "·",
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
         "id": "l5h",
         "type": "custom-text",
         "customText": "5h:",
-        "color": "hex:a7cfbd"
+        "color": "hex:{{ $pal.color03 | trimPrefix "#" }}"
       },
       {
         "id": "sess",
@@ -90,7 +91,7 @@
         "type": "custom-command",
         "commandPath": "$HOME/.local/bin/claude-usage-reset five_hour",
         "timeout": 400,
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
         "id": "sepB",
@@ -100,7 +101,7 @@
         "id": "l7d",
         "type": "custom-text",
         "customText": "7d:",
-        "color": "hex:a7cfbd"
+        "color": "hex:{{ $pal.color03 | trimPrefix "#" }}"
       },
       {
         "id": "week",
@@ -114,7 +115,7 @@
         "type": "custom-command",
         "commandPath": "$HOME/.local/bin/claude-usage-reset seven_day",
         "timeout": 400,
-        "color": "hex:536571"
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       }
     ],
     []

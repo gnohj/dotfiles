@@ -1,3 +1,4 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -12,15 +13,15 @@
       <key>settings</key>
       <dict>
         <key>background</key>
-        <string>#0f1419</string>
+        <string>{{ $pal.color10 }}</string>
         <key>foreground</key>
-        <string>#b8c9d3</string>
+        <string>{{ $pal.color14 }}</string>
         <key>caret</key>
-        <string>#a7cfaf</string>
+        <string>{{ $pal.color24 }}</string>
         <key>selection</key>
-        <string>#40474b</string>
+        <string>{{ $pal.color16 }}</string>
         <key>lineHighlight</key>
-        <string>#536571</string>
+        <string>{{ $pal.color13 }}</string>
       </dict>
     </dict>
     <dict>
@@ -31,7 +32,7 @@
       <key>settings</key>
       <dict>
         <key>foreground</key>
-        <string>#9fb7a4</string>
+        <string>{{ $pal.color09 }}</string>
       </dict>
     </dict>
     <dict>
@@ -42,7 +43,7 @@
       <key>settings</key>
       <dict>
         <key>foreground</key>
-        <string>#b7ce97</string>
+        <string>{{ $pal.color02 }}</string>
       </dict>
     </dict>
     <dict>
@@ -53,7 +54,7 @@
       <key>settings</key>
       <dict>
         <key>foreground</key>
-        <string>#a3b8c6</string>
+        <string>{{ $pal.color04 }}</string>
       </dict>
     </dict>
     <dict>
@@ -64,7 +65,7 @@
       <key>settings</key>
       <dict>
         <key>foreground</key>
-        <string>#a7cfbd</string>
+        <string>{{ $pal.color03 }}</string>
       </dict>
     </dict>
   </array>

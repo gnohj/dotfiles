@@ -1,3 +1,4 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
 # herdr — https://herdr.dev/docs/configuration/
 # Deploys to macOS and Linux (harmless on the Mac if herdr is also used locally).
 
@@ -349,7 +350,7 @@ agent_panel_sort = "spaces"
 # every theme switch - value here is just the current-scheme seed (gnohj_color03,
 # same as the tmux active-pane border). accent is NOT a [theme.custom] token, so
 # it has to live here under [ui].
-accent = "#a7cfbd"
+accent = "{{ $pal.color03 }}"
 
 # Agent done/needs-attention popups: "herdr" = in-app toasts (positioned below), "system" = OS-level and visible when herdr is unfocused, the reach given up here. Kept last so this subtable doesn't swallow the bare keys above.
 [ui.toast]
@@ -391,14 +392,14 @@ rows = [["state_icon", "workspace"], ["agent", { token = "state_text", dim = fal
 # "claude" while eating the ~20 usable columns the age needs (sidebar_width is 26 and
 # these rows are indented). The default rows above keep it, since those DO vary by agent.
 [ui.sidebar.agents.rows_by_agent]
-claude = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
+claude = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }}" }, { token = "$pn_o_on", fg = "{{ $pal.color05 }}", dim = false, bold = true }, { token = "$pn_r", fg = "{{ $pal.color11 }}" }, { token = "$pn_r_on", fg = "{{ $pal.color11 }}", dim = false, bold = true }, { token = "$pn_b", fg = "{{ $pal.color04 }}" }, { token = "$pn_b_on", fg = "{{ $pal.color04 }}", dim = false, bold = true }, { token = "$pn_g", fg = "{{ $pal.color02 }}" }, { token = "$pn_g_on", fg = "{{ $pal.color02 }}", dim = false, bold = true }, { token = "$pn_x", fg = "{{ $pal.color13 }}" }, { token = "$pn_x_on", fg = "{{ $pal.color13 }}", dim = false, bold = true }]]
 
 # pi and opencode get the same shape as claude. Same reason as claude for dropping the
 # literal `agent` token - these row sets only ever match their own agent, so it renders a
 # constant "pi"/"opencode" in place of the pane summary. Both rows are fed by the same two
 # herdr-pane-summary.py reads stored names; herdr-agent-activity.py reads transcript update times.
-pi = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
-opencode = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, { token = "$pn_o_on", fg = "#dab183", dim = false, bold = true }, { token = "$pn_r", fg = "#da858e" }, { token = "$pn_r_on", fg = "#da858e", dim = false, bold = true }, { token = "$pn_b", fg = "#a3b8c6" }, { token = "$pn_b_on", fg = "#a3b8c6", dim = false, bold = true }, { token = "$pn_g", fg = "#b7ce97" }, { token = "$pn_g_on", fg = "#b7ce97", dim = false, bold = true }, { token = "$pn_x", fg = "#536571" }, { token = "$pn_x_on", fg = "#536571", dim = false, bold = true }]]
+pi = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }}" }, { token = "$pn_o_on", fg = "{{ $pal.color05 }}", dim = false, bold = true }, { token = "$pn_r", fg = "{{ $pal.color11 }}" }, { token = "$pn_r_on", fg = "{{ $pal.color11 }}", dim = false, bold = true }, { token = "$pn_b", fg = "{{ $pal.color04 }}" }, { token = "$pn_b_on", fg = "{{ $pal.color04 }}", dim = false, bold = true }, { token = "$pn_g", fg = "{{ $pal.color02 }}" }, { token = "$pn_g_on", fg = "{{ $pal.color02 }}", dim = false, bold = true }, { token = "$pn_x", fg = "{{ $pal.color13 }}" }, { token = "$pn_x_on", fg = "{{ $pal.color13 }}", dim = false, bold = true }]]
+opencode = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }}" }, { token = "$pn_o_on", fg = "{{ $pal.color05 }}", dim = false, bold = true }, { token = "$pn_r", fg = "{{ $pal.color11 }}" }, { token = "$pn_r_on", fg = "{{ $pal.color11 }}", dim = false, bold = true }, { token = "$pn_b", fg = "{{ $pal.color04 }}" }, { token = "$pn_b_on", fg = "{{ $pal.color04 }}", dim = false, bold = true }, { token = "$pn_g", fg = "{{ $pal.color02 }}" }, { token = "$pn_g_on", fg = "{{ $pal.color02 }}", dim = false, bold = true }, { token = "$pn_x", fg = "{{ $pal.color13 }}" }, { token = "$pn_x_on", fg = "{{ $pal.color13 }}", dim = false, bold = true }]]
 
 # Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
 # herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
@@ -434,7 +435,7 @@ opencode = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "#dab183" }, {
 [ui.sidebar.spaces]
 # Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale. The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, and row 4 went with it.
 # Row 1's name is AGENT-STATE coloured - one dim/lit pair per state, herdr-git-status.sh picking the family from workspace.list's agent_status and herdr-focus-tracker.py::paint_ws the twin, because herdr colours that name by focus alone. $ws stays bare and holds `unknown`: with no fg it takes text/subtext0, which already splits on focus.
-rows = [["state_icon", "workspace"], [{ token = "$br", fg = "#536571" }, { token = "$br_on", fg = "#b7ce97" }], [{ token = "$pr", fg = "#da858e" }, { token = "$pr_on", fg = "#b7ce97" }, { token = "$pr_d", fg = "#536571" }, { token = "$ci", fg = "#a7cfbd" }, { token = "$ci_d", fg = "#536571" }, { token = "$sb", fg = "#dab183" }, { token = "$sb_d", fg = "#536571" }, { token = "$jira", fg = "#b7ce97" }, { token = "$jira_d", fg = "#536571" }]]
+rows = [["state_icon", "workspace"], [{ token = "$br", fg = "{{ $pal.color13 }}" }, { token = "$br_on", fg = "{{ $pal.color02 }}" }], [{ token = "$pr", fg = "{{ $pal.color11 }}" }, { token = "$pr_on", fg = "{{ $pal.color02 }}" }, { token = "$pr_d", fg = "{{ $pal.color13 }}" }, { token = "$ci", fg = "{{ $pal.color03 }}" }, { token = "$ci_d", fg = "{{ $pal.color13 }}" }, { token = "$sb", fg = "{{ $pal.color05 }}" }, { token = "$sb_d", fg = "{{ $pal.color13 }}" }, { token = "$jira", fg = "{{ $pal.color02 }}" }, { token = "$jira_d", fg = "{{ $pal.color13 }}" }]]
 
 [session]
 resume_agents_on_restore = true
@@ -481,14 +482,14 @@ pane_history = true
 [theme.custom]
 panel_bg = "reset"
 # selection_bg must be PINNED, not left unset: the active row resolves as selection_bg-unless-Reset, so an unset one lets the terminal theme grey beat active_row_bg. Both take herdr_sel_bg, surface_dim shares it for dividers and the active-tab ink, and surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
-selection_bg = "#27353f"
-active_row_bg = "#27353f"
-surface_dim = "#27353f"
-surface0 = "#1e2528"
-surface1 = "#1e2528"
+selection_bg = "{{ $pal.selection_bg }}"
+active_row_bg = "{{ $pal.selection_bg }}"
+surface_dim = "{{ $pal.selection_bg }}"
+surface0 = "{{ $pal.color26 }}"
+surface1 = "{{ $pal.color26 }}"
 # overlay0 is the shared DIM role, not a sidebar token - spaces/agents headers, new/menu/grouped, the · separators, the «/» toggle, every UNFOCUSED pane border and the unknown state_icon (0.8.2, verified by swinging it magenta; the └─ connectors and the panel divider did NOT follow, contrary to the old note). color13 -> color46 buys header legibility (3.1:1 -> 5.9:1) at a 2.0:1 unfocused border and an unknown dot as bright as a real state; equals overlay1 now, color13 still carries subtext0.
-overlay0 = "#7a90a0"
-overlay1 = "#7a90a0"
+overlay0 = "{{ $pal.color46 }}"
+overlay1 = "{{ $pal.color46 }}"
 # herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
 # isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
 # it does NOT reach the pane-title, state_text or $act rows, so those cannot vary by
@@ -497,11 +498,11 @@ overlay1 = "#7a90a0"
 # pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
 # Shared by the spaces AND agents sections, so none of them can be set per-panel.
 # text/subtext0 are SPLIT again - the only focus-varying dim without a twin token, so $ws stays bare to receive it; $ws_dirty/$ws_sync are retired and a dirty tree is now a trailing * inside the name token.
-subtext0 = "#536571"
-text = "#b8c9d3"
+subtext0 = "{{ $pal.color13 }}"
+text = "{{ $pal.color14 }}"
 # mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
 # use ($br/$br_on replaced it) - kept in step with $br_on/$pn_on for intent, not for render.
-mauve = "#b7ce97"
+mauve = "{{ $pal.color02 }}"
 # herdr's four agent states are painted by four palette tokens - state_label_color()
 # and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
 # blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
@@ -509,13 +510,13 @@ mauve = "#b7ce97"
 # shifts with them. Mapped 1:1 onto the agent chips:
 # @chip_idle / @chip_working / @chip_input / @chip_done.
 # These paint the SPACES row's state_icon dot, so they must track WS_STATE_SLOT or the dot disagrees with the name beside it: idle blue, working orange, blocked red, done green.
-green = "#a3b8c6"
-yellow = "#dab183"
-red = "#da858e"
+green = "{{ $pal.color04 }}"
+yellow = "{{ $pal.color05 }}"
+red = "{{ $pal.color11 }}"
 # blue = fallback for custom metadata tokens; $git/$sys now carry inline fg, so it no longer decides the git-sign color.
-blue = "#b7ce97"
+blue = "{{ $pal.color02 }}"
 # teal = done, status.rs its only consumer, so gnohj_color02 matches the $ws_g slot - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
-teal = "#b7ce97"
-peach = "#dc988e"
+teal = "{{ $pal.color02 }}"
+peach = "{{ $pal.color06 }}"
 # No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
 # <<< colorscheme-set: herdr theme palette <<<

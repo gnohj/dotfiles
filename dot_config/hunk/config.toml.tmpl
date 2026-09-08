@@ -1,0 +1,57 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
+# Preferences hand-maintained here; the [custom_theme] block at EOF is generated.
+theme = "custom"
+mode = "split"
+vcs = "git"
+watch = false
+exclude_untracked = false
+line_numbers = true
+wrap_lines = false
+menu_bar = true
+agent_notes = true
+transparent_background = true
+# >>> colorscheme-set: hunk theme - generated, do not edit (see generate_hunk_config) >>>
+
+[custom_theme]
+base = "github-dark-default"
+label = "gnohj"
+accent = "{{ $pal.color04 }}"
+accentMuted = "{{ $pal.color13 }}"
+text = "{{ $pal.color14 }}"
+muted = "{{ $pal.color09 }}"
+border = "{{ $pal.color17 }}"
+selectedHunk = "{{ $pal.color13 }}"
+lineNumberFg = "{{ $pal.color09 }}"
+addedBg = "#132a19"
+addedContentBg = "#1f4a2a"
+addedSignColor = "{{ $pal.color02 }}"
+removedBg = "#2a1319"
+removedContentBg = "#4a1f2a"
+removedSignColor = "{{ $pal.color11 }}"
+movedAddedBg = "#132a19"
+movedRemovedBg = "#2a1319"
+badgeAdded = "{{ $pal.color02 }}"
+badgeRemoved = "{{ $pal.color11 }}"
+badgeNeutral = "{{ $pal.color13 }}"
+fileNew = "{{ $pal.color02 }}"
+fileModified = "{{ $pal.color05 }}"
+fileDeleted = "{{ $pal.color11 }}"
+fileRenamed = "{{ $pal.color04 }}"
+fileUntracked = "{{ $pal.color09 }}"
+noteBorder = "{{ $pal.color01 }}"
+noteTitleText = "{{ $pal.color14 }}"
+
+[custom_theme.syntax]
+keyword = "{{ $pal.color01 }}"
+string = "{{ $pal.color02 }}"
+comment = "{{ $pal.color09 }}"
+operator = "{{ $pal.color03 }}"
+variable = "{{ $pal.color14 }}"
+function = "{{ $pal.color04 }}"
+type = "{{ $pal.color05 }}"
+number = "{{ $pal.color06 }}"
+constant = "{{ $pal.color06 }}"
+property = "{{ $pal.color04 }}"
+tag = "{{ $pal.color11 }}"
+attribute = "{{ $pal.color05 }}"
+# <<< colorscheme-set: hunk theme <<<

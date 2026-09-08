@@ -1,0 +1,314 @@
+{{- $pal := includeTemplate "palette.json" . | fromJson -}}
+# Eza theme, colors from the active palette
+# Auto-generated via colorscheme-set.sh
+
+filekinds:
+  directory:
+    foreground: "{{ $pal.color04 }}"
+    is_bold: true
+  symlink:
+    foreground: "{{ $pal.color03 }}"
+  executable:
+    foreground: "{{ $pal.color02 }}"
+  regular:
+    foreground: "{{ $pal.color14 }}"
+  pipe:
+    foreground: "{{ $pal.color05 }}"
+  socket:
+    foreground: "{{ $pal.color05 }}"
+  block_device:
+    foreground: "{{ $pal.color05 }}"
+  char_device:
+    foreground: "{{ $pal.color05 }}"
+  special:
+    foreground: "{{ $pal.color01 }}"
+
+extensions:
+  # Config files - yellow
+  json:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  json5:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  jsonc:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  yaml:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  yml:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  toml:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  ini:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  conf:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  config:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  env:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  envrc:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+
+  # JavaScript - green
+  js:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  cjs:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  mjs:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+
+  # TypeScript - blue
+  ts:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  tsx:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  jsx:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+
+  # Shell scripts - green
+  sh:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  zsh:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  bash:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  fish:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+
+  # Chezmoi templates - cyan
+  tmpl:
+    filename:
+      foreground: "{{ $pal.color03 }}"
+
+  # Documentation - purple
+  md:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  mdx:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  txt:
+    filename:
+      foreground: "{{ $pal.color14 }}"
+  rst:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+
+  # Markup - salmon
+  html:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  htm:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  xml:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  svg:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+
+  # Styles - purple
+  css:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  scss:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  sass:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  less:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+
+  # Programming languages
+  py:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  rb:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  rs:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  go:
+    filename:
+      foreground: "{{ $pal.color03 }}"
+  lua:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  java:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  c:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  cpp:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  h:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  hpp:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+  php:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  swift:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  kt:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+
+  # Archives - red
+  tar:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  gz:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  tgz:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  zip:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  rar:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  7z:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  bz2:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+  xz:
+    filename:
+      foreground: "{{ $pal.color11 }}"
+
+  # Images - purple
+  png:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  jpg:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  jpeg:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  gif:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  webp:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  ico:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+
+  # Video - purple
+  mp4:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  mkv:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  webm:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  avi:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+  mov:
+    filename:
+      foreground: "{{ $pal.color01 }}"
+
+  # Audio - yellow
+  mp3:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  flac:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  wav:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  ogg:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  m4a:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+
+  # Git/ignored files - gray
+  gitignore:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  gitattributes:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  dockerignore:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  prettierignore:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  eslintignore:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+
+  # Lock files - gray
+  lock:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  log:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+
+  # Data
+  sql:
+    filename:
+      foreground: "{{ $pal.color05 }}"
+  csv:
+    filename:
+      foreground: "{{ $pal.color02 }}"
+  graphql:
+    filename:
+      foreground: "{{ $pal.color06 }}"
+  prisma:
+    filename:
+      foreground: "{{ $pal.color04 }}"
+
+  # Build/compiled - gray
+  o:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  pyc:
+    filename:
+      foreground: "{{ $pal.color08 }}"
+  class:
+    filename:
+      foreground: "{{ $pal.color08 }}"
