@@ -4,15 +4,10 @@
 
 set -e
 
-# Omarchy (Arch) owns theming on its own boxes: `omarchy theme set` writes the
-# ghostty/kitty/btop theme files this script generates, and ~/.config/lazygit,
-# ~/.config/starship.toml and ~/.config/yazi are Omarchy's there too. Running
-# this would overwrite the desktop's palette with a second, unrelated one and
-# leave the bar and the terminal disagreeing. macOS and the Ubuntu VPS have no
-# such engine, so they keep this script as the sole source of colour.
+# Omarchy owns COLOUR (`omarchy theme set`), but this script is the only source of BEHAVIOUR for lazygit keybindings and gitmux symbols (herdr-git-status.sh parses those glyphs), so branch below instead of exiting — lazydocker is chezmoi-managed and stays untouched.
+OMARCHY_OWNS_THEME=0
 if [ -r /etc/os-release ] && grep -q '^ID=omarchy$' /etc/os-release; then
-  echo "Omarchy owns theming on this machine. Use: omarchy theme set <name>" >&2
-  exit 0
+  OMARCHY_OWNS_THEME=1
 fi
 
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
@@ -28,7 +23,7 @@ error() {
 active_file="$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 # COLORSCHEME_FORCE=1 rebuilds from the ACTIVE scheme, for when the generators changed but the palette did not.
-if [ -z "${1:-}" ] && [ "${COLORSCHEME_FORCE:-}" != 1 ]; then
+if [ -z "${1:-}" ] && [ "${COLORSCHEME_FORCE:-}" != 1 ] && [ "$OMARCHY_OWNS_THEME" != 1 ]; then
   error "No colorscheme profile provided"
 fi
 
@@ -266,11 +261,23 @@ EOF
   echo "Btop theme updated at '$btop_conf_file'."
 }
 
+# Drop " #rrggbb" tokens but keep the attribute words, so the layout stays ours and the colour falls back to the terminal's.
+strip_theme_colours() {
+  for _stc_f in "$@"; do
+    [ -f "$_stc_f" ] || continue
+    perl -i -pe 's/ #[0-9a-fA-F]{6}//g' "$_stc_f"
+  done
+}
+
 generate_starship_config() {
   # Define the paths
   starship_conf_file="$HOME/.config/starship/starship.toml"
   starship_infra_conf_file="$HOME/.config/starship/starship-infra.toml"
   mkdir -p "$HOME/.config/starship" # fresh box lacks it; cat > fails otherwise
+  # Omarchy symlinks both to its own ~/.config/starship.toml; break the links so we do not overwrite it and collapse the two variants into one.
+  for _ss_f in "$starship_conf_file" "$starship_infra_conf_file"; do
+    [ -L "$_ss_f" ] && rm -f "$_ss_f"
+  done
 
   # Nerd Font OS glyphs as byte escapes - literal PUA codepoints get stripped by editors
   local os_apple os_tux
@@ -403,6 +410,23 @@ generate_lazygit_config() {
   lazygit_conf_file="$HOME/.config/lazygit/config.yml"
   mkdir -p "$(dirname "$lazygit_conf_file")"
 
+  # On Omarchy only the theme block is dropped — keybindings/customCommands have no other source.
+  if [ "${OMARCHY_OWNS_THEME:-0}" = 1 ]; then
+    lazygit_theme_block=""
+  else
+    lazygit_theme_block="  theme:
+    activeBorderColor:
+      - \"${gnohj_color02}\"
+      - bold
+    inactiveBorderColor:
+      - \"${gnohj_color04}\"
+    selectedLineBgColor:
+      - \"${gnohj_color13}\"
+    unstagedChangesColor:
+      - \"${gnohj_color06}\"
+"
+  fi
+
   cat >"$lazygit_conf_file" <<EOF
 # LazyGit configuration with custom colors
 # Auto-generated lazygit config
@@ -431,17 +455,7 @@ gui:
   showFileTree: true
   showBottomLine: false
   showCommandLog: false
-  theme:
-    activeBorderColor:
-      - "${gnohj_color02}"
-      - bold
-    inactiveBorderColor:
-      - "${gnohj_color04}"
-    selectedLineBgColor:
-      - "${gnohj_color13}"
-    unstagedChangesColor:
-      - "${gnohj_color06}"
-  border: rounded
+${lazygit_theme_block}  border: rounded
   nerdFontsVersion: "3"
 keybinding:
   universal:
@@ -2162,6 +2176,23 @@ EOF
 generate_gitmux_config() {
   gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
 
+  # Symbols are behaviour (herdr-git-status.sh parses them) so they land everywhere; only `styles:` is colour, dropped on Omarchy so generate-tmux-colors.sh governs.
+  if [ "${OMARCHY_OWNS_THEME:-0}" = 1 ]; then
+    gitmux_styles_block=""
+  else
+    gitmux_styles_block="  styles:
+    state: \"#[fg=${gnohj_color11},nobold]\"
+    branch: \"#[fg=${gnohj_color06},nobold]\"
+    staged: \"#[fg=${gnohj_color02},nobold]\"
+    conflict: \"#[fg=${gnohj_color11},nobold]\"
+    modified: \"#[fg=${gnohj_color04},nobold]\"
+    untracked: \"#[fg=${gnohj_color05},nobold]\"
+    stashed: \"#[fg=${gnohj_color01},nobold]\"
+    clean: \"#[fg=${gnohj_color02},nobold]\"
+    divergence: \"#[fg=${gnohj_color05},nobold]\"
+"
+  fi
+
   # Create directory if it doesn't exist
   mkdir -p "$(dirname "$gitmux_conf_file")"
 
@@ -2182,17 +2213,7 @@ tmux:
     stashed: " "
     insertions: " "
     deletions: " "
-  styles:
-    state: "#[fg=${gnohj_color11},nobold]"
-    branch: "#[fg=${gnohj_color06},nobold]"
-    staged: "#[fg=${gnohj_color02},nobold]"
-    conflict: "#[fg=${gnohj_color11},nobold]"
-    modified: "#[fg=${gnohj_color04},nobold]"
-    untracked: "#[fg=${gnohj_color05},nobold]"
-    stashed: "#[fg=${gnohj_color01},nobold]"
-    clean: "#[fg=${gnohj_color02},nobold]"
-    divergence: "#[fg=${gnohj_color05},nobold]"
-    # state: "#[fg=\${gnohj_color59},nobold]"
+${gitmux_styles_block}    # state: "#[fg=\${gnohj_color59},nobold]"
     # branch: "#[fg=\${gnohj_color04},nobold]"
     # staged: "#[fg=\${gnohj_color60},nobold]"
     # conflict: "#[fg=\${gnohj_color59},nobold]"
@@ -2618,6 +2639,23 @@ EOF
   fi
   echo "herdr configuration updated (full palette + accent=$herdr_accent)."
 }
+
+# Omarchy: stop before every theme generator, but emit the behaviour-bearing configs first since this script is their only source.
+if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
+  generate_lazygit_config
+  generate_gitmux_config
+  # starship carries the prompt SHAPE ([custom.dir] on, [directory] off); Omarchy's stock prompt renders both and prints "master master" in a worktree. The palette is sourced only to interpolate the heredoc, then stripped back out.
+  if [ -f "$active_file" ]; then
+    # shellcheck disable=SC1090
+    source "$active_file"
+    generate_starship_config
+    strip_theme_colours "$HOME/.config/starship/starship.toml" \
+                        "$HOME/.config/starship/starship-infra.toml"
+  fi
+  echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship." >&2
+  echo "To change colours: omarchy theme set <name>" >&2
+  exit 0
+fi
 
 # Always source the active colorscheme + regenerate the small config
 # files whose generation logic may have changed independently of the
