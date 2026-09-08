@@ -124,12 +124,15 @@ if [ "$low" -lt 0 ]; then
   exit 0
 fi
 
+# Same four tiers the popup rows use, driven by the lowest window, so the icon always wears the worst row's colour.
 if [ "$low" -le 15 ]; then
   COLOR="$RED"
 elif [ "$low" -le 35 ]; then
   COLOR="$ORANGE"
+elif [ "$low" -le 60 ]; then
+  COLOR="$YELLOW"
 else
-  COLOR="$ICON_BLUE"
+  COLOR="$GREEN"
 fi
 
 sketchybar -m --set agent_quota icon.color="$COLOR"
