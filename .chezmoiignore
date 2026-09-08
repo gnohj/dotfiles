@@ -133,6 +133,7 @@ Library/
 
 # The theme-set hook that re-runs colorscheme-set.sh; nothing reads it off Omarchy.
 {{- if ne (get .chezmoi.osRelease "id") "omarchy" }}
+.config/hypr
 .config/omarchy
 {{- end }}
 
