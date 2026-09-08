@@ -1,0 +1,7 @@
+#!/bin/bash
+# `omarchy theme set` repoints ghostty/kitty/btop at its own theme files, but herdr and ccstatusline have none - colorscheme-set.sh generates those from the Omarchy palette, so it has to re-run here or they stay on the previous theme.
+
+set -e
+
+# No "$1": the theme slug omarchy passes would be read as a colorscheme-set profile name, and the script reads the live Omarchy palette itself.
+"$HOME/.config/zshrc/colorscheme-set.sh" >/dev/null

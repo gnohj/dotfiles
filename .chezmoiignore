@@ -131,6 +131,11 @@ Library/
 #   .config/tmux/tmux.conf
 {{- end }}
 
+# The theme-set hook that re-runs colorscheme-set.sh; nothing reads it off Omarchy.
+{{- if ne (get .chezmoi.osRelease "id") "omarchy" }}
+.config/omarchy
+{{- end }}
+
 # Linux-only files (skip on macOS)
 {{- if eq .chezmoi.os "darwin" }}
 # macOS needs no wl-copy shim: pluck picks pbcopy there, and shipping one would only shadow the real tool.

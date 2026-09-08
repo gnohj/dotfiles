@@ -63,6 +63,10 @@ fi
 if [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ]; then
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 fi
+# On Omarchy the desktop theme wins over the repo palette; a no-op everywhere else.
+if [ -f "$HOME/.config/colorscheme/omarchy-palette.sh" ]; then
+  source "$HOME/.config/colorscheme/omarchy-palette.sh"
+fi
 
 #-------------------------------------------------------------------------------
 #--          Cross-platform shims (Linux VPS / herdr --remote)
