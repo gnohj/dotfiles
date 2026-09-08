@@ -21,6 +21,7 @@ proc_env() { # <pid> -> its environment, one VAR=value per line
   fi
 }
 
+sha256_digest() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
 
 field() { grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2-; }
 
@@ -520,7 +521,7 @@ if [ "$MODE" = crew-account ]; then
   [ "$pin" = auto ] && { echo "$SELF: pin is auto, so there is no intended account; nothing to converge"; exit 0; }
   want="$(CLAUDE_ACCOUNT="$pin" claude-account token 2>/dev/null || true)"
   [ -n "$want" ] || { echo "$SELF: no token stored for '$pin'; refusing to relaunch blind" >&2; exit 1; }
-  fp() { [ -n "${1:-}" ] && printf '%s' "$1" | shasum -a 256 | cut -c1-12 || printf none; }
+  fp() { [ -n "${1:-}" ] && printf '%s' "$1" | sha256_digest | cut -c1-12 || printf none; }
   want_fp="$(fp "$want")"
 
   drift=""; drift_homes=""
