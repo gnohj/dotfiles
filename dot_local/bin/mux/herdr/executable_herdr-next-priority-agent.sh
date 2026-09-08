@@ -35,7 +35,7 @@ result=$("$herdr" agent list 2>/dev/null | jq -r --arg fws "$fws" '
     else
       (([ $q | to_entries[] | select(.value.pane_id == $cur) | .key ][0]) // -1) as $i
       | ($q[ (($i + 1) % $n) ]) as $t
-      | (if $t.pane_id == $cur then "SELF" else "\($t.workspace_id) \($t.pane_id)" end)
+      | (if $t.pane_id == $cur then "SELF" else $t.pane_id end)
     end
 ')
 
@@ -43,7 +43,6 @@ case "$result" in
   NONE) exec "$herdr" notification show "No agents need attention" --body "nothing blocked or done right now" >/dev/null 2>&1 ;;
   SELF) exec "$herdr" notification show "Only agent needing attention" --body "you're already on the one that wants you" >/dev/null 2>&1 ;;
   "")   exit 0 ;;
-  *)    # agent focus alone never carries the view across workspaces, so focus the workspace first.
-        "$herdr" workspace focus "${result%% *}" >/dev/null 2>&1
-        exec "$herdr" agent focus "${result##* }" >/dev/null 2>&1 ;;
+  *)    # agent focus never switches the view to the target's tab; the socket's pane.focus does.
+        exec "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$result" >/dev/null 2>&1 ;;
 esac
