@@ -1,0 +1,7 @@
+# Bun globals installed into ~/.bun/bin, one package spec per line. Not mise: claude-statusline hardcodes that dir.
+
+# Claude status line renderer; claude-statusline execs it and exits 0 on ENOENT, so a missing binary blanks the line silently.
+ccstatusline
+
+# Token/cost accounting, read by ccusage-statusline-green.sh.
+ccusage
