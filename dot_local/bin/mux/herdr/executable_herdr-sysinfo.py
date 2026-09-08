@@ -46,6 +46,8 @@ enough; the only fork is the absolute-path host-city helper on a cache miss.
   herdr-sysinfo.py --once    one refresh pass, then exit
   herdr-sysinfo.py --print   print the rendered line, without touching herdr
 
+CPU is a delta, so one-shot --print runs carry their counters across in CPU_STATE: the window is then the bar's interval_seconds rather than the 0.2s prime sleep, which was too short to mean anything.
+
 The same pass feeds four more tokens onto that pinned space: `$sysres` (cpu/mem/disk, split off
 `$sys` because host@city plus resources is 34 columns against sidebar_width 32), `$systime`
 (uptime and the wall-clock time in the box's geolocated zone, on its own row for the same width
@@ -124,6 +126,11 @@ CITY_TTL = 300
 TZ_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "host-tz")
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
 LOCK = os.path.join(STATE_DIR, "herdr", "sysinfo.lock")
+# Carries the cpu counters between one-shot runs so the delta spans the bar's refresh, not the 0.2s prime sleep (~640 jiffies on a 32-core box: enough jitter to read 05% when the real average is 1%).
+CPU_STATE = os.path.join(STATE_DIR, "herdr", "sysinfo-cpu.json")
+# Below the min the window is jitter again (racing runs); above the max the average no longer describes "now". Either way, re-prime.
+CPU_MIN_AGE, CPU_MAX_AGE = 0.5, 60.0
+PRIME = 0.2
 
 # Two tokens because a herdr token takes ONE fg and dirty (red) can be lit alongside ahead/behind (green).
 REPOS_FORMAT = os.environ.get("HERDR_REPOS_FORMAT", "{dirty}")
@@ -264,6 +271,42 @@ class Sampler:
             return "--%"
         busy = 1.0 - (idle - prev[1]) / (total - prev[0])
         return f"{max(0.0, busy) * 100:02.0f}%"
+
+    def load_prev(self):
+        """Seed the delta from the previous one-shot; False means no usable predecessor, so the caller primes instead."""
+        try:
+            with open(CPU_STATE) as f:
+                stamp, total, idle = json.load(f)
+        except (OSError, ValueError, TypeError):
+            return False
+        if not CPU_MIN_AGE <= time.time() - stamp <= CPU_MAX_AGE:
+            return False
+        try:
+            now_total, now_idle = cpu_times()
+        except (OSError, IndexError, ValueError):
+            return False
+        # /proc/stat only climbs, so a counter that went backwards means a reboot since the write.
+        if now_total <= total or now_idle < idle:
+            return False
+        self.prev = (total, idle)
+        return True
+
+    def save_prev(self):
+        """Hand this run's counters to the next one. Best-effort: a failure just costs a re-prime."""
+        if self.prev is None:
+            return
+        tmp = f"{CPU_STATE}.{os.getpid()}"
+        try:
+            os.makedirs(os.path.dirname(CPU_STATE), exist_ok=True)
+            with open(tmp, "w") as f:
+                json.dump([time.time(), self.prev[0], self.prev[1]], f)
+            # Rename, not a write in place: concurrent runs must never read a half-written record.
+            os.replace(tmp, CPU_STATE)
+        except OSError:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
     def cached_city(self):
         # Tied to CITY_TTL: a longer hold pins a city the disk cache already re-resolved.
@@ -508,9 +551,12 @@ def main():
         return
     sampler = Sampler()
     if arg in ("--print", "--once"):
-        sampler.sample()          # prime the cpu delta
-        time.sleep(0.2)
+        # Prefer the previous run's counters (a full refresh interval); prime only on a cold start.
+        if not sampler.load_prev():
+            sampler.sample()
+            time.sleep(PRIME)
         (line, res_line, time_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
+        sampler.save_prev()
         if arg == "--print":
             # repos + sync share a row; herdr puts its own separator between them.
             for out in (line, res_line, time_line, " · ".join(p for p in (repos_line, sync_line) if p)):
