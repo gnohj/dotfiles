@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import tempfile
+import time
+from urllib.parse import unquote, urlparse
+
+
+def run(command, *, input_text=None):
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            input=input_text,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def clipboard_text(system):
+    if system == "Darwin":
+        result = run(["pbpaste"])
+    else:
+        result = run(["wl-paste", "--no-newline", "--type", "text/plain"])
+    if result is None or result.returncode != 0:
+        return ""
+    return result.stdout
+
+
+def converted_heic_path(text, system):
+    if "\n" in text or "\r" in text:
+        return None
+    raw_path = text.strip().strip("'\"")
+    if raw_path.startswith("file://"):
+        raw_path = unquote(urlparse(raw_path).path)
+    path = Path(raw_path)
+    if path.suffix.lower() not in (".heic", ".heif") or not path.is_file():
+        return None
+    output_dir = Path(tempfile.mkdtemp(prefix="terminal-image-paste-"))
+    output = output_dir / f"{path.stem}.png"
+    if system == "Darwin":
+        command = ["sips", "-s", "format", "png", str(path), "--out", str(output)]
+    elif shutil.which("magick"):
+        command = ["magick", str(path), str(output)]
+    elif shutil.which("heif-convert"):
+        command = ["heif-convert", str(path), str(output)]
+    else:
+        output_dir.rmdir()
+        return None
+    result = run(command)
+    if result is not None and result.returncode == 0 and output.is_file():
+        return str(output)
+    shutil.rmtree(output_dir, ignore_errors=True)
+    return None
+
+
+def ghostty_terminal_script(command):
+    return f'''tell application "Ghostty"
+set term to focused terminal of selected tab of front window
+{command}
+end tell'''
+
+
+def paste_macos(text):
+    if text:
+        script = ghostty_terminal_script("input text (item 1 of argv) to term")
+        run(["osascript", "-", text], input_text=script)
+    else:
+        script = ghostty_terminal_script('send key "v" modifiers "control" to term')
+        run(["osascript", "-"], input_text=script)
+
+
+def send_linux_key(modifiers, key):
+    for state in ("down", "up"):
+        expression = (
+            'hl.dsp.send_key_state({ mods = "'
+            + modifiers
+            + '", key = "'
+            + key
+            + '", state = "'
+            + state
+            + '" })'
+        )
+        run(["hyprctl", "dispatch", expression])
+        time.sleep(0.05)
+
+
+def paste_linux(text, converted):
+    if converted:
+        result = run(["wl-copy", "--type", "text/plain"], input_text=text)
+        if result is None or result.returncode != 0:
+            return
+    if text:
+        send_linux_key("SHIFT", "INSERT")
+    else:
+        send_linux_key("CTRL", "V")
+
+
+def main():
+    system = platform.system()
+    text = clipboard_text(system)
+    converted = converted_heic_path(text, system)
+    paste_text = converted or text
+    if system == "Darwin":
+        paste_macos(paste_text)
+    elif system == "Linux":
+        paste_linux(paste_text, converted is not None)
+
+
+if __name__ == "__main__":
+    main()
