@@ -13,6 +13,13 @@ Host github.com
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
+Host fleet-dev-box
+  HostName {{ .devbox_host }}
+  ForwardAgent no
+  IdentitiesOnly yes
+  IdentityFile ~/.ssh/id_ed25519
+  User gnohj
+
 Host tailscale
   HostName {{ .devbox_host }}
 
