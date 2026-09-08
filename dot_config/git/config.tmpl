@@ -7,7 +7,7 @@
 	# holds `post-commit` which calls `sb-ticket-log` with the commit subject
 	# so every ticket-shaped branch's vault note gets an auto-entry per
 	# commit. The hook self-bails on non-ticket branches / no-note cases.
-	hooksPath = ~/.config/git/hooks
+	hooksPath = "{{ joinPath .chezmoi.homeDir ".config/git/hooks" }}"
 
 [alias]
   co = checkout
@@ -38,7 +38,7 @@
 
 [core]
 	pager = delta
-  excludesfile = ~/.gitignore_global
+  excludesfile = "{{ joinPath .chezmoi.homeDir ".gitignore_global" }}"
 	# untrackedCache: cache per-directory untracked-file state keyed on mtime so
 	# `git status` skips re-scanning unchanged dirs. Big speedup in the web
 	# monorepo and it shrinks the index-refresh window (shorter index.lock hold,
@@ -70,7 +70,7 @@
 	show = delta
 
 [include]
-	path = ~/.config/delta/themes/themes.gitconfig
+	path = "{{ joinPath .chezmoi.homeDir ".config/delta/themes/themes.gitconfig" }}"
 [delta]
   features = gnohj-theme
   navigate = true
