@@ -10,13 +10,43 @@ fi
 
 root="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
 
-# A named session is unambiguous, so it short-circuits the mtime scan below.
+# A named session is unambiguous, so it short-circuits the scan below.
 if [ -n "${HERDR_SESSION:-}" ] && [ -S "$root/sessions/$HERDR_SESSION/herdr.sock" ]; then
   printf '%s\n' "$root/sessions/$HERDR_SESSION/herdr.sock"
   exit 0
 fi
 
-# Newest across both layouts wins: a stale socket left by a dead server is always the older one.
+PY=$(command -v python3 || echo /usr/bin/python3)
+
+# A socket FILE proves nothing; only a completed connect distinguishes the live server from a stale node.
+accepts() {
+  [ -x "$PY" ] || return 1
+  "$PY" -c 'import socket,sys
+s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(0.5)
+try: s.connect(sys.argv[1])
+except Exception: sys.exit(1)
+s.close()' "$1" 2>/dev/null
+}
+
+# Sessions newest-first, so a stale one left by a dead server is tried after the current one.
+sessions=$(for s in "$root"/sessions/*/herdr.sock; do
+  [ -S "$s" ] || continue
+  printf '%s\t%s\n' "$(stat -c %Y "$s" 2>/dev/null || stat -f %m "$s" 2>/dev/null || echo 0)" "$s"
+done | sort -rn | cut -f2-)
+
+# Primary (flat) first, then named sessions (a host running both wants its own server); heredoc-fed so a name with a space or glob stays one path.
+while IFS= read -r s; do
+  [ -S "$s" ] || continue
+  if accepts "$s"; then
+    printf '%s\n' "$s"
+    exit 0
+  fi
+done <<EOF
+$root/herdr.sock
+$sessions
+EOF
+
+# Nothing answered: hand back the newest socket that at least exists, so callers behave as they did before.
 newest=""
 newest_t=0
 for s in "$root/herdr.sock" "$root"/sessions/*/herdr.sock; do
