@@ -1,6 +1,8 @@
 {
   "muxDaemons": {
     "socket": ".config/herdr/herdr.sock",
+    "socketGlob": ".config/herdr/sessions/*/herdr.sock",
+    "daemonExec": ".local/bin/mux/shared/herdr-daemon-exec",
     "scriptDir": ".local/bin/mux/herdr",
     "logDir": ".logs",
     "list": {

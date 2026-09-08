@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Prints the live herdr control socket - the flat path, or 0.9.0's sessions/<name>/; exits 1 with no output when herdr is down.
+set -uo pipefail
+
+# An inherited value wins only while it is still a live socket: a pane outlives the server that exported it.
+if [ -n "${HERDR_SOCKET_PATH:-}" ] && [ -S "$HERDR_SOCKET_PATH" ]; then
+  printf '%s\n' "$HERDR_SOCKET_PATH"
+  exit 0
+fi
+
+root="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+
+# A named session is unambiguous, so it short-circuits the mtime scan below.
+if [ -n "${HERDR_SESSION:-}" ] && [ -S "$root/sessions/$HERDR_SESSION/herdr.sock" ]; then
+  printf '%s\n' "$root/sessions/$HERDR_SESSION/herdr.sock"
+  exit 0
+fi
+
+# Newest across both layouts wins: a stale socket left by a dead server is always the older one.
+newest=""
+newest_t=0
+for s in "$root/herdr.sock" "$root"/sessions/*/herdr.sock; do
+  [ -S "$s" ] || continue
+  t=$(stat -c %Y "$s" 2>/dev/null || stat -f %m "$s" 2>/dev/null || echo 0)
+  if [ "$t" -gt "$newest_t" ]; then
+    newest_t="$t"
+    newest="$s"
+  fi
+done
+
+[ -n "$newest" ] || exit 1
+printf '%s\n' "$newest"

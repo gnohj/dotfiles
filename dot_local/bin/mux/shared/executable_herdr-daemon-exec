@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Exports HERDR_SOCKET_PATH from the live socket, then execs the daemon; only systemd/launchd start one outside a pane.
+set -uo pipefail
+
+sock=$("$HOME/.local/bin/mux/shared/herdr-socket-path" 2>/dev/null) || sock=""
+[ -n "$sock" ] && export HERDR_SOCKET_PATH="$sock"
+
+exec "$@"
