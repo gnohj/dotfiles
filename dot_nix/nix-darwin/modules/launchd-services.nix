@@ -17,13 +17,18 @@ let
             + "${homeDir}/${muxDaemons.scriptDir}/${d.script}"
             + (if d.args == "" then "" else " " + d.args);
       pathLine = if (d ? needsPath) then "export PATH=\"${daemonPath}\"\n" else "";
+      # Resolves the socket a launchd daemon has no pane env to inherit; -x guarded because darwin-rebuild can precede the first chezmoi apply.
+      daemonExec = "${homeDir}/${muxDaemons.daemonExec}";
+      execLine = "[ -x ${daemonExec} ] && exec ${daemonExec} " + cmd + "\n"
+                 + "exec " + cmd + "\n";
     in {
       serviceConfig = {
         ProgramArguments = [
           "/bin/bash"
           "-c"
-          ("mkdir -p ${homeDir}/.logs/" + name + "\n" + pathLine + "exec " + cmd + "\n")
+          ("mkdir -p ${homeDir}/.logs/" + name + "\n" + pathLine + execLine)
         ];
+        # Flat path only: launchd's PathState takes no glob, so a NAMED session's socket is invisible here and would hold every daemon down.
         KeepAlive = { PathState = { "${homeDir}/${muxDaemons.socket}" = true; }; };
         RunAtLoad = true;
         StandardOutPath = "${homeDir}/.logs/" + name + "/launchagent.out.log";
