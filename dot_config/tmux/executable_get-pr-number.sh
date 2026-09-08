@@ -29,7 +29,8 @@ if [ -z "$BRANCH" ]; then
   DETACHED_REF=$(git branch --points-at HEAD -r --format='%(refname:short)' 2>/dev/null | grep -v '/HEAD$' | head -n1)
   BRANCH=${DETACHED_REF#*/}
 fi
-CACHE_KEY=$(echo "$REPO_ROOT:$BRANCH" | md5)
+# md5 is macOS-only and md5sum (GNU) appends " -", so take field 1 either way — an empty key made CACHE_FILE collapse to CACHE_DIR on Linux.
+CACHE_KEY=$(echo "$REPO_ROOT:$BRANCH" | { md5sum 2>/dev/null || md5; } | awk '{print $1}')
 CACHE_FILE="$CACHE_DIR/$CACHE_KEY"
 
 mkdir -p "$CACHE_DIR"
