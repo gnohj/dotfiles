@@ -2,7 +2,11 @@
 
 #* Name of a btop++/bpytop/bashtop formatted ".theme" file, "Default" and "TTY" for builtin themes.
 #* Themes should be placed in "../share/btop/themes" relative to binary or "$HOME/.config/btop/themes"
+{{ if eq .chezmoi.osRelease.id "omarchy" -}}
+color_theme = "current"
+{{- else -}}
 color_theme = "btop-theme.theme"
+{{- end }}
 
 #* If the theme set background should be shown, set to False if you want terminal background transparency.
 theme_background = true

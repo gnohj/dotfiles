@@ -4,6 +4,17 @@
 
 set -e
 
+# Omarchy (Arch) owns theming on its own boxes: `omarchy theme set` writes the
+# ghostty/kitty/btop theme files this script generates, and ~/.config/lazygit,
+# ~/.config/starship.toml and ~/.config/yazi are Omarchy's there too. Running
+# this would overwrite the desktop's palette with a second, unrelated one and
+# leave the bar and the terminal disagreeing. macOS and the Ubuntu VPS have no
+# such engine, so they keep this script as the sole source of colour.
+if [ -r /etc/os-release ] && grep -q '^ID=omarchy$' /etc/os-release; then
+  echo "Omarchy owns theming on this machine. Use: omarchy theme set <name>" >&2
+  exit 0
+fi
+
 # /opt/homebrew stays first so macOS resolution is unchanged; the Linux dirs
 # (nix profile / mise shims / ~/.local/bin) are appended for a headless Linux VPS.
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"

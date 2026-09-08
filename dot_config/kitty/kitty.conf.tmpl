@@ -13,7 +13,12 @@
 term xterm-kitty
 
 # Include theme file (generated dynamically by colorscheme-set.sh)
+{{ if eq .chezmoi.osRelease.id "omarchy" -}}
+# Omarchy owns theming on Arch — see the same swap in ghostty/config.tmpl.
+include ~/.local/state/omarchy/current/theme/kitty.conf
+{{- else -}}
 include kitty-theme.conf
+{{- end }}
 
 # Fonts
 # family+style here vs face names in Ghostty - same faces; all four pinned so the two can't diverge.
