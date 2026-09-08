@@ -20,7 +20,14 @@
 term = xterm-ghostty
 
 # color
+{{ if eq .chezmoi.osRelease.id "omarchy" -}}
+# Omarchy owns theming on Arch: `omarchy theme set` repoints this file, so the
+# terminal follows the desktop instead of colorscheme-set.sh (disabled there).
+# The leading ? makes ghostty tolerate the file being absent.
+config-file = ?"~/.local/state/omarchy/current/theme/ghostty.conf"
+{{- else -}}
 config-file = ghostty-theme
+{{- end }}
 # custom-shader = ./shaders/tesla_coil.glsl
 # custom-shader = ./shaders/glow.glsl
 custom-shader = ./shaders/bloom025.glsl
