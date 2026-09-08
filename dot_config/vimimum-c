@@ -13,7 +13,6 @@
 		"unmap o",
 		"map <c-p> togglePinTab",
 		"map <c-d> duplicateTab",
-		"map <c-c> copyCurrentUrl",
 		""
 	],
 	"vimSync": true
