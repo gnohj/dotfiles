@@ -536,7 +536,7 @@ if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
         continue
       fi
 
-      # Work-only servers (Jira/Confluence) must never land in the personal account.
+      # Account-specific entries are installed only into their requested profile.
       if [ "$acct" != "all" ] && [ "$acct" != "$MCP_ACCT" ]; then
         continue
       fi
