@@ -2491,14 +2491,12 @@ generate_herdr_config() {
   herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }]]' \
     "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13")"
-  # Agents-panel rows: tab number in gnohj green, pane name + $act age in gnohj blue.
-  # Two lines because rows_by_agent.claude overrides the defaults for claude panes.
+  # One row set for every agent: rows_by_agent is gone, since both daemons feed a $pn_* slot to any pane carrying an `agent`.
   # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
-  # toward the bg - no fg can undo it. state_text takes NO fg so it keeps herdr's per-state
-  # palette color; only the dim is lifted.
+  # toward the bg - no fg can undo it; only the lit twin takes it.
   # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
   # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
-  local herdr_agent_rows herdr_claude_rows herdr_pane_git
+  local herdr_agent_rows herdr_pane_git
   # Row 1 is the built-in state_icon again (0.8.2 status_indicators = "symbols" gives done its own glyph, retiring the $si_* slots); row 2 ($pn_*) stays a dim/lit pair like $br/$br_on, since a custom token's inline style cannot vary by focus on its own.
   local herdr_pn m
   herdr_pn=""
@@ -2507,12 +2505,7 @@ generate_herdr_config() {
       "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
   done
   local herdr_state_row='"state_icon", "workspace"'
-  herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
-    "$herdr_state_row")"
-  herdr_claude_rows="$(printf 'claude = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
-  # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
-  local herdr_store_rows
-  herdr_store_rows="$(printf '[[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
+  herdr_agent_rows="$(printf 'rows = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
 
   local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
   local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
@@ -2565,7 +2558,7 @@ EOF
   )"
 
   # Same as generate_ccstatusline_config: target only, because config.toml.tmpl resolves this palette itself at apply time.
-  local herdr_file herdr_agent_key
+  local herdr_file
   for herdr_file in "$herdr_target"; do
     [ -f "$herdr_file" ] || continue
 
@@ -2585,21 +2578,9 @@ EOF
     HERDR_ROWS="$herdr_rows" perl -i -pe \
       'if (/^rows\s*=/ && /\$br/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
 
-    # 1c) agents rows: the OTHER `rows =` line (no $br); state_text keeps it off any future unstyled row.
+    # 1c) agents rows: the OTHER `rows =` line, keyed on $pn since only that one carries it.
     HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /state_text/ && !/\$br/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
-
-    # 1d) rows_by_agent.claude: keyed on $pn, the token only the agent row sets carry.
-    HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
-      'if (/^claude\s*=/ && /\$pn/) { $_ = $ENV{HERDR_CLAUDE_ROWS} . "\n" }' "$herdr_file"
-
-    # 1e) rows_by_agent.pi / .opencode: keyed on $pn so a plain `pi = …` elsewhere
-    #     in the file (a theme key, a plugin id) can never be rewritten by accident.
-    for herdr_agent_key in pi opencode; do
-      HERDR_AGENT_KEY="$herdr_agent_key" HERDR_STORE_ROWS="$herdr_store_rows" perl -i -pe \
-        'if (/^\Q$ENV{HERDR_AGENT_KEY}\E\s*=/ && /\$pn/) {
-           $_ = "$ENV{HERDR_AGENT_KEY} = $ENV{HERDR_STORE_ROWS}\n" }' "$herdr_file"
-    done
+      'if (/^rows\s*=/ && /\$pn/ && !/\$br/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
 
     # 2) [theme.custom] palette: strip any prior managed block (idempotent), then
     #    re-append the freshly-interpolated one at EOF.
