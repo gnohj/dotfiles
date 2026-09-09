@@ -2523,7 +2523,6 @@ generate_herdr_config() {
   herdr_agent_rows="$(printf 'rows = [[%s], ["agent", { token = "state_text", dim = false }]]' \
     "$herdr_state_row")"
   herdr_claude_rows="$(printf 'claude = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
-  # pi/opencode: claude's shape exactly - both daemons feed all three agents now.
   local herdr_store_rows
   herdr_store_rows="$(printf '[[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
 
@@ -2606,9 +2605,7 @@ EOF
     HERDR_CLAUDE_ROWS="$herdr_claude_rows" perl -i -pe \
       'if (/^claude\s*=/ && /\$pn/) { $_ = $ENV{HERDR_CLAUDE_ROWS} . "\n" }' "$herdr_file"
 
-    # 1e) rows_by_agent.pi / .opencode: keyed on $pn so a plain `pi = …` elsewhere
-    #     in the file (a theme key, a plugin id) can never be rewritten by accident.
-    for herdr_agent_key in pi opencode; do
+    for herdr_agent_key in pi opencode hermes; do
       HERDR_AGENT_KEY="$herdr_agent_key" HERDR_STORE_ROWS="$herdr_store_rows" perl -i -pe \
         'if (/^\Q$ENV{HERDR_AGENT_KEY}\E\s*=/ && /\$pn/) {
            $_ = "$ENV{HERDR_AGENT_KEY} = $ENV{HERDR_STORE_ROWS}\n" }' "$herdr_file"
