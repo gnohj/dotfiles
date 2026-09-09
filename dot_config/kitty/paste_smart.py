@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
@@ -44,7 +45,11 @@ def converted_heic_path(text):
     path = Path(raw_path)
     if path.suffix.lower() not in (".heic", ".heif") or not path.is_file():
         return None
-    output_dir = Path(tempfile.mkdtemp(prefix="terminal-image-paste-"))
+    temp_root = Path("/private/tmp" if sys.platform == "darwin" else "/tmp")
+    paste_root = temp_root / f"terminal-image-paste-{os.getuid()}"
+    paste_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    output_dir = Path(tempfile.mkdtemp(prefix="image-", dir=paste_root))
+    output_dir.chmod(0o750)
     output = output_dir / f"{path.stem}.png"
     if sys.platform == "darwin":
         command = ["sips", "-s", "format", "png", str(path), "--out", str(output)]
