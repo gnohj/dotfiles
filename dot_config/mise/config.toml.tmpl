@@ -39,6 +39,10 @@ herdr = "latest"                                   # agent multiplexer; on `late
 "npm:tasks-axi" = "latest"
 "npm:quota-axi" = "latest"
 
+# backpass proposes evidence-backed AGENTS.md edits from local agent transcripts; acpx is the model-call layer it requires.
+"npm:backpass" = "latest"
+"npm:acpx" = "latest"
+
 # Moved off nix: each release needed a hand bump of version + srcHash + vendorHash so the box sat versions behind, and the signed release binaries are version-stamped, so nix's ldflags workaround is moot.
 "github:kunchenguid/no-mistakes" = "latest"        # dev workflow guard; firstmate needs >=1.31.2
 "github:kunchenguid/treehouse" = "latest"          # pooled detached worktrees; firstmate spawn needs `get --lease`
