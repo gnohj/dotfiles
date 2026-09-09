@@ -60,10 +60,12 @@ def converted_heic_path(text, system):
 
 
 def ghostty_terminal_script(command):
-    return f'''tell application "Ghostty"
+    return f'''on run argv
+tell application "Ghostty"
 set term to focused terminal of selected tab of front window
 {command}
-end tell'''
+end tell
+end run'''
 
 
 def paste_macos(text):
@@ -71,7 +73,9 @@ def paste_macos(text):
         script = ghostty_terminal_script("input text (item 1 of argv) to term")
         run(["osascript", "-", text], input_text=script)
     else:
-        script = ghostty_terminal_script('send key "v" modifiers "control" to term')
+        script = ghostty_terminal_script(
+            'perform action "paste_from_clipboard" on term'
+        )
         run(["osascript", "-"], input_text=script)
 
 
