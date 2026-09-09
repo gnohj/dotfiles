@@ -443,12 +443,13 @@ def lookup_title(pane, readers):
 
 
 def desired(pane):
-    """The slug this pane should carry, or None to leave it alone."""
+    """The row text this pane should carry, or None to leave it alone."""
     if not pane.get("agent"):
         return None
-    # A deliberate `pane.rename` outranks us.
-    if (pane.get("label") or "").strip():
-        return None
+    # A rename outranks us for the BORDER title only - the $pn_* slot is row 2's one source, so retracting it collapses the row.
+    label = (pane.get("label") or "").strip()
+    if label:
+        return label
     title = (lookup_title(pane, STORE_READERS) or "").strip()
     if not title:
         title = (pane.get("terminal_title_stripped") or "").strip()
@@ -510,17 +511,19 @@ def apply(pane, cache, recheck_width=False):
         cache[pane_id] = (raw, slug, slot, tab, pad)
         return
     row = pad + tab + slug
-    result = request(
-        "pane.report_metadata",
-        {
-            "pane_id": pane_id,
-            "seq": time.time_ns(),
-            "source": SOURCE,
-            "title": slug,
-            # Title stays bare - that is the pane BORDER label, which sits in the tab it names.
-            "tokens": {n: (row if n == slot else None) for n in PN_SLOTS},
-        },
-    )
+    payload = {
+        "pane_id": pane_id,
+        "seq": time.time_ns(),
+        "source": SOURCE,
+        # Title stays bare - that is the pane BORDER label, which sits in the tab it names.
+        "tokens": {n: (row if n == slot else None) for n in PN_SLOTS},
+    }
+    # A hand-renamed pane keeps its own border label, so drop ours rather than competing for it.
+    if (pane.get("label") or "").strip():
+        payload["clear_title"] = True
+    else:
+        payload["title"] = slug
+    result = request("pane.report_metadata", payload)
     if result is not None:
         cache[pane_id] = (raw, slug, slot, tab, pad)
 
