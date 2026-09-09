@@ -1,0 +1,61 @@
+name: hermes-agent
+
+services:
+  hermes:
+    image: nousresearch/hermes-agent:v2026.9.7@sha256:63bfb6d732f49a55d453e801057273785cc61e0f6ee43db3fa2f2a79846301b7
+    command:
+      - sleep
+      - infinity
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /command/s6-svstat /run/service/main-hermes 2>/dev/null | grep -q '^up '
+      interval: 1s
+      timeout: 2s
+      retries: 60
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    privileged: false
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 4g
+    cpus: 4
+    shm_size: 1g
+    environment:
+      HERMES_UID: ${HERMES_UID}
+      HERMES_GID: ${HERMES_GID}
+      TERM: ${TERM:-xterm-256color}
+      COLORTERM: ${COLORTERM:-truecolor}
+    volumes:
+      - hermes-data:/opt/data
+      - type: bind
+        source: ${HERMES_WORKSPACE}
+        target: /workspace
+      - type: bind
+        source: ${HERDR_CLIPBOARD_DIR}
+        target: ${HERDR_CLIPBOARD_DIR}
+        read_only: true
+      - type: bind
+        source: ${TERMINAL_IMAGE_DIR}
+        target: ${TERMINAL_IMAGE_DIR}
+        read_only: true
+    networks:
+      - hermes
+
+volumes:
+  hermes-data:
+
+networks:
+  hermes:
+    driver: bridge

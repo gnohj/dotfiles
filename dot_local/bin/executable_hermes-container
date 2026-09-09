@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+system=$(uname -s)
+uid=$(id -u)
+gid=$(id -g)
+username=$(id -un)
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+compose_file=$config_home/hermes-container/compose.yaml
+
+if [[ ${HERDR_ENV:-} == 1 ]]; then
+  export HERDR_AGENT=hermes
+fi
+
+case $system in
+  Darwin)
+    temp_root=/private/tmp
+    ;;
+  Linux)
+    temp_root=/tmp
+    export DOCKER_HOST=${HERMES_DOCKER_HOST:-unix://${XDG_RUNTIME_DIR:-/run/user/$uid}/docker.sock}
+    ;;
+  *)
+    printf 'hermes-container: unsupported host: %s\n' "$system" >&2
+    exit 1
+    ;;
+esac
+
+export HERMES_UID=$uid
+export HERMES_GID=$gid
+export HERMES_WORKSPACE=${HERMES_WORKSPACE:-$data_home/hermes/workspace}
+export HERDR_CLIPBOARD_DIR=${HERDR_CLIPBOARD_DIR:-$temp_root/herdr-clipboard-images-$uid}
+export TERMINAL_IMAGE_DIR=${TERMINAL_IMAGE_DIR:-$temp_root/terminal-image-paste-$uid}
+
+mkdir -p "$HERMES_WORKSPACE" "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"
+chmod 700 "$HERMES_WORKSPACE" "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"
+
+if [[ $system == Linux ]]; then
+  command -v setfacl >/dev/null 2>&1 || {
+    printf '%s\n' 'hermes-container: setfacl is required for rootless bind mounts.' >&2
+    exit 1
+  }
+  subuid_start=$(awk -F: -v username="$username" '$1 == username { print $2; exit }' /etc/subuid)
+  [[ -n $subuid_start ]] || {
+    printf 'hermes-container: no subordinate UID range exists for %s.\n' "$username" >&2
+    exit 1
+  }
+  container_uid=$((subuid_start + uid - 1))
+  setfacl -m "u:$container_uid:rwx,d:u:$container_uid:rwx,d:u:$uid:rwx" "$HERMES_WORKSPACE"
+  for image_dir in "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"; do
+    setfacl -R -m "u:$container_uid:rX" "$image_dir"
+    find "$image_dir" -type d -exec setfacl -m "d:u:$container_uid:rx" {} +
+  done
+fi
+
+compose=(docker compose -f "$compose_file")
+action=${1:-chat}
+
+if [[ $action == compose-config ]]; then
+  shift
+  exec "${compose[@]}" config "$@"
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  if [[ $system == Linux ]]; then
+    printf '%s\n' 'hermes-container: rootless Docker is unavailable.' >&2
+    printf '%s\n' 'Install it with: omarchy pkg add rootlesskit slirp4netns fuse-overlayfs && omarchy pkg aur add docker-rootless-extras' >&2
+    printf '%s\n' 'Then start it with: systemctl --user enable --now docker.socket' >&2
+  else
+    printf '%s\n' 'hermes-container: start Docker Desktop and try again.' >&2
+  fi
+  exit 1
+fi
+
+case $action in
+  pull)
+    exec "${compose[@]}" pull
+    ;;
+  stop)
+    exec "${compose[@]}" down --remove-orphans
+    ;;
+  docker-status)
+    exec "${compose[@]}" ps
+    ;;
+esac
+
+"${compose[@]}" up -d --remove-orphans --wait --wait-timeout 60 hermes
+exec_options=()
+[[ -t 0 && -t 1 ]] || exec_options=(-T)
+
+case $action in
+  chat)
+    shift || true
+    exec "${compose[@]}" exec "${exec_options[@]}" hermes hermes "$@"
+    ;;
+  shell)
+    shift
+    exec "${compose[@]}" exec "${exec_options[@]}" --user "$uid:$gid" -e HOME=/opt/data hermes bash "$@"
+    ;;
+  *)
+    exec "${compose[@]}" exec "${exec_options[@]}" hermes hermes "$@"
+    ;;
+esac

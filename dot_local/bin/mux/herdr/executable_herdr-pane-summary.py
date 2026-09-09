@@ -132,7 +132,7 @@ def tab_prefix(tab_id, fetch):
     position = _TAB_POS.get(tab_id)
     return f"{position}." if position else ""
 
-SUBSCRIPTIONS = ["pane.updated", "pane.created", "pane.closed",
+SUBSCRIPTIONS = ["pane.updated", "pane.created", "pane.closed", "pane.agent_status_changed",
                  "tab.created", "tab.closed", "tab.moved"]
 # These renumber every tab after the one that moved, so a prefix shifts with no pane event of its own; tab.renamed is absent because the prefix reads tab ORDER, not the label.
 TAB_ORDER_EVENTS = {"tab_created", "tab_closed", "tab_moved"}
@@ -150,7 +150,8 @@ TRAILING_STOPWORDS = {"a", "an", "and", "at", "for", "in", "of", "on", "or", "th
 
 # The agent's pre-summary placeholder title. Claude shows this until the session has enough
 # context to name itself; naming a pane from it would label every fresh pane identically.
-PLACEHOLDERS = {"claude code", "claude", "codex", "opencode", "pi"}
+PLACEHOLDERS = {"claude code", "claude", "codex", "opencode", "pi", "hermes", "hermes agent"}
+FALLBACK_TITLES = {"hermes": "hermes"}
 
 # On-disk title reads for the agents the OSC title fails (see lookup_title); 64 KB window.
 HEAD_BYTES = 64 * 1024
@@ -455,6 +456,8 @@ def desired(pane):
     if not title or title.lower() in PLACEHOLDERS:
         title = (lookup_title(pane, TRANSCRIPT_READERS) or "").strip()
     if not title or title.lower() in PLACEHOLDERS:
+        title = FALLBACK_TITLES.get(pane.get("agent"), "")
+    if not title:
         return None
     return slugify(title, WORDS) or None
 
@@ -551,6 +554,9 @@ def handle(msg, cache):
     data = msg.get("data") or {}
     if event in ("pane_updated", "pane_created"):
         apply(data.get("pane") or {}, cache)
+    elif event == "pane_agent_status_changed":
+        result = request("pane.get", {"pane_id": data.get("pane_id")})
+        apply((result or {}).get("pane") or {}, cache)
     elif event == "pane_closed":
         cache.pop(data.get("closed_pane_id") or data.get("pane_id"), None)
     elif event in TAB_ORDER_EVENTS:
