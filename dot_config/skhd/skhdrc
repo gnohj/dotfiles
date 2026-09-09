@@ -3,7 +3,8 @@ cmd + shift - q : osascript -e 'tell application "System Events" to set frontApp
 cmd - m : :
 cmd - h : :
 cmd - 0x27 : ~/.local/bin/baby-menu-toggle
-cmd - v [
+# rctrl and not cmd+v: skhd's tap catches SYNTHETIC keystrokes too, so OpenSuperWhisper's post-dictation Cmd+V was rerouted through this ~140ms out-of-process hop and lost the race against its own clipboard restore (issue #153). Cmd+V stays Ghostty-native; lctrl+v still reaches the shell as 0x16.
+rctrl - v [
   "Ghostty" : ~/.local/bin/terminal-smart-paste
   * ~
 ]
