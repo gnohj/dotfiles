@@ -7,6 +7,7 @@ import type {
   RunScheduleResult,
   ScheduleJob,
   ToggleScheduleResult,
+  TokenRow,
 } from "./types";
 
 const statusColor: Record<string, string> = {
@@ -51,6 +52,74 @@ function QuotaLine({ row }: { row: QuotaRow }) {
           <div
             className={`h-full rounded-pill ${barColor}`}
             style={{ width: `${value.percent}%` }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const tokenTextTone: Record<string, string> = {
+  ok: "text-signal-live",
+  warn: "text-signal-warn",
+  critical: "text-signal-danger",
+  expired: "text-signal-danger",
+  missing: "text-ink-soft",
+};
+
+const tokenBarTone: Record<string, string> = {
+  ok: "bg-signal-live",
+  warn: "bg-signal-warn",
+  critical: "bg-signal-danger",
+  expired: "bg-signal-danger",
+  missing: "bg-ink-faint",
+};
+
+// Matches the provider labels agent-quota.sh emits, so both sections read the same.
+function tokenLabel(account: string): string {
+  return account === "personal" || account === "work"
+    ? `Claude ${account}`
+    : account;
+}
+
+function TokenLine({ row }: { row: TokenRow }) {
+  const lifetime =
+    row.daysLeft !== null && row.storedDaysAgo !== null
+      ? row.daysLeft + row.storedDaysAgo
+      : null;
+  const percent =
+    lifetime !== null && lifetime > 0 && row.daysLeft !== null
+      ? Math.max(0, Math.min(100, Math.round((row.daysLeft / lifetime) * 100)))
+      : null;
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 border-b border-line-faint py-2.5 last:border-0">
+      <div className="min-w-0">
+        <div className="truncate text-sm text-ink-strong">
+          {tokenLabel(row.account)}
+        </div>
+        <div className="text-xs text-ink-soft">
+          {row.expires ? `expires ${row.expires}` : "no token stored"}
+        </div>
+      </div>
+      <div className="text-right">
+        <div
+          className={`font-mono text-md ${tokenTextTone[row.status] ?? "text-ink-soft"}`}
+        >
+          {row.daysLeft === null
+            ? "none"
+            : row.daysLeft <= 0
+              ? "expired"
+              : `${row.daysLeft}d left`}
+        </div>
+        <div className="text-xxs uppercase tracking-caps text-ink-label">
+          {row.status}
+        </div>
+      </div>
+      {percent !== null ? (
+        <div className="col-span-2 h-1 overflow-hidden rounded-pill bg-line-faint">
+          <div
+            className={`h-full rounded-pill ${tokenBarTone[row.status] ?? "bg-ink-faint"}`}
+            style={{ width: `${percent}%` }}
           />
         </div>
       ) : null}
@@ -277,6 +346,14 @@ export function OperationsView() {
       });
   }, []);
 
+  const tokenAlerts =
+    dashboard?.tokens.filter((row) => row.status !== "ok").length ?? 0;
+  const tokenDays =
+    dashboard?.tokens
+      .map((row) => row.daysLeft)
+      .filter((days): days is number => days !== null) ?? [];
+  const soonestToken = tokenDays.length ? Math.min(...tokenDays) : null;
+
   return (
     <div
       ref={scrollContainer}
@@ -335,6 +412,34 @@ export function OperationsView() {
             ))
           ) : (
             <EmptyState>No quota data</EmptyState>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xxs uppercase tracking-caps text-ink-label">
+            OAuth tokens
+          </span>
+          <span
+            className={
+              tokenAlerts ? "text-xs text-signal-warn" : "text-xs text-ink-soft"
+            }
+          >
+            {tokenAlerts
+              ? `${tokenAlerts} need refreshing`
+              : soonestToken !== null
+                ? `${soonestToken}d until the first renewal`
+                : "no tokens stored"}
+          </span>
+        </div>
+        <div className="rounded-md border border-line bg-surface px-3">
+          {dashboard?.tokens.length ? (
+            dashboard.tokens.map((row) => (
+              <TokenLine key={row.account} row={row} />
+            ))
+          ) : (
+            <EmptyState>No token data</EmptyState>
           )}
         </div>
       </section>
