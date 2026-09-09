@@ -56,6 +56,8 @@ in
           "${homeDir}/.config/zshrc/github-auto-push.sh"
         ];
         StartInterval = 180;  # Run every 3 minutes
+        # StartInterval counts from load, so without this a reboot buys 3 minutes of unpushed dotfiles.
+        RunAtLoad = true;
         StandardOutPath = "${homeDir}/.logs/git_autopush/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/git_autopush/launchagent.err.log";
       };
@@ -350,6 +352,8 @@ in
           "${homeDir}/.local/bin/cleanup-logs.sh"
         ];
         StartInterval = 259200;  # Run every 72 hours (259200 seconds)
+        # The 72h timer restarts on every load, so rebooting more often than that would starve this forever.
+        RunAtLoad = true;
         StandardOutPath = "${homeDir}/.logs/cleanup/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/cleanup/launchagent.err.log";
       };
