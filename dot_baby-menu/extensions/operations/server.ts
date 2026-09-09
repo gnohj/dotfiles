@@ -9,6 +9,8 @@ import type {
   ScheduleJob,
   ScheduleSection,
   ToggleScheduleResult,
+  TokenRow,
+  TokenStatus,
 } from "./types";
 
 const home = homedir();
@@ -20,6 +22,7 @@ const schedulesScript = join(
   home,
   ".config/sketchybar/items/widgets/schedules-panel.py",
 );
+const claudeAccountScript = join(home, ".local/bin/claude-account");
 const actionLog = join(home, ".logs/baby-menu/operations.log");
 
 function execute(
@@ -59,6 +62,47 @@ function parseQuotas(output: string): QuotaRow[] {
       const [provider = "", window = "", remaining = "", reset = ""] =
         line.split("\t");
       return { provider, window, remaining, reset };
+    });
+}
+
+// token-check exits 1 whenever any account is short of "ok", but still prints every row.
+function executeIgnoringExit(file: string, args: string[]): Promise<string> {
+  return new Promise((resolveOutput) => {
+    execFile(
+      file,
+      args,
+      { env: process.env, timeout: 30_000, maxBuffer: 1024 * 1024 },
+      (_error, stdout) => resolveOutput(stdout),
+    );
+  });
+}
+
+const tokenStatuses: readonly TokenStatus[] = [
+  "ok",
+  "warn",
+  "critical",
+  "expired",
+  "missing",
+];
+
+function parseTokens(output: string): TokenRow[] {
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [account = "", stored = "", expires = "", status = ""] =
+        line.split("\t");
+      const age = /\((\d+)d ago\)/.exec(stored);
+      const expiry = /expires ~(\S+) \((-?\d+)d\)/.exec(expires);
+      return {
+        account,
+        status: (tokenStatuses as string[]).includes(status)
+          ? (status as TokenStatus)
+          : "missing",
+        daysLeft: expiry ? Number(expiry[2]) : null,
+        storedDaysAgo: age ? Number(age[1]) : null,
+        expires: expiry ? (expiry[1] ?? "") : "",
+      };
     });
 }
 
@@ -212,9 +256,17 @@ export const actions = {
       errors.push(error instanceof Error ? error.message : String(error));
       return "";
     });
+    const tokenResult = await executeIgnoringExit("/bin/bash", [
+      claudeAccountScript,
+      "token-check",
+    ]);
+    const tokens = parseTokens(tokenResult);
+    if (!tokens.length)
+      errors.push("claude-account token-check returned no rows");
 
     return {
       quotas: parseQuotas(quotaResult),
+      tokens,
       ...parseSchedules(scheduleResult),
       errors,
       refreshedAt: new Date().toISOString(),

@@ -5,6 +5,16 @@ export type QuotaRow = {
   reset: string;
 };
 
+export type TokenStatus = "ok" | "warn" | "critical" | "expired" | "missing";
+
+export type TokenRow = {
+  account: string;
+  status: TokenStatus;
+  daysLeft: number | null;
+  storedDaysAgo: number | null;
+  expires: string;
+};
+
 export type ScheduleJob = {
   name: string;
   remaining: string;
@@ -35,6 +45,7 @@ export type ToggleScheduleResult = {
 
 export type OperationsDashboard = {
   quotas: QuotaRow[];
+  tokens: TokenRow[];
   schedules: ScheduleSection[];
   activeSchedules: number;
   problemSchedules: number;
