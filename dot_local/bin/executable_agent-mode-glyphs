@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# 🧠 when /i-have-adhd is active in this session, 🐴 when /ponytail is; the transcript is the only truthful source.
+set -u
+
+json=$(cat)
+t=${json#*\"transcript_path\":\"}
+t=${t%%\"*}
+[ -n "$t" ] && [ "$t" != "$json" ] && [ -f "$t" ] || exit 0
+
+# Unescaped structural JSON on purpose: quoted-in-prose copies are escaped, so discussing a mode never triggers it.
+ON_ADHD='"name":"Skill","input":\{"skill":"i-have-adhd"\}|"content":"<command-message>i-have-adhd</command-message>'
+ON_PONY='"content":"<command-message>ponytail</command-message>'
+OFF='"content":"[^"]{0,40}(stop adhd mode|stop ponytail|normal mode)'
+
+grep -nE "$ON_ADHD|$ON_PONY|$OFF" -- "$t" 2>/dev/null |
+  awk -F: -v on_a="$ON_ADHD" -v on_p="$ON_PONY" '
+    $0 ~ on_a                                    { a_on = $1 }
+    $0 ~ on_p                                    { p_on = $1 }
+    /stop adhd mode|normal mode/                 { a_off = $1 }
+    /stop ponytail|normal mode/                  { p_off = $1 }
+    END {
+      s = ""
+      if (a_on + 0 > a_off + 0) s = s "🧠"
+      if (p_on + 0 > p_off + 0) s = s "🐴"
+      if (s != "") print s
+    }
+  '
