@@ -69,6 +69,14 @@ return {
     },
   },
   config = function(_, opts)
+    local utils = require("octo.utils")
+    local generate_position2line_map = utils.generate_position2line_map
+    utils.generate_position2line_map = function(diffhunk)
+      local normalized_diffhunk =
+        diffhunk:gsub("^(@@%s*%-%d+)(%s+%+)", "%1,1%2", 1)
+      return generate_position2line_map(normalized_diffhunk)
+    end
+
     require("octo").setup(opts)
 
     -- Submit closes octo's own tabpage only; release drops the sibling #<pr> tabs.
