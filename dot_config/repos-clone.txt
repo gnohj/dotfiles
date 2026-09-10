@@ -30,3 +30,7 @@ git@github.com:gnohj/fm-compass.git ~/Developer/fm-compass
 https://github.com/kunchenguid/firstmate.git ~/Developer/firstmate
 # vision is an Agent Skills package (same author), cloned like firstmate so `update` fast-forwards it: `npx skills add -g` would instead symlink the autopushed agents monorepo at a machine-local npx cache the other box lacks.
 https://github.com/kunchenguid/vision.git ~/Developer/vision
+# i-have-adhd is an Agent Skills package (ayghri, MIT), cloned like vision so `update` fast-forwards it.
+https://github.com/ayghri/i-have-adhd.git ~/Developer/i-have-adhd
+# ponytail is an Agent Skills package (DietrichGebert, MIT); reached through typed-only commands, since its frontmatter would otherwise self-invoke on every coding task.
+https://github.com/DietrichGebert/ponytail.git ~/Developer/ponytail

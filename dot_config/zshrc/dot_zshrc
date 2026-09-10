@@ -148,7 +148,7 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
-# `update` - pull the config repos onto this machine: chezmoi (dotfiles), the agents checkout, and the kunchenguid upstreams (firstmate distro, vision skill). Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
+# `update` - pull the config repos onto this machine: chezmoi (dotfiles), the agents checkout, and the upstream skill packages (firstmate distro, vision, i-have-adhd, ponytail). Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
   local repo name slug fails=0
   if command -v chezmoi >/dev/null 2>&1; then
@@ -158,8 +158,8 @@ update() {
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
   if command -v git >/dev/null 2>&1; then
-    # owner/name slugs, not bare paths: firstmate and vision are upstream clones (kunchenguid), not gnohj repos.
-    for slug in gnohj/agents gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision; do
+    # owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
+    for slug in gnohj/agents gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail; do
       name=${slug:t}
       repo="$HOME/Developer/$name"
       if [ ! -d "$repo/.git" ]; then
