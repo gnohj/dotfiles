@@ -54,5 +54,6 @@ launcher="${GH_REVIEW_OPEN:-$HOME/.config/gh-dash/review-open.sh}"
 [ -f "$launcher" ] || { echo "review-lavish-resume: review launcher is unavailable" >&2; exit 1; }
 if [ -x "$launcher" ]; then launcher_command=("$launcher"); else launcher_command=(bash "$launcher"); fi
 
-nohup env HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1 &
+# -u GH_TOKEN: gh prefers it over the keyring, and a scope-less one 404s every call on a private repo.
+nohup env -u GH_TOKEN -u GITHUB_TOKEN HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1 &
 printf 'review agent restart queued: %s#%s in workspace %s\n' "$repo" "$pr" "$workspace_id"
