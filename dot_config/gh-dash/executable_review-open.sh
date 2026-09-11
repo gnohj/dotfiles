@@ -200,9 +200,13 @@ open_finder_claude() {
 # The finder is pinned; $2 labels the tab with the rung resolved by --check.
 open_finder_pi() {
   write_finder_brief "$1" gpt
+  # Only when set: review-finder-pi.sh treats an EMPTY ladder as "no fallback, fail on rung 1", so
+  # forwarding it unconditionally would disable the ladder on every unpinned review.
+  local ladder_env=()
+  [ -n "${REVIEW_FINDER_LADDER:-}" ] && ladder_env=(--env REVIEW_FINDER_LADDER="$REVIEW_FINDER_LADDER")
   mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
     --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
-    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" "🔎2 #$pr ${2:-gpt}" "$1" \
+    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" "${ladder_env[@]}" "🔎2 #$pr ${2:-gpt}" "$1" \
     '"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
