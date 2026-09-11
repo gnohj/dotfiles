@@ -27,6 +27,7 @@
       "oven-sh/bun"
       "fastly/tap"
       "pulumi/tap"
+      "rjyo/moshi"
       "sst/tap"
       "koekeishiya/formulae"
       "kunchenguid/tap"
@@ -41,6 +42,8 @@
       # opencode stays: its own installer (~/.opencode/bin) shadows this, and the
       # anomalyco vs sst forks may differ — left unmerged on purpose.
       "anomalyco/tap/opencode"
+      # From the tap, not the curl|sh installer, which drops it in chezmoi-owned ~/.local/bin.
+      "rjyo/moshi/moshi-hook"
 
       # System services & window management
       "FelixKratz/formulae/borders"
@@ -85,6 +88,7 @@
     # GUI applications (casks)
     casks = [
       # AI Tools — claude-code CLI moved to mise (npm:@anthropic-ai/claude-code, both OSes).
+      # Moshi Desktop has no cask; run_onchange_after_install-moshi-desktop.sh pulls the dmg.
       "opensuperwhisper"
 
       # Browsers

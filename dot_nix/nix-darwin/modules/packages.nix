@@ -34,6 +34,11 @@ in
     nerd-fonts.jetbrains-mono # Ghostty alternate option
   ];
 
+  # A font store-hash change leaves macOS serving the old path, so every glyph boxes until fontd rescans.
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    killall fontd 2>/dev/null || true
+  '';
+
   # Where everything else lives:
   # - Cross-platform CLI core in common/packages.nix (shared with the Linux VPS)
   # - Homebrew formulae/casks in homebrew.nix
