@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Spawn an agent that polls one Lavish artifact; a bare `lavish-axi poll` here would drain queued feedback into nothing.
+set -euo pipefail
+
+raw=${1:?usage: lavish-attach <artifact.html>}
+path=$(python3 -c 'import sys,pathlib;print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$raw")
+[ -f "$path" ] || { echo "lavish-attach: no artifact at $path" >&2; exit 1; }
+
+if pgrep -f "lavish-axi poll .*$path" >/dev/null 2>&1; then
+  echo "lavish-attach: an agent is already polling $path" >&2
+  exit 1
+fi
+
+cwd=$(dirname "$path")
+probe=$cwd
+while [ "$probe" != "/" ]; do
+  if [ -e "$probe/.git" ]; then cwd=$probe; break; fi
+  probe=$(dirname "$probe")
+done
+
+mux=${MUX:-$HOME/.local/bin/mux/mux}
+[ -x "$mux" ] || { echo "lavish-attach: mux is unavailable at $mux" >&2; exit 1; }
+
+read -r -d '' brief <<BRIEF || true
+You are the agent for the Lavish artifact at $path
+
+First, announce yourself so the reader stops seeing Lavish's stale "agent is not listening" banner:
+lavish-axi poll $path --agent-reply "Agent attached. Send a note or comment on any element and I will apply it."
+
+That command posts the reply and then waits, which is the same poll. Keep it in the foreground and never background it. When it returns feedback, apply the change to the artifact, then poll again with --agent-reply "<what you did>" so the reader sees your answer and you resume waiting. If the poll times out with no feedback, run it again; queued feedback survives until a poll delivers it.
+
+Do not edit anything outside the artifact and the files it is generated from, and do not end the session yourself.
+BRIEF
+
+# The brief lands inside a double-quoted string in the pane's shell, where $, ` and \ still expand.
+shquote() { local s=${1//\\/\\\\}; s=${s//\$/\\$}; s=${s//\`/\\\`}; printf '%s' "${s//\"/\\\"}"; }
+
+sp="$HOME/Developer/agents/shared/system-prompt.md"
+sp_arg=""
+[ -f "$sp" ] && sp_arg="--append-system-prompt-file $sp"
+
+title=$(python3 - "$path" <<'TITLE'
+import html, pathlib, re, sys
+text = pathlib.Path(sys.argv[1]).read_text(errors="replace")[:8192]
+match = re.search(r"<title[^>]*>(.*?)</title>", text, re.S | re.I)
+name = html.unescape(match.group(1)).strip() if match else ""
+print(" ".join(name.split())[:40] or pathlib.Path(sys.argv[1]).parent.name)
+TITLE
+)
+
+# The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never yanks the desktop.
+exec "$mux" window --no-focus --env BASH_DEFAULT_TIMEOUT_MS=600000 \
+  "👁 $title" "$cwd" \
+  'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$sp_arg"' "'"$(shquote "$brief")"'"'

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Spawn an agent that builds ONE Lavish artifact from a prompt, then publishes and registers it.
+set -euo pipefail
+
+prompt=${1:?usage: lavish-create <prompt> [slug]}
+slug=${2:-}
+if [ -z "$slug" ]; then
+  # tr, not sed: BSD sed has no \+ and silently leaves the pattern unmatched.
+  slug=$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40)
+  slug=${slug#-}; slug=${slug%-}
+fi
+[ -n "$slug" ] || slug="artifact-$(date +%s)"
+
+root="$HOME/.local/share/lavish/$slug"
+# A second run of the same prompt gets its own directory rather than overwriting the first.
+if [ -e "$root" ]; then root="$root-$(date +%H%M%S)"; fi
+mkdir -p "$root"
+path="$root/index.html"
+
+mux=${MUX:-$HOME/.local/bin/mux/mux}
+[ -x "$mux" ] || { echo "lavish-create: mux is unavailable at $mux" >&2; exit 1; }
+
+read -r -d '' brief <<BRIEF || true
+Build one Lavish artifact at $path answering this, and nothing else:
+
+$prompt
+
+How to work:
+1. Research whatever the prompt needs from this machine before writing anything. An artifact that restates the prompt is a failure.
+2. Write a single self-contained HTML page at $path. Follow the artifact rules in your instructions for theme and structure.
+3. Publish it: lavish-axi $path
+4. Register it: python3 \$HOME/Developer/agents/shared/skills/lavish-library/library.py observe $path
+5. Then poll and stay listening: lavish-axi poll $path --agent-reply "Built it. Comment on anything and I will revise it."
+
+Do not edit anything outside $root. Do not end the session yourself.
+BRIEF
+
+# The brief lands inside a double-quoted string in the pane's shell, where $, ` and \ still expand.
+shquote() { local s=${1//\\/\\\\}; s=${s//\$/\\$}; s=${s//\`/\\\`}; printf '%s' "${s//\"/\\\"}"; }
+
+sp="$HOME/Developer/agents/shared/system-prompt.md"
+sp_arg=""
+[ -f "$sp" ] && sp_arg="--append-system-prompt-file $sp"
+
+model_arg=""
+[ -n "${LAVISH_AGENT_MODEL:-}" ] && model_arg="--model $LAVISH_AGENT_MODEL"
+[ -n "${LAVISH_AGENT_EFFORT:-}" ] && model_arg="$model_arg --effort $LAVISH_AGENT_EFFORT"
+
+printf '%s\n' "$path"
+exec "$mux" window --no-focus --env BASH_DEFAULT_TIMEOUT_MS=600000 \
+  "✨ ${slug:0:28}" "$root" \
+  'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$model_arg $sp_arg"' "'"$(shquote "$brief")"'"'

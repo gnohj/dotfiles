@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# An agent that adds findings to an already-published review page; the diff is readable before it runs.
+set -euo pipefail
+
+page=${1:?usage: lavish-quick-review <review.html> <repo> <pr>}
+repo=${2:?missing repo}
+pr=${3:?missing pr}
+[ -f "$page" ] || { echo "lavish-quick-review: no page at $page" >&2; exit 1; }
+
+root=$(dirname "$page")
+mux=${MUX:-$HOME/.local/bin/mux/mux}
+[ -x "$mux" ] || { echo "lavish-quick-review: mux is unavailable at $mux" >&2; exit 1; }
+
+read -r -d '' brief <<BRIEF || true
+Read $repo#$pr and add findings to the review page already published at $page
+
+The page is live and the reviewer is reading it now. The diff is already rendered; your job is only
+to add what reading it tells you.
+
+Scope - this is a QUICK review, not a full one:
+- Read the diff in $root/patch.js. Do not lease a worktree, do not run the test suite, do not drive a
+  browser, do not read CI. A full review does those; this one does not.
+- Never read or comment on generated or vendored files.
+
+How to write findings:
+1. Edit ONLY the findings array in $root/data.js, plus headline, intent and overview once you can say
+   something true about the change. Change nothing else, and never touch pendingComments - those are
+   the reviewer's own comments and overwriting them destroys their work.
+2. Each finding is {file, line, side, severity, kind, summary, detail}, exactly as the template reads
+   them. Anchor on a line that is in the diff.
+3. Write them INCREMENTALLY - one or two at a time, saving after each. Each save reloads the page, so
+   the reviewer watches findings arrive instead of waiting for one big drop.
+4. When you have read the whole diff, set verdict {rating, reason} and stop adding.
+
+Then talk to the reviewer:
+lavish-axi poll $page --agent-reply "<what you found, in the reply shape your instructions require>"
+
+Keep polling. Apply what they ask. Do not submit the review yourself - the reviewer submits.
+BRIEF
+
+# The brief lands inside a double-quoted string in the pane's shell, where $, ` and \ still expand.
+shquote() { local s=${1//\\/\\\\}; s=${s//\$/\\$}; s=${s//\`/\\\`}; printf '%s' "${s//\"/\\\"}"; }
+
+sp="$HOME/Developer/agents/shared/system-prompt.md"
+sp_arg=""
+[ -f "$sp" ] && sp_arg="--append-system-prompt-file $sp"
+
+model_arg=""
+[ -n "${LAVISH_AGENT_MODEL:-}" ] && model_arg="--model $LAVISH_AGENT_MODEL"
+
+exec "$mux" window --no-focus --env BASH_DEFAULT_TIMEOUT_MS=600000 \
+  "⚡ #$pr quick" "$root" \
+  'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$model_arg $sp_arg"' "'"$(shquote "$brief")"'"'
