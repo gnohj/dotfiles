@@ -107,10 +107,12 @@ lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
 # Block unused lalt keys.
 lalt - i : :
-lalt - p : :
+
+# P holds the headless-ish review browser that chrome-headed-bg parks there, so it needs a way in.
+lalt - p : /opt/homebrew/bin/aerospace workspace P
 
 # Block unused lalt + shift letter combinations
 lalt + shift - i : :
-lalt + shift - p : :
+lalt + shift - p : /opt/homebrew/bin/aerospace move-node-to-workspace P
 lalt + shift - y : :
 
