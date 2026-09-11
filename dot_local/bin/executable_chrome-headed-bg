@@ -46,10 +46,52 @@ free_port() {
 
 # --disable-*-backgrounding / CalculateNativeWinOcclusion: an unfocused, occluded window stops compositing, and every screenshot after the first comes back stale.
 # --mute-audio: a review drives real product pages, and an autoplaying player in a window nobody can see is the loudest way to learn it launched.
+# `open -g` does not stop Chrome raising its first window, so note who was in front and put them back.
+frontmost_process() {
+  [ "$(uname)" = Darwin ] || return 0
+  osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>/dev/null || true
+}
+
+# macOS brings the new window's Space forward, so the workspace has to be restored, not just the app.
+focused_workspace_name() {
+  command -v aerospace >/dev/null 2>&1 || return 0
+  aerospace list-workspaces --focused 2>/dev/null | head -n1
+}
+
+# A driver navigates away from about:blank at once, so match the profile dir, never the window title.
+AUTOMATION_WORKSPACE="${CHROME_HEADED_BG_WORKSPACE:-P}"
+
+park_windows() {
+  # Every instance under the profile root: each review starts its own Chrome process.
+  local pids id pid
+  command -v aerospace >/dev/null 2>&1 || return 0
+  pids="$(pgrep -f -- "--user-data-dir=$PROFILE_ROOT/" 2>/dev/null | tr '\n' ' ')"
+  [ -n "$pids" ] || return 0
+  while IFS='|' read -r id pid; do
+    case " $pids " in
+      *" $pid "*) aerospace move-node-to-workspace --window-id "$id" "$AUTOMATION_WORKSPACE" >/dev/null 2>&1 || true ;;
+    esac
+  done < <(aerospace list-windows --all --format '%{window-id}|%{app-pid}' 2>/dev/null)
+}
+
+restore_frontmost() {
+  local who="$1" space="${2:-}"
+  [ "$(uname)" = Darwin ] || return 0
+  if [ -n "$space" ] && command -v aerospace >/dev/null 2>&1; then
+    [ "$(focused_workspace_name)" = "$space" ] || aerospace workspace "$space" >/dev/null 2>&1 || true
+  fi
+  # Never re-activate Chrome itself: that raises the automation window and follows it to its workspace.
+  [ -n "$who" ] && [ "$who" != "$APP" ] || return 0
+  [ "$(frontmost_process)" = "$who" ] && return 0
+  osascript -e "tell application \"System Events\" to set frontmost of process \"$who\" to true" >/dev/null 2>&1 || true
+}
+
 launch() {
-  local name="$1" port="$2" profile
+  local name="$1" port="$2" profile front space
   profile="$(profile_dir "$name")"
   mkdir -p "$profile"
+  front="$(frontmost_process)"
+  space="$(focused_workspace_name)"
   open -g -na "$APP" --args \
     --remote-debugging-port="$port" \
     --user-data-dir="$profile" \
@@ -62,10 +104,15 @@ launch() {
     about:blank || return 1
   local i=0
   while [ "$i" -lt "$((READY_TIMEOUT * 4))" ]; do
-    curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null && return 0
+    if curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null; then
+      # Chrome raises its window a beat after CDP answers, so wait before taking focus back.
+      ( sleep 1; park_windows; restore_frontmost "$front" "$space"; sleep 2; park_windows; restore_frontmost "$front" "$space"; sleep 3; park_windows; restore_frontmost "$front" "$space" ) >/dev/null 2>&1 &
+      return 0
+    fi
     sleep 0.25
     i=$((i + 1))
   done
+  restore_frontmost "$front" "$space"
   return 1
 }
 

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# PATH shim for agent panes: lavish-axi's bare `open <url>` yanks the desktop; non-http args pass through.
+set -u
+
+if [ "$(uname -s)" = Darwin ]; then
+  opener=/usr/bin/open
+  background_flag=--background
+else
+  # xdg-open never raises the desktop itself, so the background flag has no counterpart there.
+  opener=$(command -v xdg-open || true)
+  background_flag=""
+  [ -n "$opener" ] || { echo "open: no xdg-open on this machine" >&2; exit 127; }
+fi
+
+background=0
+for arg in "$@"; do
+  case "$arg" in
+    -*) continue ;;
+    http://* | https://*) background=1; break ;;
+    *) break ;;
+  esac
+done
+
+if [ "$background" -eq 1 ] && [ -n "$background_flag" ]; then
+  exec "$opener" "$background_flag" "$@"
+fi
+exec "$opener" "$@"
