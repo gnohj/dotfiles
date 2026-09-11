@@ -41,6 +41,8 @@ window options:
                       (default: the window closes, mirroring tmux new-window)
   --no-focus          create the window without switching to it, for work that
                       runs on your behalf (the macOS counterpart is `open -g`)
+  --focus             switch to it even when it lands in another workspace, for
+                      a window the user explicitly asked to look at
   --env KEY=VALUE     set an env var in the new window (repeatable)
   --workspace ID      override the target herdr workspace / tmux session;
                       defaults to the one this process was invoked from
@@ -92,12 +94,13 @@ focused_workspace() {
 # tmux runs the command AS the window process so it closes on exit; herdr spawns a
 # persistent shell, so "; exit" is appended to match that close-on-exit contract.
 cmd_window() {
-  local print_pane="" popup="" popup_size="80%x90%" ws="" keep="" no_focus="" envs=() e
+  local print_pane="" popup="" popup_size="80%x90%" ws="" keep="" no_focus="" force_focus="" envs=() e
   while [ $# -gt 0 ]; do
     case "$1" in
       --print-pane) print_pane=1; shift ;;
       --keep-open)  keep=1; shift ;;
       --no-focus)   no_focus=1; shift ;;
+      --focus)      force_focus=1; shift ;;
       --popup)      popup=1; shift ;;
       --popup-size) popup_size="$2"; shift 2 ;;
       --workspace)  ws="$2"; shift 2 ;;
@@ -125,7 +128,11 @@ cmd_window() {
       # An unresolvable origin (daemon, quake, stripped env) falls back to the active workspace.
       if [ -n "$ws" ]; then
         args+=(--workspace "$ws")
-        if [ -n "$no_focus" ] || [ "$ws" != "$(focused_workspace)" ]; then
+        # Crossing workspaces is silent by default; only an explicit --focus moves the desktop.
+        if [ -n "$force_focus" ] && [ -z "$no_focus" ]; then
+          [ "$ws" != "$(focused_workspace)" ] && "$herdr" workspace focus "$ws" >/dev/null 2>&1
+          args+=(--focus)
+        elif [ -n "$no_focus" ] || [ "$ws" != "$(focused_workspace)" ]; then
           args+=(--no-focus)
         else
           args+=(--focus)
@@ -176,6 +183,8 @@ cmd_window() {
         targs+=("$command")
       fi
       tmux "${targs[@]}"
+      # `new-window -t other-session` leaves the client put, so --focus must move it explicitly.
+      [ -n "$force_focus" ] && [ -z "$no_focus" ] && [ -n "$ws" ] && tmux switch-client -t "$ws:" 2>/dev/null
       ;;
     none) die "no tmux or herdr session detected" ;;
   esac

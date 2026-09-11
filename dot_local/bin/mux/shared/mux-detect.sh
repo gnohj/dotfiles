@@ -27,6 +27,10 @@
 # see MUX_LIVE in launcher.sh.
 mux_kind() {
   local kind herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  # An explicit choice wins: a detached caller inherits whatever pane env it started in, by accident.
+  case "${MUX_FORCE_KIND:-}" in
+  herdr | tmux) echo "${MUX_FORCE_KIND}"; return 0 ;;
+  esac
   if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
     kind=herdr
   elif [ -n "${TMUX:-}" ]; then
