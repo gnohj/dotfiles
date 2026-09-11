@@ -326,6 +326,33 @@ in
       };
     };
 
+    # Declared here, not via `brew services`: upstream's `service install` is Linux-only.
+    moshi-hook = {
+      serviceConfig = {
+        # bash -c wrapper: launchd doesn't auto-create StandardOut/ErrPath parent dirs.
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/moshi-hook
+            /opt/homebrew/bin/moshi-hook probe >/dev/null 2>&1 && exit 0
+            exec /opt/homebrew/bin/moshi-hook serve
+          ''
+        ];
+        # Not plain `true`: the probe above exits 0 when a hand-started daemon already holds the socket.
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        RunAtLoad = true;
+        ThrottleInterval = 10;
+        EnvironmentVariables = {
+          PATH = daemonPath;
+        };
+        StandardOutPath = "${homeDir}/.logs/moshi-hook/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/moshi-hook/launchagent.err.log";
+      };
+    };
+
     # Screenshot Cleanup - 04:00 daily; the script name-matches because that folder is also the real downloads folder.
     screenshot-cleanup = {
       serviceConfig = {
