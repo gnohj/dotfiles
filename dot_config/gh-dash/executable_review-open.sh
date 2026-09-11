@@ -72,12 +72,15 @@ POLL_TIMEOUT_ENV=(--env BASH_DEFAULT_TIMEOUT_MS=600000)
 cd "$repo_path"
 
 # Scope-driven profile, shared by every mode so P and F reason at the same depth on the same PR.
-# A caller may pin the model or effort for one review; dispatch decides only what it did not pin.
+# A caller may pin either side for one review; dispatch decides only what it did not pin.
 pinned_model=${REVIEW_CLAUDE_MODEL:-} pinned_effort=${REVIEW_CLAUDE_EFFORT:-}
+pinned_finder=${REVIEW_FINDER_MODEL:-} pinned_thinking=${REVIEW_FINDER_THINKING:-}
 REVIEW_CLAUDE_MODEL="" REVIEW_CLAUDE_EFFORT="" REVIEW_FINDER_MODEL="" REVIEW_FINDER_THINKING="" REVIEW_FINDER_RUNG_TIMEOUT="" REVIEW_DISPATCH_TIER=""
 IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT REVIEW_DISPATCH_TIER < <("$HOME/.config/gh-dash/review-dispatch.sh" "$pr" "$repo" 2>/dev/null) || true
 [ -n "$pinned_model" ] && { REVIEW_CLAUDE_MODEL=$pinned_model; REVIEW_DISPATCH_TIER="${REVIEW_DISPATCH_TIER:-?}+pinned"; }
 [ -n "$pinned_effort" ] && REVIEW_CLAUDE_EFFORT=$pinned_effort
+[ -n "$pinned_finder" ] && REVIEW_FINDER_MODEL=$pinned_finder
+[ -n "$pinned_thinking" ] && REVIEW_FINDER_THINKING=$pinned_thinking
 : "${REVIEW_CLAUDE_MODEL:=claude-opus-5}" "${REVIEW_CLAUDE_EFFORT:=high}"
 : "${REVIEW_FINDER_MODEL:=gpt-5.6-sol}" "${REVIEW_FINDER_THINKING:=high}" "${REVIEW_FINDER_RUNG_TIMEOUT:=600}"
 export REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT
