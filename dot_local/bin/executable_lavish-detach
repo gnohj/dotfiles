@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Close the agent pane watching one Lavish artifact; killing only its poll would just make the agent poll again.
+set -euo pipefail
+
+raw=${1:?usage: lavish-detach <artifact.html>}
+path=$(python3 -c 'import sys,pathlib;print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$raw")
+
+title=$(python3 - "$path" <<'TITLE'
+import html, pathlib, re, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(errors="replace")[:8192] if p.is_file() else ""
+match = re.search(r"<title[^>]*>(.*?)</title>", text, re.S | re.I)
+name = html.unescape(match.group(1)).strip() if match else ""
+print(" ".join(name.split())[:40] or p.parent.name)
+TITLE
+)
+
+mux=${MUX:-$HOME/.local/bin/mux/mux}
+[ -x "$mux" ] || { echo "lavish-detach: mux is unavailable at $mux" >&2; exit 1; }
+
+closed=0
+while IFS=$'\t' read -r id label; do
+  case "$label" in
+    *"👁 $title") "$mux" close "$id" >/dev/null 2>&1 && closed=$((closed + 1)) ;;
+  esac
+done < <("$mux" tabs 2>/dev/null)
+
+pkill -f "lavish-axi poll $path" 2>/dev/null || true
+
+if [ "$closed" -eq 0 ]; then
+  echo "lavish-detach: no agent pane labelled '👁 $title'; stopped any stray poll instead" >&2
+  exit 0
+fi
+printf 'closed %s agent pane(s) for %s\n' "$closed" "$title"
