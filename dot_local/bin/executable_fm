@@ -40,14 +40,17 @@ if [ -x "$HOME/.local/bin/fm-goto" ] && "$HOME/.local/bin/fm-goto"; then
 fi
 
 # Primary harness, mirroring firstmate's own gitignored config/<x>-harness convention for crew and secondmates.
-harness="${flag_harness:-${FM_HARNESS:-}}"
-[ -z "$harness" ] && [ -r "$FM_HOME/config/primary-harness" ] &&
-  read -r harness <"$FM_HOME/config/primary-harness"
+stored_harness=""
+[ -r "$FM_HOME/config/primary-harness" ] && read -r stored_harness <"$FM_HOME/config/primary-harness"
+harness="${flag_harness:-${FM_HARNESS:-$stored_harness}}"
 harness="${harness:-claude}"
 
 # Empty means the harness picks its own, so an unset file adds no flag at all.
-fm_model=""; [ -r "$FM_HOME/config/primary-model" ] && read -r fm_model <"$FM_HOME/config/primary-model"
-fm_effort=""; [ -r "$FM_HOME/config/primary-effort" ] && read -r fm_effort <"$FM_HOME/config/primary-effort"
+fm_model=""; fm_effort=""
+if [ -z "$stored_harness" ] || [ "$harness" = "$stored_harness" ]; then # tuning is harness-shaped; a Pi model id must never reach Claude
+  [ -r "$FM_HOME/config/primary-model" ] && read -r fm_model <"$FM_HOME/config/primary-model"
+  [ -r "$FM_HOME/config/primary-effort" ] && read -r fm_effort <"$FM_HOME/config/primary-effort"
+fi
 
 # Bare interactive `fm` opens the compass inline, not via the shim, which would exec fm and bounce the captain through a second picker.
 if [ -z "$flag_harness" ] && [ "$#" -eq 0 ] && [ -t 0 ] && [ -t 1 ] &&
