@@ -53,6 +53,13 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
+# tuxedo/todo.txt-cli paths. Here, not .zshrc: the Reminders bridge runs from launchd and herdr's non-interactive chain, neither of which reads .zshrc.
+export TODO_DIR="$XDG_DATA_HOME/tasks"
+export TODO_FILE="$TODO_DIR/todo.txt"
+export DONE_FILE="$TODO_DIR/done.txt"
+# Which Reminders list the bridge owns. Projects (Personal): no repeating items, so nothing regenerates behind the sync.
+export TASKS_REMINDERS_LIST="Projects (Personal)"
+
 # mise: directory trees mise trusts without a per-repo `mise trust` prompt (each
 # path also trusts everything beneath it, so a parent dir acts as a wildcard).
 # Set HERE, not in mise's config.toml, on purpose: mise honors trusted_config_paths

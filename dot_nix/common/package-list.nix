@@ -40,6 +40,9 @@ with pkgs;
   p7zip      # 7zip for archive preview in yazi
   clipboard-jh  # ClipBoard project for yazi system-clipboard plugin
 
+  # Tasks
+  tuxedo     # todo.txt TUI + CLI; nixpkgs tracks upstream exactly (2026.8.1), so no mise/brew needed
+
   # Data tools
   jq         # JSON processor
   yq-go      # Yaml processor (mikefarah/yq; nixpkgs `yq` is the python jq-wrapper, no `-o json`)
