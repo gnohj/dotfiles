@@ -135,3 +135,9 @@ scripts/open-tmux-attach.sh
 # Retired rbw vault indicator; Bitwarden state no longer belongs in SketchyBar.
 .config/sketchybar/items/widgets/rbw_lock.lua
 .config/sketchybar/items/widgets/rbw_lock.sh
+
+# Retired: the pr_replies SketchyBar widget and the gh-dash Unresolved wrapper. Neither worked; ghd is plain gh-dash again.
+.config/sketchybar/items/widgets/pr_replies_notification.lua
+.config/sketchybar/items/widgets/pr_replies_notification.sh
+.config/sketchybar/items/widgets/pr-replies-click.sh
+.local/bin/gh-dash-unresolved
