@@ -11,7 +11,7 @@ local THRESHOLDS = {
 local cpu_temp = sbar.add("item", constants.items.CPU_TEMP, {
 	position = "right",
 	update_freq = 10,
-	icon = { string = "󰔏", padding_right = 5 },
+	icon = { string = "󰔏", padding_left = 3, padding_right = 5 },
 	label = { string = "--°", color = colors.green, padding_left = 0, padding_right = 5 },
 })
 
