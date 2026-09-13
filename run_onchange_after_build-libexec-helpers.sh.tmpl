@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# sources: {{ include "dot_local/libexec/tasks-reminders.swift" | sha256sum }} {{ include "dot_local/libexec/cpu-temp.swift" | sha256sum }}
+set -euo pipefail
+
+[ "$(uname -s)" = Darwin ] || exit 0
+command -v swiftc >/dev/null 2>&1 || { echo "libexec: no swiftc, skipping"; exit 0; }
+
+cd "$HOME/.local/libexec" 2>/dev/null || exit 0
+# Compiled, not `swift`-interpreted: interpreting costs ~1.3s per run and these get polled.
+for src in *.swift; do
+  [ -e "$src" ] || continue
+  swiftc -O -o "${src%.swift}" "$src" && echo "libexec: built ${src%.swift}"
+done
