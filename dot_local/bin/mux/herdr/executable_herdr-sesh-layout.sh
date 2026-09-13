@@ -119,6 +119,7 @@ if [ -z "$label_explicit" ]; then
   case "$label" in
     fm) glyph="🚢" ;;
     hermes) glyph="🤖" ;;
+    tasks) glyph="🖊️" ;;
   esac
   label="$glyph $label"
 fi
