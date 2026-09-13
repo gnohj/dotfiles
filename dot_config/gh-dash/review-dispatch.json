@@ -66,5 +66,23 @@
       "effort": "high"
     },
     "rungTimeout": 600
-  }
+  },
+  "riskPaths": [
+    "(^|/)(auth|authn|authz|session|login|oauth|token|credential)s?(/|\\.|$)",
+    "(^|/)(payment|billing|checkout|subscription|purchase)s?(/|\\.|$)",
+    "(^|/)(migrations?|schema)(/|\\.)",
+    "(^|/)(middleware|interceptor)s?(/|\\.)",
+    "(^|/)\\.github/workflows/",
+    "(^|/)(Dockerfile|docker-compose\\.ya?ml|fastly\\.toml|pulumi\\.[^/]+|terraform/)",
+    "(^|/)(feature[-_]?flags?|flags?\\.config)(/|\\.)",
+    "(^|/)(csp|cors|cookie|crypto|secrets?)(/|\\.)"
+  ],
+  "lowRiskPaths": [
+    "(^|/)__tests__/",
+    "(^|/)(test|tests|e2e|spec|fixtures?|mocks?)/",
+    "\\.(test|spec)\\.[a-z]+$",
+    "\\.stories\\.[a-z]+$",
+    "\\.(md|mdx|txt|rst)$",
+    "(^|/)docs?/"
+  ]
 }
