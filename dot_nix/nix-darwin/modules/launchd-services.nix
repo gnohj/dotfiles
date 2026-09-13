@@ -84,6 +84,33 @@ in
       };
     };
 
+    # --once on an interval, not --watch under KeepAlive, so a denied TCC grant logs and waits; launchd reads no .zshenv, hence the explicit paths.
+    tasks-sync = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/tasks-sync
+            exec ${homeDir}/.local/bin/tasks-sync
+          ''
+        ];
+        StartInterval = 300;
+        RunAtLoad = true;
+        ThrottleInterval = 60;
+        EnvironmentVariables = {
+          PATH = daemonPath;
+          LANG = "en_US.UTF-8";
+          TODO_DIR = "${homeDir}/.local/share/tasks";
+          TODO_FILE = "${homeDir}/.local/share/tasks/todo.txt";
+          DONE_FILE = "${homeDir}/.local/share/tasks/done.txt";
+          TASKS_REMINDERS_LIST = "Projects (Personal)";
+        };
+        StandardOutPath = "${homeDir}/.logs/tasks-sync/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/tasks-sync/launchagent.err.log";
+      };
+    };
+
     # SKHD - Hotkey daemon for window management (used with AeroSpace)
     # Uses wrapper script that waits for secure keyboard entry to clear
     skhd = {
