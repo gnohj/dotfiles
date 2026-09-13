@@ -8,8 +8,8 @@ require("items.widgets.wifi") -- WiFi status icon + details popover
 require("items.widgets.bluetooth") -- Bluetooth power toggle + connected/paired device panel
 require("items.widgets.disk")
 require("items.widgets.memory")
-require("items.widgets.cpu")
 require("items.widgets.cpu_temp") -- CPU die temperature, colour-stepped
+require("items.widgets.cpu") -- after cpu_temp: right-side items lay out right-to-left, so this puts cpu on its left
 require("items.widgets.volume")
 require("items.widgets.mic")
 require("items.widgets.agent_quota")
