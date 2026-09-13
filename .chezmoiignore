@@ -97,10 +97,11 @@ Library/
 .config/spicetify/
 .config/mouseless/
 
-# Apple Reminders bridge - EventKit is macOS-only; tuxedo itself stays in the shared nix core.
+# macOS-only helper sources (EventKit, IOKit); their shared shell entry points stay cross-platform.
 .local/bin/tasks-sync
 .local/libexec/tasks-reminders.swift
-build-tasks-reminders.sh
+.local/libexec/cpu-temp.swift
+build-libexec-helpers.sh
 
 # Nix: only nix-darwin reads ~/.nix; the VPS runs home-manager straight from the chezmoi source tree, so no copy is needed there.
 .nix/

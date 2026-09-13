@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Average CPU die temperature in whole degrees C; silent and non-zero when no sensor exists.
+set -uo pipefail
+
+# case lives in functions because bash 3.2, which env finds under launchd, mis-parses a case pattern's ")" inside $( ).
+_is_cpu_chip() {
+  case "$1" in k10temp | coretemp | zenpower) return 0 ;; *) return 1 ;; esac
+}
+
+_has_prefix() {
+  case "$1" in "$2"*) return 0 ;; *) return 1 ;; esac
+}
+
+_read_labelled() {
+  for chip in /sys/class/hwmon/hwmon*/; do
+    name=$(cat "$chip/name" 2>/dev/null) || continue
+    _is_cpu_chip "$name" || continue
+    for input in "$chip"temp*_input; do
+      [ -r "$input" ] || continue
+      label=$(cat "${input%_input}_label" 2>/dev/null) || continue
+      if [ "${2:-prefix}" = exact ]; then
+        [ "$label" = "$1" ] && cat "$input"
+      else
+        _has_prefix "$label" "$1" && cat "$input"
+      fi
+    done
+  done
+}
+
+if [ "$(uname -s)" = Darwin ]; then
+  exec "$HOME/.local/libexec/cpu-temp"
+fi
+[ "$(uname -s)" = Linux ] || exit 1
+
+# Per-die sensors first (k10temp Tccd, coretemp Core); Tctl/Package fall back; acpitz is skipped, it lies.
+for want in Tccd Core; do
+  # Three passes: Ryzen Tccd swings ~6C second to second, which a bar renders as flicker.
+  avg=$(for pass in 1 2 3; do
+    _read_labelled "$want"
+    [ "$pass" = 3 ] || sleep 0.1
+  done | awk '{s+=$1;n++} END{if(n) printf "%.0f", s/n/1000}')
+  [ -n "$avg" ] && { echo "$avg"; exit 0; }
+done
+
+for want in Tctl "Package id 0"; do
+  one=$(_read_labelled "$want" exact | head -1)
+  [ -n "$one" ] && { echo "$one" | awk '{printf "%.0f\n", $1/1000}'; exit 0; }
+done
+
+for zone in /sys/class/thermal/thermal_zone*/; do
+  [ "$(cat "$zone/type" 2>/dev/null)" = x86_pkg_temp ] || continue
+  awk '{printf "%.0f\n", $1/1000}' "$zone/temp"
+  exit 0
+done
+exit 1

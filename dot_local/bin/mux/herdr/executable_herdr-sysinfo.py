@@ -113,7 +113,7 @@ PIN = os.environ.get("HERDR_SYSINFO_PIN") or f"🖥️ {USER}"
 FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or "{hostcity}"
 # Empty off Linux (no /proc). Glyphs and percent-used both mirror the sketchybar cpu/memory widgets.
 RES_FORMAT = os.environ.get("HERDR_SYSINFO_RES") or (
-    " {cpu} ·  {memp} · 󰋊 {disk}" if LINUX else "")
+    " {cpu} · 󰔏 {temp} ·  {memp} · 󰋊 {disk}" if LINUX else "")
 # Uptime and disk swapped rows: disk took uptime's slot beside cpu/mem, uptime took disk's ahead of the clock.
 TIME_FORMAT = os.environ.get("HERDR_SYSINFO_TIME") or ("󰁝 {up} · 󰥔 {time} {tz}" if LINUX else "")
 TTL_MS = int(INTERVAL * 3000 + 5000)
@@ -353,7 +353,7 @@ class Sampler:
         return fmt(REPOS_FORMAT, parts["dirty"]), fmt(SYNC_FORMAT, parts["sync"]), parts
 
     def render(self):
-        keys = ("host", "city", "hostcity", "cpu", "mem", "memp", "memtot", "load", "disk", "up", "time", "tz")
+        keys = ("host", "city", "hostcity", "cpu", "temp", "mem", "memp", "memtot", "load", "disk", "up", "time", "tz")
         fields = {k: "-" for k in keys}
         fields.update(self.render_repos()[2])
         host = os.uname().nodename.split(".")[0]
@@ -374,6 +374,14 @@ class Sampler:
         try:
             fields["cpu"] = self.cpu()
         except (OSError, IndexError, ValueError):
+            pass
+        try:
+            # The shared entry point, not sysfs inline, so macOS and Linux cannot drift apart.
+            reading = subprocess.run([os.path.expanduser("~/.local/bin/cpu-temp")],
+                                     capture_output=True, text=True, timeout=3)
+            if reading.returncode == 0 and reading.stdout.strip():
+                fields["temp"] = reading.stdout.strip() + "\u00b0"
+        except (OSError, subprocess.SubprocessError):
             pass
         try:
             used, total = meminfo()
