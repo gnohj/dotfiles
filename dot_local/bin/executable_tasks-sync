@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+"""Two-way sync between tuxedo's todo.txt and an Apple Reminders list."""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import date, timedelta
+from pathlib import Path
+
+HELPER = Path.home() / ".local/libexec/tasks-reminders"
+TODO_DIR = Path(os.environ.get("TODO_DIR", Path.home() / ".local/share/tasks"))
+TODO_FILE = Path(os.environ.get("TODO_FILE", TODO_DIR / "todo.txt"))
+DONE_FILE = Path(os.environ.get("DONE_FILE", TODO_DIR / "done.txt"))
+INBOX_FILE = TODO_DIR / "inbox.txt"
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "tasks-sync"
+SNAPSHOT = STATE_DIR / "snapshot.json"
+SALVAGE = STATE_DIR / "removed.log"
+
+REM_RE = re.compile(r"(?:^|\s)rem:([0-9A-Fa-f-]{36})(?=\s|$)")
+DUE_RE = re.compile(r"(?:^|\s)due:(\d{4}-\d{2}-\d{2})(?=\s|$)")
+PRI_RE = re.compile(r"^\((?P<p>[A-Z])\)\s+")
+# A threshold is absolute or an offset from due (-3d); both must resolve to one date.
+T_RE = re.compile(r"(?:^|\s)t:(\d{4}-\d{2}-\d{2}|[-+]?\d+[dbwmy])(?=\s|$)")
+DONE_RE = re.compile(r"^x\s+")
+# todo.txt puts the completion date before the creation date; both are optional.
+DATES_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\s+){0,2}")
+# (?!//) so a URL scheme is not mistaken for a key:value extension - todo.txt keys never contain a slash.
+KEYVAL_RE = re.compile(r"(?:^|\s)[A-Za-z][A-Za-z0-9_]*:(?!//)\S+")
+TAG_RE = re.compile(r"(?:^|\s)[+@]\S+")
+
+TODO_PRI_TO_REM = {"A": 1, "B": 5, "C": 9}
+REM_PRI_TO_TODO = {1: "A", 2: "A", 3: "A", 4: "A", 5: "B", 6: "C", 7: "C", 8: "C", 9: "C"}
+
+
+def log(msg):
+    print(f"tasks-sync: {msg}", file=sys.stderr)
+
+
+def helper(args, stdin=None):
+    try:
+        r = subprocess.run([str(HELPER), *args], input=stdin, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise RuntimeError(f"helper missing at {HELPER} - run `chezmoi apply` to build it")
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr.strip() or "helper failed")
+    return json.loads(r.stdout or "[]")
+
+
+def resolve_threshold(raw, due):
+    """A t: token -> the absolute day its alarm should fire, or None."""
+    if not raw:
+        return None
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return raw
+    if not due:
+        return None  # a relative threshold has nothing to hang off
+    m = re.fullmatch(r"([-+]?)(\d+)([dbwmy])", raw)
+    if not m:
+        return None
+    sign, n, unit = (-1 if m.group(1) == "-" else 1), int(m.group(2)), m.group(3)
+    base = date.fromisoformat(due)
+    if unit == "d":
+        return (base + timedelta(days=sign * n)).isoformat()
+    if unit == "w":
+        return (base + timedelta(weeks=sign * n)).isoformat()
+    if unit == "b":
+        d, step = base, (1 if sign > 0 else -1)
+        while n:
+            d += timedelta(days=step)
+            if d.weekday() < 5:
+                n -= 1
+        return d.isoformat()
+    months = n * (12 if unit == "y" else 1) * sign
+    y, mo = divmod((base.year * 12 + base.month - 1) + months, 12)
+    day = min(base.day, [31, 29 if y % 4 == 0 and (y % 100 or y % 400 == 0) else 28,
+                         31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo])
+    return date(y, mo + 1, day).isoformat()
+
+
+def parse(line):
+    """A todo.txt line -> the fields this bridge cares about."""
+    rest = line
+    completed = bool(DONE_RE.match(rest))
+    if completed:
+        rest = DONE_RE.sub("", rest, count=1)
+    m = PRI_RE.match(rest)
+    priority = m.group("p") if m else None
+    if m:
+        rest = PRI_RE.sub("", rest, count=1)
+    rest = DATES_RE.sub("", rest, count=1)
+    rem = REM_RE.search(line)
+    due = DUE_RE.search(line)
+    thr = T_RE.search(line)
+    title = KEYVAL_RE.sub("", rest)
+    title = TAG_RE.sub("", title)
+    return {
+        "raw": line,
+        "completed": completed,
+        "priority": priority,
+        "rem": rem.group(1) if rem else None,
+        "due": due.group(1) if due else None,
+        "alarm": resolve_threshold(thr.group(1) if thr else None,
+                                   due.group(1) if due else None),
+        "title": " ".join(title.split()),
+    }
+
+
+def read_lines(path):
+    if not path.exists():
+        return []
+    return [ln.rstrip("\n") for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+
+def write_atomic(path, lines):
+    """Same write-temp-then-rename tuxedo uses, so it sees one complete file."""
+    tmp = path.with_suffix(path.suffix + ".tasks-sync.tmp")
+    tmp.write_text("".join(ln + "\n" for ln in lines), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def set_token(line, key, value):
+    pat = re.compile(rf"(^|\s){key}:\S+(?=\s|$)")
+    if pat.search(line):
+        return pat.sub(rf"\g<1>{key}:{value}", line, count=1)
+    return f"{line} {key}:{value}"
+
+
+def drop_token(line, key):
+    return re.sub(rf"(^|\s){key}:\S+(?=\s|$)", "", line, count=1).strip()
+
+
+def load_snapshot():
+    if SNAPSHOT.exists():
+        try:
+            return json.loads(SNAPSHOT.read_text())
+        except json.JSONDecodeError:
+            log("snapshot corrupt, starting fresh")
+    return {"reminders": {}}
+
+
+def baseline():
+    """Record what Reminders holds now without importing any of it, so an Inbox
+    that predates the bridge stays where it is and only later additions flow in."""
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    fresh = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    SNAPSHOT.write_text(json.dumps(
+        {"reminders": fresh, "linked": []}, indent=1, sort_keys=True))
+    log(f"baseline: {len(fresh)} existing reminders marked seen, none linked")
+
+
+def sync_once(dry=False):
+    todo = [parse(l) for l in read_lines(TODO_FILE)]
+    # Without done.txt an archived task is indistinguishable from a deleted one.
+    archived = {t["rem"] for t in (parse(l) for l in read_lines(DONE_FILE)) if t["rem"]}
+    snap = load_snapshot()
+    prev = snap.get("reminders", {})
+    linked = set(snap.get("linked", []))
+
+    live = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    by_rem = {t["rem"]: t for t in todo if t["rem"]}
+
+    ops, refs, captures = [], [], []
+    lines = [t["raw"] for t in todo]
+    changed = False
+
+    for t in todo:
+        if t["rem"] or t["completed"]:
+            continue
+        ref = f"create:{len(ops)}"
+        op = {"op": "create", "ref": ref, "title": t["title"]}
+        if t["due"]:
+            op["due"] = t["due"]
+        if t["priority"] in TODO_PRI_TO_REM:
+            op["priority"] = TODO_PRI_TO_REM[t["priority"]]
+        if t["alarm"]:
+            op["alarm"] = t["alarm"]
+        ops.append(op)
+        refs.append((ref, t))
+
+    for rid, r in live.items():
+        t = by_rem.get(rid)
+        if t is None:
+            if rid in archived:
+                continue
+            if rid in linked:
+                # Only a reminder that HAD a line counts as deleted; merely seen is not enough.
+                ops.append({"op": "delete", "ref": f"del:{rid}", "id": rid})
+            elif rid not in prev and not r["completed"]:
+                due = f" due:{r['due']}" if r["due"] else ""
+                pri = REM_PRI_TO_TODO.get(r["priority"], "")
+                pri = f"({pri}) " if pri else ""
+                captures.append(f"{pri}{r['title']}{due} rem:{rid}")
+            continue
+        was = prev.get(rid, {})
+        if t["completed"] and not r["completed"]:
+            ops.append({"op": "update", "ref": f"done:{rid}", "id": rid, "completed": True})
+        elif r["completed"] and not t["completed"]:
+            i = lines.index(t["raw"])
+            # Drop the priority like tuxedo's own `do`: (A) between the two dates is invalid.
+            lines[i] = f"x {date.today().isoformat()} {PRI_RE.sub('', t['raw'], count=1)}"
+            changed = True
+        elif t["alarm"] != r.get("alarm"):
+            ops.append({"op": "update", "ref": f"alarm:{rid}", "id": rid,
+                        "alarm": t["alarm"]})
+        elif r["modified"] != was.get("modified"):
+            # Reminders moved since we last looked; it wins for title and due.
+            i = lines.index(t["raw"])
+            new = lines[i]
+            if r["due"]:
+                new = set_token(new, "due", r["due"])
+            elif t["due"]:
+                new = drop_token(new, "due")
+            if r["title"] and r["title"] != t["title"]:
+                new = new.replace(t["title"], r["title"], 1)
+            if new != lines[i]:
+                lines[i], changed = new, True
+
+    for rid in linked:
+        if rid in live or rid in archived:
+            continue
+        t = by_rem.get(rid)
+        if t is not None:
+            # The only branch that destroys typed input, so it keeps a salvage copy.
+            i = lines.index(t["raw"])
+            SALVAGE.parent.mkdir(parents=True, exist_ok=True)
+            with SALVAGE.open("a") as fh:
+                fh.write(f"{date.today().isoformat()} {t['raw']}\n")
+            del lines[i]
+            changed = True
+
+    if dry:
+        for op in ops:
+            log(f"would {op['op']}: {op.get('title') or op.get('id')}")
+        for c in captures:
+            log(f"would capture: {c}")
+        if changed:
+            log(f"would rewrite {TODO_FILE}")
+        return
+
+    if ops:
+        for res in helper(["apply"], stdin=json.dumps(ops)):
+            if not res.get("ok"):
+                log(f"{res.get('ref')}: {res.get('error')}")
+                continue
+            for ref, t in refs:
+                if ref == res["ref"]:
+                    i = lines.index(t["raw"])
+                    lines[i] = set_token(lines[i], "rem", res["id"])
+                    changed = True
+
+    if captures:
+        INBOX_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with INBOX_FILE.open("a", encoding="utf-8") as fh:
+            for c in captures:
+                fh.write(c + "\n")
+        log(f"captured {len(captures)} from Reminders")
+
+    if changed:
+        write_atomic(TODO_FILE, lines)
+
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    fresh = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    now_linked = {t["rem"] for t in (parse(l) for l in lines) if t["rem"]} | archived
+    SNAPSHOT.write_text(json.dumps(
+        {"reminders": fresh, "linked": sorted(now_linked)}, indent=1, sort_keys=True))
+
+
+def main():
+    args = set(sys.argv[1:])
+    dry = "--dry-run" in args
+    if "--baseline" in args:
+        try:
+            baseline()
+        except RuntimeError as exc:
+            log(str(exc))
+            sys.exit(1)
+        return
+    if "--watch" in args:
+        # FSEvents would not help: a Reminders edit fires no local file event.
+        interval = int(os.environ.get("TASKS_SYNC_INTERVAL", "30"))
+        while True:
+            try:
+                sync_once(dry)
+            except Exception as exc:
+                log(f"pass failed: {exc}")
+            time.sleep(interval)
+    else:
+        try:
+            sync_once(dry)
+        except RuntimeError as exc:
+            log(str(exc))
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
