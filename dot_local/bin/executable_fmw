@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# firstmate on the work state, work billing.
+exec "$HOME/.local/bin/fm" --state=work --token=work "$@"

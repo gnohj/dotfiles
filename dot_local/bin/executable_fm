@@ -6,12 +6,18 @@ root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
 
 # --pi / --claude pick the primary harness and are consumed here; everything else passes through untouched.
 flag_harness=""
+flag_state=""
+flag_token=""
+flag_provider=""
 args=()
 for a in "$@"; do
   case "$a" in
   --claude) flag_harness=claude ;;
   --pi) flag_harness=pi ;;
   --pi-signed) flag_harness=pi-signed ;;
+  --state=*) flag_state="${a#--state=}" ;;
+  --token=*) flag_token="${a#--token=}" ;;
+  --provider=*) flag_provider="${a#--provider=}" ;;
   # Refuse a retired account argument loudly: unhandled, it would become the harness's opening prompt.
   work | personal)
     echo "fm: the '$a' argument is retired - one fleet, one home now." >&2
@@ -22,6 +28,40 @@ for a in "$@"; do
   esac
 done
 set -- ${args+"${args[@]}"}
+
+for pair in "state:$flag_state" "token:$flag_token"; do
+  value="${pair#*:}"
+  [ -z "$value" ] && continue
+  case "$value" in
+  work | personal) ;;
+  *)
+    echo "fm: --${pair%%:*} takes work or personal, not '$value'" >&2
+    exit 2
+    ;;
+  esac
+done
+
+# Claude-only settings, so asking for them names the harness; a stored pi default would hijack them.
+if [ -z "$flag_harness" ] && { [ -n "$flag_state" ] || [ -n "$flag_token" ]; }; then
+  flag_harness=claude
+fi
+
+# Refuse before fm-goto: it focuses an already-sailing fleet and exits, swallowing the complaint.
+case "$flag_harness" in
+pi | pi-signed)
+  if [ -n "$flag_state" ] || [ -n "$flag_token" ]; then
+    echo "fm: --state and --token are claude-only; $flag_harness has no Claude state store or account." >&2
+    echo "fm: for a Pi provider use:  fm --pi --provider=<name>" >&2
+    exit 2
+  fi
+  ;;
+claude)
+  if [ -n "$flag_provider" ]; then
+    echo "fm: --provider is a Pi setting; the claude harness has only anthropic." >&2
+    exit 2
+  fi
+  ;;
+esac
 
 # One fleet, one home: the work/personal split is retired, so there is no account argument.
 export FM_HOME="$HOME/.local/share/firstmate"
@@ -53,7 +93,7 @@ if [ -z "$stored_harness" ] || [ "$harness" = "$stored_harness" ]; then # tuning
 fi
 
 # Bare interactive `fm` opens the compass inline, not via the shim, which would exec fm and bounce the captain through a second picker.
-if [ -z "$flag_harness" ] && [ "$#" -eq 0 ] && [ -t 0 ] && [ -t 1 ] &&
+if [ -z "$flag_harness" ] && [ -z "$flag_state$flag_token$flag_provider" ] && [ "$#" -eq 0 ] && [ -t 0 ] && [ -t 1 ] &&
   [ -d "${FM_COMPASS_DIR:-$HOME/Developer/fm-compass}" ] && command -v bun >/dev/null 2>&1; then
   repo="${FM_COMPASS_DIR:-$HOME/Developer/fm-compass}"
   [ -d "$repo/node_modules" ] || (cd "$repo" && bun install --frozen-lockfile >/dev/null 2>&1)
@@ -80,22 +120,36 @@ fi
 cd "$root"
 case "$harness" in
 claude)
+  if [ -n "$flag_provider" ]; then
+    echo "fm: --provider is a Pi setting; the claude harness has only anthropic." >&2
+    exit 2
+  fi
   # The state store belongs to the FLEET, not to whoever pays, so trust and history never move.
-  export CLAUDE_CONFIG_DIR="$HOME/.claude-work"
+  case "$flag_state" in
+  personal) export CLAUDE_CONFIG_DIR="$HOME/.claude" ;;
+  *) export CLAUDE_CONFIG_DIR="$HOME/.claude-work" ;;
+  esac
   # Name the account too: the wrapper infers one from an explicit CLAUDE_CONFIG_DIR, reading this fleet store as "bill work" and outranking the pin.
-  export CLAUDE_ACCOUNT="$(claude-account resolve 2>/dev/null || echo personal)"
+  export CLAUDE_ACCOUNT="${flag_token:-$(claude-account resolve 2>/dev/null || echo personal)}"
   tune=()
   [ -n "$fm_model" ] && tune+=(--model "$fm_model")
   [ -n "$fm_effort" ] && tune+=(--effort "$fm_effort")
   exec "$HOME/.local/bin/claude" --dangerously-skip-permissions ${tune+"${tune[@]}"} "$@"
   ;;
 pi | pi-signed)
+  # Pi carries its own credential and no Claude state store; dropping these would bill elsewhere.
+  if [ -n "$flag_state" ] || [ -n "$flag_token" ]; then
+    echo "fm: --state and --token are claude-only; $harness has no Claude state store or account." >&2
+    echo "fm: for a Pi provider use:  fm --pi --provider=<name>" >&2
+    exit 2
+  fi
   command -v "$harness" >/dev/null 2>&1 || { echo "fm: $harness is not installed" >&2; exit 1; }
   # Loaded by -e rather than --approve: deterministic and trust-free, and the same pair fm-spawn.sh passes for a Pi secondmate.
   export FM_PI_HARNESS="$harness"
   # Pi calls the same axis --thinking; supervising a fleet is worth more of it than the global default.
   tune=()
   [ -n "$fm_model" ] && tune+=(--model "$fm_model")
+  [ -n "$flag_provider" ] && tune+=(--provider "$flag_provider")
   exec "$harness" \
     ${tune+"${tune[@]}"} \
     --thinking "${fm_effort:-${FM_PI_THINKING:-xhigh}}" \
