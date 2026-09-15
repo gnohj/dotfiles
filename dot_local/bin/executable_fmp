@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# firstmate on the personal state, personal billing.
+exec "$HOME/.local/bin/fm" --state=personal --token=personal "$@"

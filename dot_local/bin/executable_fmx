@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# firstmate on Pi against xAI. No Claude state store and no Claude account, so no --state/--token.
+exec "$HOME/.local/bin/fm" --pi --provider=xai "$@"
