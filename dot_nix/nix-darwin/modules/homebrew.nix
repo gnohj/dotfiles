@@ -145,12 +145,9 @@
       "sf-symbols"
     ];
 
-    # Mac App Store apps intentionally omitted.
-    # mas install requires App Store sign-in which is not available during
-    # darwin-rebuild, causing the entire activation to fail if not authenticated.
-    # Install manually after signing in to the App Store:
-    #   mas install 497799835   # Xcode
-    #   mas install 1193539993  # Brother iPrint&Scan
-    masApps = {};
+    # mas needs an App Store sign-in or darwin-rebuild fails; Xcode 497799835 and Brother 1193539993 stay manual.
+    masApps = {
+      "WhatsApp Messenger" = 310633997;
+    };
   };
 }
