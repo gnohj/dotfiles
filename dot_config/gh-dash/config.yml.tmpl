@@ -98,6 +98,10 @@ keybindings:
       name: 🔎 Fan-out review - sealed Opus + gpt, merged onto one Lavish page
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh fan {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
+    - key: v # Overrides the built-in approve, which always opens a comment prompt; prApproveComment only blanks its prefill.
+      name: ✅ Approve (no comment prompt)
+      command: >
+        env -u GH_TOKEN -u GITHUB_TOKEN gh pr review {{.PrNumber}} --repo {{.RepoName}} --approve
     - key: R # Reclaim idle TREEHOUSE review-pool slots only (leased ~/.treehouse worktrees whose review windows are closed). Does NOT touch your personal git worktrees.
       name: 🧹 Reclaim idle treehouse review slots (pool only, not personal worktrees)
       command: >
