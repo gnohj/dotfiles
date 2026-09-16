@@ -43,7 +43,7 @@
         "interp": "",
         "token": "$jira",
         "needsPath": true,
-        "note": "drives `claude -p /sb-agent-refresh` because jira_status lives behind MCP, which a daemon cannot call directly"
+        "note": "drives OpenCode Go Luna xhigh through `opencode run --command sb-agent-refresh` because jira_status lives behind MCP"
       },
       "herdr-pane-summary": {
         "desc": "herdr pane-summary (label agent panes from their AI session title)",
@@ -59,7 +59,7 @@
         "interp": "",
         "token": "vault work log",
         "needsPath": true,
-        "note": "drives `claude -p /sb-ticket-log --from-commits` and `/sb-ticket-finish`: both need a real Claude session, same reason as herdr-jira-status. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
+        "note": "drives OpenCode Go Luna xhigh for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-thread-status": {
         "desc": "herdr thread-status ($pr PR approvals + CI, $sb vault note)",

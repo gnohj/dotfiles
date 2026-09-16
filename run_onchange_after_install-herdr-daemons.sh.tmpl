@@ -3,6 +3,7 @@
 # manifest sha256: {{ include ".chezmoidata/mux-daemons.json" | sha256sum }}
 # socket-resolver sha256: {{ include "dot_local/bin/mux/shared/executable_herdr-socket-path" | sha256sum }}
 # daemon-exec sha256: {{ include "dot_local/bin/mux/shared/executable_herdr-daemon-exec" | sha256sum }}
+# opencode-headless sha256: {{ include "dot_local/bin/executable_opencode-headless" | sha256sum }}
 {{ range $name, $d := .muxDaemons.list -}}
 # {{ $name }} sha256: {{ include (printf "dot_local/bin/mux/herdr/executable_%s" $d.script) | sha256sum }}
 {{ end -}}
