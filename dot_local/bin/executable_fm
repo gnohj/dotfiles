@@ -22,7 +22,6 @@ fm - launch the firstmate fleet.
   fmw                              work store, work billing, claude
   fmp                              personal store, personal billing, claude
   fmo                              pi against openai-codex
-  fmx                              pi against xai
   fm --state=S --token=T           claude on any pair, e.g. work store, personal billing
 
   --state=work|personal   which ~/.claude* store the fleet reads (trust and history)
