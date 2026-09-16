@@ -787,9 +787,9 @@ alias vim="nvim"
 alias iheart-token="atuin scripts run iheart-token"
 alias fastly-debug="atuin scripts run fastly-debug"
 alias vps="atuin scripts run vps"       # ssh → sets dev-context=vps (see `atuin scripts get vps`)
-alias fmsel="atuin scripts run fm"      # firstmate on a chosen state store + billing account; fmw/fmp/fmo/fmx are the fixed pairs
+alias fmsel="atuin scripts run fm"      # firstmate on a chosen state store + billing account; fmw/fmp/fmo are the fixed pairs
 alias csel="atuin scripts run claude-on" # claude outside the fleet on a chosen account; csw/csp/crw/crp are the fixed pairs
-alias psel="atuin scripts run pi-on"     # pi outside the fleet on a chosen provider; pio/pix/pior/pixr are the fixed pairs
+alias psel="atuin scripts run pi-on"     # pi outside the fleet on a chosen provider; pio/pig/pic + their -r twins are the fixed pairs
 alias devctx='dev-context get'          # print current dev-context (local|vps)
 
 # Git Shorcuts
@@ -1061,11 +1061,13 @@ _pi_sp() {
 }
 pis() { pi $(_pi_sp) "$@"; }      # pi start (new session)
 pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
-# Named providers; pis/pir take pi's default. xai has no credential yet - `pi auth check --provider xai`.
-pio() { pi --provider openai-codex $(_pi_sp) "$@"; }
-pix() { pi --provider xai $(_pi_sp) "$@"; }
-pior() { pi -r --provider openai-codex $(_pi_sp) "$@"; }
-pixr() { pi -r --provider xai $(_pi_sp) "$@"; }
+# Named providers pin provider-qualified models; opencode-go reads OPENCODE_API_KEY, and gpt-5.6-luna matches Go's best DeepSWE score at 12x the headroom.
+pio() { pi --provider openai-codex --model openai-codex/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+pig() { pi --provider opencode-go --model gpt-5.6-luna $(_pi_sp) "$@"; }
+pic() { pi --provider github-copilot --model github-copilot/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+pior() { pi -r --provider openai-codex --model openai-codex/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+pigr() { pi -r --provider opencode-go --model gpt-5.6-luna $(_pi_sp) "$@"; }
+picr() { pi -r --provider github-copilot --model github-copilot/gpt-5.6-sol:high $(_pi_sp) "$@"; }
 
 # Opencode shortcuts (parallel to cs/cr, pis/pir). Plain pass-throughs:
 # --dangerously-skip-permissions is documented upstream but rejected by
