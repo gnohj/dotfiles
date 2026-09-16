@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Supervises `claude -p` for the second-brain work log - a capture queue (start of work), a log queue (post-commit hook) and a finish queue (herdr-thread-status on PR merge). A daemon, not a direct hook call, because a blocking post-commit is unusable and batching reads as one story.
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
@@ -16,11 +15,9 @@ LOG="$HOME/.logs/herdr-sb-drain/ticks.log"
 MAX_TRIES=3
 CAP=300
 
-# Absolute path: PATH hits mise's raw npm binary first, which has no auth and dies.
-CLAUDE="$HOME/.local/bin/claude"
+OPENCODE_RUNNER="$HOME/.local/bin/opencode-headless"
 VAULT_PATH="$HOME/.local/bin/vault-path"
 VAULT_NOTE="$HOME/.local/bin/vault-note"
-ACCOUNT="$HOME/.local/bin/claude-account"
 
 mkdir -p "$(dirname "$LOG")" "$LOG_Q" "$WORK_D" "$ATT_D" "$FAIL_D" "$FINISH_Q" "$CAPTURE_Q"
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$LOG"; }
@@ -40,7 +37,7 @@ run_capped() {
 requeue() { cat "$1" >> "$2" 2>/dev/null; rm -f "$1"; }
 
 drain_log() {
-  local f ticket work root shas n vault acct tries
+  local f ticket work root shas n vault tries
   for f in "$LOG_Q"/*.tsv; do
     [ -e "$f" ] || continue
     ticket=$(basename "$f" .tsv)
@@ -64,13 +61,8 @@ drain_log() {
       requeue "$work" "$f"
       continue
     fi
-    acct=$("$ACCOUNT" cwd "$root" 2>/dev/null || true)
-
-    # --add-dir: claude's sandbox is the cwd, which excludes the vault, so the skill would halt at pre-check.
-    if ( cd "$root" && run_capped "$CAP" env CLAUDE_ACCOUNT="$acct" \
-        "$CLAUDE" -p "/sb-ticket-log --from-commits $shas" \
-          --permission-mode bypassPermissions \
-          --add-dir "$vault" ); then
+    if ( cd "$root" && run_capped "$CAP" \
+        bash "$OPENCODE_RUNNER" --dir "$root" --command sb-ticket-log -- "--from-commits $shas" ); then
       log "OK log $ticket ($n commits)"
       rm -f "$work" "$ATT_D/$ticket"
     else
@@ -90,7 +82,7 @@ drain_log() {
 }
 
 drain_finish() {
-  local f ticket wt ref pr vault acct note
+  local f ticket wt ref pr vault note
   for f in "$FINISH_Q"/*.json; do
     [ -e "$f" ] || continue
     ticket=$(basename "$f" .json)
@@ -112,13 +104,8 @@ drain_finish() {
       log "DEFER finish $ticket — vault not mounted"
       continue
     fi
-    acct=$("$ACCOUNT" cwd "$ref" 2>/dev/null || true)
-
-    if run_capped "$CAP" env SB_TICKET_FINISH_FROM_TKRM=1 CLAUDE_ACCOUNT="$acct" \
-        "$CLAUDE" -p "/sb-ticket-finish $ticket $pr" \
-          --permission-mode bypassPermissions \
-          --add-dir "$vault" \
-          --add-dir "$STATE"; then
+    if run_capped "$CAP" env SB_TICKET_FINISH_FROM_TKRM=1 \
+        bash "$OPENCODE_RUNNER" --dir "$ref" --command sb-ticket-finish -- "$ticket $pr"; then
       log "OK finish $ticket"
       rm -f "$f"
     else
@@ -129,7 +116,7 @@ drain_finish() {
 }
 
 drain_capture() {
-  local f ticket wt ref vault workv acct note
+  local f ticket wt ref vault workv note
   for f in "$CAPTURE_Q"/*.json; do
     [ -e "$f" ] || continue
     ticket=$(basename "$f" .json)
@@ -157,20 +144,14 @@ drain_capture() {
       log "DEFER capture $ticket — vault not mounted"
       continue
     fi
-    # Automatic vault writes are authorised for work only, and vault-path is the single owner of
-    # that call - anything it does not resolve to the work vault, ambiguous included, is declined.
+    # Automatic vault writes are authorised for work only; vault-path owns that decision and ambiguous scopes are declined.
     if [ "$vault" != "$workv" ]; then
       log "DROP capture $ticket — $ref is not a work worktree"
       rm -f "$f"
       continue
     fi
-    acct=$("$ACCOUNT" cwd "$ref" 2>/dev/null || true)
-
-    if ( cd "$ref" && run_capped "$CAP" env CLAUDE_ACCOUNT="$acct" \
-        "$CLAUDE" -p "/sb-ticket-capture $ticket --worktree $ref" \
-          --permission-mode bypassPermissions \
-          --add-dir "$vault" \
-          --add-dir "$STATE" ); then
+    if ( cd "$ref" && run_capped "$CAP" \
+        bash "$OPENCODE_RUNNER" --dir "$ref" --command sb-ticket-capture -- "$ticket --worktree $ref" ); then
       log "OK capture $ticket"
       rm -f "$f"
     else
@@ -181,7 +162,7 @@ drain_capture() {
 }
 
 drain_once() {
-  command -v "$CLAUDE" >/dev/null 2>&1 || [ -x "$CLAUDE" ] || { log "SKIP claude not executable"; return 0; }
+  [ -f "$OPENCODE_RUNNER" ] || { log "SKIP opencode-headless is unavailable"; return 0; }
   drain_capture
   drain_log
   drain_finish

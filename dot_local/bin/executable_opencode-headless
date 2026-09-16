@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+env_file="$HOME/.zsh_gnohj_env"
+opencode_bin="$(command -v opencode || true)"
+
+[ -n "$opencode_bin" ] || { printf '%s\n' 'opencode-headless: opencode is unavailable' >&2; exit 127; }
+[ -r "$env_file" ] || { printf '%s\n' "opencode-headless: environment file is unavailable: $env_file" >&2; exit 78; }
+source "$env_file"
+[ -n "${OPENCODE_API_KEY:-}" ] || { printf '%s\n' 'opencode-headless: OPENCODE_API_KEY is unavailable' >&2; exit 78; }
+
+exec "$opencode_bin" run \
+  --model opencode-go/gpt-5.6-luna \
+  --variant xhigh \
+  --format json \
+  --auto \
+  "$@"
