@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# opencode Go subscription headroom, normalised into quota-axi's provider shape. Usage: opencode-usage [--json]
+set -euo pipefail
+
+# Background launchers provide a minimal PATH, so add the standard tool directories explicitly.
+PATH="/usr/bin:/bin${PATH:+:$PATH}"
+case "$(uname -s)" in
+Darwin) PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
+*) PATH="/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
+esac
+export PATH
+
+command -v jq >/dev/null 2>&1 || { echo "opencode-usage: jq required" >&2; exit 2; }
+
+# Background launchers provide no shell secrets, so fall back to the same secrets files the shell sources.
+key="${OPENCODE_API_KEY:-}"
+if [ -z "$key" ]; then
+  for f in "$HOME/.zsh_gnohj_env.secrets" "$HOME/.zsh_gnohj_env.local"; do
+    [ -f "$f" ] || continue
+    key=$(sed -n 's/^export OPENCODE_API_KEY=//p' "$f" | tail -1 | tr -d "'\"")
+    [ -n "$key" ] && break
+  done
+fi
+[ -n "$key" ] || { echo "opencode-usage: no OPENCODE_API_KEY (rbw add it, then chezmoi apply)" >&2; exit 3; }
+
+resp=$(curl -fsS -m 15 -H "authorization: Bearer $key" -H "accept: application/json" \
+  https://opencode.ai/zen/go/v1/usage) || { echo "opencode-usage: request failed (key rejected or endpoint down)" >&2; exit 4; }
+
+# The API reports aggregate percent used across per-model Go caps, so this is a conservative bound rather than per-model headroom.
+NORMALISE='
+def wlabel(k):
+  if k == "rolling" then "5h" elif k == "weekly" then "7d" elif k == "monthly" then "30d" else k end;
+{
+  provider: "opencode Go",
+  plan: (.plan // "go"),
+  windows: [(.usage // {}) | to_entries[]
+            | select((.value | type) == "object" and (.value.percent | type) == "number")
+            | {label: wlabel(.key), percentRemaining: (100 - .value.percent), resetsAt: ((.value.resetsAt // "") | tostring)}]
+}'
+
+if [ "${1:-}" = "--json" ]; then
+  printf '%s' "$resp" | jq "$NORMALISE"
+  exit 0
+fi
+
+if [ "${1:-}" = "--raw" ]; then
+  printf '%s' "$resp" | jq .
+  exit 0
+fi
+
+printf '%s' "$resp" | jq -r "$NORMALISE"'
+  | "\(.provider) (\(.plan))",
+    (.windows[] | "  \(.label): \(.percentRemaining | floor)% left   resets \(.resetsAt)")'

@@ -46,6 +46,17 @@ if [ -x "$COPILOT_CREDITS" ]; then
     | @tsv' 2>/dev/null || true)
 fi
 
+# opencode Go bills dollars per model window; the helper normalises them into quota-axi's percent shape.
+OPENCODE_USAGE="$HOME/.local/bin/opencode-usage"
+oc_rows=""
+if [ -x "$OPENCODE_USAGE" ]; then
+  oc_rows=$("$OPENCODE_USAGE" --json 2>/dev/null | jq -r "$RESET_FMT"'
+    .windows[]?
+    | select(.percentRemaining != null)
+    | ["opencode Go", .label, (.percentRemaining | floor | tostring), reset_in(.resetsAt)]
+    | @tsv' 2>/dev/null || true)
+fi
+
 # Ignore stale Codex snapshots because signed-out zeroes mean unknown, not exhausted.
 codex_rows=$(printf '%s' "$("$QUOTA_AXI" --provider codex --json 2>/dev/null || true)" | jq -r "$RESET_FMT"'
   .providers[]?
@@ -70,13 +81,13 @@ personal=$(jq -r '
     "Claude personal\tweek\t\(100 - (.u.sd // 0))\t",
     "Claude personal\tFable week\t-\t"' "$PU" 2>/dev/null || true)
 
-all=$(printf '%s\n%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$codex_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
+all=$(printf '%s\n%s\n%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$codex_rows" "$oc_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
 
 # Throttled providers keep last-known rows marked stale rather than vanishing; only Claude/Copilot carry over, so dropped ones age out instead of lingering.
 if [ -n "$all" ] && [ -s "$CACHE" ]; then
   all=$(awk -F'\t' -v OFS='\t' '
     FNR == NR { seen[$1] = 1; print; next }
-    !($1 in seen) && ($1 ~ /^Claude/ || $1 == "GitHub Copilot" || $1 == "Codex") { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
+    !($1 in seen) && ($1 ~ /^Claude/ || $1 == "GitHub Copilot" || $1 == "Codex" || $1 == "opencode Go") { $4 = "stale"; print }' <(printf '%s\n' "$all") "$CACHE")
 fi
 
 if [ -z "$all" ]; then
