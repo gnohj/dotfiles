@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Mirrors the pi footer using the firstmate-calm preference file resolved via FM_CONFIG_OVERRIDE, FM_HOME/config, or ~/config.
+set -u
+
+cat >/dev/null 2>&1
+
+dir="${FM_CONFIG_OVERRIDE:-${FM_HOME:+$FM_HOME/config}}"
+read -r state 2>/dev/null <"${dir:-$HOME/config}/calm" || exit 0
+# `max` is the legacy value of a removed third level whose behavior is now ordinary Calm.
+case "$state" in
+on | max) ;;
+*) exit 0 ;;
+esac
+
+accent="#a7cfbd"
+dim="#536571"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+if [ -r "$active" ]; then
+  # shellcheck disable=SC1090
+  . "$active" >/dev/null 2>&1
+  # shellcheck disable=SC1091
+  . "$HOME/.config/colorscheme/omarchy-palette.sh" >/dev/null 2>&1 || true
+  accent="${gnohj_color03:-$accent}"
+  dim="${gnohj_color13:-$dim}"
+fi
+
+rgb() {
+  if [[ ! "${1:-}" =~ ^#[[:xdigit:]]{6}$ ]]; then
+    printf '0;0;0'
+    return
+  fi
+  printf '%d;%d;%d' "$((16#${1:1:2}))" "$((16#${1:3:2}))" "$((16#${1:5:2}))"
+}
+
+printf '\033[38;2;%smcalm\033[0m \033[38;2;%sm·\033[0m' "$(rgb "$accent")" "$(rgb "$dim")"

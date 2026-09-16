@@ -80,6 +80,13 @@
         "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
+        "id": "calm",
+        "type": "custom-command",
+        "commandPath": "$HOME/.local/bin/claude-calm-state",
+        "timeout": 400,
+        "preserveColors": true
+      },
+      {
         "id": "l5h",
         "type": "custom-text",
         "customText": "5h:",
