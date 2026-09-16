@@ -141,3 +141,6 @@ scripts/open-tmux-attach.sh
 .config/sketchybar/items/widgets/pr_replies_notification.sh
 .config/sketchybar/items/widgets/pr-replies-click.sh
 .local/bin/gh-dash-unresolved
+
+# fmx dropped: no xAI credential was ever configured, so the wrapper had nothing to launch.
+.local/bin/fmx
