@@ -12,6 +12,10 @@ if [[ -n "$HERDR_ENV" && "$(ps -o comm= -p $PPID 2>/dev/null)" == (*/|)login ]];
   unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH HERDR_BIN_PATH
 fi
 
+if [[ "${HERDR_ENV:-}" == 1 ]]; then
+  export PI_IMAGE_PROTOCOL=none
+fi
+
 # ~/.local/bin must be on PATH for EVERY zsh, not just interactive ones. .zshenv
 # is sourced by all invocations (login, non-login, interactive or not); .zshrc is
 # interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
