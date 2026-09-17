@@ -5,6 +5,13 @@ export type QuotaRow = {
   reset: string;
 };
 
+export type QuotaColors = {
+  danger: string;
+  orange: string;
+  warning: string;
+  live: string;
+};
+
 export type TokenStatus = "ok" | "warn" | "critical" | "expired" | "missing";
 
 export type TokenRow = {
@@ -45,6 +52,7 @@ export type ToggleScheduleResult = {
 
 export type OperationsDashboard = {
   quotas: QuotaRow[];
+  quotaColors: QuotaColors;
   tokens: TokenRow[];
   schedules: ScheduleSection[];
   activeSchedules: number;

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { subscribeToOperationsRefresh } from "./refresh";
 import type {
   OperationsDashboard,
+  QuotaColors,
   QuotaRow,
   RunScheduleResult,
   ScheduleJob,
@@ -29,14 +30,17 @@ function quotaValue(row: QuotaRow): { label: string; percent: number | null } {
   };
 }
 
-function QuotaLine({ row }: { row: QuotaRow }) {
+function quotaColor(percent: number, colors: QuotaColors): string {
+  if (percent <= 15) return colors.danger;
+  if (percent <= 35) return colors.orange;
+  if (percent <= 60) return colors.warning;
+  return colors.live;
+}
+
+function QuotaLine({ row, colors }: { row: QuotaRow; colors: QuotaColors }) {
   const value = quotaValue(row);
-  const barColor =
-    value.percent !== null && value.percent <= 15
-      ? "bg-signal-danger"
-      : value.percent !== null && value.percent <= 35
-        ? "bg-signal-warn"
-        : "bg-signal-live";
+  const color =
+    value.percent === null ? undefined : quotaColor(value.percent, colors);
   return (
     <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 border-b border-line-faint py-2.5 last:border-0">
       <div className="min-w-0">
@@ -44,14 +48,14 @@ function QuotaLine({ row }: { row: QuotaRow }) {
         <div className="text-xs text-ink-soft">{row.window}</div>
       </div>
       <div className="text-right font-mono text-xs text-ink-muted">
-        <div>{value.label || "unknown"}</div>
+        <div style={{ color }}>{value.label || "unknown"}</div>
         <div>{row.reset || "no reset"}</div>
       </div>
       {value.percent !== null ? (
         <div className="col-span-2 h-1 overflow-hidden rounded-pill bg-line-faint">
           <div
-            className={`h-full rounded-pill ${barColor}`}
-            style={{ width: `${value.percent}%` }}
+            className="h-full rounded-pill"
+            style={{ backgroundColor: color, width: `${value.percent}%` }}
           />
         </div>
       ) : null}
@@ -408,7 +412,11 @@ export function OperationsView() {
         <div className="rounded-md border border-line bg-surface px-3">
           {dashboard?.quotas.length ? (
             dashboard.quotas.map((row) => (
-              <QuotaLine key={`${row.provider}:${row.window}`} row={row} />
+              <QuotaLine
+                key={`${row.provider}:${row.window}`}
+                row={row}
+                colors={dashboard.quotaColors}
+              />
             ))
           ) : (
             <EmptyState>No quota data</EmptyState>

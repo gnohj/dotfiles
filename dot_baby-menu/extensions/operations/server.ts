@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type {
   OperationsDashboard,
+  QuotaColors,
   QuotaRow,
   RunScheduleResult,
   ScheduleJob,
@@ -23,7 +24,17 @@ const schedulesScript = join(
   ".config/sketchybar/items/widgets/schedules-panel.py",
 );
 const claudeAccountScript = join(home, ".local/bin/claude-account");
+const paletteFile = join(
+  home,
+  ".config/colorscheme/active/active-colorscheme.sh",
+);
 const actionLog = join(home, ".logs/baby-menu/operations.log");
+const defaultQuotaColors: QuotaColors = {
+  danger: "#ff6a7a",
+  orange: "#f5a65b",
+  warning: "#ffd86b",
+  live: "#6ae3b6",
+};
 
 function execute(
   file: string,
@@ -63,6 +74,20 @@ function parseQuotas(output: string): QuotaRow[] {
         line.split("\t");
       return { provider, window, remaining, reset };
     });
+}
+
+function parseQuotaColors(output: string): QuotaColors {
+  const values = Object.fromEntries(
+    [
+      ...output.matchAll(/^(gnohj_color(?:02|06|11|12))=(#[0-9a-f]{6})$/gim),
+    ].map(([, name, color]) => [name, color]),
+  );
+  return {
+    danger: values.gnohj_color11 ?? defaultQuotaColors.danger,
+    orange: values.gnohj_color06 ?? defaultQuotaColors.orange,
+    warning: values.gnohj_color12 ?? defaultQuotaColors.warning,
+    live: values.gnohj_color02 ?? defaultQuotaColors.live,
+  };
 }
 
 // token-check exits 1 whenever any account is short of "ok", but still prints every row.
@@ -260,12 +285,19 @@ export const actions = {
       claudeAccountScript,
       "token-check",
     ]);
+    const quotaColors = await readFile(paletteFile, "utf8")
+      .then(parseQuotaColors)
+      .catch((error: unknown) => {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return defaultQuotaColors;
+      });
     const tokens = parseTokens(tokenResult);
     if (!tokens.length)
       errors.push("claude-account token-check returned no rows");
 
     return {
       quotas: parseQuotas(quotaResult),
+      quotaColors,
       tokens,
       ...parseSchedules(scheduleResult),
       errors,
