@@ -17,7 +17,6 @@ bun = 'latest'
 zig = 'latest'          # used for GhosttyFetch
 
 "npm:prettier" = "latest"
-"npm:codeburn" = "latest"
 
 # AI agents on mise `latest` for same-day updates; claude-code + codex are native-binary CLIs needing allow_builds (runs the postinstall that swaps the binary in) + the npm backend (aube's node-shim can't exec a native bin; see npm.package_manager below).
 "npm:@anthropic-ai/claude-code" = { version = "latest", allow_builds = ["@anthropic-ai/claude-code"] }
@@ -26,6 +25,7 @@ zig = 'latest'          # used for GhosttyFetch
 "npm:@earendil-works/pi-coding-agent" = "latest"
 "github:rtk-ai/rtk" = "latest"                     # PreToolUse `rtk hook claude`; not in nixpkgs
 herdr = "latest"                                   # agent multiplexer; on `latest` for same-day releases (nixpkgs lagged, and this replaces the VPS curl|sh installer)
+"github:kenn-io/agentsview" = "latest"
 
 # AXI CLIs (kunchenguid, same author as firstmate/treehouse/no-mistakes) — required by
 # firstmate's bootstrap toolchain check, which tests binary presence only. `latest` because

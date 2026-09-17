@@ -96,7 +96,6 @@ CATEGORIES=(
 # Static leaves — prefix|label|function|description|scope|os|mux (all optional; scope
 # omitted inherits the category; set empty leading fields to reach a later one)
 ACTIONS=(
-  "🤖 AI|🔥 Codeburn (cost)|act_ai_codeburn|Show today's AI spending via codeburn report"
   "🤖 AI|📊 RTK Savings (graph)|act_ai_rtk|Graph RTK token savings with rtk gain"
   "🤖 AI|👤 Claude Desktop (personal)|act_ai_claude_personal|Launch the Claude Desktop app signed into personal||darwin"
   "🤖 AI|💼 Claude Desktop (work)|act_ai_claude_work|Launch the Claude Desktop app signed into work||darwin"
@@ -745,8 +744,6 @@ require_tmux() {
   return 0
 }
 
-# Bare name, not the mise shim: both hosts use a login shell with mise on PATH (~0.8s cheaper).
-act_ai_codeburn() { open_named_window 🔥 codeburn "codeburn report --period today" true; }
 act_ai_rtk() { open_named_window 📊 rtk "rtk gain --graph"; }
 # No dismiss_quake: the app takes focus and hide_on_focus_loss covers it — see open_url.
 act_ai_claude_personal() { "$HOME/.local/bin/claude-desktop" personal; }
