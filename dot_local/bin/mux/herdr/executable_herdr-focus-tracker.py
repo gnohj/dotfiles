@@ -69,10 +69,8 @@ SELF_WRITES = collections.defaultdict(lambda: collections.deque(maxlen=8))
 BRANCH_SOURCE = "gitmux"
 # herdr-thread-status.py's source, shared for the same reason as BRANCH_SOURCE - see paint_row3.
 THREAD_SOURCE = "thread-status"
-# Row 3 zones: (lit slot, green twin or None, dim slot). Mirrors ROW3_ZONES in herdr-thread-status.py.
-ROW3_ZONES = (("pr", "pr_on", "pr_d"), ("ci", None, "ci_d"), ("sb", None, "sb_d"), ("jira", None, "jira_d"))
-# Approvals has TWO lit slots since one flat fg cannot render – / ◌ red and ● green, so refocusing routes the value back to the right one - approval_slots()'s rule.
-APPROVED_GLYPH = "●"
+# Row 3 zones: (lit slot, dim slot). Mirrors ROW3_ZONES in herdr-thread-status.py.
+ROW3_ZONES = (("pr", "pr_d"), ("ci", "ci_d"), ("sb", "sb_d"), ("jira", "jira_d"))
 BRANCH_TTL_MS = 38000
 
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
@@ -278,9 +276,6 @@ def paint_row3():
     can only be a second token with a dim fg. Each zone therefore has a `_d` twin, exactly one of
     the pair ever populated, and an empty token emits no separator so the row still reads as one.
 
-    Collapsing the approvals pair into ONE dim slot is lossless: refocusing routes ● back to $pr_on
-    and every other glyph to $pr, which is the rule that put them there to begin with.
-
     `source` MUST match herdr-thread-status.py's, since a token can only be cleared by the source
     that set it - a second source would leave both halves lit at once.
     """
@@ -291,14 +286,13 @@ def paint_row3():
         tokens = ws.get("tokens") or {}
         focused = bool(ws.get("focused"))
         want = {}
-        for lit, lit_on, dim in ROW3_ZONES:
-            value = tokens.get(dim) or (tokens.get(lit_on) if lit_on else "") or tokens.get(lit) or ""
+        for lit, dim in ROW3_ZONES:
+            value = tokens.get(dim) or tokens.get(lit) or ""
             if not value:
                 continue
-            slot = dim if not focused else (lit_on if lit_on and value.strip() == APPROVED_GLYPH else lit)
-            for name in (lit, lit_on, dim):
-                if name:
-                    want[name] = value if name == slot else None
+            slot = dim if not focused else lit
+            for name in (lit, dim):
+                want[name] = value if name == slot else None
         if not want:
             continue
         # Only write where a slot is actually wrong, so a steady sidebar costs one workspace.list.

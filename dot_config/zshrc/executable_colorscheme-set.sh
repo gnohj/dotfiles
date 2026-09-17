@@ -2484,11 +2484,10 @@ generate_herdr_config() {
   # built-in `branch`. Both halves need an explicit fg or they fall back to the `blue` theme
   # token (gnohj green). Dim is overlay0; lit is gnohj green, matching $pn_on so
   # both panels light their selected row alike and track the scheme rather than mauve's value.
-  # $git and $pr take gnohj_color11 red; a token's fg is unconditional, so each has a green twin.
-  # $pr_on is $pr's twin - gnohj_color02 green, same one-lit-at-a-time contract.
+  # Herdr 0.9.0 value rules recolour $pr's ● green; $pr_d remains because rules cannot see focus.
   # The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, taking row 4 with it.
   local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }], [{ token = "$pr", fg = "%s" }, { token = "$pr_on", fg = "%s" }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }]]' \
+  herdr_rows="$(printf 'rows = [["state_icon", "workspace"], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }], [{ token = "$pr", fg = "%s", rules = [{ equals = "●", fg = "%s" }] }, { token = "$pr_d", fg = "%s" }, { token = "$ci", fg = "%s" }, { token = "$ci_d", fg = "%s" }, { token = "$sb", fg = "%s" }, { token = "$sb_d", fg = "%s" }, { token = "$jira", fg = "%s" }, { token = "$jira_d", fg = "%s" }]]' \
     "$gnohj_color13" "$gnohj_color02" \
     "$gnohj_color11" "$gnohj_color02" "$gnohj_color13" "$gnohj_color03" "$gnohj_color13" "$gnohj_color05" "$gnohj_color13" "$gnohj_color02" "$gnohj_color13")"
   # One row set for every agent: rows_by_agent is gone, since both daemons feed a $pn_* slot to any pane carrying an `agent`.

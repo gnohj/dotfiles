@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR ($pr/$pr_on), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
+"""herdr-thread-status — feed each workspace's PR ($pr), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
 
 herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
 custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
@@ -51,10 +51,7 @@ tokens ($pr, $ci) rather than one string so the " · " is herdr's own separator 
 and so each zone can carry its own fg. All single-cell and deliberately not emoji — a VS16
 sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
 
-The approvals zone is a PAIR of tokens, $pr and $pr_on, for the same reason $git/$git_on is:
-a herdr token's inline fg is unconditional, so one token cannot render – / ◌ red and ● green.
-Exactly one slot is ever populated — approval_slots() puts ● in $pr_on and the incomplete
-glyphs in $pr — and an empty token emits no separator, so the zone still reads as one cell.
+The approvals zone is one $pr token whose Herdr 0.9.0 value rule recolours ● green; $pr_d remains because rules cannot see focus.
 
 Agent HOME workspaces opt OUT of all five (AGENT_HOME_RE): the captain's own `fm` sesh session,
 plus firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
@@ -95,16 +92,14 @@ INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
-# $pr's green twin, lit only at 2+ approvals; see approval_slots().
-ON_TOKEN = "pr_on"
 CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
 # Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
 # Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
-ROW3_ORDER =("pr", "pr_on", "pr_d", "ci", "ci_d", "sb", "sb_d", "jira", "jira_d")
-# Zone -> (lit slot, lit slot for the green twin or None, dim slot). Shared with the focus tracker.
-ROW3_ZONES = (("pr", "pr_on", "pr_d"), ("ci", None, "ci_d"), ("sb", None, "sb_d"), ("jira", None, "jira_d"))
+ROW3_ORDER =("pr", "pr_d", "ci", "ci_d", "sb", "sb_d", "jira", "jira_d")
+# Zone -> (lit slot, dim slot). Shared with the focus tracker.
+ROW3_ZONES = (("pr", "pr_d"), ("ci", "ci_d"), ("sb", "sb_d"), ("jira", "jira_d"))
 # A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
 REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
@@ -152,7 +147,7 @@ PR_JQ = (
 
 # Disjoint vocabularies: ● is approvals-complete, ✓ is CI-green, never the reverse.
 APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
-FULL_GLYPH = "●"  # the one approval glyph that rides $pr_on, so it can be green
+FULL_GLYPH = "●"  # recoloured green by $pr's `equals` rule in [ui.sidebar.spaces]
 CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
 NONE_GLYPH = "–"
 
@@ -272,16 +267,11 @@ def workspace_labels():
 def row3_slots(values, focused):
     """Place each zone's value in its lit or dim slot; the other stays empty and emits no separator."""
     slots = {name: "" for name in ROW3_ORDER}
-    for lit, lit_on, dim in ROW3_ZONES:
-        value = values.get(lit_on) or values.get(lit) if lit_on else values.get(lit)
+    for lit, dim in ROW3_ZONES:
+        value = values.get(lit)
         if not value:
             continue
-        if not focused:
-            slots[dim] = value
-        elif lit_on and value == values.get(lit_on):
-            slots[lit_on] = value
-        else:
-            slots[lit] = value
+        slots[dim if not focused else lit] = value
     return slots
 
 
@@ -499,19 +489,8 @@ def approval_glyph(approvals):
     return APPROVAL_GLYPH.get(n, FULL_GLYPH) if n < 2 else FULL_GLYPH
 
 
-def approval_slots(approvals):
-    """The ($pr, $pr_on) pair — ● goes to the green slot, – and ◌ to the red one.
-
-    Never both: a token's inline fg is unconditional, so the only way one zone renders in two
-    colours is two tokens with one populated. An empty token emits no separator either, so the
-    pair still occupies a single cell no matter which half is lit.
-    """
-    glyph = approval_glyph(approvals)
-    return ("", glyph) if glyph == FULL_GLYPH else (glyph, "")
-
-
 def render(approvals, ci):
-    """The ($pr, $pr_on, $ci) glyph triple, or all-empty for nothing worth a row.
+    """The ($pr, $ci) glyph pair, or all-empty for nothing worth a row.
 
     Separate tokens, not one string: the " · " between them is then herdr's own separator and
     takes the dim contextual colour, where a single token would paint its divider the token's fg.
@@ -520,8 +499,8 @@ def render(approvals, ci):
     survived, and an empty token drops its separator too.
     """
     if approvals is None and not ci:
-        return "", "", ""
-    return approval_slots(approvals) + (CI_GLYPH.get(ci or "", NONE_GLYPH),)
+        return "", ""
+    return approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH)
 
 
 def vault_note(cwd):
@@ -621,12 +600,11 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
-        pr_glyph, pr_on_glyph, ci_glyph = render(approvals, ci)
+        pr_glyph, ci_glyph = render(approvals, ci)
         values = {
             JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
             SB_TOKEN: NOTE_GLYPH if note else "",
             TOKEN: pr_glyph,
-            ON_TOKEN: pr_on_glyph,
             CI_TOKEN: ci_glyph,
         }
         report(workspace, indent_first(row3_slots(values, focused), label, ROW3_ORDER), seq)
