@@ -27,8 +27,16 @@ session_open_original = '''      await watchSession(session, watchers, events, l
         file,
         url,
         status: "opened",'''
-session_open_connected = '''      await watchSession(session, watchers, events, logEvent, reloadDebounceMs);
+session_open_connected_legacy = '''      await watchSession(session, watchers, events, logEvent, reloadDebounceMs);
       const browserConnected = [...sseClients.values()].includes(key);
+      if (browserConnected) events.emit("reload", key);
+      res.json({
+        key,
+        file,
+        url,
+        status: browserConnected ? "connected" : "opened",'''
+session_open_connected = '''      await watchSession(session, watchers, events, logEvent, reloadDebounceMs);
+      const browserConnected = [...liveEventClients.values()].includes(key);
       if (browserConnected) events.emit("reload", key);
       res.json({
         key,
@@ -209,7 +217,7 @@ remove_route = r'''  app.post("/api/:key/remove-review-file", async (req, res, n
 '''
 
 server_rules = (
-    (session_open_original, session_open_connected, 'const browserConnected = [...sseClients.values()].includes(key);', False),
+    (session_open_original, session_open_connected, 'const browserConnected = [...liveEventClients.values()].includes(key);', False),
     ('let annotationMode = true;', 'let annotationMode = false;', 'let annotationMode = false;', False),
     ('id="annotation" type="button" aria-pressed="true"', 'id="annotation" type="button" aria-pressed="false"', 'id="annotation" type="button" aria-pressed="false"', False),
     (
@@ -233,6 +241,9 @@ for value in sys.argv[1:]:
     text = path.read_text()
     changed = False
     if path.name in {"lavish-axi", "cli.mjs"}:
+        if session_open_connected_legacy in text:
+            text = text.replace(session_open_connected_legacy, session_open_connected)
+            changed = True
         route_markers = (
             '  app.get("/api/review-connections"',
             '  app.post("/api/:key/resume-review"',
