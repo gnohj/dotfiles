@@ -658,7 +658,7 @@ btop2() {
 }
 
 # Github Dash
-alias ghd='gh-dash'
+alias ghd='env -u GH_TOKEN -u GITHUB_TOKEN gh-dash'
 
 # RTK token savings graph
 alias rtkg='rtk gain --graph'
