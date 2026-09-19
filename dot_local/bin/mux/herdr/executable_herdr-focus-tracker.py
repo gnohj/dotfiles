@@ -435,6 +435,45 @@ class MRU:
         write_atomic(LAST_PANE, self.pane_prev.get(self.cur_tab, "") if self.cur_tab else "")
 
 
+def initialize_focus(mru):
+    workspaces = request("workspace.list", {})
+    if not workspaces or "result" not in workspaces:
+        return
+    workspace = next(
+        (item for item in workspaces["result"].get("workspaces", []) if item.get("focused")),
+        None,
+    )
+    if not workspace:
+        return
+    workspace_id = workspace.get("workspace_id")
+    mru.focus_ws(workspace_id)
+
+    tabs = request("tab.list", {})
+    if tabs and "result" in tabs:
+        tab = next(
+            (
+                item
+                for item in tabs["result"].get("tabs", [])
+                if item.get("focused") and item.get("workspace_id") == workspace_id
+            ),
+            None,
+        )
+        mru.focus_tab(workspace_id, (tab or {}).get("tab_id") or workspace.get("active_tab_id"))
+
+    panes = request("pane.list", {})
+    if panes and "result" in panes:
+        pane = next(
+            (
+                item
+                for item in panes["result"].get("panes", [])
+                if item.get("focused") and item.get("tab_id") == mru.cur_tab
+            ),
+            None,
+        )
+        mru.focus_pane((pane or {}).get("pane_id"))
+    mru.flush()
+
+
 def handle(mru, msg):
     event = msg.get("event")
     data = msg.get("data") or {}
@@ -496,6 +535,7 @@ def session(mru):
         "params": {"subscriptions": [{"type": t} for t in SUBSCRIPTIONS]},
     }
     conn.sendall((json.dumps(req) + "\n").encode())
+    initialize_focus(mru)
     # Reconcile once per connect: events only cover drift from now on, so a tab closed
     # while the daemon was down (restart, `chezmoi apply`, herdr restart) stays wrong forever.
     renumber_tabs()
