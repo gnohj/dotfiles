@@ -28,9 +28,9 @@ let
           "-c"
           ("mkdir -p ${homeDir}/.logs/" + name + "\n" + pathLine + execLine)
         ];
-        # Flat path only: launchd's PathState takes no glob, so a NAMED session's socket is invisible here and would hold every daemon down.
+        # Pin macOS daemons to the flat socket so startup cannot attach them to a named remote session.
+        EnvironmentVariables = { HERDR_SOCKET_PATH = "${homeDir}/${muxDaemons.socket}"; };
         KeepAlive = { PathState = { "${homeDir}/${muxDaemons.socket}" = true; }; };
-        RunAtLoad = true;
         StandardOutPath = "${homeDir}/.logs/" + name + "/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/" + name + "/launchagent.err.log";
       } // (lib.optionalAttrs (d ? macos && d.macos ? throttle) {
