@@ -29,6 +29,7 @@ AI_LABELS = {
 }
 AI_COMMAND_RE = re.compile(r"(^|/)(claude|pi|opencode|ollama|llm)(\s|$)")
 KNOWN_NAMES = {
+    "org.nixos.agentsview": "AgentsView",
     "org.nixos.claude-cost-refresh": "Claude cost refresh",
     "org.nixos.github-auto-push": "GitHub auto push",
     "org.nixos.gh-auto-review": "Automatic PR reviews",
@@ -39,6 +40,9 @@ KNOWN_NAMES = {
     "org.nixos.usage-sampler": "Usage sampler",
     "org.nixos.nix-gc": "Nix garbage collection",
     "org.nixos.nix-optimise": "Nix store optimise",
+}
+PERSISTENT_LABELS = {
+    "org.nixos.agentsview",
 }
 
 
@@ -194,9 +198,9 @@ def plist_jobs(now, cache):
                 continue
             interval = plist.get("StartInterval")
             calendar = plist.get("StartCalendarInterval")
-            if not interval and not calendar:
-                continue
             label = str(plist.get("Label") or path.stem)
+            if not interval and not calendar and label not in PERSISTENT_LABELS:
+                continue
             section = section_for(label, path)
             if section is None:
                 continue
@@ -207,9 +211,11 @@ def plist_jobs(now, cache):
                 remaining = state["status"]
             elif interval:
                 remaining = interval_remaining(label, int(interval), state["runs"], now, cache)
-            else:
+            elif calendar:
                 next_run = next_calendar(calendar, now)
                 remaining = human_duration((next_run - now).total_seconds()) if next_run else "unknown"
+            else:
+                remaining = "at login"
             jobs.append(
                 {
                     "name": friendly_name(label),

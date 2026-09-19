@@ -84,6 +84,30 @@ in
       };
     };
 
+    agentsview = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/agentsview
+            exec ${homeDir}/.local/share/mise/shims/agentsview serve --no-browser
+          ''
+        ];
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        RunAtLoad = true;
+        ThrottleInterval = 10;
+        EnvironmentVariables = {
+          PATH = daemonPath;
+          LANG = "en_US.UTF-8";
+        };
+        StandardOutPath = "${homeDir}/.logs/agentsview/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/agentsview/launchagent.err.log";
+      };
+    };
+
     # --once on an interval, not --watch under KeepAlive, so a denied TCC grant logs and waits; launchd reads no .zshenv, hence the explicit paths.
     tasks-sync = {
       serviceConfig = {
