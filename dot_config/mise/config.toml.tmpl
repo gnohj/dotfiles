@@ -68,6 +68,7 @@ pnpm = "latest"
 # Pinned to web's @pulumi/pulumi SDK (packages/infra), whose automation API shells out to this CLI, so a local run can't write stack state CI reads back; Linux-only like opencode - the Mac has its own pulumi.
 pulumi = "3.207.0"
 "npm:hunkdiff" = { version = "latest", allow_builds = ["hunkdiff"] }   # hunk: gh-dash PR review viewer (native binary; Mac gets it via brew)
+gh = "latest"                                       # GitHub CLI: only mise supplies it here, since nix-darwin's gh is Mac-only and the VPS has no other source
 {{- end }}
 
 [hooks]
