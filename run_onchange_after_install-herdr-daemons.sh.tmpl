@@ -58,6 +58,9 @@ SERVICE=$(cat <<'UNIT_EOF'
 [Unit]
 Description={{ $d.desc }}
 Documentation=https://herdr.dev/docs/configuration/
+# Bounds the Restart=always below: five fast exits inside a minute means no socket to reach, so stop and let .path start us when one reappears.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -68,8 +71,8 @@ ExecStart=%h/{{ $.muxDaemons.daemonExec }} {{ if $interp }}{{ $interp }} {{ end 
 {{- range $e := $env }}
 Environment={{ if or (contains " " $e.v) (contains "{" $e.v) }}"{{ $e.k }}={{ $e.v }}"{{ else }}{{ $e.k }}={{ $e.v }}{{ end }}
 {{- end }}
-# on-failure only: a clean exit(0) means the socket vanished, so stay stopped and let .path restart us.
-Restart=on-failure
+# always, not on-failure: a daemon holding a live herdr connection exits 0 when that connection drops, and the socket is REPLACED rather than removed, so PathExists never goes false->true and .path never re-triggers - measured 2026-09-21, four daemons exited 0 together and stayed dead 1h42m with a valid socket present throughout. The start limit above keeps the genuinely-socketless case behaving as before.
+Restart=always
 RestartSec=5
 UNIT_EOF
 )
