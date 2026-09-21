@@ -22,6 +22,28 @@ proc_env() { # <pid> -> its environment, one VAR=value per line
 
 age() { [ -f "$1" ] && echo "$(( $(date +%s) - $(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1") ))s" || echo "absent"; }
 
+# Matching only "claude" reported every pi, codex or cursor worker as dead; this is the full verified adapter list.
+agent_pid() { # herdr process-info json on stdin -> "<pid> <argv0>" of the first agent found
+  python3 -c '
+import json, os, sys
+AGENTS = {"claude","pi","pi-signed","codex","opencode","grok","kimi","cursor","omp","muse","gemini","rovo","agy"}
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+for x in d.get("result", {}).get("process_info", {}).get("foreground_processes", []):
+    argv = x.get("argv") or []
+    # The payload carries name/argv/cmdline and no argv0 at all, so the old argv0 test could never match.
+    for cand in (x.get("name"), os.path.basename(argv[0]) if argv else None):
+        if cand in AGENTS:
+            print(x["pid"], cand); sys.exit(0)' 2>/dev/null
+}
+
+sshq() { ssh -n -o ConnectTimeout=10 -o BatchMode=yes "$@" 2>/dev/null; }
+safe_remote_value() { [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._:@-]*$ ]]; }
+remote_proc_env() {
+  safe_remote_value "$1" && [[ "$2" =~ ^[0-9]+$ ]] || return 2
+  sshq "$1" "if [ \"\$(uname)\" = Darwin ]; then ps -Eww -p '$2' -o command= 2>/dev/null | tr ' ' '\\n'; else tr '\\0' '\\n' < '/proc/$2/environ' 2>/dev/null; fi"
+}
+
 b "FLEET (on disk - true from anywhere)"
 kv "home" "$HOME_DIR $([ -d "$HOME_DIR" ] && echo "(exists)" || echo "(MISSING)")"
 kv "size" "$(du -sh "$HOME_DIR" 2>/dev/null | cut -f1)"
@@ -67,18 +89,48 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
     case "$line" in "- "*) ;; *) continue ;; esac
     id=${line#- }; id=${id%% *}
     mh=$(printf '%s' "$line" | sed -n 's/.*home: \([^;)]*\).*/\1/p')
-    pane=$(grep -m1 '^herdr_pane_id=' "$HOME_DIR/state/$id.meta" 2>/dev/null | cut -d= -f2-)
-    pid=$(herdr pane process-info --pane "${pane:-none}" 2>/dev/null | python3 -c '
-import json,sys
-try: d=json.load(sys.stdin)
-except Exception: sys.exit(0)
-for x in d.get("result",{}).get("process_info",{}).get("foreground_processes",[]):
-    if x.get("argv0")=="claude": print(x["pid"]); break' 2>/dev/null)
-    if [ -n "$pid" ]; then
-      tok=$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)
-      kv "$id" "alive pane=$pane token=$(fp "$tok")$([ -z "$tok" ] && echo ' (state-dir credential)')"
+    meta="$HOME_DIR/state/$id.meta"
+    # A remotely placed mate records remote_target and remote_host; only a local one records herdr_pane_id.
+    rhost=$(grep -m1 '^remote_host=' "$meta" 2>/dev/null | cut -d= -f2-)
+    if [ -n "${rhost:-}" ]; then
+      # remote_target is "<session>:<pane>" and that session has its own herdr socket, so the session must be named or the pane is not found.
+      rsess=$(grep -m1 '^remote_herdr_session=' "$meta" 2>/dev/null | cut -d= -f2-)
+      pane=$(grep -m1 '^remote_target=' "$meta" 2>/dev/null | cut -d= -f2-)
+      [ -z "${rsess:-}" ] && rsess=${pane%%:*}
+      pane=${pane#"$rsess":}
     else
-      kv "$id" "NO LIVE AGENT  home=${mh:-?}"
+      pane=$(grep -m1 '^herdr_pane_id=' "$meta" 2>/dev/null | cut -d= -f2-)
+    fi
+    if [ -z "${pane:-}" ]; then
+      kv "$id" "NO ENDPOINT RECORDED  home=${mh:-?}"
+      continue
+    fi
+    if [ -n "${rhost:-}" ] && { ! safe_remote_value "$rhost" || ! safe_remote_value "$rsess" || ! safe_remote_value "$pane"; }; then
+      kv "$id" "INVALID REMOTE ENDPOINT  home=${mh:-?}"
+      continue
+    fi
+    if [ -n "${rhost:-}" ]; then
+      out=$(sshq "$rhost" "herdr --session '$rsess' pane process-info --pane '$pane'"); rc=$?
+    else
+      out=$(herdr pane process-info --pane "$pane" 2>/dev/null); rc=$?
+    fi
+    pid=""; argv0=""
+    read -r pid argv0 <<<"$(printf '%s' "$out" | agent_pid)"
+    [[ "${pid:-}" =~ ^[0-9]+$ ]] || pid=""
+    if [ -z "${pid:-}" ]; then
+      # An unreachable host is unknown, not dead; saying NO LIVE AGENT there is a lie that invites a wrong relaunch.
+      if [ -n "${rhost:-}" ] && { [ "$rc" -ne 0 ] || [ -z "$out" ]; }; then
+        kv "$id" "UNREACHABLE  host=$rhost pane=$pane home=${mh:-?}"
+      else
+        kv "$id" "NO LIVE AGENT  pane=$pane home=${mh:-?}"
+      fi
+    else
+      if [ -n "${rhost:-}" ]; then
+        tok=$(remote_proc_env "$rhost" "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)
+      else
+        tok=$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)
+      fi
+      kv "$id" "alive ${argv0:-?} pane=${rhost:+$rsess:}$pane${rhost:+ @$rhost} token=$(fp "${tok:-}")$([ -z "${tok:-}" ] && echo ' (state-dir credential)')"
     fi
   done < "$HOME_DIR/data/secondmates.md"
 else
