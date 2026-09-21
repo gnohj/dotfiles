@@ -40,6 +40,16 @@ export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 # prepended: nix/system keep front precedence, mise-only tools just become reachable.
 export PATH="$PATH:$HOME/.local/share/mise/shims"
 
+# A long-lived herdr server hands new panes a HERDR_BIN_PATH that mise deleted on upgrade; repoint it once here.
+if [[ -n "${HERDR_BIN_PATH:-}" && ! -x "$HERDR_BIN_PATH" ]]; then
+  # Not ${commands[herdr]}: that hash matches the mux/herdr helper DIRECTORY on PATH.
+  if [[ -x "$HOME/.local/bin/herdr" ]]; then
+    export HERDR_BIN_PATH="$HOME/.local/bin/herdr"
+  else
+    unset HERDR_BIN_PATH
+  fi
+fi
+
 # vim-herdr-navigation: forward ctrl+h/j/k/l to these TUIs (matched on the lower-cased
 # foreground process) instead of moving herdr's pane focus — so ctrl+j/k navigate
 # inside the herdr-sesh.sh fzf picker like the tmux sesh popup. Set here (not .zshrc)

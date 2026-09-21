@@ -123,8 +123,9 @@ end
 -- HERDR_BIN_PATH, and nvim's $PATH at system() time may miss the nix dir where
 -- herdr lives (same rationale as mux.lua / herdr-navigator.lua).
 local function herdr_bin()
+  -- A mise upgrade deletes the old install dir, so check executability, not presence.
   local h = vim.env.HERDR_BIN_PATH
-  if h and h ~= "" then
+  if h and h ~= "" and vim.fn.executable(h) == 1 then
     return h
   end
   local p = vim.fn.exepath("herdr")

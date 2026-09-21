@@ -17,8 +17,9 @@
 -- for correct keymap priority. Gated to herdr only; tmux-navigator owns off-herdr.
 
 local function resolve_herdr()
+  -- A mise upgrade deletes the old install dir, so check executability, not presence.
   local h = vim.env.HERDR_BIN_PATH
-  if h == nil or h == "" then
+  if h == nil or h == "" or vim.fn.executable(h) ~= 1 then
     h = vim.fn.exepath("herdr")
   end
   if h == "" then
