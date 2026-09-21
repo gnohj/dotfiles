@@ -8,14 +8,14 @@ cd "$HOME/.config/sketchybar" || exit 1
 # on PATH so other Nix-managed CLIs called from sketchybar still resolve.
 export PATH="$HOME/.local/bin:/run/current-system/sw/bin:$PATH"
 
-# Activate mise to get the correct lua in PATH (no-op if mise is missing —
-# Nix-provided lua at /run/current-system/sw/bin is still on PATH).
+# Keep SbarLua on Lua 5.4 even if a global mise upgrade changes the default.
+lua_command=(lua)
 if command -v mise &>/dev/null; then
-  eval "$(mise activate bash)"
+  lua_command=(mise exec lua@5.4 -- lua)
 fi
 
 # Execute the lua script
-exec lua - <<'LUA_SCRIPT'
+exec "${lua_command[@]}" - <<'LUA_SCRIPT'
 -- Change to sketchybar config directory so modules can be found
 local config_dir = os.getenv("HOME") .. "/.config/sketchybar"
 package.path = package.path .. ";" .. config_dir .. "/?.lua"
