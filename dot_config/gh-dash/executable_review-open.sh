@@ -71,6 +71,40 @@ POLL_TIMEOUT_ENV=(--env BASH_DEFAULT_TIMEOUT_MS=600000)
 
 cd "$repo_path"
 
+resolve_review_claude_account() {
+  local requested="${REVIEW_CLAUDE_ACCOUNT:-auto}" usage="" five_hour="" seven_day=""
+  case "$requested" in
+    personal | work)
+      REVIEW_CLAUDE_ACCOUNT="$requested"
+      REVIEW_CLAUDE_ACCOUNT_REASON="explicit override"
+      return
+      ;;
+    auto) ;;
+    *) echo "review-open: REVIEW_CLAUDE_ACCOUNT must be auto, personal, or work" >&2; exit 2 ;;
+  esac
+
+  REVIEW_CLAUDE_ACCOUNT="$("$HOME/.local/bin/claude-account" resolve 2>/dev/null || printf work)"
+  REVIEW_CLAUDE_ACCOUNT_REASON="path and account settings"
+  [ "$REVIEW_CLAUDE_ACCOUNT" = work ] || return
+
+  "$HOME/.local/bin/claude-account" usage-refresh work >/dev/null 2>&1 || true
+  usage="$("$HOME/.local/bin/claude-account" usage work 2>/dev/null | tail -n1)"
+  IFS=$'\t' read -r _ five_hour _ seven_day _ <<<"$usage"
+  if awk -v five="$five_hour" -v seven="$seven_day" 'BEGIN { exit !((five + 0) >= 0.99 || (seven + 0) >= 0.99) }'; then
+    REVIEW_CLAUDE_ACCOUNT=personal
+    REVIEW_CLAUDE_ACCOUNT_REASON="work quota exhausted"
+  fi
+}
+
+CLAUDE_ACCOUNT_ENV=()
+case "$mode" in
+  full | resume | diff | claude | fan)
+    resolve_review_claude_account
+    CLAUDE_ACCOUNT_ENV=(--env CLAUDE_ACCOUNT="$REVIEW_CLAUDE_ACCOUNT")
+    echo "review-open: Claude account $REVIEW_CLAUDE_ACCOUNT ($REVIEW_CLAUDE_ACCOUNT_REASON)"
+    ;;
+esac
+
 # Scope-driven profile, shared by every mode so P and F reason at the same depth on the same PR.
 # A caller may pin either side for one review; dispatch decides only what it did not pin.
 pinned_model=${REVIEW_CLAUDE_MODEL:-} pinned_effort=${REVIEW_CLAUDE_EFFORT:-}
@@ -105,7 +139,7 @@ open_hunk() {
 # $3 picks the review command: `full` adds the Lavish surface, `diff` stays text-only.
 open_claude_hunk() {
   local cmd="${3:-hunk-review}"
-  mux --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
+  mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
@@ -113,7 +147,7 @@ open_claude_hunk() {
 open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
-  mux "${POLL_TIMEOUT_ENV[@]}" "🤖 #$pr" "$1" \
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr" "$1" \
     'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
@@ -148,7 +182,7 @@ seal_on_exit() {
 # Sealed-bid: each finder writes its own file plus a .done marker and never reads a sibling's.
 open_finder_claude() {
   write_finder_brief "$1" opus
-  mux --no-focus "🔎1 #$pr opus" "$1" \
+  mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
     'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
@@ -172,7 +206,7 @@ finder_label() {
 }
 
 open_fanout_owner() {
-  mux "${POLL_TIMEOUT_ENV[@]}" "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
 background_review() {
