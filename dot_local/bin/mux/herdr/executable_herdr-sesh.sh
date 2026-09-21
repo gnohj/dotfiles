@@ -40,17 +40,10 @@ else
 fi
 
 build_list() {
-  # Keep gitmux off the render path: fire a detached background pass to refresh the git
-  # cache (deduped via flock inside), so THIS open renders instantly from whatever is
-  # cached and the NEXT open is fresh. Skipped when we already are that warm pass (WARM set).
-  [ -n "${WARM:-}" ] || ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
   # Probes fan out into files, not command substitution: a subshell cannot hand a variable back.
   local src
   src="$(mktemp -d "${TMPDIR:-/tmp}/herdr-sesh-src.XXXXXX")" || return 1
-  "$herdr" workspace list >"$src/ws" 2>/dev/null &
-  "$herdr" pane list >"$src/pn" 2>/dev/null &
-  "$herdr" agent list >"$src/ag" 2>/dev/null &
-  "$herdr" tab list >"$src/tb" 2>/dev/null &
+  "$herdr" api snapshot >"$src/sn" 2>/dev/null &
   sesh list -c -z -j >"$src/en" 2>/dev/null &
   # `sesh list` omits aliases in every output mode, so read them straight from sesh.toml.
   "$HOME/.config/sesh/sesh-aliases.sh" >"$src/al" 2>/dev/null &
@@ -93,6 +86,7 @@ def load_aliases():
     except Exception: pass
     return by_name, by_path
 alias_by_name, alias_by_path = load_aliases()
+snapshot = (load("sn") or {}).get("result", {}).get("snapshot", {})
 # Chips pad to the widest alias so a one-letter one does not pull its name a column left.
 ALIAS_W = max([len(a) for a in list(alias_by_name.values()) + list(alias_by_path.values())] or [0])
 
@@ -144,7 +138,7 @@ SEP = "❯"
 # Representative cwd per open workspace (from its panes); the same walk picks up the focused ids.
 wscwd = {}
 focus = ("", "", "")
-for pn in (load("pn") or {}).get("result", {}).get("panes", []):
+for pn in snapshot.get("panes", []):
     w = pn.get("workspace_id"); c = (pn.get("foreground_cwd") or pn.get("cwd") or "").rstrip("/")
     if w and c and w not in wscwd: wscwd[w] = c
     if pn.get("focused"):
@@ -159,7 +153,7 @@ AGENT_COLOR = {
 }
 work_col, personal_col = tc(os.environ.get("WORKACCT")), tc(os.environ.get("PERSONALACCT"))
 agents_by_tab = {}
-for ag in (load("ag") or {}).get("result", {}).get("agents", []):
+for ag in snapshot.get("agents", []):
     t = ag.get("tab_id")
     if t: agents_by_tab.setdefault(t, []).append(ag)
 for lst in agents_by_tab.values():
@@ -167,7 +161,7 @@ for lst in agents_by_tab.values():
 
 # Only tabs that actually hold an agent - a plain shell tab would just pad the picker.
 tabs_by_ws = {}
-for tb in (load("tb") or {}).get("result", {}).get("tabs", []):
+for tb in snapshot.get("tabs", []):
     if agents_by_tab.get(tb.get("tab_id")):
         tabs_by_ws.setdefault(tb.get("workspace_id"), []).append(tb)
 for lst in tabs_by_ws.values():
@@ -292,7 +286,7 @@ def resolve_entry(lname, cwd):
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
-for w in (load("ws") or {}).get("result", {}).get("workspaces", []):
+for w in snapshot.get("workspaces", []):
     wid = w.get("workspace_id")
     # This picker builds its own git column from the cwd, so strip any " · <symbols>"
     # suffix a workspace label may carry to avoid a doubled/clipped name.
@@ -358,10 +352,6 @@ def compute(p):
 # longer listed, then exit WITHOUT rendering. Runs off the render path so opening stays instant;
 # it is what keeps the shown (possibly stale) symbols fresh. flock => only one warm at a time.
 if os.environ.get("WARM") == "1":
-    import fcntl
-    lock = open(hg.CACHE + ".lock", "a+")
-    try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError: raise SystemExit(0)      # another warm already running
     todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)]
     if todo:
         from concurrent.futures import ThreadPoolExecutor
@@ -464,6 +454,7 @@ if fpath:
         fh.write("%d\n" % next((at[t] for t in want if t in at), 1))
 '
   rm -rf "$src"
+  [ -n "${WARM:-}" ] || ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
 }
 
 # --- fzf reload/execute helpers -------------------------------------------------
@@ -475,12 +466,23 @@ case "${1:-}" in
     exit 0
     ;;
   --warm)
-    # Background git-cache refresh (spawned by build_list). Renders nothing; the python
-    # exits after updating the cache. WARM=1 both selects that path and stops build_list
-    # from spawning yet another warm.
+    exec python3 -c '
+import fcntl, os, sys
+path, script = sys.argv[1:]
+os.makedirs(os.path.dirname(path), exist_ok=True)
+fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError: raise SystemExit(0)
+os.set_inheritable(fd, True)
+os.execv(script, [script, "--warm-locked"])
+' "${XDG_STATE_HOME:-$HOME/.local/state}/herdr/sesh-git-cache.json.lock" "$SELF"
+    ;;
+  --warm-locked)
     [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
       source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
-    WARM=1 build_list >/dev/null 2>&1
+    sleep 5
+    export WARM=1
+    build_list >/dev/null 2>&1
     exit 0
     ;;
   --view)
