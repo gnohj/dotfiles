@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+
+import argparse
+import ast
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+from typing import Optional
+
+MAX_INPUT_BYTES = 32_000
+ROUTE_CATALOGS = {
+    "harness": {
+        "claude": "Broad, ambiguous, architecture-heavy, context-heavy, or coordination work that benefits from deep interactive reasoning.",
+        "pi": "Well-defined bounded implementation or debugging where an interactive agent and selectable model providers are useful.",
+        "codex": "Standalone noninteractive coding execution, a mechanical change, or an independent second implementation or review.",
+    },
+    "tool": {
+        "local": "Read, search, edit, execute, or test files and commands in the local repository.",
+        "context7": "Look up current documentation for a library, framework, SDK, API, CLI, or cloud service.",
+        "github": "Read GitHub pull requests, issues, workflow runs, releases, repositories, labels, secrets, or variables.",
+        "jira": "Read Jira tickets or Confluence pages and their work context.",
+        "browser": "Inspect, automate, or validate a browser page, UI, network request, screenshot, or end-to-end flow.",
+        "research": "Research current external facts across web sources, code, pull requests, issues, documentation, or Slack.",
+        "visual": "Create or inspect a diagram, rendered artifact, Lavish page, architecture view, or visual review surface.",
+    },
+    "review": {
+        "routine": "Documentation, tests, snapshots, formatting, generated output, or a mechanical change with no meaningful runtime behavior.",
+        "deep": "Runtime behavior, state flow, concurrency, performance, or cross-module interaction requiring substantive code reasoning.",
+        "critical": "Authentication, authorization, permissions, cryptography, secrets, payments, migrations, deployment infrastructure, destructive behavior, or a breaking public contract.",
+    },
+}
+ROUTE_CONFIDENCE = {"harness": 0.75, "tool": 0.75, "review": 0.8}
+SECRET_PATTERNS = [
+    re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"),
+    re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,})"),
+    re.compile(r"\b(?:authorization\s*:\s*bearer|password|api[_-]?key|access[_-]?token|client[_-]?secret)\s*[:=]\s*[^\s,;]+", re.IGNORECASE),
+]
+
+
+def fail(message: str, code: int = 2) -> None:
+    print(f"jev-route: {message}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+def request_text(parts: list[str]) -> str:
+    if not parts or parts == ["-"]:
+        value = sys.stdin.read()
+    elif len(parts) == 1 and parts[0].startswith("@"):
+        path = Path(parts[0][1:]).expanduser()
+        try:
+            value = path.read_text(encoding="utf-8")
+        except OSError as error:
+            fail(f"cannot read {path}: {error}")
+    else:
+        value = " ".join(parts)
+    value = value.strip()
+    if not value:
+        fail("request is empty")
+    if len(value.encode("utf-8")) > MAX_INPUT_BYTES:
+        fail(f"request exceeds {MAX_INPUT_BYTES} UTF-8 bytes")
+    if any(pattern.search(value) for pattern in SECRET_PATTERNS):
+        fail("request looks secret-bearing; refusing to send it to TypeSafe")
+    return value
+
+
+def scalar(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    try:
+        parsed = ast.literal_eval(value)
+        return parsed if isinstance(parsed, str) else str(parsed)
+    except (SyntaxError, ValueError):
+        return value
+
+
+def frontmatter(path: Path) -> Optional[tuple[str, str]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    if not lines or lines[0].strip() != "---":
+        return None
+    try:
+        end = next(index for index, line in enumerate(lines[1:], 1) if line.strip() == "---")
+    except StopIteration:
+        return None
+    fields: dict[str, str] = {}
+    index = 1
+    while index < end:
+        line = lines[index]
+        match = re.match(r"^(name|description):\s*(.*)$", line)
+        if not match:
+            index += 1
+            continue
+        key, value = match.groups()
+        if value in {"|", "|-", "|+", ">", ">-", ">+"}:
+            block: list[str] = []
+            index += 1
+            while index < end and (not lines[index] or lines[index][0].isspace()):
+                block.append(lines[index].strip())
+                index += 1
+            fields[key] = " ".join(part for part in block if part)
+            continue
+        fields[key] = scalar(value)
+        index += 1
+    name = fields.get("name", "").strip()
+    description = fields.get("description", "").strip()
+    return (name, description) if name and description else None
+
+
+def skill_candidates() -> list[dict[str, str]]:
+    configured = os.environ.get("JEV_ROUTE_SKILL_DIRS", "")
+    roots = [Path(value).expanduser() for value in configured.split(os.pathsep) if value]
+    if not roots:
+        roots = [Path.home() / "Developer/agents/shared/skills"]
+    candidates: dict[str, dict[str, str]] = {}
+    for root in roots:
+        for path in sorted(root.glob("*/SKILL.md")):
+            metadata = frontmatter(path)
+            if not metadata:
+                continue
+            name, description = metadata
+            candidates[name] = {"id": name, "text": description}
+    if not candidates:
+        fail("no skill descriptions found")
+    return [candidates[name] for name in sorted(candidates)]
+
+
+def command_prefix() -> list[str]:
+    configured = os.environ.get("JEV_ROUTE_COMMAND", "").strip()
+    if configured:
+        command = shlex.split(configured)
+        if command:
+            return command
+    binary = shutil.which("jev")
+    if not binary:
+        fail("jev is unavailable; apply the chezmoi mise config and run mise install", 127)
+    return [binary]
+
+
+def invoke(arguments: list[str], stdin: Optional[str] = None) -> int:
+    process = subprocess.run(command_prefix() + arguments, input=stdin, text=True, check=False)
+    return process.returncode
+
+
+def catalog_file(value: object):
+    handle = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".json", delete=False)
+    try:
+        json.dump(value, handle, ensure_ascii=False)
+        handle.write("\n")
+        return handle, Path(handle.name)
+    except Exception:
+        handle.close()
+        Path(handle.name).unlink(missing_ok=True)
+        raise
+
+
+def route(mode: str, request: str, dry_run: bool) -> int:
+    handle, path = catalog_file(ROUTE_CATALOGS[mode])
+    handle.close()
+    try:
+        arguments = [
+            "route",
+            "-",
+            "--handlers-json",
+            f"@{path}",
+            "--min-confidence",
+            str(ROUTE_CONFIDENCE[mode]),
+            "--provider",
+            os.environ.get("JEV_ROUTE_PROVIDER", "typesafe"),
+            "--model",
+            os.environ.get("JEV_ROUTE_MODEL", "jev-latest"),
+            "--json",
+            "--no-color",
+        ]
+        if dry_run:
+            arguments.append("--dry-run")
+        return invoke(arguments, request)
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def find_skill(request: str, dry_run: bool) -> int:
+    handle, path = catalog_file(skill_candidates())
+    handle.close()
+    try:
+        arguments = [
+            "find",
+            f"Task: {request}",
+            "--candidates",
+            f"@{path}",
+            "--top-k",
+            "5",
+            "--found",
+            "0.75",
+            "--absent",
+            "0.35",
+            "--provider",
+            os.environ.get("JEV_ROUTE_PROVIDER", "typesafe"),
+            "--model",
+            os.environ.get("JEV_ROUTE_MODEL", "jev-latest"),
+            "--json",
+            "--no-color",
+        ]
+        if dry_run:
+            arguments.append("--dry-run")
+        return invoke(arguments)
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="jev-route")
+    parser.add_argument("mode", choices=["harness", "tool", "skill", "review"])
+    parser.add_argument("request", nargs="*")
+    parser.add_argument("--dry-run", action="store_true")
+    arguments = parser.parse_args()
+    request = request_text(arguments.request)
+    if arguments.mode == "skill":
+        return find_skill(request, arguments.dry_run)
+    return route(arguments.mode, request, arguments.dry_run)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -2,9 +2,9 @@
 # Rules run narrowest-first; both finders use matching effort so their bids remain comparable.
 
 case "$(uname -s)" in
-  Darwin) export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
-  Linux) export PATH="/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
-  *) export PATH="/usr/local/bin:/usr/bin:/bin:$PATH" ;;
+  Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
+  Linux) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
+  *) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
 esac
 
 CONFIG="${REVIEW_DISPATCH_CONFIG:-$HOME/.config/gh-dash/review-dispatch.json}"
@@ -41,8 +41,16 @@ files=$(printf '%s' "$counted" | jq -r 'length')
 title=$(printf '%s' "$stats" | jq -r '.title // ""')
 case "$lines$files" in '' | *[!0-9]*) fallback ;; esac
 
+semantic=""
+if command -v jev-route >/dev/null 2>&1; then
+  semantic_state=$(jq -cn --arg title "$title" --argjson lines "$lines" --argjson files "$files" --argjson changed "$counted" \
+    '{title: $title, changedLines: $lines, changedFiles: $files, paths: [$changed[].path // ""]}')
+  semantic_result=$(printf '%s' "$semantic_state" | jev-route review - 2>/dev/null) || semantic_result=""
+  semantic=$(printf '%s' "$semantic_result" | jq -r 'if .action == "auto" then (.handler // "") else "" end' 2>/dev/null) || semantic=""
+fi
+
 # Size picks the band; riskPaths floors it at the hardest, lowRiskPaths drops one but only if EVERY counted file matches.
-profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --argjson counted "$counted" '
+profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --argjson counted "$counted" --arg semantic "$semantic" '
   ([$counted[].path // ""]) as $paths
   | (.riskPaths // []) as $risky
   | (.lowRiskPaths // []) as $cheap
@@ -53,12 +61,13 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
   | ([.rules | to_entries[] | select(
        ((.value.when.maxLines // 1e18) >= $lines) and ((.value.when.maxFiles // 1e18) >= $files)
      ) | .key] | first) as $idx
-  | (if $hitRisk then ($count - 1)
+  | (if $hitRisk or $semantic == "critical" then ($count - 1)
+     elif $semantic == "deep" and ($idx != null) then ([$idx, ([1, ($count - 1)] | min)] | max)
      elif $allCheap and ($idx != null) then ([$idx - 1, 0] | max)
      else $idx end) as $pick
   | (if $pick == null then {use: .default} else .rules[$pick] end) as $r
   | ($r.use // $r) as $u
-  | (if $hitRisk then "risk" elif $allCheap then "tests" else "" end) as $why
+  | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap then "tests" else "" end) as $why
   | (if ($title | test("^\\[Backport #[0-9]+\\]"; "i")) then "full" else ($u.mode // "full") end) as $mode
   | [ $mode, $u.claude.model, $u.claude.effort, $u.gpt.model, $u.gpt.effort, ($u.rungTimeout | tostring), $why ] | @tsv
 ' "$CONFIG" 2>/dev/null) || fallback
