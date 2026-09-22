@@ -12,6 +12,7 @@ let
       {
         url = "https://teams.microsoft.com/v2/";
         default_launch_container = "window";
+        install_as_shortcut = true;
         custom_name = "Microsoft Teams";
       }
       {
