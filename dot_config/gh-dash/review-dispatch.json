@@ -27,7 +27,7 @@
       "use": {
         "mode": "fan",
         "claude": {
-          "model": "claude-opus-5",
+          "model": "claude-opus-5-5",
           "effort": "high"
         },
         "gpt": {
@@ -43,7 +43,7 @@
       "use": {
         "mode": "fan",
         "claude": {
-          "model": "claude-opus-5",
+          "model": "claude-opus-5-5",
           "effort": "xhigh"
         },
         "gpt": {
@@ -58,7 +58,7 @@
   "default": {
     "mode": "fan",
     "claude": {
-      "model": "claude-opus-5",
+      "model": "claude-opus-5-5",
       "effort": "high"
     },
     "gpt": {
