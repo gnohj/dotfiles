@@ -2,7 +2,7 @@
 # Rewrite an msteams: deep link into the Teams PWA's in-scope /v2/ fragment form and open it there.
 set -euo pipefail
 
-BUNDLE_ID="${TEAMS_PWA_BUNDLE_ID:-net.imput.helium.app.cifhbcnohmdccbgoicgdjpfamggdegmo}"
+BUNDLE_ID="${TEAMS_PWA_BUNDLE_ID:-net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm}"
 LOG="$HOME/.logs/msteams-open.log"
 
 url="${1:-}"

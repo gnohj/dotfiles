@@ -181,7 +181,7 @@ if.app-id = 'ru.starmel.OpenSuperWhisper' # free local dictation
 run = ['layout floating', 'move-node-to-workspace O']
 
 [[on-window-detected]]
-if.app-id = 'net.imput.helium.app.cifhbcnohmdccbgoicgdjpfamggdegmo'
+if.app-id = 'net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm'
 run = "move-node-to-workspace E"
 
 [[on-window-detected]]
