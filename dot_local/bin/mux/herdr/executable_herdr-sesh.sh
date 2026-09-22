@@ -342,7 +342,7 @@ TTL = 600.0
 now = time.time()
 cache = hg.load()
 paths = [en[3] for en in entries if en[3]]
-if os.environ.get("WARM") != "1" and any(cache.get(p) and now - cache[p][0] >= TTL for p in paths):
+if os.environ.get("WARM") != "1" and any(not cache.get(p) or now - cache[p][0] >= TTL for p in paths):
     try: open(os.environ["WARM_NEEDED_FILE"], "w").close()
     except Exception: pass
 
@@ -361,18 +361,6 @@ if os.environ.get("WARM") == "1":
         hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
 
-# Render path. Show cached symbols REGARDLESS of age — stale is fine (the poller keeps the
-# active rows current and the bg warm refreshes the rest), and never hiding them is what
-# stops the picker rendering blank after a short idle. Only entries genuinely MISSING from
-# the cache are computed synchronously; that is just the first open (they then persist), and
-# non-roots resolve instantly (git_pairs skips them). So: never blank, and fast afterwards.
-missing = [p for p in dict.fromkeys(paths) if p not in cache]
-if missing:
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=16) as ex:
-        fresh = dict(ex.map(compute, missing))
-    cache.update(fresh)
-    hg.update(fresh)
 sym = {}
 for p in paths:
     hit = cache.get(p)
