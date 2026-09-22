@@ -70,6 +70,9 @@ in
           "-c"
           ''
             mkdir -p ${homeDir}/.logs/gh-auto-review
+            if [[ -e ${homeDir}/.local/state/baby-menu/disabled-schedules/org.nixos.gh-auto-review.disabled ]]; then
+              exit 0
+            fi
             exec ${pkgs.bash}/bin/bash ${homeDir}/.config/gh-dash/auto-review.sh
           ''
         ];
@@ -481,14 +484,37 @@ in
     };
   };
 
-  # Vendor jobs disabled here stay disabled even when their applications recreate the plist.
+  system.activationScripts.preActivation.text = lib.mkAfter ''
+    primaryUid=$(/usr/bin/id -u ${lib.escapeShellArg config.system.primaryUser})
+    scheduleStateDir=${lib.escapeShellArg (homeDir + "/.local/state/baby-menu/disabled-schedules")}
+    /usr/bin/sudo --user=${lib.escapeShellArg config.system.primaryUser} -- /bin/mkdir -p "$scheduleStateDir"
+
+    /bin/launchctl print-disabled "gui/$primaryUid" 2>/dev/null \
+      | /usr/bin/sed -nE 's/^[[:space:]]*"(org\.nixos\.[A-Za-z0-9._-]+)"[[:space:]]*=>[[:space:]]*disabled$/\1/p' \
+      | while IFS= read -r label; do
+          /usr/bin/sudo --user=${lib.escapeShellArg config.system.primaryUser} -- /usr/bin/touch "$scheduleStateDir/$label.disabled"
+        done
+  '';
+
+  # Schedule choices survive nix-darwin reloads; vendor jobs remain forced off.
   system.activationScripts.postActivation.text = lib.mkAfter ''
-    primaryUid=$(id -u ${lib.escapeShellArg config.system.primaryUser})
+    primaryUid=$(/usr/bin/id -u ${lib.escapeShellArg config.system.primaryUser})
+    scheduleStateDir=${lib.escapeShellArg (homeDir + "/.local/state/baby-menu/disabled-schedules")}
+
+    for marker in "$scheduleStateDir"/*.disabled; do
+      [[ -e "$marker" ]] || break
+      label=$(/usr/bin/basename "$marker" .disabled)
+      case "$label" in
+        ""|*[!A-Za-z0-9._-]*) continue ;;
+      esac
+      /bin/launchctl disable "gui/$primaryUid/$label" || true
+      /bin/launchctl bootout "gui/$primaryUid/$label" 2>/dev/null || true
+    done
 
     echo "🚫 Disabling Google and Microsoft update schedulers..." >&2
     for label in com.google.GoogleUpdater.wake com.microsoft.update.agent; do
-      launchctl disable "gui/$primaryUid/$label" || true
-      launchctl bootout "gui/$primaryUid/$label" 2>/dev/null || true
+      /bin/launchctl disable "gui/$primaryUid/$label" || true
+      /bin/launchctl bootout "gui/$primaryUid/$label" 2>/dev/null || true
     done
   '';
 }

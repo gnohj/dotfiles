@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type {
@@ -29,6 +29,10 @@ const paletteFile = join(
   ".config/colorscheme/active/active-colorscheme.sh",
 );
 const actionLog = join(home, ".logs/baby-menu/operations.log");
+const disabledSchedulesDirectory = join(
+  home,
+  ".local/state/baby-menu/disabled-schedules",
+);
 const defaultQuotaColors: QuotaColors = {
   danger: "#ff6a7a",
   orange: "#f5a65b",
@@ -265,6 +269,20 @@ function manageableSource(source: string): boolean {
   );
 }
 
+async function persistSchedulePreference(
+  target: string,
+  enabled: boolean,
+): Promise<void> {
+  const label = target.slice(target.lastIndexOf("/") + 1);
+  const marker = join(disabledSchedulesDirectory, `${label}.disabled`);
+  await mkdir(disabledSchedulesDirectory, { recursive: true });
+  if (enabled) {
+    await rm(marker, { force: true });
+    return;
+  }
+  await writeFile(marker, "");
+}
+
 export const actions = {
   async getDashboard(): Promise<OperationsDashboard> {
     const errors: string[] = [];
@@ -326,6 +344,8 @@ export const actions = {
       if (!job?.toggleSource || !manageableSource(job.toggleSource)) {
         throw new Error("Schedule is not available to toggle");
       }
+
+      await persistSchedulePreference(target, enabled);
 
       if (enabled !== job.enabled) {
         if (enabled) {
