@@ -4,10 +4,6 @@
 # command (zoom overlay like ctrl+g/prefix+y) → server-side, so it works local AND
 # over --remote.
 #
-# It reuses `sesh list -c -z --icons` verbatim, so config entries come straight from
-# sesh.toml (⚙️ gear) and recent dirs from the zoxide DB (📁 folder) — LIVE, no
-# re-authoring. On top it pins herdr's OPEN workspaces (🌳/🌿/📁 glyph, else ⚡), queried fresh
-# each open. Theme matches the tmux sesh popup (dot_config/tmux/sesh-popup.sh).
 # Agents hang under their workspace as "state · activity · harness", claude/<account> when the harness is claude.
 #
 # The cursor starts on the row you are currently in (see focus_row), not on row 1.
@@ -44,7 +40,8 @@ build_list() {
   local src
   src="$(mktemp -d "${TMPDIR:-/tmp}/herdr-sesh-src.XXXXXX")" || return 1
   "$herdr" api snapshot >"$src/sn" 2>/dev/null &
-  sesh list -c -z -j >"$src/en" 2>/dev/null &
+  sesh list -c -j >"$src/en" 2>/dev/null &
+  zoxide query -l >"$src/zo" 2>/dev/null &
   # `sesh list` omits aliases in every output mode, so read them straight from sesh.toml.
   "$HOME/.config/sesh/sesh-aliases.sh" >"$src/al" 2>/dev/null &
   wait
@@ -53,7 +50,7 @@ build_list() {
   WORKING="${gnohj_color04:-}" BLOCKED="${gnohj_color11:-}" \
   DONE="${gnohj_color11:-}" IDLING="${gnohj_color05:-}" \
   WORKACCT="${gnohj_color04:-}" PERSONALACCT="${gnohj_color01:-}" \
-  HOME="$HOME" python3 -c '
+  WARM_NEEDED_FILE="$src/warm" HOME="$HOME" python3 -c '
 import os, json, re
 
 def load(name):
@@ -255,8 +252,11 @@ def derive_name(cwd, full):
         return segs[-1] if len(segs) >= 3 else "/".join(segs)
     return os.path.basename(d)
 
-# sesh already tags each row config/zoxide, so a second probe for the curated paths is redundant.
 sesh_entries = load("en") or []
+try:
+    with open(os.path.join(os.environ["SRC"], "zo")) as fh:
+        sesh_entries.extend({"Src": "zoxide", "Path": line.rstrip("\n")} for line in fh if line.rstrip("\n"))
+except Exception: pass
 cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.get("Src") == "config"}
 # The identity map: Name -> Path, and Path -> every Name sitting at it. A path holding two names
 # (the firstmate personal/work pair) can no longer name a session on its own - that is the whole
@@ -338,10 +338,13 @@ for e in sesh_entries:
 # gitmux over every open workspace every few seconds for the sidebar `$git` token, and
 # writes those same entries into this cache. So active rows are <= one poll old and read
 # identically here and in the sidebar. What follows only has to cover the rest.
-TTL = 30.0
+TTL = 600.0
 now = time.time()
 cache = hg.load()
 paths = [en[3] for en in entries if en[3]]
+if os.environ.get("WARM") != "1" and any(cache.get(p) and now - cache[p][0] >= TTL for p in paths):
+    try: open(os.environ["WARM_NEEDED_FILE"], "w").close()
+    except Exception: pass
 
 # roots_only off for active paths: only a handful, and a workspace sitting in a subdir of
 # a repo must still report, the way the sidebar poller does for the very same cwd.
@@ -352,12 +355,9 @@ def compute(p):
 # longer listed, then exit WITHOUT rendering. Runs off the render path so opening stays instant;
 # it is what keeps the shown (possibly stale) symbols fresh. flock => only one warm at a time.
 if os.environ.get("WARM") == "1":
-    todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)]
+    todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)][:12]
     if todo:
-        from concurrent.futures import ThreadPoolExecutor
-        # Smaller pool than the render path below: this refresh has no deadline, so trade wall clock for staying out of the way of the picker you are scrolling.
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            fresh = dict(ex.map(compute, todo))
+        fresh = dict(map(compute, todo))
         hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
 
@@ -453,8 +453,8 @@ if fpath:
     with open(fpath, "w") as fh:
         fh.write("%d\n" % next((at[t] for t in want if t in at), 1))
 '
+  [ -z "${WARM:-}" ] && [ -f "$src/warm" ] && ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
   rm -rf "$src"
-  [ -n "${WARM:-}" ] || ( "${BG[@]}" "$SELF" --warm >/dev/null 2>&1 & )
 }
 
 # --- fzf reload/execute helpers -------------------------------------------------
@@ -480,7 +480,7 @@ os.execv(script, [script, "--warm-locked"])
   --warm-locked)
     [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
       source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
-    sleep 5
+    sleep 10
     export WARM=1
     build_list >/dev/null 2>&1
     exit 0
