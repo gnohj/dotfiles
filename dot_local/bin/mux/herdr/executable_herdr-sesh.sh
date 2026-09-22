@@ -328,34 +328,18 @@ for e in sesh_entries:
     # The target IS the identity: a path repeats across twins, so config rows key on Name and only zoxide rows stay path-keyed.
     entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent))
 
-# gitmux symbols for EVERY path so non-active repos show status too. Two problems this
-# guards against: (1) running gitmux serially on ~100 dirs would freeze the picker, so
-# compute in a thread pool (subprocess releases the GIL); (2) a fresh compute on every
-# open / ctrl-d reload is wasteful, so cache per-path with a short TTL. Slightly stale
-# symbols (< TTL) are fine for a picker.
-#
-# The ⚡ ACTIVE rows are not on that lazy path at all: herdr-git-status.sh already runs
-# gitmux over every open workspace every few seconds for the sidebar `$git` token, and
-# writes those same entries into this cache. So active rows are <= one poll old and read
-# identically here and in the sidebar. What follows only has to cover the rest.
-TTL = 600.0
 now = time.time()
 cache = hg.load()
 paths = [en[3] for en in entries if en[3]]
-if os.environ.get("WARM") != "1" and any(not cache.get(p) or now - cache[p][0] >= TTL for p in paths):
+if os.environ.get("WARM") != "1" and any(p not in cache for p in paths):
     try: open(os.environ["WARM_NEEDED_FILE"], "w").close()
     except Exception: pass
 
-# roots_only off for active paths: only a handful, and a workspace sitting in a subdir of
-# a repo must still report, the way the sidebar poller does for the very same cwd.
 def compute(p):
     return p, hg.entry(hg.git_pairs(p, roots_only=p not in active_paths)[1], now)
 
-# WARM pass (spawned detached by build_list): refresh entries older than TTL and drop paths no
-# longer listed, then exit WITHOUT rendering. Runs off the render path so opening stays instant;
-# it is what keeps the shown (possibly stale) symbols fresh. flock => only one warm at a time.
 if os.environ.get("WARM") == "1":
-    todo = [p for p in dict.fromkeys(paths) if not (cache.get(p) and now - cache[p][0] < TTL)][:12]
+    todo = [p for p in dict.fromkeys(paths) if p not in cache][:12]
     if todo:
         fresh = dict(map(compute, todo))
         hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
