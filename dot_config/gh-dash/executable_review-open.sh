@@ -85,7 +85,7 @@ resolve_review_claude_account() {
 
   REVIEW_CLAUDE_ACCOUNT="$("$HOME/.local/bin/claude-account" resolve 2>/dev/null || printf work)"
   REVIEW_CLAUDE_ACCOUNT_REASON="path and account settings"
-  [ "$REVIEW_CLAUDE_ACCOUNT" = work ] || return
+  [ "$REVIEW_CLAUDE_ACCOUNT" = work ] || return 0
 
   "$HOME/.local/bin/claude-account" usage-refresh work >/dev/null 2>&1 || true
   usage="$("$HOME/.local/bin/claude-account" usage work 2>/dev/null | tail -n1)"
