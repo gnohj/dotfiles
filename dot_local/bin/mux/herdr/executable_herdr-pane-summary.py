@@ -84,11 +84,67 @@ from herdr_label import row_indent
 SOURCE = "auto-summary"
 # Slot suffix IS the colour, matching MARK_BY_STATUS in herdr-agent-activity.py so row 2 cannot disagree with row 1.
 PN_STATE_SLOT = {"idle": "pn_b", "done": "pn_g", "blocked": "pn_r", "working": "pn_o"}
-PN_SLOTS = tuple(s for b in ("pn_o", "pn_r", "pn_b", "pn_g", "pn_x") for s in (b, b + "_on"))
+PN_STALE_SLOT = "pn_s"
+PN_SLOTS = tuple(
+    slot
+    for base in ("pn_o", "pn_r", "pn_b", "pn_g", "pn_x")
+    for slot in (base, base + "_on")
+) + (PN_STALE_SLOT,)
 PN_CLEAR = dict.fromkeys(PN_SLOTS)
+ACTIVITY_STATE = os.path.join(
+    os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+    "herdr",
+    "agent-activity.json",
+)
+STALE_AFTER_SECONDS = int(os.environ.get("HERDR_ACTIVITY_STALE_MINUTES", "120")) * 60
+ACTIVITY_STATE_MAX_AGE_SECONDS = 90
+_activity_mtime_ns = None
+_activity_epochs = {}
+
+
+def activity_epochs():
+    global _activity_mtime_ns, _activity_epochs
+    try:
+        state_stat = os.stat(ACTIVITY_STATE)
+    except OSError:
+        _activity_mtime_ns = None
+        _activity_epochs = {}
+        return _activity_epochs
+    if time.time() - state_stat.st_mtime > ACTIVITY_STATE_MAX_AGE_SECONDS:
+        _activity_mtime_ns = None
+        _activity_epochs = {}
+        return _activity_epochs
+    if state_stat.st_mtime_ns == _activity_mtime_ns:
+        return _activity_epochs
+    try:
+        with open(ACTIVITY_STATE) as f:
+            state = json.load(f)
+        panes = state.get("panes", {}) if isinstance(state, dict) else {}
+        if not isinstance(panes, dict):
+            panes = {}
+    except (OSError, ValueError):
+        panes = {}
+    _activity_mtime_ns = state_stat.st_mtime_ns
+    _activity_epochs = {
+        pane_id: stamp
+        for pane_id, stamp in panes.items()
+        if isinstance(pane_id, str) and isinstance(stamp, (int, float))
+    }
+    return _activity_epochs
+
+
+def is_stale_idle(pane, now=None):
+    if pane.get("agent_status") != "idle":
+        return False
+    stamp = activity_epochs().get(pane.get("pane_id"))
+    if stamp is None:
+        return False
+    return (time.time() if now is None else now) - stamp >= STALE_AFTER_SECONDS
 
 
 def pn_slot(pane, lit):
+    if is_stale_idle(pane):
+        return PN_STALE_SLOT
     base = PN_STATE_SLOT.get(pane.get("agent_status") or "unknown", "pn_x")
     return base + "_on" if lit else base
 # Agent rows indent under the workspace TEXT; only a CUSTOM token can hold the pad (herdr owns state_text and agent), which is why the row leads with $act.
