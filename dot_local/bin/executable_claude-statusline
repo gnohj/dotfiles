@@ -1,9 +1,49 @@
 #!/usr/bin/env bash
-# Status line entry point: PATH shim in front of ccstatusline.
-#
-# The status line renders with a minimal PATH, so pointing settings.json at ccstatusline's `#!/usr/bin/env node` binary dies with "env: node: not found", prints nothing, and still exits 0.
-#
-# mise's install dir precedes its shims deliberately: a shim re-enters mise, which refuses to run under an untrusted .mise.toml and blanks the line just as thoroughly. Widgets inherit this PATH via execSync.
+# Pin node before mise shims because Claude's minimal PATH and untrusted-project checks can blank the status line.
 export PATH="$HOME/.local/share/mise/installs/node/latest/bin:$HOME/.local/share/mise/shims:$HOME/.bun/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
 
-exec "$HOME/.bun/bin/ccstatusline" "$@"
+narrow_config() {
+  local source="$HOME/.config/ccstatusline/settings.json"
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ccstatusline"
+  local target="$cache_dir/settings-narrow.json"
+  local tmp
+
+  command -v jq >/dev/null 2>&1 || return 1
+  [ -r "$source" ] || return 1
+  if [ ! -s "$target" ] || [ "$source" -nt "$target" ]; then
+    mkdir -p "$cache_dir" || return 1
+    tmp="$(mktemp "$cache_dir/settings-narrow.XXXXXX")" || return 1
+    if ! jq -e '
+      def item($id): first(.lines[][] | select(.id == $id));
+      .lines = [
+        [(item("cwd") | .commandPath |= sub("--align 22"; "--align 12")), item("model"), item("effort")],
+        [item("modes"), item("ctxdot"), item("ctx"), item("sep1"), item("sesscost")],
+        [item("mocost")],
+        [(item("branch") | .commandPath |= sub("--align 22"; "--align 12")), item("harness"), item("harnessDot"), item("calm")],
+        [item("l5h"), item("sess"), item("sessreset"), item("sepB"), item("l7d"), item("week"), item("weekreset")]
+      ]
+      | if any(.lines[][]; . == null) then error("missing status widget") else . end
+    ' "$source" >"$tmp"; then
+      rm -f "$tmp"
+      return 1
+    fi
+    mv -f "$tmp" "$target"
+  fi
+  printf '%s' "$target"
+}
+
+cols="${CCSTATUSLINE_WIDTH:-}"
+case "$cols" in
+'' | *[!0-9]*)
+  size="$(stty size 2>/dev/null </dev/tty || true)"
+  cols="${size##* }"
+  ;;
+esac
+
+args=()
+if [ -n "$cols" ] && [ "$cols" -lt 80 ] 2>/dev/null; then
+  config="$(narrow_config || true)"
+  [ -n "$config" ] && args=(--config "$config")
+fi
+
+exec "$HOME/.bun/bin/ccstatusline" "${args[@]}" "$@"
