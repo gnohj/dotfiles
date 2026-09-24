@@ -355,12 +355,14 @@ agent_panel_sort = "spaces"
 # it has to live here under [ui].
 accent = "{{ $pal.color03 }}"
 
-# Agent done/needs-attention popups: "herdr" = in-app toasts (positioned below), "system" = OS-level and visible when herdr is unfocused, the reach given up here. Kept last so this subtable doesn't swallow the bare keys above.
+# Use OS-level alerts on macOS because in-app toasts temporarily clear kitty graphics panes.
 [ui.toast]
+{{- if eq .chezmoi.os "darwin" }}
+delivery = "system"
+{{- else }}
 delivery = "herdr"
+{{- end }}
 
-# In-app toast position. Default is bottom-right; top-right keeps popups up out of
-# the way of the shell prompt / agent input at the bottom of a pane.
 [ui.toast.herdr]
 position = "top-right"
 
