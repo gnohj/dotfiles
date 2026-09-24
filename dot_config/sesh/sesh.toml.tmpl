@@ -132,6 +132,12 @@ alias = "y"
 startup_command = "y"
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
+name = "browser"
+path = "~/"
+alias = "br"
+startup_command = "terminal-browser"
+
+[[session]]
 name = "radioctl"
 path = "~/."
 alias = "rc"
