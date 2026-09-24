@@ -2503,6 +2503,7 @@ generate_herdr_config() {
     herdr_pn="${herdr_pn:+$herdr_pn, }$(printf '{ token = "$pn_%s", fg = "%s" }, { token = "$pn_%s_on", fg = "%s", dim = false, bold = true }' \
       "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
   done
+  herdr_pn="$herdr_pn, $(printf '{ token = "$pn_s", fg = "%s", dim = true }' "$gnohj_color13")"
   local herdr_state_row='"state_icon", "workspace"'
   herdr_agent_rows="$(printf 'rows = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
 
