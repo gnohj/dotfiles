@@ -117,6 +117,7 @@ if [ -z "$label_explicit" ]; then
   fi
   [ "${dir%/}" = "${HOME%/}" ] && glyph="🖥️"
   case "$label" in
+    browser) glyph="🌐" ;;
     fm) glyph="🚢" ;;
     hermes) glyph="🤖" ;;
     tasks) glyph="🖊️" ;;
