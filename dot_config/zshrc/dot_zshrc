@@ -159,7 +159,7 @@ update() {
   fi
   if command -v git >/dev/null 2>&1; then
     # owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
-    for slug in gnohj/agents gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail; do
+    for slug in gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail; do
       name=${slug:t}
       repo="$HOME/Developer/$name"
       if [ ! -d "$repo/.git" ]; then
@@ -1062,12 +1062,12 @@ _pi_sp() {
 pis() { pi $(_pi_sp) "$@"; }      # pi start (new session)
 pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
 # Named providers pin provider-qualified models; opencode-go reads OPENCODE_API_KEY, and gpt-5.6-luna matches Go's best DeepSWE score at 12x the headroom.
-pio() { pi --provider openai-codex --model openai-codex/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+pio() { pi --provider openai-codex --model openai-codex/gpt-6-sol:high $(_pi_sp) "$@"; }
 pig() { pi --provider opencode-go --model gpt-5.6-luna $(_pi_sp) "$@"; }
-pic() { pi --provider github-copilot --model github-copilot/gpt-5.6-sol:high $(_pi_sp) "$@"; }
-pior() { pi -r --provider openai-codex --model openai-codex/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+pic() { pi --provider github-copilot --model github-copilot/gpt-6-sol:high $(_pi_sp) "$@"; }
+pior() { pi -r --provider openai-codex --model openai-codex/gpt-6-sol:high $(_pi_sp) "$@"; }
 pigr() { pi -r --provider opencode-go --model gpt-5.6-luna $(_pi_sp) "$@"; }
-picr() { pi -r --provider github-copilot --model github-copilot/gpt-5.6-sol:high $(_pi_sp) "$@"; }
+picr() { pi -r --provider github-copilot --model github-copilot/gpt-6-sol:high $(_pi_sp) "$@"; }
 
 # Opencode shortcuts (parallel to cs/cr, pis/pir). Plain pass-throughs:
 # --dangerously-skip-permissions is documented upstream but rejected by

@@ -116,7 +116,7 @@ IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL R
 [ -n "$pinned_finder" ] && REVIEW_FINDER_MODEL=$pinned_finder
 [ -n "$pinned_thinking" ] && REVIEW_FINDER_THINKING=$pinned_thinking
 : "${REVIEW_CLAUDE_MODEL:=claude-opus-5-5}" "${REVIEW_CLAUDE_EFFORT:=high}"
-: "${REVIEW_FINDER_MODEL:=gpt-5.6-sol}" "${REVIEW_FINDER_THINKING:=high}" "${REVIEW_FINDER_RUNG_TIMEOUT:=600}"
+: "${REVIEW_FINDER_MODEL:=gpt-6-sol}" "${REVIEW_FINDER_THINKING:=high}" "${REVIEW_FINDER_RUNG_TIMEOUT:=600}"
 export REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT
 echo "review-open: dispatch ${REVIEW_DISPATCH_TIER:-?} -> claude $REVIEW_CLAUDE_MODEL/$REVIEW_CLAUDE_EFFORT, gpt $REVIEW_FINDER_MODEL/$REVIEW_FINDER_THINKING, timeout ${REVIEW_FINDER_RUNG_TIMEOUT}s"
 
@@ -199,7 +199,7 @@ open_finder_pi() {
     '"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
-# "pi|openai-codex|gpt-5.6-sol" -> "sol"; a harness-only rung like "codex|-|-" keeps the harness name.
+# "pi|openai-codex|gpt-6-sol" -> "sol"; a harness-only rung like "codex|-|-" keeps the harness name.
 finder_label() {
   local rung="$1" model="${1##*|}"
   case "$model" in '' | '-') printf '%s' "${rung%%|*}" ;; *) printf '%s' "${model##*-}" ;; esac

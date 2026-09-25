@@ -22,7 +22,7 @@ emit() {
 
 # No config, no gh, or an unreachable PR all fall back rather than blocking the review.
 fallback() {
-  if [ "$output" = mode ]; then printf 'full\n'; else emit claude-opus-5-5 high gpt-5.6-sol high 600 fallback; fi
+  if [ "$output" = mode ]; then printf 'full\n'; else emit claude-opus-5-5 high gpt-6-sol high 600 fallback; fi
   exit 0
 }
 [ -f "$CONFIG" ] || fallback
