@@ -28,7 +28,7 @@ brief=".review/brief-$slot.txt"
 [ "$CHECK" = 1 ] || [ -f "$brief" ] || { echo "review-finder-pi: no $brief" >&2; exit 2; }
 
 # Dispatch picks the model; quota picks Codex subscription, Copilot, then CLI, excluding the unfunded OpenAI API.
-FINDER_MODEL="${REVIEW_FINDER_MODEL:-gpt-5.6-sol}"
+FINDER_MODEL="${REVIEW_FINDER_MODEL:-gpt-6-sol}"
 LADDER="${REVIEW_FINDER_LADDER-pi|openai-codex|$FINDER_MODEL pi|github-copilot|$FINDER_MODEL codex|-|-}"
 THINKING="${REVIEW_FINDER_THINKING:-high}"
 RUNG_TIMEOUT="${REVIEW_FINDER_RUNG_TIMEOUT:-600}"
