@@ -20,6 +20,7 @@ that still serves everything derived from the pane object - the daemons are supe
 KeepAlive, so a hard import error would restart-loop and take working functionality down.
 """
 import glob
+import json
 import os
 
 try:
@@ -73,6 +74,46 @@ def claude_transcript(session_id, cwd):
     if best:
         _claude_transcripts[session_id] = best[1]
         return best[1]
+    return None
+
+
+def claude_newest_session(cwd):
+    """Newest claude transcript for `cwd` across both roots, for a pane that reported no session id."""
+    best, best_mtime = None, -1.0
+    for root in CLAUDE_ROOTS:
+        for path in glob.glob(os.path.join(root, "projects", claude_project_slug(cwd), "*.jsonl")):
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            if mtime > best_mtime:
+                best, best_mtime = path, mtime
+    return best
+
+
+def last_model(path, tail=262144):
+    """Model of the newest claude/pi assistant reply; parsed, not grepped, since tool inputs carry "model" too."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - tail))
+            lines = f.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict) or entry.get("isSidechain"):
+            continue
+        if entry.get("type") == "model_change":
+            return entry.get("modelId")
+        message = entry.get("message")
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            model = message.get("model")
+            if isinstance(model, str) and model and not model.startswith("<"):
+                return model
     return None
 
 
