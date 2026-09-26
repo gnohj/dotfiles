@@ -232,7 +232,7 @@ for p in plist:
     ws_panes.setdefault(p.get("workspace_id"), set()).add(p.get("pane_id"))
 
 # A crewmate's row 2 leads with its kind and model; its title can't say so, since firstmate recovery matches that title exactly.
-KIND_MARK = {"scout": "\U0001f52d scout", "ship": "\U0001f6a4 ship"}
+KIND_MARK = {"scout": "\U0001f52d", "ship": "\U0001f6a4"}
 MODEL_PREFIX = re.compile(r"^(?:.*/)?(?:claude-)?")
 
 def fleet_kinds():
