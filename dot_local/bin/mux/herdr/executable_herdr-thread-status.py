@@ -230,6 +230,17 @@ def worktree_branch_for(cwd, label):
     return None, None
 
 
+def detached_branch(cwd, label):
+    """The branch a detached HEAD sits on (firstmate crewmates check out their PR tip detached), preferring the task's own."""
+    names = []
+    for prefix, strip in (("refs/heads", 2), ("refs/remotes", 3)):
+        raw = out(["git", "-C", cwd, "for-each-ref", "--points-at", "HEAD",
+                   "--format=%(refname:lstrip=" + str(strip) + ")", prefix], timeout=4) or ""
+        names += [n for n in raw.splitlines() if n and n != "HEAD" and n not in names]
+    key = ticket_key(label)
+    return next((n for n in names if key and ticket_key(n) == key), names[0] if names else "")
+
+
 def workspace_labels():
     """workspace_id -> (label, focused, has a $br lead). One call, because these tokens need all three.
 
@@ -543,7 +554,8 @@ def refresh_once():
             if alt_cwd and os.path.isdir(alt_cwd):
                 cwd, branch = alt_cwd, alt_branch
         if not branch:
-            # not a git checkout / detached HEAD
+            branch = detached_branch(cwd, label)
+        if not branch:
             report(workspace, blank_tokens(), seq)
             continue
         # A branch can carry no ticket at all (`fm/pr19552-increment`); the workspace label is the last source before giving up.
