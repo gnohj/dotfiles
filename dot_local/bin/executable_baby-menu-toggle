@@ -36,6 +36,11 @@ if ! $running; then
   exec /usr/bin/open --env BABY_MENU_OPEN_POPOVER_ON_START=1 -a "/Applications/Baby Menu Sidebar.app"
 fi
 
+# SIGUSR2 toggles in-app in ~10ms; the System Events click below costs ~300ms and stays as the fallback.
+if pkill -USR2 -f -x '/Applications/Baby Menu Sidebar.app/Contents/MacOS/Baby Menu Sidebar' 2>/dev/null; then
+  exit 0
+fi
+
 for attempt in {1..12}; do
   if click_tray 2>/dev/null; then
     exit 0
