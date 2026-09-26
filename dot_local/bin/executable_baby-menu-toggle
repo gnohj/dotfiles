@@ -2,18 +2,14 @@
 set -euo pipefail
 
 running=false
-visible=false
-
-if pgrep -x "Baby Menu" >/dev/null 2>&1; then
+if pgrep -f -x '/Applications/Baby Menu Sidebar.app/Contents/MacOS/Baby Menu Sidebar' >/dev/null 2>&1; then
   running=true
-  window_count=$(/usr/bin/osascript -e 'tell application "System Events" to tell process "Baby Menu" to count windows' 2>/dev/null || printf 0)
-  [ "$window_count" -gt 0 ] && visible=true
 fi
 
 click_tray() {
   /usr/bin/osascript <<'APPLESCRIPT'
 tell application "System Events"
-  tell process "Baby Menu"
+  tell process "Baby Menu Sidebar"
     repeat with candidateBar in menu bars
       repeat with candidateItem in menu bar items of candidateBar
         set itemDescription to ""
@@ -36,13 +32,15 @@ error "baby-menu tray item is unavailable"
 APPLESCRIPT
 }
 
-if $visible; then
-  click_tray
-  exit 0
+if ! $running; then
+  exec /usr/bin/open --env BABY_MENU_OPEN_POPOVER_ON_START=1 -a "/Applications/Baby Menu Sidebar.app"
 fi
 
-if ! $running; then
-  exec /usr/bin/open --env BABY_MENU_OPEN_POPOVER_ON_START=1 -a "Baby Menu"
-fi
+for attempt in {1..12}; do
+  if click_tray 2>/dev/null; then
+    exit 0
+  fi
+  sleep 0.2
+done
 
 click_tray
