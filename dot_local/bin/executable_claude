@@ -36,6 +36,24 @@ if [ -z "$_bin" ]; then
   exit 127
 fi
 
+# baby-menu-worker-pin-v2: worker pin selects state; the global pin selects billing.
+_worker_ordinary=0
+if [ -n "${FM_TASK_ID:-}" ]; then
+  _worker_pin="${FM_HOME:-$HOME/.local/share/firstmate}/config/claude-account"
+  if [ -f "$_worker_pin" ] && [ ! -L "$_worker_pin" ]; then
+    IFS= read -r _worker_store <"$_worker_pin" || true
+    case "$_worker_store" in
+    ordinary)
+      _worker_ordinary=1
+      unset CLAUDE_CONFIG_DIR
+      ;;
+    "$HOME/.claude-work")
+      export CLAUDE_CONFIG_DIR="$HOME/.claude-work"
+      ;;
+    esac
+  fi
+fi
+
 # An explicit config dir must also pick the token's account: firstmate homes resolve personal by remote, so a work profile would otherwise get the personal token.
 # A deliberate pin outranks that inference, so a spawned pane bills the account you pinned.
 if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] &&
@@ -49,12 +67,20 @@ if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] &&
 fi
 
 # Already-exported values win, so a pinned pane (cw / CLAUDE_ACCOUNT) keeps its account.
-_dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+if [ "$_worker_ordinary" = 1 ]; then
+  _dir=""
+else
+  _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+fi
 [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
 _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
+if [ -n "${FM_TASK_ID:-}" ] && [ -z "$_tok" ]; then
+  echo "claude: no OAuth token for the selected worker billing account; refusing to use the state store's credential" >&2
+  exit 1
+fi
 [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
 # Claude Code strips the token from children, so CLAUDE_ACCOUNT is the only way a status line can name who is paying.
 [ -z "${CLAUDE_ACCOUNT:-}" ] && export CLAUDE_ACCOUNT="$(claude-account resolve 2>/dev/null || true)"
-claude-account seed-config
+claude-account seed-config --dir "${_dir:-ordinary}"
 
 exec "$_bin" "$@"
