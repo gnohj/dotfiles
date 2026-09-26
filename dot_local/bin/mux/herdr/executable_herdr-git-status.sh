@@ -231,11 +231,12 @@ ws_panes = {}
 for p in plist:
     ws_panes.setdefault(p.get("workspace_id"), set()).add(p.get("pane_id"))
 
-# A scout's row 2 leads with this; its title can't say so, since firstmate recovery matches that title exactly.
-SCOUT_MARK = "\U0001f52d scout"
+# A crewmate's row 2 leads with its kind and model; its title can't say so, since firstmate recovery matches that title exactly.
+KIND_MARK = {"scout": "\U0001f52d scout", "ship": "\U0001f6a4 ship"}
+MODEL_PREFIX = re.compile(r"^(?:.*/)?(?:claude-)?")
 
 def fleet_kinds():
-    """workspace_id -> firstmate task kind, for tasks whose recorded pane is live in that workspace here."""
+    """workspace_id -> (firstmate task kind, short model), for tasks whose recorded pane is live in that workspace here."""
     m = re.search(r"/sessions/([^/]+)/herdr\.sock$", os.environ.get("HERDR_SOCKET_PATH", ""))
     session, kinds = (m.group(1) if m else "default"), {}
     for path in glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta")):
@@ -248,7 +249,7 @@ def fleet_kinds():
             continue
         w, p = meta.get("herdr_workspace_id"), meta.get("herdr_pane_id")
         if w and p in ws_panes.get(w, ()):
-            kinds[w] = meta.get("kind", "")
+            kinds[w] = (meta.get("kind", ""), MODEL_PREFIX.sub("", meta.get("model", "")))
     return kinds
 
 kinds = fleet_kinds()
@@ -270,8 +271,9 @@ for w, label in ws_label.items():
     br = ""
     if c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
         br = branch(c, keep_key=projected)
-    if projected and kinds.get(w) == "scout":
-        br = SCOUT_MARK + (" " + br if br else "")
+    kind, model = kinds.get(w, ("", ""))
+    if projected and kind in KIND_MARK:
+        br = " · ".join(filter(None, (KIND_MARK[kind], model, br)))
     if br:
         br = row_indent(label) + br
     lit = w in focused
