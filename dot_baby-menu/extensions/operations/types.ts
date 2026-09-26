@@ -10,6 +10,7 @@ export type QuotaColors = {
   orange: string;
   warning: string;
   live: string;
+  groups: string[];
 };
 
 export type TokenStatus = "ok" | "warn" | "critical" | "expired" | "missing";

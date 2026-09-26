@@ -34,7 +34,7 @@ function quotaColor(percent: number, colors: QuotaColors): string {
   if (percent <= 15) return colors.danger;
   if (percent <= 35) return colors.orange;
   if (percent <= 60) return colors.warning;
-  return colors.live;
+  return "var(--color-signal-live)";
 }
 
 function QuotaLine({ row, colors }: { row: QuotaRow; colors: QuotaColors }) {
@@ -59,6 +59,51 @@ function QuotaLine({ row, colors }: { row: QuotaRow; colors: QuotaColors }) {
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function groupQuotas(rows: QuotaRow[]): QuotaRow[][] {
+  const groups: QuotaRow[][] = [];
+  for (const row of rows) {
+    const last = groups.at(-1);
+    if (last?.[0]?.provider === row.provider) last.push(row);
+    else groups.push([row]);
+  }
+  return groups;
+}
+
+function QuotaGroups({
+  rows,
+  colors,
+}: {
+  rows: QuotaRow[];
+  colors: QuotaColors;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {groupQuotas(rows).map((group, index) => {
+        const accent =
+          colors.groups[index % colors.groups.length] ?? colors.live;
+        return (
+          <div
+            key={`${group[0]?.provider}:${index}`}
+            className="rounded-md border px-3"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${accent} 7%, transparent)`,
+              borderColor: `color-mix(in srgb, ${accent} 24%, transparent)`,
+            }}
+          >
+            {group.map((row) => (
+              <QuotaLine
+                key={`${row.provider}:${row.window}`}
+                row={row}
+                colors={colors}
+              />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -429,19 +474,16 @@ export function OperationsView({
               {dashboard?.quotas.length ?? 0} windows
             </span>
           </div>
-          <div className="rounded-md border border-line bg-surface px-3">
-            {dashboard?.quotas.length ? (
-              dashboard.quotas.map((row) => (
-                <QuotaLine
-                  key={`${row.provider}:${row.window}`}
-                  row={row}
-                  colors={dashboard.quotaColors}
-                />
-              ))
-            ) : (
+          {dashboard?.quotas.length ? (
+            <QuotaGroups
+              rows={dashboard.quotas}
+              colors={dashboard.quotaColors}
+            />
+          ) : (
+            <div className="rounded-md border border-line bg-surface px-3">
               <EmptyState>No quota data</EmptyState>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       ) : null}
 
