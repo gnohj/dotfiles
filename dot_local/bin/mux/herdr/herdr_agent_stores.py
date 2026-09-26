@@ -1,4 +1,4 @@
-"""herdr_agent_stores — where claude, pi and opencode keep their sessions, in one place.
+"""herdr_agent_stores — where claude, pi, opencode, codex and hermes keep their sessions, in one place.
 
 Imported by herdr-pane-summary.py (which wants each session's TITLE) and by
 herdr-agent-activity.py (which wants its last-activity TIME). Every one of them has to be
@@ -22,6 +22,7 @@ KeepAlive, so a hard import error would restart-loop and take working functional
 import glob
 import json
 import os
+import re
 import subprocess
 
 try:
@@ -36,6 +37,7 @@ OPENCODE_DB = os.path.join(
     os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
     "opencode", "opencode.db",
 )
+CODEX_HOME = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
 # Both claude config roots (the VPS has only ~/.claude); a missing root just never matches.
 CLAUDE_ROOTS = [os.path.expanduser("~/.claude"), os.path.expanduser("~/.claude-work")]
 
@@ -93,15 +95,40 @@ def claude_newest_session(cwd):
     return best
 
 
-def last_model(path, tail=262144):
-    """Model of the newest claude/pi assistant reply; parsed, not grepped, since tool inputs carry "model" too."""
+def _tail_lines(path, tail):
     try:
         with open(path, "rb") as f:
             f.seek(0, os.SEEK_END)
             f.seek(max(0, f.tell() - tail))
-            lines = f.read().decode("utf-8", "replace").splitlines()
+            return f.read().decode("utf-8", "replace").splitlines()
     except OSError:
         return None
+
+
+def _last_entry_of_type(path, kind):
+    """Newest JSONL entry of `kind` anywhere in the file, for records written too rarely to trust the tail to hold one."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return {}
+    hit = data.rfind(b'"type":"%s"' % kind.encode())
+    if hit < 0:
+        return {}
+    end = data.find(b"\n", hit)
+    try:
+        return json.loads(data[data.rfind(b"\n", 0, hit) + 1:end if end >= 0 else None])
+    except ValueError:
+        return {}
+
+
+def last_model_effort(path, tail=262144):
+    """(model, effort) of the newest claude/pi reply; claude stamps effort per reply, pi logs thinking_level_change."""
+    lines = _tail_lines(path, tail)
+    if lines is None:
+        return None, None
+    model = effort = None
+    is_pi = False
     for line in reversed(lines):
         try:
             entry = json.loads(line)
@@ -109,28 +136,45 @@ def last_model(path, tail=262144):
             continue
         if not isinstance(entry, dict) or entry.get("isSidechain"):
             continue
-        if entry.get("type") == "model_change":
-            return entry.get("modelId")
+        kind = entry.get("type")
+        is_pi = is_pi or kind in ("message", "model_change", "thinking_level_change")
+        if kind == "thinking_level_change" and effort is None:
+            effort = entry.get("thinkingLevel")
+        if model is None and kind == "model_change":
+            model = entry.get("modelId")
         message = entry.get("message")
-        if isinstance(message, dict) and message.get("role") == "assistant":
-            model = message.get("model")
-            if isinstance(model, str) and model and not model.startswith("<"):
-                return model
-    return None
+        if model is None and isinstance(message, dict) and message.get("role") == "assistant":
+            candidate = message.get("model")
+            if isinstance(candidate, str) and candidate and not candidate.startswith("<"):
+                model = candidate
+                effort = effort or entry.get("effort")
+        if model and (effort or not is_pi):
+            break
+    if is_pi and effort is None:
+        effort = _last_entry_of_type(path, "thinking_level_change").get("thinkingLevel")
+    return model, effort
 
 
 # hermes runs in rootless Docker, whose volume the host user cannot read, so its state.db is queried in place.
 HERMES_CONTAINER = os.environ.get("HERMES_CONTAINER") or "hermes-agent-hermes-1"
-_HERMES_MODEL_SQL = (
-    "import sqlite3; row = sqlite3.connect('file:/opt/data/state.db?mode=ro', uri=True).execute("
-    "\"select u.model from session_model_usage u join sessions s on s.id = u.session_id"
-    " where s.source = 'cli' and u.task = '' order by u.last_seen desc limit 1\").fetchone(); "
-    "print(row[0] if row else '')"
-)
+# A null reasoning_config is sent as hermes's own default, medium (agent/chat_completion_helpers.py).
+_HERMES_MODEL_SQL = """
+import json, sqlite3
+row = sqlite3.connect('file:/opt/data/state.db?mode=ro', uri=True).execute(
+    "select u.model, s.model_config from session_model_usage u join sessions s on s.id = u.session_id"
+    " where s.source = 'cli' and u.task = '' order by u.last_seen desc limit 1").fetchone()
+if row:
+    try:
+        rc = json.loads(row[1] or '{}').get('reasoning_config')
+    except ValueError:
+        rc = None
+    effort = 'medium' if rc is None else (rc.get('effort') or '') if rc.get('enabled', True) else 'none'
+    print(row[0] + '\\t' + effort)
+"""
 
 
-def hermes_model(timeout=3):
-    """Model of hermes's newest CLI turn; side tasks (titles, approvals, reviews) are excluded."""
+def hermes_model_effort(timeout=3):
+    """(model, effort) of hermes's newest CLI turn; side tasks (titles, approvals, reviews) are excluded."""
     env = dict(os.environ)
     if os.uname().sysname == "Linux":
         env["DOCKER_HOST"] = env.get("HERMES_DOCKER_HOST") or env.get("DOCKER_HOST") or \
@@ -139,8 +183,9 @@ def hermes_model(timeout=3):
         result = subprocess.run(["docker", "exec", HERMES_CONTAINER, "python3", "-c", _HERMES_MODEL_SQL],
                                 capture_output=True, text=True, timeout=timeout, env=env)
     except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() or None if result.returncode == 0 else None
+        return None, None
+    parts = result.stdout.strip().split("\t") if result.returncode == 0 else []
+    return (parts[0] or None, parts[1] or None) if len(parts) == 2 else (None, None)
 
 
 def pi_session_dir(cwd):
@@ -195,8 +240,7 @@ def opencode_query(sql, args):
 def opencode_by_session_or_cwd(column, session, cwd):
     """`column` for the pane's opencode session: exact by reported id, else newest for cwd.
 
-    The cwd branch matches the longest project worktree that is a prefix of cwd, so a pane
-    inside a subdirectory still resolves to its project.
+    The cwd branch prefers the session's own directory (a non-git session's worktree is "/"), then the longest worktree prefix.
     """
     session_id = session.get("value") if session.get("kind") == "id" else None
     if session_id:
@@ -206,10 +250,84 @@ def opencode_by_session_or_cwd(column, session, cwd):
     elif cwd:
         rows = opencode_query(
             "SELECT s.%s FROM session s JOIN project p ON s.project_id = p.id "
-            "WHERE p.worktree = ? OR ? LIKE p.worktree || '/%%' "
-            "ORDER BY length(p.worktree) DESC, s.time_updated DESC LIMIT 1;" % column,
-            (cwd, cwd),
+            "WHERE s.directory = ? OR p.worktree = ? OR ? LIKE p.worktree || '/%%' "
+            "ORDER BY s.directory = ? DESC, length(p.worktree) DESC, s.time_updated DESC LIMIT 1;" % column,
+            (cwd, cwd, cwd, cwd),
         )
     else:
         return None
     return rows[0][0] if rows and rows[0][0] is not None else None
+
+
+def opencode_model_effort(session, cwd):
+    """(model, variant) of the newest assistant message in the pane's opencode session; no variant is the model default."""
+    session_id = opencode_by_session_or_cwd("id", session, cwd)
+    rows = opencode_query(
+        "SELECT json_extract(data, '$.modelID'), json_extract(data, '$.variant') FROM message "
+        "WHERE session_id = ? AND json_extract(data, '$.role') = 'assistant' "
+        "ORDER BY time_created DESC LIMIT 1;",
+        (session_id,),
+    ) if session_id else None
+    return tuple(rows[0]) if rows else (None, None)
+
+
+def codex_rollout(session, cwd, scan=40):
+    """codex's rollout file for the pane: by reported thread id, else the newest whose session_meta cwd matches."""
+    if session.get("kind") == "path":
+        return session.get("value")
+    root = os.path.join(CODEX_HOME, "sessions")
+    if session.get("kind") == "id" and session.get("value"):
+        if not re.fullmatch(r"[0-9A-Za-z-]+", session["value"]):
+            return None
+        hits = glob.glob(os.path.join(root, "*", "*", "*", "rollout-*-%s.jsonl" % session["value"]))
+        return max(hits, key=os.path.getmtime) if hits else None
+    if not cwd:
+        return None
+    recent = sorted(glob.glob(os.path.join(root, "*", "*", "*", "rollout-*.jsonl")), reverse=True)[:scan]
+    for path in recent:
+        try:
+            with open(path) as f:
+                meta = json.loads(f.readline()).get("payload") or {}
+        except (OSError, ValueError):
+            continue
+        if (meta.get("cwd") or "").rstrip("/") == cwd:
+            return path
+    return None
+
+
+def codex_default_effort(model):
+    """What codex sends when a turn names no effort: config.toml's model_reasoning_effort, else the model's catalogue default."""
+    try:
+        with open(os.path.join(CODEX_HOME, "config.toml")) as f:
+            match = re.search(r'^model_reasoning_effort\s*=\s*"([^"]+)"', f.read(), re.M)
+        if match:
+            return match.group(1)
+    except OSError:
+        pass
+    try:
+        with open(os.path.join(CODEX_HOME, "models_cache.json")) as f:
+            catalogue = json.load(f)
+    except (OSError, ValueError):
+        return None
+    for entry in catalogue.get("models", []) if isinstance(catalogue, dict) else []:
+        if entry.get("slug") == model:
+            return entry.get("default_reasoning_level")
+    return None
+
+
+def codex_model_effort(path, tail=262144):
+    """(model, effort) from the newest turn_context in a codex rollout."""
+    payload = None
+    for line in reversed(_tail_lines(path, tail) or []):
+        if '"turn_context"' in line:
+            try:
+                payload = json.loads(line).get("payload")
+                break
+            except ValueError:
+                continue
+    payload = payload or _last_entry_of_type(path, "turn_context").get("payload") or {}
+    model = payload.get("model")
+    if not model:
+        return None, None
+    settings = (payload.get("collaboration_mode") or {}).get("settings") or {}
+    return model, payload.get("effort") or settings.get("reasoning_effort") or codex_default_effort(model)
