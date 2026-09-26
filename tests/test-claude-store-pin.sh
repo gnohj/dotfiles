@@ -31,25 +31,34 @@ expect "$(run_in "$HOME/mate")" "$HOME/.claude-work|work|test-work-token" 'no st
 rm -f "$HOME/.claude.json" "$HOME/.claude-work/.claude.json"
 claude-account store-pin "$HOME/mate/" ordinary >/dev/null
 expect "$(claude-account store-pin "$HOME/mate")" ordinary 'trailing slash is normalized'
-expect "$(run_in "$HOME/mate")" 'ordinary|work|test-work-token' 'ordinary store pin keeps the native store and bills work'
-[ -f "$HOME/.claude.json" ] || { echo 'trust was not seeded into the native store' >&2; exit 1; }
-[ ! -f "$HOME/.claude-work/.claude.json" ] || { echo 'trust leaked into the billing store' >&2; exit 1; }
+if run_in "$HOME/mate" >"$HOME/output" 2>"$HOME/error"; then
+  echo 'conflicting ordinary state pin started on work billing' >&2; exit 1
+fi
+rg -q 'state store does not match' "$HOME/error"
+[ ! -f "$HOME/.claude.json" ] || { echo 'trust was seeded into the wrong store' >&2; exit 1; }
 expect "$(run_in "$HOME/mate/sub")" "$HOME/.claude-work|work|test-work-token" 'store pin is exact, not a prefix'
 expect "$(run_in "$HOME/other")" "$HOME/.claude-work|work|test-work-token" 'unrelated path is untouched'
 
+claude-account store-pin "$HOME/mate" "$HOME/.claude-work" >/dev/null
 expect "$(cd "$HOME/mate" && env -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CONFIG_DIR="$HOME/.claude-work" bash "$wrapper")" \
   "$HOME/.claude-work|work|test-work-token" 'an exported store still wins'
 
 claude-account pin personal >/dev/null
 claude-account store-pin "$HOME/mate" "$HOME/.claude-work" >/dev/null
-expect "$(run_in "$HOME/mate")" "$HOME/.claude-work|personal|test-personal-token" 'a store pin never changes billing'
+if run_in "$HOME/mate" >"$HOME/output" 2>"$HOME/error"; then
+  echo 'conflicting work state pin started on personal billing' >&2; exit 1
+fi
 
 claude-account pin auto >/dev/null
-expect "$(run_in "$HOME/mate")" "$HOME/.claude-work|personal|test-personal-token" 'a store pin never feeds account inference'
+if run_in "$HOME/mate" >"$HOME/output" 2>"$HOME/error"; then
+  echo 'conflicting work state pin started in Auto mode' >&2; exit 1
+fi
 
 claude-account path-pin "$HOME/mate" work >/dev/null
 claude-account store-pin "$HOME/mate" ordinary >/dev/null
-expect "$(run_in "$HOME/mate")" 'ordinary|work|test-work-token' 'billing path pin and store pin combine'
+if run_in "$HOME/mate" >"$HOME/output" 2>"$HOME/error"; then
+  echo 'path pin and conflicting store pin started' >&2; exit 1
+fi
 
 claude-account store-pin "$HOME/mate" auto >/dev/null
 expect "$(claude-account store-pin "$HOME/mate")" '' 'auto removes the mapping'

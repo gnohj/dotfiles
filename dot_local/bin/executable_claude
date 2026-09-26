@@ -36,58 +36,84 @@ if [ -z "$_bin" ]; then
   exit 127
 fi
 
-# baby-menu-worker-pin-v2: worker pin selects state; the global pin selects billing.
-_worker_ordinary=0
+# claude-account-state-v1
+case "${CLAUDE_ACCOUNT:-}" in
+"" | work | personal) ;;
+*) echo "claude: unknown account choice" >&2; exit 1 ;;
+esac
+_account="$(claude-account resolve)"
+case "$_account" in
+work | personal) ;;
+*) echo "claude: cannot resolve the selected account" >&2; exit 1 ;;
+esac
+
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${CLAUDE_ACCOUNT:-}" ]; then
+  _matched=""
+  for _candidate in work personal; do
+    _candidate_token="$(CLAUDE_ACCOUNT="$_candidate" claude-account token)"
+    if [ -n "$_candidate_token" ] && [ "$CLAUDE_CODE_OAUTH_TOKEN" = "$_candidate_token" ]; then
+      [ -z "$_matched" ] || { echo "claude: account token is ambiguous" >&2; exit 1; }
+      _matched="$_candidate"
+    fi
+  done
+  [ -n "$_matched" ] || { echo "claude: supplied OAuth token is not a known account" >&2; exit 1; }
+  _account="$_matched"
+fi
+
+export CLAUDE_ACCOUNT="$_account"
+_expected="$(claude-account dir)"
+_tok="$(claude-account token)"
+[ -n "$_tok" ] || { echo "claude: no OAuth token for the selected account" >&2; exit 1; }
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ "$CLAUDE_CODE_OAUTH_TOKEN" != "$_tok" ]; then
+  echo "claude: supplied OAuth token does not match the selected account" >&2
+  exit 1
+fi
+
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_CONFIG_DIR" != "$_expected" ]; then
+  echo "claude: explicit state store does not match $_account token; migrate its conversation before changing the launch" >&2
+  exit 1
+fi
+
 if [ -n "${FM_TASK_ID:-}" ]; then
   _worker_pin="${FM_HOME:-$HOME/.local/share/firstmate}/config/claude-account"
-  if [ -f "$_worker_pin" ] && [ ! -L "$_worker_pin" ]; then
+  if [ -e "$_worker_pin" ] || [ -L "$_worker_pin" ]; then
+    [ -f "$_worker_pin" ] && [ ! -L "$_worker_pin" ] || { echo "claude: invalid worker state-store override" >&2; exit 1; }
     IFS= read -r _worker_store <"$_worker_pin" || true
-    case "$_worker_store" in
-    ordinary)
-      _worker_ordinary=1
-      unset CLAUDE_CONFIG_DIR
-      ;;
-    "$HOME/.claude-work")
-      export CLAUDE_CONFIG_DIR="$HOME/.claude-work"
-      ;;
-    esac
+    [ "$_worker_store" = ordinary ] && _worker_store=""
+    [ "$_worker_store" = "$_expected" ] || { echo "claude: worker state store does not match $_account token; migrate its conversation before removing the override" >&2; exit 1; }
   fi
 fi
 
-# An explicit config dir must also pick the token's account: firstmate homes resolve personal by remote, so a work profile would otherwise get the personal token.
-# A deliberate pin outranks that inference, so a spawned pane bills the account you pinned.
-if [ -z "${CLAUDE_ACCOUNT:-}" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] &&
-  [ "$(claude-account pin 2>/dev/null || echo auto)" = auto ]; then
-  for _a in work personal; do
-    [ "$(CLAUDE_ACCOUNT="$_a" claude-account dir 2>/dev/null)" = "$CLAUDE_CONFIG_DIR" ] && {
-      export CLAUDE_ACCOUNT="$_a"
-      break
-    }
-  done
+# claude-session-resume-v1: a pending migration marker for this path resumes its conversation instead of starting fresh.
+_resume=()
+if [ -s "$HOME/.local/state/claude/resume-by-path" ]; then
+  _resume_id="$(claude-session-migrate launch "$PWD")" || exit 1
+  if [ -n "$_resume_id" ]; then
+    for _arg in "$@"; do
+      case "$_arg" in
+      -c | -r | --continue | --resume | --resume=* | --session-id | --session-id=* | --fork-session)
+        echo "claude: a pending conversation migration conflicts with $_arg" >&2
+        exit 1
+        ;;
+      esac
+    done
+    _resume=(--resume "$_resume_id" --system-prompt-snapshot off)
+  fi
 fi
 
-# Already-exported values win, so a pinned pane (cw / CLAUDE_ACCOUNT) keeps its account.
-if [ "$_worker_ordinary" = 1 ]; then
-  _dir=""
-elif [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  _dir="$CLAUDE_CONFIG_DIR"
-else
-  # Read after billing is settled, so an exact store pin moves only state and never who pays.
-  case "$(claude-account store-pin "$PWD" 2>/dev/null || true)" in
-  ordinary) _dir="" ;;
-  /*) _dir="$(claude-account store-pin "$PWD")" ;;
-  *) _dir="$(claude-account dir)" ;;
-  esac
+_declared_store="$(claude-account store-pin "$PWD")"
+_store_pin="$_declared_store"
+case "$_store_pin" in
+ordinary) _store_pin="" ;;
+"" | /*) ;;
+*) echo "claude: invalid state-store override" >&2; exit 1 ;;
+esac
+if [ -n "$_declared_store" ]; then
+  [ "$_store_pin" = "$_expected" ] || { echo "claude: pinned state store does not match $_account token; migrate its conversation before removing the override" >&2; exit 1; }
 fi
-[ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
-_tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
-if [ -n "${FM_TASK_ID:-}" ] && [ -z "$_tok" ]; then
-  echo "claude: no OAuth token for the selected worker billing account; refusing to use the state store's credential" >&2
-  exit 1
-fi
-[ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
-# Claude Code strips the token from children, so CLAUDE_ACCOUNT is the only way a status line can name who is paying.
-[ -z "${CLAUDE_ACCOUNT:-}" ] && export CLAUDE_ACCOUNT="$(claude-account resolve 2>/dev/null || true)"
-claude-account seed-config --dir "${_dir:-ordinary}"
+unset CLAUDE_CONFIG_DIR
+[ -z "$_expected" ] || export CLAUDE_CONFIG_DIR="$_expected"
+export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+claude-account seed-config --dir "${_expected:-ordinary}"
 
-exec "$_bin" "$@"
+exec "$_bin" ${_resume[@]+"${_resume[@]}"} "$@"
