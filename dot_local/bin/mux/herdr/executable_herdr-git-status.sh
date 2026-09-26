@@ -246,8 +246,16 @@ def short_model(model):
     name = "".join(w for w in words if w.lower() not in VENDOR_WORDS) or "".join(words)
     return name + ".".join(p for p in parts if p[0].isdigit() and len(p) < 8)
 
+EFFORT_SHORT = {"minimal": "min", "low": "low", "medium": "med", "high": "hi", "xhigh": "xhi", "max": "max"}
+
+def model_label(model, effort):
+    """opus5.5 · hi: the short model, then the effort it runs at; off/none shows no effort at all."""
+    effort = (effort or "").strip().lower()
+    shown = "" if effort in ("", "off", "none", "default") else EFFORT_SHORT.get(effort, effort)
+    return " · ".join(filter(None, (short_model(model), shown))) if model else ""
+
 def fleet_kinds():
-    """workspace_id -> (firstmate task kind, short model), for tasks whose recorded pane is live in that workspace here."""
+    """workspace_id -> (firstmate task kind, model label), for tasks whose recorded pane is live in that workspace here."""
     m = re.search(r"/sessions/([^/]+)/herdr\.sock$", os.environ.get("HERDR_SOCKET_PATH", ""))
     session, kinds = (m.group(1) if m else "default"), {}
     for path in glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta")):
@@ -260,11 +268,11 @@ def fleet_kinds():
             continue
         w, p = meta.get("herdr_workspace_id"), meta.get("herdr_pane_id")
         if w and p in ws_panes.get(w, ()):
-            kinds[w] = (meta.get("kind", ""), short_model(meta.get("model", "")))
+            kinds[w] = (meta.get("kind", ""), model_label(meta.get("model", ""), meta.get("effort")))
     return kinds
 
 def live_models():
-    """workspace_id -> short model the workspace's live agent is running now; crewmates carry theirs on row 2."""
+    """workspace_id -> model label (model + effort) the workspace's live agent is running now; crewmates carry theirs on row 2."""
     try:
         agents = json.loads(out([HERDR, "agent", "list"]))["result"]["agents"]
     except Exception:
@@ -274,16 +282,22 @@ def live_models():
         w = a.get("workspace_id")
         if stores is None or w in models or ws_label.get(w, "").startswith("└ "):
             continue
-        model = agent_model(a)
-        if model:
-            models[w] = short_model(model)
+        label = model_label(*agent_model_effort(a))
+        if label:
+            models[w] = label
     return models
 
-def agent_model(a):
-    """Model of one `agent list` entry's newest reply, or None where its store is unreadable."""
-    if a.get("agent") == "hermes":
-        return stores.hermes_model()
+def agent_model_effort(a):
+    """(model, effort) of one `agent list` entry's newest reply, (None, None) where its store is unreadable."""
+    agent = a.get("agent")
     cwd, session = (a.get("cwd") or "").rstrip("/"), a.get("agent_session") or {}
+    if agent == "hermes":
+        return stores.hermes_model_effort()
+    if agent in ("opencode", "open_code"):
+        return stores.opencode_model_effort(session, cwd)
+    if agent == "codex":
+        path = stores.codex_rollout(session, cwd)
+        return stores.codex_model_effort(path) if path else (None, None)
     if session.get("kind") == "path":
         path = session.get("value")
     elif a.get("agent") == "claude":
@@ -292,7 +306,7 @@ def agent_model(a):
         path = stores.pi_newest_session(cwd)
     else:
         path = None
-    return stores.last_model(path) if path else None
+    return stores.last_model_effort(path) if path else (None, None)
 
 kinds = fleet_kinds()
 models = live_models()
