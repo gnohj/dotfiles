@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rules run narrowest-first; both finders use matching effort so their bids remain comparable, except luna (always max) and sol (always high).
+# Rules run narrowest-first; both finders use matching effort so their bids remain comparable, except luna (always xhigh) and sol (always high).
 
 case "$(uname -s)" in
   Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
