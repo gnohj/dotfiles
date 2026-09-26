@@ -38,6 +38,7 @@ const defaultQuotaColors: QuotaColors = {
   orange: "#f5a65b",
   warning: "#ffd86b",
   live: "#6ae3b6",
+  groups: ["#a3b8c6", "#c0aed2", "#a7cfbd", "#dab183", "#88a1b2"],
 };
 
 function execute(
@@ -83,7 +84,9 @@ function parseQuotas(output: string): QuotaRow[] {
 function parseQuotaColors(output: string): QuotaColors {
   const values = Object.fromEntries(
     [
-      ...output.matchAll(/^(gnohj_color(?:02|06|11|12))=(#[0-9a-f]{6})$/gim),
+      ...output.matchAll(
+        /^(gnohj_color(?:01|02|03|04|05|06|11|12|18))=(#[0-9a-f]{6})$/gim,
+      ),
     ].map(([, name, color]) => [name, color]),
   );
   return {
@@ -91,6 +94,10 @@ function parseQuotaColors(output: string): QuotaColors {
     orange: values.gnohj_color06 ?? defaultQuotaColors.orange,
     warning: values.gnohj_color12 ?? defaultQuotaColors.warning,
     live: values.gnohj_color02 ?? defaultQuotaColors.live,
+    groups: ["04", "01", "03", "05", "18"].map(
+      (key, index) =>
+        values[`gnohj_color${key}`] ?? defaultQuotaColors.groups[index],
+    ),
   };
 }
 
