@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rules run narrowest-first; both finders use matching effort so their bids remain comparable.
+# Rules run narrowest-first; both finders use matching effort so their bids remain comparable, except luna (always max) and sol (always high).
 
 case "$(uname -s)" in
   Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
@@ -80,8 +80,8 @@ if [ "$output" = mode ]; then
   exit 0
 fi
 case "$cmodel$gmodel" in '' | *[!A-Za-z0-9._:/+-]*) fallback ;; esac
-case "$ceffort" in low | medium | high | xhigh) ;; *) fallback ;; esac
-case "$geffort" in low | medium | high | xhigh) ;; *) fallback ;; esac
+case "$ceffort" in low | medium | high | xhigh | max) ;; *) fallback ;; esac
+case "$geffort" in low | medium | high | xhigh | max) ;; *) fallback ;; esac
 case "$timeout" in '' | *[!0-9]*) fallback ;; esac
 
 emit "$cmodel" "$ceffort" "$gmodel" "$geffort" "$timeout" "${lines}L/${files}f${band_why:++$band_why}"

@@ -13,7 +13,7 @@
         },
         "gpt": {
           "model": "gpt-6-luna",
-          "effort": "medium"
+          "effort": "max"
         },
         "rungTimeout": 600
       },
@@ -48,11 +48,11 @@
         },
         "gpt": {
           "model": "gpt-6-sol",
-          "effort": "xhigh"
+          "effort": "high"
         },
         "rungTimeout": 1500
       },
-      "why": "Past ~800 changed lines the cross-file reasoning is the review, and a missed blocker costs more than the spend. The rung timeout rises with the effort deliberately: xhigh inside a 600s deadline buys reasoning the deadline then kills, sealing nothing."
+      "why": "Past ~800 changed lines the cross-file reasoning is the review, and a missed blocker costs more than the spend. The rung timeout rises with Claude's xhigh deliberately: xhigh inside a 600s deadline buys reasoning the deadline then kills, sealing nothing. Sol stays at high, its fixed level."
     }
   ],
   "default": {
