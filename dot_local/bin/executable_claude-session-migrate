@@ -1,0 +1,414 @@
+#!/usr/bin/env bash
+# Carry one live Claude conversation across a relaunch into the state store its billing account pairs with, under the same session id.
+set -euo pipefail
+
+SELF=claude-session-migrate
+STATE_DIR="$HOME/.local/state/claude"
+MARKERS="$STATE_DIR/resume-by-path"
+JOURNALS="$STATE_DIR/migrations"
+LOCK="$STATE_DIR/.resume-by-path.lock"
+WAIT="${CLAUDE_MIGRATE_WAIT:-90}"
+TAB="$(printf '\t')"
+
+die() {
+  echo "$SELF: $*" >&2
+  exit 1
+}
+
+canon() {
+  local p
+  case "$1" in /*) ;; *) die "needs an absolute path: $1" ;; esac
+  p="$(cd "$1" 2>/dev/null && pwd -P)" || die "not a directory: $1"
+  [ "$p" = "${1%/}" ] || die "$1 resolves to $p; name the real path"
+  case "$p" in *"$TAB"* | *$'\n'*) die "refusing a path containing a tab or newline" ;; esac
+  printf '%s' "$p"
+}
+
+store_dir() {
+  if [ "$1" = ordinary ]; then printf '%s' "$HOME/.claude"; else printf '%s' "$1"; fi
+}
+
+store_name() {
+  if [ -z "$1" ] || [ "$1" = "$HOME/.claude" ]; then printf ordinary; else printf '%s' "$1"; fi
+}
+
+account_for_store() {
+  local a
+  for a in work personal; do
+    [ "$(store_name "$(CLAUDE_ACCOUNT="$a" claude-account dir)")" = "$1" ] && { printf '%s' "$a"; return 0; }
+  done
+  return 1
+}
+
+proc_env() {
+  if [ "$(uname)" = Darwin ]; then
+    ps -Eww -p "$1" -o command= 2>/dev/null | tr ' ' '\n'
+  else
+    tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  fi
+}
+
+claude_alive() {
+  local comm
+  kill -0 "$1" 2>/dev/null || return 1
+  comm="$(ps -o comm= -p "$1" 2>/dev/null)" || return 1
+  case "$(basename "$comm")" in claude*) return 0 ;; *) return 1 ;; esac
+}
+
+candidate_stores() {
+  {
+    printf 'ordinary\n'
+    store_name "$(CLAUDE_ACCOUNT=work claude-account dir)"
+    printf '\n'
+    claude-account store-pin | cut -f2
+  } | awk 'NF && !seen[$0]++'
+}
+
+# Every live Claude session whose working directory is <path>, as "store<TAB>pid<TAB>id".
+path_sessions() {
+  local want="$1" store f pid id cwd real
+  while IFS= read -r store; do
+    for f in "$(store_dir "$store")"/sessions/*.json; do
+      [ -f "$f" ] || continue
+      IFS="$TAB" read -r pid id cwd <<EOF || true
+$(jq -r '[(.pid // "" | tostring), (.sessionId // ""), (.cwd // "")] | @tsv' "$f" 2>/dev/null)
+EOF
+      [ -n "$pid" ] && [ -n "$id" ] && [ -n "$cwd" ] || continue
+      real="$(cd "$cwd" 2>/dev/null && pwd -P)" || continue
+      [ "$real" = "$want" ] || continue
+      claude_alive "$pid" || continue
+      printf '%s\t%s\t%s\n' "$store" "$pid" "$id"
+    done
+  done <<EOF
+$(candidate_stores)
+EOF
+}
+
+# Live pids holding <id> in <store>.
+session_holders() {
+  local f pid
+  for f in "$(store_dir "$1")"/sessions/*.json; do
+    [ -f "$f" ] || continue
+    pid="$(jq -r --arg id "$2" 'select(.sessionId == $id) | .pid' "$f" 2>/dev/null)" || continue
+    [ -n "$pid" ] && claude_alive "$pid" && printf '%s\n' "$pid"
+  done
+  return 0
+}
+
+transcript() {
+  local found
+  found="$(find "$(store_dir "$1")/projects" -mindepth 2 -maxdepth 2 -name "$2.jsonl" -type f 2>/dev/null)"
+  [ -n "$found" ] || return 1
+  [ "$(printf '%s\n' "$found" | wc -l | tr -d ' ')" = 1 ] || return 1
+  printf '%s' "$found"
+}
+
+is_prefix() {
+  local n
+  n="$(wc -c <"$1" | tr -d ' ')"
+  head -c "$n" "$2" | cmp -s - "$1"
+}
+
+same() {
+  if [ -d "$1" ]; then diff -rq "$1" "$2" >/dev/null 2>&1; else cmp -s "$1" "$2"; fi
+}
+
+lock() {
+  local i=0 holder
+  mkdir -p "$STATE_DIR"
+  until mkdir "$LOCK" 2>/dev/null; do
+    holder="$(cat "$LOCK/pid" 2>/dev/null || true)"
+    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -rf "$LOCK"
+      continue
+    fi
+    i=$((i + 1))
+    [ "$i" -lt 200 ] || die "another migration holds $LOCK"
+    sleep 0.1
+  done
+  printf '%s\n' "$$" >"$LOCK/pid"
+  trap 'rm -rf "$LOCK"' EXIT
+}
+
+# Marker fields: path, session id, source store, target store, account, previous pid, phase.
+marker_get() {
+  [ -r "$MARKERS" ] || return 0
+  awk -F'\t' -v p="$1" '$1 == p' "$MARKERS"
+}
+
+marker_write() {
+  local tmp
+  mkdir -p "$STATE_DIR"
+  tmp="$(mktemp "$STATE_DIR/.resume-by-path.XXXXXX")"
+  [ -r "$MARKERS" ] && awk -F'\t' -v p="$1" '$1 != p' "$MARKERS" >"$tmp"
+  [ "$#" -eq 1 ] || printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >>"$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$MARKERS"
+}
+
+journal() {
+  local dir="$JOURNALS/$1"
+  shift
+  mkdir -p "$dir"
+  chmod 700 "$JOURNALS" "$dir"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$dir/journal"
+}
+
+load_marker() {
+  local line
+  line="$(marker_get "$1")"
+  [ -n "$line" ] || return 1
+  IFS="$TAB" read -r M_PATH M_ID M_SRC M_DST M_ACCT M_PID M_PHASE <<EOF
+$line
+EOF
+}
+
+copy_item() {
+  local s="$1/$3" d="$2/$3" tmp
+  [ -e "$s" ] || return 0
+  if [ -e "$d" ] || [ -L "$d" ]; then
+    same "$s" "$d" && return 0
+    mkdir -p "$(dirname "$4/$3")"
+    mv "$d" "$4/$3"
+    journal "$M_ID" "backed up $d to $4/$3"
+  fi
+  mkdir -p "$(dirname "$d")"
+  tmp="$(dirname "$d")/.$(basename "$d").migrate.$$"
+  rm -rf "$tmp"
+  cp -Rp "$s" "$tmp"
+  mv "$tmp" "$d"
+  same "$s" "$d" || die "copy of $3 did not verify"
+}
+
+copy_session() {
+  local src dst t rel backup item
+  src="$(store_dir "$M_SRC")"
+  dst="$(store_dir "$M_DST")"
+  t="$(transcript "$M_SRC" "$M_ID")" || die "no single transcript for $M_ID in $src"
+  rel="${t#"$src"/}"
+  if [ -e "$dst/$rel" ]; then
+    is_prefix "$dst/$rel" "$t" || die "$dst/$rel holds a different conversation under $M_ID; refusing"
+  fi
+  backup="$JOURNALS/$M_ID/backup-$(date -u +%Y%m%dT%H%M%SZ)"
+  copy_item "$src" "$dst" "$rel" "$backup"
+  copy_item "$src" "$dst" "${rel%.jsonl}" "$backup"
+  for item in "file-history/$M_ID" "session-env/$M_ID" "tasks/$M_ID"; do
+    copy_item "$src" "$dst" "$item" "$backup"
+  done
+  for item in "$src/todos/$M_ID"-*.json; do
+    [ -e "$item" ] && copy_item "$src" "$dst" "${item#"$src"/}" "$backup"
+  done
+  cmp -s "$t" "$dst/$rel" || die "transcript copy of $M_ID did not verify"
+  journal "$M_ID" "copied $rel from $src to $dst"
+}
+
+prepare() {
+  local p sessions n store pid id acct dst pin t rel penv
+  p="$(canon "$1")"
+  command -v jq >/dev/null 2>&1 || die "needs jq"
+  lock
+  [ -z "$(marker_get "$p")" ] || die "$p already has a pending migration; see '$SELF status $p'"
+  sessions="$(path_sessions "$p")"
+  n="$(printf '%s' "$sessions" | grep -c . || true)"
+  [ "$n" = 1 ] || die "expected one live Claude session at $p, found $n; nothing was changed"
+  IFS="$TAB" read -r store pid id <<EOF
+$sessions
+EOF
+  penv="$(proc_env "$pid")"
+  printf '%s\n' "$penv" | grep -q '^CLAUDE_ACCOUNT=.' && printf '%s\n' "$penv" | grep -q '^CLAUDE_CODE_OAUTH_TOKEN=.' ||
+    die "pid $pid was not started through the claude wrapper, so a relaunch in its pane would not resume; nothing was changed"
+  acct="$(cd "$p" && env -u CLAUDE_ACCOUNT -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_OAUTH_TOKEN claude-account resolve)"
+  case "$acct" in work | personal) ;; *) die "cannot resolve the account for $p" ;; esac
+  [ -n "$(CLAUDE_ACCOUNT="$acct" claude-account token)" ] || die "no $acct token on this host"
+  dst="$(store_name "$(cd "$p" && CLAUDE_ACCOUNT="$acct" claude-account dir)")"
+  pin="$(claude-account store-pin "$p")"
+  case "$pin" in "" | "$store" | "$dst") ;; *) die "$p has a store pin '$pin' that is neither the live store nor the paired one" ;; esac
+  t="$(transcript "$store" "$id")" || die "no single transcript for session $id in $(store_dir "$store")"
+  if [ "$store" != "$dst" ]; then
+    rel="${t#"$(store_dir "$store")"/}"
+    if [ -e "$(store_dir "$dst")/$rel" ]; then
+      is_prefix "$(store_dir "$dst")/$rel" "$t" || die "$(store_dir "$dst")/$rel holds a different conversation under $id; refusing"
+    fi
+  fi
+  marker_write "$p" "$id" "$store" "$dst" "$acct" "$pid" prepared
+  journal "$id" "prepared $p pid=$pid from=$store to=$dst account=$acct store-pin=${pin:-none}"
+  echo "prepared $p session=$id pid=$pid from=$store to=$dst account=$acct"
+}
+
+launch() {
+  local p expected holders
+  [ -s "$MARKERS" ] || return 0
+  p="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+  [ -n "$(marker_get "$p")" ] || return 0
+  lock
+  load_marker "$p" || return 0
+  expected="$(store_name "$(claude-account dir)")"
+  [ "$M_DST" = "$expected" ] || die "the pending migration of $p targets $M_DST, but this launch pairs $expected; refusing"
+  holders="$(session_holders "$M_SRC" "$M_ID")$(session_holders "$M_DST" "$M_ID")"
+  [ -z "$holders" ] || die "session $M_ID still runs as pid $(printf '%s' "$holders" | tr '\n' ' '); exit it before relaunching"
+  if [ "$M_SRC" != "$M_DST" ]; then
+    if [ "$M_PHASE" = prepared ]; then
+      copy_session
+      if [ "$(claude-account store-pin "$p")" = "$M_SRC" ]; then
+        claude-account store-pin "$p" auto >/dev/null
+        journal "$M_ID" "removed store pin $p -> $M_SRC"
+      fi
+    else
+      local t dst
+      t="$(transcript "$M_SRC" "$M_ID")" || die "the original transcript of $M_ID is gone"
+      dst="$(store_dir "$M_DST")/${t#"$(store_dir "$M_SRC")"/}"
+      [ -f "$dst" ] && is_prefix "$t" "$dst" || die "$dst no longer extends the original conversation; refusing"
+    fi
+  fi
+  if [ "$M_PHASE" = prepared ]; then
+    marker_write "$p" "$M_ID" "$M_SRC" "$M_DST" "$M_ACCT" "$M_PID" copied
+    journal "$M_ID" "launch resumes $M_ID in $M_DST"
+  fi
+  printf '%s\n' "$M_ID"
+}
+
+verify() {
+  local p holders n pid penv dir want_dir tok sessions
+  p="$(canon "$1")"
+  lock
+  load_marker "$p" || die "no pending migration at $p"
+  [ "$M_PHASE" = copied ] || die "$p has not been relaunched yet (phase $M_PHASE)"
+  holders="$(session_holders "$M_DST" "$M_ID")"
+  n="$(printf '%s' "$holders" | grep -c . || true)"
+  [ "$n" = 1 ] || die "expected one live process resuming $M_ID in $M_DST, found $n"
+  pid="$holders"
+  [ "$pid" != "$M_PID" ] || die "pid $pid is the process that was meant to exit"
+  sessions="$(path_sessions "$p")"
+  [ "$sessions" = "$M_DST$TAB$pid$TAB$M_ID" ] || die "expected only pid $pid at $p, found: $(printf '%s' "$sessions" | tr '\n' ';')"
+  penv="$(proc_env "$pid")"
+  dir="$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CONFIG_DIR=//p' | head -1)"
+  want_dir=""
+  [ "$M_DST" = ordinary ] || want_dir="$M_DST"
+  [ "$dir" = "$want_dir" ] || die "pid $pid reads store '${dir:-native}', expected '${want_dir:-native}'"
+  [ "$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_ACCOUNT=//p' | head -1)" = "$M_ACCT" ] || die "pid $pid does not name the $M_ACCT account"
+  tok="$(CLAUDE_ACCOUNT="$M_ACCT" claude-account token)"
+  [ -n "$tok" ] && [ "$(printf '%s\n' "$penv" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)" = "$tok" ] ||
+    die "pid $pid does not carry the $M_ACCT token"
+  marker_write "$p"
+  journal "$M_ID" "verified $p pid=$pid store=$M_DST account=$M_ACCT"
+  echo "verified $p session=$M_ID pid=$pid store=$M_DST account=$M_ACCT"
+}
+
+cancel() {
+  local p
+  p="$(canon "$1")"
+  lock
+  load_marker "$p" || die "no pending migration at $p"
+  [ "$M_PHASE" = prepared ] || die "$p was already relaunched into $M_DST; use '$SELF rollback $p'"
+  marker_write "$p"
+  journal "$M_ID" "cancelled $p before any copy"
+  echo "cancelled $p session=$M_ID"
+}
+
+rollback() {
+  local p holders acct from prior current
+  p="$(canon "$1")"
+  lock
+  load_marker "$p" || die "no pending migration at $p; moving a verified session back is a new migration: path-pin its account, then prepare"
+  holders="$(session_holders "$M_SRC" "$M_ID")$(session_holders "$M_DST" "$M_ID")"
+  if [ -n "$holders" ]; then
+    if [ "$M_PHASE" = prepared ] && [ "$holders" = "$M_PID" ]; then
+      marker_write "$p"
+      journal "$M_ID" "rolled back $p; pid $M_PID still runs and nothing had moved"
+      echo "rolled back $p session=$M_ID; pid $M_PID still runs and nothing had moved"
+      return 0
+    fi
+    die "session $M_ID runs as pid $(printf '%s' "$holders" | tr '\n' ' '); roll back only a session that is not running"
+  fi
+  acct="$(account_for_store "$M_SRC")" || die "$M_SRC is not paired with any account, so no launch can resume there"
+  from="$M_SRC"
+  [ "$M_PHASE" = prepared ] || from="$M_DST"
+  current="$(cd "$p" && env -u CLAUDE_ACCOUNT -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_OAUTH_TOKEN claude-account resolve)"
+  prior="$(awk -F'\t' -v p="$p" '$1 == p {print $2}' "$STATE_DIR/account-by-path" 2>/dev/null || true)"
+  [ "$current" = "$acct" ] || claude-account path-pin "$p" "$acct" >/dev/null
+  marker_write "$p" "$M_ID" "$from" "$M_SRC" "$acct" - prepared
+  journal "$M_ID" "rollback: $p bills $acct (path pin was ${prior:-none}); next launch resumes $M_ID in $M_SRC from $from"
+  echo "rolled back $p session=$M_ID: it bills $acct and its next launch resumes in $M_SRC (path pin was ${prior:-none})"
+}
+
+settle() {
+  local p deadline holders pid
+  p="$(canon "$1")"
+  load_marker "$p" || die "no pending migration at $p"
+  deadline=$(($(date +%s) + WAIT))
+  while [ "$(date +%s)" -le "$deadline" ]; do
+    holders="$(session_holders "$M_DST" "$M_ID")"
+    pid="$(printf '%s\n' "$holders" | grep -vx "$M_PID" | head -1 || true)"
+    if [ -n "$pid" ]; then
+      (verify "$p")
+      return
+    fi
+    sleep 1
+  done
+  load_marker "$p" || die "the marker for $p vanished during the relaunch"
+  if [ "$M_PHASE" = prepared ] && claude_alive "$M_PID"; then
+    (lock && marker_write "$p")
+    journal "$M_ID" "no relaunch happened and pid $M_PID still runs; marker dropped"
+    echo "$SELF: untouched: pid $M_PID still runs session $M_ID at $p" >&2
+    exit 3
+  fi
+  journal "$M_ID" "unresolved after relaunch; marker kept in phase $M_PHASE"
+  die "unresolved: no process resumed $M_ID at $p within ${WAIT}s; the marker is kept, so the next relaunch there resumes $M_ID, or run '$SELF rollback $p'"
+}
+
+run() {
+  local p rc
+  p="$(canon "$1")"
+  shift
+  [ "${1:-}" = -- ] && shift
+  [ "$#" -gt 0 ] || die "run needs a relaunch command after --"
+  (prepare "$p") || exit 1
+  set +e
+  "$@"
+  rc=$?
+  set -e
+  [ "$rc" = 0 ] || echo "$SELF: the relaunch command exited $rc" >&2
+  settle "$p"
+}
+
+usage() {
+  cat <<EOF
+usage: $SELF <command>
+  prepare <path>          mark the one live session at <path> for exact resume on its next launch
+  launch <path>           wrapper hook: copy the final transcript once, print the id to resume
+  verify <path>           prove one live process resumed that id on the paired token and store
+  settle <path>           after a relaunch: verify, drop the marker if nothing relaunched (exit 3), or keep it
+  run <path> -- <cmd>...  prepare, run the relaunch command, then verify or leave the old session untouched
+  cancel <path>           drop a marker whose copy has not started
+  rollback <path>         bill the original store's account and resume there on the next launch
+  sessions <path>         live sessions at <path>: store, pid, session id
+  status [<path>]         pending markers
+EOF
+}
+
+sessions() {
+  path_sessions "$(canon "$1")"
+}
+
+status() {
+  [ -r "$MARKERS" ] || return 0
+  if [ "$#" -eq 0 ]; then cat "$MARKERS"; else marker_get "$(canon "$1")"; fi
+}
+
+cmd="${1:-}"
+[ "$#" -gt 0 ] && shift
+case "$cmd" in
+prepare | launch | verify | settle | cancel | rollback | sessions)
+  [ "$#" -eq 1 ] || die "usage: $SELF $cmd <path>"
+  "$cmd" "$1"
+  ;;
+run)
+  [ "$#" -ge 3 ] || die "usage: $SELF run <path> -- <relaunch command>..."
+  run "$@"
+  ;;
+status) status "$@" ;;
+*)
+  usage >&2
+  exit 2
+  ;;
+esac

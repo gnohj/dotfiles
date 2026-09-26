@@ -6,34 +6,34 @@ test_home=$(mktemp -d)
 trap 'rm -rf "$test_home"' EXIT
 mkdir -p "$test_home/bin" "$test_home/firstmate/config" "$test_home/.claude-work"
 printf '#!/usr/bin/env bash\n[ "$1" = which ] && echo "$HOME/bin/fake-claude"\n' >"$test_home/bin/mise"
-printf '#!/usr/bin/env bash\ncase "$1" in\n  pin) <"$HOME/pin" tr -d "\\n" ;;\n  token) [ "${FM_TEST_TOKEN_MISSING:-}" = 1 ] || { acct="${CLAUDE_ACCOUNT:-$(tr -d "\\n" <"$HOME/pin")}"; printf "test-%%s-token" "$acct"; } ;;\n  resolve) <"$HOME/pin" tr -d "\\n" ;;\n  dir) [ "${CLAUDE_ACCOUNT:-$(tr -d "\\n" <"$HOME/pin")}" = work ] && echo "$HOME/.claude-work" || true ;;\nesac\n' >"$test_home/bin/claude-account"
+printf '#!/usr/bin/env bash\ncase "$1" in\n  pin) <"$HOME/pin" tr -d "\\n" ;;\n  token) [ "${FM_TEST_TOKEN_MISSING:-}" = 1 ] || { acct="${CLAUDE_ACCOUNT:-$(tr -d "\\n" <"$HOME/pin")}"; printf "test-%%s-token" "$acct"; } ;;\n  resolve) printf "%%s" "${CLAUDE_ACCOUNT:-$(tr -d "\\n" <"$HOME/pin")}" ;;\n  dir) [ "${CLAUDE_ACCOUNT:-$(tr -d "\\n" <"$HOME/pin")}" = work ] && echo "$HOME/.claude-work" || true ;;\nesac\n' >"$test_home/bin/claude-account"
 printf '#!/usr/bin/env bash\nprintf "%%s|%%s|%%s\\n" "${CLAUDE_CONFIG_DIR:-ordinary}" "${CLAUDE_ACCOUNT:-none}" "${CLAUDE_CODE_OAUTH_TOKEN:-none}"\n' >"$test_home/bin/fake-claude"
 chmod +x "$test_home/bin/"*
 export HOME="$test_home" FM_HOME="$test_home/firstmate" FM_TASK_ID=test PATH="$test_home/bin:$PATH"
+wrapper="$source_dir/dot_local/bin/executable_claude"
+run() { env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN bash "$wrapper"; }
+refuse() {
+  if "$@" >"$HOME/refusal-out" 2>"$HOME/refusal-error"; then
+    echo 'a mismatched state/token combination started Claude' >&2
+    exit 1
+  fi
+  [ ! -s "$HOME/refusal-out" ]
+  rg -q 'state store does not match|no OAuth token|not a known account' "$HOME/refusal-error"
+}
+
 printf 'work\n' >"$HOME/pin"
+[ "$(run)" = "$HOME/.claude-work|work|test-work-token" ]
 printf 'ordinary\n' >"$FM_HOME/config/claude-account"
-output=$(env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN bash "$source_dir/dot_local/bin/executable_claude")
-[ "$output" = 'ordinary|work|test-work-token' ]
+refuse run
 printf 'personal\n' >"$HOME/pin"
+[ "$(run)" = 'ordinary|personal|test-personal-token' ]
 printf '%s\n' "$HOME/.claude-work" >"$FM_HOME/config/claude-account"
-output=$(env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN bash "$source_dir/dot_local/bin/executable_claude")
-[ "$output" = "$HOME/.claude-work|personal|test-personal-token" ]
-output=$(env -u CLAUDE_CODE_OAUTH_TOKEN CLAUDE_ACCOUNT=work bash "$source_dir/dot_local/bin/executable_claude")
-[ "$output" = "$HOME/.claude-work|work|test-work-token" ]
-printf 'ordinary\n' >"$FM_HOME/config/claude-account"
-output=$(env -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_ACCOUNT CLAUDE_CONFIG_DIR="$HOME/.claude-work" bash "$source_dir/dot_local/bin/executable_claude")
-[ "$output" = 'ordinary|personal|test-personal-token' ]
-if env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN FM_TEST_TOKEN_MISSING=1 bash "$source_dir/dot_local/bin/executable_claude" >"$HOME/missing-out" 2>"$HOME/missing-error"; then
-  echo 'worker started without a billing token' >&2
-  exit 1
-fi
-[ ! -s "$HOME/missing-out" ]
-rg -q "refusing to use the state store's credential" "$HOME/missing-error"
-mkdir -p "$HOME/.local/state/claude"
-printf 'test-work-token\n' >"$HOME/.local/state/claude/oauth-work"
-CLAUDE_ACCOUNT=work bash "$source_dir/dot_local/bin/executable_claude-account" seed-config --dir ordinary
-[ -f "$HOME/.claude.json" ]
-[ ! -f "$HOME/.claude-work/.claude.json" ]
-CLAUDE_ACCOUNT=work bash "$source_dir/dot_local/bin/executable_claude-account" seed-config --dir "$HOME/.claude-work"
-[ -f "$HOME/.claude-work/.claude.json" ]
+refuse run
+rm "$FM_HOME/config/claude-account"
+[ "$(env -u CLAUDE_ACCOUNT -u CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN=test-work-token bash "$wrapper")" = "$HOME/.claude-work|work|test-work-token" ]
+printf 'work\n' >"$HOME/pin"
+refuse env -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CONFIG_DIR="$HOME/.claude" bash "$wrapper"
+[ "$(env -u CLAUDE_CODE_OAUTH_TOKEN CLAUDE_ACCOUNT=personal bash "$wrapper")" = 'ordinary|personal|test-personal-token' ]
+refuse env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT -u CLAUDE_CODE_OAUTH_TOKEN FM_TEST_TOKEN_MISSING=1 bash "$wrapper"
+refuse env -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT CLAUDE_CODE_OAUTH_TOKEN=unrecognized bash "$wrapper"
 echo 'worker state and billing tests passed'

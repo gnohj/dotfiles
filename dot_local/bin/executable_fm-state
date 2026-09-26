@@ -62,16 +62,12 @@ b "ACCOUNT (who pays)"
 pin=$(claude-account pin 2>/dev/null || echo '?')
 kv "pin" "$pin"
 kv "pin file" "$PIN_FILE $([ -f "$PIN_FILE" ] && echo '(present)' || echo '(absent = auto)')"
-kv "fleet state dir" "${CLAUDE_CONFIG_DIR:-$HOME/.claude-work}"
-resolved=$(env -u CLAUDE_ACCOUNT bash -c '
-  cfg="'"$HOME/.claude-work"'"
-  p=$(claude-account pin 2>/dev/null || echo auto)
-  if [ "$p" != auto ]; then printf "%s (from the pin)" "$p"; exit 0; fi
-  for a in work personal; do
-    [ "$(CLAUDE_ACCOUNT=$a claude-account dir 2>/dev/null)" = "$cfg" ] && { printf "%s (inferred from the state dir)" "$a"; exit 0; }
-  done
-  printf "unresolved"')
-kv "a new agent would use" "$resolved"
+resolved=$(env -u CLAUDE_ACCOUNT claude-account resolve 2>/dev/null || echo unresolved)
+selected_dir=$(CLAUDE_ACCOUNT="$resolved" claude-account dir 2>/dev/null || true)
+origin=pin; [ "$pin" = auto ] && origin=repository
+kv "a new agent would use" "$resolved (from $origin)"
+kv "its state store" "${selected_dir:-$HOME/.claude (native)}"
+kv "this shell's state" "${CLAUDE_CONFIG_DIR:-native}"
 kv "work token" "$(fp "$(CLAUDE_ACCOUNT=work claude-account token 2>/dev/null)")"
 kv "personal token" "$(fp "$(CLAUDE_ACCOUNT=personal claude-account token 2>/dev/null)")"
 

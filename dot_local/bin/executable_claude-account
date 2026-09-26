@@ -6,8 +6,7 @@
 # WHY tokens: on macOS the OAuth login lives in ONE shared Keychain entry, so
 # CLAUDE_CONFIG_DIR alone can't switch accounts. Each account gets a long-lived
 # token (`claude setup-token`) in its own Keychain slot ("claude-oauth-<acct>"),
-# injected as CLAUDE_CODE_OAUTH_TOKEN. Token decides WHO; CLAUDE_CONFIG_DIR
-# decides WHERE that session's state (history/settings/.claude.json) lives.
+# CLAUDE_CODE_OAUTH_TOKEN selects the account; the wrapper pairs its state store.
 #
 # SELECTION: a repo whose remote is a configured work org (see work-orgs, kept
 # in local state — NOT in dotfiles) → work; everything else (personal repos,
@@ -19,7 +18,7 @@
 #   claude-account dir             its CLAUDE_CONFIG_DIR        (used by launchers)
 #   claude-account token           its OAuth token, if stored   (used by launchers)
 #   claude-account seed-config --dir <ordinary|absolute-path>  seed trust in that state store
-#   claude-account store-pin [<dir> [ordinary|auto|<store>]]   exact-path state store, independent of billing
+#   claude-account store-pin [<dir> [ordinary|auto|<store>]]   legacy exact-path override; conflicting launches refuse
 #   claude-account cwd [path]      account a directory maps to (ignores override)
 #   claude-account whoami [--all]  the ORG a token authenticates as (--all: both, warns if identical)
 #   claude-account set-org-label <personal|work|uuid> <label>   name an org so whoami prints it
@@ -52,7 +51,7 @@ WORK_ORGS_FILE="$HOME/.local/state/claude/work-orgs"
 PIN_FILE="$HOME/.local/state/claude/account-override"
 # "<path>\t<account>" lines: a path is the only identity a spawned mate carries, since fm-spawn forwards one variable and it is not this one.
 PATH_PINS="$HOME/.local/state/claude/account-by-path"
-# "<path>\t<ordinary|absolute store>" lines, exact path only: a mate keeps its state store when only its billing account moves.
+# "<path>\t<ordinary|absolute store>" lines, exact path only: legacy overrides are checked against the token's state.
 STORE_PINS="$HOME/.local/state/claude/store-by-path"
 
 # Account a directory maps to, by its git remote org. iHeart (or any configured
@@ -559,7 +558,7 @@ path-pin)
     ;;
   esac
   ;;
-# Exact-path state-store pin, independent of billing; "auto" removes a mapping.
+# Legacy exact-path state-store pin; "auto" removes a mapping.
 store-pin)
   case $# in
   1) [ -r "$STORE_PINS" ] && cat "$STORE_PINS" || true ;;
@@ -595,7 +594,7 @@ env)
   ;;
 # Seed onboarding-done + per-cwd folder-trust into the resolved account's .claude.json (only when a token exists), so a headless/fresh box skips claude's login + "trust this folder" prompts. Idempotent + read-guarded so a large .claude.json isn't rewritten each launch; no-op without jq/token.
 seed-config)
-  # baby-menu-seed-store-v1: seed the selected state store, never the billing account's store.
+  # baby-menu-seed-store-v1: seed the selected state store.
   _t="$(account_token)"; [ -n "$_t" ] || exit 0
   command -v jq >/dev/null 2>&1 || exit 0
   case "${2:-}" in
