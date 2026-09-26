@@ -32,6 +32,7 @@ fi
 
 fp() { printf '%s' "${1:-}" | sha256_digest | cut -c1-12; }
 want_fp=$(fp "$want")
+want_dir=$(CLAUDE_ACCOUNT="$pin" claude-account dir 2>/dev/null || true)
 
 live_pid() { # <herdr-pane-id>
   herdr pane process-info --pane "$1" 2>/dev/null | python3 -c '
@@ -61,28 +62,14 @@ for meta in "$FM_HOME"/state/*.meta; do
     continue
   fi
   tok=$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1 || true)
-  mark="$HOME/.local/state/claude/converge-attempt-$id"
   if [ -z "$tok" ]; then
-    # No token means the store's own credential is in play - unattributable, not wrong; worth one marked relaunch so the wrapper can attribute it.
-    prev=""; [ -r "$mark" ] && read -r prev <"$mark"
-    if [ "$prev" = "$pin" ]; then
-      echo "$SELF: $id was already relaunched once for '$pin' and still injects no token; NOT relaunching again. Report to the captain."
-      unattributed="$unattributed $id"
-    elif [ -x "$HOME/.local/bin/claude" ]; then
-      echo "$SELF: $id has no injected token; relaunching once so the wrapper can attribute it"
-      # Only a real relaunch spends the one attempt; a check that marked it would refuse the run it just proposed.
-      if [ "$MODE" = apply ]; then
-        mkdir -p "$(dirname "$mark")"
-        printf '%s\n' "$pin" >"$mark"
-      fi
-      drift="$drift $id"
-    else
-      echo "$SELF: $id has NO injected token and no wrapper to inject one; NOT relaunching. Report to the captain."
-      unattributed="$unattributed $id"
-    fi
+    echo "$SELF: $id injects no token, so its pane bypasses the claude wrapper and a relaunch could not resume it; left alone. Report to the captain."
+    unattributed="$unattributed $id"
+  elif [ "$(fp "$tok")" = "$want_fp" ] && [ "$(proc_env "$pid" | sed -n 's/^CLAUDE_CONFIG_DIR=//p' | head -1)" = "$want_dir" ]; then
+    echo "$SELF: $id already on '$pin' and its paired store; left alone"
   elif [ "$(fp "$tok")" = "$want_fp" ]; then
-    echo "$SELF: $id already on '$pin'; left alone"
-    rm -f "$mark"
+    echo "$SELF: $id bills '$pin' but reads another state store; needs relaunch"
+    drift="$drift $id"
   else
     echo "$SELF: $id drifted from '$pin'; needs relaunch"
     drift="$drift $id"
@@ -102,8 +89,8 @@ if [ -z "$drift" ]; then
 fi
 if [ "$MODE" != apply ]; then
   echo "$SELF: would restart: $drift"
-  echo "$SELF: run '$SELF apply' to converge them"
+  echo "$SELF: each restart resumes the mate's live conversation under the same id"
   exit 0
 fi
-# shellcheck disable=SC2086  # deliberate word-split: the restart path takes one id per argument
-exec "$ROOT/bin/fm-secondmate-restart.sh" $drift
+# fm-fleet-converge owns the exact-resume relaunch, so a second path here could never drift from it.
+exec "$HOME/.local/bin/fm-fleet-converge" secondmate-account apply

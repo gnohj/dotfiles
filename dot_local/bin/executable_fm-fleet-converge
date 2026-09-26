@@ -60,26 +60,90 @@ dispatchable() { # <id> <home> -> 0 when a relaunch will be allowed to land; DIS
   return 0
 }
 
-settle_account() { # <id> <pane> <home> <pin>
-  local id="$1" pane="$2" home="$3" pin="$4" acct
-  # Nothing running means the relaunch failed, not that the account is wrong; stopping it again would only deepen that.
-  [ -n "$(live_pid "$pane")" ] || { echo "$SELF: $id has no live agent; leaving it alone"; return 0; }
-  acct="$(mate_identity "$pane" claude | cut -f1)"
-  if [ "$acct" = "$pin" ]; then echo "$SELF: $id is on '$pin'"; return 0; fi
-  echo "$SELF: $id came back on '${acct:-unknown}'; its pane shell cannot reach the wrapper, replacing that shell"
-  FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$id" exit >/dev/null 2>&1 || true
-  sleep 4
-  herdr pane run "$pane" "exec zsh" >/dev/null 2>&1 || true
-  sleep 4
-  FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$id" relaunch \
-    --note "Relaunched to move onto the $pin account. The prior conversation is not carried over - re-read the brief and the local copy before continuing." 2>&1 | tail -1
+# Firstmate forwards its own CLAUDE_CONFIG_DIR onto a relaunch; unset, the claude wrapper pairs each mate's store with its billing account.
+pair_store() { unset CLAUDE_CONFIG_DIR; }
+
+sm_host() { # <secondmate-id> -> its registered host, empty when local
+  sed -n "s/^- $1 - .*(host: \([^;)]*\).*/\1/p" "$FM_HOME/data/secondmates.md" 2>/dev/null | head -1
 }
 
-preserve_store() {
-  # The same constant ~/.local/bin/fm exports: the store belongs to the FLEET, not to whoever pays.
-  export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude-work}"
-  echo "$SELF: restarting with store $CLAUDE_CONFIG_DIR"
+on_host() { # <host|""> <command...>
+  local host="$1"
+  shift
+  if [ -z "$host" ]; then
+    "$@"
+  else
+    # shellcheck disable=SC2029  # deliberate: the quoted arguments expand on the mate's host
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "$(printf '%q ' "$@")"
+  fi
 }
+
+migrate_on() { # <host|""> <claude-session-migrate args...>
+  local host="$1"
+  shift
+  if [ -z "$host" ]; then claude-session-migrate "$@"; else on_host "$host" .local/bin/claude-session-migrate "$@"; fi
+}
+
+# A live Claude conversation rides across its relaunch under the same session id; only a mate with none is launched fresh.
+EXACT_RELAUNCHED=0
+exact_relaunch() { # <host|""> <path> <relaunch command...>
+  local host="$1" path="$2" live n
+  shift 2
+  EXACT_RELAUNCHED=0
+  live="$(migrate_on "$host" sessions "$path")" ||
+    { echo "$SELF: cannot read the live Claude sessions at ${host:+$host:}$path; NOT relaunching" >&2; return 1; }
+  n="$(printf '%s' "$live" | grep -c . || true)"
+  case "$n" in
+  0)
+    echo "$SELF: no live Claude conversation at ${host:+$host:}$path; relaunching fresh"
+    "$@"
+    return
+    ;;
+  1) ;;
+  *) echo "$SELF: $n live Claude sessions at ${host:+$host:}$path; NOT relaunching" >&2; return 1 ;;
+  esac
+  migrate_on "$host" prepare "$path" || return 1
+  "$@"
+  migrate_on "$host" settle "$path" || return 1
+  EXACT_RELAUNCHED=1
+}
+
+# A resumed second mate re-takes its home lock only by running session start, which a resumed turn can skip; one explicit nudge covers that.
+secondmate_lock_check() { # <id>
+  local id="$1" host home pid lock i tries="${FM_CONVERGE_LOCK_TRIES:-60}"
+  host="$(sm_host "$id")"
+  home="$(home_of "$id")"
+  pid="$(migrate_on "$host" sessions "$home" | cut -f2)"
+  for i in $(seq 1 "$tries"); do
+    lock="$(on_host "$host" head -1 "$home/state/.lock" 2>/dev/null || true)"
+    [ -n "$pid" ] && [ "$lock" = "$pid" ] && { echo "$SELF: $id holds its home lock as pid $pid"; return 0; }
+    [ "$i" = $((tries / 3)) ] && FM_HOME="$FM_HOME" "$ROOT/bin/fm-send.sh" "$id" \
+      "Your conversation was resumed into a new process. From your own home $home, run bin/fm-session-start.sh now, exactly once, with no FM_HOME override." >/dev/null 2>&1
+    sleep "${FM_CONVERGE_LOCK_POLL:-5}"
+  done
+  echo "$SELF: $id resumed, but its home lock still names pid ${lock:-none} instead of ${pid:-none}; report to the captain" >&2
+  return 1
+}
+
+relaunch_secondmate() { # <id> <target-harness>
+  if [ "$2" = claude ]; then
+    exact_relaunch "$(sm_host "$1")" "$(home_of "$1")" "$ROOT/bin/fm-secondmate-restart.sh" "$1" || return 1
+    [ "$EXACT_RELAUNCHED" = 1 ] || return 0
+    secondmate_lock_check "$1"
+  else
+    "$ROOT/bin/fm-secondmate-restart.sh" "$1"
+  fi
+}
+
+relaunch_crew() { # <id> <owning-home> <note>
+  if [ "$(field "$2/state/$1.meta" harness)" = claude ]; then
+    exact_relaunch "" "$(field "$2/state/$1.meta" worktree)" env FM_HOME="$2" "$ROOT/bin/fm-control.sh" "$1" relaunch --note "$3"
+  else
+    FM_HOME="$2" "$ROOT/bin/fm-control.sh" "$1" relaunch --note "$3"
+  fi
+}
+
+RESUME_NOTE="If this conversation continues above, keep going from where it stopped; otherwise re-read the brief and the local copy before continuing."
 
 ids_in() {
   local home="$1" kind="$2" m
@@ -395,10 +459,12 @@ if [ "$MODE" = secondmate-set ]; then
   echo "$SELF: secondmate-harness '$cur' → '$line'"
   [ -n "$sm_ids" ] || exit 0
   echo "$SELF: restarting secondmates: $sm_ids"
-  preserve_store
-  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
-  "$ROOT/bin/fm-secondmate-restart.sh" $sm_ids
-  exit 0
+  pair_store
+  rc=0
+  for id in $sm_ids; do
+    relaunch_secondmate "$id" "$want_h" || rc=1
+  done
+  exit "$rc"
 fi
 
 # Crew identity is the one axis outside the dispatch profile, so relaunching with no axis keeps the adapter and replaces only the credential.
@@ -421,14 +487,30 @@ if [ "$MODE" = mate-relaunch ]; then
     echo "$SELF: $want is dispatchable; run '$SELF mate-relaunch $want apply' to bring it back"
     exit 0
   fi
-  preserve_store
+  pair_store
   if [ -n "$is_sm" ]; then
-    "$ROOT/bin/fm-secondmate-restart.sh" "$want"
+    relaunch_secondmate "$want" "$(field "$FM_HOME/state/$want.meta" harness)"
   else
-    FM_HOME="$owner" "$ROOT/bin/fm-control.sh" "$want" relaunch \
-      --note "Relaunched after being found stopped. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
+    relaunch_crew "$want" "$owner" "Relaunched after being found stopped. $RESUME_NOTE"
   fi
-  exit 0
+  exit
+fi
+
+# One second mate, same harness and profile: its live conversation resumes in the store its billing pairs with.
+if [ "$MODE" = secondmate-resume ]; then
+  want="${HARNESS:-}"
+  [ -n "$want" ] && [ "$(field "$FM_HOME/state/$want.meta" kind)" = secondmate ] ||
+    { echo "usage: $SELF secondmate-resume <secondmate-id> [apply]" >&2; exit 2; }
+  host="$(sm_host "$want")"
+  if [ "${ACCT:-}" != apply ]; then
+    echo "$SELF: $want lives at ${host:+$host:}$(home_of "$want"); live sessions there:"
+    migrate_on "$host" sessions "$(home_of "$want")" || exit 1
+    echo "$SELF: run '$SELF secondmate-resume $want apply' to relaunch it through firstmate with that conversation resumed"
+    exit 0
+  fi
+  pair_store
+  relaunch_secondmate "$want" "$(field "$FM_HOME/state/$want.meta" harness)"
+  exit
 fi
 
 # Secondmates first: a crewmate belongs to one, so converging the owner afterwards would relaunch its crew twice.
@@ -464,17 +546,16 @@ if [ "$MODE" = mate-account ]; then
     { echo "$SELF: claude-account has no path-pin; run 'chezmoi apply' first" >&2; exit 1; }
   if [ "${MODEL:-}" != apply ]; then
     echo "$SELF: $want will run '$acct' from its NEXT launch; run '$SELF mate-account $want $acct apply' to replace it now"
-    echo "$SELF: replacing it keeps its records but LOSES its conversation"
+    echo "$SELF: replacing it resumes its live Claude conversation in the store that account pairs with"
     exit 0
   fi
-  preserve_store
+  pair_store
   if [ -n "$is_sm" ]; then
-    "$ROOT/bin/fm-secondmate-restart.sh" "$want"
+    relaunch_secondmate "$want" "$(field "$FM_HOME/state/$want.meta" harness)"
   else
-    FM_HOME="$owner" "$ROOT/bin/fm-control.sh" "$want" relaunch \
-      --note "Relaunched to move onto the $acct account. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
+    relaunch_crew "$want" "$owner" "Relaunched to move onto the $acct account. $RESUME_NOTE"
   fi
-  exit 0
+  exit
 fi
 
 # The secondmate half: separate from crew because a crewmate relaunch costs one task's conversation, a secondmate's the fleet's supervision record.
@@ -495,7 +576,7 @@ if [ "$MODE" = secondmate-account ]; then
   [ -n "$drift" ] || { echo "$SELF: every secondmate already runs '$pin' or an account of its own"; exit 0; }
   if [ "${HARNESS:-}" != apply ]; then
     echo "$SELF: would relaunch onto '$pin': $drift"
-    echo "$SELF: each relaunch keeps the mate's records but LOSES its conversation; run '$SELF secondmate-account apply' to proceed"
+    echo "$SELF: each relaunch resumes the mate's live conversation under the same id; run '$SELF secondmate-account apply' to proceed"
     exit 0
   fi
   keep=""
@@ -506,14 +587,12 @@ if [ "$MODE" = secondmate-account ]; then
   drift="$(printf '%s' "${keep# }" | join_ids)"
   [ -n "$drift" ] || { echo "$SELF: nothing left to converge"; exit 0; }
   echo "$SELF: restarting secondmates onto '$pin': $drift"
-  preserve_store
-  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
-  "$ROOT/bin/fm-secondmate-restart.sh" $drift
-  sleep 10
+  pair_store
+  rc=0
   for id in $drift; do
-    settle_account "$id" "$(field "$FM_HOME/state/$id.meta" herdr_pane_id)" "$(home_of "$id")" "$pin"
+    relaunch_secondmate "$id" "$(field "$FM_HOME/state/$id.meta" harness)" || rc=1
   done
-  exit 0
+  exit "$rc"
 fi
 
 if [ "$MODE" = crew-account ]; then
@@ -523,6 +602,7 @@ if [ "$MODE" = crew-account ]; then
   [ -n "$want" ] || { echo "$SELF: no token stored for '$pin'; refusing to relaunch blind" >&2; exit 1; }
   fp() { [ -n "${1:-}" ] && printf '%s' "$1" | sha256_digest | cut -c1-12 || printf none; }
   want_fp="$(fp "$want")"
+  want_dir="$(CLAUDE_ACCOUNT="$pin" claude-account dir 2>/dev/null || true)"
 
   drift=""; drift_homes=""
   for id in $sm_ids; do
@@ -536,19 +616,14 @@ if [ "$MODE" = crew-account ]; then
       [ -n "$pid" ] || { echo "  $t: no live agent; skipped"; continue; }
       tok="$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"
       if [ -z "$tok" ]; then
-        # Worth one marked relaunch: settle_account replaces the pane shell, the only reason a live claude task carries no token.
-        mark="$HOME/.local/state/claude/converge-attempt-$t"
-        prev=""; [ -r "$mark" ] && read -r prev <"$mark"
-        if [ "$prev" = "$pin" ]; then
-          echo "  $t: already relaunched once for '$pin' and still injects none; left alone"
-        else
-          echo "  $t: no injected token; relaunching once so the wrapper can attribute it"
-          drift="$drift $t"; drift_homes="$drift_homes$t\t$home\n"
-        fi
+        echo "  $t: no injected token, so its pane bypasses the claude wrapper and a relaunch could not resume it; left alone"
       elif [ -n "$(claude-account path-pin "$(field "$cm" worktree)" 2>/dev/null || true)" ]; then
         echo "  $t: pinned to an account of its own; left alone"
+      elif [ "$(fp "$tok")" = "$want_fp" ] && [ "$(proc_env "$pid" | sed -n 's/^CLAUDE_CONFIG_DIR=//p' | head -1)" = "$want_dir" ]; then
+        echo "  $t: already on '$pin' and its paired store"
       elif [ "$(fp "$tok")" = "$want_fp" ]; then
-        echo "  $t: already on '$pin'"
+        echo "  $t: bills '$pin' but reads another state store; needs relaunch"
+        drift="$drift $t"; drift_homes="$drift_homes$t\t$home\n"
       else
         echo "  $t: drifted from '$pin'; needs relaunch"
         drift="$drift $t"; drift_homes="$drift_homes$t\t$home\n"
@@ -559,10 +634,10 @@ if [ "$MODE" = crew-account ]; then
   [ -n "$drift" ] || { echo "$SELF: every live crew task already runs '$pin'"; exit 0; }
   if [ "${HARNESS:-}" != apply ]; then
     echo "$SELF: would relaunch:$([ -n "$drift" ] && echo " $drift")"
-    echo "$SELF: each relaunch keeps its dispatch profile but LOSES its conversation; run '$SELF crew-account apply' to proceed"
+    echo "$SELF: each relaunch resumes its live conversation under the same id; run '$SELF crew-account apply' to proceed"
     exit 0
   fi
-  preserve_store
+  pair_store
   printf "$drift_homes" | while IFS="$(printf '\t')" read -r t home; do
     [ -n "$t" ] || continue
     if ! dispatchable "$t" "$home"; then
@@ -571,10 +646,8 @@ if [ "$MODE" = crew-account ]; then
     fi
     echo "$SELF: relaunching $t onto '$pin' (home ${home/#$HOME/\~})"
     mkdir -p "$HOME/.local/state/claude"; printf '%s\n' "$pin" >"$HOME/.local/state/claude/converge-attempt-$t"
-    FM_HOME="$home" "$ROOT/bin/fm-control.sh" "$t" relaunch \
-      --note "Relaunched to move onto the $pin account. The prior conversation is not carried over - re-read the brief and the local copy before continuing."
-    sleep 8
-    settle_account "$t" "$(field "$home/state/$t.meta" herdr_pane_id)" "$home" "$pin"
+    relaunch_crew "$t" "$home" "Relaunched to move onto the $pin account. $RESUME_NOTE" ||
+      echo "$SELF: $t did not settle; see 'claude-session-migrate status' for its worktree"
   done
   exit 0
 fi
@@ -625,9 +698,10 @@ fi
 restart="$(printf '%s\n%s\n' "$harness_moves" "$acct_drift" | tr ' ' '\n' | grep . | sort -u | join_ids)"
 if [ -n "$restart" ]; then
   echo "$SELF: restarting secondmates: $restart"
-  preserve_store
-  # shellcheck disable=SC2086  # deliberate word-split: one id per argument
-  "$ROOT/bin/fm-secondmate-restart.sh" $restart
+  pair_store
+  for id in $restart; do
+    relaunch_secondmate "$id" "$HARNESS" || echo "$SELF: $id did not settle; nothing else was forced"
+  done
 fi
 
 [ "${crew_n:-0}" -gt 0 ] &&

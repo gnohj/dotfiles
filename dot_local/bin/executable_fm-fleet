@@ -43,7 +43,7 @@ $(printf '  crew accounts (converge onto the pin)|crew|\n')"
     out="$("$CONV" crew-account 2>&1)"
     printf '%s\n' "$out" | tail -20 >&2
     printf '%s' "$out" | grep -q 'would relaunch' || { printf 'nothing to converge - press enter\n' >&2; read -r _; continue; }
-    go="$(printf 'no, go back|no\nyes, relaunch them (conversations are lost)|yes\n' | pick 'crew accounts' "$(printf '%s' "$out" | tail -2)")"
+    go="$(printf 'no, go back|no\nyes, relaunch them (live conversations resume)|yes\n' | pick 'crew accounts' "$(printf '%s' "$out" | tail -2)")"
     [ "$(val "${go:-|no}")" = yes ] && "$CONV" crew-account apply >&2
     printf 'press enter\n' >&2; read -r _
     ;;
