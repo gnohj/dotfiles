@@ -95,6 +95,13 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
     continue
   }
 
+  BRANCH=$(git branch --show-current)
+  TRACKING_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
+  if [[ -z "$BRANCH" || "$TRACKING_BRANCH" != "origin/$BRANCH" ]]; then
+    log_message "INFO" "$REPO_NAME" "No matching origin tracking branch - skipping unattended commit"
+    continue
+  fi
+
   log_message "INFO" "$REPO_NAME" "Starting git operations"
 
   # Clean up stale lock files from crashed git processes
