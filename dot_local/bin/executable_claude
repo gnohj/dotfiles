@@ -69,8 +69,15 @@ fi
 # Already-exported values win, so a pinned pane (cw / CLAUDE_ACCOUNT) keeps its account.
 if [ "$_worker_ordinary" = 1 ]; then
   _dir=""
+elif [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+  _dir="$CLAUDE_CONFIG_DIR"
 else
-  _dir="${CLAUDE_CONFIG_DIR:-$(claude-account dir)}"
+  # Read after billing is settled, so an exact store pin moves only state and never who pays.
+  case "$(claude-account store-pin "$PWD" 2>/dev/null || true)" in
+  ordinary) _dir="" ;;
+  /*) _dir="$(claude-account store-pin "$PWD")" ;;
+  *) _dir="$(claude-account dir)" ;;
+  esac
 fi
 [ -n "$_dir" ] && export CLAUDE_CONFIG_DIR="$_dir"
 _tok="${CLAUDE_CODE_OAUTH_TOKEN:-$(claude-account token)}"
