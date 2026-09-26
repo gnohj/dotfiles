@@ -237,7 +237,14 @@ for p in plist:
 
 # A crewmate's row 2 leads with its kind and model; its title can't say so, since firstmate recovery matches that title exactly.
 KIND_MARK = {"scout": "\U0001f52d", "ship": "\U0001f6a4"}
-MODEL_PREFIX = re.compile(r"^(?:.*/)?(?:claude-)?")
+VENDOR_WORDS = {"claude", "gpt"}
+
+def short_model(model):
+    """claude-opus-5-5 -> opus5.5, gpt-5.6-luna -> luna5.6; a dated snapshot suffix is dropped."""
+    parts = [p for p in model.rsplit("/", 1)[-1].split("-") if p]
+    words = [p for p in parts if not p[0].isdigit()]
+    name = "".join(w for w in words if w.lower() not in VENDOR_WORDS) or "".join(words)
+    return name + ".".join(p for p in parts if p[0].isdigit() and len(p) < 8)
 
 def fleet_kinds():
     """workspace_id -> (firstmate task kind, short model), for tasks whose recorded pane is live in that workspace here."""
@@ -253,7 +260,7 @@ def fleet_kinds():
             continue
         w, p = meta.get("herdr_workspace_id"), meta.get("herdr_pane_id")
         if w and p in ws_panes.get(w, ()):
-            kinds[w] = (meta.get("kind", ""), MODEL_PREFIX.sub("", meta.get("model", "")))
+            kinds[w] = (meta.get("kind", ""), short_model(meta.get("model", "")))
     return kinds
 
 def home_models():
@@ -278,7 +285,7 @@ def home_models():
             path = None
         model = stores.last_model(path) if path else None
         if model:
-            models[w] = MODEL_PREFIX.sub("", model)
+            models[w] = short_model(model)
     return models
 
 kinds = fleet_kinds()
