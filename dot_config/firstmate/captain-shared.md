@@ -92,6 +92,8 @@ If the two numbers differ, state the reason in the same breath - a true dependen
 
 **Name the absolute path of every file changed, every time** - not "the dispatch config"; a home-relative path is ambiguous across four homes. Same for created, deleted or moved.
 
+**A scout's task id says scout right after the ticket key** - `IHRWEB-24273-scout-cut-progress`, or `scout-<slug>` when unticketed. The id is the sidebar workspace name, and it is the only place the captain can tell a scout from a ship; never rename a workspace to show it, since firstmate recovery matches the exact title.
+
 **Never say a bare "mate"** - **second mate** (persistent, owns a domain), **first mate** (firstmate itself; several run per machine), **crewmate** (spawned for one task; say crewmate, never "worker", which overrides the `AGENTS.md` section 9 translation). Ship and scout are both crewmates.
 
 **Never use a word the captain has not used unless you define it in the same breath.** Reading firstmate's internal vocabulary all session makes it feel normal. Say GitHub, not the forge. Notification, not wake. Checked, not drained.
