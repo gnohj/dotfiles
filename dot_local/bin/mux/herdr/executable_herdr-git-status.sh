@@ -59,7 +59,7 @@ sys.dont_write_bytecode = True             # no __pycache__ in the deployed scri
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
 try:
     import herdr_gitmux as hg              # shared with herdr-sesh.sh — see its docstring
-    from herdr_label import row_indent, is_pin, is_agent_home, wants_branch  # shared with thread-status + sysinfo, so the writers cannot drift
+    from herdr_label import row_indent, is_pin, wants_branch  # shared with thread-status + sysinfo, so the writers cannot drift
 except Exception:
     sys.exit(0)                            # mid-apply window; the next pass picks it up
 try:
@@ -263,33 +263,39 @@ def fleet_kinds():
             kinds[w] = (meta.get("kind", ""), short_model(meta.get("model", "")))
     return kinds
 
-def home_models():
-    """workspace_id -> short model a firstmate or secondmate home is running now, off its transcript."""
+def live_models():
+    """workspace_id -> short model the workspace's live agent is running now; crewmates carry theirs on row 2."""
     try:
         agents = json.loads(out([HERDR, "agent", "list"]))["result"]["agents"]
     except Exception:
         return {}
     models = {}
     for a in agents:
-        w, cwd = a.get("workspace_id"), (a.get("cwd") or "").rstrip("/")
-        if stores is None or w in models or not is_agent_home(ws_label.get(w, "")):
+        w = a.get("workspace_id")
+        if stores is None or w in models or ws_label.get(w, "").startswith("└ "):
             continue
-        session = a.get("agent_session") or {}
-        if session.get("kind") == "path":
-            path = session.get("value")
-        elif a.get("agent") == "claude":
-            path = stores.claude_transcript(session.get("value"), cwd) or stores.claude_newest_session(cwd)
-        elif a.get("agent") == "pi":
-            path = stores.pi_newest_session(cwd)
-        else:
-            path = None
-        model = stores.last_model(path) if path else None
+        model = agent_model(a)
         if model:
             models[w] = short_model(model)
     return models
 
+def agent_model(a):
+    """Model of one `agent list` entry's newest reply, or None where its store is unreadable."""
+    if a.get("agent") == "hermes":
+        return stores.hermes_model()
+    cwd, session = (a.get("cwd") or "").rstrip("/"), a.get("agent_session") or {}
+    if session.get("kind") == "path":
+        path = session.get("value")
+    elif a.get("agent") == "claude":
+        path = stores.claude_transcript(session.get("value"), cwd) or stores.claude_newest_session(cwd)
+    elif a.get("agent") == "pi":
+        path = stores.pi_newest_session(cwd)
+    else:
+        path = None
+    return stores.last_model(path) if path else None
+
 kinds = fleet_kinds()
-models = home_models()
+models = live_models()
 now = time.time()
 picker = {}
 # EVERY workspace, not just those with a usable cwd: $ws replaces the built-in `workspace` token, so a row this pass skips loses its NAME, not just its git state.

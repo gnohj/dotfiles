@@ -22,6 +22,7 @@ KeepAlive, so a hard import error would restart-loop and take working functional
 import glob
 import json
 import os
+import subprocess
 
 try:
     import sqlite3
@@ -116,6 +117,30 @@ def last_model(path, tail=262144):
             if isinstance(model, str) and model and not model.startswith("<"):
                 return model
     return None
+
+
+# hermes runs in rootless Docker, whose volume the host user cannot read, so its state.db is queried in place.
+HERMES_CONTAINER = os.environ.get("HERMES_CONTAINER") or "hermes-agent-hermes-1"
+_HERMES_MODEL_SQL = (
+    "import sqlite3; row = sqlite3.connect('file:/opt/data/state.db?mode=ro', uri=True).execute("
+    "\"select u.model from session_model_usage u join sessions s on s.id = u.session_id"
+    " where s.source = 'cli' and u.task = '' order by u.last_seen desc limit 1\").fetchone(); "
+    "print(row[0] if row else '')"
+)
+
+
+def hermes_model(timeout=3):
+    """Model of hermes's newest CLI turn; side tasks (titles, approvals, reviews) are excluded."""
+    env = dict(os.environ)
+    if os.uname().sysname == "Linux":
+        env["DOCKER_HOST"] = env.get("HERMES_DOCKER_HOST") or env.get("DOCKER_HOST") or \
+            "unix://%s/docker.sock" % (env.get("XDG_RUNTIME_DIR") or "/run/user/%d" % os.getuid())
+    try:
+        result = subprocess.run(["docker", "exec", HERMES_CONTAINER, "python3", "-c", _HERMES_MODEL_SQL],
+                                capture_output=True, text=True, timeout=timeout, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() or None if result.returncode == 0 else None
 
 
 def pi_session_dir(cwd):
