@@ -70,7 +70,7 @@ BRANCH_SOURCE = "gitmux"
 # herdr-thread-status.py's source, shared for the same reason as BRANCH_SOURCE - see paint_row3.
 THREAD_SOURCE = "thread-status"
 # Row 3 zones: (lit slot, dim slot). Mirrors ROW3_ZONES in herdr-thread-status.py.
-ROW3_ZONES = (("pr", "pr_d"), ("ci", "ci_d"), ("sb", "sb_d"), ("jira", "jira_d"))
+ROW3_ZONES = (("pr", "pr_d"), ("jira", "jira_d"))
 BRANCH_TTL_MS = 38000
 
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.

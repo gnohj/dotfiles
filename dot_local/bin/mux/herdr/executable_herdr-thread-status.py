@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR ($pr), CI ($ci), Jira status ($jira) and vault note ($sb) to the sidebar.
+"""herdr-thread-status — feed each workspace's PR approvals ($pr) and Jira status ($jira) to the sidebar.
 
 herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
 custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
@@ -22,11 +22,7 @@ writer. The writer is the `sb-agent-refresh` skill, supervised by herdr-jira-sta
 which reaches Jira through MCP inside a real Claude session — the one place those credentials
 exist. $jira is therefore empty until that poller's first tick lands a status.
 
-The vault note ($sb) is the second-brain half, ported from the retired tmux-dash badge row: a
-lone 󰎞 when the workspace's ticket has a note. Where that note lives is the shared `vault-note`
-resolver's call, not this poller's. It needs no network, so it sits outside the `gh` check below
-and renders on a box with no gh at all, and where a thread file owns the workspace the path is
-mirrored into its `vault_note` field — a cache for sb-ticket-log that nothing else ever wrote.
+CI and the vault note are still persisted (`ci_status`, `vault_note`) for sb-ticket-log and the freeze queue, but not rendered.
 
 Slow on purpose. The `gh` call per workspace is a network round-trip and counts against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. The call
@@ -43,21 +39,15 @@ also needs none of the newest-headSha filtering the old query hand-rolled. Its e
 CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ matches both
 shapes. Cost: a branch with no open PR now shows no CI, since the rollup hangs off the PR.
 
-Two zones, always both, `<approvals> · <ci>`. Approvals: – none, ◌ one, ● two or more. CI:
-⧗ running, ✗ failure, ✓ success, – none. The vocabularies are disjoint so no glyph means two
-things — ● is only ever approvals, ✓ only ever CI — and both sides always print, because
-dropping the empty one left a lone glyph whose zone the reader had to guess. They are two
-tokens ($pr, $ci) rather than one string so the " · " is herdr's own separator and stays dim,
-and so each zone can carry its own fg. All single-cell and deliberately not emoji — a VS16
-sequence measures one cell and draws two, stranding uncleared artifacts until a repaint.
+Approvals: – none, ◌ one, ● two+, shown only while a PR is open; single-cell, never emoji (VS16 draws two cells).
 
 The approvals zone is one $pr token whose Herdr 0.9.0 value rule recolours ● green; $pr_d remains because rules cannot see focus.
 
-Agent HOME workspaces opt OUT of all five (AGENT_HOME_RE): the captain's own `fm` sesh session,
+Agent HOME workspaces opt OUT of every token (AGENT_HOME_RE): the captain's own `fm` sesh session,
 plus firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
 permanent branch of a read-only checkout, so approvals, CI, the vault note and Jira are all
 permanently empty there, and herdr has no per-workspace row layout: the row is global, so the
-only way it stops rendering as bare placeholders is for its tokens to carry no value. The five
+only way it stops rendering as bare placeholders is for its tokens to carry no value. The tokens
 are cleared rather than skipped, so a token set by an earlier pass (or by an older build of this
 script) disappears instead of lingering at its stale glyph.
 
@@ -72,7 +62,7 @@ that is; without it the token simply never appears. Stdlib only, no jq (gh embed
 
   herdr-thread-status.py           daemon: refresh every $HERDR_THREAD_INTERVAL seconds
   herdr-thread-status.py --once    one pass over every open workspace, then exit
-  herdr-thread-status.py --clear   drop all five tokens from every workspace, then exit
+  herdr-thread-status.py --clear   drop every row token from every workspace, then exit
 """
 import json
 import os
@@ -92,14 +82,12 @@ INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
 TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
-CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
-SB_TOKEN = "sb"
 # Row 2's trailing token order in [ui.sidebar.spaces]; the indent rides whichever is lit first when no $br leads the row.
 # Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
-ROW3_ORDER =("pr", "pr_d", "ci", "ci_d", "sb", "sb_d", "jira", "jira_d")
+ROW3_ORDER = ("pr", "pr_d", "jira", "jira_d")
 # Zone -> (lit slot, dim slot). Shared with the focus tracker.
-ROW3_ZONES = (("pr", "pr_d"), ("ci", "ci_d"), ("sb", "sb_d"), ("jira", "jira_d"))
+ROW3_ZONES = (("pr", "pr_d"), ("jira", "jira_d"))
 # A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
 REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
@@ -130,8 +118,6 @@ DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 
 # Absolute path: a herdr daemon's PATH is whatever the server was launched with.
 VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
-# nf-md-note_text (tmux-dash's badge glyph); Material Design shares the sidebar's grid, nf-fa draws larger.
-NOTE_GLYPH = "\U000f039e"
 
 # Newest open PR -> "<url>\t<approved reviews>\t<ci state>", or "" for none.
 PR_JQ = (
@@ -145,11 +131,8 @@ PR_JQ = (
     '| length > 0 then "failure" else "success" end) end'
 )
 
-# Disjoint vocabularies: ● is approvals-complete, ✓ is CI-green, never the reverse.
 APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
 FULL_GLYPH = "●"  # recoloured green by $pr's `equals` rule in [ui.sidebar.spaces]
-CI_GLYPH = {"running": "⧗", "failure": "✗", "success": "✓"}
-NONE_GLYPH = "–"
 
 # Jira workflow status, shortened to fit a 32-col sidebar. The canonical full name stays in
 # the thread file and this is purely a display transform. Anything not listed falls through
@@ -187,7 +170,7 @@ def workspace_cwds():
 
     Sorted, and it has to be: a workspace can hold panes in DIFFERENT worktrees, so an unsorted
     "first pane seen" is a coin flip over which thread file this resolves to - and that decides
-    the $pr and $ci the space row shows. herdr-git-status.sh picks its baseline the same way.
+    the $pr the space row shows. herdr-git-status.sh picks its baseline the same way.
     """
     raw = out([HERDR, "pane", "list"], timeout=6)
     if not raw:
@@ -277,7 +260,7 @@ def row3_slots(values, focused):
 
 
 def blank_tokens():
-    """All five tokens empty; report() turns each into a --clear-token, so nothing lingers."""
+    """Every row token empty; report() turns each into a --clear-token, so nothing lingers."""
     return {name: "" for name in ROW3_ORDER}
 
 
@@ -491,17 +474,10 @@ def approval_glyph(approvals):
 
 
 def render(approvals, ci):
-    """The ($pr, $ci) glyph pair, or all-empty for nothing worth a row.
-
-    Separate tokens, not one string: the " · " between them is then herdr's own separator and
-    takes the dim contextual colour, where a single token would paint its divider the token's fg.
-    Each zone also gets its own inline fg that way, which one token could never do.
-    Both zones render ALWAYS or neither does — a lone glyph left the reader guessing which zone
-    survived, and an empty token drops its separator too.
-    """
+    """The $pr glyph, or "" when the branch has no PR (neither approvals nor CI came back)."""
     if approvals is None and not ci:
-        return "", ""
-    return approval_glyph(approvals), CI_GLYPH.get(ci or "", NONE_GLYPH)
+        return ""
+    return approval_glyph(approvals)
 
 
 def vault_note(cwd):
@@ -543,7 +519,7 @@ def refresh_once():
     A ticket workspace with no file gets one created here (see create_thread), so the "never
     written" case self-heals on the next pass instead of staying blank forever.
     """
-    # No gh skips only the PR half: $jira and $sb are local reads and still render.
+    # No gh skips only the PR half: $jira is a local read and still renders.
     have_gh = bool(out(["gh", "--version"], timeout=5))
     entries = thread_files()
     labels = workspace_labels()
@@ -601,12 +577,9 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
-        pr_glyph, ci_glyph = render(approvals, ci)
         values = {
             JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
-            SB_TOKEN: NOTE_GLYPH if note else "",
-            TOKEN: pr_glyph,
-            CI_TOKEN: ci_glyph,
+            TOKEN: render(approvals, ci),
         }
         slots = row3_slots(values, focused)
         report(workspace, slots if led else indent_first(slots, label, ROW3_ORDER), seq)
