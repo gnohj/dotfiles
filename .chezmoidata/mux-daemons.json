@@ -62,11 +62,11 @@
         "note": "drives OpenCode Go Luna xhigh for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-thread-status": {
-        "desc": "herdr thread-status ($pr PR approvals + CI, $sb vault note)",
+        "desc": "herdr thread-status ($pr PR approvals, $jira status)",
         "script": "herdr-thread-status.py",
         "args": "",
         "interp": "/usr/bin/python3",
-        "token": "$pr/$sb",
+        "token": "$pr/$jira",
         "needsPath": true,
         "note": "gh only feeds $pr; $sb is a local vault-note lookup and still renders without it"
       }
