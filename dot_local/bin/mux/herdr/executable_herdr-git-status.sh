@@ -240,7 +240,7 @@ KIND_MARK = {"scout": "\U0001f52d", "ship": "\U0001f6a4"}
 VENDOR_WORDS = {"claude", "gpt"}
 
 def short_model(model):
-    """claude-opus-5-5 -> opus5.5, gpt-5.6-luna -> luna5.6; a dated snapshot suffix is dropped."""
+    """claude-opus-5-5 -> opus5.5, gpt-6-luna -> luna6; a dated snapshot suffix is dropped."""
     parts = [p for p in model.rsplit("/", 1)[-1].split("-") if p]
     words = [p for p in parts if not p[0].isdigit()]
     name = "".join(w for w in words if w.lower() not in VENDOR_WORDS) or "".join(words)

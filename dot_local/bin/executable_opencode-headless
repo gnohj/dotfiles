@@ -10,7 +10,7 @@ source "$env_file"
 [ -n "${OPENCODE_API_KEY:-}" ] || { printf '%s\n' 'opencode-headless: OPENCODE_API_KEY is unavailable' >&2; exit 78; }
 
 exec "$opencode_bin" run \
-  --model opencode-go/gpt-5.6-luna \
+  --model opencode-go/gpt-6-luna \
   --variant "${OPENCODE_VARIANT:-xhigh}" \
   --format json \
   --auto \
