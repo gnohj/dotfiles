@@ -53,7 +53,7 @@ refresh_once() {
   command -v python3 >/dev/null 2>&1 || return 0
   command -v gitmux >/dev/null 2>&1 || return 0
   GITMUX_CFG="$GITMUX_CFG" SCRIPTS_DIR="$SCRIPTS_DIR" python3 - <<'PY'
-import os, json, re, subprocess, sys, time
+import glob, os, json, re, subprocess, sys, time
 
 sys.dont_write_bytecode = True             # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
@@ -227,6 +227,31 @@ for p in plist:
     if w and c and w not in ws_cwd:
         ws_cwd[w] = c
 
+ws_panes = {}
+for p in plist:
+    ws_panes.setdefault(p.get("workspace_id"), set()).add(p.get("pane_id"))
+
+# A scout's row 2 leads with this; its title can't say so, since firstmate recovery matches that title exactly.
+SCOUT_MARK = "\U0001f52d scout"
+
+def fleet_kinds():
+    """workspace_id -> firstmate task kind, for tasks whose recorded pane is live in that workspace here."""
+    m = re.search(r"/sessions/([^/]+)/herdr\.sock$", os.environ.get("HERDR_SOCKET_PATH", ""))
+    session, kinds = (m.group(1) if m else "default"), {}
+    for path in glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta")):
+        try:
+            with open(path) as f:
+                meta = dict(line.rstrip("\n").split("=", 1) for line in f if "=" in line)
+        except (OSError, ValueError):
+            continue
+        if meta.get("herdr_session", "default") != session:
+            continue
+        w, p = meta.get("herdr_workspace_id"), meta.get("herdr_pane_id")
+        if w and p in ws_panes.get(w, ()):
+            kinds[w] = meta.get("kind", "")
+    return kinds
+
+kinds = fleet_kinds()
 now = time.time()
 picker = {}
 # EVERY workspace, not just those with a usable cwd: $ws replaces the built-in `workspace` token, so a row this pass skips loses its NAME, not just its git state.
@@ -245,6 +270,8 @@ for w, label in ws_label.items():
     br = ""
     if c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
         br = branch(c, keep_key=projected)
+    if projected and kinds.get(w) == "scout":
+        br = SCOUT_MARK + (" " + br if br else "")
     if br:
         br = row_indent(label) + br
     lit = w in focused
