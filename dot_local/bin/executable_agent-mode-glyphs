@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 🧠 when /i-have-adhd is active in this session, 🐴 when /ponytail is; the transcript is the only truthful source.
+# 🧠 when /i-have-adhd is active in this session, 🐴 when /ponytail or a firstmate ponytail brief is; the transcript is the only truthful source.
 import json
 import mmap
 import sys
@@ -10,11 +10,26 @@ ADHD_ON = (
     b'"content":"<command-message>i-have-adhd</command-message>',
 )
 PONY_ON = (b'"content":"<command-message>ponytail</command-message>',)
+PONY_BRIEF = b"Apply the ponytail ruleset to this task at intensity"
 CONTENT = b'"content":"'
+USER_LINE = b'"type":"user"'
 
 
 def last_of(data, patterns):
     return max(data.rfind(pattern) for pattern in patterns)
+
+
+def last_in_user_line(data, phrase):
+    end = len(data)
+    while True:
+        position = data.rfind(phrase, 0, end)
+        if position < 0:
+            return -1
+        line_end = data.find(b"\n", position)
+        line = data[data.rfind(b"\n", 0, position) + 1 : line_end if line_end >= 0 else len(data)]
+        if USER_LINE in line and b'"tool_result"' not in line:
+            return position
+        end = position
 
 
 def last_structural_phrase(data, phrase):
@@ -44,7 +59,7 @@ def main():
         adhd = last_of(data, ADHD_ON) > max(
             normal_off, last_structural_phrase(data, b"stop adhd mode")
         )
-        pony = last_of(data, PONY_ON) > max(
+        pony = max(last_of(data, PONY_ON), last_in_user_line(data, PONY_BRIEF)) > max(
             normal_off, last_structural_phrase(data, b"stop ponytail")
         )
 
