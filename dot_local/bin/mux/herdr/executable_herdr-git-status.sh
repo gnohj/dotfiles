@@ -310,7 +310,7 @@ for w, label in ws_label.items():
         br = branch(c, keep_key=projected)
     kind, model = kinds.get(w, ("", ""))
     if projected and kind in KIND_MARK:
-        br = " · ".join(filter(None, (KIND_MARK[kind], model, br)))
+        br = " · ".join(filter(None, (" ".join(filter(None, (KIND_MARK[kind], model))), br)))
     if br:
         br = row_indent(label) + br
     lit = w in focused
