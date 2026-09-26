@@ -57,11 +57,12 @@ def claude_transcript(session_id, cwd):
     if cached and os.path.exists(cached):
         return cached
     if cwd:
-        for root in CLAUDE_ROOTS:
-            direct = os.path.join(root, "projects", claude_project_slug(cwd), session_id + ".jsonl")
-            if os.path.exists(direct):
-                _claude_transcripts[session_id] = direct
-                return direct
+        direct = [os.path.join(root, "projects", claude_project_slug(cwd), session_id + ".jsonl") for root in CLAUDE_ROOTS]
+        live = [p for p in direct if os.path.exists(p)]
+        if live:
+            newest = max(live, key=os.path.getmtime)
+            _claude_transcripts[session_id] = newest
+            return newest
     best = None
     for root in CLAUDE_ROOTS:
         for candidate in glob.glob(os.path.join(root, "projects", "*", session_id + ".jsonl")):
