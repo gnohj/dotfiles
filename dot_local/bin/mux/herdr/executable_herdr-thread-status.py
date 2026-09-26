@@ -153,7 +153,11 @@ JIRA_SHORT = {
     "product review": "stake",
     "ready to merge": "merge",
     "done": "done",
+    "completed": "done",
+    "closed": "done",
+    "resolved": "done",
 }
+UNMERGED = "unmerged"
 
 
 def out(args, cwd=None, timeout=20):
@@ -589,9 +593,11 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
+        pr_glyph = render(approvals, ci)
+        jira = jira_short(data.get("jira_status") if data else None)
         values = {
-            JIRA_TOKEN: jira_short(data.get("jira_status") if data else None),
-            TOKEN: render(approvals, ci),
+            JIRA_TOKEN: UNMERGED if pr_glyph and jira == "done" else jira,
+            TOKEN: pr_glyph,
         }
         slots = row3_slots(values, focused)
         report(workspace, slots if led else indent_first(slots, label, ROW3_ORDER), seq)
