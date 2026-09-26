@@ -13,7 +13,7 @@
         },
         "gpt": {
           "model": "gpt-6-luna",
-          "effort": "max"
+          "effort": "xhigh"
         },
         "rungTimeout": 600
       },
