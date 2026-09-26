@@ -43,7 +43,7 @@
         "interp": "",
         "token": "$jira",
         "needsPath": true,
-        "note": "drives OpenCode Go Luna xhigh through `opencode run --command sb-agent-refresh` because jira_status lives behind MCP"
+        "note": "drives OpenCode Go Luna low every 2h through `opencode run --command sb-agent-refresh` because jira_status lives behind MCP; xhigh every 30m overran Luna's $7.50 weekly Go cap"
       },
       "herdr-pane-summary": {
         "desc": "herdr pane-summary (label agent panes from their AI session title)",

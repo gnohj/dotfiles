@@ -11,7 +11,7 @@ source "$env_file"
 
 exec "$opencode_bin" run \
   --model opencode-go/gpt-5.6-luna \
-  --variant xhigh \
+  --variant "${OPENCODE_VARIANT:-xhigh}" \
   --format json \
   --auto \
   "$@"
