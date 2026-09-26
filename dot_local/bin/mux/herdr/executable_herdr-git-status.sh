@@ -306,11 +306,11 @@ for w, label in ws_label.items():
     # Branch only where it adds something over row 0 (see wants_branch); a projection duplicates it unless detached, where the checkout is off the line its label implies.
     projected = label.startswith("└ ")
     br = ""
-    if c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
-        br = branch(c, keep_key=projected)
     kind, model = kinds.get(w, ("", ""))
     if projected and kind in KIND_MARK:
-        br = " · ".join(filter(None, (" ".join(filter(None, (KIND_MARK[kind], model))), br)))
+        br = " ".join(filter(None, (KIND_MARK[kind], model)))
+    elif c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
+        br = branch(c, keep_key=projected)
     if br:
         br = row_indent(label) + br
     lit = w in focused

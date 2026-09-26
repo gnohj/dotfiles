@@ -95,7 +95,7 @@ TOKEN = "pr"
 CI_TOKEN = "ci"
 JIRA_TOKEN = "jira"
 SB_TOKEN = "sb"
-# Row 3's token order in [ui.sidebar.spaces]; the indent rides whichever of them is lit first.
+# Row 2's trailing token order in [ui.sidebar.spaces]; the indent rides whichever is lit first when no $br leads the row.
 # Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
 ROW3_ORDER =("pr", "pr_d", "ci", "ci_d", "sb", "sb_d", "jira", "jira_d")
 # Zone -> (lit slot, dim slot). Shared with the focus tracker.
@@ -248,7 +248,7 @@ def worktree_branch_for(cwd, label):
 
 
 def workspace_labels():
-    """workspace_id -> (label, focused). One call, because row 3 needs both.
+    """workspace_id -> (label, focused, has a $br lead). One call, because these tokens need all three.
 
     Focus decides the lit-or-dim slot; the focus TRACKER repaints on change, this only has to agree
     with it so a slow poll never drags a row back to the wrong slot - same contract as $br/$br_on.
@@ -260,7 +260,8 @@ def workspace_labels():
         spaces = json.loads(raw).get("result", {}).get("workspaces", [])
     except ValueError:
         return {}
-    return {w.get("workspace_id"): (w.get("label") or "", bool(w.get("focused")))
+    return {w.get("workspace_id"): (w.get("label") or "", bool(w.get("focused")),
+                                    any((w.get("tokens") or {}).get(t) for t in ("br", "br_on")))
             for w in spaces if w.get("workspace_id")}
 
 
@@ -548,7 +549,7 @@ def refresh_once():
     labels = workspace_labels()
     seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
-        label, focused = labels.get(workspace, ("", False))
+        label, focused, led = labels.get(workspace, ("", False, False))
         if is_agent_home(label):
             # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
             report(workspace, blank_tokens(), seq)
@@ -607,7 +608,8 @@ def refresh_once():
             TOKEN: pr_glyph,
             CI_TOKEN: ci_glyph,
         }
-        report(workspace, indent_first(row3_slots(values, focused), label, ROW3_ORDER), seq)
+        slots = row3_slots(values, focused)
+        report(workspace, slots if led else indent_first(slots, label, ROW3_ORDER), seq)
 
 
 def clear_all():

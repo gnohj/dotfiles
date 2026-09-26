@@ -319,12 +319,7 @@ manage_ssh_config = true
 status_indicators = "symbols"
 mouse_capture = true
 
-# 32, up from the 26 default, so a bucketed ticket label fits unclipped on row 1. Budget math
-# (src/ui/sidebar.rs): a space row loses 4 columns to chrome - 1 list separator, 1 row-0 prefix,
-# 1 state_icon dot, 1 token separator - so a 28-column label needs 32. Row 1 collapses the ticket
-# to its bare number (herdr-sesh-layout.sh), making its worst case "🌳 web/refactor/24314" at 21,
-# so row 3's PR/note/Jira cluster is the binding constraint now. Still under sidebar_max_width's
-# default of 36, and herdr auto-scales within that range, so this is a floor not a fixed size.
+# 32 fits a bucketed ticket label on row 1 after 4 columns of chrome; herdr auto-scales up to sidebar_max_width 36, so this is a floor.
 sidebar_width = 32
 
 # Frame single-pane tabs too (0.9.0, herdrdev/herdr#3234); "auto" was split-only. Needs pane_outer_borders, on by default.
@@ -389,12 +384,8 @@ enabled = false
 # One row set for EVERY agent: herdr-pane-summary.py and herdr-focus-tracker.py key on nothing but `agent` being set, so hermes/codex/droid already carry a $pn_* slot and only rows_by_agent withheld it. `agent` and `state_text` are dropped - the name is constant per row set, and row 1's state_icon plus the $pn_* slot colour already carry the state.
 rows = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }}" }, { token = "$pn_o_on", fg = "{{ $pal.color05 }}", dim = false, bold = true }, { token = "$pn_r", fg = "{{ $pal.color11 }}" }, { token = "$pn_r_on", fg = "{{ $pal.color11 }}", dim = false, bold = true }, { token = "$pn_b", fg = "{{ $pal.color04 }}" }, { token = "$pn_b_on", fg = "{{ $pal.color04 }}", dim = false, bold = true }, { token = "$pn_g", fg = "{{ $pal.color02 }}" }, { token = "$pn_g_on", fg = "{{ $pal.color02 }}", dim = false, bold = true }, { token = "$pn_x", fg = "{{ $pal.color13 }}" }, { token = "$pn_x_on", fg = "{{ $pal.color13 }}", dim = false, bold = true }, { token = "$pn_s", fg = "{{ $pal.color13 }}", dim = true }]]
 
-# Sidebar space rows: name, then branch + working-tree sign, then PR/note/Jira, then the host cell.
-# herdr's built-in `git_status` token carries no working-tree signs - it renders only ahead and
-# behind, from herdr's internal git model (src/ui/sidebar.rs formats "↑2 ↓1"; neither number is
-# in `herdr api schema`, which is what the old note here mistook for the token being empty).
-# The dirty glyph is therefore a CUSTOM `$git`, fed by herdr-git-status.sh from the same
-# gitmux.yml as the tmux status line and pushed via `herdr workspace report-metadata`.
+# Sidebar space rows: name (plus $mdl on an fm/sm home), then branch or crewmate kind+model followed by PR/CI/note/Jira.
+# The dirty sign is a custom `$git` from herdr-git-status.sh, since the built-in `git_status` renders only ahead/behind.
 #
 # Row 2 is `$br`/`$br_on`, NOT the built-in `branch`, because the built-in can only render the
 # branch verbatim and row 1 already ends in the ticket number: the pair carries the branch with
@@ -409,12 +400,7 @@ rows = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }
 # the poller writes whichever slot matches, and an empty token renders nothing - not even a
 # separator - so the row still reads as one word. Both go blank if the poller dies.
 #
-# `$git` rides on row 2 rather than its own line so local state reads as one unit and row 3 is
-# purely remote. It costs a " · " between branch and sign: separator() in src/ui/sidebar/
-# tokens.rs gives a plain space only when the CURRENT token is the built-in git_status, and a
-# custom `$token` never is. Cheap here - one dot, and only on a dirty tree, since a clean one
-# leaves `$git` empty and an absent token emits no separator at all. The sign keeps its own
-# color regardless: apply_token_style lets an inline fg override the contextual default.
+# `$git` rides on row 2 so local state reads as one unit, at the cost of the " · " herdr puts before any custom token.
 #
 # The host cell moved OUT of these rows into tab_bar_right (0.8.2 gave herdr the status bar #341 had refused), so there is no 4th row and no `$sys`/`$systime` pair here any more; the geolocated clock is still herdr-sysinfo.py's, since herdr's own datetime entry renders in the server's system zone, which is UTC on the VPS while the host cell says dallas-tx.
 # $sb = a lone 󰎞 when the workspace's ticket has a vault note (same poller, via `vault-note`). BEFORE $jira on purpose: the row overflows 26 cols on a ticket workspace, and a truncated glyph vanishes silently where a truncated Jira status still reads as itself. (Overflow is less likely now - sidebar_width is 32 and $git moved to row 2 - but the ordering is kept as the safe default.)
@@ -424,7 +410,7 @@ rows = [["state_icon", "workspace"], [{ token = "$pn_o", fg = "{{ $pal.color05 }
 # Keep in step with generate_herdr_config in colorscheme-set.sh - a theme switch rewrites this line wholesale. The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, and row 4 went with it.
 # $mdl = the model an fm/sm home is running, off its transcript (herdr-git-status.sh).
 # Row 1's name is AGENT-STATE coloured - one dim/lit pair per state, herdr-git-status.sh picking the family from workspace.list's agent_status and herdr-focus-tracker.py::paint_ws the twin, because herdr colours that name by focus alone. $ws stays bare and holds `unknown`: with no fg it takes text/subtext0, which already splits on focus.
-rows = [["state_icon", "workspace", { token = "$mdl", fg = "{{ $pal.color13 }}" }], [{ token = "$br", fg = "{{ $pal.color13 }}" }, { token = "$br_on", fg = "{{ $pal.color02 }}" }], [{ token = "$pr", fg = "{{ $pal.color11 }}", rules = [{ equals = "●", fg = "{{ $pal.color02 }}" }] }, { token = "$pr_d", fg = "{{ $pal.color13 }}" }, { token = "$ci", fg = "{{ $pal.color03 }}" }, { token = "$ci_d", fg = "{{ $pal.color13 }}" }, { token = "$sb", fg = "{{ $pal.color05 }}" }, { token = "$sb_d", fg = "{{ $pal.color13 }}" }, { token = "$jira", fg = "{{ $pal.color02 }}" }, { token = "$jira_d", fg = "{{ $pal.color13 }}" }]]
+rows = [["state_icon", "workspace", { token = "$mdl", fg = "{{ $pal.color13 }}" }], [{ token = "$br", fg = "{{ $pal.color13 }}" }, { token = "$br_on", fg = "{{ $pal.color02 }}" }, { token = "$pr", fg = "{{ $pal.color11 }}", rules = [{ equals = "●", fg = "{{ $pal.color02 }}" }] }, { token = "$pr_d", fg = "{{ $pal.color13 }}" }, { token = "$ci", fg = "{{ $pal.color03 }}" }, { token = "$ci_d", fg = "{{ $pal.color13 }}" }, { token = "$sb", fg = "{{ $pal.color05 }}" }, { token = "$sb_d", fg = "{{ $pal.color13 }}" }, { token = "$jira", fg = "{{ $pal.color02 }}" }, { token = "$jira_d", fg = "{{ $pal.color13 }}" }]]
 
 [session]
 resume_agents_on_restore = true
