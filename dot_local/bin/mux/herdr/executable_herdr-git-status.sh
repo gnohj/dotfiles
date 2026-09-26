@@ -249,10 +249,10 @@ def short_model(model):
 EFFORT_SHORT = {"minimal": "min", "low": "low", "medium": "med", "high": "hi", "xhigh": "xhi", "max": "max"}
 
 def model_label(model, effort):
-    """opus5.5 · hi: the short model, then the effort it runs at; off/none shows no effort at all."""
+    """opus5.5 hi: the short model, then the effort it runs at; off/none shows no effort at all."""
     effort = (effort or "").strip().lower()
     shown = "" if effort in ("", "off", "none", "default") else EFFORT_SHORT.get(effort, effort)
-    return " · ".join(filter(None, (short_model(model), shown))) if model else ""
+    return " ".join(filter(None, (short_model(model), shown))) if model else ""
 
 def fleet_kinds():
     """workspace_id -> (firstmate task kind, model label), for tasks whose recorded pane is live in that workspace here."""
