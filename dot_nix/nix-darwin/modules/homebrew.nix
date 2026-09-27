@@ -146,9 +146,6 @@
       "sf-symbols"
     ];
 
-    # mas needs an App Store sign-in or darwin-rebuild fails; Xcode 497799835 and Brother 1193539993 stay manual.
-    masApps = {
-      "WhatsApp Messenger" = 310633997;
-    };
+    # No masApps: mas needs an App Store sign-in or darwin-rebuild fails; Xcode 497799835 and Brother 1193539993 stay manual.
   };
 }
