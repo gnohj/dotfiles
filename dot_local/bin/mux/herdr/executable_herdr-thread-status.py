@@ -39,9 +39,9 @@ also needs none of the newest-headSha filtering the old query hand-rolled. Its e
 CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ matches both
 shapes. Cost: a branch with no open PR now shows no CI, since the rollup hangs off the PR.
 
-Approvals: – none, ◌ one, ● two+, shown only while a PR is open; single-cell, never emoji (VS16 draws two cells).
+Approvals print as their count (0, 1, 2...) and only while a PR is open; with no PR or no Jira status the token is empty and nothing renders.
 
-The approvals zone is one $pr token whose Herdr 0.9.0 value rule recolours ● green; $pr_d remains because rules cannot see focus.
+The approvals zone is one $pr token whose Herdr 0.9.0 value rule recolours 0 red; $pr_d remains because rules cannot see focus.
 
 Agent HOME workspaces opt OUT of every token (AGENT_HOME_RE): the captain's own `fm` sesh session,
 plus firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
@@ -131,8 +131,6 @@ PR_JQ = (
     '| length > 0 then "failure" else "success" end) end'
 )
 
-APPROVAL_GLYPH = {0: "–", 1: "◌"}  # 2+ -> ●, via approval_glyph()
-FULL_GLYPH = "●"  # recoloured green by $pr's `equals` rule in [ui.sidebar.spaces]
 
 # Jira workflow status, shortened to fit a 32-col sidebar. The canonical full name stays in
 # the thread file and this is purely a display transform. Anything not listed falls through
@@ -483,9 +481,8 @@ def persist(path, data, url, approvals, ci, note):
 
 
 def approval_glyph(approvals):
-    """– none, ◌ one, ● two or more. Capping at 2 keeps it a state, not a counter."""
-    n = approvals or 0
-    return APPROVAL_GLYPH.get(n, FULL_GLYPH) if n < 2 else FULL_GLYPH
+    """The approval count as a digit; $pr's `equals` rule paints 0 red and every other count green."""
+    return str(approvals or 0)
 
 
 def render(approvals, ci):
