@@ -147,3 +147,6 @@ scripts/open-tmux-attach.sh
 
 # kulala.nvim dropped: mistweaverco/kulala.nvim was deleted upstream.
 .config/nvim/lua/plugins/kulala.lua
+
+# fm-sm-patch retired: the firstmate-patch skill's patch 010 owns the second-mate label.
+.local/bin/fm-sm-patch

@@ -120,7 +120,7 @@ Before spawning, relaunching or resuming ANY agent, load the `spawning-an-agent`
 
 ## Every crewmate gets its OWN projected workspace - always
 
-Never a pane INSIDE its mate's workspace (`⛵ sm-web`). Its own projected child workspace with its own label, every time, so each piece of work is a separate row in the spaces sidebar.
+Never a pane INSIDE its mate's workspace (`🚢 sm-web`). Its own projected child workspace with its own label, every time, so each piece of work is a separate row in the spaces sidebar.
 
 **A worker can be alive, correct, and still invisible.** So **verify the projection after every spawn**, not just that the agent started: the recorded window must be a child workspace rather than the parent's, with a labelled row in `herdr workspace list`.
 
