@@ -144,3 +144,6 @@ scripts/open-tmux-attach.sh
 
 # fmx dropped: no xAI credential was ever configured, so the wrapper had nothing to launch.
 .local/bin/fmx
+
+# kulala.nvim dropped: mistweaverco/kulala.nvim was deleted upstream.
+.config/nvim/lua/plugins/kulala.lua

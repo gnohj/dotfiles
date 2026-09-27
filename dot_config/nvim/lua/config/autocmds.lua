@@ -321,11 +321,7 @@ vim.api.nvim_create_autocmd("FocusGained", {
 
 require("config.auto-filewatcher").setup()
 
--- Filetype detection for HTTP files (kulala.nvim)
 vim.filetype.add({
-  extension = {
-    ["http"] = "http",
-  },
   pattern = {
     [".*/%.github/workflows/.*%.ya?ml"] = "yaml.github",
     -- NOTE: composite action.yml files under .github/actions/ stay as plain
