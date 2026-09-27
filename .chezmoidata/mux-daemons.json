@@ -43,7 +43,7 @@
         "interp": "",
         "token": "$jira",
         "needsPath": true,
-        "note": "drives OpenCode Go Luna xhigh (OpenCode's ceiling for luna) every 2h through `opencode run --command sb-agent-refresh` because jira_status lives behind MCP"
+        "note": "drives Codex luna 6 xhigh every 2h through codex-headless (`codex exec` running the sb-agent-refresh skill) because jira_status lives behind MCP; needs `codex mcp login atlassian` and `unblocked` once per host"
       },
       "herdr-pane-summary": {
         "desc": "herdr pane-summary (label agent panes from their AI session title)",
@@ -59,7 +59,7 @@
         "interp": "",
         "token": "vault work log",
         "needsPath": true,
-        "note": "drives OpenCode Go Luna xhigh for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
+        "note": "drives Codex luna 6 xhigh through codex-headless for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-thread-status": {
         "desc": "herdr thread-status ($pr PR approvals, $jira status)",

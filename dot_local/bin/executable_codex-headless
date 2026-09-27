@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mise's real binary, not ~/.local/bin/codex: a stale VPS wrapper there pins an older codex.
+codex_bin="$(mise which codex 2>/dev/null || command -v codex || true)"
+[ -n "$codex_bin" ] || { printf '%s\n' 'codex-headless: codex is unavailable' >&2; exit 127; }
+
+dir="$PWD"
+skill=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dir) dir="$2"; shift 2 ;;
+    --command) skill="$2"; shift 2 ;;
+    --) shift; break ;;
+    *) printf 'codex-headless: unknown argument: %s\n' "$1" >&2; exit 64 ;;
+  esac
+done
+[ -n "$skill" ] || { printf '%s\n' 'codex-headless: --command <skill> is required' >&2; exit 64; }
+case "$skill" in *[!A-Za-z0-9._-]*) printf 'codex-headless: invalid skill name: %s\n' "$skill" >&2; exit 64 ;; esac
+
+prompt="Run the \$$skill skill non-interactively and finish without asking questions."
+[ $# -gt 0 ] && prompt="$prompt Arguments: $*"
+
+# Skills write thread state and vault notes outside the workdir, so the workspace sandbox is too narrow.
+exec "$codex_bin" exec \
+  --skip-git-repo-check \
+  --cd "$dir" \
+  --model gpt-6-luna \
+  -c 'model_reasoning_effort="xhigh"' \
+  --sandbox danger-full-access \
+  "$prompt" </dev/null
