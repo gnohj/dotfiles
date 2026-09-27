@@ -1,7 +1,7 @@
 """Sidebar label geometry, shared by every writer that paints a herdr metadata row.
 
 herdr puts a workspace's glyph inside its LABEL (`🖥️ gnohj`, `🌿 repo`, `└ <task>`, and firstmate's
-patched `⛵⠀sm-<id>`), so row 0's text starts a few cells in while every row below it starts at the
+patched `🚢 sm-<id>`), so row 0's text starts a few cells in while every row below it starts at the
 edge. Each writer owns different tokens on different rows - herdr-git-status.sh row 2,
 herdr-thread-status.py row 3, herdr-sysinfo.py rows 2-4 - so they all need the same answer to "how
 far in does this label's text start". That answer lives here once rather than in three copies.
@@ -48,9 +48,7 @@ def _cells(text):
 def glyph_run(label):
     """Length in CHARACTERS of the leading glyph plus its separator, or 0 when there is no glyph.
 
-    Covers both spellings in play: `🚢 fm` and `└ <task>` separate with an ASCII space,
-    while firstmate's patched `⛵⠀sm-<id>` uses U+2800 - deliberately, because an ASCII space there
-    splits the label when it rides an unquoted shell argument, which is a real path in that codebase.
+    Covers both separators: `🚢 fm`, `🚢 sm-<id>` and `└ <task>` use an ASCII space, and U+2800 still counts for older labels.
     """
     text = label or ""
     i = 0
