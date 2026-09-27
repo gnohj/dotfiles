@@ -153,3 +153,6 @@ scripts/open-tmux-attach.sh
 
 # opencode-headless retired: the herdr daemons run their skills through codex-headless on the Codex subscription.
 .local/bin/opencode-headless
+
+# opencode-usage retired: the OpenCode Go subscription was cancelled.
+.local/bin/opencode-usage
