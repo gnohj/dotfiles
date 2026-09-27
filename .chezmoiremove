@@ -150,3 +150,6 @@ scripts/open-tmux-attach.sh
 
 # fm-sm-patch retired: the firstmate-patch skill's patch 010 owns the second-mate label.
 .local/bin/fm-sm-patch
+
+# opencode-headless retired: the herdr daemons run their skills through codex-headless on the Codex subscription.
+.local/bin/opencode-headless

@@ -4,7 +4,7 @@ set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 
 INTERVAL="${HERDR_JIRA_INTERVAL:-7200}"
-OPENCODE_RUNNER="$HOME/.local/bin/opencode-headless"
+AGENT_RUNNER="$HOME/.local/bin/codex-headless"
 LOG="$HOME/.logs/herdr-jira-status/ticks.log"
 mkdir -p "$(dirname "$LOG")"
 
@@ -12,10 +12,10 @@ mkdir -p "$(dirname "$LOG")"
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$LOG"; }
 
 refresh_once() {
-  [ -f "$OPENCODE_RUNNER" ] || { log "SKIP opencode-headless is unavailable"; return 0; }
+  [ -f "$AGENT_RUNNER" ] || { log "SKIP codex-headless is unavailable"; return 0; }
   local out; out=$(mktemp)
   # A tick that outlives its interval would stack; cap it well under INTERVAL and let the next one retry.
-  bash "$OPENCODE_RUNNER" --dir "$HOME" --command sb-agent-refresh >"$out" 2>&1 &
+  bash "$AGENT_RUNNER" --dir "$HOME" --command sb-agent-refresh >"$out" 2>&1 &
   local pid=$! waited=0
   while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 300 ]; do sleep 5; waited=$((waited + 5)); done
   if kill -0 "$pid" 2>/dev/null; then

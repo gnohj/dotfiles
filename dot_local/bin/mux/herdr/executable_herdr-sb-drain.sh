@@ -15,7 +15,7 @@ LOG="$HOME/.logs/herdr-sb-drain/ticks.log"
 MAX_TRIES=3
 CAP=300
 
-OPENCODE_RUNNER="$HOME/.local/bin/opencode-headless"
+AGENT_RUNNER="$HOME/.local/bin/codex-headless"
 VAULT_PATH="$HOME/.local/bin/vault-path"
 VAULT_NOTE="$HOME/.local/bin/vault-note"
 
@@ -62,7 +62,7 @@ drain_log() {
       continue
     fi
     if ( cd "$root" && run_capped "$CAP" \
-        bash "$OPENCODE_RUNNER" --dir "$root" --command sb-ticket-log -- "--from-commits $shas" ); then
+        bash "$AGENT_RUNNER" --dir "$root" --command sb-ticket-log -- "--from-commits $shas" ); then
       log "OK log $ticket ($n commits)"
       rm -f "$work" "$ATT_D/$ticket"
     else
@@ -105,7 +105,7 @@ drain_finish() {
       continue
     fi
     if run_capped "$CAP" env SB_TICKET_FINISH_FROM_TKRM=1 \
-        bash "$OPENCODE_RUNNER" --dir "$ref" --command sb-ticket-finish -- "$ticket $pr"; then
+        bash "$AGENT_RUNNER" --dir "$ref" --command sb-ticket-finish -- "$ticket $pr"; then
       log "OK finish $ticket"
       rm -f "$f"
     else
@@ -151,7 +151,7 @@ drain_capture() {
       continue
     fi
     if ( cd "$ref" && run_capped "$CAP" \
-        bash "$OPENCODE_RUNNER" --dir "$ref" --command sb-ticket-capture -- "$ticket --worktree $ref" ); then
+        bash "$AGENT_RUNNER" --dir "$ref" --command sb-ticket-capture -- "$ticket --worktree $ref" ); then
       log "OK capture $ticket"
       rm -f "$f"
     else
@@ -162,7 +162,7 @@ drain_capture() {
 }
 
 drain_once() {
-  [ -f "$OPENCODE_RUNNER" ] || { log "SKIP opencode-headless is unavailable"; return 0; }
+  [ -f "$AGENT_RUNNER" ] || { log "SKIP codex-headless is unavailable"; return 0; }
   drain_capture
   drain_log
   drain_finish
