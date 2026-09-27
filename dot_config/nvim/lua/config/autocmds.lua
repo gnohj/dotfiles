@@ -336,7 +336,9 @@ vim.filetype.add({
 vim.api.nvim_create_autocmd("LspProgress", {
   callback = function(ev)
     local value = ev.data.params.value or {}
-    if not value.kind then return end
+    if not value.kind then
+      return
+    end
 
     -- OSC 9;4 for Ghostty progress bar
     local status, percent
@@ -357,8 +359,11 @@ vim.api.nvim_create_autocmd("LspProgress", {
 
     -- nvim 0.12 echo progress (bottom status message)
     local msg = value.message or "done"
-    if #msg > 40 then msg = msg:sub(1, 37) .. "..." end
-    local client = ev.data.client_id and vim.lsp.get_client_by_id(ev.data.client_id)
+    if #msg > 40 then
+      msg = msg:sub(1, 37) .. "..."
+    end
+    local client = ev.data.client_id
+      and vim.lsp.get_client_by_id(ev.data.client_id)
     vim.api.nvim_echo({ { msg } }, false, {
       id = "lsp",
       kind = "progress",
@@ -395,7 +400,10 @@ vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
       end
       local win = vim.fn.bufwinid(ev.buf)
       if win ~= -1 then
-        vim.api.nvim_win_set_cursor(win, { vim.api.nvim_buf_line_count(ev.buf), 0 })
+        vim.api.nvim_win_set_cursor(
+          win,
+          { vim.api.nvim_buf_line_count(ev.buf), 0 }
+        )
       end
     end)
   end,
