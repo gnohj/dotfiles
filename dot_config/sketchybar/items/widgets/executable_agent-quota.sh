@@ -22,7 +22,7 @@ def reset_in($s):
     | if $d <= 0 then "now"
       elif $d < 3600 then "\($d / 60 | floor)m"
       elif $d < 86400 then "\($d / 3600 | floor)h\((($d % 3600) / 60) | floor)m"
-      else "\($d / 86400 | floor)d" end
+      else "\($d / 86400 | floor)d\((($d % 86400) / 3600) | floor)h" end
     end
   end;'
 
@@ -70,6 +70,26 @@ personal=$(jq -r '
     "Claude personal\tweek\t\(100 - (.u.sd // 0))\t",
     "Claude personal\tFable week\t-\t"' "$PU" 2>/dev/null || true)
 
+# The statusline's own rate_limits, persisted per account by claude-usage-pct, win over both reads above while under 6h old.
+statusline_rows() {
+  local acct="$1" win label f used
+  for win in five_hour seven_day; do
+    case "$win" in five_hour) label=session ;; *) label=week ;; esac
+    f="$HOME/.logs/sketchybar/claude_pct_${acct}_${win}"
+    [ -n "$(find "$f" -mmin -360 2>/dev/null)" ] || continue
+    used=$(cat "$f")
+    case "$used" in '' | *[!0-9.]*) continue ;; esac
+    printf 'Claude %s\t%s\t%s\t\n' "$acct" "$label" "$(awk -v u="$used" 'BEGIN { r = 100 - u; if (r < 0) r = 0; printf "%d", r + 0.5 }')"
+  done
+}
+for acct in personal work; do
+  live=$(statusline_rows "$acct")
+  [ -n "$live" ] || continue
+  claude_rows=$(printf '%s\n' "$claude_rows" | grep -v "^Claude $acct	" || true)
+  personal=$(printf '%s\n' "$personal" | grep -v "^Claude $acct	" || true)
+  claude_rows=$(printf '%s\n%s' "$claude_rows" "$live")
+done
+
 all=$(printf '%s\n%s\n%s\n%s\n' "$claude_rows" "$cop_rows" "$codex_rows" "$personal" | grep -v '^[[:space:]]*$' || true)
 
 # Throttled providers keep last-known rows marked stale rather than vanishing; only Claude/Copilot carry over, so dropped ones age out instead of lingering.
@@ -94,7 +114,7 @@ fmt_reset_epoch() {
   if [ "$d" -le 0 ]; then printf 'now'
   elif [ "$d" -lt 3600 ]; then printf '%dm' $((d / 60))
   elif [ "$d" -lt 86400 ]; then printf '%dh%dm' $((d / 3600)) $(((d % 3600) / 60))
-  else printf '%dd' $((d / 86400)); fi
+  else printf '%dd%dh' $((d / 86400)) $(((d % 86400) / 3600)); fi
 }
 captured_reset() {
   local acct win
@@ -105,8 +125,11 @@ captured_reset() {
 }
 all=$(printf '%s\n' "$all" | while IFS=$'\t' read -r prov win pct reset; do
   [ -n "$prov" ] || continue
-  captured=$(captured_reset "$prov" "$win")
-  [ -n "$captured" ] && reset="$captured"
+  # A carried-over row stays marked stale; a fresh reset here would dress its old percentage up as live.
+  if [ "$reset" != stale ]; then
+    captured=$(captured_reset "$prov" "$win")
+    [ -n "$captured" ] && reset="$captured"
+  fi
   printf '%s\t%s\t%s\t%s\n' "$prov" "$win" "$pct" "$reset"
 done)
 all=$(printf '%s\n' "$all" | sort -t"$(printf '\t')" -k1,1 -s)
