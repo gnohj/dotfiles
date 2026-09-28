@@ -408,3 +408,34 @@ vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
     end)
   end,
 })
+
+-- alt+e in Claude Code or pi opens the draft prompt here; start where the reply goes instead of line 1.
+local function jump_to_draft_end()
+  local name = vim.api.nvim_buf_get_name(0)
+  local claude_draft = name:match("/claude%-prompt%-[%w%-]+%.md$") ~= nil
+  local pi_draft = name:match("/pi%-editor%-[^/]+/prompt%.md$") ~= nil
+  if not (claude_draft or pi_draft) then
+    return
+  end
+  vim.schedule(function()
+    local last = vim.api.nvim_buf_line_count(0)
+    -- Claude's draft, and pi's via pi-editor, ends on a "Write your reply below this line" marker; the reply goes on an empty line under it.
+    local tail = vim.api.nvim_buf_get_lines(0, last - 1, last, false)[1]
+    if tail:match("Write your reply below") then
+      vim.api.nvim_buf_set_lines(0, last, last, false, { "" })
+      vim.bo.modified = false
+      last = last + 1
+    end
+    vim.api.nvim_win_set_cursor(0, { last, 0 })
+    vim.cmd("normal! $")
+  end)
+end
+-- LazyVim can load this file after VimEnter has already fired, so run now in that case.
+if vim.v.vim_did_enter == 1 then
+  jump_to_draft_end()
+else
+  vim.api.nvim_create_autocmd(
+    "VimEnter",
+    { once = true, callback = jump_to_draft_end }
+  )
+end
