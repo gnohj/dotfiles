@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""pi's externalEditor: shows pi's last reply above the draft as reference, like Claude Code's alt+e, and strips it on save."""
+import json
+import os
+import shlex
+import subprocess
+import sys
+
+HEADER = "# ─── Pi's last response (for reference; removed on save) ───"
+MARKER = "# ─── Write your reply below this line ───"
+PI_ROOT = os.environ.get("PI_CODING_AGENT_DIR") or os.path.expanduser("~/.pi/agent")
+SESSIONS = os.path.realpath(os.path.join(PI_ROOT, "sessions"))
+
+
+def herdr_session():
+    pane = os.environ.get("HERDR_PANE_ID")
+    if not pane:
+        return None
+    try:
+        panes = json.loads(subprocess.run(["herdr", "pane", "list"], capture_output=True, text=True, timeout=5).stdout)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    for entry in panes.get("result", {}).get("panes", []):
+        session = entry.get("agent_session") or {}
+        if entry.get("pane_id") == pane and entry.get("agent") == "pi" and session.get("kind") == "path":
+            return session.get("value")
+    return None
+
+
+def newest_session(cwd):
+    directory = os.path.join(SESSIONS, "-%s--" % cwd.rstrip("/").replace("/", "-"))
+    try:
+        files = [os.path.join(directory, name) for name in os.listdir(directory) if name.endswith(".jsonl")]
+    except OSError:
+        return None
+    return max(files, key=os.path.getmtime, default=None)
+
+
+def session_file():
+    candidate = herdr_session()
+    if candidate:
+        real = os.path.realpath(candidate)
+        if real.startswith(SESSIONS + os.sep) and os.path.isfile(real):
+            return real
+    return newest_session(os.getcwd())
+
+
+def last_reply(path):
+    reply = ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                message = entry.get("message") if isinstance(entry, dict) else None
+                if not isinstance(message, dict) or message.get("role") != "assistant":
+                    continue
+                text = "\n".join(
+                    part.get("text", "") for part in message.get("content") or []
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ).strip()
+                if text:
+                    reply = text
+    except OSError:
+        return ""
+    return reply
+
+
+def strip_reference(text):
+    lines = text.split("\n")
+    if lines and lines[0] == HEADER and MARKER in lines:
+        lines = lines[lines.index(MARKER) + 1:]
+    return "\n".join(lines).lstrip("\n")
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: pi-editor <file>")
+    draft = sys.argv[-1]
+    with open(draft, encoding="utf-8") as handle:
+        original = handle.read()
+    path = session_file()
+    reply = last_reply(path) if path else ""
+    if reply:
+        reference = [HEADER, *(f"# {line}".rstrip() for line in reply.splitlines()), MARKER]
+        with open(draft, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(reference) + "\n" + original)
+    editor = shlex.split(os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nvim")
+    if not editor or os.path.basename(editor[0]) == "pi-editor":
+        editor = ["nvim"]
+    code = subprocess.call([*editor, draft])
+    with open(draft, encoding="utf-8") as handle:
+        edited = handle.read()
+    with open(draft, "w", encoding="utf-8") as handle:
+        handle.write(strip_reference(edited))
+    sys.exit(code)
+
+
+if __name__ == "__main__":
+    main()
