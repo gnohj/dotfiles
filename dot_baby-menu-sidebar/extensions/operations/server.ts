@@ -320,9 +320,7 @@ async function claudePersonalFromDesktop(
   return claudeCard("personal", "desktop", windows, sample.t, generatedAtMs);
 }
 
-async function quotaProviders(
-  errors: string[],
-): Promise<{ providers: QuotaProvider[]; notSetUp: string[] }> {
+async function quotaProviders(errors: string[]): Promise<QuotaProvider[]> {
   const generatedAtMs = Date.now();
   const failed = (error: unknown): QuotaProvider[] => {
     errors.push(error instanceof Error ? error.message : String(error));
@@ -344,20 +342,15 @@ async function quotaProviders(
   const workCapture = claudeFromStatusline(captures, "work", generatedAtMs);
   // The default claude reading is the Keychain-locked personal login, which the statusline or desktop card already covers.
   const rest = others.filter((provider) => provider.provider !== "claude");
-  return {
-    providers: [
-      ...(personal ? [personal] : []),
-      ...(workCapture
-        ? [workCapture]
-        : work
-            .filter((provider) => !provider.notSetUp)
-            .map((provider) => ({ ...provider, accountKey: "work" }))),
-      ...rest.filter((provider) => !provider.notSetUp),
-    ],
-    notSetUp: rest
-      .filter((provider) => provider.notSetUp)
-      .map((provider) => provider.provider),
-  };
+  return [
+    ...(personal ? [personal] : []),
+    ...(workCapture
+      ? [workCapture]
+      : work
+          .filter((provider) => !provider.notSetUp)
+          .map((provider) => ({ ...provider, accountKey: "work" }))),
+    ...rest.filter((provider) => !provider.notSetUp),
+  ];
 }
 
 async function logAction(fields: Record<string, unknown>): Promise<void> {
@@ -580,7 +573,7 @@ async function persistSchedulePreference(
 export const actions = {
   async getDashboard(): Promise<OperationsDashboard> {
     const errors: string[] = [];
-    const { providers, notSetUp } = await quotaProviders(errors);
+    const providers = await quotaProviders(errors);
     const scheduleResult = await execute("/usr/bin/python3", [
       schedulesScript,
     ]).catch((error: unknown) => {
@@ -603,7 +596,6 @@ export const actions = {
 
     return {
       quotaProviders: providers,
-      quotaNotSetUp: notSetUp,
       quotaGeneratedAt: new Date().toISOString(),
       quotaColors,
       tokens,

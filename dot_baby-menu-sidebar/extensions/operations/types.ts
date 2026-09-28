@@ -103,7 +103,6 @@ export type ToggleScheduleResult = {
 
 export type OperationsDashboard = {
   quotaProviders: QuotaProvider[];
-  quotaNotSetUp: string[];
   quotaGeneratedAt: string;
   quotaColors: QuotaColors;
   tokens: TokenRow[];
