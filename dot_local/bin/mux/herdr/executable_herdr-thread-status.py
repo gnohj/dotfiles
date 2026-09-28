@@ -234,13 +234,20 @@ def worktree_branch_for(cwd, label):
 
 def detached_branch(cwd, label):
     """The branch a detached HEAD sits on (firstmate crewmates check out their PR tip detached), preferring the task's own."""
-    names = []
-    for prefix, strip in (("refs/heads", 2), ("refs/remotes", 3)):
-        raw = out(["git", "-C", cwd, "for-each-ref", "--points-at", "HEAD",
-                   "--format=%(refname:lstrip=" + str(strip) + ")", prefix], timeout=4) or ""
-        names += [n for n in raw.splitlines() if n and n != "HEAD" and n not in names]
+    def refs(match):
+        names = []
+        for prefix, strip in (("refs/heads", 2), ("refs/remotes", 3)):
+            raw = out(["git", "-C", cwd, "for-each-ref", match, "HEAD",
+                       "--format=%(refname:lstrip=" + str(strip) + ")", prefix], timeout=4) or ""
+            names += [n for n in raw.splitlines() if n and n != "HEAD" and n not in names]
+        return names
+
     key = ticket_key(label)
-    return next((n for n in names if key and ticket_key(n) == key), names[0] if names else "")
+    names = refs("--points-at")
+    if names:
+        return next((n for n in names if key and ticket_key(n) == key), names[0])
+    # The PR branch moved past this checkout; only the task's own branch counts, or master would claim every merged HEAD.
+    return next((n for n in refs("--contains") if key and ticket_key(n) == key), "")
 
 
 def workspace_labels():
