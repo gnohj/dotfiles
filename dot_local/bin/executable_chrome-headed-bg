@@ -9,6 +9,8 @@ PROFILE_ROOT="$HOME/.cache/chrome-headed-bg"
 PORT_LO="${CHROME_HEADED_BG_PORT_LO:-9300}"
 PORT_HI="${CHROME_HEADED_BG_PORT_HI:-9399}"
 READY_TIMEOUT="${CHROME_HEADED_BG_TIMEOUT:-20}"
+SELF="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
+GUARD="$(dirname "$SELF")/chrome-cdp-guard"
 
 die() { printf 'chrome-headed-bg: %s\n' "$1" >&2; exit "${2:-1}"; }
 
@@ -31,12 +33,22 @@ pids_for() {
   done
 }
 
-alive() { [ -n "$(pids_for "$1" "$2")" ]; }
+guard_pids() { pgrep -f -- "chrome-cdp-guard $1 " 2>/dev/null; }
+
+# The state file holds "<guard port> <chrome port>"; a one-port file predates the guard and is Chrome's own.
+read_ports() {
+  pub="" int=""
+  { read -r pub int <"$(port_file "$1")"; } 2>/dev/null || true
+  case "$pub" in '' | *[!0-9]*) pub="" ;; esac
+  case "$int" in '' | *[!0-9]*) int="" ;; esac
+}
+
+alive() { [ -n "$(pids_for "$1" "$3")" ] && [ -n "$(guard_pids "$2")" ] && listening "$2"; }
 
 free_port() {
   local p="$PORT_LO"
   while [ "$p" -le "$PORT_HI" ]; do
-    listening "$p" || { printf '%s' "$p"; return 0; }
+    [ "$p" = "${1:-}" ] || listening "$p" || { printf '%s' "$p"; return 0; }
     p=$((p + 1))
   done
   return 1
@@ -59,7 +71,7 @@ park_windows() {
 }
 
 launch() {
-  local name="$1" port="$2" profile
+  local name="$1" pub="$2" port="$3" profile
   profile="$(profile_dir "$name")"
   mkdir -p "$profile"
   /usr/bin/open -gj -na "$APP" --args \
@@ -76,8 +88,17 @@ launch() {
   while [ "$i" -lt "$((READY_TIMEOUT * 4))" ]; do
     if curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null; then
       ( sleep 1; park_windows ) >/dev/null 2>&1 &
-      return 0
+      break
     fi
+    sleep 0.25
+    i=$((i + 1))
+  done
+  [ "$i" -lt "$((READY_TIMEOUT * 4))" ] || return 1
+  # Drivers only ever see the guard, which refuses the CDP calls that raise Chrome and parks every new window.
+  nohup node "$GUARD" "$pub" "$port" "$SELF" park >/dev/null 2>&1 &
+  i=0
+  while [ "$i" -lt 20 ]; do
+    curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$pub/json/version" 2>/dev/null && return 0
     sleep 0.25
     i=$((i + 1))
   done
@@ -85,44 +106,47 @@ launch() {
 }
 
 ensure() {
-  local name="$1" port
+  local name="$1" pub int
   mkdir -p "$STATE_DIR"
-  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
-  case "$port" in '' | *[!0-9]*) port="" ;; esac
-  if [ -n "$port" ] && alive "$name" "$port"; then
-    printf 'http://127.0.0.1:%s\n' "$port"
+  command -v node >/dev/null 2>&1 || die "node is not on PATH, so no focus guard; refusing a Chrome that could steal focus"
+  read_ports "$name"
+  if [ -n "$pub" ] && [ -n "$int" ] && alive "$name" "$pub" "$int"; then
+    printf 'http://127.0.0.1:%s\n' "$pub"
     return 0
   fi
-  rm -f "$(port_file "$name")"
-  port="$(free_port)" || die "no free port in $PORT_LO-$PORT_HI"
-  launch "$name" "$port" || die "$APP never answered CDP on port $port"
-  printf '%s\n' "$port" >"$(port_file "$name")"
-  printf 'http://127.0.0.1:%s\n' "$port"
+  stop "$name"
+  pub="$(free_port)" || die "no free port in $PORT_LO-$PORT_HI"
+  int="$(free_port "$pub")" || die "no free port in $PORT_LO-$PORT_HI"
+  if ! launch "$name" "$pub" "$int"; then
+    printf '%s %s\n' "$pub" "$int" >"$(port_file "$name")"
+    stop "$name"
+    die "$APP or its focus guard never answered CDP on port $pub"
+  fi
+  printf '%s %s\n' "$pub" "$int" >"$(port_file "$name")"
+  printf 'http://127.0.0.1:%s\n' "$pub"
 }
 
 url_of() {
-  local name="$1" port
-  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
-  case "$port" in '' | *[!0-9]*) return 1 ;; esac
-  alive "$name" "$port" || return 1
-  printf 'http://127.0.0.1:%s\n' "$port"
+  local name="$1" pub int
+  read_ports "$name"
+  [ -n "$pub" ] && [ -n "$int" ] || return 1
+  alive "$name" "$pub" "$int" || return 1
+  printf 'http://127.0.0.1:%s\n' "$pub"
 }
 
 stop() {
-  local name="$1" port profile p i=0
-  port="$(cat "$(port_file "$name")" 2>/dev/null || true)"
+  local name="$1" pub int profile p i=0
+  read_ports "$name"
   profile="$(profile_dir "$name")"
-  case "$port" in
-    '' | *[!0-9]*) ;;
-    *)
-      for p in $(pids_for "$name" "$port"); do kill "$p" 2>/dev/null; done
-      # Chrome writes its profile all the way down, so removing it mid-exit leaves half a tree and a directory-not-empty per entry. Wait it out.
-      while [ "$i" -lt 40 ] && alive "$name" "$port"; do
-        sleep 0.25
-        i=$((i + 1))
-      done
-      ;;
-  esac
+  if [ -n "$pub" ]; then
+    int="${int:-$pub}"
+    for p in $(pids_for "$name" "$int") $(guard_pids "$pub"); do kill "$p" 2>/dev/null; done
+    # Chrome writes its profile all the way down, so removing it mid-exit leaves half a tree and a directory-not-empty per entry. Wait it out.
+    while [ "$i" -lt 40 ] && [ -n "$(pids_for "$name" "$int")" ]; do
+      sleep 0.25
+      i=$((i + 1))
+    done
+  fi
   rm -f "$(port_file "$name")"
   # Guarded: an empty name would have made this the whole cache root.
   if [ -n "$name" ] && [ -d "$profile" ]; then
@@ -166,8 +190,9 @@ case "$cmd" in
     stop "$2"
     ;;
   list) list ;;
+  park) park_windows ;;
   *)
-    echo "usage: chrome-headed-bg {ensure|env|url|stop} <name> | list" >&2
+    echo "usage: chrome-headed-bg {ensure|env|url|stop} <name> | list | park" >&2
     exit 2
     ;;
 esac
