@@ -119,7 +119,7 @@ DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 # Absolute path: a herdr daemon's PATH is whatever the server was launched with.
 VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
 
-# Newest open PR -> "<url>\t<approved reviews>\t<ci state>", or "" for none.
+# Newest open PR -> "<url>\t<approved reviews>\t<ci state>", or "" for none. Its approval count is only a fallback for approval_count().
 PR_JQ = (
     '.[0] | if . == null then "" else .url + "\\t" '
     '+ ([.latestReviews[] | select(.state == "APPROVED")] | length | tostring) + "\\t" '
@@ -378,6 +378,25 @@ def create_thread(cwd, branch):
     return None, None
 
 
+PR_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)$")
+# latestOpinionatedReviews skips COMMENTED, which latestReviews counts as a reviewer's newest state even though it revokes nothing.
+APPROVALS_QUERY = ("query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name)"
+                   "{pullRequest(number:$number){latestOpinionatedReviews(first:100){nodes{state}}}}}")
+
+
+def approval_count(url, worktree):
+    """Reviewers whose standing review on this PR is an approval, or None when GitHub gave no answer."""
+    match = PR_URL_RE.match(url or "")
+    if not match:
+        return None
+    owner, name, number = match.groups()
+    raw = out(["gh", "api", "graphql", "-f", "query=" + APPROVALS_QUERY, "-F", "owner=" + owner,
+               "-F", "name=" + name, "-F", "number=" + number, "--jq",
+               '[.data.repository.pullRequest.latestOpinionatedReviews.nodes[] | select(.state == "APPROVED")] | length'],
+              cwd=worktree)
+    return int(raw) if raw and raw.isdigit() else None
+
+
 def fetch(branch, worktree):
     """(pr_url, approvals, ci_status, reached) from one gh call; None where it gave nothing."""
     pr = out(
@@ -393,7 +412,8 @@ def fetch(branch, worktree):
     parts = pr.split("\t")
     url = parts[0] or None
     approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-    return url, approvals, parts[2] if len(parts) > 2 else "", True
+    exact = approval_count(url, worktree)
+    return url, approvals if exact is None else exact, parts[2] if len(parts) > 2 else "", True
 
 
 def ticket_pr_fallback(key, worktree, entries):
@@ -419,7 +439,8 @@ def ticket_pr_fallback(key, worktree, entries):
         return None, None, None
     parts = raw.split("\t")
     approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-    return parts[0] or None, approvals, parts[2] if len(parts) > 2 else ""
+    exact = approval_count(parts[0], worktree)
+    return parts[0] or None, approvals if exact is None else exact, parts[2] if len(parts) > 2 else ""
 
 
 def enqueue_finish(path, data, cwd):
