@@ -1,10 +1,29 @@
 import { Switch } from "@babymenu/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  cardNotes,
+  creditsLine,
+  headlineLabel,
+  headlineMarker,
+  health,
+  pickHeadline,
+  resetCountdown,
+  runwayVerdict,
+  shortWindowLabel,
+  type Verdict,
+} from "./pace";
 import { subscribeToOperationsRefresh } from "./refresh";
 import type {
   OperationsDashboard,
   QuotaColors,
-  QuotaRow,
+  QuotaProvider,
+  QuotaWindow,
   RunScheduleResult,
   ScheduleJob,
   ToggleScheduleResult,
@@ -20,90 +39,340 @@ const statusColor: Record<string, string> = {
   complete: "bg-ink-faint",
 };
 
-function quotaValue(row: QuotaRow): { label: string; percent: number | null } {
-  const remaining = Number(row.remaining);
-  if (!Number.isFinite(remaining))
-    return { label: row.remaining, percent: null };
-  return {
-    label: `${remaining}% left`,
-    percent: Math.max(0, Math.min(100, remaining)),
-  };
+const PROVIDER_ACCENTS: Record<string, (colors: QuotaColors) => string> = {
+  claude: (colors) => colors.orange,
+  codex: (colors) => colors.live,
+  copilot: (colors) => colors.groups[1] ?? colors.live,
+  cursor: (colors) => colors.groups[0] ?? colors.live,
+};
+
+function healthColor(percentRemaining: number, colors: QuotaColors): string {
+  const level = health(percentRemaining);
+  return level === "ok"
+    ? colors.live
+    : level === "warn"
+      ? colors.warning
+      : colors.danger;
 }
 
-function quotaColor(percent: number, colors: QuotaColors): string {
-  if (percent <= 15) return colors.danger;
-  if (percent <= 35) return colors.orange;
-  if (percent <= 60) return colors.warning;
-  return "var(--color-signal-live)";
+function accountLabel(provider: QuotaProvider): string | undefined {
+  return provider.accountKey && provider.accountKey !== "default"
+    ? provider.accountKey
+    : undefined;
 }
 
-function QuotaLine({ row, colors }: { row: QuotaRow; colors: QuotaColors }) {
-  const value = quotaValue(row);
-  const color =
-    value.percent === null ? undefined : quotaColor(value.percent, colors);
+function hasWhollyUnknownWindowRelationships(provider: QuotaProvider): boolean {
+  const semantics = provider.quotaSemantics;
+  if (
+    provider.windows.length === 0 ||
+    semantics?.status !== "unknown" ||
+    !semantics.unresolvedWindowIds
+  ) {
+    return false;
+  }
+  const unresolved = new Set(semantics.unresolvedWindowIds);
+  return provider.windows.every(({ id }) => unresolved.has(id));
+}
+
+function ThinBar({
+  percent,
+  marker,
+  color,
+  markerColor,
+}: {
+  percent: number | undefined;
+  marker: number | undefined;
+  color: string;
+  markerColor: string;
+}) {
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 border-b border-line-faint py-2.5 last:border-0">
-      <div className="min-w-0">
-        <div className="truncate text-sm text-ink-strong">{row.provider}</div>
-        <div className="text-xs text-ink-soft">{row.window}</div>
-      </div>
-      <div className="text-right font-mono text-xs text-ink-muted">
-        <div style={{ color }}>{value.label || "unknown"}</div>
-        <div>{row.reset || "no reset"}</div>
-      </div>
-      {value.percent !== null ? (
-        <div className="col-span-2 h-1 overflow-hidden rounded-pill bg-line-faint">
-          <div
-            className="h-full rounded-pill"
-            style={{ backgroundColor: color, width: `${value.percent}%` }}
-          />
-        </div>
+    <div className="relative h-3 min-w-0 flex-1">
+      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-line" />
+      {percent !== undefined ? (
+        <div
+          className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2"
+          style={{
+            width: `${Math.min(100, Math.max(0, percent))}%`,
+            backgroundColor: color,
+          }}
+        />
+      ) : null}
+      {marker !== undefined && Number.isFinite(marker) ? (
+        <div
+          className="absolute inset-y-0 w-0.5 -translate-x-1/2"
+          style={{
+            left: `${Math.min(100, Math.max(0, marker))}%`,
+            backgroundColor: markerColor,
+          }}
+        />
       ) : null}
     </div>
   );
 }
 
-function groupQuotas(rows: QuotaRow[]): QuotaRow[][] {
-  const groups: QuotaRow[][] = [];
-  for (const row of rows) {
-    const last = groups.at(-1);
-    if (last?.[0]?.provider === row.provider) last.push(row);
-    else groups.push([row]);
-  }
-  return groups;
-}
-
-function QuotaGroups({
-  rows,
-  colors,
+function CardFrame({
+  dot,
+  name,
+  nameColor,
+  right,
+  dim,
+  children,
 }: {
-  rows: QuotaRow[];
-  colors: QuotaColors;
+  dot: string;
+  name: string;
+  nameColor: string;
+  right: string;
+  dim: boolean;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      {groupQuotas(rows).map((group, index) => {
-        const accent =
-          colors.groups[index % colors.groups.length] ?? colors.live;
-        return (
-          <div
-            key={`${group[0]?.provider}:${index}`}
-            className="rounded-md border px-3"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${accent} 7%, transparent)`,
-              borderColor: `color-mix(in srgb, ${accent} 24%, transparent)`,
-            }}
-          >
-            {group.map((row) => (
-              <QuotaLine
-                key={`${row.provider}:${row.window}`}
-                row={row}
-                colors={colors}
-              />
-            ))}
+    <div
+      className={`rounded-md border px-3 pb-3 pt-2 font-mono text-xs ${dim ? "border-line-faint" : "border-line"}`}
+    >
+      <div className="flex items-center gap-2">
+        <span style={{ color: nameColor }}>{dot}</span>
+        <span className="font-semibold" style={{ color: nameColor }}>
+          {name}
+        </span>
+        <span className="h-px min-w-4 flex-1 bg-line" />
+        {right ? <span className="truncate text-ink-soft">{right}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function WindowRow({
+  window,
+  generatedAtMs,
+  colors,
+  markerColor,
+}: {
+  window: QuotaWindow;
+  generatedAtMs: number;
+  colors: QuotaColors;
+  markerColor: string;
+}) {
+  const pct = window.percentRemaining;
+  const color =
+    pct === undefined ? "var(--color-ink-faint)" : healthColor(pct, colors);
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-16 shrink-0 truncate text-ink-muted">
+        {shortWindowLabel(window)}
+      </span>
+      <ThinBar
+        percent={pct}
+        marker={window.pace?.timeRemainingPercent}
+        color={color}
+        markerColor={markerColor}
+      />
+      <span className="w-9 shrink-0 text-right" style={{ color }}>
+        {pct === undefined ? "?" : `${Math.round(pct)}%`}
+      </span>
+      <span className="w-14 shrink-0 text-ink-soft">
+        {resetCountdown(window, generatedAtMs)}
+      </span>
+    </div>
+  );
+}
+
+const verdictTone: Record<Verdict["tone"], string> = {
+  dim: "text-ink-soft",
+  ok: "text-ink-soft",
+  warn: "font-semibold text-signal-warn",
+  crit: "font-semibold text-signal-danger",
+};
+
+function LiveCard({
+  provider,
+  generatedAtMs,
+  colors,
+}: {
+  provider: QuotaProvider;
+  generatedAtMs: number;
+  colors: QuotaColors;
+}) {
+  const stale = provider.state.status === "stale";
+  const accent =
+    PROVIDER_ACCENTS[provider.provider]?.(colors) ??
+    colors.groups[0] ??
+    colors.live;
+  const right = [provider.plan, provider.source, stale ? "stale" : undefined]
+    .filter(Boolean)
+    .join(" · ");
+  const account = accountLabel(provider);
+  const headline = pickHeadline(provider);
+  const credits = creditsLine(provider);
+  const effective = headline?.effectivePercentRemaining;
+  const verdict = runwayVerdict(headline);
+  return (
+    <CardFrame
+      dot={stale ? "◐" : "●"}
+      name={provider.provider}
+      nameColor={stale ? colors.warning : accent}
+      right={right}
+      dim={stale}
+    >
+      {account ? (
+        <div className="mt-1 truncate text-ink-soft">account {account}</div>
+      ) : null}
+      <div className="mt-2.5">
+        {credits ? (
+          <div className="font-semibold text-ink-muted">
+            {stale ? `stale · ${credits}` : credits}
           </div>
-        );
-      })}
+        ) : hasWhollyUnknownWindowRelationships(provider) ? (
+          <div className="flex justify-between gap-3 text-ink-soft">
+            <span>
+              {stale ? "stale · per-window usage" : "per-window usage"}
+            </span>
+            <span>no combined bound</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline justify-between gap-3">
+              {effective !== undefined ? (
+                <span className="truncate">
+                  <span
+                    className="font-semibold"
+                    style={{ color: healthColor(effective, colors) }}
+                  >
+                    {Math.round(effective)}%
+                  </span>{" "}
+                  <span className="text-ink-soft">
+                    {headlineLabel(provider, headline)}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-ink-soft">
+                  {stale ? "stale · effective unknown" : "effective unknown"}
+                </span>
+              )}
+              <span className={`shrink-0 ${verdictTone[verdict.tone]}`}>
+                {verdict.text}
+                {verdict.mark ? (
+                  <span className="font-semibold text-signal-live">
+                    {" "}
+                    {verdict.mark}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <div className="mt-1.5 flex">
+              <ThinBar
+                percent={effective}
+                marker={headlineMarker(provider, headline)}
+                color={
+                  effective === undefined
+                    ? "var(--color-ink-faint)"
+                    : healthColor(effective, colors)
+                }
+                markerColor={accent}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      {provider.windows.length > 0 ? (
+        <div className="mt-3 flex flex-col gap-1.5">
+          {provider.windows.map((window) => (
+            <WindowRow
+              key={window.id}
+              window={window}
+              generatedAtMs={generatedAtMs}
+              colors={colors}
+              markerColor={accent}
+            />
+          ))}
+        </div>
+      ) : null}
+      {cardNotes(provider).map((note) => (
+        <div key={note} className="mt-2 truncate text-ink-faint">
+          {note}
+        </div>
+      ))}
+    </CardFrame>
+  );
+}
+
+function FailedCard({ provider }: { provider: QuotaProvider }) {
+  const status = provider.state.status;
+  const account = accountLabel(provider);
+  const message =
+    (provider.state.error ?? "").replace(/_/g, " ") ||
+    (status === "auth_required"
+      ? "sign-in required"
+      : status.replace(/_/g, " "));
+  return (
+    <CardFrame
+      dot="○"
+      name={provider.provider}
+      nameColor="var(--color-ink-muted)"
+      right={
+        status === "auth_required" ? "signed out" : status.replace(/_/g, " ")
+      }
+      dim
+    >
+      {account ? (
+        <div className="mt-1 truncate text-ink-soft">account {account}</div>
+      ) : null}
+      <div className="mt-2.5 flex flex-col gap-0.5 text-ink-soft">
+        <span>{message}</span>
+        {provider.state.retryAfter ? (
+          <span>retry after {provider.state.retryAfter}</span>
+        ) : null}
+        {provider.state.remedyCommand ? (
+          <span className="truncate">run: {provider.state.remedyCommand}</span>
+        ) : null}
+        <span className="text-ink-faint">excluded from fleet totals</span>
+      </div>
+    </CardFrame>
+  );
+}
+
+function quotaTiers(providers: QuotaProvider[]) {
+  const live = providers.filter(
+    (provider) => provider.state.status === "fresh",
+  );
+  const stale = providers.filter(
+    (provider) => provider.state.status === "stale",
+  );
+  const attention = providers.filter(
+    (provider) => !["fresh", "stale"].includes(provider.state.status),
+  );
+  return { live, stale, attention };
+}
+
+function quotaSummary(dashboard: OperationsDashboard): string {
+  const { live, stale, attention } = quotaTiers(dashboard.quotaProviders);
+  return [
+    `${live.length} live`,
+    `${stale.length} stale`,
+    `${attention.length} ${attention.length === 1 ? "needs" : "need"} attention`,
+    `${dashboard.quotaNotSetUp.length} not set up`,
+  ].join(" · ");
+}
+
+function QuotaCards({ dashboard }: { dashboard: OperationsDashboard }) {
+  const generatedAtMs = Date.parse(dashboard.quotaGeneratedAt);
+  const { live, stale, attention } = quotaTiers(dashboard.quotaProviders);
+  return (
+    <div className="flex flex-col gap-3">
+      {[...live, ...stale].map((provider) => (
+        <LiveCard
+          key={`${provider.provider}/${provider.accountKey ?? ""}`}
+          provider={provider}
+          generatedAtMs={generatedAtMs}
+          colors={dashboard.quotaColors}
+        />
+      ))}
+      {attention.map((provider) => (
+        <FailedCard
+          key={`${provider.provider}/${provider.accountKey ?? ""}`}
+          provider={provider}
+        />
+      ))}
     </div>
   );
 }
@@ -431,7 +700,7 @@ export function OperationsView({
           <div className="mt-1 text-xs text-ink-soft">
             {dashboard
               ? variant === "usage"
-                ? `${dashboard.quotas.length} windows`
+                ? quotaSummary(dashboard)
                 : variant === "accounts"
                   ? tokenAlerts
                     ? `${tokenAlerts} need refreshing`
@@ -471,14 +740,11 @@ export function OperationsView({
               AI capacity
             </span>
             <span className="text-xs text-ink-soft">
-              {dashboard?.quotas.length ?? 0} windows
+              {dashboard ? quotaSummary(dashboard) : ""}
             </span>
           </div>
-          {dashboard?.quotas.length ? (
-            <QuotaGroups
-              rows={dashboard.quotas}
-              colors={dashboard.quotaColors}
-            />
+          {dashboard?.quotaProviders.length ? (
+            <QuotaCards dashboard={dashboard} />
           ) : (
             <div className="rounded-md border border-line bg-surface px-3">
               <EmptyState>No quota data</EmptyState>
