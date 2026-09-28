@@ -5,32 +5,34 @@ set -uo pipefail
 [ "$(uname)" = "Linux" ] || exit 0
 command -v systemctl >/dev/null 2>&1 || exit 0
 
-UNIT="herdr-server.service"
 say() { printf 'herdr-server-health: %s\n' "$*" >&2; }
+# The default session runs under herdr-server.service, a named one (firstmate's fm-remote) under the herdr-server@ template.
+unit_for() { if [ -z "$1" ]; then echo herdr-server.service; else echo "herdr-server@$1.service"; fi; }
+session_of() { tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null | sed -n 's/^HERDR_SESSION=//p' | head -1; }
 
-PIDS=()
-mapfile -t PIDS < <(pgrep -u "$(id -u)" -fx '(.*/)?herdr server' 2>/dev/null)
-[ "${#PIDS[@]}" -gt 0 ] || exit 0
-
-# Lenient: a second named-session server is normal, so one match means the unit still holds.
-MAIN_PID=$(systemctl --user show "$UNIT" -p MainPID --value 2>/dev/null)
-for pid in "${PIDS[@]}"; do
-  [ "$pid" = "${MAIN_PID:-0}" ] && exit 0
+PID="" SESSION="" UNIT=""
+for pid in $(pgrep -u "$(id -u)" -fx '(.*/)?herdr server( --session [^ ]+)?' 2>/dev/null); do
+  s=$(session_of "$pid")
+  main=$(systemctl --user show "$(unit_for "$s")" -p MainPID --value 2>/dev/null)
+  if [ "$pid" != "${main:-0}" ]; then
+    PID="$pid" SESSION="$s" UNIT=$(unit_for "$s")
+    break
+  fi
 done
+[ -n "$PID" ] || exit 0
 
-PID="${PIDS[0]}"
 CGROUP=$(sed -n 's|^0::||p' "/proc/$PID/cgroup" 2>/dev/null)
 SINCE=$(ps -o lstart= -p "$PID" 2>/dev/null | sed 's/^ *//')
 
-say "live server (pid $PID, up since ${SINCE:-unknown}) is not owned by $UNIT"
+say "live '${SESSION:-default}' server (pid $PID, up since ${SINCE:-unknown}) is not owned by $UNIT"
 say "  cgroup: ${CGROUP:-unknown}"
 
 case "$CGROUP" in
 */session-*.scope)
-  SESSION="${CGROUP##*/session-}"
-  SESSION="${SESSION%.scope}"
-  STATE=$(loginctl show-session "$SESSION" -p State --value 2>/dev/null)
-  say "  parented to SSH login session $SESSION (state: ${STATE:-unknown}) - every pane and agent goes with it"
+  LOGIN="${CGROUP##*/session-}"
+  LOGIN="${LOGIN%.scope}"
+  STATE=$(loginctl show-session "$LOGIN" -p State --value 2>/dev/null)
+  say "  parented to SSH login session $LOGIN (state: ${STATE:-unknown}) - every pane and agent goes with it"
   ;;
 esac
 
@@ -49,5 +51,5 @@ fi
 
 # Never `herdr server stop && systemctl start`: the stop kills the shell running it, so the start never lands.
 say "adopt it at a clean stopping point - THIS KILLS EVERY RUNNING PANE AND AGENT:"
-say "  herdr-server-adopt"
+say "  herdr-server-adopt${SESSION:+ $SESSION}"
 exit 1

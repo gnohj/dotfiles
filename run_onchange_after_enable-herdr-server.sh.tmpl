@@ -12,6 +12,7 @@
 # act — see the message printed below.
 #
 # unit sha256: {{ include "dot_config/systemd/user/herdr-server.service" | sha256sum }}
+# session unit sha256: {{ include "dot_config/systemd/user/herdr-server@.service" | sha256sum }}
 set -eu
 
 [ "$(uname)" = "Linux" ] || exit 0
@@ -22,11 +23,15 @@ systemctl --user daemon-reload
 # `enable` without --now: starting here would collide with a server already spawned by
 # autodetect (the socket is taken), and the running one owns live panes. The unit takes
 # over at the next reboot, or manually at a moment of your choosing.
-systemctl --user enable herdr-server.service
-
-if ! systemctl --user is-active --quiet herdr-server.service; then
-  echo "herdr-server.service enabled (starts at boot)."
-  echo "To adopt it now - THIS KILLS EVERY RUNNING PANE AND AGENT:"
-  # Not `herdr server stop && systemctl start`: the stop kills the shell before the start runs.
-  echo "  herdr-server-adopt"
-fi
+# fm-remote is firstmate's remote fleet session; it gets its own unit so the fleet also survives logouts.
+for unit in herdr-server.service herdr-server@fm-remote.service; do
+  systemctl --user enable "$unit"
+  if ! systemctl --user is-active --quiet "$unit"; then
+    session="${unit#herdr-server@}"
+    [ "$session" = "$unit" ] && session="" || session="${session%.service}"
+    echo "$unit enabled (starts at boot)."
+    echo "To adopt it now - THIS KILLS EVERY RUNNING PANE AND AGENT IN THAT SESSION:"
+    # Not `herdr server stop && systemctl start`: the stop kills the shell before the start runs.
+    echo "  herdr-server-adopt${session:+ $session}"
+  fi
+done
