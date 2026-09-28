@@ -104,6 +104,11 @@ export GH_BROWSER="desktop-open"
 # inherit it too. Portable: plain env var, identical behavior on macOS + Linux.
 export GIT_OPTIONAL_LOCKS=0
 
+# herdr's restore resumes firstmate and its second mates as a bare `claude --resume <id>` from their home dir, dropping fm's --model/--effort.
+if [[ "$PWD" == "$HOME/Developer/firstmate" || ( "$PWD" == "$HOME"/.local/share/firstmate-sm-* && "$PWD" != "$HOME"/.local/share/firstmate-sm-*/* ) ]]; then
+  export ANTHROPIC_MODEL=claude-opus-5-5 CLAUDE_CODE_EFFORT_LEVEL=medium
+fi
+
 # Fakes a Wayland session so herdr-pluck picks wl-copy, which ~/.local/bin shims to `to-desktop clip`; anything branching on this var is misled.
 {{- if ne .chezmoi.os "darwin" }}
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-herdr-pluck-shim}"
