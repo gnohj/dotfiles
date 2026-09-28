@@ -1,15 +1,35 @@
 #!/usr/bin/env bash
-# Hands the live server to herdr-server.service from a transient unit, since `herdr server stop` kills the calling shell. DESTROYS EVERY PANE AND AGENT.
+# Usage: herdr-server-adopt [session] - hands that session's live server (default: the one no unit owns) to its systemd unit via a transient unit, since `herdr server stop` kills the calling shell; DESTROYS EVERY PANE AND AGENT IN IT.
 set -uo pipefail
 
 [ "$(uname)" = "Linux" ] || exit 0
 command -v systemctl >/dev/null 2>&1 || { echo "herdr-server-adopt: systemd required" >&2; exit 1; }
 
-UNIT="herdr-server.service"
-SERVER_RE='(.*/)?herdr server'
 say() { printf 'herdr-server-adopt: %s\n' "$*" >&2; }
+# The default session runs under herdr-server.service, a named one under the herdr-server@ template.
+unit_for() { if [ -z "$1" ] || [ "$1" = default ]; then echo herdr-server.service; else echo "herdr-server@$1.service"; fi; }
+session_of() { tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null | sed -n 's/^HERDR_SESSION=//p' | head -1; }
+server_pid() {
+  local pid
+  for pid in $(pgrep -u "$(id -u)" -fx '(.*/)?herdr server( --session [^ ]+)?' 2>/dev/null); do
+    [ "$(session_of "$pid")" = "$1" ] && { echo "$pid"; return; }
+  done
+}
 
 if [ -z "${HERDR_ADOPT_DETACHED:-}" ]; then
+  SESSION="${1-__detect__}"
+  if [ "$SESSION" = __detect__ ]; then
+    SESSION=""
+    for pid in $(pgrep -u "$(id -u)" -fx '(.*/)?herdr server( --session [^ ]+)?' 2>/dev/null); do
+      s=$(session_of "$pid")
+      main=$(systemctl --user show "$(unit_for "$s")" -p MainPID --value 2>/dev/null)
+      [ "$pid" = "${main:-0}" ] || { SESSION="$s"; break; }
+    done
+  fi
+  [ "$SESSION" = default ] && SESSION=""
+  case "$SESSION" in *[!A-Za-z0-9_-]*) say "invalid session name: $SESSION"; exit 1 ;; esac
+  UNIT=$(unit_for "$SESSION")
+
   MAIN_PID=$(systemctl --user show "$UNIT" -p MainPID --value 2>/dev/null)
   if [ "${MAIN_PID:-0}" != "0" ] && kill -0 "$MAIN_PID" 2>/dev/null; then
     say "$UNIT already owns the live server (pid $MAIN_PID) - nothing to do"
@@ -20,10 +40,11 @@ if [ -z "${HERDR_ADOPT_DETACHED:-}" ]; then
   HERDR_BIN=$(command -v herdr) || { say "herdr not on PATH"; exit 1; }
   SELF=$(readlink -f "$0") || exit 1
 
-  say "detaching into herdr-adopt.service; this window is about to die with the panes."
-  say "reconnect, then check: systemctl --user is-active $UNIT"
+  say "adopting session '${SESSION:-default}' into $UNIT via herdr-adopt.service; any window in that session is about to die with its panes."
+  say "then check: systemctl --user is-active $UNIT"
   systemd-run --user --collect --quiet --unit=herdr-adopt \
     --setenv=HERDR_ADOPT_DETACHED=1 \
+    --setenv=HERDR_ADOPT_SESSION="$SESSION" \
     --setenv=HERDR_BIN="$HERDR_BIN" \
     --setenv=PATH=/usr/local/bin:/usr/bin:/bin \
     "$SELF" || { say "could not launch the transient unit - nothing was stopped"; exit 1; }
@@ -31,20 +52,27 @@ if [ -z "${HERDR_ADOPT_DETACHED:-}" ]; then
 fi
 
 # Detached: runs in its own unit, outside the cgroup about to be torn down.
-echo "stopping the current server"
-if pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1; then
-  "${HERDR_BIN:-herdr}" server stop >/dev/null 2>&1
+SESSION="${HERDR_ADOPT_SESSION:-}"
+UNIT=$(unit_for "$SESSION")
+PID=$(server_pid "$SESSION")
+if [ -n "$PID" ]; then
+  echo "stopping the '${SESSION:-default}' server (pid $PID)"
+  if [ -n "$SESSION" ]; then
+    HERDR_SESSION="$SESSION" "${HERDR_BIN:-herdr}" server stop --session "$SESSION" >/dev/null 2>&1
+  else
+    "${HERDR_BIN:-herdr}" server stop >/dev/null 2>&1
+  fi
   # `start` would race the dying server for the socket, so wait it out rather than sleeping blind.
   for _ in $(seq 1 30); do
-    pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1 || break
+    kill -0 "$PID" 2>/dev/null || break
     sleep 1
   done
-  if pgrep -u "$(id -u)" -fx "$SERVER_RE" >/dev/null 2>&1; then
+  if kill -0 "$PID" 2>/dev/null; then
     echo "old server still alive after 30s - refusing to start the unit on a taken socket"
     exit 1
   fi
 else
-  echo "no server was running"
+  echo "no '${SESSION:-default}' server was running"
 fi
 
 echo "starting $UNIT"

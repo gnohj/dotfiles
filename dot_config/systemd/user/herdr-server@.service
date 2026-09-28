@@ -1,0 +1,17 @@
+# herdr server for a named session (%i, e.g. fm-remote, firstmate's remote fleet); herdr-server.service explains each line.
+[Unit]
+Description=herdr terminal workspace server (session %i)
+Documentation=https://herdr.dev/docs/configuration/
+After=default.target
+
+[Service]
+Type=simple
+Environment=HERDR_SESSION=%i
+Environment=SHELL=/usr/bin/zsh
+ExecStart=/usr/bin/zsh -l -c 'exec "$(mise which herdr)" server --session "$HERDR_SESSION"'
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
