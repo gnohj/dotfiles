@@ -11,6 +11,19 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 pct="$(jq -r --arg w "$window" '.rate_limits[$w].used_percentage // empty' 2>/dev/null)"
 [ -n "$pct" ] || exit 0
+case "$pct" in *[!0-9.]* | *.*.*) exit 0 ;; esac
+
+# Persisted beside claude-usage-reset's epoch so the quota widgets read live usage per account; known windows only, since $window would otherwise escape the log dir.
+case "$window" in
+  five_hour | seven_day)
+    case "${CLAUDE_CONFIG_DIR:-}" in
+      *.claude-work) _acct=work ;;
+      *) _acct=personal ;;
+    esac
+    _rdir="$HOME/.logs/sketchybar"
+    mkdir -p "$_rdir" 2>/dev/null && printf '%s' "$pct" >"$_rdir/claude_pct_${_acct}_${window}" 2>/dev/null || true
+    ;;
+esac
 
 green="#b7ce97"
 warn="#c0aed2"
