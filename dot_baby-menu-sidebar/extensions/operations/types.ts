@@ -1,8 +1,58 @@
-export type QuotaRow = {
+export type QuotaPace = {
+  status?: string;
+  timeRemainingPercent?: number;
+  elapsedPercent?: number;
+  projectedExhaustedAt?: string;
+  projectionConfidence?: string;
+};
+
+export type QuotaWindow = {
+  id: string;
+  label: string;
+  kind?: string;
+  percentRemaining?: number;
+  percentUsed?: number;
+  resetsAt?: string;
+  resetText?: string;
+  windowSeconds?: number;
+  pace?: QuotaPace;
+};
+
+export type QuotaRunway = {
+  status: string;
+  usableRunwaySeconds?: number;
+};
+
+export type QuotaAvailability = {
+  scope: string;
+  status: string;
+  effectivePercentRemaining?: number;
+  limitingWindowIds?: string[];
+  runway?: QuotaRunway;
+};
+
+export type QuotaProvider = {
   provider: string;
-  window: string;
-  remaining: string;
-  reset: string;
+  notSetUp?: boolean;
+  accountKey?: string;
+  plan?: string;
+  source?: string;
+  windows: QuotaWindow[];
+  credits?: { remaining?: number; unlimited?: boolean; unit?: string };
+  state: {
+    status: string;
+    reused?: boolean;
+    refreshedAt?: string;
+    error?: string;
+    reason?: string;
+    retryAfter?: string;
+    remedyCommand?: string;
+  };
+  quotaSemantics?: {
+    status: string;
+    unresolvedWindowIds?: string[];
+    effectiveAvailability?: QuotaAvailability[];
+  };
 };
 
 export type QuotaColors = {
@@ -52,7 +102,9 @@ export type ToggleScheduleResult = {
 };
 
 export type OperationsDashboard = {
-  quotas: QuotaRow[];
+  quotaProviders: QuotaProvider[];
+  quotaNotSetUp: string[];
+  quotaGeneratedAt: string;
   quotaColors: QuotaColors;
   tokens: TokenRow[];
   schedules: ScheduleSection[];

@@ -1,11 +1,21 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { effectiveAvailability, windowPace } from "./pace";
 import type {
   OperationsDashboard,
   QuotaColors,
-  QuotaRow,
+  QuotaProvider,
+  QuotaWindow,
   RunScheduleResult,
   ScheduleJob,
   ScheduleSection,
@@ -15,10 +25,15 @@ import type {
 } from "./types";
 
 const home = homedir();
-const quotaScript = join(
+const quotaAxiFallback = join(
   home,
-  ".config/sketchybar/items/widgets/agent-quota.sh",
+  ".local/share/mise/installs/npm-quota-axi/latest/bin/quota-axi",
 );
+const planUsageHistory = join(
+  home,
+  "Library/Application Support/Claude/plan-usage-history.json",
+);
+const capturedResetDirectory = join(home, ".logs/sketchybar");
 const schedulesScript = join(
   home,
   ".config/sketchybar/items/widgets/schedules-panel.py",
@@ -62,23 +77,295 @@ function execute(
   });
 }
 
+// quota-axi exits non-zero whenever any provider needs auth, so its JSON is read regardless; launchd's minimal PATH may lack the shim.
+function runQuotaAxi(
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<string> {
+  return new Promise((resolveOutput, reject) => {
+    execFile(
+      file,
+      args,
+      { env, timeout: 30_000, maxBuffer: 8 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stdout.trim()) resolveOutput(stdout);
+        else
+          reject(
+            error ?? new Error(stderr.trim() || "quota-axi returned nothing"),
+          );
+      },
+    );
+  });
+}
+
+// quota-axi is a `#!/usr/bin/env node` script, and an app launched outside a shell has no node on its PATH.
+const nodePath = [
+  "/opt/homebrew/bin",
+  join(home, ".local/bin"),
+  join(home, ".local/share/mise/shims"),
+].join(":");
+
+async function quotaAxi(
+  args: string[],
+  baseEnv: NodeJS.ProcessEnv = process.env,
+): Promise<QuotaProvider[]> {
+  const env = {
+    ...baseEnv,
+    PATH: `${nodePath}:${baseEnv.PATH ?? "/usr/bin:/bin"}`,
+  };
+  const fullArgs = [...args, "--json", "--full"];
+  const output = await runQuotaAxi("quota-axi", fullArgs, env).catch(
+    (error: NodeJS.ErrnoException) =>
+      error.code === "ENOENT"
+        ? runQuotaAxi(quotaAxiFallback, fullArgs, env)
+        : Promise.reject(error),
+  );
+  const parsed = JSON.parse(output) as {
+    providers?: QuotaProvider[];
+  };
+  return parsed.providers ?? [];
+}
+
+const CLAUDE_WINDOWS = [
+  { id: "five_hour", label: "session", windowSeconds: 5 * 3600 },
+  { id: "seven_day", label: "week", windowSeconds: 7 * 86400 },
+] as const;
+const CAPTURE_STALE_MS = 6 * 3600 * 1000;
+
+type ClaudeAccount = "personal" | "work";
+
+type Capture = { value: string; mtimeMs: number };
+type Captures = Map<string, Capture>;
+
+const CAPTURE_NAME =
+  /^claude_(?:pct|reset)_(?:personal|work)_(?:five_hour|seven_day)$/;
+const CAPTURE_VALUE = /^[0-9]+(?:\.[0-9]+)?$/;
+// The work account's sessions mostly run on the VPS, whose statusline writes there, so its captures are read too and the newest file wins.
+const captureHosts = (process.env.BABY_MENU_CAPTURE_HOSTS ?? "dev-box")
+  .split(",")
+  .filter(Boolean);
+const remoteCaptureScript =
+  'cd "$HOME/.logs/sketchybar" 2>/dev/null || exit 0; for f in claude_pct_* claude_reset_*; do [ -f "$f" ] && printf "%s\\t%s\\t%s\\n" "$f" "$(stat -c %Y "$f")" "$(cat "$f")"; done';
+
+async function localCaptures(): Promise<Captures> {
+  const captures: Captures = new Map();
+  const names = await readdir(capturedResetDirectory).catch(
+    () => [] as string[],
+  );
+  await Promise.all(
+    names
+      .filter((name) => CAPTURE_NAME.test(name))
+      .map(async (name) => {
+        const file = join(capturedResetDirectory, name);
+        const [raw, info] = await Promise.all([
+          readFile(file, "utf8").catch(() => ""),
+          stat(file).catch(() => undefined),
+        ]);
+        const value = raw.trim();
+        if (info && CAPTURE_VALUE.test(value))
+          captures.set(name, { value, mtimeMs: info.mtimeMs });
+      }),
+  );
+  return captures;
+}
+
+function remoteCaptures(host: string): Promise<Captures> {
+  return new Promise((resolveCaptures) => {
+    execFile(
+      "/usr/bin/ssh",
+      [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=4",
+        "-o",
+        "ClearAllForwardings=yes",
+        host,
+        remoteCaptureScript,
+      ],
+      { timeout: 10_000, maxBuffer: 256 * 1024 },
+      (_error, stdout) => {
+        const captures: Captures = new Map();
+        for (const line of stdout.split("\n")) {
+          const [name = "", mtime = "", value = ""] = line.split("\t");
+          const seconds = Number(mtime);
+          if (
+            CAPTURE_NAME.test(name) &&
+            CAPTURE_VALUE.test(value.trim()) &&
+            Number.isFinite(seconds)
+          ) {
+            captures.set(name, {
+              value: value.trim(),
+              mtimeMs: seconds * 1000,
+            });
+          }
+        }
+        resolveCaptures(captures);
+      },
+    );
+  });
+}
+
+async function statuslineCaptures(): Promise<Captures> {
+  const all: Captures[] = await Promise.all([
+    localCaptures(),
+    ...captureHosts.map((host) => remoteCaptures(host)),
+  ]);
+  const merged: Captures = new Map();
+  for (const captures of all) {
+    for (const [name, capture] of captures) {
+      const current = merged.get(name);
+      if (!current || capture.mtimeMs > current.mtimeMs)
+        merged.set(name, capture);
+    }
+  }
+  return merged;
+}
+
+function capturedReset(
+  captures: Captures,
+  account: ClaudeAccount,
+  window: string,
+): string | undefined {
+  const epoch = Number(
+    captures.get(`claude_reset_${account}_${window}`)?.value,
+  );
+  return Number.isFinite(epoch) && epoch > 0
+    ? new Date(epoch * 1000).toISOString()
+    : undefined;
+}
+
+function claudeCard(
+  account: ClaudeAccount,
+  source: string,
+  windows: QuotaWindow[],
+  refreshedAtMs: number,
+  generatedAtMs: number,
+): QuotaProvider {
+  const stale = generatedAtMs - refreshedAtMs > CAPTURE_STALE_MS;
+  for (const window of windows)
+    window.pace = stale ? undefined : windowPace(window, generatedAtMs);
+  return {
+    provider: "claude",
+    accountKey: account,
+    source,
+    windows,
+    state: {
+      status: stale ? "stale" : "fresh",
+      refreshedAt: new Date(refreshedAtMs).toISOString(),
+    },
+    quotaSemantics: {
+      status: "known",
+      effectiveAvailability: [effectiveAvailability(windows, generatedAtMs)],
+    },
+  };
+}
+
+// claude-usage-pct and claude-usage-reset persist the statusline's rate_limits per account, the one live source quota-axi lacks for either login.
+function claudeFromStatusline(
+  captures: Captures,
+  account: ClaudeAccount,
+  generatedAtMs: number,
+): QuotaProvider | undefined {
+  const windows: QuotaWindow[] = [];
+  let refreshedAtMs = 0;
+  for (const spec of CLAUDE_WINDOWS) {
+    const capture = captures.get(`claude_pct_${account}_${spec.id}`);
+    if (!capture) continue;
+    const used = Number(capture.value);
+    refreshedAtMs = Math.max(refreshedAtMs, capture.mtimeMs);
+    windows.push({
+      ...spec,
+      percentUsed: used,
+      percentRemaining: Math.max(
+        0,
+        Math.min(100, Math.round((100 - used) * 10) / 10),
+      ),
+      resetsAt: capturedReset(captures, account, spec.id),
+    });
+  }
+  return windows.length
+    ? claudeCard(
+        account,
+        "statusline · oauth",
+        windows,
+        refreshedAtMs,
+        generatedAtMs,
+      )
+    : undefined;
+}
+
+// Before any statusline capture exists, the personal card falls back to the desktop app's own usage history.
+async function claudePersonalFromDesktop(
+  captures: Captures,
+  generatedAtMs: number,
+): Promise<QuotaProvider | undefined> {
+  const history = JSON.parse(
+    await readFile(planUsageHistory, "utf8").catch(() => "{}"),
+  ) as {
+    samples?: { t: number; u?: { fh?: number; sd?: number } }[];
+  };
+  const sample = history.samples?.at(-1);
+  if (!sample) return undefined;
+  const used = { five_hour: sample.u?.fh ?? 0, seven_day: sample.u?.sd ?? 0 };
+  const windows: QuotaWindow[] = [];
+  for (const spec of CLAUDE_WINDOWS) {
+    windows.push({
+      ...spec,
+      percentRemaining: 100 - used[spec.id],
+      resetsAt: capturedReset(captures, "personal", spec.id),
+    });
+  }
+  return claudeCard("personal", "desktop", windows, sample.t, generatedAtMs);
+}
+
+async function quotaProviders(
+  errors: string[],
+): Promise<{ providers: QuotaProvider[]; notSetUp: string[] }> {
+  const generatedAtMs = Date.now();
+  const failed = (error: unknown): QuotaProvider[] => {
+    errors.push(error instanceof Error ? error.message : String(error));
+    return [];
+  };
+  const [captures, work, others] = await Promise.all([
+    statuslineCaptures(),
+    quotaAxi(["--provider", "claude"], {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: join(home, ".claude-work"),
+    }).catch(failed),
+    quotaAxi([]).catch(failed),
+  ]);
+  const personal =
+    claudeFromStatusline(captures, "personal", generatedAtMs) ??
+    (await claudePersonalFromDesktop(captures, generatedAtMs).catch(
+      () => undefined,
+    ));
+  const workCapture = claudeFromStatusline(captures, "work", generatedAtMs);
+  // The default claude reading is the Keychain-locked personal login, which the statusline or desktop card already covers.
+  const rest = others.filter((provider) => provider.provider !== "claude");
+  return {
+    providers: [
+      ...(personal ? [personal] : []),
+      ...(workCapture
+        ? [workCapture]
+        : work
+            .filter((provider) => !provider.notSetUp)
+            .map((provider) => ({ ...provider, accountKey: "work" }))),
+      ...rest.filter((provider) => !provider.notSetUp),
+    ],
+    notSetUp: rest
+      .filter((provider) => provider.notSetUp)
+      .map((provider) => provider.provider),
+  };
+}
+
 async function logAction(fields: Record<string, unknown>): Promise<void> {
   await mkdir(join(home, ".logs/baby-menu"), { recursive: true });
   await appendFile(
     actionLog,
     `${JSON.stringify({ timestamp: new Date().toISOString(), ...fields })}\n`,
   );
-}
-
-function parseQuotas(output: string): QuotaRow[] {
-  return output
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const [provider = "", window = "", remaining = "", reset = ""] =
-        line.split("\t");
-      return { provider, window, remaining, reset };
-    });
 }
 
 function parseQuotaColors(output: string): QuotaColors {
@@ -293,13 +580,7 @@ async function persistSchedulePreference(
 export const actions = {
   async getDashboard(): Promise<OperationsDashboard> {
     const errors: string[] = [];
-    const quotaResult = await execute("/bin/bash", [quotaScript], {
-      ...process.env,
-      AGENT_QUOTA_OUTPUT_ONLY: "1",
-    }).catch((error: unknown) => {
-      errors.push(error instanceof Error ? error.message : String(error));
-      return "";
-    });
+    const { providers, notSetUp } = await quotaProviders(errors);
     const scheduleResult = await execute("/usr/bin/python3", [
       schedulesScript,
     ]).catch((error: unknown) => {
@@ -321,7 +602,9 @@ export const actions = {
       errors.push("claude-account token-check returned no rows");
 
     return {
-      quotas: parseQuotas(quotaResult),
+      quotaProviders: providers,
+      quotaNotSetUp: notSetUp,
+      quotaGeneratedAt: new Date().toISOString(),
       quotaColors,
       tokens,
       ...parseSchedules(scheduleResult),
