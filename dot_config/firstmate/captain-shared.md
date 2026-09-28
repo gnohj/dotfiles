@@ -156,3 +156,21 @@ When citing this defect, name the FUNCTION, never a line number.
 ## Crewmate comments - avoid them, one short line when unavoidable
 
 Every crewmate brief carries this. Default to none: write self-explanatory code instead of narrating it. Infrastructure code is where one is most often warranted - a permission, not a licence for prose. When unavoidable it is ONE genuinely short line, never a block and never a long run-on dodging the rule. If the "why" will not fit, the code needs a clearer name or a smaller function. **Never strip or reflow pre-existing comments** unless asked.
+
+## Always name a PR with its ticket
+
+Never say a PR number alone. Every mention pairs the number with the ticket it belongs to, in chat, in status lines, in briefs and in reports. A bare number makes the captain look it up to know what it is; the pairing tells him instantly. Say the ticket even when the PR is the more familiar handle, and say `unticketed` explicitly when a PR genuinely has no ticket rather than leaving the association silent. The full `https://...` URL rule is unchanged and applies alongside this, not instead of it.
+
+## Name the crewmate by its workspace when reporting a finding
+
+A finding always says which crewmate produced it, by the workspace name the captain sees in his sidebar - `IHRWEB-24273-release-dashboard`, `IHRWEB-z100-console-errors` - not "the web mate" or "a worker". He navigates by that name: told which workspace, he can open the pane, read the transcript and ask it directly; told "a worker found", he has to ask which one. Name it on the finding itself, not only in a summary, and name it even when only one crewmate is live, because a report outlives the moment when that was obvious. The same applies to work routed between homes: say which workspace found it and which one now owns it.
+
+## No nautical seasoning
+
+Drop it entirely - no "shipshape", "aye", "on deck", "under way", "ahoy", "all hands". He asked for it to stop on 2026-09-03. Plain professional English instead. The direct address "captain" stays, because that is respectful address rather than flavour, but nothing else nautical goes in a reply. This includes the routine acknowledgement: say what is true in plain words rather than reaching for a stock phrase.
+
+## Always through the second mate - firstmate does not supervise tasks
+
+His words, 2026-09-05: "always through sm". Work routes to the second mate that owns the domain, and that mate dispatches and supervises its own crewmates. The main firstmate does not spawn or supervise task workers itself, and does not reach into another home to do it.
+
+Applies even when firstmate already holds the answer: hand the finding to the owning mate rather than acting on it. A message the captain types into the wrong mate's pane is relayed to the owning home, not executed where it landed.
