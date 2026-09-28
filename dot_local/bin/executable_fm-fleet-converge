@@ -394,6 +394,12 @@ if [ "$MODE" = primary-set ]; then
   want_e="${EFFORT:-}"
   [ -n "$want_h" ] || [ -n "$want_a" ] || [ -n "$want_m" ] || [ -n "$want_e" ] ||
     { echo "usage: $SELF primary-set <harness|keep> [account] [model] [effort]" >&2; exit 2; }
+  # The primary is pinned to claude / claude-opus-5-5 / medium (fm enforces it at launch), so only the account moves here.
+  for pair in "harness:$want_h:claude" "model:$want_m:claude-opus-5-5" "effort:$want_e:medium"; do
+    IFS=: read -r axis want pinned <<<"$pair"
+    case "$want" in '' | keep | "$pinned") ;; *) echo "$SELF: primary-$axis is pinned to '$pinned'; ignoring '$want'" ;; esac
+  done
+  want_h=claude want_m=claude-opus-5-5 want_e=medium
   if [ -n "$want_h" ] && [ "$want_h" != keep ]; then
     cfg="$FM_HOME/config/primary-harness"
     cur=""; [ -r "$cfg" ] && read -r cur <"$cfg"

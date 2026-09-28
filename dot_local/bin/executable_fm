@@ -109,8 +109,8 @@ harness="${harness:-claude}"
 
 # Empty means the harness picks its own, so an unset file adds no flag at all.
 fm_model=""; fm_effort=""
-[ -r "$FM_HOME/config/primary-effort" ] && read -r fm_effort <"$FM_HOME/config/primary-effort"
 if [ -z "$stored_harness" ] || [ "$harness" = "$stored_harness" ]; then # a Pi model id must never reach Claude
+  [ -r "$FM_HOME/config/primary-effort" ] && read -r fm_effort <"$FM_HOME/config/primary-effort"
   [ -r "$FM_HOME/config/primary-model" ] && read -r fm_model <"$FM_HOME/config/primary-model"
 fi
 
@@ -137,6 +137,12 @@ if [ -z "$flag_harness" ] && [ -z "$flag_state$flag_token$flag_provider" ] && [ 
 
   [ -n "${acct:-}" ] && [ "$acct" != "$(claude-account pin 2>/dev/null || echo auto)" ] &&
     claude-account pin "$acct" >/dev/null 2>&1 || true
+fi
+
+# Captain's standing rule: a Claude primary is always Opus 5.5 at medium, whatever a config file or picker says.
+if [ "$harness" = claude ]; then
+  fm_model=claude-opus-5-5
+  fm_effort=medium
 fi
 
 cd "$root"
