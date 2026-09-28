@@ -92,6 +92,7 @@ exec_options=()
 case $action in
   chat)
     shift || true
+    [[ ${#exec_options[@]} -eq 0 && " $* " != *" --cli "* ]] && exec_options=(-e HERMES_TUI=1)
     exec "${compose[@]}" exec "${exec_options[@]}" hermes hermes "$@"
     ;;
   shell)
