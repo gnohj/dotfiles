@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Hands quota-axi the active Claude account's OAuth token so it can read Claude quota.
+set -u
+
+self_dir="$(cd "$(dirname "$0")" && pwd -P)"
+real=""
+IFS=: read -r -a path_dirs <<<"$PATH"
+for dir in "${path_dirs[@]}"; do
+  [ -n "$dir" ] && [ -x "$dir/quota-axi" ] || continue
+  [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
+  real="$dir/quota-axi"
+  break
+done
+[ -n "$real" ] || { echo "quota-axi: no real quota-axi found on PATH" >&2; exit 127; }
+
+args=("$@")
+if command -v claude-account >/dev/null 2>&1; then
+  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    token="$(claude-account token 2>/dev/null)" && [ -n "$token" ] && export CLAUDE_CODE_OAUTH_TOKEN="$token"
+  fi
+  # The personal token cannot read the usage endpoint, so it needs quota-axi's one-request inference fallback.
+  if [ "$(claude-account resolve 2>/dev/null)" = personal ]; then
+    case " $* " in *" --allow-claude-inference "*) ;; *) args+=(--allow-claude-inference) ;; esac
+  fi
+fi
+
+exec "$real" ${args[@]+"${args[@]}"}
