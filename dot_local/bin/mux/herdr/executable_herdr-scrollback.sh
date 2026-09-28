@@ -24,10 +24,11 @@ FILE=$(mktemp -t herdr-scrollview-XXXXXX)
 trap 'rm -f "$FILE"' EXIT
 
 # Strip the trailing CR herdr emits on nearly every line (a few lack it, so nvim picks fileformat=unix and would show a literal ^M on each), then drop trailing blank rows so G lands on real content.
-# Claude's fullscreen TUI draws on the alternate screen, so the pane holds one screenful; its transcript holds the whole session.
-AGENT=$(printf '%s' "$PANES" | jq -r --arg p "$PANE" '.result.panes[] | select(.pane_id == $p) | [.agent // "", (.agent_session.value // ""), (.foreground_cwd // .cwd // "")] | @tsv')
-IFS=$'\t' read -r agent session cwd <<<"$AGENT"
-if [ "$agent" != claude ] || ! "$HOME/.local/bin/mux/herdr/herdr-claude-transcript.py" "$session" "$cwd" >"$FILE" 2>/dev/null; then
+# Claude's and pi's fullscreen TUIs draw on the alternate screen, so the pane holds one screenful; the session transcript holds everything.
+AGENT=$(printf '%s' "$PANES" | jq -r --arg p "$PANE" '.result.panes[] | select(.pane_id == $p) | [.agent // "", (.agent_session.kind // ""), (.agent_session.value // ""), (.foreground_cwd // .cwd // "")] | @tsv')
+IFS=$'\t' read -r agent kind session cwd <<<"$AGENT"
+case "$agent" in claude | pi) transcript=1 ;; *) transcript=0 ;; esac
+if [ "$transcript" = 0 ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "$kind" "$session" "$cwd" >"$FILE" 2>/dev/null; then
   "$herdr" pane read "$PANE" --source recent-unwrapped --lines "$LINES_BACK" --format ansi 2>/dev/null |
     awk '{ sub(/\r$/, ""); l[NR]=$0 } END { n=NR; while (n>0 && l[n] ~ /^[[:space:]]*$/) n--; for (i=1;i<=n;i++) print l[i] }' >"$FILE"
 fi
