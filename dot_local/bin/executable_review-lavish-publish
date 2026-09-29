@@ -19,7 +19,7 @@ observe_library() {
 }
 
 if [ "${AUTO_REVIEW:-}" = 1 ]; then
-  out="$(LAVISH_AXI_NO_OPEN=1 "${publisher[@]}" "$file" 2>&1)"
+  out="$(LAVISH_AXI_NO_OPEN=1 LAVISH_DESKTOP_OPEN=0 "${publisher[@]}" "$file" 2>&1)"
   rc=$?
   printf '%s\n' "$out"
   [ "$rc" -eq 0 ] || exit "$rc"

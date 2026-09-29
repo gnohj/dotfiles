@@ -7,7 +7,7 @@ shift
 [ -f "$file" ] || { echo "lavish-desktop: no such file: $file" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "lavish-desktop: jq required" >&2; exit 1; }
 
-# LAVISH_DESKTOP_MODE=local|tailnet|print overrides this; never detect on $DISPLAY/$WAYLAND_DISPLAY, which herdr shims on headless hosts.
+# LAVISH_DESKTOP_MODE=local|tailnet|print overrides this (LAVISH_DESKTOP_OPEN=0 keeps the route but never opens); never detect on $DISPLAY/$WAYLAND_DISPLAY, which herdr shims on headless hosts.
 mode="${LAVISH_DESKTOP_MODE:-auto}"
 if [ "$mode" = auto ]; then
   if [ -x "$HOME/.local/bin/machine-identity" ]; then
@@ -96,7 +96,7 @@ open_locally() {
 }
 
 # No reachable screen is a valid outcome: hand back a url rather than failing the review.
-if [ "$mode" = print ] || [ "$session_status" = connected ]; then
+if [ "$mode" = print ] || [ "${LAVISH_DESKTOP_OPEN:-1}" = 0 ] || [ "$session_status" = connected ]; then
   :
 elif [ -x "$HOME/.local/bin/to-desktop" ] && "$HOME/.local/bin/to-desktop" open "$url" >/dev/null 2>&1; then
   :
