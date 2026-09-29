@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# update-vps [--background] - run `update` (pulls, then mise upgrade) in a throwaway herdr workspace on the VPS; the Mac's `update` fires it in the background.
+set -uo pipefail
+
+host="${UPDATE_VPS_HOST:-dev-box}"
+case "$host" in '' | -*) echo "update-vps: invalid host: $host" >&2; exit 2 ;; esac
+log_dir="$HOME/.logs/update-vps"
+log="$log_dir/$(date +%Y-%m-%d_%H%M%S).log"
+mkdir -p "$log_dir"
+
+# Runs on the VPS; nothing from this side is interpolated into it.
+read -r -d '' remote <<'REMOTE'
+set -uo pipefail
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
+steps='update'
+session=$(herdr session list 2>/dev/null | awk '$2 == "running" { print $1; exit }')
+if [ -z "$session" ]; then
+  echo "update-vps: no running herdr session, running inline"
+  exec zsh -ic "$steps"
+fi
+h() { herdr --session "$session" "$@"; }
+id="$(date +%s)-$$"
+dir="$HOME/.logs/update-vps"
+mkdir -p "$dir"
+out="$dir/$id.log"
+rc_file="${XDG_RUNTIME_DIR:-/tmp}/update-vps-$id.rc"
+created=$(h workspace create --label "🔄 update" --cwd "$HOME" --no-focus) || { echo "update-vps: workspace create failed"; exit 1; }
+pane=$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id // empty')
+tab=$(printf '%s' "$created" | jq -r '.result.tab.tab_id // empty')
+[ -n "$pane" ] || { echo "update-vps: no pane in: $created"; exit 1; }
+h tab rename "$tab" "1.update" >/dev/null 2>&1
+# The pane closes itself on success and stays open on failure so the output is there to read.
+printf -v cmd '{ %s; } 2>&1 | tee %q; rc=${pipestatus[1]}; print $rc > %q; [ $rc = 0 ] && exit' "$steps" "$out" "$rc_file"
+h pane run "$pane" "$cmd" >/dev/null
+echo "update-vps: running in herdr session $session, workspace '🔄 update' ($pane)"
+for _ in $(seq 1 1800); do
+  [ -s "$rc_file" ] && break
+  sleep 1
+done
+[ -s "$rc_file" ] || { echo "update-vps: gave up waiting after 30 minutes, the pane is still open"; exit 124; }
+rc=$(cat "$rc_file")
+rm -f "$rc_file"
+cat "$out"
+find "$dir" -name '*.log' -mtime +14 -delete 2>/dev/null
+exit "$rc"
+REMOTE
+
+run() {
+  # ClearAllForwardings: the host's LocalForward/RemoteForward would collide with an open interactive session.
+  ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" bash -s <<<"$remote"
+}
+
+notify() {
+  [ -x "$HOME/.local/bin/mac-notify" ] || return 0
+  "$HOME/.local/bin/mac-notify" -t "$1" -m "$2" -g update-vps >/dev/null 2>&1 || true
+}
+
+finish() {
+  local rc="$1"
+  find "$log_dir" -name '*.log' -mtime +14 -delete 2>/dev/null
+  if [ "$rc" -eq 0 ]; then
+    notify "VPS updated" "update on $host finished"
+  else
+    notify "VPS update failed (exit $rc)" "see $log"
+  fi
+  return "$rc"
+}
+
+if [ "${1:-}" = --background ]; then
+  (
+    run >"$log" 2>&1
+    finish "$?"
+  ) </dev/null >/dev/null 2>&1 &
+  disown
+  printf 'update-vps: running on %s in the background, log: %s\n' "$host" "$log"
+  exit 0
+fi
+
+run 2>&1 | tee "$log"
+finish "${PIPESTATUS[0]}"

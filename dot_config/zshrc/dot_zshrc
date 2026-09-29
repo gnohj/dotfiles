@@ -151,6 +151,10 @@ up() {
 # `update` - pull the config repos onto this machine: chezmoi (dotfiles), the agents checkout, and the upstream skill packages (firstmate distro, vision, i-have-adhd, ponytail). Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
   local repo name slug fails=0
+  # UPDATE_NO_VPS=1 skips it; the VPS pulls chezmoi from GitHub, so it only sees what has been pushed.
+  if [[ "$OSTYPE" == darwin* && -z "${UPDATE_NO_VPS:-}" && -x "$HOME/.local/bin/update-vps" ]]; then
+    "$HOME/.local/bin/update-vps" --background
+  fi
   if command -v chezmoi >/dev/null 2>&1; then
     print -P "%F{cyan}==> chezmoi update%f"
     chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; fails=$((fails + 1)); }
@@ -191,6 +195,20 @@ update() {
     print -P "%F{cyan}==> wiring agent symlinks (first run on this machine)%f"
     python3 "$HOME/Developer/agents/setup_symlinks.py" ||
       { print -P "%F{red}   agent symlink setup failed%f"; fails=$((fails + 1)); }
+  fi
+  if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1; then
+    print -P "%F{cyan}==> brew upgrade%f"
+    brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
+  # After chezmoi update, so a freshly pulled pin is what mise upgrades to; the token dodges GitHub's anonymous rate limit.
+  if command -v mise >/dev/null 2>&1; then
+    print -P "%F{cyan}==> mise upgrade%f"
+    MISE_GITHUB_TOKEN=$(gh auth token 2>/dev/null) mise upgrade ||
+      { print -P "%F{red}   mise upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
+  if [[ "$OSTYPE" == darwin* ]] && command -v mas >/dev/null 2>&1; then
+    print -P "%F{cyan}==> mas upgrade%f"
+    mas upgrade || { print -P "%F{red}   mas upgrade failed - continuing%f"; fails=$((fails + 1)); }
   fi
   # Report-only and silent when healthy; adopting the unit destroys live panes, so it stays manual.
   if [ -x "$HOME/.local/bin/herdr-server-health" ]; then
