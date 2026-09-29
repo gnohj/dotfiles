@@ -6,6 +6,9 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const HOST = "127.0.0.1";
+// Chrome falls back to [::1] when IPv4 loopback is taken at launch, so follow whichever family answers.
+const UPSTREAMS = ["127.0.0.1", "::1"];
+let upstreamHost = UPSTREAMS[0];
 const listenPort = Number(process.argv[2]);
 const chromePort = Number(process.argv[3]);
 const parkCmd = process.argv.slice(4);
@@ -118,7 +121,7 @@ function parseCommand(frame) {
 }
 
 function bridge(req, client, head) {
-  const upstream = net.connect(chromePort, HOST);
+  const upstream = net.connect(chromePort, upstreamHost);
   const close = () => {
     client.destroy();
     upstream.destroy();
@@ -179,7 +182,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url.startsWith("/json/new")) schedulePark();
   // The Host header passes through untouched, so Chrome writes this proxy's port into every webSocketDebuggerUrl.
-  const upstream = http.request({ host: HOST, port: chromePort, method: req.method, path: req.url, headers: req.headers }, (up) => {
+  const upstream = http.request({ host: upstreamHost, port: chromePort, method: req.method, path: req.url, headers: req.headers }, (up) => {
     res.writeHead(up.statusCode, up.headers);
     up.pipe(res);
   });
@@ -192,14 +195,29 @@ const server = http.createServer((req, res) => {
 server.on("upgrade", bridge);
 server.listen(listenPort, HOST);
 
+function reachable(host) {
+  return new Promise((resolve) => {
+    const probe = net.connect(chromePort, host);
+    probe.setTimeout(1000, () => probe.destroy());
+    probe.on("connect", () => {
+      probe.destroy();
+      resolve(true);
+    });
+    probe.on("error", () => {});
+    probe.on("close", () => resolve(false));
+  });
+}
+
 let misses = 0;
-setInterval(() => {
-  const probe = net.connect(chromePort, HOST);
-  probe.on("connect", () => {
-    misses = 0;
-    probe.destroy();
-  });
-  probe.on("error", () => {
-    if (++misses >= 2) process.exit(0);
-  });
-}, 3000).unref();
+async function followUpstream() {
+  for (const host of [upstreamHost, ...UPSTREAMS.filter((h) => h !== upstreamHost)]) {
+    if (await reachable(host)) {
+      upstreamHost = host;
+      misses = 0;
+      return;
+    }
+  }
+  if (++misses >= 2) process.exit(0);
+}
+followUpstream();
+setInterval(followUpstream, 3000).unref();
