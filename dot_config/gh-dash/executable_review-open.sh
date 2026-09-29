@@ -210,12 +210,13 @@ open_fanout_owner() {
 }
 
 background_review() {
-  local desktop_mode=tailnet cdp=""
+  local desktop_open=1 cdp=""
+  # Queued reviews still route through tailnet so the url stays https; they just never open it.
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
-    desktop_mode=print
+    desktop_open=0
   fi
   # CHROME_DEVTOOLS_AXI_CHROME_ARGS covers the case the pre-started browser cannot: a driver that goes headed on its own still launches muted.
-  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env CHROME_DEVTOOLS_AXI_CHROME_ARGS=--mute-audio --env LAVISH_DESKTOP_MODE="$desktop_mode" --env LAVISH_DESKTOP_BACKGROUND=1)
+  window_opts=(--no-focus --env AGENT_BROWSER_HEADLESS=1 --env PLAYWRIGHT_MCP_HEADLESS=1 --env CHROME_DEVTOOLS_AXI_CHROME_ARGS=--mute-audio --env LAVISH_DESKTOP_MODE=tailnet --env LAVISH_DESKTOP_OPEN="$desktop_open" --env LAVISH_DESKTOP_BACKGROUND=1)
   # A hand-written script's headed launch() opens an app macOS activates; the preload attaches it to the endpoint below or keeps it headless.
   [ -r "$HOME/.local/libexec/review-browser-attach.cjs" ] && window_opts+=(--env NODE_OPTIONS="--require=$HOME/.local/libexec/review-browser-attach.cjs")
   if [ "${REVIEW_NO_BROWSER:-}" = 1 ]; then
