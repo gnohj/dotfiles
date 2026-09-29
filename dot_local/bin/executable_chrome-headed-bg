@@ -86,7 +86,8 @@ launch() {
     about:blank || return 1
   local i=0
   while [ "$i" -lt "$((READY_TIMEOUT * 4))" ]; do
-    if curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null; then
+    if curl -fsS --max-time 1 -o /dev/null "http://127.0.0.1:$port/json/version" 2>/dev/null ||
+      curl -fsS --max-time 1 -o /dev/null "http://[::1]:$port/json/version" 2>/dev/null; then
       ( sleep 1; park_windows ) >/dev/null 2>&1 &
       break
     fi
