@@ -95,26 +95,14 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
-# `up` - one OS-aware command to bring the machine fully up to date. macOS: nix flake update + darwin-rebuild + chezmoi apply + brew + mise. Linux: apt + nix/home-manager + mise + chezmoi. tpm on both; each step banner'd + failure-tolerant.
+# `up` - `update` plus the heavy system layer: nix flake update + rebuild (darwin-rebuild / apt + home-manager), mise self-update + install, tpm. Each step banner'd + failure-tolerant.
 up() {
+  # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
+  local ghtok=$(gh auth token 2>/dev/null)
   if [[ "$OSTYPE" == darwin* ]]; then
     print -P "%F{cyan}==> nix: flake update + darwin-rebuild switch%f"
-    # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
-    local ghtok=$(gh auth token 2>/dev/null)
     NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake ~/.nix || true
     sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
-
-    print -P "%F{cyan}==> chezmoi: apply%f"
-    chezmoi apply || true
-
-    print -P "%F{cyan}==> brew: upgrade%f"
-    command -v brew >/dev/null 2>&1 && brew upgrade || true
-
-    print -P "%F{cyan}==> mise: self-update + install/upgrade (runtimes + AI agents)%f"
-    # Same lesson as the flake above, and mise needs it MORE: anonymous GitHub is 60 requests/hr per IP, which one multi-tool pass exhausts, and mise then 403s mid-install (treehouse 2.2.1, 2026-08-21). It reads no token from gh's keyring on its own; an empty value is treated as absent, so this needs no guard.
-    mise self-update -y 2>/dev/null || true
-    MISE_GITHUB_TOKEN=$ghtok mise install || true
-    MISE_GITHUB_TOKEN=$ghtok mise upgrade || true
   else
     print -P "%F{cyan}==> apt: system packages%f"
     sudo apt update && sudo apt full-upgrade -y
@@ -122,20 +110,18 @@ up() {
     print -P "%F{cyan}==> nix: flake update + home-manager switch%f"
     # On Linux ~/.nix is gitignored (no nix-darwin), so the flake lives in the chezmoi source.
     local nixflake="$HOME/.local/share/chezmoi/dot_nix"
-    # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
-    local ghtok=$(gh auth token 2>/dev/null)
     command -v nix >/dev/null 2>&1 && NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake "$nixflake" || true
     command -v home-manager >/dev/null 2>&1 && home-manager switch --flake "$nixflake#gnohj-linux-x86_64" || true
     # home-manager doesn't manage the nix daemon; upgrade nix itself (best-effort).
     command -v nix >/dev/null 2>&1 && sudo -i nix upgrade-nix 2>/dev/null || true
-
-    print -P "%F{cyan}==> mise: self-update + toolchain (respects pins in config.toml)%f"
-    mise self-update -y 2>/dev/null || true
-    MISE_GITHUB_TOKEN=$ghtok mise upgrade || true
-
-    print -P "%F{cyan}==> chezmoi: pull dotfiles + apply (re-fires bootstrap on version bump)%f"
-    chezmoi update || true
   fi
+
+  # update's own mise upgrade never installs a tool the config gained, so install covers that; the token dodges GitHub's anonymous 60/hr limit.
+  print -P "%F{cyan}==> mise: self-update + install%f"
+  mise self-update -y 2>/dev/null || true
+  MISE_GITHUB_TOKEN=$ghtok mise install || true
+
+  update
 
   # the sketchybar package badge caches a pre-rebuild nix count; drop it so the widget recomputes.
   rm -f "$HOME/.cache/sketchybar/nix-preview.count"
@@ -148,7 +134,7 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
-# `update` - pull the config repos onto this machine: chezmoi (dotfiles), the agents checkout, and the upstream skill packages (firstmate distro, vision, i-have-adhd, ponytail). Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
+# `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
   local repo name slug fails=0
   # UPDATE_NO_VPS=1 skips it; the VPS pulls chezmoi from GitHub, so it only sees what has been pushed.
