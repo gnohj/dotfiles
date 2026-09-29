@@ -7,13 +7,13 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Octo PR view + Claude /review-lavish
+#   full       P        Claude /review-lavish
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   hunk       -        hunk alone, no agent (the Library's "Show diff in terminal")
 #   enhance    E        ENHANCE
 #   claude     A        Claude /review
-#   fan        F        Octo PR view + sealed Opus/gpt finders + Lavish merge owner
+#   fan        F        sealed Opus/gpt finders + Lavish merge owner
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -239,7 +239,6 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    open_octo "$WT"
     open_claude_review "$WT" review-lavish
     ;;
   resume)
@@ -264,7 +263,6 @@ case "$mode" in
     rm -rf "${WT:?acquire returned no worktree}/.review"
     mkdir -p "$WT/.review"
     # One lease serves every window: review reads the checkout, so no finder needs its own worktree.
-    open_octo "$WT"
     open_finder_claude "$WT"
     # Ask BEFORE spawning: with every second-model rung pruned or refusing, the gpt tab only ever renders an error
     # and the owner then waits for a seal that cannot arrive. Degrade to a one-finder review up front instead, and
