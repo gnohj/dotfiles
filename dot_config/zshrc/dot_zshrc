@@ -95,7 +95,7 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
-# `up` - `update` plus the heavy system layer: nix flake update + rebuild (darwin-rebuild / apt + home-manager), mise self-update + install, tpm. Each step banner'd + failure-tolerant.
+# `up` - `update` plus the heavy system layer: nix flake update + rebuild (darwin-rebuild / Omarchy, pacman or apt + home-manager), mise self-update + install, tpm. Each step banner'd + failure-tolerant.
 up() {
   # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
   local ghtok=$(gh auth token 2>/dev/null)
@@ -104,8 +104,17 @@ up() {
     NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake ~/.nix || true
     sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
   else
-    print -P "%F{cyan}==> apt: system packages%f"
-    sudo apt update && sudo apt full-upgrade -y
+    if command -v omarchy-update >/dev/null 2>&1; then
+      # The same command Omarchy's menu runs; a pacman hook blocks a raw -Syu here.
+      print -P "%F{cyan}==> omarchy-update: system packages%f"
+      omarchy-update || true
+    elif command -v pacman >/dev/null 2>&1; then
+      print -P "%F{cyan}==> pacman: system packages%f"
+      sudo pacman -Syu --noconfirm || true
+    elif command -v apt >/dev/null 2>&1; then
+      print -P "%F{cyan}==> apt: system packages%f"
+      sudo apt update && sudo apt full-upgrade -y || true
+    fi
 
     print -P "%F{cyan}==> nix: flake update + home-manager switch%f"
     # On Linux ~/.nix is gitignored (no nix-darwin), so the flake lives in the chezmoi source.
