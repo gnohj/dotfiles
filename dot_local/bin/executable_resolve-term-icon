@@ -26,7 +26,7 @@ icns_to_png() {
 
 id="${1:-}"
 case "$id" in
-  *ghostty*|Ghostty)
+  *ghostty*|Ghostty|herdr)
     if icns_to_png "/Applications/Ghostty.app/Contents/Resources/Ghostty.icns" \
                     "$ICON_CACHE/ghostty.png"; then
       echo "$ICON_CACHE/ghostty.png"
