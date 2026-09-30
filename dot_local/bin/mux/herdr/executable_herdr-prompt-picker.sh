@@ -52,7 +52,7 @@ pick() {
     "${ignore_binds[@]}" \
     --bind "start:$insert" \
     --preview-window 'up,55%,border-bottom' \
-    --bind 'ctrl-j:down,ctrl-k:up,ctrl-b:abort,ctrl-d:preview-down,ctrl-u:preview-up' \
+    --bind 'change:first,ctrl-j:down,ctrl-k:up,ctrl-b:abort,ctrl-d:preview-down,ctrl-u:preview-up' \
     --bind 'j:down,g:first,G:last,J:preview-down,K:preview-up,x:clear-query,q:abort' \
     --bind 'b:backward-word,w:forward-word+forward-char,$:end-of-line,^:beginning-of-line' \
     --bind 'k:transform:case "$FZF_PROMPT" in NORMAL*) echo up ;; *) case "$FZF_QUERY" in *j) printf "backward-delete-char+%s" "$PICK_NORMAL" ;; *) echo "put(k)" ;; esac ;; esac' \
