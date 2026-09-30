@@ -130,6 +130,10 @@ in
       show-thumbnail = false;             # Disable thumbnail preview (no focus stealing)
     };
 
+    CustomUserPreferences."com.sw33tlie.macshot.macshot" = {
+      copyPathAfterSave = true;           # Path as clipboard text so Cmd+V attaches it in terminal agents, like hyper+x
+    };
+
     # Lock Screen settings
     screensaver = {
       askForPassword = true;              # Require password after screensaver/display off
