@@ -122,13 +122,31 @@ def _last_entry_of_type(path, kind):
         return {}
 
 
+MODEL_SWITCH_RE = re.compile(r"<local-command-stdout>Set model to (?:\x1b\[[0-9;]*m|`)?([A-Za-z]+) (\d+(?:\.\d+)*)")
+SWITCH_EFFORT_RE = re.compile(r" with (\w+) effort")
+
+
+def _model_switch(entry):
+    """(model, effort) a claude `/model` confirmation set, (None, None) for any other entry."""
+    message = entry.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if entry.get("type") != "user" or not isinstance(content, str):
+        return None, None
+    switch = MODEL_SWITCH_RE.search(content)
+    if not switch:
+        return None, None
+    effort = SWITCH_EFFORT_RE.search(content)
+    return f"claude-{switch.group(1).lower()}-{switch.group(2).replace('.', '-')}", effort and effort.group(1)
+
+
 def last_model_effort(path, tail=262144):
-    """(model, effort) of the newest claude/pi reply; claude stamps effort per reply, pi logs thinking_level_change."""
+    """(model, effort) of the newest claude/pi reply or claude `/model` switch; claude stamps effort per reply, pi logs thinking_level_change."""
     lines = _tail_lines(path, tail)
     if lines is None:
         return None, None
     model = effort = None
     is_pi = False
+    awaiting_effort = False
     for line in reversed(lines):
         try:
             entry = json.loads(line)
@@ -142,13 +160,20 @@ def last_model_effort(path, tail=262144):
             effort = entry.get("thinkingLevel")
         if model is None and kind == "model_change":
             model = entry.get("modelId")
+        if model is None:
+            model, switch_effort = _model_switch(entry)
+            if model:
+                effort = effort or switch_effort
+                awaiting_effort = effort is None
+                continue
         message = entry.get("message")
-        if model is None and isinstance(message, dict) and message.get("role") == "assistant":
+        if isinstance(message, dict) and message.get("role") == "assistant":
             candidate = message.get("model")
             if isinstance(candidate, str) and candidate and not candidate.startswith("<"):
-                model = candidate
+                model = model or candidate
                 effort = effort or entry.get("effort")
-        if model and (effort or not is_pi):
+                awaiting_effort = False
+        if model and not awaiting_effort and (effort or not is_pi):
             break
     if is_pi and effort is None:
         effort = _last_entry_of_type(path, "thinking_level_change").get("thinkingLevel")
