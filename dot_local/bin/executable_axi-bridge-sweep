@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# axi bridges detach and never exit; stop those whose browser closed or that sat idle.
+
+set -uo pipefail
+
+AXI_DIR="$HOME/.chrome-devtools-axi"
+IDLE_MIN="${AXI_BRIDGE_IDLE_MIN:-360}"
+LOG_DIR="$HOME/.logs/axi-bridge-sweep"
+LOG_FILE="$LOG_DIR/axi-bridge-sweep_$(date '+%Y%m').log"
+
+DRY_RUN=0
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+mkdir -p "$LOG_DIR"
+
+log() {
+  local line
+  line=$(printf '[%s] %s' "$(date '+%Y-%m-%d %H:%M:%S')" "$1")
+  printf '%s\n' "$line" >>"$LOG_FILE"
+  if [[ -t 1 ]]; then printf '%s\n' "$line"; fi
+}
+
+[[ -d "$AXI_DIR" ]] || exit 0
+
+snapshot=$(ps -eo pid=,ppid=,command= 2>/dev/null)
+
+browser_port() {
+  printf '%s\n' "$snapshot" | awk -v p="$1" '$2 == p' | grep -o -- '--browserUrl=http://127\.0\.0\.1:[0-9]*' | head -1 | sed 's/.*://'
+}
+
+port_open() {
+  (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+}
+
+recently_used() {
+  [[ -n "$(find "$1" -maxdepth 1 -type f -mmin "-$IDLE_MIN" 2>/dev/null | head -1)" ]]
+}
+
+stop_bridge() {
+  local pid=$1 name=$2 reason=$3 i
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "DRY-RUN: would stop $name (pid $pid): $reason"
+    return
+  fi
+  kill -TERM "$pid" 2>/dev/null || return
+  for i in 1 2 3 4 5 6; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.5
+  done
+  kill -0 "$pid" 2>/dev/null && kill -KILL -- "-$pid" 2>/dev/null
+  log "stopped $name (pid $pid): $reason"
+}
+
+sweep_session() {
+  local dir=$1 name=$2 pid cmd port
+  [[ -f "$dir/bridge.pid" ]] || return
+  pid=$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$dir/bridge.pid")
+  [[ -n "$pid" ]] || return
+  cmd=$(ps -o command= -p "$pid" 2>/dev/null) || return
+  [[ "$cmd" == *chrome-devtools-axi-bridge* ]] || return
+
+  port=$(browser_port "$pid")
+  if [[ -n "$port" ]] && ! port_open "$port"; then
+    stop_bridge "$pid" "$name" "browser port $port is closed"
+  elif ! recently_used "$dir"; then
+    stop_bridge "$pid" "$name" "idle over ${IDLE_MIN}m"
+  fi
+}
+
+sweep_session "$AXI_DIR" default
+for dir in "$AXI_DIR"/sessions/*/; do
+  [[ -d "$dir" ]] || continue
+  dir=${dir%/}
+  sweep_session "$dir" "${dir##*/}"
+done
+
+exit 0
