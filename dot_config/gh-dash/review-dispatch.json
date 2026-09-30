@@ -31,7 +31,7 @@
           "effort": "high"
         },
         "gpt": {
-          "model": "gpt-6-sol",
+          "model": "gpt-6.1-sol",
           "effort": "high"
         },
         "rungTimeout": 600
@@ -47,7 +47,7 @@
           "effort": "xhigh"
         },
         "gpt": {
-          "model": "gpt-6-sol",
+          "model": "gpt-6.1-sol",
           "effort": "high"
         },
         "rungTimeout": 1500
@@ -62,7 +62,7 @@
       "effort": "high"
     },
     "gpt": {
-      "model": "gpt-6-sol",
+      "model": "gpt-6.1-sol",
       "effort": "high"
     },
     "rungTimeout": 600
