@@ -8,7 +8,7 @@
       "use": {
         "mode": "full",
         "claude": {
-          "model": "claude-sonnet-5",
+          "model": "claude-sonnet-5-5",
           "effort": "medium"
         },
         "gpt": {
