@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# manifest sha256: {{ include "dot_config/herdr/local-plugins/prompt-picker/herdr-plugin.toml" | sha256sum }}
+set -u
+
+command -v herdr >/dev/null 2>&1 || exit 0
+
+# Linking talks to the herdr server; with none running, leave a note rather than failing the whole apply.
+if ! herdr plugin link "$HOME/.config/herdr/local-plugins/prompt-picker" >/dev/null 2>&1; then
+  echo "herdr prompt-picker plugin not linked (server not running?): herdr plugin link ~/.config/herdr/local-plugins/prompt-picker"
+fi
+exit 0
