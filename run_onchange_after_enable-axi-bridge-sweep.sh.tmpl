@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# service sha256: {{ include "dot_config/systemd/user/axi-bridge-sweep.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/axi-bridge-sweep.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+systemctl --user enable --now axi-bridge-sweep.timer
+
+echo "axi-bridge-sweep.timer enabled (every 30 minutes)."

@@ -1,0 +1,10 @@
+[Unit]
+Description=Stop chrome-devtools-axi bridges whose browser closed or that sat idle
+Documentation=file:%h/.local/bin/axi-bridge-sweep
+
+[Service]
+Type=oneshot
+# systemd user services start near-empty; the script shells out to ps, find, awk, grep, sed, and date.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env bash %h/.local/bin/axi-bridge-sweep
+TimeoutStartSec=120

@@ -1,0 +1,11 @@
+[Unit]
+Description=Sweep stale chrome-devtools-axi bridges every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
