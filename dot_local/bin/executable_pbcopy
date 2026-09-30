@@ -1,0 +1,14 @@
+#!/bin/bash
+# pbcopy shim: a pure passthrough, except when herdr-pluck's picker is the caller, where the copied token is also opened via pluck-open.sh.
+set -uo pipefail
+
+# Only herdr panes can host the picker, so every other caller skips the ps lookup.
+if [ -z "${HERDR_PANE_ID:-}" ]; then exec /usr/bin/pbcopy "$@"; fi
+case "$(ps -o args= -p "$PPID" 2>/dev/null)" in
+  *herdr-pluck\ pick\ *) ;;
+  *) exec /usr/bin/pbcopy "$@" ;;
+esac
+
+payload=$(cat)
+printf '%s' "$payload" | /usr/bin/pbcopy "$@" || exit
+"$HOME/.local/bin/mux/herdr/pluck-open.sh" "$PPID" "$payload" || true

@@ -36,4 +36,8 @@ if ! command -v to-desktop >/dev/null 2>&1; then
 fi
 
 # Delete this shim and the WAYLAND_DISPLAY export once herdr-pluck grows an OSC 52 fallback or a configurable copy command.
-printf '%s' "$payload" | to-desktop clip -
+printf '%s' "$payload" | to-desktop clip - || exit
+
+case "$(ps -o args= -p "$PPID" 2>/dev/null)" in
+  *herdr-pluck\ pick\ *) "$HOME/.local/bin/mux/herdr/pluck-open.sh" "$PPID" "$payload" || true ;;
+esac
