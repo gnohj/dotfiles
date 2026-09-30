@@ -139,9 +139,9 @@ if [ -z "$flag_harness" ] && [ -z "$flag_state$flag_token$flag_provider" ] && [ 
     claude-account pin "$acct" >/dev/null 2>&1 || true
 fi
 
-# Captain's standing rule: a Claude primary is always Opus 5.5 at medium, whatever a config file or picker says.
+# Captain's standing rule: a Claude primary is always Sonnet 5.5 at medium, whatever a config file or picker says.
 if [ "$harness" = claude ]; then
-  fm_model=claude-opus-5-5
+  fm_model=claude-sonnet-5-5
   fm_effort=medium
 fi
 
