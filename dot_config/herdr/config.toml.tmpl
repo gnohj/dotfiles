@@ -143,6 +143,23 @@ width = "48%"
 height = "70%"
 description = "sesh-style session picker"
 
+# prefix+/ and prefix+@ → herdr-prompt-picker.sh: fuzzy-pick a skill/command (with its SKILL.md previewed) or a file, typed into the focused agent pane in that harness's syntax (pi /skill:x, Claude /x).
+[[keys.command]]
+key = "prefix+/"
+type = "popup"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-prompt-picker.sh skills"
+width = "80%"
+height = "85%"
+description = "prompt picker: skills and commands"
+
+[[keys.command]]
+key = "prefix+@"
+type = "popup"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-prompt-picker.sh files"
+width = "80%"
+height = "85%"
+description = "prompt picker: @file reference"
+
 # prefix+e/u → the ported tmux scrollback popup: e opens at the bottom, u on the last Claude or Pi user prompt with `n` walking back.
 [[keys.command]]
 key = "prefix+e"
