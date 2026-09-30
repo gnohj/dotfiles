@@ -1,0 +1,23 @@
+# Popup entrypoints for herdr-prompt-picker.sh, opened by harness triggers (the pi prompt-picker extension) via `herdr plugin pane open`.
+id = "gnohj.prompt-picker"
+name = "Prompt Picker"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Skill/command and @file picker popups for agent panes"
+platforms = ["linux", "macos"]
+
+[[panes]]
+id = "skills"
+title = "prompt-picker"
+placement = "popup"
+width = "80%"
+height = "85%"
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-prompt-picker.sh\" skills"]
+
+[[panes]]
+id = "files"
+title = "prompt-picker"
+placement = "popup"
+width = "80%"
+height = "85%"
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-prompt-picker.sh\" files"]
