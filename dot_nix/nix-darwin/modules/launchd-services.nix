@@ -423,6 +423,24 @@ in
       };
     };
 
+    # Stops chrome-devtools-axi bridges (and their headless Chrome) left behind by agents.
+    axi-bridge-sweep = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/axi-bridge-sweep
+            exec /bin/bash ${homeDir}/.local/bin/axi-bridge-sweep
+          ''
+        ];
+        StartInterval = 1800;
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/axi-bridge-sweep/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/axi-bridge-sweep/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
