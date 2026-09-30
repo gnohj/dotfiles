@@ -171,6 +171,10 @@ linux-bootstrap.sh
 .config/systemd/user/cleanup-logs.service
 .config/systemd/user/cleanup-logs.timer
 
+# axi bridge sweep - same story: macOS runs the identical script from its launchd agent `axi-bridge-sweep`.
+.config/systemd/user/axi-bridge-sweep.service
+.config/systemd/user/axi-bridge-sweep.timer
+
 # mise trust list for user services — read by the systemd user manager, so inert on macOS.
 .config/environment.d/
 {{- end }}
