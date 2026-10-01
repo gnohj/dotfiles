@@ -19,10 +19,12 @@
 #     Needs a one-time browser OAuth per config dir, same as atlassian below.
 #   - atlassian (Jira/Confluence) needs a one-time browser OAuth per config
 #     dir: run /mcp inside Claude and pick Authenticate.
+#   - newrelic (NRQL): Mac work profile only, OAuth via /mcp; Linux would need an API key header.
 
 all   all      http  context7       https://mcp.context7.com/mcp -H 'CONTEXT7_API_KEY: ${CONTEXT7_API_KEY}'
 all   all      http  atlassian      https://mcp.atlassian.com/v1/mcp
 all   all      http  unblocked      https://getunblocked.com/api/mcpsse
+mac   work     http  newrelic       https://mcp.newrelic.com/mcp/
 all   all      stdio playwright     npx @playwright/mcp@latest
 mac   all      stdio chrome-devtools chrome-devtools-mcp-launch
 linux all      stdio chrome-devtools npx -y chrome-devtools-mcp@1.8.0 --browserUrl http://127.0.0.1:9222 --acceptInsecureCerts
