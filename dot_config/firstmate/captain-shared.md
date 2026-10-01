@@ -37,10 +37,12 @@ It is not a channel between homes. Nothing here is addressed to a particular hom
 One line per open item:
 
 - 🔴 needs the captain: broken, failed, blocked, or waiting on their decision
-- 🟡 open or waiting on something external, nothing to act on now
+- ♻️ a PR waiting on someone else's review or approval, nothing for the captain yet
+- ✅ a PR that is approved and ready, so the merge call is his; use this instead of 🔴 for a merge-ready PR
+- 🟡 open or waiting on something else external, nothing to act on now
 - 🟢 done, landed, verified
 
-Three levels only. Lead with the strongest; order several 🔴 so the real blocker is first. With nothing open, still close with one 🟢 - an absent block reads as an oversight. This is the ONLY closer.
+Five levels only. Lead with the strongest; order several 🔴 so the real blocker is first. With nothing open, still close with one 🟢 - an absent block reads as an oversight. This is the ONLY closer.
 
 **Number every line, ascending across the block:** `🔴 1. **web** - ...`. One sequence for all colours so he can answer with a bare number; numbers are per-message, never referred back to.
 
