@@ -96,6 +96,9 @@ resolve_review_claude_account() {
   fi
 }
 
+# Reviews drive Chrome through chrome-devtools-axi, so the stdio browser MCPs only cost ~640MB and a launch spike each.
+REVIEW_SETTINGS='--settings "$HOME/.config/gh-dash/review-claude-settings.json"'
+
 CLAUDE_ACCOUNT_ENV=()
 case "$mode" in
   full | resume | diff | claude | fan)
@@ -140,7 +143,7 @@ open_hunk() {
 open_claude_hunk() {
   local cmd="${3:-hunk-review}"
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
+    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
 # $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
@@ -148,7 +151,7 @@ open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr" "$1" \
-    'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
+    'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
@@ -183,7 +186,7 @@ seal_on_exit() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
+    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
 # The finder is pinned; $2 labels the tab with the rung resolved by --check.
