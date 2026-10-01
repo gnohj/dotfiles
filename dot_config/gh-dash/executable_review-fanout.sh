@@ -75,4 +75,4 @@ After the required E2E pass, add at most three evidence items that reference exa
 fi
 
 eval "$($HOME/.local/bin/claude-account env)"
-exec "$HOME/.local/bin/claude" --dangerously-skip-permissions "/review-lavish ${pr}${MERGE_BRIEF}"
+exec "$HOME/.local/bin/claude" --dangerously-skip-permissions --settings "$HOME/.config/gh-dash/review-claude-settings.json" "/review-lavish ${pr}${MERGE_BRIEF}"

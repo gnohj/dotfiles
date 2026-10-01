@@ -1,0 +1,7 @@
+{
+  "deniedMcpServers": [
+    { "serverName": "playwright" },
+    { "serverName": "chrome-devtools" },
+    { "serverName": "apple-notes" }
+  ]
+}
