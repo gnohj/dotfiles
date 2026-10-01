@@ -109,6 +109,7 @@
 
       # Productivity
       "kunchenguid/tap/baby-menu"
+      "kunchenguid/tap/firstmate-3000"
       "bitwarden"
       "localsend"
       "raycast"
