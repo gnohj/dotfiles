@@ -331,7 +331,9 @@ for e in sesh_entries:
 now = time.time()
 cache = hg.load()
 paths = [en[3] for en in entries if en[3]]
-if os.environ.get("WARM") != "1" and any(p not in cache for p in paths):
+listed = set(paths)
+# A vanished path also needs the warm pass: the sysinfo sync count reads every cache entry, listed or not.
+if os.environ.get("WARM") != "1" and (any(p not in cache for p in paths) or any(k not in listed for k in cache)):
     try: open(os.environ["WARM_NEEDED_FILE"], "w").close()
     except Exception: pass
 
@@ -340,9 +342,7 @@ def compute(p):
 
 if os.environ.get("WARM") == "1":
     todo = [p for p in dict.fromkeys(paths) if p not in cache][:12]
-    if todo:
-        fresh = dict(map(compute, todo))
-        hg.update(fresh, keep=set(paths))    # merge under the write lock; prune vanished paths
+    hg.update(dict(map(compute, todo)), keep=listed)    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
 
 sym = {}
