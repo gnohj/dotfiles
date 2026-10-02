@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# karabiner-driverkit version: 1   (bump to force a re-run on `chezmoi apply`)
+# karabiner-driverkit version: 2   (bump to force a re-run on `chezmoi apply`)
 #
 # Installs + PINS Karabiner-DriverKit-VirtualHIDDevice v6.2.0 — the only version
 # kanata 1.11.x speaks (its bundled karabiner-driverkit crate is built against
@@ -42,3 +42,16 @@ fi
 # copy. This box also has a hand-made /Library/LaunchDaemons/org.pqrs.* plist from
 # the original manual fix — remove it ONCE, by hand, after `darwin-rebuild` brings
 # up the nix daemon (so there's never a moment with zero daemons). See MANUAL_SETUP.
+
+# kanata and this driver move as a pair: every kanata below 1.13 speaks only VirtualHIDDevice 6.2.0; 1.13+ needs 8.x.
+KANATA_MAX_MINOR=12
+kanata_version=$(/opt/homebrew/bin/kanata --version 2>/dev/null | awk '{print $2}')
+kanata_minor=$(printf '%s' "$kanata_version" | cut -d. -f2)
+if [ -z "$kanata_version" ]; then
+  echo "!! kanata not found at /opt/homebrew/bin/kanata"
+elif [ "${kanata_version%%.*}" != "1" ] || [ "$kanata_minor" -gt "$KANATA_MAX_MINOR" ]; then
+  echo "!! kanata $kanata_version needs a newer driver than $VERSION; the keyboard will stop remapping. Move VERSION to 8.x and KANATA_MAX_MINOR together, or roll kanata back and: brew pin kanata"
+fi
+if ! brew list --pinned 2>/dev/null | grep -qx kanata; then
+  echo "!! kanata is not brew-pinned, so the next brew upgrade breaks the driver pairing: brew pin kanata"
+fi
