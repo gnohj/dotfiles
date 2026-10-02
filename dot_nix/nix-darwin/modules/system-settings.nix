@@ -188,7 +188,7 @@ in
     if [ ! -f "$ACCESSIBILITY_MARKER" ]; then
       echo "🔓 Grant Accessibility in System Settings → Privacy & Security → Accessibility (\"Device Control and Data Access\" on macOS 27+) to:" >&2
       echo "   Claude, uv, Ghostty, kitty, kanata, karabiner_cli, skhd, sketchybar, borders," >&2
-      echo "   Homerow, Mouseless, Raycast, Logi Options+, macshot, OpenSuperWhisper" >&2
+      echo "   Homerow, Mouseless, Tinycast Beta, Logi Options+, macshot, OpenSuperWhisper" >&2
       echo "   (uv is the one that broke macos-mcp/Cowork - it makes the AX calls, not Claude)" >&2
       sudo -u ${config.system.primaryUser} open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility" || true
       echo "   When done: touch $ACCESSIBILITY_MARKER  # silences this reminder" >&2

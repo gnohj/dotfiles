@@ -80,7 +80,7 @@ These apps need to control your computer:
 - ✅ Logi Options+ (Logitech device manager)
 - ✅ LogiPluginService (Logitech plugin)
 - ✅ Mouseless (mouse-free navigation)
-- ✅ Raycast (launcher/productivity)
+- ✅ Tinycast Beta (launcher; snippet expansion and window actions)
 - ✅ sketchybar (status bar)
 - ✅ skhd (hotkey daemon)
 
@@ -152,7 +152,6 @@ These apps need to monitor keyboard/mouse input:
 These apps need to capture screen content:
 
 - ✅ iStat Menus (system monitor)
-- ✅ Raycast (screenshot and screen capture features)
 
 **How to grant**:
 
@@ -190,13 +189,6 @@ Apps that need to control other applications:
 
 - ✅ Finder (for AppleScript automation)
 
-#### Raycast
-
-- ✅ Finder
-- ✅ Google Chrome
-- ✅ QuickTime Player
-- ✅ System Events
-
 #### sketchybar
 
 - ✅ Spotify (status bar music integration)
@@ -215,7 +207,6 @@ Apps that need to control other applications:
 
 Apps that can update or delete other applications:
 
-- ✅ Raycast (app uninstall features)
 - ✅ System Events
 
 **How to grant**:
@@ -480,53 +471,27 @@ git config --global core.excludesfile
 
 ---
 
-### Import Raycast Configuration
+### Import Tinycast Configuration
 
-**Cannot be automated**: Requires manual import (free alternative to Raycast Cloud Sync)
-
-Raycast Cloud Sync is a paid feature. Instead, use export/import to restore settings:
+**Cannot be automated**: Tinycast keeps its data in a single `.tinycast` backup file.
 
 **On current machine (export once)**:
 
-1. Open Raycast Settings → Advanced
-2. Click "Export Settings"
-3. Save the JSON file to your iCloud Drive or backup location
-   - Recommended: `~/Library/Mobile Documents/com~apple~CloudDocs/Documents/raycast-settings.json`
+1. Open Tinycast Settings → Backup → Export
+2. Tick Settings & Shortcuts, Clipboard History, Snippets, Notes and Launcher Learning
+3. Save the file outside this repo (it holds clipboard history), e.g. iCloud Drive
 
 **On new machine (import)**:
 
-1. Install Raycast (automated via Homebrew)
-2. Copy your exported JSON file from iCloud/backup
-3. Open Raycast Settings → Advanced
-4. Click "Import Settings"
-5. Select your JSON file
-6. Install extensions (if not auto-installed):
-   - Clipboard History (main extension used)
-
-**What's included in export**:
-
-- ✅ Extensions and their configurations
-- ✅ Hotkeys and keyboard shortcuts (e.g., `⌘ + Space` for Raycast)
-- ✅ Snippets
-- ✅ Quicklinks
-- ✅ Appearance preferences
-- ✅ Window management settings
-
-**What's NOT included**:
-
-- ❌ Sign-in credentials (must log in manually)
-- ❌ Extensions will need to re-download
+1. Install Tinycast (automated via Homebrew, `tinycast@beta`)
+2. Open Tinycast Settings → Backup → Import and pick the `.tinycast` file
+3. Enable Settings → Extensions, then Install New → Search extensions → Kill Process
+4. Enable Settings → Apple Shortcuts (Do Not Disturb runs the `DND Raycast` shortcut)
+5. Enable Snippets again: a backup never grants keystroke listening
 
 **Key settings**:
 
-- Global hotkey: `⌘ + Space` (Raycast launcher)
-- Extensions: Clipboard History
-
-**Why manual?**:
-
-- Raycast settings contain session tokens and shouldn't be in git
-- Export file format may change between Raycast versions
-- Easier to store in iCloud and import on demand
+- Global hotkey: `⌘ + Space` (launcher), `⌘ + .` (clipboard history)
 
 ---
 
@@ -614,7 +579,7 @@ After running through this guide, verify:
 - [ ] Personal repositories cloned
 - [ ] Wallpapers migrated from iCloud to `~/Pictures/wallpapers`
 - [ ] Global gitignore file created at `~/.gitignore_global`
-- [ ] Raycast settings imported from exported JSON file
+- [ ] Tinycast settings imported from a `.tinycast` backup
 - [ ] Homerow license activated and settings configured
 
 ---

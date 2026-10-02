@@ -34,6 +34,7 @@
       "morantron/tmux-fingers"
       "tonisives/tap"
       "vjeantet/tap"
+      "abue-ammar/tinycast"
     ];
 
     # CLI packages (formulae)
@@ -112,7 +113,7 @@
       "kunchenguid/tap/firstmate-3000"
       "bitwarden"
       "localsend"
-      "raycast"
+      "abue-ammar/tinycast/tinycast@beta"
       "whimsical"
 
       # Window Management & Navigation

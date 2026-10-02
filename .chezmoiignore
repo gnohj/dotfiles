@@ -96,7 +96,6 @@ Library/
 .local/bin/screenshot-cleanup.sh
 .local/share/baby-menu/
 .config/kanata/
-.config/raycast/
 .config/ghosttyfetch/
 .config/fastfetch/
 .config/spicetify/
