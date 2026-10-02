@@ -189,6 +189,24 @@ in
       };
     };
 
+    # Starts the Lavish Library server at login; ensure_server is the same start-or-replace path `library.py open` uses, so they never race for the port.
+    lavish-library = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/lavish-library
+            exec ${homeDir}/.local/share/mise/installs/python/latest/bin/python3 -c "import sys; sys.path.insert(0, '${homeDir}/Developer/agents/shared/skills/lavish-library'); import library; library.ensure_server()"
+          ''
+        ];
+        RunAtLoad = true;
+        AbandonProcessGroup = true;
+        StandardOutPath = "${homeDir}/.logs/lavish-library/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/lavish-library/launchagent.err.log";
+      };
+    };
+
     # Dev-context reset on login: RunAtLoad + no KeepAlive fires once per session load (safety net for abnormal exits; the vps atuin script's trap EXIT handles normal in-session reverts).
     dev-context-reset = {
       serviceConfig = {
