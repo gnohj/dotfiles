@@ -98,6 +98,9 @@ resolve_review_claude_account() {
 
 # Reviews drive Chrome through chrome-devtools-axi, so the stdio browser MCPs only cost ~640MB and a launch spike each.
 REVIEW_SETTINGS='--settings "$HOME/.config/gh-dash/review-claude-settings.json"'
+# Bitwarden's scope-less GH_TOKEN shadows the keyring login and 404s every private iheartradio repo; panes inherit it from herdr, not from here.
+unset GH_TOKEN GITHUB_TOKEN
+GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '
 
 CLAUDE_ACCOUNT_ENV=()
 case "$mode" in
@@ -130,7 +133,7 @@ head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
 
 open_octo() {
-  mux "🐙 #$pr" "$1" "nvim --cmd \"let g:zen_disabled=1\" -c \":silent Octo pr edit $pr\""
+  mux "🐙 #$pr" "$1" "${GH_KEYRING}nvim --cmd \"let g:zen_disabled=1\" -c \":silent Octo pr edit $pr\""
 }
 
 # --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
@@ -143,7 +146,7 @@ open_hunk() {
 open_claude_hunk() {
   local cmd="${3:-hunk-review}"
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
+    "$GH_KEYRING"'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
 # $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
@@ -151,11 +154,11 @@ open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr" "$1" \
-    'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
+    "$GH_KEYRING"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
-  mux "✨ #$pr" "$1" "ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
+  mux "✨ #$pr" "$1" "${GH_KEYRING}ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
 }
 
 # Brief goes to a file so no quoting form has to survive whichever shell the multiplexer uses.
@@ -186,7 +189,7 @@ seal_on_exit() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
-    'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
+    "$GH_KEYRING"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
 # The finder is pinned; $2 labels the tab with the rung resolved by --check.
@@ -199,7 +202,7 @@ open_finder_pi() {
   mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
     --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
     --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" "${ladder_env[@]}" "🔎2 #$pr ${2:-gpt}" "$1" \
-    '"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
+    "$GH_KEYRING"'"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
 # "pi|openai-codex|gpt-6.1-sol" -> "sol"; a harness-only rung like "codex|-|-" keeps the harness name.
@@ -209,7 +212,7 @@ finder_label() {
 }
 
 open_fanout_owner() {
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "${GH_KEYRING}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
 background_review() {
