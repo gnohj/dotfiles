@@ -133,11 +133,16 @@ vim.api.nvim_create_autocmd("FileType", {
           )
           return
         end
-        local cmd = string.format(
-          [[osascript -e 'set the clipboard to POSIX file "%s"' ]],
-          path
-        )
-        local result = vim.fn.system(cmd)
+        local result = vim.fn.system({
+          "osascript",
+          "-e",
+          "on run argv",
+          "-e",
+          "set the clipboard to POSIX file (item 1 of argv)",
+          "-e",
+          "end run",
+          path,
+        })
         if vim.v.shell_error ~= 0 then
           vim.notify("Copy failed: " .. result, vim.log.levels.ERROR)
         else
