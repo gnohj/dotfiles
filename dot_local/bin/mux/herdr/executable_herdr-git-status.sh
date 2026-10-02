@@ -26,7 +26,7 @@
 # The same pass feeds `$br`/`$br_on`, the sidebar's second row. These REPLACE herdr's built-in
 # `branch` token, which can only render the branch verbatim: a ticket worktree already spells
 # its key out on row 1, so row 2 carries the branch with that key stripped
-# (IHRWEB-24314-listen-endpoint -> listen-endpoint). Two tokens rather than one because a
+# (IHRWEB-12345-search-endpoint -> search-endpoint). Two tokens rather than one because a
 # custom token takes a single unconditional fg, losing the mauve/overlay0 focus split the
 # built-in gets for free (skills/herdr-upgrade/watchlist.md item 2). Exactly one of the pair
 # ever holds the text: herdr-focus-tracker.py::paint_branch moves it on workspace.focused, and
@@ -87,7 +87,7 @@ def out(args, cwd=None):
         return ""
 
 # Ticket key stripped off the front, because row 1 of the sidebar already ends in it
-# (herdr-sesh-layout.sh labels a bucketed ticket worktree web/infra/IHRWEB-24314). master,
+# (herdr-sesh-layout.sh labels a bucketed ticket worktree web/infra/IHRWEB-12345). master,
 # untick/foo and every other unprefixed branch pass through whole. Detached HEAD has no branch
 # name, so it falls back to the short sha rather than leaving the row blank.
 TICKET_PREFIX = re.compile(r"^[A-Z]+-[0-9]+-")

@@ -59,7 +59,7 @@ dir="${dir/#\~/$HOME}"
 # The third segment collapses to its ticket NUMBER when it has one, because the descriptive tail
 # is already the sidebar's second row ($br, which strips that same key off the branch). Split
 # that way each row carries something the other doesn't, instead of both spelling out
-# IHRWEB-24314-listen-endpoint. The constant project prefix goes with it, ambiguous only if a
+# IHRWEB-12345-search-endpoint. The constant project prefix goes with it, ambiguous only if a
 # second project ever shares this tree. A branch dir with no ticket key is kept whole - there is
 # nothing to move to row two - and herdr truncates it if the row runs out. Pure prefix
 # expansion (no arrays / negative indices), so it stays bash-3.2 safe on macOS.

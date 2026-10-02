@@ -48,7 +48,7 @@ Five levels only. Lead with the strongest; order several 🔴 so the real blocke
 
 **Every line opens with its scope in bold** - `**web**`, `**inferno**`, `**firstmate**`, `**machine**`.
 
-**Every line names its work inline** - `**web** - IHRWEB-24273-release-ui-theme`. Use the crewmate's WORKSPACE name; never a worktree path, pane or tab id, which are cryptic to him. An item with no crewmate names none, which itself tells him nothing is running on it.
+**Every line names its work inline** - `**web** - IHRWEB-12345-settings-page`. Use the crewmate's WORKSPACE name; never a worktree path, pane or tab id, which are cryptic to him. An item with no crewmate names none, which itself tells him nothing is running on it.
 
 **Never reply "Captain, shipshape."** OVERRIDES `AGENTS.md` section 9, which mandates that wording. Say **"Captain, noted - nothing needs you on this"**, scoped to the event so it never reads as "everything is fine".
 
@@ -88,13 +88,13 @@ If the two numbers differ, state the reason in the same breath - a true dependen
 
 **Always give times in US Eastern** (`TZ=America/New_York`), never UTC. Convert before it reaches him. If a UTC stamp must appear, put Eastern first.
 
-**Ticket work names its ticket**, with PR number and branch: `IHRWEB-24599 / PR 1589 (fm/IHRWEB-24599-rss-article-keywords)`. Genuinely unticketed work says **unticketed**. He must never have to ask which crewmate a line means.
+**Ticket work names its ticket**, with PR number and branch: `IHRWEB-12345 / PR 567 (fm/IHRWEB-12345-settings-page)`. Genuinely unticketed work says **unticketed**. He must never have to ask which crewmate a line means.
 
 **Name the branch whenever work is referenced**, not only once a PR exists. With a PR: number, full URL and branch. Before one: the branch it will land on.
 
 **Name the absolute path of every file changed, every time** - not "the dispatch config"; a home-relative path is ambiguous across four homes. Same for created, deleted or moved.
 
-**A scout's task id says scout right after the ticket key** - `IHRWEB-24273-scout-cut-progress`, or `scout-<slug>` when unticketed. The id is the sidebar workspace name, and it is the only place the captain can tell a scout from a ship; never rename a workspace to show it, since firstmate recovery matches the exact title.
+**A scout's task id says scout right after the ticket key** - `IHRWEB-12345-scout-settings-page`, or `scout-<slug>` when unticketed. The id is the sidebar workspace name, and it is the only place the captain can tell a scout from a ship; never rename a workspace to show it, since firstmate recovery matches the exact title.
 
 **Never say a bare "mate"** - **second mate** (persistent, owns a domain), **first mate** (firstmate itself; several run per machine), **crewmate** (spawned for one task; say crewmate, never "worker", which overrides the `AGENTS.md` section 9 translation). Ship and scout are both crewmates.
 
@@ -169,7 +169,7 @@ Never say a PR number alone. Every mention pairs the number with the ticket it b
 
 ## Name the crewmate by its workspace when reporting a finding
 
-A finding always says which crewmate produced it, by the workspace name the captain sees in his sidebar - `IHRWEB-24273-release-dashboard`, `IHRWEB-z100-console-errors` - not "the web mate" or "a worker". He navigates by that name: told which workspace, he can open the pane, read the transcript and ask it directly; told "a worker found", he has to ask which one. Name it on the finding itself, not only in a summary, and name it even when only one crewmate is live, because a report outlives the moment when that was obvious. The same applies to work routed between homes: say which workspace found it and which one now owns it.
+A finding always says which crewmate produced it, by the workspace name the captain sees in his sidebar - `IHRWEB-12345-settings-page`, `IHRWEB-6789-login-form` - not "the web mate" or "a worker". He navigates by that name: told which workspace, he can open the pane, read the transcript and ask it directly; told "a worker found", he has to ask which one. Name it on the finding itself, not only in a summary, and name it even when only one crewmate is live, because a report outlives the moment when that was obvious. The same applies to work routed between homes: say which workspace found it and which one now owns it.
 
 ## No nautical seasoning
 

@@ -289,7 +289,7 @@ pr:
     no-mistakes-mode PR and an untraceable subject line.
 
     Source the key from the branch name, which carries it in either case -
-    `fm/IHRWEB-24720-...` and `fm/web-ihrweb-24720-...` are both in use. Normalize
+    `fm/IHRWEB-12345-...` and `fm/web-ihrweb-12345-...` are both in use. Normalize
     it to uppercase. When the branch carries no ticket at all, take it from the
     changeset's linked ticket reference; only when neither exists is an
     unprefixed title correct.

@@ -147,12 +147,12 @@ local function get_header()
   local name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
 
   -- Cap the header at ~12 chars so a long branch slug (e.g.
-  -- `IHRWEB-24331-locale-race-i18n-config-mutation`) doesn't render as an
+  -- `IHRWEB-12345-player-race-condition-on-config-load`) doesn't render as an
   -- unreadably wide figlet banner. The cap lands on a word boundary: if 12
   -- chars would cut mid-word, extend forward to the next hyphen so the header
   -- always ends on a complete word (so it can exceed 12 chars). A 12-char cut
   -- that lands exactly on a hyphen keeps the clean break, e.g.
-  -- `IHRWEB-24331-...` -> `IHRWEB-24331`.
+  -- `IHRWEB-12345-...` -> `IHRWEB-12345`.
   -- Exempt the vault names so "second-brain-work" isn't capped to "second-brain"
   -- (char 13 is the `-`), keeping the two vaults distinguishable in the header.
   local is_vault_name = name == "second-brain" or name == "second-brain-work"

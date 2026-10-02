@@ -40,7 +40,7 @@ case "$cwd/" in
   *) exit 0 ;;
 esac
 
-# Extract ticket key from branch (e.g. IHRWEB-23643 from feat/IHRWEB-23643-foo).
+# Extract ticket key from branch (e.g. IHRWEB-1234 from feat/IHRWEB-1234-foo).
 branch=$(git -C "$cwd" branch --show-current 2>/dev/null || true)
 ticket=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
 
@@ -53,22 +53,15 @@ if [ -n "$ticket" ]; then
   done < <("$HOME/.local/bin/vault-note" --all "$cwd" 2>/dev/null)
 fi
 
-# Per-repo hot-path notes. Keep this list in sync with the per-repo section in
-# ~/.claude/CLAUDE.md ("hot-path notes (read eagerly when the topic comes up)").
-case "$repo" in
-  web)
-    candidates=(
-      "$VAULT/Notes/fact/2026-05-09_Polaris-i18n-Fastly-Geo-Flow.md"
-      "$VAULT/Notes/work/IHRWEB-23643-re-pulumi-phase-1.md"
-      "$VAULT/Notes/work/2026-05-24_Hybrid-Target-Type-Design-fastly_compute_radioedit.md"
-    )
-    for c in "${candidates[@]}"; do
-      [ -e "$c" ] && notes+=("$c")
-    done
-    ;;
-esac
+# Per-repo hot-path note list lives in the private agents repo, since note titles name work tickets; keep it in sync with ~/.claude/CLAUDE.md.
+hot_paths="$HOME/Developer/agents/shared/hot-paths/$repo.txt"
+if [ -n "$repo" ] && [ -f "$hot_paths" ]; then
+  while IFS= read -r rel; do
+    [ -n "$rel" ] && [ -e "$VAULT/$rel" ] && notes+=("$VAULT/$rel")
+  done <"$hot_paths"
+fi
 
-# Dedupe (a ticket note can also be a hot-path note, e.g. IHRWEB-23643).
+# Dedupe (a ticket note can also be a hot-path note).
 if [ ${#notes[@]} -gt 0 ]; then
   mapfile -t notes < <(printf '%s\n' "${notes[@]}" | awk '!seen[$0]++')
 fi
