@@ -87,6 +87,7 @@ Library/
 .baby-menu-sidebar/
 .local/bin/baby-menu-toggle
 .local/bin/build-pinned-tmux
+.local/bin/macos-upgrade-check
 .local/bin/media-control-bridge
 .local/bin/msteams-open
 .local/bin/pwa-icons
