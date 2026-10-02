@@ -101,7 +101,9 @@ up() {
   local ghtok=$(gh auth token 2>/dev/null)
   if [[ "$OSTYPE" == darwin* ]]; then
     print -P "%F{cyan}==> nix: flake update + darwin-rebuild switch%f"
-    NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake ~/.nix || true
+    # Lock the chezmoi source, not ~/.nix: update's `chezmoi update` would revert a lock written only to the target.
+    NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake "$HOME/.local/share/chezmoi/dot_nix" || true
+    chezmoi apply "$HOME/.nix/flake.lock" || true
     sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
   else
     if command -v omarchy-update >/dev/null 2>&1; then
