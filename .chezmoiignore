@@ -94,6 +94,7 @@ Library/
 # pbcopy shim wraps the real /usr/bin/pbcopy, which only macOS has.
 .local/bin/pbcopy
 .local/bin/screenshot-cleanup.sh
+.local/bin/tinycast-clipboard
 .local/share/baby-menu/
 .config/kanata/
 .config/ghosttyfetch/

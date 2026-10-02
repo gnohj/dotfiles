@@ -1,0 +1,22 @@
+#!/usr/bin/osascript -l JavaScript
+// Opens clipboard via launcher+Tab so Esc walks back to search; Tinycast's own hotkey makes it a root that Esc closes.
+ObjC.import('AppKit');
+ObjC.import('CoreGraphics');
+
+const CMD = 1 << 20;
+const deadline = Date.now() + 1500;
+while (($.NSEvent.modifierFlags & CMD) && Date.now() < deadline) delay(0.02);
+
+const paletteOpen = () => {
+  const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0)));
+  return windows.some(w => w.kCGWindowOwnerName === 'Tinycast Beta' && w.kCGWindowLayer > 0);
+};
+
+const se = Application('System Events');
+if (!paletteOpen()) {
+  se.keyCode(49, { using: 'command down' });
+  for (let i = 0; i < 25 && !paletteOpen(); i++) delay(0.02);
+}
+se.keyCode(53, { using: 'command down' });
+delay(0.05);
+se.keyCode(48);
