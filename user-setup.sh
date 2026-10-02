@@ -680,11 +680,10 @@ fi
 PENDING=$((PENDING + 1))
 echo "[$PENDING] TCC Permissions (System Settings > Privacy & Security)"
 echo "    Cannot be scripted - must be granted manually."
-echo "    Accessibility:    AeroSpace, borders (x4), Ghostty, kanata, kitty, Raycast, sketchybar, skhd"
+echo "    Accessibility:    AeroSpace, borders (x4), Ghostty, kanata, kitty, Tinycast Beta, sketchybar, skhd"
 echo "    Full Disk Access: Ghostty, kitty"
 echo "    Input Monitoring: kanata  <-- re-grant after any kanata Homebrew upgrade"
-echo "    Automation:       AeroSpace, Ghostty, osascript, Raycast, sketchybar, skhd"
-echo "    Screen Recording: Raycast"
+echo "    Automation:       AeroSpace, Ghostty, osascript, sketchybar, skhd"
 echo "    Driver Extensions: org.pqrs.Karabiner-DriverKit-VirtualHIDDevice (kanata's driver)"
 echo "                       <-- Login Items & Extensions; approve after the v6.2.0 pkg installs"
 echo "    See MANUAL_SETUP.md for full details and the correct grant order."
@@ -695,10 +694,9 @@ PENDING=$((PENDING + 1))
 echo "[$PENDING] AlDente: open the app and set charge limit to 80-90%"
 echo ""
 
-# Raycast - no portable config file, always remind
+# Tinycast - settings live in a .tinycast backup, always remind
 PENDING=$((PENDING + 1))
-echo "[$PENDING] Raycast: import settings from a backup export"
-echo "    (Raycast Pro users: enable cloud sync instead)"
+echo "[$PENDING] Tinycast: Settings > Backup > import your .tinycast file, then enable Extensions and Apple Shortcuts"
 echo ""
 
 echo "----------------------------------------------"

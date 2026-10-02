@@ -10,7 +10,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 0
 fi
 
-# Kept out of ~/Applications so launchers like Raycast never offer it for "teams"; LaunchServices routes msteams: from any path.
+# Kept out of ~/Applications so launchers like Tinycast never offer it for "teams"; LaunchServices routes msteams: from any path.
 APP="$HOME/Library/Application Support/msteams-handler/msteams-handler.app"
 OLD_APP="$HOME/Applications/msteams-handler.app"
 TMP="$(mktemp -d)"
