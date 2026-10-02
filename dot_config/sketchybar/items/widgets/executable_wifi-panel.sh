@@ -127,7 +127,11 @@ row() { printf '%s\t%s\t%s\n' "$1" "$2" "$3"; }
 # Single-quoted rather than %q, which backslash-escapes every space - and a stored backslash makes
 # `sketchybar --query` emit JSON that jq refuses to parse.
 shquote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
-row_network() { printf 'network\t%s\t%s\t%s\n' "$1" "$2" "$(shquote "$1")"; }
+row_network() {
+  local ssid
+  ssid="$(printf '%s' "$1" | tr -d '\000-\037\177')"
+  printf 'network\t%s\t%s\t%s\n' "$ssid" "$2" "$(shquote "$ssid")"
+}
 
 list() {
   local ping loss rx_rate tx_rate rx_total tx_total band signal current count connected
