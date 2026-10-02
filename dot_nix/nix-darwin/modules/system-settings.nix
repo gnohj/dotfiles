@@ -145,6 +145,12 @@ in
       GuestEnabled = false;               # Disable guest user
     };
 
+    # Desktop widgets: macOS 27 started showing them after the upgrade
+    WindowManager = {
+      StandardHideWidgets = true;
+      StageManagerHideWidgets = true;
+    };
+
   };
 
   # Keyboard settings
