@@ -63,6 +63,19 @@ in
       };
     };
 
+    # Notifies when Firstmate has work in flight but its supervision loop has no fresh beacon
+    fm-loop-alarm = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/.local/bin/fm-loop-alarm"
+        ];
+        StartInterval = 300;
+        StandardOutPath = "${homeDir}/.logs/fm-loop-alarm/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/fm-loop-alarm/launchagent.err.log";
+      };
+    };
+
     gh-auto-review = {
       serviceConfig = {
         ProgramArguments = [
