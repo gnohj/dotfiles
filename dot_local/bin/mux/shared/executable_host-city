@@ -32,19 +32,37 @@ if [ -f "$CACHE" ] && [ -f "$TZ_CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$
   exit 0
 fi
 
-# ip-api.com returns the state ABBREV in .region (e.g. TX), which is what we want.
-# Parse with sed (NOT jq): jq is a mise tool that isn't on PATH in tmux's bare
-# run-shell env on a fresh box, so a jq pipe silently yields an empty city. curl
-# lives in /usr/bin on both platforms, so this only depends on that.
-resp="$(curl -s --max-time 4 'http://ip-api.com/json/?fields=status,city,region,timezone' 2>/dev/null || true)"
-val() { printf '%s' "$resp" | sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
+# ipinfo over HTTPS (ip-api put Austin AT&T IPs in Woodway); sed, not jq, which bare tmux PATH lacks.
+resp="$(curl -sf --max-time 4 'https://ipinfo.io/json' 2>/dev/null || true)"
+val() { printf '%s' "$resp" | sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" | head -n 1; }
+
+# ipinfo gives the full state name; a function keeps the case out of $( ) for bash 3.2.
+us_state_abbrev() {
+  case "$1" in
+    Alabama) echo AL ;; Alaska) echo AK ;; Arizona) echo AZ ;; Arkansas) echo AR ;;
+    California) echo CA ;; Colorado) echo CO ;; Connecticut) echo CT ;; Delaware) echo DE ;;
+    "District of Columbia") echo DC ;; Florida) echo FL ;; Georgia) echo GA ;; Hawaii) echo HI ;;
+    Idaho) echo ID ;; Illinois) echo IL ;; Indiana) echo IN ;; Iowa) echo IA ;;
+    Kansas) echo KS ;; Kentucky) echo KY ;; Louisiana) echo LA ;; Maine) echo ME ;;
+    Maryland) echo MD ;; Massachusetts) echo MA ;; Michigan) echo MI ;; Minnesota) echo MN ;;
+    Mississippi) echo MS ;; Missouri) echo MO ;; Montana) echo MT ;; Nebraska) echo NE ;;
+    Nevada) echo NV ;; "New Hampshire") echo NH ;; "New Jersey") echo NJ ;; "New Mexico") echo NM ;;
+    "New York") echo NY ;; "North Carolina") echo NC ;; "North Dakota") echo ND ;; Ohio) echo OH ;;
+    Oklahoma) echo OK ;; Oregon) echo OR ;; Pennsylvania) echo PA ;; "Rhode Island") echo RI ;;
+    "South Carolina") echo SC ;; "South Dakota") echo SD ;; Tennessee) echo TN ;; Texas) echo TX ;;
+    Utah) echo UT ;; Vermont) echo VT ;; Virginia) echo VA ;; Washington) echo WA ;;
+    "West Virginia") echo WV ;; Wisconsin) echo WI ;; Wyoming) echo WY ;;
+    *) echo "$2" ;;
+  esac
+}
+
 city=""
 zone=""
-if [ "$(val status)" = "success" ]; then
-  city="$(printf '%s-%s' "$(val city)" "$(val region)" \
+if [ -n "$(val city)" ]; then
+  city="$(printf '%s-%s' "$(val city)" "$(us_state_abbrev "$(val region)" "$(val country)")" \
     | tr 'A-Z ' 'a-z-' \
     | tr -cd 'a-z0-9-')"
-  # Charset-clamped like the city above: this arrives over plaintext HTTP and lands on disk.
+  # Charset-clamped like the city above: this is remote data that lands on disk.
   zone="$(val timezone | tr -cd 'A-Za-z0-9/_+-')"
 fi
 
