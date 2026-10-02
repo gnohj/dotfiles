@@ -60,18 +60,24 @@ loginItems=(
   "macshot"
 )
 
-for app in "${loginItems[@]}"; do
-  if [ -d "/Applications/$app.app" ]; then
-    if osascript -e "tell application \"System Events\" to get the name of every login item" | grep -q "$app"; then
+automationHint="grant it in System Settings > Privacy & Security > Automation > (this terminal) > System Events"
+if ! existingLoginItems=$(osascript -e 'tell application "System Events" to get the name of every login item' 2>&1); then
+  echo "❌  System Events refused login-item access: $existingLoginItems"
+  echo "    $automationHint, then re-run: chezmoi apply"
+else
+  for app in "${loginItems[@]}"; do
+    if [ ! -d "/Applications/$app.app" ]; then
+      echo "❌  $app not found in /Applications"
+    elif printf '%s\n' "$existingLoginItems" | grep -q "$app"; then
       echo "⏭️  $app already in login items"
-    else
-      osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$app\", path: \"/Applications/$app.app\", hidden:true}" 2>/dev/null
+    elif addError=$(osascript -e "tell application \"System Events\" to make login item at end with properties {name: \"$app\", path: \"/Applications/$app.app\", hidden:true}" 2>&1 >/dev/null); then
       echo "✅  $app added to login items"
+    else
+      echo "❌  $app NOT added to login items: $addError"
+      echo "    $automationHint"
     fi
-  else
-    echo "❌  $app not found in /Applications"
-  fi
-done
+  done
+fi
 
 echo "  📝 Manual setup required:"
 echo "  - System Preferences > Keyboard > Keyboard Shortcuts > Disable additional shortcuts that might conflict"
@@ -83,7 +89,7 @@ echo "  - TCC permissions (Accessibility, Full Disk Access, Input Monitoring, Sc
 
 echo "📋 System Summary:"
 echo "✅ Configured in this script:"
-echo "  • Login items: $(osascript -e 'tell application "System Events" to count login items' 2>/dev/null || echo '0') apps configured"
+echo "  • Login items: $(osascript -e 'tell application "System Events" to count login items' 2>&1 || true) apps configured"
 echo ""
 echo "📝 Manual Steps Remaining:"
 echo "  • TCC Permissions (Accessibility, Automation, etc.)"
