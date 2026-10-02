@@ -38,6 +38,7 @@ cat >"$APP/Contents/MacOS/orphan-alert" <<'STUB'
 exit 0
 STUB
 chmod +x "$APP/Contents/MacOS/orphan-alert"
+codesign --force --sign - "$APP" 2>/dev/null || echo "!! could not sign $APP"
 
 # Register with LaunchServices so -sender resolves + it shows in Notification settings.
 [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$APP" 2>/dev/null || true

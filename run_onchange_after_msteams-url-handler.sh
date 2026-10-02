@@ -46,6 +46,8 @@ pbset LSUIElement bool true
 "$pb" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string msteams" "$plist"
 "$pb" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string msteams-enterprise" "$plist"
 
+# Re-sign ad hoc: the PlistBuddy edits above invalidate the signature osacompile wrote.
+codesign --force --deep --sign - "$APP"
 touch "$APP"
 
 lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"

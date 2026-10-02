@@ -70,6 +70,7 @@ LAUNCH
 
   cp "$ICON_SRC" "$app/Contents/Resources/icon.icns"
   printf 'APPL????' >"$app/Contents/PkgInfo"
+  codesign --force --sign - "$app" 2>/dev/null || echo "!! could not sign $app"
 
   touch "$app"
   echo "✅  built $app ($emoji claude-$account)"
