@@ -249,6 +249,10 @@ run = ['layout floating', 'move-node-to-workspace F']
 if.app-id = 'net.imput.helium'
 run = "move-node-to-workspace B"
 
+[[on-window-detected]]
+if.app-id = 'com.kunchenguid.firstmate3000'
+run = "move-node-to-workspace I"
+
 
 [workspace-to-monitor-force-assignment]
 # Profile: desk — full 3-monitor desk setup.
@@ -262,6 +266,7 @@ D = 3
 E = 1
 F = 3
 G = 3
+I = 3
 L = 3
 M = 3
 N = 3
