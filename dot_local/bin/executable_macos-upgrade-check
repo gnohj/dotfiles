@@ -191,10 +191,11 @@ check_golden_gate() {
   third_party=""
   for f in /Library/LaunchDaemons/*.plist /Library/LaunchAgents/*.plist "$HOME"/Library/LaunchAgents/*.plist; do
     case "$(basename "$f")" in org.nixos.* | org.pqrs.* | systems.determinate.* | com.gnohj.*) continue ;; esac
+    launchctl print-disabled "gui/$(id -u)" 2>/dev/null | grep -q "\"$(basename "$f" .plist)\" => disabled" && continue
     [ -e "$f" ] && xattr -p com.apple.quarantine "$f" >/dev/null 2>&1 && third_party="$third_party $f"
   done
   if [ -n "$third_party" ]; then
-    meh launchd-3rd-party "27 ignores these quarantined plists (browser updaters stop):$third_party" "G-04: xattr -d com.apple.quarantine <plist> (sudo for /Library)"
+    meh launchd-3rd-party "27 ignores these quarantined, still-enabled plists:$third_party" "G-04: xattr -d com.apple.quarantine <plist> (sudo for /Library)"
   fi
   local secure
   secure="$(ioreg -l -w 0 | grep -o '"kCGSSessionSecureInputPID"=[0-9]*' | head -1 | cut -d= -f2)"
