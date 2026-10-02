@@ -113,6 +113,13 @@ local frontAppWatcher = sbar.add("item", {
 -- Debouncing
 local update_pending = false
 local update_running = false
+local shownWorkspace = nil
+local shownSignature = nil
+
+-- AeroSpace #2297 bounces target->previous->target; measured gaps reach 151ms.
+local SETTLE_SECONDS = 0.18
+local settleGeneration = 0
+local settling = false
 
 local function selectFocusedWindow(frontAppName)
 	for appName, app in pairs(frontApps) do
@@ -161,9 +168,6 @@ local function updateWindows()
 		return
 	end
 
-	sbar.remove("/" .. constants.items.FRONT_APPS .. "\\.*/")
-	frontApps = {}
-
 	local ok, currentWorkspace = pcall(function()
 		return aerospace:list_current():match("[^\r\n]+")
 	end)
@@ -189,14 +193,15 @@ local function updateWindows()
 	end
 
 	local windowCount = 0
+	local windowIds = {}
 	for _, window in ipairs(windowsJson) do
 		if window["workspace"] == currentWorkspace then
 			windowCount = windowCount + 1
+			windowIds[#windowIds + 1] = tostring(window["window-id"])
 		end
 	end
 
 	local hasWindows = windowCount > 0
-	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
 
 	-- Get focused window first to determine which app icon to show
 	local focusedAppName = nil
@@ -218,6 +223,18 @@ local function updateWindows()
 		end
 	end
 
+	local signature = currentWorkspace .. "|" .. tostring(focusedAppName) .. "|" .. table.concat(windowIds, ",")
+	if signature == shownSignature then
+		log_message("INFO", "updateWindows skipped, nothing changed on " .. currentWorkspace)
+		update_running = false
+		return
+	end
+	shownSignature = signature
+	shownWorkspace = currentWorkspace
+
+	sbar.remove("/" .. constants.items.FRONT_APPS .. "\\.*/")
+	frontApps = {}
+	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
 	updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedAppName)
 
 	for _, window in ipairs(windowsJson) do
@@ -237,19 +254,6 @@ local function updateWindows()
 				click_script = "aerospace focus --window-id " .. windowId,
 				drawing = isShowingSpaces,
 			})
-
-			frontApps[windowName]:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
-				selectFocusedWindow(env.INFO)
-				if not ensure_connection() then
-					return
-				end
-				local ok, currWorkspace = pcall(function()
-					return aerospace:list_current():match("[^\r\n]+")
-				end)
-				if ok then
-					updateWorkspaceIndicator(currWorkspace, true, env.INFO)
-				end
-			end)
 		end
 	end
 
@@ -296,16 +300,31 @@ local function setVisibility(visible)
 	end
 end
 
--- Workspace changes are handled in updateWindows, not via a separate subscribe
+-- First event renders at once; the re-check after the burst draws only if the signature changed.
 frontAppWatcher:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
 	log_message("INFO", "AEROSPACE_WORKSPACE_CHANGED event received: " .. tostring(env.FOCUSED_WORKSPACE))
-	getWindows()
+	settleGeneration = settleGeneration + 1
+	local generation = settleGeneration
+	if not settling then
+		settling = true
+		getWindows()
+	end
+	sbar.delay(SETTLE_SECONDS, function()
+		if generation ~= settleGeneration then
+			return
+		end
+		settling = false
+		getWindows()
+	end)
 end)
 
 frontAppWatcher:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
 	log_message("INFO", "FRONT_APP_SWITCHED event received: " .. tostring(env.INFO))
 	if env.INFO then
 		selectFocusedWindow(env.INFO)
+		if shownWorkspace and next(frontApps) then
+			updateWorkspaceIndicator(shownWorkspace, true, env.INFO)
+		end
 	end
 end)
 
