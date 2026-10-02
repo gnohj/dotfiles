@@ -5,6 +5,12 @@ set -eu
 
 [ "$(uname)" = "Darwin" ] || exit 0
 
+# macOS 26 deleted Launchpad, so there is no grid left to restore.
+if [ "$(sw_vers -productVersion | cut -d. -f1)" -ge 26 ]; then
+  echo "Launchpad does not exist on macOS $(sw_vers -productVersion); skipping lporg."
+  exit 0
+fi
+
 LAYOUT="$HOME/.config/launchpad/layout.yaml"
 [ -f "$LAYOUT" ] || exit 0
 
@@ -14,5 +20,8 @@ if ! command -v lporg >/dev/null 2>&1; then
   exit 0
 fi
 
-lporg load --config "$LAYOUT"
-echo "Launchpad layout restored from $LAYOUT."
+if lporg load --config "$LAYOUT"; then
+  echo "Launchpad layout restored from $LAYOUT."
+else
+  echo "!! lporg load failed; Launchpad layout NOT restored. Retry: lporg load --config $LAYOUT"
+fi
