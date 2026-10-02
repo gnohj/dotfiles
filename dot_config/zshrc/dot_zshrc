@@ -197,6 +197,11 @@ update() {
     print -P "%F{cyan}==> brew upgrade%f"
     brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; fails=$((fails + 1)); }
   fi
+  # Report-only: flags an AeroSpace upgrade or a broken hook behind the workspace-bounce workaround.
+  if [ -x "$HOME/.local/libexec/aerospace-workspace" ]; then
+    "$HOME/.local/libexec/aerospace-workspace" --check ||
+      { print -P "%F{yellow}   aerospace workspace helper needs attention (see above)%f"; fails=$((fails + 1)); }
+  fi
   # After chezmoi update, so a freshly pulled pin is what mise upgrades to; the token dodges GitHub's anonymous rate limit.
   if command -v mise >/dev/null 2>&1; then
     print -P "%F{cyan}==> mise upgrade%f"

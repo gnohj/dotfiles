@@ -12,10 +12,11 @@ after-startup-command = [
 
 start-at-login = true
 
+# ~/.cache/aerospace feeds libexec/aerospace-workspace, the #2297 bounce workaround.
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',
-  '/opt/homebrew/bin/sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+  'd="$HOME/.cache/aerospace"; [ -d "$d" ] || mkdir -p "$d"; printf "%s %s" "$AEROSPACE_PREV_WORKSPACE" "$AEROSPACE_FOCUSED_WORKSPACE" > "$d/prev-workspace"; /opt/homebrew/bin/sketchybar --trigger aerospace_workspace_changed FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -32,7 +33,7 @@ key-mapping.preset = 'qwerty'
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 on-focus-changed = [
   'move-mouse window-lazy-center',
-  'exec-and-forget /bin/bash -c /opt/homebrew/bin/sketchybar --trigger front_app_switched',
+  'exec-and-forget d="$HOME/.cache/aerospace/mru"; [ -d "$d" ] || mkdir -p "$d"; [ -n "$AEROSPACE_WINDOW_ID" ] && touch "$d/$AEROSPACE_WINDOW_ID"',
   # Disabled: causes sketchybar to freeze due to event flooding
   # 'exec-and-forget /opt/homebrew/bin/sketchybar --trigger update_windows',
 ]
