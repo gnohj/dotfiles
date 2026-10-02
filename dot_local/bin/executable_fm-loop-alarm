@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Alerts when Firstmate has work in flight but its supervision loop has no fresh beacon.
+set -u
+
+home=${FM_HOME:-$HOME/.local/share/firstmate}
+root=${FM_ROOT_OVERRIDE:-$HOME/Developer/firstmate}
+grace=${FM_LOOP_ALARM_GRACE:-900}
+repeat=${FM_LOOP_ALARM_REPEAT:-3600}
+stampdir=$HOME/.local/state/fm-loop-alarm
+stamp=$stampdir/last-notified
+
+[ -r "$root/bin/fm-supervision-lib.sh" ] || exit 0
+# shellcheck source=/dev/null
+. "$root/bin/fm-supervision-lib.sh"
+
+mkdir -p "$stampdir"
+
+if ! fm_supervision_unhealthy "$home/state" "$grace"; then
+  rm -f "$stamp"
+  exit 0
+fi
+
+now=$(date +%s)
+last=$(cat "$stamp" 2>/dev/null || echo 0)
+[ $((now - last)) -ge "$repeat" ] || exit 0
+
+summary="Firstmate monitoring loop is down: last beat ${FM_SUP_BEACON_DESC}, ${FM_SUP_IN_FLIGHT} task(s) in flight. Run update fleet or end a turn to re-arm."
+printf '%s\n' "$now" > "$stamp"
+printf '%s %s\n' "$(date -u +%FT%TZ)" "$summary" >> "$stampdir/alarm.log"
+
+if [ "$(uname)" = Darwin ]; then
+  osascript \
+    -e 'on run argv' \
+    -e 'display notification (item 1 of argv) with title "Firstmate" sound name "Basso"' \
+    -e 'end run' \
+    "$summary" >/dev/null 2>&1 || true
+fi
