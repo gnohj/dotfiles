@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Rebuilds the pinned tmux (3.7 flickers popup borders) and relinks /opt/homebrew/bin/tmux; --prefix DIR only test-builds.
+set -euo pipefail
+
+VERSION="3.6b"
+SHA256="390759d25fdba016887ec982b808927e637070fd7d03a8021f8ef3102b9ae3c7"
+LIVE_PREFIX="$HOME/.local/opt/tmux-$VERSION"
+
+[ "$(uname)" = "Darwin" ] || { echo "macOS only; Linux gets tmux from nix" >&2; exit 1; }
+
+test_prefix=""
+if [ "${1:-}" = "--prefix" ]; then
+  test_prefix="${2:?--prefix needs a directory}"
+  if [ -e "$test_prefix" ] && [ ! -x "$test_prefix/bin/tmux" ]; then
+    echo "refusing to replace $test_prefix: it exists and is not a tmux build" >&2
+    exit 1
+  fi
+fi
+
+brew_prefix="$(brew --prefix)"
+for formula in libevent ncurses pkgconf; do
+  brew list --versions "$formula" >/dev/null || { echo "missing brew formula: $formula" >&2; exit 1; }
+done
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+curl -fsSL -o "$work/tmux.tar.gz" "https://github.com/tmux/tmux/releases/download/$VERSION/tmux-$VERSION.tar.gz"
+echo "$SHA256  $work/tmux.tar.gz" | shasum -a 256 -c - >/dev/null
+tar -xzf "$work/tmux.tar.gz" -C "$work"
+
+install_prefix="${test_prefix:-$LIVE_PREFIX}"
+stage="$work/stage"
+log="$work/build.log"
+if ! (
+  cd "$work/tmux-$VERSION"
+  PKG_CONFIG_PATH="$brew_prefix/opt/libevent/lib/pkgconfig:$brew_prefix/opt/ncurses/lib/pkgconfig" \
+    ./configure --prefix="$install_prefix" --disable-utf8proc
+  make -j"$(sysctl -n hw.ncpu)"
+  make install DESTDIR="$stage"
+) >"$log" 2>&1; then
+  tail -30 "$log" >&2
+  echo "tmux $VERSION build failed; live tmux untouched" >&2
+  exit 1
+fi
+
+built="$stage$install_prefix"
+"$built/bin/tmux" -V
+
+if [ -n "$test_prefix" ]; then
+  mkdir -p "$(dirname "$test_prefix")"
+  rm -rf "$test_prefix"
+  mv "$built" "$test_prefix"
+  echo "test build at $test_prefix; live tmux untouched"
+  exit 0
+fi
+
+# Swap by rename so a running tmux server keeps its old inode instead of crashing.
+mkdir -p "$(dirname "$LIVE_PREFIX")"
+rm -rf "$LIVE_PREFIX.prev"
+[ -d "$LIVE_PREFIX" ] && mv "$LIVE_PREFIX" "$LIVE_PREFIX.prev"
+mv "$built" "$LIVE_PREFIX"
+
+brew unlink tmux >/dev/null 2>&1 || true
+ln -sfn "$LIVE_PREFIX/bin/tmux" "$brew_prefix/bin/tmux"
+brew pin tmux libevent ncurses 2>/dev/null || true
+
+echo "linked $brew_prefix/bin/tmux -> $LIVE_PREFIX/bin/tmux ($("$brew_prefix/bin/tmux" -V)); previous build kept at $LIVE_PREFIX.prev"
+echo "restart the tmux server (or reboot) to run the new binary"
