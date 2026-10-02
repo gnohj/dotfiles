@@ -97,7 +97,7 @@ resolve_review_claude_account() {
 }
 
 # Reviews drive Chrome through chrome-devtools-axi, so the stdio browser MCPs only cost ~640MB and a launch spike each.
-REVIEW_SETTINGS='--settings "$HOME/.config/gh-dash/review-claude-settings.json"'
+REVIEW_SETTINGS='--setting-sources user --settings "$HOME/.config/gh-dash/review-claude-settings.json"'
 # Bitwarden's scope-less GH_TOKEN shadows the keyring login and 404s every private iheartradio repo; panes inherit it from herdr, not from here.
 unset GH_TOKEN GITHUB_TOKEN
 GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '

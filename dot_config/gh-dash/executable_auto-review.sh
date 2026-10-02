@@ -128,17 +128,28 @@ submitted_review_status() {
 }
 
 backport_status() {
-  local metadata
+  local metadata shape source
   if ! metadata="$(gh pr view "$2" --repo "$1" --json title,baseRefName,headRefName 2>/dev/null)"; then
     printf 'error\n'
     return
   fi
-  printf '%s\n' "$metadata" | jq -r '
+  shape="$(printf '%s\n' "$metadata" | jq -r '
     if ((.title // "") | test("^\\[Backport #[0-9]+\\]"; "i"))
       and ((.baseRefName // "") | startswith("release/"))
       and ((.headRefName // "") | test("^backport[-/][0-9]+"; "i"))
     then "backport" else "regular" end
-  '
+  ')"
+  if [ "$shape" != backport ]; then
+    printf '%s\n' "$shape"
+    return
+  fi
+  # Title and branch are author-controlled, so only auto-approve when the PR it claims to backport really merged.
+  source="$(printf '%s\n' "$metadata" | jq -r '.title | capture("^\\[Backport #(?<n>[0-9]+)\\]"; "i").n')"
+  if [ "$(gh pr view "$source" --repo "$1" --json state -q .state 2>/dev/null)" = MERGED ]; then
+    printf 'backport\n'
+  else
+    printf 'regular\n'
+  fi
 }
 
 PIDS=()
