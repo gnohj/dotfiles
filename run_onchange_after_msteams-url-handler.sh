@@ -10,7 +10,9 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 0
 fi
 
-APP="$HOME/Applications/msteams-handler.app"
+# Kept out of ~/Applications so launchers like Raycast never offer it for "teams"; LaunchServices routes msteams: from any path.
+APP="$HOME/Library/Application Support/msteams-handler/msteams-handler.app"
+OLD_APP="$HOME/Applications/msteams-handler.app"
 TMP="$(mktemp -d)"
 SRC="$TMP/msteams-handler.applescript"
 trap 'rm -rf "$TMP"' EXIT
@@ -21,7 +23,7 @@ on open location this_URL
 end open location
 SCPT
 
-mkdir -p "$HOME/Applications"
+mkdir -p "$(dirname "$APP")"
 rm -rf "$APP"
 osacompile -o "$APP" "$SRC"
 
@@ -53,5 +55,9 @@ touch "$APP"
 lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 # The stale com.microsoft.teams2 handlerpref outlives the uninstalled cask, so re-register to claim it.
 [ -x "$lsregister" ] && "$lsregister" -f "$APP" 2>/dev/null || true
+if [ -d "$OLD_APP" ]; then
+  [ -x "$lsregister" ] && "$lsregister" -u "$OLD_APP" 2>/dev/null || true
+  rm -rf "$OLD_APP"
+fi
 
 echo "🎉 msteams URL handler ready ($APP)"
