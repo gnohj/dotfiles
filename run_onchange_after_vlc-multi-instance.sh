@@ -79,6 +79,8 @@ if [ -f "$icon_src" ]; then
   cp "$icon_src" "$APP/Contents/Resources/applet.icns"
 fi
 
+# Re-sign ad hoc: the PlistBuddy edits above invalidate the signature osacompile wrote.
+codesign --force --deep --sign - "$APP"
 touch "$APP"
 
 # Nudge LaunchServices so the bundle shows up in Finder's "Open with" list.
