@@ -53,26 +53,26 @@ lalt + shift - 0x1B : /opt/homebrew/bin/aerospace resize smart -50 # minus
 lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50 # equal
 
 # Aerospace - Workspace navigation
-lalt - b : /opt/homebrew/bin/aerospace workspace B
-lalt - c : /opt/homebrew/bin/aerospace workspace C
-lalt - d : /opt/homebrew/bin/aerospace workspace D
-lalt - e : /opt/homebrew/bin/aerospace workspace E
-lalt - f : /opt/homebrew/bin/aerospace workspace F
-lalt - g : /opt/homebrew/bin/aerospace workspace G
-lalt - m : /opt/homebrew/bin/aerospace workspace M
-lalt - n : /opt/homebrew/bin/aerospace workspace N
-lalt - o : /opt/homebrew/bin/aerospace workspace O
-lalt - q : /opt/homebrew/bin/aerospace workspace Q
-lalt - r : /opt/homebrew/bin/aerospace workspace R
-lalt - s : /opt/homebrew/bin/aerospace workspace S
-lalt - t : /opt/homebrew/bin/aerospace workspace T
-lalt - y : /opt/homebrew/bin/aerospace workspace Y                              # notes / obsidian / reminders
-lalt - u : /opt/homebrew/bin/aerospace workspace U
-lalt - v : /opt/homebrew/bin/aerospace workspace V
-lalt - w : /opt/homebrew/bin/aerospace workspace W
-lalt - x : /opt/homebrew/bin/aerospace workspace X
-lalt - a : /opt/homebrew/bin/aerospace workspace A
-lalt - z : /opt/homebrew/bin/aerospace workspace Z
+lalt - b : ~/.local/libexec/aerospace-workspace B
+lalt - c : ~/.local/libexec/aerospace-workspace C
+lalt - d : ~/.local/libexec/aerospace-workspace D
+lalt - e : ~/.local/libexec/aerospace-workspace E
+lalt - f : ~/.local/libexec/aerospace-workspace F
+lalt - g : ~/.local/libexec/aerospace-workspace G
+lalt - m : ~/.local/libexec/aerospace-workspace M
+lalt - n : ~/.local/libexec/aerospace-workspace N
+lalt - o : ~/.local/libexec/aerospace-workspace O
+lalt - q : ~/.local/libexec/aerospace-workspace Q
+lalt - r : ~/.local/libexec/aerospace-workspace R
+lalt - s : ~/.local/libexec/aerospace-workspace S
+lalt - t : ~/.local/libexec/aerospace-workspace T
+lalt - y : ~/.local/libexec/aerospace-workspace Y                              # notes / obsidian / reminders
+lalt - u : ~/.local/libexec/aerospace-workspace U
+lalt - v : ~/.local/libexec/aerospace-workspace V
+lalt - w : ~/.local/libexec/aerospace-workspace W
+lalt - x : ~/.local/libexec/aerospace-workspace X
+lalt - a : ~/.local/libexec/aerospace-workspace A
+lalt - z : ~/.local/libexec/aerospace-workspace Z
 
 # Aerospace - Move to workspace
 lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
@@ -98,7 +98,7 @@ lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
 lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
 
 # Aerospace - toggle back and forth between workspaces
-lalt - tab : /opt/homebrew/bin/aerospace workspace-back-and-forth
+lalt - tab : ~/.local/libexec/aerospace-workspace --back-and-forth
 
 # Aerospace - wrap around
 lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
@@ -106,10 +106,10 @@ lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wra
 # Aerospace - Service mode
 lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
 
-lalt - i : /opt/homebrew/bin/aerospace workspace I
+lalt - i : ~/.local/libexec/aerospace-workspace I
 
 # P holds the headless-ish review browser that chrome-headed-bg parks there, so it needs a way in.
-lalt - p : /opt/homebrew/bin/aerospace workspace P
+lalt - p : ~/.local/libexec/aerospace-workspace P
 
 lalt + shift - i : /opt/homebrew/bin/aerospace move-node-to-workspace I
 
