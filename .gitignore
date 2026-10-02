@@ -40,3 +40,8 @@ __pycache__/
 # WORKTREE_PATH exported. Personal / machine-local customization —
 # never part of the public dotfiles commit.
 /dot_config/treekanga/postcreate/
+
+# Agent scratch dirs; ~/.gitignore_global covers them too, but not before chezmoi has applied it.
+/tasks/
+.claude/
+.playwright-mcp/

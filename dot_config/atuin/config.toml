@@ -38,7 +38,7 @@ records = true
 enabled = true
 
 # Auto-approves every permission check, including command execution and file edits.
-yolo = true
+yolo = false
 
 # any [keymap.*] section makes atuin ignore [keys], so scroll-past-edge exit is dropped via the j/down rebinds below.
 
