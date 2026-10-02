@@ -130,10 +130,6 @@ in
       show-thumbnail = false;             # Disable thumbnail preview (no focus stealing)
     };
 
-    CustomUserPreferences."com.sw33tlie.macshot.macshot" = {
-      copyPathAfterSave = true;           # Path as clipboard text so Cmd+V attaches it in terminal agents, like hyper+x
-    };
-
     # Lock Screen settings
     screensaver = {
       askForPassword = true;              # Require password after screensaver/display off
@@ -165,6 +161,11 @@ in
   # Uses `defaults -dict-add` (MERGE) NOT system.defaults.CustomUserPreferences, which would rewrite the whole AppleSymbolicHotKeys dict and WIPE the ~65 other hotkeys.
   # keycodes: 1=18 2=19 3=20 4=21 5=23 6=22 7=26 8=28 9=25 0=29 ; control mod = 262144
   system.activationScripts.postActivation.text = lib.mkAfter ''
+    # macshot's prefs live in its sandbox container, which macOS 27 locks to other apps; a failed write must not abort activation.
+    if ! sudo -u ${config.system.primaryUser} defaults write com.sw33tlie.macshot.macshot copyPathAfterSave -bool true 2>/dev/null; then
+      echo "⚠️  macshot: could not set copyPathAfterSave (sandbox container); enable 'Copy path after save' in macshot's settings" >&2
+    fi
+
     echo "⌨️  Freeing control+1..0 from Mission Control (Switch to Desktop)..." >&2
     disable_desktop_hotkey() {
       sudo -u ${config.system.primaryUser} defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys \
