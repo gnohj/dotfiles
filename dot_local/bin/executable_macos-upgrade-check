@@ -1,0 +1,244 @@
+#!/bin/bash
+# Post-upgrade health check using system tools only (/nix may be unmounted); each FAIL names its step in ~/.lavish/macos-26-upgrade-audit.html.
+
+pass=0
+fail=0
+warn=0
+
+ok() { printf 'PASS  %-22s %s\n' "$1" "$2"; pass=$((pass + 1)); }
+bad() { printf 'FAIL  %-22s %s\n      fix: %s\n' "$1" "$2" "$3"; fail=$((fail + 1)); }
+meh() { printf 'WARN  %-22s %s\n      fix: %s\n' "$1" "$2" "$3"; warn=$((warn + 1)); }
+
+daemon_state() {
+  launchctl print "system/$1" 2>/dev/null | awk -F' = ' '/^\tstate = /{print $2; exit}'
+}
+
+check_os() {
+  ok os "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
+}
+
+check_nix() {
+  if /sbin/mount | grep -q ' on /nix '; then
+    ok nix-mount "/nix is mounted"
+  else
+    bad nix-mount "/nix is not mounted" "step 1: System Settings > General > Login Items & Extensions > Allow in the Background > enable both 'sh' items, reboot. NEVER delete the Nix Store volume."
+    return
+  fi
+  if [ "$(daemon_state org.nixos.nix-daemon)" = "running" ]; then
+    ok nix-daemon "org.nixos.nix-daemon running"
+  else
+    bad nix-daemon "org.nixos.nix-daemon not running" "step 1 (BTM approval), then reboot"
+  fi
+  if [ -x /run/current-system/sw/bin/darwin-rebuild ]; then
+    ok darwin-rebuild "present"
+  else
+    bad darwin-rebuild "/run/current-system missing" "step 1, reboot, then step 4"
+  fi
+}
+
+check_etc() {
+  local f
+  for f in /etc/zshrc /etc/zprofile /etc/zshenv /etc/bashrc /etc/pam.d/sudo_local; do
+    if [ -L "$f" ] && [ "$(readlink "$f")" = "/etc/static/${f#/etc/}" ]; then
+      ok "etc:${f#/etc/}" "nix-darwin symlink"
+    else
+      bad "etc:${f#/etc/}" "not the nix-darwin symlink (the upgrade restored Apple's copy)" "step 3: sudo mv $f $f.before-nix-darwin, then step 4"
+    fi
+  done
+}
+
+check_clt() {
+  if xcrun --find clang >/dev/null 2>&1 && /usr/bin/git --version >/dev/null 2>&1; then
+    local clt
+    clt="$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables 2>/dev/null | awk '/^version:/{print $2}')"
+    if [ "${clt%%.*}" -lt "$(sw_vers -productVersion | cut -d. -f1)" ] 2>/dev/null; then
+      meh clt "CLT $clt is older than macOS $(sw_vers -productVersion)" "step 2: softwareupdate --list, then install the Command Line Tools label for this macOS"
+    else
+      ok clt "$clt"
+    fi
+  else
+    bad clt "xcrun/git fail (Command Line Tools invalidated); five herdr daemons run on /usr/bin/python3 and crash-loop until this is fixed" "step 2: xcode-select --install (or softwareupdate --list, install the Command Line Tools label)"
+  fi
+}
+
+check_brew() {
+  if ! /opt/homebrew/bin/brew --version >/dev/null 2>&1; then
+    bad brew "brew does not run" "step 4: re-run darwin-rebuild switch; then /opt/homebrew/bin/brew doctor"
+    return
+  fi
+  local pinned missing p
+  pinned="$(/opt/homebrew/bin/brew list --pinned 2>/dev/null)"
+  missing=""
+  for p in kanata tmux libevent ncurses; do
+    printf '%s\n' "$pinned" | grep -qx "$p" || missing="$missing $p"
+  done
+  if [ -z "$missing" ]; then
+    ok brew-pins "kanata tmux libevent ncurses"
+  else
+    bad brew-pins "not pinned:$missing" "brew pin$missing  (never run a blanket brew upgrade)"
+  fi
+}
+
+check_tmux() {
+  local target ver
+  target="$(readlink /opt/homebrew/bin/tmux 2>/dev/null)"
+  ver="$(/opt/homebrew/bin/tmux -V 2>&1)"
+  if [ "$target" = "$HOME/.local/opt/tmux-3.6b/bin/tmux" ] && [ "$ver" = "tmux 3.6b" ]; then
+    ok tmux "$ver via ~/.local/opt/tmux-3.6b"
+  else
+    bad tmux "link=${target:-none} -V='$ver'" "build-pinned-tmux (backup tree: ~/.local/opt/tmux-3.6b.pre-upgrade-backup)"
+  fi
+}
+
+check_keyboard() {
+  local ext
+  ext="$(systemextensionsctl list 2>/dev/null | grep -i 'Karabiner-DriverKit-VirtualHIDDevice')"
+  case "$ext" in
+    *"activated enabled"*) ok driver-ext "VirtualHIDDevice activated enabled" ;;
+    "") bad driver-ext "VirtualHIDDevice extension missing" "step 5: bash ~/.local/share/chezmoi/run_onchange_after_karabiner-driverkit.sh, approve in Login Items & Extensions > Driver Extensions" ;;
+    *) bad driver-ext "VirtualHIDDevice not active: $ext" "step 5: Manager forceActivate, approve in Login Items & Extensions > Driver Extensions, reboot (external keyboard)" ;;
+  esac
+  if [ "$(daemon_state org.nixos.karabiner-vhid-daemon)" = "running" ]; then
+    ok vhid-daemon "running"
+  else
+    bad vhid-daemon "org.nixos.karabiner-vhid-daemon not running" "step 5, then sudo launchctl kickstart -k system/org.nixos.karabiner-vhid-daemon"
+  fi
+  if [ "$(daemon_state org.nixos.kanata)" = "running" ]; then
+    ok kanata "running ($(/opt/homebrew/bin/kanata --version 2>/dev/null))"
+  else
+    bad kanata "org.nixos.kanata not running" "step 6: grant Input Monitoring + Accessibility to /opt/homebrew/bin/kanata, then sudo launchctl kickstart -k system/org.nixos.kanata"
+  fi
+  if [ -r /var/log/kanata.err.log ] && tail -n 20 /var/log/kanata.err.log | grep -q 'connect_failed'; then
+    bad kanata-driver "kanata log shows connect_failed" "driver/kanata version pair broke: kanata below 1.13 needs driver 6.2.0 (step 5)"
+  fi
+}
+
+check_desktop() {
+  local p
+  for p in sketchybar AeroSpace skhd borders; do
+    if pgrep -x "$p" >/dev/null; then
+      ok "$p" "running"
+    else
+      bad "$p" "not running" "step 6: grant Accessibility, then launchctl kickstart -k gui/$(id -u)/org.nixos.$(echo "$p" | tr 'A-Z' 'a-z') (AeroSpace: open -a AeroSpace)"
+    fi
+  done
+  local stamp
+  stamp="$(cat "$HOME/.config/sketchybar/bridge/.os-build" 2>/dev/null)"
+  if [ "$stamp" = "$(sw_vers -buildVersion)" ]; then
+    ok sketchybar-bridge "built for $stamp"
+  else
+    meh sketchybar-bridge "built for ${stamp:-unknown}" "sketchybar --reload (its init runs make, which rebuilds on an OS build change)"
+  fi
+}
+
+check_launchd() {
+  local loaded missing plist label
+  local disabled
+  loaded="$(launchctl list | awk 'NR>1 {print $3}')"
+  disabled="$(launchctl print-disabled "gui/$(id -u)" 2>/dev/null | awk -F'"' '/=> disabled/{print $2}')"
+  missing=""
+  for plist in "$HOME"/Library/LaunchAgents/org.nixos.*.plist; do
+    [ -e "$plist" ] || continue
+    label="$(basename "$plist" .plist)"
+    printf '%s\n' "$disabled" | grep -qx "$label" && continue
+    printf '%s\n' "$loaded" | grep -qx "$label" || missing="$missing ${label#org.nixos.}"
+  done
+  if [ -z "$missing" ]; then
+    ok launchd-loaded "every org.nixos user agent is loaded"
+  else
+    bad launchd-loaded "not loaded:$missing" "step 1: enable the 'bash' and 'zsh' items under Allow in the Background too, then log out and in (or step 4 reloads them)"
+  fi
+  local failed
+  failed="$(launchctl list | awk 'NR>1 && $1 == "-" && $3 ~ /^(org\.nixos|com\.gnohj)\./ && $2 != "0" {print $3 "(" $2 ")"}' | tr '\n' ' ')"
+  if [ -z "$failed" ]; then
+    ok launchd-agents "no stopped org.nixos/com.gnohj agent has a failing exit"
+  else
+    meh launchd-agents "$failed" "read ~/.logs/<name>/ for each; most recover after steps 2 (CLT) and 6 (TCC) and a re-login"
+  fi
+}
+
+check_golden_gate() {
+  [ "$(sw_vers -productVersion | cut -d. -f1)" -ge 27 ] || return 0
+  local ghostty_ver reduce
+  ghostty_ver="$(defaults read /Applications/Ghostty.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null)"
+  reduce="$(defaults read com.apple.universalaccess reduceTransparency 2>/dev/null)"
+  case "$ghostty_ver" in
+    1.[0-3].*)
+      if [ "$reduce" = "1" ] && grep -q '^macos-titlebar-style = hidden' "$HOME/.config/ghostty/config" 2>/dev/null; then
+        bad ghostty "Ghostty $ghostty_ver + hidden titlebar + Reduce Transparency hides the top terminal lines on 27" "G-02: ask the user - Reduce Transparency off (brings back the F-10 sketchybar overlap) or a different macos-titlebar-style, until Ghostty 1.4.0 ships"
+      else
+        ok ghostty "$ghostty_ver, bug condition not met"
+      fi ;;
+    "") meh ghostty "Ghostty not found" "brew install --cask ghostty" ;;
+    *) ok ghostty "$ghostty_ver (has the Golden Gate titlebar fix)" ;;
+  esac
+  if arch -x86_64 /usr/bin/true 2>/dev/null; then
+    ok rosetta "installed"
+  else
+    meh rosetta "not installed (27 does not restore it)" "G-05: softwareupdate --install-rosetta --agree-to-license"
+  fi
+  local quarantined f
+  quarantined=""
+  for f in /Library/LaunchDaemons/org.nixos.*.plist /Library/LaunchDaemons/org.pqrs.*.plist /Library/LaunchDaemons/systems.determinate.*.plist "$HOME"/Library/LaunchAgents/org.nixos.*.plist "$HOME"/Library/LaunchAgents/com.gnohj.*.plist; do
+    [ -e "$f" ] && xattr -p com.apple.quarantine "$f" >/dev/null 2>&1 && quarantined="$quarantined $(basename "$f")"
+  done
+  if [ -z "$quarantined" ]; then
+    ok launchd-quarantine "no owned plist is quarantined"
+  else
+    bad launchd-quarantine "27 refuses to load:$quarantined" "G-04: sudo xattr -d com.apple.quarantine <plist>, then reboot"
+  fi
+  local third_party
+  third_party=""
+  for f in /Library/LaunchDaemons/*.plist /Library/LaunchAgents/*.plist "$HOME"/Library/LaunchAgents/*.plist; do
+    case "$(basename "$f")" in org.nixos.* | org.pqrs.* | systems.determinate.* | com.gnohj.*) continue ;; esac
+    [ -e "$f" ] && xattr -p com.apple.quarantine "$f" >/dev/null 2>&1 && third_party="$third_party $f"
+  done
+  if [ -n "$third_party" ]; then
+    meh launchd-3rd-party "27 ignores these quarantined plists (browser updaters stop):$third_party" "G-04: xattr -d com.apple.quarantine <plist> (sudo for /Library)"
+  fi
+  local secure
+  secure="$(ioreg -l -w 0 | grep -o '"kCGSSessionSecureInputPID"=[0-9]*' | head -1 | cut -d= -f2)"
+  if [ -n "$secure" ]; then
+    meh secure-input "held by pid $secure ($(ps -o comm= -p "$secure" 2>/dev/null))" "G-14: skhd and AeroSpace get no keys while this lasts; kitty 0.49 on 27 holds it while focused, so focus another app or quit kitty"
+  else
+    ok secure-input "not held"
+  fi
+}
+
+check_misc() {
+  if [ -e /Library/Preferences/com.apple.wifi.known-networks.plist ]; then
+    ok wifi-plist "known-networks plist present"
+  else
+    meh wifi-plist "/Library/Preferences/com.apple.wifi.known-networks.plist missing" "F-08: find the new path, update executable_wifi-panel.sh:35 and wifi-ssid-sudoers.nix"
+  fi
+  if defaults read com.apple.controlcenter "NSStatusItem Visible FocusModes" >/dev/null 2>&1; then
+    ok focus-key "Control Center FocusModes key present"
+  else
+    meh focus-key "FocusModes key missing" "F-07: re-derive the key for items/widgets/executable_dnd.sh:24"
+  fi
+  if [ -x "$HOME/.local/bin/claude" ] && "$HOME/.local/bin/claude" --version >/dev/null 2>&1; then
+    ok claude "$("$HOME/.local/bin/claude" --version 2>/dev/null | head -1)"
+  else
+    bad claude "~/.local/bin/claude does not run" "curl -fsSL https://claude.ai/install.sh | bash"
+  fi
+  if [ -e "$HOME/.config/.accessibility-granted" ]; then
+    ok tcc-marker "present (you confirmed Accessibility grants)"
+  else
+    meh tcc-marker "absent" "step 6: grant Accessibility, then touch ~/.config/.accessibility-granted"
+  fi
+}
+
+check_os
+check_nix
+check_etc
+check_clt
+check_brew
+check_tmux
+check_keyboard
+check_desktop
+check_launchd
+check_golden_gate
+check_misc
+
+printf '\n%d pass, %d warn, %d fail\n' "$pass" "$warn" "$fail"
+[ "$fail" -eq 0 ]
