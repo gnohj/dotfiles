@@ -52,12 +52,12 @@ check_clt() {
     local clt
     clt="$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables 2>/dev/null | awk '/^version:/{print $2}')"
     if [ "${clt%%.*}" -lt "$(sw_vers -productVersion | cut -d. -f1)" ] 2>/dev/null; then
-      meh clt "CLT $clt is older than macOS $(sw_vers -productVersion)" "step 2: softwareupdate --list, then install the Command Line Tools label for this macOS"
+      meh clt "CLT $clt is older than macOS $(sw_vers -productVersion)" "step 2: softwareupdate --list, then sudo softwareupdate -i \"<Command Line Tools label>\" (xcode-select --install is a no-op while old CLT exist)"
     else
       ok clt "$clt"
     fi
   else
-    bad clt "xcrun/git fail (Command Line Tools invalidated); five herdr daemons run on /usr/bin/python3 and crash-loop until this is fixed" "step 2: xcode-select --install (or softwareupdate --list, install the Command Line Tools label)"
+    bad clt "xcrun/git fail (Command Line Tools invalidated); five herdr daemons run on /usr/bin/python3 and crash-loop until this is fixed" "step 2: softwareupdate --list, then sudo softwareupdate -i \"<Command Line Tools label>\" (xcode-select --install is a no-op while old CLT exist)"
   fi
 }
 
