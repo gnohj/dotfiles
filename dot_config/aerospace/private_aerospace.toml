@@ -206,12 +206,12 @@ if.app-id = 'com.apple.Terminal'
 run = "move-node-to-workspace N"
 
 [[on-window-detected]]
-if.app-id = 'net.imput.helium.app.hbbnngdahoedgkehefkoocdjcimcpamj'
+if.app-name-regex-substring = '^Slack( [0-9]+)?$'
 if.window-title-regex-substring = '(?i)huddle'
 run = ['move-node-to-workspace W', 'layout floating']
 
 [[on-window-detected]]
-if.app-id = 'net.imput.helium.app.hbbnngdahoedgkehefkoocdjcimcpamj'
+if.app-name-regex-substring = '^Slack( [0-9]+)?$'
 run = "move-node-to-workspace W"
 
 

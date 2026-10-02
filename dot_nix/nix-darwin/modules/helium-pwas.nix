@@ -28,6 +28,7 @@ let
       {
         url = "https://app.slack.com/client";
         default_launch_container = "window";
+        install_as_shortcut = true;
         custom_name = "Slack";
       }
       {
