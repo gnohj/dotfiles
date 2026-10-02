@@ -317,7 +317,7 @@ def thread_for(cwd, branch, entries):
         `…/review` checkout.
 
     A worktree hit must ALSO still be on the thread's branch. Treehouse slots are recycled:
-    `…/web-130256/1/web` carried IHRWEB-24272 until it merged, then got re-checked-out onto an
+    `…/web-130256/1/web` carried IHRWEB-12344 until it merged, then got re-checked-out onto an
     unrelated backport branch, and nothing deletes the thread file unless the worktree is torn
     down through tkrm. The path alone therefore stayed a unique hit and handed the new branch
     the old ticket's `jira_status: Completed`. `branch` is written once at creation and never
@@ -426,7 +426,7 @@ def fetch(branch, worktree):
 def ticket_pr_fallback(key, worktree, entries):
     """(pr_url, approvals, ci_status) for the TICKET when this branch has no PR of its own.
 
-    Several branches can feed one ticket's single PR - the three IHRWEB-24273 workspaces all
+    Several branches can feed one ticket's single PR - the three IHRWEB-12345 workspaces all
     contribute to one, and none of them carries a PR itself, so every badge on those rows stayed
     empty while the ticket's PR sat there with real review and CI state. The ticket is what the
     row is about, so the ticket's PR is the honest thing to show.

@@ -5,11 +5,11 @@
 # PATH output (default) - two transforms:
 #   1. Strip the container root (~/Developer, ~/.treehouse, ~/.local/share) so a
 #      git worktree keeps its distinguishing parent - web/master,
-#      master-130256/1/master, web/infra/IHRWEB-24278 - instead of collapsing to a
+#      master-130256/1/master, web/infra/IHRWEB-12345 - instead of collapsing to a
 #      bare basename the way starship's truncate_to_repo does (every pool slot
 #      rendered as an identical "review"/"master").
 #   2. Keep only the TICKET-1234 prefix of the last component, so
-#      IHRWEB-24278-release-automation renders as IHRWEB-24278. starship's
+#      IHRWEB-12345-search-endpoint renders as IHRWEB-12345. starship's
 #      directory.substitutions are literal-only (no regex, verified on 1.26), so
 #      this cannot live in the starship config.
 #

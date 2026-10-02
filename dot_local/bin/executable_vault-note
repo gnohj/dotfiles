@@ -10,7 +10,7 @@
 #   2. <vault>/Notes/work/<KEY>.md | <KEY>-*.md      (ingested, the usual home)
 #   3. <vault>/Notes-Inbox/<KEY>.md | <KEY>-*.md     (captured, not yet ingested)
 #
-# Key comes from the dir's branch, so IHRWEB-24314-foo, review/IHRWEB-24126/bar and
+# Key comes from the dir's branch, so IHRWEB-12345-foo, review/IHRWEB-6789/bar and
 # feature/ABC-1 all work. Exit 1 with no output = no repo, no ticket key, or no note yet.
 # No jq on purpose: the sidebar poller calls this from herdr's frozen daemon env.
 #

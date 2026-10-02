@@ -851,7 +851,7 @@ pullreq() {
   echo "No PR for branch — opened $repo PRs list"
 }
 
-# Parse a Jira ticket key (e.g. IHRWEB-23658) from the current branch name
+# Parse a Jira ticket key (e.g. IHRWEB-1234) from the current branch name
 # and open the corresponding ticket in the browser.
 ticket() {
   local branch key
