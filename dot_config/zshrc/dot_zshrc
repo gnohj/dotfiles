@@ -1196,7 +1196,13 @@ outdated() {
 
   if command -v brew >/dev/null 2>&1; then
     (( first )) && first=0 || echo ""
-    local brew_outdated=$(brew outdated)
+    # Skip pinned formulae and third-party tap deprecation noise.
+    local brew_err=$(mktemp)
+    local brew_outdated=$(brew outdated --json=v2 2>"$brew_err" | jq -r '[.formulae[], .casks[]] | map(select(.pinned != true)) | .[].name')
+    awk '/^Warning: Calling .* is deprecated!/ { skip = 1; next }
+      skip && (/^Please report this issue/ || /^  \// || /^$/) { if ($0 == "") skip = 0; next }
+      { skip = 0; print }' "$brew_err" >&2
+    rm -f "$brew_err"
     if [[ -n "$brew_outdated" ]]; then
       echo "$brew_outdated" | awk -v r="$brew_r" -v g="$brew_g" -v b="$brew_b" '{print "\033[38;2;" r ";" g ";" b "mbrew\033[0m package: " $1}'
     else
