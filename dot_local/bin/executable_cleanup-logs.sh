@@ -94,6 +94,20 @@ find "$LOG_DIR" -type d -empty -delete
 
 log_message "Removed empty directories"
 
+# ctime marks the move into the trash; mtime keeps the original file date.
+MINI_FILES_TRASH="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/mini.files/trash"
+TRASH_PURGED=0
+if [[ -d "$MINI_FILES_TRASH" ]]; then
+  while IFS= read -r -d '' entry; do
+    if rm -rf "$entry" 2>/dev/null; then
+      TRASH_PURGED=$((TRASH_PURGED + 1))
+    else
+      log_message "WARN: could not delete $entry (owned by another user?)"
+    fi
+  done < <(find "$MINI_FILES_TRASH" -mindepth 1 -maxdepth 1 -ctime +30 -print0)
+  log_message "mini.files trash: purged $TRASH_PURGED entries older than 30 days"
+fi
+
 # Keep only current month's cleanup log
 find "$CLEANUP_LOG_DIR" -type f -name "cleanup_*.log" ! -name "cleanup_${CURRENT_MONTH}.log" -delete
 
