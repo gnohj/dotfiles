@@ -71,6 +71,7 @@ in
           "${homeDir}/.local/bin/fm-loop-alarm"
         ];
         StartInterval = 300;
+        AbandonProcessGroup = true;
         StandardOutPath = "${homeDir}/.logs/fm-loop-alarm/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/fm-loop-alarm/launchagent.err.log";
       };
