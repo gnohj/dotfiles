@@ -139,8 +139,8 @@ up() {
   command -v sketchybar >/dev/null 2>&1 && sketchybar --trigger package_update 2>/dev/null || true
 
   print -P "%F{cyan}==> tpm: tmux plugins%f"
-  [ -x "$HOME/.tmux/plugins/tpm/bin/update_plugins" ] && \
-    "$HOME/.tmux/plugins/tpm/bin/update_plugins" all || true
+  local tpm="${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.config/tmux/plugins/}tpm/bin/update_plugins"
+  [ -x "$tpm" ] && "$tpm" all || true
 
   print -P "%F{green}==> up: done%f"
 }
@@ -1365,12 +1365,12 @@ if command -v sketchybar &>/dev/null; then
         # Trigger on commands that change state (brew has already finished here)
         case "$1" in
             install|uninstall|upgrade|update)
-                sketchybar --trigger package_update 2>/dev/null &
+                sketchybar --trigger package_update 2>/dev/null &!
                 ;;
         esac
         # Reload sketchybar after an upgrade so widgets pick up new binaries
         if [[ "$1" == "upgrade" ]]; then
-            sketchybar --reload 2>/dev/null &
+            sketchybar --reload 2>/dev/null &!
         fi
         return $exit_code
     }
@@ -1383,12 +1383,12 @@ if command -v sketchybar &>/dev/null; then
             # Trigger on commands that change state (mas has already finished here)
             case "$1" in
                 install|uninstall|upgrade)
-                    sketchybar --trigger package_update 2>/dev/null &
+                    sketchybar --trigger package_update 2>/dev/null &!
                     ;;
             esac
             # Reload sketchybar after an upgrade so widgets pick up new apps
             if [[ "$1" == "upgrade" ]]; then
-                sketchybar --reload 2>/dev/null &
+                sketchybar --reload 2>/dev/null &!
             fi
             return $exit_code
         }
@@ -1536,12 +1536,12 @@ if command -v sketchybar &>/dev/null; then
         # Only trigger on specific commands that actually change state (mise has already finished here)
         case "$1" in
             install|uninstall|upgrade|use)
-                sketchybar --trigger package_update 2>/dev/null &
+                sketchybar --trigger package_update 2>/dev/null &!
                 ;;
         esac
         # Reload sketchybar after an upgrade so widgets pick up new binaries
         if [[ "$1" == "upgrade" ]]; then
-            sketchybar --reload 2>/dev/null &
+            sketchybar --reload 2>/dev/null &!
         fi
         return $exit_code
     }
