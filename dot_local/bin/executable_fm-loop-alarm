@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Alerts and re-arms when Firstmate has work in flight but its supervision loop has no fresh beacon.
+# Alerts when Firstmate has work in flight but its supervision loop has no fresh beacon.
 set -u
 
 home=${FM_HOME:-$HOME/.local/share/firstmate}
@@ -19,20 +19,6 @@ if ! fm_supervision_unhealthy "$home/state" "$grace"; then
   rm -f "$stamp"
   exit 0
 fi
-
-rearm_pidfile=$stampdir/rearm.pid
-rearm_loop() {
-  [ "${FM_LOOP_ALARM_REARM:-1}" = 1 ] || return 0
-  local old; old=$(cat "$rearm_pidfile" 2>/dev/null || echo 0)
-  kill -0 "$old" 2>/dev/null && return 0
-  (
-    export FM_HOME="$home" CLAUDE_PROJECT_DIR="$root"
-    echo '{"hook_event_name":"Stop","session_id":"loop-alarm-rearm"}' | nohup "$root/bin/fm-claude-stop-autoarm.sh" >>"$stampdir/rearm.log" 2>&1 &
-    echo $! > "$rearm_pidfile"
-  )
-  printf '%s re-arm launched\n' "$(date -u +%FT%TZ)" >> "$stampdir/alarm.log"
-}
-rearm_loop
 
 now=$(date +%s)
 last=$(cat "$stamp" 2>/dev/null || echo 0)
