@@ -110,6 +110,23 @@ _update_summary_end() {
   rm -rf "$_UPDATE_SUMMARY_DIR"
 }
 
+# Third-party taps' DSL deprecations are not ours to fix; every other stderr line passes through.
+_drop_tap_deprecations() {
+  # sudo's use_pty leaves the terminal raw, so a bare \n would stair-step.
+  local ors='\n'
+  [[ -t 1 ]] && ors='\r\n'
+  awk -v ORS="$ors" '/^Warning: Calling .* is deprecated!/ { skip = 1; next }
+    skip && (/^Please report this issue/ || /^  \// || /^$/) { if ($0 == "") skip = 0; next }
+    { skip = 0; print; fflush() }'
+}
+
+_without_tap_deprecations() {
+  # MULTIOS would tee stdout into the pipe too, printing every line twice.
+  setopt localoptions nomultios
+  { "$@" 2>&1 1>&3 3>&- | _drop_tap_deprecations >&2; } 3>&1
+  return ${pipestatus[1]}
+}
+
 # `up` - `update` plus the heavy system layer: nix flake update + rebuild (darwin-rebuild / Omarchy, pacman or apt + home-manager), mise self-update + install, tpm. Each step banner'd + failure-tolerant.
 up() {
   local summary=0
@@ -121,7 +138,8 @@ up() {
     # Lock the chezmoi source, not ~/.nix: update's `chezmoi update` would revert a lock written only to the target.
     NIX_CONFIG="${ghtok:+access-tokens = github.com=$ghtok}" nix flake update --flake "$HOME/.local/share/chezmoi/dot_nix" || true
     chezmoi apply "$HOME/.nix/flake.lock" || true
-    sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon || true
+    # Piped stderr hides nix's progress bar anyway; bar format also drops the per-path download lines.
+    _without_tap_deprecations sudo darwin-rebuild switch --flake ~/.nix#macbook_silicon --log-format bar || true
   else
     if command -v omarchy-update >/dev/null 2>&1; then
       # The same command Omarchy's menu runs; a pacman hook blocks a raw -Syu here.
@@ -213,7 +231,7 @@ update() {
   fi
   if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1; then
     print -P "%F{cyan}==> brew upgrade%f"
-    brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; fails=$((fails + 1)); }
+    _without_tap_deprecations brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; fails=$((fails + 1)); }
   fi
   # Report-only: flags an AeroSpace upgrade or a broken hook behind the workspace-bounce workaround.
   if [ -x "$HOME/.local/libexec/aerospace-workspace" ]; then
@@ -1196,13 +1214,7 @@ outdated() {
 
   if command -v brew >/dev/null 2>&1; then
     (( first )) && first=0 || echo ""
-    # Skip pinned formulae and third-party tap deprecation noise.
-    local brew_err=$(mktemp)
-    local brew_outdated=$(brew outdated --json=v2 2>"$brew_err" | jq -r '[.formulae[], .casks[]] | map(select(.pinned != true)) | .[].name')
-    awk '/^Warning: Calling .* is deprecated!/ { skip = 1; next }
-      skip && (/^Please report this issue/ || /^  \// || /^$/) { if ($0 == "") skip = 0; next }
-      { skip = 0; print }' "$brew_err" >&2
-    rm -f "$brew_err"
+    local brew_outdated=$(_without_tap_deprecations brew outdated --json=v2 | jq -r '[.formulae[], .casks[]] | map(select(.pinned != true)) | .[].name')
     if [[ -n "$brew_outdated" ]]; then
       echo "$brew_outdated" | awk -v r="$brew_r" -v g="$brew_g" -v b="$brew_b" '{print "\033[38;2;" r ";" g ";" b "mbrew\033[0m package: " $1}'
     else
