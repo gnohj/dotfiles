@@ -95,8 +95,25 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
+# owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
+typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail)
+
+# Callers declare a local _UPDATE_SUMMARY_DIR only when it is empty, so a nested update leaves the summary to up.
+_update_summary_begin() {
+  command -v update-summary >/dev/null 2>&1 || return 1
+  _UPDATE_SUMMARY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/update-summary.XXXXXX") || return 1
+  update-summary snapshot "$_UPDATE_SUMMARY_DIR/before" "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
+}
+_update_summary_end() {
+  update-summary snapshot "$_UPDATE_SUMMARY_DIR/after" "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
+  update-summary report "$_UPDATE_SUMMARY_DIR"
+  rm -rf "$_UPDATE_SUMMARY_DIR"
+}
+
 # `up` - `update` plus the heavy system layer: nix flake update + rebuild (darwin-rebuild / Omarchy, pacman or apt + home-manager), mise self-update + install, tpm. Each step banner'd + failure-tolerant.
 up() {
+  local summary=0
+  if [[ -z "${_UPDATE_SUMMARY_DIR:-}" ]]; then local _UPDATE_SUMMARY_DIR; _update_summary_begin && summary=1; fi
   # Anonymous flake metadata 403s and nix silently reuses the cached lock - a no-op update reporting success.
   local ghtok=$(gh auth token 2>/dev/null)
   if [[ "$OSTYPE" == darwin* ]]; then
@@ -142,12 +159,14 @@ up() {
   local tpm="${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.config/tmux/plugins/}tpm/bin/update_plugins"
   [ -x "$tpm" ] && "$tpm" all || true
 
+  (( summary )) && _update_summary_end
   print -P "%F{green}==> up: done%f"
 }
 
 # `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
-  local repo name slug fails=0
+  local repo name slug fails=0 summary=0
+  if [[ -z "${_UPDATE_SUMMARY_DIR:-}" ]]; then local _UPDATE_SUMMARY_DIR; _update_summary_begin && summary=1; fi
   # UPDATE_NO_VPS=1 skips it; the VPS pulls chezmoi from GitHub, so it only sees what has been pushed.
   if [[ "$OSTYPE" == darwin* && -z "${UPDATE_NO_VPS:-}" && -x "$HOME/.local/bin/update-vps" ]]; then
     "$HOME/.local/bin/update-vps" --background
@@ -159,8 +178,7 @@ update() {
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
   if command -v git >/dev/null 2>&1; then
-    # owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
-    for slug in gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail; do
+    for slug in $_update_repo_slugs; do
       name=${slug:t}
       repo="$HOME/Developer/$name"
       if [ ! -d "$repo/.git" ]; then
@@ -217,6 +235,7 @@ update() {
     "$HOME/.local/bin/herdr-server-health" ||
       { print -P "%F{yellow}   herdr server is not systemd-owned (see above)%f"; fails=$((fails + 1)); }
   fi
+  (( summary )) && _update_summary_end
   if (( fails )); then
     print -P "%F{yellow}==> update: done with $fails issue(s)%f"
   else

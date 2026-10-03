@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# update-summary snapshot <dir> [repo...] | report <dir> - record installed state before and after up/update, then print what changed as a table.
+set -uo pipefail
+
+arrow='→'
+
+tsv_sorted() { LC_ALL=C sort -t "$(printf '\t')" -k1,1; }
+
+snap_git() { # out repo...
+  local out=$1 repo
+  shift
+  : >"$out"
+  for repo in "$@"; do
+    [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || continue
+    printf '%s\t%s\t%s\n' "${repo##*/}" "$repo" "$(git -C "$repo" rev-parse HEAD 2>/dev/null)" >>"$out"
+  done
+}
+
+snap_dir_versions() { # root - <name>\t<comma-joined version dirs>, the Cellar/Caskroom layout
+  local root=$1 pkg
+  [ -d "$root" ] || return 0
+  for pkg in "$root"/*/; do
+    pkg=${pkg%/}
+    printf '%s\t%s\n' "${pkg##*/}" "$(ls "$pkg" 2>/dev/null | grep -v '^\.' | paste -sd ' ' -)"
+  done
+}
+
+snap_mise() {
+  command -v mise >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
+  mise ls --current --json 2>/dev/null |
+    jq -r 'to_entries[] | "\(.key)\t\([.value[] | select(.active) | .version] | join(","))"' 2>/dev/null
+}
+
+# Receipts instead of `mas list`, which comes back empty whenever Spotlight has not indexed the apps.
+snap_app_store() {
+  local app
+  for app in /Applications/*.app; do
+    [ -d "$app/Contents/_MASReceipt" ] || continue
+    printf '%s\t%s\n' "$(basename "$app" .app)" \
+      "$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist" 2>/dev/null)"
+  done
+}
+
+snap_flake() {
+  local lock="$HOME/.local/share/chezmoi/dot_nix/flake.lock"
+  [ -f "$lock" ] && command -v jq >/dev/null 2>&1 || return 0
+  jq -r '.nodes | to_entries[] | select(.value.locked.rev) | "\(.key)\t\(.value.locked.rev[0:7])"' "$lock"
+}
+
+nix_profile() {
+  if [ -e /run/current-system ]; then
+    readlink -f /run/current-system
+  elif [ -e "$HOME/.local/state/nix/profiles/home-manager" ]; then
+    readlink -f "$HOME/.local/state/nix/profiles/home-manager"
+  fi
+}
+
+snap_system_packages() {
+  if command -v pacman >/dev/null 2>&1; then
+    pacman -Q 2>/dev/null | awk '{ print $1 "\t" $2 }'
+  elif command -v dpkg-query >/dev/null 2>&1; then
+    dpkg-query -W -f '${Package}\t${Version}\n' 2>/dev/null
+  fi
+}
+
+snapshot() {
+  local dir=$1
+  shift
+  mkdir -p "$dir"
+  snap_git "$dir/git.tsv" "$@"
+  snap_git "$dir/tmux-plugin.tsv" "${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.config/tmux/plugins}"/*
+  if command -v brew >/dev/null 2>&1; then
+    snap_dir_versions "$(brew --cellar)" | tsv_sorted >"$dir/brew.tsv"
+    snap_dir_versions "$(brew --caskroom)" | tsv_sorted >"$dir/cask.tsv"
+  fi
+  snap_mise | tsv_sorted >"$dir/mise.tsv"
+  [ "$(uname -s)" = Darwin ] && snap_app_store | tsv_sorted >"$dir/mas.tsv"
+  snap_flake | tsv_sorted >"$dir/flake.tsv"
+  snap_system_packages | tsv_sorted >"$dir/system.tsv"
+  nix_profile >"$dir/nix-profile"
+}
+
+report_git() { # area before after show_unchanged
+  local area=$1 before=$2 after=$3 show_unchanged=$4 name repo sha old count behind
+  while IFS="$(printf '\t')" read -r name repo sha; do
+    old=$(awk -F'\t' -v r="$repo" '$2 == r { print $3 }' "$before" 2>/dev/null)
+    if [ -z "$old" ]; then
+      printf '%s\t%s\tcloned at %s\n' "$area" "$name" "${sha:0:7}"
+    elif [ "$old" = "$sha" ]; then
+      # Upstream refs were just fetched, so a repo still behind them means its pull failed.
+      behind=$(git -C "$repo" rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo 0)
+      if [ "${behind:-0}" -gt 0 ]; then
+        printf '%s\t%s\tNOT UPDATED, %s commit%s behind upstream (git -C %s status)\n' "$area" "$name" "$behind" "$([ "$behind" = 1 ] || echo s)" "$repo"
+      elif [ "$show_unchanged" = 1 ]; then
+        printf '%s\t%s\tup to date\n' "$area" "$name"
+      fi
+    elif count=$(git -C "$repo" rev-list --count "$old..$sha" 2>/dev/null) && git -C "$repo" merge-base --is-ancestor "$old" "$sha" 2>/dev/null; then
+      printf '%s\t%s\t%s %s %s (+%s commit%s)\n' "$area" "$name" "${old:0:7}" "$arrow" "${sha:0:7}" "$count" "$([ "$count" = 1 ] || echo s)"
+    else
+      printf '%s\t%s\t%s %s %s (history rewritten)\n' "$area" "$name" "${old:0:7}" "$arrow" "${sha:0:7}"
+    fi
+  done <"$after"
+}
+
+report_versions() { # area before after
+  [ -f "$2" ] && [ -f "$3" ] || return 0
+  awk -F'\t' -v area="$1" -v arrow="$arrow" '
+    NR == FNR { before[$1] = $2; next }
+    { after[$1] = $2 }
+    END {
+      for (k in after) {
+        if (!(k in before)) print area "\t" k "\tadded " after[k]
+        else if (before[k] != after[k]) print area "\t" k "\t" before[k] " " arrow " " after[k]
+      }
+      for (k in before) if (!(k in after)) print area "\t" k "\tremoved " before[k]
+    }' "$2" "$3" | LC_ALL=C sort
+}
+
+# Only real version moves; size-only churn in dependencies is dropped.
+report_nix() { # before after hint-file
+  local old new limit=15 changes
+  old=$(cat "$1/nix-profile" 2>/dev/null)
+  new=$(cat "$2/nix-profile" 2>/dev/null)
+  [ -n "$old" ] && [ -n "$new" ] && [ "$old" != "$new" ] && command -v nix >/dev/null 2>&1 || return 0
+  changes=$(nix store diff-closures "$old" "$new" 2>/dev/null |
+    sed -e $'s/\033\\[[0-9;]*m//g' -e 's/, [+-][0-9.]* [KMG]iB$//' | grep "$arrow")
+  [ -n "$changes" ] || return 0
+  printf '%s\n' "$changes" | head -n "$limit" | awk '{ name = $1; sub(/:$/, "", name); $1 = ""; sub(/^ /, ""); gsub("∅", "none"); print "nix\t" name "\t" $0 }'
+  local total
+  total=$(printf '%s\n' "$changes" | wc -l | tr -d ' ')
+  [ "$total" -gt "$limit" ] || return 0
+  printf 'nix\t+%s more\tfull list below\n' "$((total - limit))"
+  printf 'nix store diff-closures %s %s\n' "$old" "$new" >"$3"
+}
+
+report() {
+  local dir=$1 before="$1/before" after="$1/after" rows area quiet=()
+  [ -d "$before" ] && [ -d "$after" ] || { echo "update-summary: missing snapshot in $dir" >&2; exit 1; }
+  rows=$(
+    report_git repo "$before/git.tsv" "$after/git.tsv" 1
+    report_git tmux-plugin "$before/tmux-plugin.tsv" "$after/tmux-plugin.tsv" 0
+    report_versions flake "$before/flake.tsv" "$after/flake.tsv"
+    report_nix "$before" "$after" "$dir/nix-more"
+    report_versions brew "$before/brew.tsv" "$after/brew.tsv"
+    report_versions cask "$before/cask.tsv" "$after/cask.tsv"
+    report_versions mise "$before/mise.tsv" "$after/mise.tsv"
+    report_versions mas "$before/mas.tsv" "$after/mas.tsv"
+    report_versions system "$before/system.tsv" "$after/system.tsv"
+  )
+  for area in tmux-plugin flake nix brew cask mise mas system; do
+    printf '%s\n' "$rows" | grep -q "^$area"$'\t' && continue
+    case $area in
+      nix) [ -s "$after/nix-profile" ] || continue ;;
+      mas) [ -f "$after/mas.tsv" ] || continue ;;
+      *) [ -s "$after/$area.tsv" ] || continue ;;
+    esac
+    quiet+=("$area")
+  done
+  local bold='' reset=''
+  [ -t 1 ] && bold=$'\033[1m' && reset=$'\033[0m'
+  printf '\n%s==> what changed%s\n' "$bold" "$reset"
+  { printf 'AREA\tITEM\tCHANGE\n'; printf '%s\n' "$rows" | grep -v '^$'; } | column -t -s "$(printf '\t')"
+  [ -s "$dir/nix-more" ] && printf 'all nix changes: %s\n' "$(cat "$dir/nix-more")"
+  [ ${#quiet[@]} -gt 0 ] && printf 'no changes: %s\n' "$(IFS=,; echo "${quiet[*]}" | sed 's/,/, /g')"
+  return 0
+}
+
+case "${1:-}" in
+  snapshot) shift; [ $# -ge 1 ] || { echo "usage: update-summary snapshot <dir> [repo...]" >&2; exit 2; }; snapshot "$@" ;;
+  report) [ $# -eq 2 ] || { echo "usage: update-summary report <dir>" >&2; exit 2; }; report "$2" ;;
+  *) echo "usage: update-summary snapshot <dir> [repo...] | report <dir>" >&2; exit 2 ;;
+esac
