@@ -39,7 +39,27 @@
         "id": "ctx",
         "type": "context-percentage",
         "rawValue": true,
-        "color": "hex:{{ $pal.color14 | trimPrefix "#" }}"
+        "color": "hex:{{ $pal.color02 | trimPrefix "#" }}"
+      },
+      {
+        "id": "ctxopen",
+        "type": "custom-text",
+        "customText": "(",
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}",
+        "merge": "no-padding"
+      },
+      {
+        "id": "ctxlen",
+        "type": "context-length",
+        "rawValue": true,
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}",
+        "merge": "no-padding"
+      },
+      {
+        "id": "ctxclose",
+        "type": "custom-text",
+        "customText": ")",
+        "color": "hex:{{ $pal.color13 | trimPrefix "#" }}"
       },
       {
         "id": "sep1",
