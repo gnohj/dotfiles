@@ -57,7 +57,8 @@ fi
 # The tab is rooted at a DIRECTORY (a file target still opens yazi on the file, hovered).
 if [ -d "$TARGET" ]; then dir="$TARGET"; else dir=$(dirname "$TARGET"); fi
 
-out=$("$herdr" tab create ${cur_ws:+--workspace "$cur_ws"} --cwd "$dir" --label "📂" --focus 2>/dev/null)
+out=$("$herdr" tab create ${cur_ws:+--workspace "$cur_ws"} --cwd "$dir" --label "📂" --focus \
+  --env "YAZI_FAST_TARGET=$TARGET" --env "YAZI_START_DIR=${host_cwd:-$dir}" 2>/dev/null)
 root=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty')
 tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
 ws=$(printf '%s' "$out" | jq -r '.result.tab.workspace_id // empty')
@@ -70,7 +71,3 @@ if [ -n "$tab" ]; then
         '([.result.tabs[] | select(.workspace_id == $ws) | .tab_id] | index($id) // empty) | if . == null then empty else . + 1 end')
   "$herdr" tab rename "$tab" "${num:+$num.}📂" >/dev/null 2>&1
 fi
-
-# YAZI_START_DIR mirrors the `y` alias so yazi.toml's edit opener returns nvim to the launch dir; trailing `exit` closes the tab on quit.
-"$herdr" pane run "$root" \
-  "YAZI_START_DIR=$(printf %q "${host_cwd:-$dir}") yazi $(printf %q "$TARGET"); exit" >/dev/null 2>&1
