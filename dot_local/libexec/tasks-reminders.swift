@@ -2,7 +2,7 @@
 import EventKit
 import Foundation
 
-let listName = ProcessInfo.processInfo.environment["TASKS_REMINDERS_LIST"] ?? "Inbox"
+let listName = ProcessInfo.processInfo.environment["TASKS_REMINDERS_LIST"] ?? "Projects (Personal)"
 let iso = ISO8601DateFormatter()
 let dayFmt: DateFormatter = {
     let f = DateFormatter()
@@ -26,14 +26,20 @@ store.requestFullAccessToReminders { ok, _ in granted = ok; authSem.signal() }
 authSem.wait()
 guard granted else { die("no Reminders access (TCC). Run from a terminal that holds it.") }
 
-guard let cal = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
+let calendars = store.calendars(for: .reminder)
+guard let cal = calendars.first(where: { $0.title == listName }) else {
     die("no reminder list named \(listName)")
+}
+
+func calendar(named name: String?) -> EKCalendar? {
+    let wanted = name ?? listName
+    return calendars.first(where: { $0.title == wanted })
 }
 
 func fetchAll() -> [EKReminder] {
     var out: [EKReminder] = []
     let sem = DispatchSemaphore(value: 0)
-    store.fetchReminders(matching: store.predicateForReminders(in: [cal])) { r in
+    store.fetchReminders(matching: store.predicateForReminders(in: calendars)) { r in
         out = r ?? []
         sem.signal()
     }
@@ -48,6 +54,7 @@ func encode(_ r: EKReminder) -> [String: Any] {
     }
     return [
         "id": r.calendarItemIdentifier,
+        "list": r.calendar.title,
         "title": r.title ?? "",
         "due": due,
         "notes": r.notes ?? NSNull(),
@@ -83,6 +90,9 @@ switch CommandLine.arguments.dropFirst().first ?? "" {
 case "list":
     emit(fetchAll().map(encode))
 
+case "lists":
+    emit(calendars.map { $0.title })
+
 case "apply":
     let input = FileHandle.standardInput.readDataToEndOfFile()
     guard let ops = (try? JSONSerialization.jsonObject(with: input)) as? [[String: Any]] else {
@@ -99,7 +109,10 @@ case "apply":
             switch kind {
             case "create":
                 let r = EKReminder(eventStore: store)
-                r.calendar = cal
+                guard let target = calendar(named: op["list"] as? String) else {
+                    results.append(["ref": ref, "ok": false, "error": "no reminder list named \(op["list"] ?? "")"]); continue
+                }
+                r.calendar = target
                 r.title = op["title"] as? String ?? ""
                 if let due = op["due"] as? String { r.dueDateComponents = dayComponents(due) }
                 if let notes = op["notes"] as? String { r.notes = notes }
@@ -110,6 +123,12 @@ case "apply":
             case "update":
                 guard let id = op["id"] as? String, let r = byID[id] else {
                     results.append(["ref": ref, "ok": false, "error": "unknown id"]); continue
+                }
+                if let l = op["list"] as? String {
+                    guard let target = calendar(named: l) else {
+                        results.append(["ref": ref, "ok": false, "error": "no reminder list named \(l)"]); continue
+                    }
+                    r.calendar = target
                 }
                 if let t = op["title"] as? String { r.title = t }
                 if op.keys.contains("due") {
@@ -138,5 +157,5 @@ case "apply":
     emit(results)
 
 default:
-    die("usage: tasks-reminders list | tasks-reminders apply < ops.json")
+    die("usage: tasks-reminders list | lists | apply < ops.json")
 }
