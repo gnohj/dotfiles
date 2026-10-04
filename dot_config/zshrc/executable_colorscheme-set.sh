@@ -2604,6 +2604,7 @@ generate_tuxedo_theme() {
   tuxedo_cursor="$(gnohj_relight "$gnohj_color04" 0.20)"
   tuxedo_selected="$(gnohj_relight "$gnohj_color04" 0.26)"
   tuxedo_dim="$(gnohj_relight "$gnohj_color08" 0.50)"
+  # accent doubles as the autocomplete highlight bg, so it matches the cursor row.
   mkdir -p "$(dirname "$tuxedo_theme_file")"
 
   cat >"$tuxedo_theme_file" <<EOF
@@ -2614,7 +2615,7 @@ panel = reset
 border = $gnohj_color08
 fg = $gnohj_color14
 dim = $tuxedo_dim
-accent = $gnohj_color03
+accent = $tuxedo_cursor
 cursor = $tuxedo_cursor
 selection = $tuxedo_cursor
 statusbar = reset
