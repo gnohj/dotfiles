@@ -29,6 +29,8 @@ DATES_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\s+){0,2}")
 # (?!//) so a URL scheme is not mistaken for a key:value extension - todo.txt keys never contain a slash.
 KEYVAL_RE = re.compile(r"(?:^|\s)[A-Za-z][A-Za-z0-9_]*:(?!//)\S+")
 TAG_RE = re.compile(r"(?:^|\s)[+@]\S+")
+CONTEXT_RE = re.compile(r"(?:^|\s)@(\S+)")
+INBOX_LIST = os.environ.get("TASKS_REMINDERS_LIST", "Projects (Personal)")
 
 TODO_PRI_TO_REM = {"A": 1, "B": 5, "C": 9}
 REM_PRI_TO_TODO = {1: "A", 2: "A", 3: "A", 4: "A", 5: "B", 6: "C", 7: "C", 8: "C", 9: "C"}
@@ -46,6 +48,30 @@ def helper(args, stdin=None):
     if r.returncode != 0:
         raise RuntimeError(r.stderr.strip() or "helper failed")
     return json.loads(r.stdout or "[]")
+
+
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def list_aliases(titles):
+    """Context name -> list title: the title slug, or minus a trailing (qualifier) when unambiguous."""
+    aliases, bare = {}, {}
+    for title in titles:
+        aliases[slug(title)] = title
+        bare.setdefault(slug(re.sub(r"\s*\([^)]*\)\s*$", "", title)), []).append(title)
+    for name, owners in bare.items():
+        if len(owners) == 1:
+            aliases.setdefault(name, owners[0])
+    return aliases
+
+
+def target_list(line, aliases):
+    """The list for the first context that names one; None leaves the task where it is."""
+    for ctx in CONTEXT_RE.findall(line):
+        if slug(ctx) in aliases:
+            return aliases[slug(ctx)]
+    return None
 
 
 def resolve_threshold(raw, due):
@@ -151,7 +177,10 @@ def baseline():
 
 
 def sync_once(dry=False):
+    aliases = list_aliases(helper(["lists"]))
     todo = [parse(l) for l in read_lines(TODO_FILE)]
+    for t in todo:
+        t["list"] = target_list(t["raw"], aliases)
     # Without done.txt an archived task is indistinguishable from a deleted one.
     archived = {t["rem"] for t in (parse(l) for l in read_lines(DONE_FILE)) if t["rem"]}
     snap = load_snapshot()
@@ -176,6 +205,8 @@ def sync_once(dry=False):
             op["priority"] = TODO_PRI_TO_REM[t["priority"]]
         if t["alarm"]:
             op["alarm"] = t["alarm"]
+        if t["list"]:
+            op["list"] = t["list"]
         ops.append(op)
         refs.append((ref, t))
 
@@ -187,13 +218,15 @@ def sync_once(dry=False):
             if rid in linked:
                 # Only a reminder that HAD a line counts as deleted; merely seen is not enough.
                 ops.append({"op": "delete", "ref": f"del:{rid}", "id": rid})
-            elif rid not in prev and not r["completed"]:
+            elif rid not in prev and not r["completed"] and r["list"] == INBOX_LIST:
                 due = f" due:{r['due']}" if r["due"] else ""
                 pri = REM_PRI_TO_TODO.get(r["priority"], "")
                 pri = f"({pri}) " if pri else ""
                 captures.append(f"{pri}{r['title']}{due} rem:{rid}")
             continue
         was = prev.get(rid, {})
+        if t["list"] and not t["completed"] and t["list"] != r["list"]:
+            ops.append({"op": "update", "ref": f"move:{rid}", "id": rid, "list": t["list"]})
         if t["completed"] and not r["completed"]:
             ops.append({"op": "update", "ref": f"done:{rid}", "id": rid, "completed": True})
         elif r["completed"] and not t["completed"]:
