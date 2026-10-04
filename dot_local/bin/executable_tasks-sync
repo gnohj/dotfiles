@@ -216,6 +216,9 @@ def sync_once(dry=False):
                 new = new.replace(t["title"], r["title"], 1)
             if new != lines[i]:
                 lines[i], changed = new, True
+        elif t["title"] != r["title"] or t["due"] != r["due"]:
+            ops.append({"op": "update", "ref": f"edit:{rid}", "id": rid,
+                        "title": t["title"], "due": t["due"]})
 
     for rid in linked:
         if rid in live or rid in archived:
