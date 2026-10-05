@@ -73,7 +73,7 @@ import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from herdr_label import indent_first, is_agent_home  # noqa: E402  (needs the path above)
+from herdr_label import indent_first, is_agent_home, row_indent  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
@@ -646,7 +646,7 @@ def refresh_once():
         jira_value = UNMERGED if pr_glyph and jira == "done" else jira
         if is_crewmate(label):
             values = {"prn": pr_number(url), "cpr": pr_glyph, "cjira": jira_value}
-            slots = lead_with_prefix(row3_slots(values, focused), CREW_PREFIX)
+            slots = lead_with_prefix(row3_slots(values, focused), row_indent(label) + CREW_PREFIX)
         else:
             slots = row3_slots({JIRA_TOKEN: jira_value, TOKEN: pr_glyph}, focused)
             slots = slots if led else indent_first(slots, label, ROW3_ORDER)
