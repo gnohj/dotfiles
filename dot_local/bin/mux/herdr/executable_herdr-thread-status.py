@@ -73,7 +73,7 @@ import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from herdr_label import indent_first, is_agent_home  # noqa: E402  (needs the path above)
+from herdr_label import indent_first, is_agent_home, row_indent  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
@@ -83,6 +83,8 @@ TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
 JIRA_TOKEN = "jira"
+PRN_TOKEN = "prn"
+PR_NUMBER_RE = re.compile(r"/pull/([0-9]+)")
 # Row 2's trailing token order in [ui.sidebar.spaces]; the indent rides whichever is lit first when no $br leads the row.
 # Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
 ROW3_ORDER = ("pr", "pr_d", "jira", "jira_d")
@@ -279,9 +281,17 @@ def row3_slots(values, focused):
     return slots
 
 
+def pr_number_token(label, url):
+    """`#<number>` for a crewmate's PR, indented under the label's text; "" for any other workspace or no PR."""
+    match = PR_NUMBER_RE.search(url or "")
+    if not match or not label.startswith("└ "):
+        return ""
+    return row_indent(label) + "#" + match.group(1)
+
+
 def blank_tokens():
     """Every row token empty; report() turns each into a --clear-token, so nothing lingers."""
-    return {name: "" for name in ROW3_ORDER}
+    return {name: "" for name in ROW3_ORDER + (PRN_TOKEN,)}
 
 
 
@@ -618,6 +628,7 @@ def refresh_once():
             # holds rather than blanking a badge because one pass could not reach GitHub.
             approvals = data.get("pr_approvals") if data else None
             ci = data.get("ci_status") if data else None
+            url = data.get("pr_url") if data else None
         pr_glyph = render(approvals, ci)
         jira = jira_short(data.get("jira_status") if data else None)
         values = {
@@ -625,7 +636,9 @@ def refresh_once():
             TOKEN: pr_glyph,
         }
         slots = row3_slots(values, focused)
-        report(workspace, slots if led else indent_first(slots, label, ROW3_ORDER), seq)
+        slots = slots if led else indent_first(slots, label, ROW3_ORDER)
+        slots[PRN_TOKEN] = pr_number_token(label, url)
+        report(workspace, slots, seq)
 
 
 def clear_all():
