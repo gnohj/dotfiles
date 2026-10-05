@@ -73,7 +73,7 @@ import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from herdr_label import indent_first, is_agent_home, row_indent  # noqa: E402  (needs the path above)
+from herdr_label import indent_first, is_agent_home  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
@@ -83,13 +83,13 @@ TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
 SOURCE = "thread-status"
 TOKEN = "pr"
 JIRA_TOKEN = "jira"
-PRN_TOKEN = "prn"
+CREW_PREFIX = "└ "
 PR_NUMBER_RE = re.compile(r"/pull/([0-9]+)")
 # Row 2's trailing token order in [ui.sidebar.spaces]; the indent rides whichever is lit first when no $br leads the row.
 # Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
-ROW3_ORDER = ("pr", "pr_d", "jira", "jira_d")
+ROW3_ORDER = ("prn", "prn_d", "cpr", "cpr_d", "cjira", "cjira_d", "pr", "pr_d", "jira", "jira_d")
 # Zone -> (lit slot, dim slot). Shared with the focus tracker.
-ROW3_ZONES = (("pr", "pr_d"), ("jira", "jira_d"))
+ROW3_ZONES = (("prn", "prn_d"), ("cpr", "cpr_d"), ("cjira", "cjira_d"), ("pr", "pr_d"), ("jira", "jira_d"))
 # A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
 REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
@@ -281,17 +281,29 @@ def row3_slots(values, focused):
     return slots
 
 
-def pr_number_token(label, url):
-    """`#<number>` for a crewmate's PR, indented under the label's text; "" for any other workspace or no PR."""
+def is_crewmate(label):
+    """A firstmate crewmate is a `└ ` projection; its PR, approvals and Jira ride their own row."""
+    return label.startswith(CREW_PREFIX)
+
+
+def pr_number(url):
+    """`#<number>` from a PR url, or "" without one."""
     match = PR_NUMBER_RE.search(url or "")
-    if not match or not label.startswith("└ "):
-        return ""
-    return row_indent(label) + "#" + match.group(1)
+    return "#" + match.group(1) if match else ""
+
+
+def lead_with_prefix(tokens, prefix):
+    """Put `prefix` on the first lit token in row order. Mutates and returns `tokens`."""
+    for name in ROW3_ORDER:
+        if tokens.get(name):
+            tokens[name] = prefix + tokens[name]
+            break
+    return tokens
 
 
 def blank_tokens():
     """Every row token empty; report() turns each into a --clear-token, so nothing lingers."""
-    return {name: "" for name in ROW3_ORDER + (PRN_TOKEN,)}
+    return {name: "" for name in ROW3_ORDER}
 
 
 
@@ -631,13 +643,13 @@ def refresh_once():
             url = data.get("pr_url") if data else None
         pr_glyph = render(approvals, ci)
         jira = jira_short(data.get("jira_status") if data else None)
-        values = {
-            JIRA_TOKEN: UNMERGED if pr_glyph and jira == "done" else jira,
-            TOKEN: pr_glyph,
-        }
-        slots = row3_slots(values, focused)
-        slots = slots if led else indent_first(slots, label, ROW3_ORDER)
-        slots[PRN_TOKEN] = pr_number_token(label, url)
+        jira_value = UNMERGED if pr_glyph and jira == "done" else jira
+        if is_crewmate(label):
+            values = {"prn": pr_number(url), "cpr": pr_glyph, "cjira": jira_value}
+            slots = lead_with_prefix(row3_slots(values, focused), CREW_PREFIX)
+        else:
+            slots = row3_slots({JIRA_TOKEN: jira_value, TOKEN: pr_glyph}, focused)
+            slots = slots if led else indent_first(slots, label, ROW3_ORDER)
         report(workspace, slots, seq)
 
 
