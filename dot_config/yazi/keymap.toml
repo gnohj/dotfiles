@@ -7,7 +7,7 @@ prepend_keymap = [
   { on = "q", run = "escape", desc = "Exit visual mode, clear selection, or cancel search" },
   { on = "o", run = "create", desc = "Create a file (ends with / for directories)" },
   { on = "t", run = [ "select --state=none", "arrow 0" ], desc = "Toggle the current selection state" },
-  { on = [ "d", "d" ], run = "remove", desc = "Trash selected files" },
+  { on = [ "d", "d" ], run = "shell -- trash %s", desc = "Trash selected files via CLI (yazi trash hangs on iCloud files)" },
   { on = [ "d", "r" ], run = "plugin restore", desc = "Restore trashed files" },
   { on = [ "y", "y" ], run = "yank", desc = "Yank selected files (copy)" },
 
