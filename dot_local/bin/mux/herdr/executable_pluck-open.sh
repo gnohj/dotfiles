@@ -17,7 +17,10 @@ resolve_file() {
     return
   fi
   for base in "$cwd" "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"; do
-    [ -n "$base" ] && [ -f "$base/$p" ] && { printf '%s' "$base/$p"; return; }
+    [ -n "$base" ] && [ -f "$base/$p" ] && {
+      printf '%s' "$base/$p"
+      return
+    }
   done
 }
 
@@ -28,9 +31,9 @@ open_in_nvim() {
   tab=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty')
   [ -n "$root" ] || return 1
   ws=$(printf '%s' "$out" | jq -r '.result.tab.workspace_id // empty')
-  num=$("$herdr" tab list 2>/dev/null \
-    | jq -r --arg ws "$ws" --arg id "$tab" \
-        '([.result.tabs[] | select(.workspace_id == $ws) | .tab_id] | index($id) // empty) | if . == null then empty else . + 1 end')
+  num=$("$herdr" tab list 2>/dev/null |
+    jq -r --arg ws "$ws" --arg id "$tab" \
+      '([.result.tabs[] | select(.workspace_id == $ws) | .tab_id] | index($id) // empty) | if . == null then empty else . + 1 end')
   "$herdr" tab rename "$tab" "${num:+$num.}$(basename "$file")" >/dev/null 2>&1
   "$herdr" pane run "$root" "nvim ${line:++$line} $(printf %q "$file"); exit" >/dev/null 2>&1
 }
@@ -43,12 +46,15 @@ dispatch() {
   done
 
   case "$token" in
-    http://* | https://*) open_url "$token"; return ;;
-    file://*)
-      local target=${token#file://}
-      [ -f "$target" ] && [ ! -x "$target" ] && open_url "$token"
-      return
-      ;;
+  http://* | https://*)
+    open_url "$token"
+    return
+    ;;
+  file://*)
+    local target=${token#file://}
+    [ -f "$target" ] && [ ! -x "$target" ] && open_url "$token"
+    return
+    ;;
   esac
 
   [ -n "$pane" ] || return 0
