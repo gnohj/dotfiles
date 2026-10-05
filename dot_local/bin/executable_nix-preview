@@ -21,6 +21,7 @@ fi
 TMP=$(mktemp -d) || exit 1
 trap 'rm -rf "$TMP"' EXIT
 cp -R "$SRC/." "$TMP/" || exit 1
+rm -f "$TMP/result"
 
 say "==> nix-preview: building updated config in a temp copy (live flake.lock untouched)…"
 # Output is discarded, so an anonymous 403 would silently preview the OLD lock as if updated.
@@ -35,7 +36,7 @@ fi
 # touch the cache even on failure so the widget's ~daily guard can't retry-storm builds.
 if [ ! -e "$TMP/result" ] || [ ! -e "$CUR" ]; then
   say "nix-preview: build failed (or no current generation to diff against)"
-  touch "$CACHE" 2>/dev/null
+  : >"$CACHE" 2>/dev/null
   exit 1
 fi
 
