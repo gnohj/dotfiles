@@ -37,6 +37,11 @@ if [ -z "$_bin" ]; then
 fi
 
 # claude-account-state-v1
+if [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]; then
+  # set only inside a running session, so these were inherited and must not outrank the pin
+  unset CLAUDE_ACCOUNT
+  case "${CLAUDE_CONFIG_DIR:-}" in "$HOME/.claude-work" | "$HOME/.claude") unset CLAUDE_CONFIG_DIR ;; esac
+fi
 case "${CLAUDE_ACCOUNT:-}" in
 "" | work | personal) ;;
 *) echo "claude: unknown account choice" >&2; exit 1 ;;
