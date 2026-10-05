@@ -53,7 +53,16 @@ while read -r pid cmd; do
 done < <(ps -axo pid=,command=)
 
 if [ -n "$found_pid" ]; then
-  # Already running for this profile — raise its window instead of duplicating.
+  # Already running for this profile - send it a reopen (a Dock click) so a closed window comes back, then raise it.
+  osascript -l JavaScript - "$found_pid" >/dev/null 2>&1 <<'JXA' || true
+ObjC.import('Foundation');
+ObjC.bindFunction('AESendMessage', ['int', ['void *', 'void *', 'int', 'long']]);
+function run(argv) {
+  const target = $.NSAppleEventDescriptor.descriptorWithProcessIdentifier(parseInt(argv[0], 10));
+  const reopen = $.NSAppleEventDescriptor.appleEventWithEventClassEventIDTargetDescriptorReturnIDTransactionID(0x61657674, 0x72617070, target, -1, 0);
+  $.AESendMessage(reopen.aeDesc, null, 1, -1);
+}
+JXA
   osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $found_pid) to true" >/dev/null 2>&1 || true
 else
   exec open -na "Claude" --args --user-data-dir="$profile"
