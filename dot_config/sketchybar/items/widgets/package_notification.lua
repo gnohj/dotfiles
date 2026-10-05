@@ -24,4 +24,5 @@ local package_notification = sbar.add("item", "widgets.package_notification", {
 package_notification:subscribe({ "forced", "routine" })
 
 -- Custom event for manual package updates
+sbar.add("event", "package_update")
 package_notification:subscribe("package_update")

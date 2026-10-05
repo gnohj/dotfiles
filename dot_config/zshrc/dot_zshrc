@@ -554,6 +554,7 @@ if [[ -f "$ZSH_COMPDUMP" && $(date +'%j') == "$_compdump_day" ]]; then
   compinit -C -d "$ZSH_COMPDUMP"  # Same day: skip audit, use cache
 else
   compinit -d "$ZSH_COMPDUMP"     # New day: full audit + rebuild cache
+  rm -f -- "$ZSH_COMPDUMP".*(N.mh+1)  # temp dumps orphaned by shells killed mid-compinit
 fi
 unset _compdump_day
 
@@ -1392,9 +1393,6 @@ export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 # -----------------------------  Sketchybar Package Notification (Unified)
 # Setup unified package notification widget that monitors brew, mas, and mise
 if command -v sketchybar &>/dev/null; then
-    sketchybar --add event package_update 2>/dev/null
-    sketchybar --subscribe widgets.package_notification package_update 2>/dev/null
-
     # Brew wrapper function
     function brew() {
         command arch -arm64 brew "$@"
