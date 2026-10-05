@@ -491,7 +491,9 @@ git config --global core.excludesfile
 
 **Key settings**:
 
-- Global hotkey: `⌘ + Space` (launcher), `⌘ + .` (clipboard history)
+- Global hotkey: `⌘ + Space` (launcher), `⌘ + .` (clipboard history), `⌘ + ,` (AI chat)
+- Set Settings → General → pop to root to the shortest option so `⌘ + Space` always opens the search prompt
+- Bind `⌘ + .` in Tinycast itself, not skhd: a skhd keystroke replay lands on AI chat from a fresh palette
 
 ---
 
