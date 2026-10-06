@@ -44,7 +44,7 @@
         "mode": "fan",
         "claude": {
           "model": "claude-opus-5-5",
-          "effort": "xhigh"
+          "effort": "high"
         },
         "gpt": {
           "model": "gpt-6.1-sol",
@@ -52,7 +52,7 @@
         },
         "rungTimeout": 1500
       },
-      "why": "Past ~800 changed lines the cross-file reasoning is the review, and a missed blocker costs more than the spend. The rung timeout rises with Claude's xhigh deliberately: xhigh inside a 600s deadline buys reasoning the deadline then kills, sealing nothing. Sol stays at high, its fixed level."
+      "why": "Large or high-risk PRs keep both finders at high effort, with a longer timeout for cross-file review."
     }
   ],
   "default": {
