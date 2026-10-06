@@ -52,6 +52,11 @@
       # direnv checkPhase hangs on macOS (zsh test spawns interactive shell)
       direnv = prev.direnv.overrideAttrs (old: { doCheck = false; });
 
+      # Darwin needs Clang's Objective-C ARC support; nixpkgs pins GCC 15.
+      clipboard-jh = prev.clipboard-jh.override {
+        gcc15Stdenv = final.clangStdenv;
+      };
+
       # Pin gh-dash to 4.23.2 — 4.24.x panics under tmux (dlvhdr/gh-dash#876).
       # Sourced from a pinned nixpkgs input; see flake.nix nixpkgs-ghdash.
       gh-dash = inputs.nixpkgs-ghdash.legacyPackages."aarch64-darwin".gh-dash;
