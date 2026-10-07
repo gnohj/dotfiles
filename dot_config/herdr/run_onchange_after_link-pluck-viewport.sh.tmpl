@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Manifest: {{ include "dot_config/herdr/local-plugins/pluck-viewport/herdr-plugin.toml" | sha256sum }}
+command -v herdr >/dev/null 2>&1 || exit 0
+herdr plugin link "$HOME/.config/herdr/local-plugins/pluck-viewport"
+
+if [ -S "${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}" ]; then
+    herdr server reload-config
+fi

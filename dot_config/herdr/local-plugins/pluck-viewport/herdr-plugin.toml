@@ -1,0 +1,18 @@
+id = "gnohj.pluck-viewport"
+name = "Pluck Viewport"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Preserve the framed source viewport when launching Herdr Pluck"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "pluck"
+title = "Pluck visible token without moving the viewport"
+contexts = ["pane", "workspace"]
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-pluck.py\" open"]
+
+[[actions]]
+id = "open-url"
+title = "Open a visible URL without moving the viewport"
+contexts = ["pane", "workspace"]
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-pluck.py\" open-url"]
