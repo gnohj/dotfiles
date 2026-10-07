@@ -1,0 +1,18 @@
+id = "gnohj.scrollback-viewer"
+name = "Scrollback Viewer"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Pane-aligned history viewers that leave source processes running"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "bottom"
+title = "View scrollback at the bottom"
+contexts = ["pane"]
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-scrollback-overlay.py\" bottom"]
+
+[[actions]]
+id = "prompt"
+title = "View scrollback at the last user prompt"
+contexts = ["pane"]
+command = ["/bin/sh", "-c", "exec \"$HOME/.local/bin/mux/herdr/herdr-scrollback-overlay.py\" prompt"]
