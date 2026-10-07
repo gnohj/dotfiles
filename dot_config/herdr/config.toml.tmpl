@@ -28,7 +28,7 @@ cycle_pane_previous = "prefix+shift+tab"
 # ctrl+b → previous pane in the CURRENT TAB (see the [[keys.command]] below). Not
 # herdr's native last_pane: that one is global and leaks across workspaces/tabs.
 
-# Sidebar toggle, relocated off its default prefix+b to prefix+E - a move, not a second binding, since the action takes exactly one key and there is no `herdr sidebar` CLI to alias it, so prefix+B is free again; lowercase prefix+e stays the scrollback popup below.
+# Sidebar toggle, relocated off its default prefix+b to prefix+E - a move, not a second binding, since the action takes exactly one key and there is no `herdr sidebar` CLI to alias it, so prefix+B is free again; lowercase prefix+e stays the scrollback viewer below.
 toggle_sidebar = "prefix+shift+e"
 
 # prefix+a cycles through ALL agents in sidebar order (herdr's native next_agent) -
@@ -169,22 +169,17 @@ width = "70%"
 height = "80%"
 description = "resource manager: CPU and memory per workspace"
 
-# prefix+e/u → the ported tmux scrollback popup: e opens at the bottom, u on the last Claude or Pi user prompt with `n` walking back.
 [[keys.command]]
 key = "prefix+e"
-type = "popup"
-command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-scrollback.sh"
-width = "90%"
-height = "90%"
-description = "scrollback (bottom)"
+type = "plugin_action"
+command = "gnohj.scrollback-viewer.bottom"
+description = "pane-aligned scrollback (bottom)"
 
 [[keys.command]]
 key = "prefix+u"
-type = "popup"
-command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-scrollback-jump.sh"
-width = "90%"
-height = "90%"
-description = "scrollback at last user prompt"
+type = "plugin_action"
+command = "gnohj.scrollback-viewer.prompt"
+description = "pane-aligned scrollback at last user prompt"
 
 # prefix+O opens what the sidebar's 󰎞 ($sb) badge points at, via the same `vault-note` resolver (tmux-dash's `o`). Shift because prefix+o is cycle_pane_next; type="popup" runs server-side so it works over --remote.
 [[keys.command]]

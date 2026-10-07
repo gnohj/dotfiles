@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Manifest: {{ include "dot_config/herdr/local-plugins/scrollback-viewer/herdr-plugin.toml" | sha256sum }}
+command -v herdr >/dev/null 2>&1 || exit 0
+herdr plugin link "$HOME/.config/herdr/local-plugins/scrollback-viewer"
+
+# Balancer: {{ include "dot_local/bin/mux/herdr/executable_herdr-balance-panes.py" | sha256sum }}
+case "$(uname)" in
+    Darwin)
+        service="gui/$(id -u)/org.nixos.herdr-balance-panes"
+        if launchctl print "$service" >/dev/null 2>&1; then
+            launchctl kickstart -k "$service"
+        fi
+        ;;
+    Linux)
+        if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet herdr-balance-panes.service; then
+            systemctl --user restart herdr-balance-panes.service
+        fi
+        ;;
+esac
+
+if [ -S "${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}" ]; then
+    herdr server reload-config
+fi

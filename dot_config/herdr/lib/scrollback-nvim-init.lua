@@ -11,6 +11,7 @@ vim.o.number = false
 vim.o.relativenumber = false
 vim.o.signcolumn = "no"
 vim.o.swapfile = false
+vim.o.modeline = false
 vim.opt.fillchars = { eob = " " }
 
 -- Set explicitly: this instance never loads config/options.lua, and nvim would otherwise auto-pick wl-copy and yank into the VPS clipboard instead of the Mac's.
@@ -105,10 +106,13 @@ function HerdrScrollbackView(opts)
   opts = opts or {}
   local buf = vim.api.nvim_get_current_buf()
 
-  local prompt_rows = find_prompt_rows(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local prompt_rows = find_prompt_rows(lines)
   local ok_baleia, baleia = pcall(require, "baleia")
   if ok_baleia then
-    baleia.setup({}).once(buf)
+    baleia.setup({}).buf_set_lines(buf, 0, -1, false, lines)
+  else
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.tbl_map(strip_ansi, lines))
   end
 
   -- Transparent background (show the herdr popup / theme behind it).
@@ -120,7 +124,16 @@ function HerdrScrollbackView(opts)
   vim.bo[buf].buftype = "nofile"
   vim.bo[buf].modified = false
 
-  vim.cmd("normal! G")
+  local viewport_rows = tonumber(vim.env.HERDR_SCROLLBACK_VIEWPORT_ROWS)
+  if viewport_rows then
+    vim.o.cmdheight = 0
+    vim.wo.wrap = false
+    vim.wo.scrolloff = 0
+    local last = vim.api.nvim_buf_line_count(buf)
+    vim.fn.winrestview({ lnum = last, topline = math.max(1, last - viewport_rows + 1), col = 0, leftcol = 0 })
+  else
+    vim.cmd("normal! G")
+  end
 
   vim.fn.setreg("/", CLAUDE_PROMPT_PAT)
   if #prompt_rows > 0 then
@@ -131,8 +144,15 @@ function HerdrScrollbackView(opts)
       move_to_prompt(prompt_rows, 1)
     end, { buffer = buf, nowait = true })
     if opts.jump then
-      vim.api.nvim_win_set_cursor(0, { prompt_rows[#prompt_rows], 0 })
-      vim.cmd("normal! zz")
+      local row = prompt_rows[#prompt_rows]
+      if viewport_rows and row >= vim.api.nvim_buf_line_count(buf) - viewport_rows + 1 then
+        local view = vim.fn.winsaveview()
+        view.lnum = row
+        vim.fn.winrestview(view)
+      else
+        vim.api.nvim_win_set_cursor(0, { row, 0 })
+        vim.cmd("normal! zz")
+      end
     end
   elseif opts.jump then
     vim.cmd("normal! G")

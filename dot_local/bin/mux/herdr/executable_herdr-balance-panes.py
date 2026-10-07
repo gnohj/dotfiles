@@ -144,11 +144,20 @@ def node_at(root, path):
     return node
 
 
+def is_scrollback_layout(root):
+    if root.get("type") == "split":
+        return is_scrollback_layout(root["first"]) or is_scrollback_layout(root["second"])
+    names = {"herdr-scrollback-overlay.py", "executable_herdr-scrollback-overlay.py"}
+    return any(arg.rsplit("/", 1)[-1] in names for arg in root.get("command", []))
+
+
 def balance(tab_id):
     result = request("layout.export", {"tab_id": tab_id})
     if not result:
         return
     root = (result.get("layout") or {}).get("root") or {}
+    if is_scrollback_layout(root):
+        return
     for path, ratio in plan(root):
         # Skip no-ops so an already-even tab costs one export and no writes.
         if abs((node_at(root, path).get("ratio") or 0.0) - ratio) < EPSILON:
