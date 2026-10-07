@@ -293,17 +293,11 @@ type = "shell"
 command = "herdr plugin action invoke open-file-viewer --plugin herdr-file-viewer"
 description = "git-aware file viewer (status glyphs + diffs)"
 
-# prefix+F (shift+f) → herdr-pluck: tmux-fingers-style "grab a visible token". Overlays
-# one/two-letter hints on every URL / file path / git SHA / UUID / IP / k8s ref in the pane
-# and copies the picked one to the clipboard; the pbcopy/wl-copy shims then hand it to
-# pluck-open.sh (URL → browser, file → nvim in a new tab). type="plugin_action" is the
-# NATIVE plugin binding (like the vim-herdr-navigation chords), so it runs server-side and works
-# over --remote without --remote-keybindings=server (unlike the type="shell" prefix+f above).
-# Install (not chezmoi-managed — run on a fresh box): herdr plugin install rmarganti/herdr-pluck
+# Requires rmarganti/herdr-pluck 0.3.1.
 [[keys.command]]
 key = "prefix+shift+f"
 type = "plugin_action"
-command = "rmarganti.herdr-pluck.pluck"
+command = "gnohj.pluck-viewport.pluck"
 description = "pluck: copy a visible token (URL/path/SHA), open URLs and files"
 
 # herdr-annotate captures terminal selections and exports comments as agent-ready Markdown.
