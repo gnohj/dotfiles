@@ -75,6 +75,7 @@ workspace_rules = [
 app_rules = [
   { app_id = "com.google.Chrome", title_regex = "^about:blank", workspace = "P" },
   { app_id = "com.google.chrome.for.testing", workspace = "P" },
+  { app_id = "com.google.Chrome.beta", workspace = "P" },
   { app_id = "com.google.Chrome", workspace = "Q" },
   { app_id = "com.apple.mail", workspace = "G" },
   { app_name = "outlook", workspace = "G" },
