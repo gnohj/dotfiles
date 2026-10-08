@@ -1578,19 +1578,10 @@ if command -v sketchybar &>/dev/null; then
 fi
 
 # -----------------------------  System Fetch
-# Ghostty: animated ghosttyfetch, Other terminals: fastfetch
+# fastfetch in every terminal (ghosttyfetch stays available as an alias).
 # Only run on first shell level outside tmux. Skipped when SKIP_FETCH=1
 # is set by callers that spawn fresh Ghostty windows for one-off tasks
 # (e.g. `worktree jira`).
-#
-# Use $__CFBundleIdentifier (set by macOS per-app, can't be falsified by
-# env inheritance) as the source of truth for which terminal is hosting.
-# $TERM_PROGRAM is unreliable: when our worktree wrappers `open -na
-# Terminal` from a Ghostty-spawned shell, TERM_PROGRAM=ghostty leaks
-# through LaunchServices and tricks zshrc into firing ghosttyfetch in
-# the new Terminal.app window — and ghosttyfetch itself spawns a `tmux`
-# child that creates an unnamed numeric session. The bundle id check
-# closes that loophole.
 if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
     _show_fetch=1
     # herdr spawns every pane as a fresh SHLVL=1 shell outside $TMUX, so the
@@ -1608,12 +1599,27 @@ if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
         fi
         unset _herdr_start _herdr_ff_flag
     fi
-    if [[ -n "$_show_fetch" ]]; then
-        if [[ "$__CFBundleIdentifier" == "com.mitchellh.ghostty" ]] && [[ -x "$HOME/.config/ghosttyfetch/ghosttyfetch" ]]; then
-            ~/.config/ghosttyfetch/ghosttyfetch
-        elif command -v fastfetch &>/dev/null; then
-            fastfetch
-        fi
+    if [[ -n "$_show_fetch" ]] && command -v fastfetch &>/dev/null; then
+        # The image plus the 36-column boxes need ~75 columns; narrower panes drop the image, and below the boxes skip it.
+        _fetch_render() {
+            if (( COLUMNS >= 75 )); then
+                fastfetch
+            elif (( COLUMNS >= 38 )); then
+                fastfetch --logo none
+            fi
+        }
+        # Tiling shrinks the window after (or while) the fetch draws, so redraw it on every resize until the first command runs.
+        TRAPWINCH() {
+            print -n '\e_Ga=d\e\\\e[H\e[2J\e[3J'
+            _fetch_render
+            zle && zle reset-prompt
+        }
+        _fetch_stop_redraw() {
+            unfunction TRAPWINCH _fetch_render _fetch_stop_redraw
+            add-zsh-hook -d preexec _fetch_stop_redraw
+        }
+        add-zsh-hook preexec _fetch_stop_redraw
+        _fetch_render
     fi
     unset _show_fetch
 fi

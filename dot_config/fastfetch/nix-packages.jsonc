@@ -1,0 +1,10 @@
+// Nix-only package scan for nix-packages.sh, which caches the result between profile changes.
+{
+  "logo": null,
+  "modules": [
+    {
+      "type": "packages",
+      "disabled": ["am", "apk", "appimage", "brew", "cards", "choco", "crux", "dpkg", "emerge", "eopkg", "flatpak", "guix", "hpkg", "installrelease", "kiss", "linglong", "lpkg", "lpkgbuild", "macports", "moss", "mport", "opkg", "pacman", "pacstall", "paludis", "pisi", "pkg", "pkgsrc", "pkgtool", "porg", "rpm", "rum", "scoop", "snap", "soar", "sorcery", "winget", "xbps"],
+    },
+  ],
+}
