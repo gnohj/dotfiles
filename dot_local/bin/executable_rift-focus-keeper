@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""rift-focus-keeper - after the focused window closes, focuses the nearest tile (Hyprland dwindle) instead of Rift's oldest window."""
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from collections import defaultdict
+
+RIFT = "/opt/homebrew/bin/rift-cli"
+# The app's own refocus can reach Rift up to ~50ms before the close event, so newer focus is churn.
+CHURN = 0.15
+# Rift's wrong raise lands within ~130ms of the close; focus changes after this window are the user's.
+ARM_WINDOW = 0.35
+HISTORY_LIMIT = 50
+ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
+
+VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
+history = defaultdict(list)
+members = {}
+centers = {}
+armed = None
+
+
+def log(message):
+    if VERBOSE:
+        print(f"{time.monotonic():.3f} {message}", flush=True)
+
+
+def workspace_key(event):
+    return (event["space_id"], event["workspace_id"]["idx"])
+
+
+def parse_ids(strings):
+    return {(int(pid), int(idx)) for pid, idx in ID_RE.findall(" ".join(strings))}
+
+
+def focus(key, wid, now):
+    # The churn Rift caused must not count as user focus, or the next close picks it as "previous".
+    history[key][:] = [(t, w) for t, w in history[key] if now - t > ARM_WINDOW]
+    subprocess.run(
+        [RIFT, "execute", "window", "focus", "--window-id", json.dumps({"pid": wid[0], "idx": wid[1]})],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=2,
+    )
+    print(f"rift-focus-keeper: refocused {wid[0]}:{wid[1]}", flush=True)
+
+
+def rift_json(*args):
+    out = subprocess.run([RIFT, *args], capture_output=True, text=True, timeout=5).stdout
+    return json.loads(out)
+
+
+def refresh_centers(workspaces=None):
+    # Positions must be read before a close: once the window is gone Rift no longer reports its frame.
+    try:
+        workspaces = workspaces or rift_json("query", "workspaces")
+    except (subprocess.SubprocessError, ValueError):
+        return
+    for ws in workspaces:
+        for w in ws.get("windows", []):
+            frame = w.get("frame")
+            if frame:
+                centers[(w["id"]["pid"], w["id"]["idx"])] = (
+                    frame["origin"]["x"] + frame["size"]["width"] / 2,
+                    frame["origin"]["y"] + frame["size"]["height"] / 2,
+                )
+
+
+def nearest(closed, candidates):
+    origin = centers.get(closed)
+    known = [w for w in candidates if w in centers]
+    if origin is None or not known:
+        return None
+    return min(known, key=lambda w: (centers[w][0] - origin[0]) ** 2 + (centers[w][1] - origin[1]) ** 2)
+
+
+def seed():
+    # Without a baseline the first close after startup would go unnoticed.
+    try:
+        space = next(d["space"] for d in rift_json("query", "displays") if d.get("is_active_space"))
+        workspaces = rift_json("query", "workspaces")
+    except (subprocess.SubprocessError, ValueError, StopIteration, KeyError):
+        return
+    refresh_centers(workspaces)
+    settled = time.monotonic() - ARM_WINDOW * 2
+    for ws in workspaces:
+        match = re.search(r"\((\d+)v", ws.get("id", ""))
+        if not match:
+            continue
+        key = (space, int(match.group(1)))
+        members[key] = {(w["id"]["pid"], w["id"]["idx"]) for w in ws.get("windows", [])}
+        for w in ws.get("windows", []):
+            if w.get("is_focused"):
+                history[key].append((settled, (w["id"]["pid"], w["id"]["idx"])))
+
+
+def on_windows_changed(event, now):
+    global armed
+    key = workspace_key(event)
+    current = parse_ids(event["windows"])
+    before = members.get(key)
+    members[key] = current
+    hist = history[key]
+    gone = (before or set()) - current
+    if armed is not None and armed[0] == key and current - (before or set()):
+        # A window just opened, so the focus that follows is the user's, not Rift's fallback.
+        armed = None
+    log(f"windows {key} gone={sorted(w[1] for w in gone)} now={len(current)} history={[(round(now - t, 2), w[1]) for t, w in hist[-4:]]}")
+    if not before or not hist or not gone:
+        return
+    # Only a close of the window that was focused before the post-close focus churn needs fixing.
+    settled = [(t, w) for t, w in hist if now - t > CHURN]
+    target = None
+    if settled and settled[-1][1] in gone:
+        closed = settled[-1][1]
+        # Fall back to the previously focused window when Rift never reported a frame for it.
+        target = nearest(closed, current) or next((w for _, w in reversed(settled[:-1]) if w in current), None)
+    hist[:] = [(t, w) for t, w in hist if w not in gone]
+    for w in gone:
+        centers.pop(w, None)
+    log(f"  settled_last={settled[-1][1][1] if settled else None} target={target[1] if target else None}")
+    if target is None:
+        return
+    armed = (key, target, now + ARM_WINDOW)
+    if hist and hist[-1][1] != target and now - hist[-1][0] <= CHURN:
+        focus(key, target, now)
+        armed = None
+
+
+def on_focused_window_changed(event, now):
+    global armed
+    key = workspace_key(event)
+    wid = (event["window_id"]["pid"], event["window_id"]["idx"])
+    log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
+    hist = history[key]
+    hist.append((now, wid))
+    del hist[:-HISTORY_LIMIT]
+    if armed is None:
+        return
+    armed_key, target, deadline = armed
+    if now > deadline:
+        armed = None
+    elif armed_key == key and wid != target:
+        focus(key, target, now)
+        armed = None
+
+
+def main():
+    seed()
+    proc = subprocess.Popen([RIFT, "subscribe", "mach", "*"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    for line in proc.stdout:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        now = time.monotonic()
+        kind = event.get("type")
+        if kind == "windows_changed":
+            on_windows_changed(event, now)
+            refresh_centers()
+        elif kind == "layout_changed":
+            refresh_centers()
+        elif kind == "focused_window_changed":
+            on_focused_window_changed(event, now)
+    sys.exit(proc.wait() or 1)
+
+
+if __name__ == "__main__":
+    main()

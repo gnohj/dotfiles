@@ -14,7 +14,7 @@
 
 -- Logitech MX Keys can invoke screenshots, Voxtype, or the emoji picker through `o.bind`.
 
--- Use the same lettered workspaces as Aerospace instead of numbered workspaces.
+-- Use the same lettered workspaces as Rift on macOS instead of numbered workspaces.
 local workspace_names =
 	{ "A", "B", "C", "D", "E", "F", "G", "M", "N", "O", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" }
 for _, workspace in ipairs(workspace_names) do

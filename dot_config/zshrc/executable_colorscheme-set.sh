@@ -727,7 +727,8 @@ EOF
       echo "Borders restarted successfully."
       # Force borders to render by triggering window focus
       # Get current focused window and refocus it to trigger borders redraw
-      /opt/homebrew/bin/aerospace list-windows --focused --format '%{window-id}' | head -1 | xargs -I {} /opt/homebrew/bin/aerospace focus --window-id {} 2>/dev/null || true
+      /opt/homebrew/bin/rift-cli query workspaces 2>/dev/null | /usr/bin/jq -r 'first(.[].windows[] | select(.is_focused)) | "\(.id | tojson) \(.window_server_id)"' 2>/dev/null |
+        while read -r rid wsid; do /opt/homebrew/bin/rift-cli execute window focus --window-id "$rid" --window-server-id "$wsid" >/dev/null 2>&1; done || true
       break
     fi
     sleep 0.1
@@ -2743,7 +2744,7 @@ if [ "$UPDATED" = true ]; then
   # Generate hunk config
   generate_hunk_config
 
-  # Generate borders config (macOS window borders + aerospace — skip on Linux/VPS)
+  # Generate borders config (macOS window borders — skip on Linux/VPS)
   [[ "$OSTYPE" == darwin* ]] && generate_borders_config
 
   # Generate gitmux config

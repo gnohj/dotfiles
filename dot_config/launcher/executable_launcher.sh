@@ -70,7 +70,7 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 
 # id|prefix|pointer|header|prompt|leaf_provider|submenu_fn|leaf_handler|scope|os|mux
 #   leaf_provider  static (leaves from ACTIONS) | fn emitting labels at runtime
-#   submenu_fn     generic | custom fn (themes drilldown, aerospace header)
+#   submenu_fn     generic | custom fn (themes drilldown)
 #   leaf_handler   static (label→ACTIONS fn)    | fn called as `fn "<label>"`
 #   scope          omitted = local | mac. `mac` = reaches back to your Mac (clipboard/
 #                  browser/notify); 󰛳 shows only on the devbox (a Mac relay is set). A
@@ -83,7 +83,6 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 #                  against the LIVE mux — set empty scope+os (|||) to reach it.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
-  "AERO|🖥  Aerospace|🖥  Aerospace Profiles ›|Aerospace|Profile > |provide_aerospace|aerospace_menu|handle_aerospace||darwin"
   "OPEN|🔗 Open|🔗 Open ›|Open|Open > |static|generic|static"
   "BROWSER|🌐 Browser|🌐 Browser ›|Browser|Browser > |static|generic|static"
   "FZF|🔎 Fzf|🔎 Fzf ›|Fzf|Fzf > |static|generic|static"
@@ -141,7 +140,7 @@ SIMPLE_ACTIONS=(
 
 # Exact NORMAL-mode order — cat:<ID> (renders pointer) or simple:<label>.
 TOP_LEVEL_ORDER=(
-  "cat:AI" "cat:AERO" "cat:OPEN" "cat:BROWSER"
+  "cat:AI" "cat:OPEN" "cat:BROWSER"
   "simple:📦 Check Outdated Packages" "simple:🧹 Cleanup Logs" "simple:🌿 Copy Current Branch"
   "simple:🔀 GitHub PRs" "simple:📋 Copy Pane Address"
   "simple:🧼 Dirty Repos" "simple:🩺 Errors & Orphans" "simple:📈 Usage Report (cpu/mem)"
@@ -281,21 +280,7 @@ provide_themes() {
   shopt -u nullglob
 }
 
-provide_aerospace() {
-  local f base
-  shopt -s nullglob
-  for f in "$HOME"/.config/aerospace/profiles/*.toml; do
-    base="${f##*/}"
-    printf '%s\n' "${base%.toml}"
-  done
-  shopt -u nullglob
-}
-
 handle_theme() { "$HOME/.config/zshrc/colorscheme-set.sh" "$1"; }
-handle_aerospace() {
-  "$HOME/.local/bin/aerospace-profile" "$1"
-  sleep 1
-}
 
 # NORMAL mode: clean pointer list interleaved with standalone simple actions.
 build_top_level_items() {
@@ -485,24 +470,6 @@ themes_filtered() {
   case "$sel" in
   "← Back" | "") themes_menu ;;
   *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel" ;;
-  esac
-}
-
-# Custom so the header can show the currently-active profile.
-aerospace_menu() {
-  local active choice rc=0
-  active="$(cat "$HOME/.config/aerospace/.active-profile" 2>/dev/null || echo '(none)')"
-  choice=$(
-    {
-      provide_aerospace
-      printf "← Back\n"
-    } | ~/.local/bin/fzf-vim.sh --height=40% --header="Aerospace profile (active: $active)" \
-      --prompt="Profile > " --ansi $FZF_COLORS
-  ) || rc=$?
-  quit_on_interrupt "$rc"
-  case "$choice" in
-  "← Back" | "") back_to_root ;;
-  *) handle_aerospace "$choice" ;;
   esac
 }
 

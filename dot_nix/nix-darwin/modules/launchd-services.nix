@@ -152,7 +152,7 @@ in
       };
     };
 
-    # SKHD - Hotkey daemon for window management (used with AeroSpace)
+    # SKHD - Hotkey daemon for window management (drives Rift via rift-cli)
     # Uses wrapper script that waits for secure keyboard entry to clear
     skhd = {
       serviceConfig = {

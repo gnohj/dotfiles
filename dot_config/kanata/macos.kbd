@@ -67,9 +67,9 @@
   br-prevpage (multi lmet left)       ;; Browser previous page
   br-nextpage (multi lmet right)      ;; Browser next page
 
-  ;; Aerospace resize bindings (send key combos for skhd to handle)
-  ae-resize-minus (multi lalt lsft -)  ;; Aerospace resize minus
-  ae-resize-equal (multi lalt lsft =)  ;; Aerospace resize equal
+  ;; Window resize bindings (send key combos for skhd to hand to Rift)
+  ae-resize-minus (multi lalt lsft -)  ;; Rift resize minus
+  ae-resize-equal (multi lalt lsft =)  ;; Rift resize equal
 
   ;; Browser zoom
   zoom-out (multi lmet -)  ;; Zoom out (Cmd+Minus)

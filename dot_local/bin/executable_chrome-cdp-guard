@@ -17,14 +17,14 @@ if (!listenPort || !chromePort) {
   process.exit(2);
 }
 
-// Each of these activates Chrome, and macOS then drags aerospace to its workspace.
+// Each of these activates Chrome, and macOS then drags Rift to its workspace.
 const RAISING = new Set(["Page.bringToFront", "Target.activateTarget"]);
 
 let parkTimers = [];
 function schedulePark() {
   if (!parkCmd.length) return;
   parkTimers.forEach(clearTimeout);
-  // aerospace sees a new window a beat after Chrome creates it, so park twice.
+  // Rift sees a new window a beat after Chrome creates it, so park twice.
   parkTimers = [500, 2000].map((ms) =>
     setTimeout(() => spawn(parkCmd[0], parkCmd.slice(1), { detached: true, stdio: "ignore" }).unref(), ms),
   );

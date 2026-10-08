@@ -23,7 +23,6 @@
       "blacktop/tap"
       "FelixKratz/formulae"
       "garrettkrohn/treekanga"
-      "nikitabobko/tap"
       "oven-sh/bun"
       "fastly/tap"
       "pulumi/tap"
@@ -35,6 +34,7 @@
       "tonisives/tap"
       "vjeantet/tap"
       "abue-ammar/tinycast"
+      "acsandmann/tap"
     ];
 
     # CLI packages (formulae)
@@ -53,8 +53,9 @@
       "blacktop/tap/lporg" # save/restore the Launchpad grid; a cask churn wipes it otherwise
       "kanata"
       "koekeishiya/formulae/skhd"
+      "acsandmann/tap/rift" # tiling window manager
 
-      # Note: Lua packages (cjson, luaposix) now managed by Nix in packages.nix
+      # Note: Lua packages (cjson) now managed by Nix in packages.nix
 
       # Shell & plugin managers
       "zinit"
@@ -117,7 +118,6 @@
       "whimsical"
 
       # Window Management & Navigation
-      "nikitabobko/tap/aerospace"
       "homerow"
       # karabiner-elements removed: kanata is the remapper, and KE ships a
       # VirtualHIDDevice driver (16.1.0 → 8.0.0) that's incompatible with kanata

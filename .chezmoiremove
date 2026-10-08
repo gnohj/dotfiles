@@ -156,3 +156,19 @@ scripts/open-tmux-attach.sh
 
 # opencode-usage retired: the OpenCode Go subscription was cancelled.
 .local/bin/opencode-usage
+
+# AeroSpace retired for Rift; its config, monitor profiles, bounce helper and the AeroSpace/Rift switch layer.
+.config/aerospace/aerospace.toml
+.config/aerospace/.active-profile
+.config/aerospace/profiles/desk.toml
+.config/aerospace/profiles/laptop.toml
+.local/bin/aerospace-profile
+.local/bin/wm-switch
+.local/libexec/aerospace-workspace
+.local/libexec/aerospace-workspace.swift
+.config/skhd/wm-aerospace.skhdrc
+.config/skhd/wm-rift.skhdrc
+.config/skhd/wm-active.skhdrc
+.config/sketchybar/lib/aerospace.lua
+.config/sketchybar/lib/wm.lua
+.config/sketchybar/items/workspace.lua.simple-backup

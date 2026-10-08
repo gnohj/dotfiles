@@ -76,8 +76,8 @@ msteams-url-handler.sh
 Library/
 
 # macOS window management & system utilities
-.config/aerospace/
 .config/borders/
+.config/rift/
 .config/launchpad/
 .config/skhd/
 .config/sketchybar/
@@ -106,7 +106,8 @@ Library/
 .local/bin/tasks-sync
 .local/libexec/tasks-reminders.swift
 .local/libexec/cpu-temp.swift
-.local/libexec/aerospace-workspace.swift
+.local/libexec/rift-layout
+.local/bin/rift-focus-keeper
 build-libexec-helpers.sh
 
 # Nix: only nix-darwin reads ~/.nix; the VPS runs home-manager straight from the chezmoi source tree, so no copy is needed there.
