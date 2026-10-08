@@ -83,6 +83,7 @@ app_rules = [
   { app_name = "spotify", workspace = "S" },
   { app_id = "app.zen-browser.zen", workspace = "Z" },
   { app_id = "net.imput.helium.app.agimnkijcaahngcdmfeangaknmldooml", workspace = "A" },
+  { app_id = "com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml", workspace = "A" },
   { app_id = "net.imput.helium.app.lodlkdfmihgonocnmddehnfgiljnadcf", workspace = "A" },
   { app_id = "net.imput.helium.app.lgnggepjiihbfdbedefdhcffnmhcahbm", workspace = "A" },
   { app_id = "net.imput.helium.app.comkdlimbkhemidbbpchhepidbmjpnhh", workspace = "A" },
