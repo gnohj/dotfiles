@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from xml.parsers.expat import ExpatError
 
 UID = os.getuid()
 HOME = Path.home()
@@ -194,7 +195,8 @@ def plist_jobs(now, cache):
             try:
                 with path.open("rb") as handle:
                     plist = plistlib.load(handle)
-            except (OSError, plistlib.InvalidFileException):
+            # Rift writes its plist with literal \" in the XML header, which launchd tolerates and plistlib rejects.
+            except (OSError, plistlib.InvalidFileException, ExpatError, ValueError):
                 continue
             interval = plist.get("StartInterval")
             calendar = plist.get("StartCalendarInterval")
