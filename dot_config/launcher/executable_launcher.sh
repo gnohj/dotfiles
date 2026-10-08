@@ -46,6 +46,10 @@ else
   MUX_LIVE=$(mux_kind)
   [ "$MUX_LIVE" = none ] && MUX_LIVE=""
   export MUX_LIVE
+  # Outside a pane, herdr calls hit the default socket; point them at the session that is actually running.
+  if [ "$MUX_LIVE" = herdr ] && [ -z "${HERDR_SOCKET_PATH:-}" ]; then
+    HERDR_SOCKET_PATH=$(herdr_live_socket) && export HERDR_SOCKET_PATH || unset HERDR_SOCKET_PATH
+  fi
 fi
 
 # mux_kind answers "which mux"; the dispatcher answers "do the thing".

@@ -18,6 +18,17 @@
 # `herdr status server` and not `herdr api snapshot`: the status probe needs no jq,
 # so detection keeps working in the stripped-PATH chains above, and it is ~2x cheaper.
 
+# Live herdr socket: the default session, else the first running named one (`herdr --remote` boxes run only fm-remote).
+herdr_live_socket() {
+  local herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  command -v "$herdr_bin" >/dev/null 2>&1 || return 1
+  if "$herdr_bin" status server 2>/dev/null | grep -q '^status: running'; then
+    "$herdr_bin" session list 2>/dev/null | awk '$1 == "default" { print $NF; exit }'
+    return 0
+  fi
+  "$herdr_bin" session list 2>/dev/null | awk 'NR > 1 && $2 == "running" { print $NF; found = 1; exit } END { exit !found }'
+}
+
 # Prints herdr | tmux | none.
 #
 # Deliberately NOT memoized in here. A cache variable set inside this function is
@@ -37,6 +48,8 @@ mux_kind() {
     kind=tmux
   elif command -v "$herdr_bin" >/dev/null 2>&1 &&
     "$herdr_bin" status server 2>/dev/null | grep -q '^status: running'; then
+    kind=herdr
+  elif herdr_live_socket >/dev/null; then
     kind=herdr
   elif command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
     kind=tmux
