@@ -40,6 +40,7 @@
       "type": "gpu",
       "key": "│ ├󰒆 ",
       "keyColor": "red",
+      "format": "{name} ({core-count}) @ {frequency}",
     },
     {
       "type": "disk",
@@ -79,16 +80,41 @@
       "type": "os",
       "key": "􀣺 OS ",
       "keyColor": "green",
+      "format": "{name} {codename} {version}",
     },
     {
       "type": "kernel",
       "key": "│ ├ ",
       "keyColor": "green",
     },
+    // Brew lines scan only brew; nix counts come cached from nix-packages.sh, since that scan costs ~160ms.
     {
       "type": "packages",
       "key": "│ ├󰏖 ",
       "keyColor": "green",
+      "disabled": ["am", "apk", "appimage", "cards", "choco", "crux", "dpkg", "emerge", "eopkg", "flatpak", "guix", "hpkg", "installrelease", "kiss", "linglong", "lpkg", "lpkgbuild", "macports", "moss", "mport", "nix", "opkg", "pacman", "pacstall", "paludis", "pisi", "pkg", "pkgsrc", "pkgtool", "porg", "rpm", "rum", "scoop", "snap", "soar", "sorcery", "winget", "xbps"],
+      "format": "{brew} (brew)",
+    },
+    {
+      "type": "packages",
+      "key": "│ ├󰏖 ",
+      "keyColor": "green",
+      "disabled": ["am", "apk", "appimage", "cards", "choco", "crux", "dpkg", "emerge", "eopkg", "flatpak", "guix", "hpkg", "installrelease", "kiss", "linglong", "lpkg", "lpkgbuild", "macports", "moss", "mport", "nix", "opkg", "pacman", "pacstall", "paludis", "pisi", "pkg", "pkgsrc", "pkgtool", "porg", "rpm", "rum", "scoop", "snap", "soar", "sorcery", "winget", "xbps"],
+      "format": "{brew-cask} (brew-cask)",
+    },
+    {
+      "type": "command",
+      "key": "│ ├󰏖 ",
+      "keyColor": "green",
+      "text": "$HOME/.config/fastfetch/nix-packages.sh system",
+      "format": "{result} (nix-system)",
+    },
+    {
+      "type": "command",
+      "key": "│ ├󰏖 ",
+      "keyColor": "green",
+      "text": "$HOME/.config/fastfetch/nix-packages.sh default",
+      "format": "{result} (nix-default)",
     },
     {
       "type": "localip",
@@ -100,15 +126,12 @@
       "key": "└ └ ",
       "keyColor": "green",
     },
+    // macOS has no DE, so the group header is the tiling WM.
     {
-      "type": "de",
-      "key": " DE ",
+      "type": "command",
+      "key": " WM ",
       "keyColor": "blue",
-    },
-    {
-      "type": "lm",
-      "key": "│ ├ ",
-      "keyColor": "blue",
+      "text": "if pgrep -x rift >/dev/null; then echo \"Rift $(rift --version | cut -d' ' -f2)\"; else echo none; fi",
     },
     {
       "type": "wm",
@@ -116,19 +139,14 @@
       "keyColor": "blue",
     },
     {
-      "key": "│ ├ ",
+      "type": "lm",
+      "key": "│ ├ ",
       "keyColor": "blue",
-      "type": "command",
-      "text": "pgrep yabai &> /dev/null && echo yabai || echo Quartz Compositor",
     },
+    // terminalfont reads nothing inside herdr, so the terminal closes the branch.
     {
       "type": "terminal",
-      "key": "│ ├ ",
-      "keyColor": "blue",
-    },
-    {
-      "type": "terminalfont",
-      "key": "└ └ ",
+      "key": "└ └ ",
       "keyColor": "blue",
     },
     {
