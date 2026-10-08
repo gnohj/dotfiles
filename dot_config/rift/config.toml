@@ -17,6 +17,8 @@ auto_focus_blacklist = []
 run_on_start = [
   '/opt/homebrew/bin/rift-cli subscribe cli --event workspace_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',
   '/opt/homebrew/bin/rift-cli subscribe cli --event windows_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',
+  # Hopping displays changes no workspace, so only a focus change tells sketchybar which display's set to show.
+  '/opt/homebrew/bin/rift-cli subscribe cli --event focused_window_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',
   # Rift's own refocus after a close picks the oldest window; this watcher refocuses the nearest tile and exits with Rift.
   '/bin/sh -c "mkdir -p $HOME/.logs/rift-focus-keeper && exec /usr/bin/python3 $HOME/.local/bin/rift-focus-keeper >> $HOME/.logs/rift-focus-keeper/out.log 2>&1"',
 ]

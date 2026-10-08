@@ -220,7 +220,7 @@ local function updateWindows()
 		end
 	end
 
-	local signature = currentWorkspace .. "|" .. tostring(focusedAppName) .. "|" .. table.concat(windowIds, ",")
+	local signature = currentWorkspace .. "|" .. table.concat(windowIds, ",")
 	if signature == shownSignature then
 		log_message("INFO", "updateWindows skipped, nothing changed on " .. currentWorkspace)
 		update_running = false
