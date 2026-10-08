@@ -1,0 +1,27 @@
+#!/bin/bash
+# Switches to workspace N on whichever display already holds its windows, since Rift gives every display its own A-Z.
+set -u
+
+index="${1:?usage: rift-workspace <index>}"
+cli=/opt/homebrew/bin/rift-cli
+jq=/usr/bin/jq
+
+displays="$("$cli" query displays 2>/dev/null)"
+count="$(printf '%s' "$displays" | "$jq" 'length' 2>/dev/null || echo 1)"
+
+if [ "${count:-1}" -gt 1 ]; then
+  current="$(printf '%s' "$displays" | "$jq" -r 'first(.[] | select(.is_active_context)) | .uuid')"
+  target=""
+  for uuid in "$current" $(printf '%s' "$displays" | "$jq" -r --arg c "$current" '.[] | select(.uuid != $c) | .uuid'); do
+    windows="$("$cli" query workspaces --display "$uuid" 2>/dev/null | "$jq" --argjson i "$index" 'first(.[] | select(.index == $i)) | .window_count // 0')"
+    if [ "${windows:-0}" -gt 0 ]; then
+      target="$uuid"
+      break
+    fi
+  done
+  if [ -n "$target" ] && [ "$target" != "$current" ]; then
+    "$cli" execute display focus --uuid "$target" >/dev/null
+  fi
+fi
+
+exec "$cli" execute workspace switch "$index"

@@ -107,6 +107,7 @@ Library/
 .local/libexec/tasks-reminders.swift
 .local/libexec/cpu-temp.swift
 .local/libexec/rift-layout
+.local/libexec/rift-workspace
 .local/bin/rift-focus-keeper
 build-libexec-helpers.sh
 
