@@ -23,7 +23,7 @@ run_on_start = [
 hot_reload = true
 
 [settings.layout]
-# BSP everywhere except A, which keeps a vertical accordion (see workspace_rules).
+# BSP everywhere except A, which defaults to niri-style scrolling columns (see workspace_rules).
 mode = "bsp"
 window_insertion_point = "next_to_selection"
 
@@ -68,7 +68,7 @@ workspace_names = [
   "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 ]
 workspace_rules = [
-  { workspace = "A", layout = "stack" },
+  { workspace = "A", layout = "scrolling" },
 ]
 
 # Matching is case-insensitive and more matcher fields win, so the title rules beat their plain app rules.
