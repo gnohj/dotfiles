@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rift-focus-keeper - after the focused window closes, focuses the nearest tile (Hyprland dwindle) instead of Rift's oldest window."""
+"""rift-focus-keeper - refocuses the nearest tile after a close, and follows a new window to its rule's workspace."""
 
 import json
 import os
@@ -21,6 +21,7 @@ VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
 history = defaultdict(list)
 members = {}
 centers = {}
+focused_before = set()
 armed = None
 
 
@@ -93,6 +94,7 @@ def seed():
             continue
         key = (space, int(match.group(1)))
         members[key] = {(w["id"]["pid"], w["id"]["idx"]) for w in ws.get("windows", [])}
+        focused_before.update(members[key])
         for w in ws.get("windows", []):
             if w.get("is_focused"):
                 history[key].append((settled, (w["id"]["pid"], w["id"]["idx"])))
@@ -131,10 +133,33 @@ def on_windows_changed(event, now):
         armed = None
 
 
+def follow_new_window(wid):
+    # Rift focuses a fresh window on its rule's hidden workspace but never switches there.
+    try:
+        workspaces = rift_json("query", "workspaces")
+    except (subprocess.SubprocessError, ValueError):
+        return
+    for index, ws in enumerate(workspaces):
+        ids = {(w["id"]["pid"], w["id"]["idx"]) for w in ws.get("windows", [])}
+        if wid in ids:
+            if not ws.get("is_active"):
+                subprocess.run(
+                    [RIFT, "execute", "workspace", "switch", str(index)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                )
+                print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
+            return
+
+
 def on_focused_window_changed(event, now):
     global armed
     key = workspace_key(event)
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
+    if wid not in focused_before:
+        focused_before.add(wid)
+        follow_new_window(wid)
     log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
     hist = history[key]
     hist.append((now, wid))
