@@ -8,11 +8,11 @@
     // https://discord.com/channels/1005603569187160125/1324828708128821271/1327261766014599218
     "type": "kitty-icat",
     "source": "~/.config/fastfetch/images/gundamg.png",
-    "height": 20,
+    "height": 18,
     "width": 30,
     "position": "left",
     "padding": {
-      "top": 3,
+      "top": 6,
       "right": 3,
     },
   },
@@ -148,28 +148,6 @@
       "type": "terminal",
       "key": "└ └ ",
       "keyColor": "blue",
-    },
-    {
-      "type": "custom",
-      "format": "└──────────────────────────────────┘",
-      "outputColor": "cyan",
-    },
-    {
-      "type": "custom",
-      // "format": "┌───────────Uptime / Age───────────┐",
-      "format": "┌──────────────Uptime──────────────┐",
-      "outputColor": "cyan",
-    },
-    // {
-    //   "type": "command",
-    //   "key": "  OS Age",
-    //   "keyColor": "magenta",
-    //   "text": "birth_install=$(stat -c %W /); current=$(date +%s); time_progression=$((current - birth_install)); days_difference=$((time_progression / 86400)); echo $days_difference days",
-    // },
-    {
-      "type": "uptime",
-      "key": "  Uptime",
-      "keyColor": "magenta",
     },
     {
       "type": "custom",
