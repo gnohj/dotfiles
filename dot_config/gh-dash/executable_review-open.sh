@@ -101,6 +101,8 @@ REVIEW_SETTINGS='--setting-sources user --settings "$HOME/.config/gh-dash/review
 # Bitwarden's scope-less GH_TOKEN shadows the keyring login and 404s every private iheartradio repo; panes inherit it from herdr, not from here.
 unset GH_TOKEN GITHUB_TOKEN
 GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '
+# A herdr server started from a firstmate home inherits .zshenv's medium effort, and that env outranks --effort.
+AGENT_FLAGS_WIN='unset CLAUDE_CODE_EFFORT_LEVEL CLAUDE_EFFORT ANTHROPIC_MODEL; '
 
 CLAUDE_ACCOUNT_ENV=()
 case "$mode" in
@@ -146,7 +148,7 @@ open_hunk() {
 open_claude_hunk() {
   local cmd="${3:-hunk-review}"
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
-    "$GH_KEYRING"'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
+    "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
 # $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
@@ -154,7 +156,7 @@ open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr" "$1" \
-    "$GH_KEYRING"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
+    "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 open_enhance() {
@@ -189,7 +191,7 @@ seal_on_exit() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
-    "$GH_KEYRING"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
+    "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
 # The finder is pinned; $2 labels the tab with the rung resolved by --check.
@@ -212,7 +214,7 @@ finder_label() {
 }
 
 open_fanout_owner() {
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "${GH_KEYRING}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "${GH_KEYRING}${AGENT_FLAGS_WIN}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
 background_review() {
