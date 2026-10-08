@@ -54,28 +54,28 @@ lalt + shift - 0x1B : /opt/homebrew/bin/rift-cli execute window resize-shrink --
 lalt + shift - 0x18 : /opt/homebrew/bin/rift-cli execute window resize-grow --orientation smart # equal
 
 # Rift - Workspace navigation
-lalt - b : /opt/homebrew/bin/rift-cli execute workspace switch 1
-lalt - c : /opt/homebrew/bin/rift-cli execute workspace switch 2
-lalt - d : /opt/homebrew/bin/rift-cli execute workspace switch 3
-lalt - e : /opt/homebrew/bin/rift-cli execute workspace switch 4
-lalt - f : /opt/homebrew/bin/rift-cli execute workspace switch 5
-lalt - g : /opt/homebrew/bin/rift-cli execute workspace switch 6
-lalt - m : /opt/homebrew/bin/rift-cli execute workspace switch 12
-lalt - n : /opt/homebrew/bin/rift-cli execute workspace switch 13
-lalt - o : /opt/homebrew/bin/rift-cli execute workspace switch 14
-lalt - q : /opt/homebrew/bin/rift-cli execute workspace switch 16
-lalt - r : /opt/homebrew/bin/rift-cli execute workspace switch 17
-lalt - s : /opt/homebrew/bin/rift-cli execute workspace switch 18
-lalt - t : /opt/homebrew/bin/rift-cli execute workspace switch 19
-lalt - y : /opt/homebrew/bin/rift-cli execute workspace switch 24
-lalt - u : /opt/homebrew/bin/rift-cli execute workspace switch 20
-lalt - v : /opt/homebrew/bin/rift-cli execute workspace switch 21
-lalt - w : /opt/homebrew/bin/rift-cli execute workspace switch 22
-lalt - x : /opt/homebrew/bin/rift-cli execute workspace switch 23
-lalt - a : /opt/homebrew/bin/rift-cli execute workspace switch 0
-lalt - z : /opt/homebrew/bin/rift-cli execute workspace switch 25
-lalt - i : /opt/homebrew/bin/rift-cli execute workspace switch 8
-lalt - p : /opt/homebrew/bin/rift-cli execute workspace switch 15
+lalt - b : ~/.local/libexec/rift-workspace 1
+lalt - c : ~/.local/libexec/rift-workspace 2
+lalt - d : ~/.local/libexec/rift-workspace 3
+lalt - e : ~/.local/libexec/rift-workspace 4
+lalt - f : ~/.local/libexec/rift-workspace 5
+lalt - g : ~/.local/libexec/rift-workspace 6
+lalt - m : ~/.local/libexec/rift-workspace 12
+lalt - n : ~/.local/libexec/rift-workspace 13
+lalt - o : ~/.local/libexec/rift-workspace 14
+lalt - q : ~/.local/libexec/rift-workspace 16
+lalt - r : ~/.local/libexec/rift-workspace 17
+lalt - s : ~/.local/libexec/rift-workspace 18
+lalt - t : ~/.local/libexec/rift-workspace 19
+lalt - y : ~/.local/libexec/rift-workspace 24
+lalt - u : ~/.local/libexec/rift-workspace 20
+lalt - v : ~/.local/libexec/rift-workspace 21
+lalt - w : ~/.local/libexec/rift-workspace 22
+lalt - x : ~/.local/libexec/rift-workspace 23
+lalt - a : ~/.local/libexec/rift-workspace 0
+lalt - z : ~/.local/libexec/rift-workspace 25
+lalt - i : ~/.local/libexec/rift-workspace 8
+lalt - p : ~/.local/libexec/rift-workspace 15
 
 # Rift - Move to workspace (no F: lalt+shift+f is fullscreen)
 lalt + shift - b : /opt/homebrew/bin/rift-cli execute workspace move-window 1
