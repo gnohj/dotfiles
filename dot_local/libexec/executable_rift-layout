@@ -2,10 +2,20 @@
 # Switch the active workspace to a layout mode, or flip its orientation if already there.
 set -u
 
-target="${1:?usage: rift-layout bsp|traditional|stack}"
+target="${1:?usage: rift-layout bsp|traditional|stack|scrolling}"
 cli=/opt/homebrew/bin/rift-cli
+jq=/usr/bin/jq
 
-current="$("$cli" query workspace-layout 2>/dev/null | /usr/bin/jq -r '.[] | select(.is_active) | .layout_mode' 2>/dev/null)"
+active="$("$cli" query workspace-layout 2>/dev/null | "$jq" -c 'first(.[] | select(.is_active))' 2>/dev/null)"
+current="$(printf '%s' "$active" | "$jq" -r '.layout_mode // empty' 2>/dev/null)"
+
+# Scrolling has no orientation to flip, so pressing it again returns the workspace to its configured layout.
+if [ "$target" = scrolling ] && [ "$current" = scrolling ]; then
+  name="$(printf '%s' "$active" | "$jq" -r '.name // empty')"
+  default="$("$cli" execute config get 2>/dev/null | "$jq" -r --arg n "$name" \
+    'first(.virtual_workspaces.workspace_rules[]? | select(.workspace == $n) | .layout | select(. != "scrolling")) // .settings.layout.mode // "bsp"')"
+  exec "$cli" execute workspace set-layout "$default"
+fi
 
 if [ "$current" = "$target" ]; then
   exec "$cli" execute layout toggle-orientation

@@ -42,6 +42,7 @@ lalt - l : /opt/homebrew/bin/rift-cli execute window focus right
 # Rift - Layout commands
 lalt - 0x2C : ~/.local/libexec/rift-layout bsp          # your / key
 lalt - 0x2B : ~/.local/libexec/rift-layout stack        # your , key
+lalt - 0x2F : ~/.local/libexec/rift-layout scrolling    # your . key (niri-style columns; again: back to default)
 
 # Rift - Move commands
 lalt + shift - h : /opt/homebrew/bin/rift-cli execute layout move-node left
