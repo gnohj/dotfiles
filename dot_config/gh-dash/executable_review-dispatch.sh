@@ -30,7 +30,7 @@ command -v jq >/dev/null 2>&1 || fallback
 
 gh_args=(pr view "$pr")
 [ -n "$repo" ] && gh_args+=(--repo "$repo")
-stats=$(gh "${gh_args[@]}" --json files,title 2>/dev/null) || fallback
+stats=$(gh "${gh_args[@]}" --json files,title,author 2>/dev/null) || fallback
 [ -n "$stats" ] || fallback
 
 # Generated files excluded, matching the size the Library shows, so badge and band cannot disagree.
@@ -39,6 +39,7 @@ counted=$(printf '%s' "$stats" | jq --arg skip "$GENERATED" '[.files[]? | select
 lines=$(printf '%s' "$counted" | jq -r 'map((.additions // 0) + (.deletions // 0)) | add // 0')
 files=$(printf '%s' "$counted" | jq -r 'length')
 title=$(printf '%s' "$stats" | jq -r '.title // ""')
+author=$(printf '%s' "$stats" | jq -r '.author.login // ""')
 case "$lines$files" in '' | *[!0-9]*) fallback ;; esac
 
 semantic=""
@@ -50,7 +51,7 @@ if command -v jev-route >/dev/null 2>&1; then
 fi
 
 # Size picks the band; riskPaths floors it at the hardest, lowRiskPaths drops one but only if EVERY counted file matches.
-profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --argjson counted "$counted" --arg semantic "$semantic" '
+profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --arg author "$author" --argjson counted "$counted" --arg semantic "$semantic" '
   ([$counted[].path // ""]) as $paths
   | (.riskPaths // []) as $risky
   | (.lowRiskPaths // []) as $cheap
@@ -68,7 +69,10 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
   | (if $pick == null then {use: .default} else .rules[$pick] end) as $r
   | ($r.use // $r) as $u
   | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap then "tests" else "" end) as $why
-  | (if ($title | test("^\\[Backport #[0-9]+\\]"; "i")) then "full" else ($u.mode // "full") end) as $mode
+  | (.singleAgent // {}) as $one
+  | ([($one.titles // [])[] | select(. as $re | $title | test($re; "i"))] + [($one.authors // [])[] | select(. as $re | $author | test($re; "i"))] | length > 0) as $mechanical
+  | (if $mechanical then "full" else ($u.mode // "full") end) as $mode
+  | (if $mechanical then ($why + (if $why == "" then "" else "+" end) + "mechanical") else $why end) as $why
   | [ $mode, $u.claude.model, $u.claude.effort, $u.gpt.model, $u.gpt.effort, ($u.rungTimeout | tostring), $why ] | @tsv
 ' "$CONFIG" 2>/dev/null) || fallback
 [ -n "$profile" ] || fallback
