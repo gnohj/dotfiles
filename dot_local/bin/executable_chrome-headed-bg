@@ -3,8 +3,8 @@ set -uo pipefail
 
 [ "$(uname -s)" = Darwin ] || exit 0
 
-APP="${CHROME_HEADED_BG_APP:-Google Chrome}"
-APP_BUNDLE_ID="${CHROME_HEADED_BG_BUNDLE_ID:-com.google.Chrome}"
+APP="${CHROME_HEADED_BG_APP:-Google Chrome Beta}"
+APP_BUNDLE_ID="${CHROME_HEADED_BG_BUNDLE_ID:-com.google.Chrome.beta}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chrome-headed-bg"
 PROFILE_ROOT="$HOME/.cache/chrome-headed-bg"
 PORT_LO="${CHROME_HEADED_BG_PORT_LO:-9300}"

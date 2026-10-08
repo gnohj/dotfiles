@@ -96,6 +96,7 @@
       # Browsers
       "firefox"
       "google-chrome"
+      "google-chrome@beta"
       "helium-browser"
       "microsoft-edge"
       "zen"
