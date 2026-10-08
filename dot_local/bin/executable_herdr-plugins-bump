@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Bump herdr plugin pins in the chezmoi source to their latest release or HEAD.
+set -euo pipefail
+
+file="$(chezmoi source-path)/run_after_mise-tools-herdr-plugins.sh"
+changed=0
+
+while IFS='|' read -r id src ref track; do
+  if [ "$track" = "release" ] && tag="$(gh api "repos/$src/releases/latest" --jq .tag_name 2>/dev/null)"; then
+    target="$(gh api "repos/$src/commits/$tag" --jq .sha)"
+    label="$tag"
+  else
+    target="$(gh api "repos/$src/commits/HEAD" --jq .sha)"
+    label="HEAD"
+  fi
+  if [ "$target" = "$ref" ]; then
+    echo "$id: up to date ($label ${ref:0:7})"
+    continue
+  fi
+  ahead="$(gh api "repos/$src/compare/$ref...$target" --jq .ahead_by 2>/dev/null || echo "?")"
+  if [ "$ahead" = "0" ]; then
+    echo "$id: pin ${ref:0:7} is already past $label, keeping it"
+    continue
+  fi
+  sed -i.bak "s#\"$id|$src|$ref|#\"$id|$src|$target|#" "$file"
+  rm -f "$file.bak"
+  echo "$id: ${ref:0:7} -> ${target:0:7} ($label, $ahead commits)"
+  changed=1
+done < <(sed -n 's/^  "\([^"]*\)"$/\1/p' "$file")
+
+[ "$changed" = 1 ] && echo "pins updated in $file - run 'chezmoi apply' to install"
+exit 0
