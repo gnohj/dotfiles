@@ -95,7 +95,9 @@ Create it, then add one `export NAME="value"` line per token, reading each value
 touch ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
 ```
 
-`dot_config/bitwarden/vars.txt` is the canonical list; copy only the **scoped subset** this box actually needs, never the whole vault. At minimum that has been: `CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `GPR_AUTH_TOKEN`, `JIRA_API_TOKEN`, `OPENAI_API_KEY`, `TURBO_TOKEN`.
+`dot_config/bitwarden/vars.txt` is the canonical list; copy only the **scoped subset** this box actually needs, never the whole vault. At minimum that has been: `CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `GPR_AUTH_TOKEN`, `JIRA_API_TOKEN`, `OPENAI_API_KEY`, `TURBO_TOKEN`, `TYPESAFE_API_KEY`.
+
+**`TYPESAFE_API_KEY` fails silently.** It is Jev's key, and gh-dash's `review-dispatch.sh` treats a failing `jev-route` as "no opinion", so reviews still launch but never get Jev's `deep`/`critical` model bump.
 
 **`TURBO_TOKEN` is easy to miss and expensive to omit.** Without it turbo has no remote cache, so every task is a cold miss - the web repo's `pre-push` hook (typecheck + lint + test via turbo) then takes minutes instead of seconds. It is a single unnamespaced secret shared by both repos, unlike `FASTLY_API_TOKEN` / `INFERNO_FASTLY_API_TOKEN`, so one line covers web and inferno. Only the token belongs here: `web/turbo.json` already sets `remoteCache.teamSlug` and `inferno/.envrc` already sets `TURBO_TEAM`.
 
