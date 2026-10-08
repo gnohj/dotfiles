@@ -18,6 +18,7 @@ import {
   shortWindowLabel,
   type Verdict,
 } from "./pace";
+import { quotaProvidersForDisplay, quotaWarningLines } from "./quota-health";
 import { subscribeToOperationsRefresh } from "./refresh";
 import type {
   OperationsDashboard,
@@ -530,6 +531,8 @@ export function OperationsView({
   const scrollContainer = useRef<HTMLDivElement>(null);
   const [dashboard, setDashboard] = useState<OperationsDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [quotaRefreshFailed, setQuotaRefreshFailed] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [runningTarget, setRunningTarget] = useState<string | null>(null);
@@ -539,6 +542,8 @@ export function OperationsView({
     const api = window.babyMenu;
     if (!api) {
       setError("Baby Menu bridge unavailable");
+      setQuotaRefreshFailed(true);
+      setNowMs(Date.now());
       setLoading(false);
       return;
     }
@@ -549,10 +554,13 @@ export function OperationsView({
         "getDashboard",
       );
       setDashboard(value);
+      setQuotaRefreshFailed(false);
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+      setQuotaRefreshFailed(true);
     } finally {
+      setNowMs(Date.now());
       setLoading(false);
     }
   }, []);
@@ -619,6 +627,18 @@ export function OperationsView({
   }, [refresh]);
 
   useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    const timer = window.setInterval(tick, 30_000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, []);
+
+  useEffect(() => {
     if (document.documentElement.dataset.windowMode === "sidebar") return;
     const navigate = (event: KeyboardEvent) => {
       const editable = isEditableTarget(event.target);
@@ -671,6 +691,20 @@ export function OperationsView({
       });
   }, []);
 
+  const displayDashboard = dashboard
+    ? {
+        ...dashboard,
+        quotaGeneratedAt: new Date(nowMs).toISOString(),
+        quotaProviders: quotaProvidersForDisplay(
+          dashboard.quotaProviders,
+          nowMs,
+          quotaRefreshFailed,
+        ),
+      }
+    : null;
+  const quotaWarnings = displayDashboard
+    ? quotaWarningLines(displayDashboard.quotaProviders, nowMs)
+    : [];
   const tokenAlerts =
     dashboard?.tokens.filter((row) => row.status !== "ok").length ?? 0;
   const tokenDays =
@@ -701,8 +735,8 @@ export function OperationsView({
           </div>
           <div className="mt-1 text-xs text-ink-soft">
             {dashboard
-              ? variant === "usage"
-                ? quotaSummary(dashboard)
+              ? variant === "usage" && displayDashboard
+                ? quotaSummary(displayDashboard)
                 : variant === "accounts"
                   ? tokenAlerts
                     ? `${tokenAlerts} need refreshing`
@@ -724,8 +758,31 @@ export function OperationsView({
       </header>
 
       {error ? (
-        <div className="rounded-md border border-signal-danger/40 bg-surface px-3 py-2 text-sm text-signal-danger">
-          {error}
+        <div
+          role="alert"
+          className="rounded-md border border-signal-danger/40 bg-surface px-3 py-2 text-sm text-signal-danger"
+        >
+          {quotaRefreshFailed
+            ? `Refresh failed. Previous readings are not current. ${error}`
+            : error}
+        </div>
+      ) : null}
+
+      {(variant === "usage" || variant === "all") && quotaWarnings.length ? (
+        <div
+          role="alert"
+          className="rounded-md border border-signal-warn/60 bg-surface px-3 py-2 text-sm text-signal-warn"
+        >
+          <div className="font-semibold">Usage readings need attention</div>
+          {quotaWarnings.map((warning) => (
+            <p key={warning} className="mt-1">
+              {warning}
+            </p>
+          ))}
+          <div className="mt-1">
+            Use Refresh to retry. This warning clears when fresh readings
+            return.
+          </div>
         </div>
       ) : null}
 
@@ -742,11 +799,11 @@ export function OperationsView({
               AI capacity
             </span>
             <span className="text-xs text-ink-soft">
-              {dashboard ? quotaSummary(dashboard) : ""}
+              {displayDashboard ? quotaSummary(displayDashboard) : ""}
             </span>
           </div>
-          {dashboard?.quotaProviders.length ? (
-            <QuotaCards dashboard={dashboard} />
+          {displayDashboard?.quotaProviders.length ? (
+            <QuotaCards dashboard={displayDashboard} />
           ) : (
             <div className="rounded-md border border-line bg-surface px-3">
               <EmptyState>No quota data</EmptyState>

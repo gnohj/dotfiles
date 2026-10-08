@@ -10,12 +10,18 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { effectiveAvailability, windowPace } from "./pace";
+import {
+  claudeFromDesktop,
+  claudeFromStatusline,
+  claudeFromUsage,
+  selectClaudeCard,
+  type Captures,
+  type DesktopSample,
+} from "./claude-quota";
 import type {
   OperationsDashboard,
   QuotaColors,
   QuotaProvider,
-  QuotaWindow,
   RunScheduleResult,
   ScheduleJob,
   ScheduleSection,
@@ -127,17 +133,6 @@ async function quotaAxi(
   return parsed.providers ?? [];
 }
 
-const CLAUDE_WINDOWS = [
-  { id: "five_hour", label: "session", windowSeconds: 5 * 3600 },
-  { id: "seven_day", label: "week", windowSeconds: 7 * 86400 },
-] as const;
-const CAPTURE_STALE_MS = 6 * 3600 * 1000;
-
-type ClaudeAccount = "personal" | "work";
-
-type Capture = { value: string; mtimeMs: number };
-type Captures = Map<string, Capture>;
-
 const CAPTURE_NAME =
   /^claude_(?:pct|reset)_(?:personal|work)_(?:five_hour|seven_day)$/;
 const CAPTURE_VALUE = /^[0-9]+(?:\.[0-9]+)?$/;
@@ -223,132 +218,51 @@ async function statuslineCaptures(): Promise<Captures> {
   return merged;
 }
 
-function capturedReset(
-  captures: Captures,
-  account: ClaudeAccount,
-  window: string,
-): string | undefined {
-  const epoch = Number(
-    captures.get(`claude_reset_${account}_${window}`)?.value,
-  );
-  return Number.isFinite(epoch) && epoch > 0
-    ? new Date(epoch * 1000).toISOString()
-    : undefined;
-}
-
-function claudeCard(
-  account: ClaudeAccount,
-  source: string,
-  windows: QuotaWindow[],
-  refreshedAtMs: number,
-  generatedAtMs: number,
-): QuotaProvider {
-  const stale = generatedAtMs - refreshedAtMs > CAPTURE_STALE_MS;
-  for (const window of windows)
-    window.pace = stale ? undefined : windowPace(window, generatedAtMs);
-  return {
-    provider: "claude",
-    accountKey: account,
-    source,
-    windows,
-    state: {
-      status: stale ? "stale" : "fresh",
-      refreshedAt: new Date(refreshedAtMs).toISOString(),
-    },
-    quotaSemantics: {
-      status: "known",
-      effectiveAvailability: [effectiveAvailability(windows, generatedAtMs)],
-    },
-  };
-}
-
-// claude-usage-pct and claude-usage-reset persist the statusline's rate_limits per account, the one live source quota-axi lacks for either login.
-function claudeFromStatusline(
-  captures: Captures,
-  account: ClaudeAccount,
-  generatedAtMs: number,
-): QuotaProvider | undefined {
-  const windows: QuotaWindow[] = [];
-  let refreshedAtMs = 0;
-  for (const spec of CLAUDE_WINDOWS) {
-    const capture = captures.get(`claude_pct_${account}_${spec.id}`);
-    if (!capture) continue;
-    const used = Number(capture.value);
-    refreshedAtMs = Math.max(refreshedAtMs, capture.mtimeMs);
-    windows.push({
-      ...spec,
-      percentUsed: used,
-      percentRemaining: Math.max(
-        0,
-        Math.min(100, Math.round((100 - used) * 10) / 10),
-      ),
-      resetsAt: capturedReset(captures, account, spec.id),
-    });
-  }
-  return windows.length
-    ? claudeCard(
-        account,
-        "statusline · oauth",
-        windows,
-        refreshedAtMs,
-        generatedAtMs,
-      )
-    : undefined;
-}
-
 // Before any statusline capture exists, the personal card falls back to the desktop app's own usage history.
 async function claudePersonalFromDesktop(
-  captures: Captures,
   generatedAtMs: number,
 ): Promise<QuotaProvider | undefined> {
   const history = JSON.parse(
     await readFile(planUsageHistory, "utf8").catch(() => "{}"),
-  ) as {
-    samples?: { t: number; u?: { fh?: number; sd?: number } }[];
-  };
-  const sample = history.samples?.at(-1);
-  if (!sample) return undefined;
-  const used = { five_hour: sample.u?.fh ?? 0, seven_day: sample.u?.sd ?? 0 };
-  const windows: QuotaWindow[] = [];
-  for (const spec of CLAUDE_WINDOWS) {
-    windows.push({
-      ...spec,
-      percentRemaining: 100 - used[spec.id],
-      resetsAt: capturedReset(captures, "personal", spec.id),
-    });
-  }
-  return claudeCard("personal", "desktop", windows, sample.t, generatedAtMs);
+  ) as { samples?: DesktopSample[] };
+  return claudeFromDesktop(history.samples?.at(-1), generatedAtMs);
 }
 
 async function quotaProviders(errors: string[]): Promise<QuotaProvider[]> {
-  const generatedAtMs = Date.now();
+  let generatedAtMs = Date.now();
   const failed = (error: unknown): QuotaProvider[] => {
     errors.push(error instanceof Error ? error.message : String(error));
     return [];
   };
-  const [captures, work, others] = await Promise.all([
-    statuslineCaptures(),
-    quotaAxi(["--provider", "claude"], {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: join(home, ".claude-work"),
-    }).catch(failed),
-    quotaAxi([]).catch(failed),
+  const [captures, work, others, personalUsage, workUsage, desktop] =
+    await Promise.all([
+      statuslineCaptures(),
+      quotaAxi(["--provider", "claude"], {
+        ...process.env,
+        CLAUDE_ACCOUNT: "work",
+        CLAUDE_CONFIG_DIR: join(home, ".claude-work"),
+      }).catch(failed),
+      quotaAxi([]).catch(failed),
+      execute(claudeAccountScript, ["usage", "personal"]).catch(() => ""),
+      execute(claudeAccountScript, ["usage", "work"]).catch(() => ""),
+      claudePersonalFromDesktop(generatedAtMs).catch(() => undefined),
+    ]);
+  generatedAtMs = Date.now();
+  const personal = selectClaudeCard("personal", generatedAtMs, [
+    claudeFromStatusline(captures, "personal", generatedAtMs),
+    claudeFromUsage(personalUsage, "personal", generatedAtMs),
+    desktop,
   ]);
-  const personal =
-    claudeFromStatusline(captures, "personal", generatedAtMs) ??
-    (await claudePersonalFromDesktop(captures, generatedAtMs).catch(
-      () => undefined,
-    ));
-  const workCapture = claudeFromStatusline(captures, "work", generatedAtMs);
+  const workCard = selectClaudeCard("work", generatedAtMs, [
+    claudeFromStatusline(captures, "work", generatedAtMs),
+    claudeFromUsage(workUsage, "work", generatedAtMs),
+    ...work,
+  ]);
   // The default claude reading is the Keychain-locked personal login, which the statusline or desktop card already covers.
   const rest = others.filter((provider) => provider.provider !== "claude");
   return [
     ...(personal ? [personal] : []),
-    ...(workCapture
-      ? [workCapture]
-      : work
-          .filter((provider) => !provider.notSetUp)
-          .map((provider) => ({ ...provider, accountKey: "work" }))),
+    ...(workCard ? [workCard] : []),
     ...rest.filter((provider) => !provider.notSetUp),
   ];
 }
@@ -529,10 +443,10 @@ function toggleRequestFrom(input: unknown): {
   }
   const target = input.target;
   const enabled = input.enabled;
-  const expectedTarget = new RegExp(
-    `^gui/${process.getuid()}/[A-Za-z0-9._-]+$`,
-  );
+  const uid = process.getuid?.();
+  const expectedTarget = new RegExp(`^gui/${uid}/[A-Za-z0-9._-]+$`);
   if (
+    uid === undefined ||
     typeof target !== "string" ||
     !expectedTarget.test(target) ||
     typeof enabled !== "boolean"
