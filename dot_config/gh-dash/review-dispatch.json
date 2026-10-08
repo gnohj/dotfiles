@@ -84,5 +84,20 @@
     "\\.stories\\.[a-z]+$",
     "\\.(md|mdx|txt|rst)$",
     "(^|/)docs?/"
-  ]
+  ],
+  "singleAgent": {
+    "why": "Mechanical PRs a second agent cannot add to: bots, backports, dependency, translation, timing and publish chores.",
+    "authors": [
+      "^app/(renovate|dependabot|github-actions)$",
+      "\\[bot\\]$",
+      "^iheart-web-bot$"
+    ],
+    "titles": [
+      "^\\[Backport #[0-9]+\\]",
+      "^\\[chore\\] (Refresh CI test timings|Translation Updates|Publish Packages)",
+      "^(chore|fix)\\(deps\\):",
+      "^Update (dependency|.+ packages)\\b",
+      "^Pin dependencies"
+    ]
+  }
 }
