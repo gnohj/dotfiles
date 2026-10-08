@@ -1,0 +1,13 @@
+#!/bin/bash
+# Switch the active workspace to a layout mode, or flip its orientation if already there.
+set -u
+
+target="${1:?usage: rift-layout bsp|traditional|stack}"
+cli=/opt/homebrew/bin/rift-cli
+
+current="$("$cli" query workspace-layout 2>/dev/null | /usr/bin/jq -r '.[] | select(.is_active) | .layout_mode' 2>/dev/null)"
+
+if [ "$current" = "$target" ]; then
+  exec "$cli" execute layout toggle-orientation
+fi
+exec "$cli" execute workspace set-layout "$target"

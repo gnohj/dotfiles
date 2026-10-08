@@ -1,11 +1,13 @@
 -- Combined workspace widget - workspace indicator + window list
--- Uses ONLY AeroSpaceLua socket connection (no CLI)
+-- Reads Rift through lib/rift.lua (rift-cli)
 local constants = require("constants")
 local settings = require("config.settings")
-local Aerospace = require("lib.aerospace")
+local Rift = require("lib.rift")
+
+sbar.add("event", constants.events.RIFT_WORKSPACE_CHANGED)
 
 local frontApps = {}
-local aerospace = nil
+local rift = nil
 local isShowingSpaces = true
 
 local log_dir = os.getenv("HOME") .. "/.logs/sketchybar"
@@ -19,25 +21,25 @@ local function log_message(level, message)
 	sbar.exec("echo '" .. log_entry:gsub("'", "'\\''") .. "' >> " .. log_file)
 end
 
-local function init_aerospace()
+local function init_rift()
 	local ok, result = pcall(function()
-		return Aerospace.new()
+		return Rift.new()
 	end)
 
 	if ok then
-		aerospace = result
-		log_message("INFO", "AeroSpace socket connection established")
+		rift = result
+		log_message("INFO", "Rift reachable")
 		return true
 	else
-		log_message("ERROR", "Failed to connect to AeroSpace socket: " .. tostring(result))
+		log_message("ERROR", "Rift not reachable: " .. tostring(result))
 		return false
 	end
 end
 
 local function ensure_connection()
-	if not aerospace or not aerospace:is_initialized() then
-		log_message("WARN", "Socket not initialized, attempting reconnect")
-		return init_aerospace()
+	if not rift or not rift:is_initialized() then
+		log_message("WARN", "Rift not initialized, attempting reconnect")
+		return init_rift()
 	end
 	return true
 end
@@ -116,11 +118,6 @@ local update_running = false
 local shownWorkspace = nil
 local shownSignature = nil
 
--- AeroSpace #2297 bounces target->previous->target; measured gaps reach 151ms.
-local SETTLE_SECONDS = 0.18
-local settleGeneration = 0
-local settling = false
-
 local function selectFocusedWindow(frontAppName)
 	for appName, app in pairs(frontApps) do
 		local isSelected = appName == frontAppName
@@ -163,18 +160,18 @@ local function updateWindows()
 	log_message("INFO", "updateWindows called")
 
 	if not ensure_connection() then
-		log_message("ERROR", "Cannot update windows - no AeroSpace connection")
+		log_message("ERROR", "Cannot update windows - Rift not reachable")
 		update_running = false
 		return
 	end
 
 	local ok, currentWorkspace = pcall(function()
-		return aerospace:list_current():match("[^\r\n]+")
+		return rift:list_current():match("[^\r\n]+")
 	end)
 
 	if not ok then
 		log_message("ERROR", "Failed to get current workspace: " .. tostring(currentWorkspace))
-		aerospace = nil  -- force full reconnect on next call
+		rift = nil  -- force full reconnect on next call
 		update_running = false
 		return
 	end
@@ -182,12 +179,12 @@ local function updateWindows()
 	log_message("INFO", "Current workspace: " .. tostring(currentWorkspace))
 
 	local ok2, windowsJson = pcall(function()
-		return aerospace:list_all_windows()
+		return rift:list_all_windows()
 	end)
 
 	if not ok2 then
 		log_message("ERROR", "Failed to list windows: " .. tostring(windowsJson))
-		aerospace = nil  -- force full reconnect on next call
+		rift = nil  -- force full reconnect on next call
 		update_running = false
 		return
 	end
@@ -207,7 +204,7 @@ local function updateWindows()
 	local focusedAppName = nil
 	if hasWindows then
 		local ok3, focusedWindowJson = pcall(function()
-			return aerospace:focused_window()
+			return rift:focused_window()
 		end)
 
 		if ok3 and focusedWindowJson and focusedWindowJson ~= "" then
@@ -251,7 +248,7 @@ local function updateWindows()
 					padding_left = -15,
 					string = labelString,
 				},
-				click_script = "aerospace focus --window-id " .. windowId,
+				click_script = Rift.focus_command(window),
 				drawing = isShowingSpaces,
 			})
 		end
@@ -300,22 +297,9 @@ local function setVisibility(visible)
 	end
 end
 
--- First event renders at once; the re-check after the burst draws only if the signature changed.
-frontAppWatcher:subscribe(constants.events.AEROSPACE_WORKSPACE_CHANGED, function(env)
-	log_message("INFO", "AEROSPACE_WORKSPACE_CHANGED event received: " .. tostring(env.FOCUSED_WORKSPACE))
-	settleGeneration = settleGeneration + 1
-	local generation = settleGeneration
-	if not settling then
-		settling = true
-		getWindows()
-	end
-	sbar.delay(SETTLE_SECONDS, function()
-		if generation ~= settleGeneration then
-			return
-		end
-		settling = false
-		getWindows()
-	end)
+frontAppWatcher:subscribe(constants.events.RIFT_WORKSPACE_CHANGED, function(env)
+	log_message("INFO", "RIFT_WORKSPACE_CHANGED event received: " .. tostring(env.FOCUSED_WORKSPACE))
+	getWindows()
 end)
 
 frontAppWatcher:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
@@ -344,30 +328,28 @@ workspaceItem:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 	setVisibility(not showingMenu)
 end)
 
--- Retry init on a schedule until AeroSpace's socket is reachable. Sketchybar
--- often starts before AeroSpace is fully up after boot/login, which used to
--- log a permanent failure and leave the workspace widget disabled forever.
+-- Sketchybar often starts before Rift after login, so keep retrying instead of disabling the widget.
 local RETRY_DELAY = 5 -- seconds between attempts
 local RETRY_EVENT = "workspace_retry_init"
 
 sbar.exec("sketchybar --add event " .. RETRY_EVENT)
 
 frontAppWatcher:subscribe(RETRY_EVENT, function()
-	if aerospace and aerospace:is_initialized() then
+	if rift and rift:is_initialized() then
 		return -- already connected, nothing to do
 	end
-	if init_aerospace() then
-		log_message("INFO", "AeroSpace reachable on retry — workspace widget enabled")
+	if init_rift() then
+		log_message("INFO", "Rift reachable on retry — workspace widget enabled")
 		getWindows()
 	else
 		sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
 	end
 end)
 
-if init_aerospace() then
+if init_rift() then
 	log_message("INFO", "workspace.lua initialized")
 	getWindows()
 else
-	log_message("WARN", "AeroSpace socket not yet reachable - retrying every " .. RETRY_DELAY .. "s")
+	log_message("WARN", "Rift not yet reachable - retrying every " .. RETRY_DELAY .. "s")
 	sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
 end

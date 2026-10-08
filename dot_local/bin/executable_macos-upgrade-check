@@ -115,11 +115,11 @@ check_keyboard() {
 
 check_desktop() {
   local p
-  for p in sketchybar AeroSpace skhd borders; do
+  for p in sketchybar rift skhd borders; do
     if pgrep -x "$p" >/dev/null; then
       ok "$p" "running"
     else
-      bad "$p" "not running" "step 6: grant Accessibility, then launchctl kickstart -k gui/$(id -u)/org.nixos.$(echo "$p" | tr 'A-Z' 'a-z') (AeroSpace: open -a AeroSpace)"
+      bad "$p" "not running" "step 6: grant Accessibility, then launchctl kickstart -k gui/$(id -u)/org.nixos.$p (rift: rift service restart)"
     fi
   done
   local stamp
@@ -200,7 +200,7 @@ check_golden_gate() {
   local secure
   secure="$(ioreg -l -w 0 | grep -o '"kCGSSessionSecureInputPID"=[0-9]*' | head -1 | cut -d= -f2)"
   if [ -n "$secure" ]; then
-    meh secure-input "held by pid $secure ($(ps -o comm= -p "$secure" 2>/dev/null))" "G-14: skhd and AeroSpace get no keys while this lasts; kitty 0.49 on 27 holds it while focused, so focus another app or quit kitty"
+    meh secure-input "held by pid $secure ($(ps -o comm= -p "$secure" 2>/dev/null))" "G-14: skhd gets no keys while this lasts, so Rift bindings go dead; kitty 0.49 on 27 holds it while focused, so focus another app or quit kitty"
   else
     ok secure-input "not held"
   fi

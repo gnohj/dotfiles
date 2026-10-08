@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sources: {{ include "dot_local/libexec/tasks-reminders.swift" | sha256sum }} {{ include "dot_local/libexec/cpu-temp.swift" | sha256sum }} {{ include "dot_local/libexec/aerospace-workspace.swift" | sha256sum }}
+# sources: {{ include "dot_local/libexec/tasks-reminders.swift" | sha256sum }} {{ include "dot_local/libexec/cpu-temp.swift" | sha256sum }}
 set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || exit 0

@@ -31,88 +31,85 @@ rctrl - escape : ~/.local/bin/mux/shared/notify-idle-clear.sh # clear stuck bann
    # Screenshot utilities - Hyper key bindings (Ctrl + Shift + Alt + Cmd)
 hyper - x : ~/.config/skhd/screenshot-save-and-copy.sh  # Native screenshot - save to file AND copy filepath to clipboard
 
-# Aerospace - Focus commands
-lalt - h : /opt/homebrew/bin/aerospace focus left
-lalt - j : /opt/homebrew/bin/aerospace focus down
-lalt - k : /opt/homebrew/bin/aerospace focus up
-lalt - l : /opt/homebrew/bin/aerospace focus right
+# Rift window manager. Workspace index = letter - A (see ~/.config/rift/config.toml).
 
-# Aerospace - Layout commands
-lalt - 0x2C : /opt/homebrew/bin/aerospace layout tiles horizontal vertical      # your / key
-lalt - 0x2B : /opt/homebrew/bin/aerospace layout accordion horizontal vertical  # your , key
+# Rift - Focus commands
+lalt - h : /opt/homebrew/bin/rift-cli execute window focus left
+lalt - j : /opt/homebrew/bin/rift-cli execute window focus down
+lalt - k : /opt/homebrew/bin/rift-cli execute window focus up
+lalt - l : /opt/homebrew/bin/rift-cli execute window focus right
 
-# Aerospace - Move commands
-lalt + shift - h : /opt/homebrew/bin/aerospace move left
-lalt + shift - j : /opt/homebrew/bin/aerospace move down
-lalt + shift - k : /opt/homebrew/bin/aerospace move up
-lalt + shift - l : /opt/homebrew/bin/aerospace move right
+# Rift - Layout commands
+lalt - 0x2C : ~/.local/libexec/rift-layout bsp          # your / key
+lalt - 0x2B : ~/.local/libexec/rift-layout stack        # your , key
 
-# Aerospace - Resize commands
-lalt + shift - 0x1B : /opt/homebrew/bin/aerospace resize smart -50 # minus
-lalt + shift - 0x18 : /opt/homebrew/bin/aerospace resize smart +50 # equal
+# Rift - Move commands
+lalt + shift - h : /opt/homebrew/bin/rift-cli execute layout move-node left
+lalt + shift - j : /opt/homebrew/bin/rift-cli execute layout move-node down
+lalt + shift - k : /opt/homebrew/bin/rift-cli execute layout move-node up
+lalt + shift - l : /opt/homebrew/bin/rift-cli execute layout move-node right
 
-# Aerospace - Workspace navigation
-lalt - b : ~/.local/libexec/aerospace-workspace B
-lalt - c : ~/.local/libexec/aerospace-workspace C
-lalt - d : ~/.local/libexec/aerospace-workspace D
-lalt - e : ~/.local/libexec/aerospace-workspace E
-lalt - f : ~/.local/libexec/aerospace-workspace F
-lalt - g : ~/.local/libexec/aerospace-workspace G
-lalt - m : ~/.local/libexec/aerospace-workspace M
-lalt - n : ~/.local/libexec/aerospace-workspace N
-lalt - o : ~/.local/libexec/aerospace-workspace O
-lalt - q : ~/.local/libexec/aerospace-workspace Q
-lalt - r : ~/.local/libexec/aerospace-workspace R
-lalt - s : ~/.local/libexec/aerospace-workspace S
-lalt - t : ~/.local/libexec/aerospace-workspace T
-lalt - y : ~/.local/libexec/aerospace-workspace Y                              # notes / obsidian / reminders
-lalt - u : ~/.local/libexec/aerospace-workspace U
-lalt - v : ~/.local/libexec/aerospace-workspace V
-lalt - w : ~/.local/libexec/aerospace-workspace W
-lalt - x : ~/.local/libexec/aerospace-workspace X
-lalt - a : ~/.local/libexec/aerospace-workspace A
-lalt - z : ~/.local/libexec/aerospace-workspace Z
+# Rift - Resize commands
+lalt + shift - 0x1B : /opt/homebrew/bin/rift-cli execute window resize-shrink --orientation smart # minus
+lalt + shift - 0x18 : /opt/homebrew/bin/rift-cli execute window resize-grow --orientation smart # equal
 
-# Aerospace - Move to workspace
-lalt + shift - b : /opt/homebrew/bin/aerospace move-node-to-workspace B
-lalt + shift - c : /opt/homebrew/bin/aerospace move-node-to-workspace C
-lalt + shift - d : /opt/homebrew/bin/aerospace move-node-to-workspace D
-lalt + shift - e : /opt/homebrew/bin/aerospace move-node-to-workspace E
-lalt + shift - g : /opt/homebrew/bin/aerospace move-node-to-workspace G
-lalt + shift - m : /opt/homebrew/bin/aerospace move-node-to-workspace M
-lalt + shift - n : /opt/homebrew/bin/aerospace move-node-to-workspace N
-lalt + shift - o : /opt/homebrew/bin/aerospace move-node-to-workspace O
-lalt + shift - q : /opt/homebrew/bin/aerospace move-node-to-workspace Q
-lalt + shift - r : /opt/homebrew/bin/aerospace move-node-to-workspace R
-lalt + shift - s : /opt/homebrew/bin/aerospace move-node-to-workspace S
-lalt + shift - t : /opt/homebrew/bin/aerospace move-node-to-workspace T
-lalt + shift - u : /opt/homebrew/bin/aerospace move-node-to-workspace U
-lalt + shift - v : /opt/homebrew/bin/aerospace move-node-to-workspace V
-lalt + shift - w : /opt/homebrew/bin/aerospace move-node-to-workspace W
-lalt + shift - x : /opt/homebrew/bin/aerospace move-node-to-workspace X
-lalt + shift - a : /opt/homebrew/bin/aerospace move-node-to-workspace A
-lalt + shift - z : /opt/homebrew/bin/aerospace move-node-to-workspace Z
+# Rift - Workspace navigation
+lalt - b : /opt/homebrew/bin/rift-cli execute workspace switch 1
+lalt - c : /opt/homebrew/bin/rift-cli execute workspace switch 2
+lalt - d : /opt/homebrew/bin/rift-cli execute workspace switch 3
+lalt - e : /opt/homebrew/bin/rift-cli execute workspace switch 4
+lalt - f : /opt/homebrew/bin/rift-cli execute workspace switch 5
+lalt - g : /opt/homebrew/bin/rift-cli execute workspace switch 6
+lalt - m : /opt/homebrew/bin/rift-cli execute workspace switch 12
+lalt - n : /opt/homebrew/bin/rift-cli execute workspace switch 13
+lalt - o : /opt/homebrew/bin/rift-cli execute workspace switch 14
+lalt - q : /opt/homebrew/bin/rift-cli execute workspace switch 16
+lalt - r : /opt/homebrew/bin/rift-cli execute workspace switch 17
+lalt - s : /opt/homebrew/bin/rift-cli execute workspace switch 18
+lalt - t : /opt/homebrew/bin/rift-cli execute workspace switch 19
+lalt - y : /opt/homebrew/bin/rift-cli execute workspace switch 24
+lalt - u : /opt/homebrew/bin/rift-cli execute workspace switch 20
+lalt - v : /opt/homebrew/bin/rift-cli execute workspace switch 21
+lalt - w : /opt/homebrew/bin/rift-cli execute workspace switch 22
+lalt - x : /opt/homebrew/bin/rift-cli execute workspace switch 23
+lalt - a : /opt/homebrew/bin/rift-cli execute workspace switch 0
+lalt - z : /opt/homebrew/bin/rift-cli execute workspace switch 25
+lalt - i : /opt/homebrew/bin/rift-cli execute workspace switch 8
+lalt - p : /opt/homebrew/bin/rift-cli execute workspace switch 15
 
-# Aerospace - Fullscreen and navigation
-lalt + shift - f : /opt/homebrew/bin/aerospace macos-native-fullscreen
+# Rift - Move to workspace (no F: lalt+shift+f is fullscreen)
+lalt + shift - b : /opt/homebrew/bin/rift-cli execute workspace move-window 1
+lalt + shift - c : /opt/homebrew/bin/rift-cli execute workspace move-window 2
+lalt + shift - d : /opt/homebrew/bin/rift-cli execute workspace move-window 3
+lalt + shift - e : /opt/homebrew/bin/rift-cli execute workspace move-window 4
+lalt + shift - g : /opt/homebrew/bin/rift-cli execute workspace move-window 6
+lalt + shift - m : /opt/homebrew/bin/rift-cli execute workspace move-window 12
+lalt + shift - n : /opt/homebrew/bin/rift-cli execute workspace move-window 13
+lalt + shift - o : /opt/homebrew/bin/rift-cli execute workspace move-window 14
+lalt + shift - q : /opt/homebrew/bin/rift-cli execute workspace move-window 16
+lalt + shift - r : /opt/homebrew/bin/rift-cli execute workspace move-window 17
+lalt + shift - s : /opt/homebrew/bin/rift-cli execute workspace move-window 18
+lalt + shift - t : /opt/homebrew/bin/rift-cli execute workspace move-window 19
+lalt + shift - u : /opt/homebrew/bin/rift-cli execute workspace move-window 20
+lalt + shift - v : /opt/homebrew/bin/rift-cli execute workspace move-window 21
+lalt + shift - w : /opt/homebrew/bin/rift-cli execute workspace move-window 22
+lalt + shift - x : /opt/homebrew/bin/rift-cli execute workspace move-window 23
+lalt + shift - a : /opt/homebrew/bin/rift-cli execute workspace move-window 0
+lalt + shift - z : /opt/homebrew/bin/rift-cli execute workspace move-window 25
+lalt + shift - i : /opt/homebrew/bin/rift-cli execute workspace move-window 8
+lalt + shift - p : /opt/homebrew/bin/rift-cli execute workspace move-window 15
 
-# Aerospace - toggle back and forth between workspaces
-lalt - tab : ~/.local/libexec/aerospace-workspace --back-and-forth
+# Rift - Native fullscreen (Rift has no command for it, so send the macOS shortcut)
+lalt + shift - f : osascript -e 'tell application "System Events" to keystroke "f" using {control down, command down}'
 
-# Aerospace - wrap around
-lalt + shift - tab : /opt/homebrew/bin/aerospace move-workspace-to-monitor --wrap-around next
+# Rift - toggle back and forth between workspaces
+lalt - tab : /opt/homebrew/bin/rift-cli execute workspace last
 
-# Aerospace - Service mode
-lalt + shift - 0x29 : /opt/homebrew/bin/aerospace mode service
+# Rift - wrap around
+lalt + shift - tab : /opt/homebrew/bin/rift-cli execute display move-workspace --direction right --wrap-around
 
-lalt - i : ~/.local/libexec/aerospace-workspace I
-
-# P holds the headless-ish review browser that chrome-headed-bg parks there, so it needs a way in.
-lalt - p : ~/.local/libexec/aerospace-workspace P
-
-lalt + shift - i : /opt/homebrew/bin/aerospace move-node-to-workspace I
+# Rift - Service mode (bindings live in [binding_modes.service] of ~/.config/rift/config.toml)
+lalt + shift - 0x29 : /opt/homebrew/bin/rift-cli execute binding-mode service
 
 # Block unused lalt + shift letter combinations
-lalt + shift - p : /opt/homebrew/bin/aerospace move-node-to-workspace P
 lalt + shift - y : :
-

@@ -1,0 +1,124 @@
+# Rift: keys live in skhdrc ([keys] must exist but stays empty); display pinning waits on acsandmann/rift#545.
+
+[settings]
+# Rift resizes windows only at the midpoint and end of an animation, so BSP tile changes show a size jump.
+animate = true
+animation_duration = 0.2
+# Ease-out moves fast first and settles, so it reads snappier than the default ease_in_out.
+animation_easing = "ease_out_cubic"
+# Must be positive: 0.0 divides by zero and crash-loops Rift, despite rift.default.toml calling it "display refresh rate".
+animation_fps = 120.0
+default_disable = false
+focus_follows_mouse = false
+mouse_follows_focus = true
+mouse_hides_on_focus = false
+auto_focus_blacklist = []
+# Feeds sketchybar's workspace widget; needs a Rift restart to take effect.
+run_on_start = [
+  '/opt/homebrew/bin/rift-cli subscribe cli --event workspace_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',
+  '/opt/homebrew/bin/rift-cli subscribe cli --event windows_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',
+  # Rift's own refocus after a close picks the oldest window; this watcher refocuses the nearest tile and exits with Rift.
+  '/bin/sh -c "mkdir -p $HOME/.logs/rift-focus-keeper && exec /usr/bin/python3 $HOME/.local/bin/rift-focus-keeper >> $HOME/.logs/rift-focus-keeper/out.log 2>&1"',
+]
+hot_reload = true
+
+[settings.layout]
+# BSP everywhere except A, which keeps a vertical accordion (see workspace_rules).
+mode = "bsp"
+window_insertion_point = "next_to_selection"
+
+[settings.layout.stack]
+stack_offset = 30.0
+default_orientation = "vertical"
+
+[settings.layout.gaps.outer]
+top = 52
+left = 13
+bottom = 10
+right = 13
+
+[settings.layout.gaps.inner]
+horizontal = 10
+vertical = 10
+
+# Built-in Retina display: no sketchybar offset needed up top.
+[settings.layout.gaps.per_display."37D8832A-2D66-02CA-B9F7-8F30A301B230".outer]
+top = 20
+left = 13
+bottom = 10
+right = 13
+
+[settings.ui.menu_bar]
+enabled = false
+
+[settings.gestures]
+enabled = false
+
+[virtual_workspaces]
+enabled = true
+# One workspace per letter so index = letter - 'A'; skhdrc relies on that.
+default_workspace_count = 26
+auto_assign_windows = true
+preserve_focus_per_workspace = true
+workspace_auto_back_and_forth = false
+prevent_wrapping = false
+reapply_app_rules_on_title_change = false
+workspace_names = [
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+  "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+]
+workspace_rules = [
+  { workspace = "A", layout = "stack" },
+]
+
+# Matching is case-insensitive and more matcher fields win, so the title rules beat their plain app rules.
+app_rules = [
+  { app_id = "com.google.Chrome", title_regex = "^about:blank", workspace = "P" },
+  { app_id = "com.google.chrome.for.testing", workspace = "P" },
+  { app_id = "com.google.Chrome", workspace = "Q" },
+  { app_id = "com.apple.mail", workspace = "G" },
+  { app_name = "outlook", workspace = "G" },
+  { app_id = "net.imput.helium.app.pliiebkcmokkgndfalahlmimanmbjlab", workspace = "D" },
+  { app_id = "com.apple.Notes", workspace = "Y" },
+  { app_name = "spotify", workspace = "S" },
+  { app_id = "app.zen-browser.zen", workspace = "Z" },
+  { app_id = "net.imput.helium.app.agimnkijcaahngcdmfeangaknmldooml", workspace = "A" },
+  { app_id = "net.imput.helium.app.lodlkdfmihgonocnmddehnfgiljnadcf", workspace = "A" },
+  { app_id = "net.imput.helium.app.lgnggepjiihbfdbedefdhcffnmhcahbm", workspace = "A" },
+  { app_id = "net.imput.helium.app.comkdlimbkhemidbbpchhepidbmjpnhh", workspace = "A" },
+  { app_id = "com.apple.iCal", workspace = "C" },
+  { app_id = "com.apple.reminders", workspace = "Y" },
+  { app_id = "com.whimsical.desktop", workspace = "X" },
+  { app_id = "com.anthropic.claudefordesktop", workspace = "X" },
+  { app_name = "zoom", workspace = "X" },
+  { app_id = "com.kunchenguid.baby-menu", floating = true },
+  { app_id = "com.gnohj.baby-menu-sidebar", floating = true },
+  { app_id = "com.tinycast.app.beta", floating = true },
+  { app_id = "org.videolan.vlc", floating = true },
+  { app_id = "com.apple.MobileSMS", workspace = "M" },
+  { app_id = "net.whatsapp.WhatsApp", workspace = "M" },
+  { app_id = "ru.starmel.OpenSuperWhisper", floating = true, workspace = "O" },
+  { app_id = "net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm", workspace = "E" },
+  { app_id = "com.mitchellh.ghostty", workspace = "T" },
+  { app_id = "net.kovidgoyal.kitty", workspace = "R" },
+  { app_id = "com.apple.Terminal", workspace = "N" },
+  { app_name = "slack", title_regex = "huddle", floating = true, workspace = "W" },
+  { app_name = "slack", workspace = "W" },
+  { app_id = "com.bitwarden.desktop", workspace = "V" },
+  { app_id = "io.tailscale.ipn.macsys", workspace = "U" },
+  { app_id = "com.apple.finder", workspace = "F" },
+  { app_id = "org.localsend.localsendApp", workspace = "F" },
+  { app_id = "com.apple.Photos", workspace = "F" },
+  { app_id = "com.apple.systempreferences", floating = true, workspace = "F" },
+  { app_id = "net.imput.helium", workspace = "B" },
+  { app_id = "com.kunchenguid.firstmate3000", workspace = "I" },
+]
+
+[keys]
+
+# Entered from skhd (lalt+shift+`); every key drops back to default.
+[binding_modes.service]
+"Escape" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/rift-cli execute config reload; /opt/homebrew/bin/sketchybar --trigger hide_message; /opt/homebrew/bin/sketchybar --reload"] }
+"B" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/sketchybar --bar height=0; /opt/homebrew/bin/sketchybar --trigger hide_message"] }
+"Shift + B" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/sketchybar --bar height=36; /opt/homebrew/bin/sketchybar --trigger hide_message"] }
+"F" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/rift-cli execute window toggle-float"] }

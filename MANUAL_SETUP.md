@@ -70,7 +70,7 @@ This document covers macOS settings that **cannot be automated** through nix-dar
 These apps need to control your computer:
 
 - ✅ AEServer
-- ✅ AeroSpace (window management)
+- ✅ rift (tiling window manager; after granting, run `rift service restart`)
 - ✅ BetterDisplay (display management)
 - ✅ borders (4 instances - window decoration)
 - ✅ Ghostty (terminal emulator)
@@ -169,10 +169,6 @@ These apps need to capture screen content:
 **Path**: System Settings → Privacy & Security → Automation
 
 Apps that need to control other applications:
-
-#### AeroSpace
-
-- ✅ Spotify (window management with music integration)
 
 #### Ghostty
 

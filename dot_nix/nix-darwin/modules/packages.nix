@@ -1,11 +1,9 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Create Lua 5.3 environment with all required packages for sketchybar AeroSpaceLua
-  # Note: Using Lua 5.3 because luaposix requires lua >= 5.1, < 5.4
+  # Lua environment for sketchybar's config (sketchybarrc puts /run/current-system/sw/bin first)
   sketchybarLua = pkgs.lua5_3.withPackages (ps: [
     ps.cjson          # JSON encoding/decoding
-    ps.luaposix       # POSIX bindings for Unix socket communication
   ]);
 in
 {
@@ -19,9 +17,7 @@ in
     # Sketchybar bluetooth widget: system_profiler covers reads, blueutil is the only write path
     blueutil
 
-    # Lua environment for sketchybar AeroSpaceLua integration
-    # Includes lua-cjson and luaposix (with broken flag overridden)
-    # This enables direct socket communication with AeroSpace to prevent freezing
+    # Lua environment for sketchybar (lua-cjson for Rift and Spotify JSON)
     sketchybarLua
   ];
 

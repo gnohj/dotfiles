@@ -37,7 +37,7 @@
   .b-tmuxroot { background: rgba(183,206,151,.14); color: var(--accent); border: 1px solid rgba(183,206,151,.35); }
   .b-tmuxpfx  { background: rgba(141,219,140,.12); color: var(--green);  border: 1px solid rgba(141,219,140,.3); }
   .b-nvim     { background: rgba(195,166,255,.14); color: var(--purple); border: 1px solid rgba(195,166,255,.34); }
-  .b-aero     { background: rgba(255,158,196,.12); color: var(--pink);   border: 1px solid rgba(255,158,196,.3); }
+  .b-wm     { background: rgba(255,158,196,.12); color: var(--pink);   border: 1px solid rgba(255,158,196,.3); }
   table { border-collapse: collapse; width: 100%; margin: 6px 0 4px; font-size: 13.5px; }
   .scroll { overflow-x: auto; }
   th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -90,7 +90,7 @@
   <tr><th>Modifier</th><th>Held key(s)</th><th>Notes</th></tr>
   <tr><td class="k"><kbd>lctl</kbd> left ctrl</td><td class="k">hold <kbd>caps</kbd> (grave pos)</td><td class="desc">Reaches pane apps (nvim ctrl-maps).</td></tr>
   <tr><td class="k"><kbd>rctl</kbd> right ctrl</td><td class="k">hold <kbd>;</kbd> or <kbd>backspace</kbd></td><td class="desc">What skhd's <code>rctrl</code> binds catch. Handedness only exists here + kanata.</td></tr>
-  <tr><td class="k"><kbd>lalt</kbd> left alt</td><td class="k">hold <kbd>esc</kbd>/<kbd>[</kbd> or <kbd>enter</kbd></td><td class="desc">Drives Aerospace.</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd> left alt</td><td class="k">hold <kbd>esc</kbd>/<kbd>[</kbd> or <kbd>enter</kbd></td><td class="desc">Drives Rift.</td></tr>
   <tr><td class="k"><kbd>ralt</kbd> right alt</td><td class="k">hold <kbd>tab</kbd></td><td class="desc">Tap tab = Tab; hold = ralt.</td></tr>
   <tr><td class="k"><kbd>cmd</kbd></td><td class="k">hold <kbd>'</kbd> (quote)</td><td class="desc">lmet / lgui.</td></tr>
   <tr><td class="k"><kbd>hyper</kbd></td><td class="k">hold <kbd>/</kbd> (slash)</td><td class="desc">= cmd+shift+alt+ctrl. ⚠ leaks a bare hyper when chorded → macOS beep; don't use as a chord trigger.</td></tr>
@@ -164,17 +164,17 @@
   <tr><td class="k"><kbd>ctrl</kbd>+<kbd>space</kbd> / <kbd>b</kbd> / <kbd>e</kbd></td><td><span class="desc">FREED — now grabbed by terminal/tmux above (never reach nvim)</span></td><td><span class="badge b-nvim">nvim</span></td></tr>
 </table></div>
 
-<h2>Alt — <kbd>lalt</kbd> drives Aerospace <span class="badge b-aero">aerospace</span></h2>
+<h2>Alt — <kbd>lalt</kbd> drives Rift <span class="badge b-wm">rift</span></h2>
 <div class="scroll"><table>
   <tr><th>Chord</th><th>Action</th><th>Chord</th><th>Action</th></tr>
   <tr><td class="k"><kbd>lalt</kbd>+<kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></td><td>focus left / down / up / right</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></td><td>move left / down / up / right</td></tr>
   <tr><td class="k"><kbd>lalt</kbd>+<kbd>&lt;letter&gt;</kbd></td><td>jump to workspace (A–Z*)</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>&lt;letter&gt;</kbd></td><td>move node → workspace</td></tr>
-  <tr><td class="k"><kbd>lalt</kbd>+<kbd>/</kbd></td><td>layout tiles</td><td class="k"><kbd>lalt</kbd>+<kbd>,</kbd></td><td>layout accordion</td></tr>
-  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>-</kbd>/<kbd>=</kbd></td><td>resize ∓50</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd></td><td>native fullscreen</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>/</kbd></td><td>BSP layout (again: flip split)</td><td class="k"><kbd>lalt</kbd>+<kbd>,</kbd></td><td>stack layout (again: flip)</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>-</kbd>/<kbd>=</kbd></td><td>resize ∓5%</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>f</kbd></td><td>native fullscreen</td></tr>
   <tr><td class="k"><kbd>lalt</kbd>+<kbd>tab</kbd></td><td>workspace back-and-forth</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>tab</kbd></td><td>move workspace → monitor</td></tr>
-  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>;</kbd></td><td>service mode</td><td class="k"><kbd>lalt</kbd>+<kbd>i p</kbd></td><td class="desc">blocked (no-op, with or without shift); shift+Y is also blocked</td></tr>
+  <tr><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>;</kbd></td><td>service mode</td><td class="k"><kbd>lalt</kbd>+<kbd>shift</kbd>+<kbd>y</kbd></td><td class="desc">blocked (no-op)</td></tr>
 </table></div>
-<p class="sub">*Workspace jump letters in use: <span class="mono">A B C D E F G M N O Q R S T U V W X Y Z</span>. H/J/K/L focus or move windows; I/P are blocked; Shift+F is fullscreen and Shift+Y is blocked.</p>
+<p class="sub">*Workspace jump letters in use: <span class="mono">A B C D E F G I M N O P Q R S T U V W X Y Z</span>. H/J/K/L focus or move windows; Shift+F is fullscreen and Shift+Y is blocked.</p>
 
 <h2>Cmd &amp; Hyper</h2>
 <div class="scroll"><table>
@@ -207,7 +207,7 @@
 <h2>Migration &amp; gotchas</h2>
 <div class="card">
   <p><strong>Remote-safe (survive Tailscale SSH → VPS tmux):</strong> everything under <span class="badge b-terminal">terminal</span> and <span class="badge b-tmuxroot">tmux root</span> / <span class="badge b-tmuxpfx">prefix</span>. They're PTY bytes.</p>
-  <p><strong>Local-only:</strong> everything under <span class="badge b-global">global</span> (skhd) and <span class="badge b-aero">aerospace</span> — macOS event layer, drives nothing remote.</p>
+  <p><strong>Local-only:</strong> everything under <span class="badge b-global">global</span> (skhd) and <span class="badge b-wm">rift</span> — macOS event layer, drives nothing remote.</p>
   <p><strong>Still on skhd, pending migration:</strong> <kbd>ctrl</kbd>+<kbd>1…9/0</kbd> (the "ctrl+digit wall" — digits come from kanata's ly1 layer) and <kbd>rctrl</kbd>+<kbd>i</kbd> (kept so nvim keeps <kbd>ctrl</kbd>+<kbd>i</kbd>).</p>
   <p><strong>Chord-trigger rule:</strong> never route a binding through a kanata key whose <em>hold</em> is a big modifier-combo (<kbd>/</kbd>=hyper, <kbd>tab</kbd>, <kbd>caps</kbd>/<kbd>grave</kbd>) — it leaks a stray modifier → macOS beep. Use plain keys (that's why popup is <kbd>ctrl</kbd>+<kbd>.</kbd> not <kbd>ctrl</kbd>+<kbd>/</kbd>).</p>
   <p><strong>Nesting:</strong> don't <code>ssh</code> from inside a local tmux — the outer tmux eats <kbd>C-a</kbd>. Open a bare ghostty window → ssh → remote tmux.</p>

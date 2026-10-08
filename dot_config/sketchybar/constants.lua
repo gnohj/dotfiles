@@ -1,6 +1,5 @@
 local events <const> = {
-	AEROSPACE_WORKSPACE_CHANGED = "aerospace_workspace_changed",
-	AEROSPACE_SWITCH = "aerospace_switch",
+	RIFT_WORKSPACE_CHANGED = "rift_workspace_changed",
 	SWAP_MENU_AND_SPACES = "swap_menu_and_spaces",
 	FRONT_APP_SWITCHED = "front_app_switched",
 	UPDATE_WINDOWS = "update_windows",
@@ -36,8 +35,7 @@ local items <const> = {
 	SCHEDULES = "widgets.schedules",
 }
 
--- aerospace CLI commands removed - now using AeroSpaceLua socket connection
--- See lib/aerospace.lua for socket-based implementation
+-- Window manager queries go through lib/rift.lua (rift-cli)
 
 return {
 	items = items,

@@ -58,34 +58,45 @@ free_port() {
 # A driver navigates away from about:blank at once, so match the profile dir, never the window title.
 AUTOMATION_WORKSPACE="${CHROME_HEADED_BG_WORKSPACE:-P}"
 
+RIFT=/opt/homebrew/bin/rift-cli
+
+# Prints "<window-server-id>|<rift-id-json>|<bundle-id>" for the focused window, or nothing.
+focused_window() {
+  "$RIFT" query workspaces 2>/dev/null |
+    /usr/bin/jq -r 'first(.[].windows[] | select(.is_focused)) | "\(.window_server_id)|\(.id | tojson)|\(.bundle_id)"' 2>/dev/null
+}
+
 park_windows() {
   # Every instance under the profile root: each review starts its own Chrome process.
-  local pids id pid
-  command -v aerospace >/dev/null 2>&1 || return 0
+  local pids wsid pid index
+  [ -x "$RIFT" ] || return 0
   pids="$(pgrep -f -- "--user-data-dir=$PROFILE_ROOT/" 2>/dev/null | tr '\n' ' ')"
   [ -n "$pids" ] || return 0
-  while IFS='|' read -r id pid; do
+  index=$(( $(printf '%d' "'$AUTOMATION_WORKSPACE") - 65 ))
+  while read -r wsid pid; do
     case " $pids " in
-      *" $pid "*) aerospace move-node-to-workspace --window-id "$id" "$AUTOMATION_WORKSPACE" >/dev/null 2>&1 || true ;;
+      *" $pid "*) "$RIFT" execute workspace move-window "$index" "$wsid" >/dev/null 2>&1 || true ;;
     esac
-  done < <(aerospace list-windows --all --format '%{window-id}|%{app-pid}' 2>/dev/null)
+  done < <("$RIFT" query workspaces 2>/dev/null | /usr/bin/jq -r '.[].windows[] | "\(.window_server_id) \(.id.pid)"' 2>/dev/null)
 }
 
 watch_focus() {
-  local prev="$1" deadline cur
-  [ -n "$prev" ] && command -v aerospace >/dev/null 2>&1 || return 0
-  [ "$(aerospace list-windows --window-id "$prev" --format '%{app-bundle-id}' 2>/dev/null)" = "$APP_BUNDLE_ID" ] && return 0
+  local prev="$1" deadline cur prev_wsid prev_id prev_bundle
+  [ -n "$prev" ] && [ -x "$RIFT" ] || return 0
+  IFS='|' read -r prev_wsid prev_id prev_bundle <<< "$prev"
+  [ "$prev_bundle" = "$APP_BUNDLE_ID" ] && return 0
   deadline=$((SECONDS + READY_TIMEOUT + 5))
   while [ "$SECONDS" -lt "$deadline" ]; do
-    cur="$(aerospace list-windows --focused --format '%{app-bundle-id}' 2>/dev/null)"
-    [ "$cur" = "$APP_BUNDLE_ID" ] && aerospace focus --window-id "$prev" >/dev/null 2>&1
+    cur="$(focused_window)"
+    [ "${cur##*|}" = "$APP_BUNDLE_ID" ] &&
+      "$RIFT" execute window focus --window-id "$prev_id" --window-server-id "$prev_wsid" >/dev/null 2>&1
     sleep 0.05
   done
 }
 
 launch() {
   local name="$1" pub="$2" port="$3" profile prev_window
-  prev_window="$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || true)"
+  prev_window="$(focused_window)"
   profile="$(profile_dir "$name")"
   mkdir -p "$profile"
   watch_focus "$prev_window" >/dev/null 2>&1 &
