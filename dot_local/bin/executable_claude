@@ -126,4 +126,17 @@ if [ "${TERM_PROGRAM:-}" = herdr ]; then
   export CLAUDE_CODE_FORCE_TERMINAL_IMAGES="${CLAUDE_CODE_FORCE_TERMINAL_IMAGES:-1}"
 fi
 
+# herdr's restore resumes a firstmate home as a bare `claude --resume`; scoped here so nothing else started there inherits medium.
+_fm_home_model() {
+  case "$PWD" in
+    "$HOME/Developer/firstmate") echo claude-sonnet-5-5 ;;
+    "$HOME"/.local/share/firstmate-sm-*/*) ;;
+    "$HOME"/.local/share/firstmate-sm-*) echo claude-opus-5-5 ;;
+  esac
+}
+_fm_model="$(_fm_home_model)"
+if [ -n "$_fm_model" ]; then
+  export ANTHROPIC_MODEL="$_fm_model" CLAUDE_CODE_EFFORT_LEVEL=medium
+fi
+
 exec "$_bin" ${_resume[@]+"${_resume[@]}"} "$@"
