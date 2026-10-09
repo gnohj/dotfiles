@@ -27,6 +27,12 @@ if vim.fn.has("mac") == 0 then
   end
 end
 
+-- Visual selections reach herdr-annotate (prefix+.) without a yank.
+local ok_handoff, annotate = pcall(dofile, vim.fn.expand("~/.config/herdr/lib/annotate-handoff.lua"))
+if ok_handoff and annotate then
+  vim.keymap.set("x", ".", annotate.capture, { desc = "Annotate selection in herdr" })
+end
+
 -- Load baleia straight from its lazy install path (no lazy.nvim involved here).
 vim.opt.runtimepath:append(vim.fn.stdpath("data") .. "/lazy/baleia.nvim")
 
