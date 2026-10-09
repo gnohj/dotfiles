@@ -444,3 +444,7 @@ else
     { once = true, callback = jump_to_draft_end }
   )
 end
+
+
+-- Let prefix+. annotate a visual selection without a yank
+pcall(dofile, vim.fn.expand("~/.config/herdr/lib/annotate-handoff.lua"))
