@@ -694,6 +694,11 @@ PENDING=$((PENDING + 1))
 echo "[$PENDING] AlDente: open the app and set charge limit to 80-90%"
 echo ""
 
+# Spotify PWA - a Chrome force-install policy leaked a shim into every automation profile, so install by hand
+PENDING=$((PENDING + 1))
+echo "[$PENDING] Spotify: open https://open.spotify.com in Google Chrome (gnohj profile) > Install"
+echo ""
+
 # Tinycast - settings live in a .tinycast backup, always remind
 PENDING=$((PENDING + 1))
 echo "[$PENDING] Tinycast: Settings > Backup > import your .tinycast file, then enable Extensions and Apple Shortcuts"

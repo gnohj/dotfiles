@@ -8,7 +8,6 @@
     # macOS-specific modules
     ./modules/system-settings.nix
     ./modules/homebrew.nix
-    ./modules/chrome-pwas.nix
     ./modules/helium-pwas.nix
     ./modules/packages.nix
     ./modules/launchd-services.nix
