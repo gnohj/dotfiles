@@ -26,7 +26,6 @@ in
     nerd-fonts.hasklug        # Ghostty/Kitty primary (Hasklig Nerd Font)
     nerd-fonts.roboto-mono    # Ghostty alternate
     nerd-fonts.space-mono     # Sketchybar
-    nerd-fonts.meslo-lg       # Sketchybar errors popup header (MesloLGM)
     nerd-fonts.jetbrains-mono # Ghostty alternate option
   ];
 
