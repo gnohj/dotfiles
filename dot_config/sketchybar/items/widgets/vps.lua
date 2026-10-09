@@ -1,6 +1,6 @@
 local colors = require("config.colors")
 
--- Remote dev-box CPU, memory and disk; one ssh round-trip in vps.sh sets all three.
+-- Remote dev-box CPU, memory, disk and temperature; one ssh round-trip in vps.sh sets all four.
 local function add(name, icon, padding_left, padding_right)
 	return sbar.add("item", name, {
 		position = "right",
@@ -11,7 +11,8 @@ local function add(name, icon, padding_left, padding_right)
 	})
 end
 
-add("widgets.vps_disk", "󰋊", -12, -12)
+add("widgets.vps_temp", "󰔏", -12, -12)
+add("widgets.vps_disk", "󰋊", -12, 0)
 add("widgets.vps_memory", "", -12, 0)
 local cpu = add("widgets.vps_cpu", "", -7, 0)
 
