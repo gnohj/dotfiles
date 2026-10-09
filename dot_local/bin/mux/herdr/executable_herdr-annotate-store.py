@@ -164,7 +164,7 @@ def cmd_preview(keys):
         meta = "  ·  ".join(value for value in (source(annotation), local_time(annotation.get("createdAt"))) if value)
         text = (annotation.get("selectedText") or "").rstrip("\r\n")
         comment = (annotation.get("comment") or "").replace("\r", "").strip()
-        blocks.append(f"{BOLD}Selected text{RESET}\n{DIM}{text}{RESET}\n\n{BOLD}Comment{RESET}\n{comment}\n\n{DIM}{meta}{RESET}")
+        blocks.append(f"{BOLD}Selected text{RESET}\n{DIM}{text}{RESET}\n\n{BOLD}Comment{RESET}\n{color('HERDR_ANNOTATE_KEY_COLOR', 'b7ce97')}{comment}{RESET}\n\n{DIM}{meta}{RESET}")
     print("\n\n────────\n\n".join(blocks))
 
 
