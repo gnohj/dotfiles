@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 🧠 when /i-have-adhd is active in this session, 🐴 when /ponytail or a firstmate ponytail brief is; the transcript is the only truthful source.
+# 🧠 for /i-have-adhd, 🐴 for /ponytail or a firstmate ponytail brief; the transcript is the only truthful source.
 import json
 import mmap
 import sys
@@ -13,6 +13,7 @@ PONY_ON = (b'"content":"<command-message>ponytail</command-message>',)
 PONY_BRIEF = b"Apply the ponytail ruleset to this task at intensity"
 CONTENT = b'"content":"'
 USER_LINE = b'"type":"user"'
+SESSION_START_HOOK = b'"hookEvent":"SessionStart"'
 
 
 def last_of(data, patterns):
@@ -27,7 +28,7 @@ def last_in_user_line(data, phrase):
             return -1
         line_end = data.find(b"\n", position)
         line = data[data.rfind(b"\n", 0, position) + 1 : line_end if line_end >= 0 else len(data)]
-        if USER_LINE in line and b'"tool_result"' not in line:
+        if (USER_LINE in line and b'"tool_result"' not in line) or SESSION_START_HOOK in line:
             return position
         end = position
 

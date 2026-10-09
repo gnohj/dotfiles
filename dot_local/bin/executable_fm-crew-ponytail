@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Prints the ponytail section of a crewmate's home brief-include for its SessionStart hook.
+set -u
+
+inbox=${FM_TASK_INBOX:-}
+[ -n "$inbox" ] || exit 0
+include="$(dirname "$(dirname "$inbox")")/config/brief-include.md"
+[ -r "$include" ] || exit 0
+
+block=$(awk '/^Apply the ponytail ruleset/ { on = 1 } on && /^---$/ { exit } on' "$include")
+[ -n "$block" ] || exit 0
+printf 'Firstmate standing order for this crewmate, re-applied at every session start:\n\n%s\n' "$block"
