@@ -114,8 +114,8 @@ FORMAT = os.environ.get("HERDR_SYSINFO_FORMAT") or "{hostcity}"
 # Empty off Linux (no /proc). Glyphs and percent-used both mirror the sketchybar cpu/memory widgets.
 RES_FORMAT = os.environ.get("HERDR_SYSINFO_RES") or (
     " {cpu} · 󰔏 {temp} ·  {memp} · 󰋊 {disk}" if LINUX else "")
-# Uptime and disk swapped rows: disk took uptime's slot beside cpu/mem, uptime took disk's ahead of the clock.
-TIME_FORMAT = os.environ.get("HERDR_SYSINFO_TIME") or ("󰁝 {up} · 󰥔 {time} {tz}" if LINUX else "")
+# Uptime and disk swapped rows: disk took uptime's slot beside cpu/mem, uptime took disk's ahead of the clock; the Mac shows uptime alone since sketchybar owns its clock.
+TIME_FORMAT = os.environ.get("HERDR_SYSINFO_TIME") or ("󰁝 {up} · 󰥔 {time} {tz}" if LINUX else "󰁝 {up}")
 TTL_MS = int(INTERVAL * 3000 + 5000)
 GRACE = 60.0
 
@@ -226,8 +226,12 @@ def meminfo():
 # Rows 3-4 zero-pad every varying cell: herdr re-lays the row out on a length change, so 9% -> 10% reflowed it each tick.
 def uptime():
     # Whole days only - hours churn every poll and the row is glanced at, not read.
-    with open("/proc/uptime") as f:
-        secs = int(float(f.readline().split()[0]))
+    if LINUX:
+        with open("/proc/uptime") as f:
+            secs = int(float(f.readline().split()[0]))
+    else:
+        boot = subprocess.run(["/usr/sbin/sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=3).stdout
+        secs = int(time.time()) - int(re.search(r"sec = (\d+)", boot).group(1))
     return f"{secs // 86400:02d}d"
 
 
@@ -391,7 +395,7 @@ class Sampler:
             pass
         try:
             fields["up"] = uptime()
-        except (OSError, IndexError, ValueError):
+        except (OSError, IndexError, ValueError, AttributeError, subprocess.SubprocessError):
             pass
         return fields
 
