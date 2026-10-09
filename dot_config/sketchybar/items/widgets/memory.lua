@@ -36,7 +36,7 @@ end
 local memory = sbar.add("item", constants.items.MEMORY, {
 	position = "right",
 	popup = { align = "center" },
-	padding_left = -5,
+	padding_left = -12,
 	update_freq = 10,
 	icon = {
 		string = "",
