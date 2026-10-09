@@ -10,6 +10,7 @@ require("items.widgets.cpu_temp") -- CPU die temperature, colour-stepped; right-
 require("items.widgets.disk")
 require("items.widgets.memory")
 require("items.widgets.cpu")
+require("items.widgets.vps") -- dev-box CPU + memory over ssh; loaded after cpu so it sits left of it
 require("items.widgets.volume")
 require("items.widgets.mic")
 require("items.widgets.agent_quota")
