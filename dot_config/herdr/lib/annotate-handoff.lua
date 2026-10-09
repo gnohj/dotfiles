@@ -56,6 +56,12 @@ vim.api.nvim_create_autocmd("ModeChanged", {
 vim.api.nvim_create_autocmd("CursorMoved", { group = group, callback = write_selection })
 vim.api.nvim_create_autocmd("VimLeavePre", { group = group, callback = clear_selection })
 
+local function leave_visual()
+  if in_visual() then
+    vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+  end
+end
+
 -- From the scrollback viewer, capture against the source pane so the tab label is real.
 local function capture()
   local source = vim.env.HERDR_SCROLLBACK_SOURCE_PANE
@@ -64,10 +70,16 @@ local function capture()
     local job = vim.fn.jobstart({ vim.fn.expand("~/.local/bin/mux/herdr/herdr-annotate-capture.sh"), source }, { detach = true })
     vim.fn.chansend(job, table.concat(lines, "\n"))
     vim.fn.chanclose(job, "stdin")
+    leave_visual()
     return
   end
   write_selection()
-  vim.fn.jobstart({ vim.env.HERDR_BIN_PATH or "herdr", "plugin", "action", "invoke", "annotate.capture" }, { detach = true })
+  vim.fn.jobstart({ vim.env.HERDR_BIN_PATH or "herdr", "plugin", "action", "invoke", "annotate.capture" }, {
+    detach = true,
+    on_exit = function()
+      vim.defer_fn(leave_visual, 300)
+    end,
+  })
 end
 
 return { capture = capture }
