@@ -304,9 +304,11 @@ description = "annotate selected terminal text"
 
 [[keys.command]]
 key = "prefix+m"
-type = "plugin_action"
-command = "annotate.manage"
-description = "manage terminal annotations"
+type = "popup"
+command = "{{ .chezmoi.homeDir }}/.local/bin/mux/herdr/herdr-annotate-pick.sh"
+width = "80%"
+height = "80%"
+description = "pick terminal annotations to copy (multi-select)"
 
 [[keys.command]]
 key = "prefix+shift+m"
