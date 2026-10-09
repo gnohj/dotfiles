@@ -13,6 +13,20 @@ INPUT="${INPUT%$'\n'}"
 extra_args=("$@")
 mode="${FZF_VIM_MODE:-normal}"
 
+# FZF_VIM_MULTI=1: tab/space mark lines and enter prints every marked one.
+multi_args=(--no-multi)
+normal_binds=()
+normal_label=' NORMAL  j/k  G/g  i→insert  esc→quit '
+# FZF_VIM_NORMAL_BINDS: newline-separated --bind specs for normal mode only.
+while IFS= read -r spec; do
+  [ -n "$spec" ] && normal_binds+=(--bind "$spec")
+done <<<"${FZF_VIM_NORMAL_BINDS:-}"
+if [ "${FZF_VIM_MULTI:-}" = 1 ]; then
+  multi_args=(--multi)
+  normal_binds+=(--bind 'tab:toggle+down,space:toggle+down')
+  normal_label=' NORMAL  j/k  tab/space mark  i→insert  esc→quit '
+fi
+
 # Optional status header, pinned to the top (--header-first). Two opt-in forms;
 # every other picker sets neither and keeps --no-header (unchanged):
 #   FZF_VIM_HEADER_CMD  command the idle poster re-runs (FZF_VIM_HEADER_POLL, def 5s).
@@ -74,16 +88,17 @@ while true; do
     printf '\e[2 q' >/dev/tty
     fzf_out=$(printf "%s\n" "$INPUT" | fzf \
       "${extra_args[@]}" \
-      --reverse --no-clear --no-multi \
+      --reverse --no-clear "${multi_args[@]}" \
       --disabled \
       --bind 'change:clear-query' \
       "${header_args[@]}" \
-      --border-label ' NORMAL  j/k  G/g  i→insert  esc→quit ' \
+      --border-label "$normal_label" \
       --expect=enter,i,esc,ctrl-c \
       --bind 'j:down,k:up' \
       --bind 'G:last,g:first' \
       --bind 'd:half-page-down,u:half-page-up' \
       --bind 'enter:accept,i:accept' \
+      ${normal_binds[@]+"${normal_binds[@]}"} \
       --bind 'esc:abort') || fzf_rc=$?
   else
     # Optional: callers can supply a richer corpus via FZF_VIM_INSERT_INPUT
@@ -93,7 +108,7 @@ while true; do
     printf '\e[5 q' >/dev/tty
     fzf_out=$(printf "%s\n" "$insert_input" | fzf \
       "${extra_args[@]}" \
-      --reverse --no-clear --no-multi \
+      --reverse --no-clear "${multi_args[@]}" \
       "${header_args[@]}" \
       --tiebreak=index \
       --border-label ' INSERT  type to filter  esc→normal ' \
@@ -110,7 +125,7 @@ while true; do
     key="${fzf_out%%$'\n'*}"
     if [[ "$fzf_out" == *$'\n'* ]]; then
       sel="${fzf_out#*$'\n'}"
-      sel="${sel%%$'\n'*}"
+      [ "${FZF_VIM_MULTI:-}" = 1 ] || sel="${sel%%$'\n'*}"
     else
       sel=""
     fi
