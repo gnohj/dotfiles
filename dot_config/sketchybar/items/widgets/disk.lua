@@ -29,8 +29,8 @@ end
 local disk = sbar.add("item", constants.items.DISK, {
 	position = "right",
 	popup = { align = "center" },
-	padding_left = -5,
-	padding_right = -5,
+	padding_left = -12,
+	padding_right = 0,
 	update_freq = 300,
 	icon = {
 		string = "󰋊",

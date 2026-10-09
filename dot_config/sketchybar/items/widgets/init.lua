@@ -6,12 +6,12 @@ require("items.widgets.tailscale") -- Tailscale tailnet connection indicator
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
 require("items.widgets.wifi") -- WiFi status icon + details popover
 require("items.widgets.bluetooth") -- Bluetooth power toggle + connected/paired device panel
+require("items.widgets.volume")
+require("items.widgets.mic")
 require("items.widgets.disk")
 require("items.widgets.memory")
 require("items.widgets.cpu")
 require("items.widgets.vps") -- dev-box CPU, memory and disk over ssh; loaded after cpu so it sits left of it
-require("items.widgets.volume")
-require("items.widgets.mic")
 require("items.widgets.agent_quota")
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
