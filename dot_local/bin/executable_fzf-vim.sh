@@ -8,6 +8,7 @@ set -euo pipefail
 
 # Buffer stdin so the loop can re-feed fzf on mode switch; builtin slurp, no $(cat) fork.
 IFS= read -r -d '' INPUT || true
+INPUT="${INPUT%$'\n'}"
 
 extra_args=("$@")
 mode="${FZF_VIM_MODE:-normal}"
