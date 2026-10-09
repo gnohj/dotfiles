@@ -18,7 +18,6 @@ widgets.schedules
 widgets.volume.bracket
 mic
 agent_quota
-widgets.errors_notification
 widgets.cpu
 widgets.memory
 widgets.disk
