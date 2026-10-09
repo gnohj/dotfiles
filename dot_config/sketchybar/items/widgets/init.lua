@@ -1,6 +1,5 @@
 require("items.widgets.calendar")
 require("items.widgets.battery")
-require("items.widgets.uptime") -- Right-side items lay out right-to-left, so this order puts it between dnd and battery
 require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle
 require("items.widgets.tailscale") -- Tailscale tailnet connection indicator
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
