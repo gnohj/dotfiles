@@ -14,7 +14,7 @@ end
 add("widgets.vps_temp", "󰔏", -12, -12)
 add("widgets.vps_disk", "󰋊", -12, 0)
 add("widgets.vps_memory", "", -12, 0)
-local cpu = add("widgets.vps_cpu", "", -7, 0)
+local cpu = add("widgets.vps_cpu", "", -12, 0)
 
 cpu:set({ update_freq = 15, updates = "on", script = "~/.config/sketchybar/items/widgets/vps.sh" })
 cpu:subscribe({ "forced", "routine", "system_woke" })
