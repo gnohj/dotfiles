@@ -7,6 +7,7 @@ require("items.widgets.wifi") -- WiFi status icon + details popover
 require("items.widgets.bluetooth") -- Bluetooth power toggle + connected/paired device panel
 require("items.widgets.volume")
 require("items.widgets.mic")
+require("items.widgets.cpu_temp") -- right of local disk, mirroring vps_temp beside vps_disk
 require("items.widgets.disk")
 require("items.widgets.memory")
 require("items.widgets.cpu")
