@@ -7,11 +7,15 @@ require("items.widgets.wifi") -- WiFi status icon + details popover
 require("items.widgets.bluetooth") -- Bluetooth power toggle + connected/paired device panel
 require("items.widgets.volume")
 require("items.widgets.mic")
-require("items.widgets.cpu_temp") -- right of local disk, mirroring vps_temp beside vps_disk
+local vps = require("items.widgets.vps") -- each dev-box metric sits right of its local twin
+vps.temp()
+require("items.widgets.cpu_temp")
+vps.disk()
 require("items.widgets.disk")
+vps.memory()
 require("items.widgets.memory")
+vps.cpu()
 require("items.widgets.cpu")
-require("items.widgets.vps") -- dev-box CPU, memory and disk over ssh; loaded after cpu so it sits left of it
 require("items.widgets.agent_quota")
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
