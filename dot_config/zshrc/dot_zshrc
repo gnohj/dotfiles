@@ -365,6 +365,11 @@ update_starship_env
 autoload -Uz add-zsh-hook
 add-zsh-hook chpwd update_starship_env
 
+# Starship's [env_var.PROMPT_PATH] reads this, so prompt-path runs once per cd instead of once per prompt.
+_update_prompt_path() { export PROMPT_PATH="$("$HOME/.local/bin/prompt-path")" }
+_update_prompt_path
+add-zsh-hook chpwd _update_prompt_path
+
 # Pattern A worktree workflow: keep `origin/HEAD` (and the rest of
 # `refs/remotes/origin/*`) fresh in the bare repo so any tool that
 # branches off `origin/HEAD` — `treekanga add … -b origin/HEAD`,
@@ -482,6 +487,19 @@ zinit load MichaelAquilina/zsh-you-should-use
 zinit ice depth=1
 zinit light jeffreytse/zsh-vi-mode
 
+# Fork-free zvm_define_widget: upstream forks twice per widget ($(zle -l -L), $(declare -f)), ~80ms of zvm_init.
+function zvm_define_widget() {
+  local widget=$1 func=$2
+  local existing=${widgets[$widget]}
+  if [[ $existing == user:* && ${existing#user:} != $widget ]]; then
+    local rawfunc=${existing#user:} called=false
+    [[ ${functions[$func]} == *'$rawfunc'* ]] && called=true
+    eval "zvm_${widget}-wrapper() { zvm_widget_wrapper $rawfunc $func $called \"\$@\" }"
+    func=zvm_${widget}-wrapper
+  fi
+  zle -N $widget $func
+}
+
 # 🚀 Better vim bindings for Zsh!
 # https://github.com/jeffreytse/zsh-vi-mode
 ZVM_VI_ESCAPE_BINDKEY=jk
@@ -539,19 +557,21 @@ zinit snippet OMZP::golang
 
 # Load completions - run full audit once per day, use cache otherwise
 autoload -Uz compinit
-# Day-of-year of the compdump's mtime — BSD/macOS `stat -f` vs GNU/Linux `stat -c`.
-if _compdump_day=$(stat -f '%Sm' -t '%j' "$ZSH_COMPDUMP" 2>/dev/null); then
-  :
-else
-  _compdump_day=$(date -d "@$(stat -c '%Y' "$ZSH_COMPDUMP" 2>/dev/null)" +'%j' 2>/dev/null)
+# Day-of-year of the compdump's mtime vs today, via zsh modules so no stat/date forks.
+zmodload zsh/datetime
+zmodload -F zsh/stat b:zstat
+_compdump_day= _today=
+strftime -s _today %j $EPOCHSECONDS
+if zstat -A _compdump_mtime +mtime -- "$ZSH_COMPDUMP" 2>/dev/null; then
+  strftime -s _compdump_day %j $_compdump_mtime
 fi
-if [[ -f "$ZSH_COMPDUMP" && $(date +'%j') == "$_compdump_day" ]]; then
+if [[ -n "$_compdump_day" && "$_today" == "$_compdump_day" ]]; then
   compinit -C -d "$ZSH_COMPDUMP"  # Same day: skip audit, use cache
 else
   compinit -d "$ZSH_COMPDUMP"     # New day: full audit + rebuild cache
   rm -f -- "$ZSH_COMPDUMP".*(N.mh+1)  # temp dumps orphaned by shells killed mid-compinit
 fi
-unset _compdump_day
+unset _compdump_day _compdump_mtime _today
 
 # Call this after zsh completion system loads.
 if [[ -n "$(command -v fzf)" ]]; then
@@ -1484,16 +1504,17 @@ generate_ls_colors() {
   # Convert hex to RGB
   hex_to_rgb() {
     local hex="${1#\#}"
-    printf "38;2;%d;%d;%d" "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+    printf -v REPLY "38;2;%d;%d;%d" "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
   }
 
   # Use active colorscheme variables
-  local dir_color="1;$(hex_to_rgb "$gnohj_color04")"  # Bold directories
-  local link_color="$(hex_to_rgb "$gnohj_color03")"   # Symlinks
-  local exec_color="1;$(hex_to_rgb "$gnohj_color02")" # Bold executables
-  local archive_color="$(hex_to_rgb "$gnohj_color11")" # Archives
-  local media_color="$(hex_to_rgb "$gnohj_color01")"  # Images/videos
-  local audio_color="$(hex_to_rgb "$gnohj_color05")"  # Audio
+  local dir_color link_color exec_color archive_color media_color audio_color
+  hex_to_rgb "$gnohj_color04"; dir_color="1;$REPLY"    # Bold directories
+  hex_to_rgb "$gnohj_color03"; link_color="$REPLY"     # Symlinks
+  hex_to_rgb "$gnohj_color02"; exec_color="1;$REPLY"   # Bold executables
+  hex_to_rgb "$gnohj_color11"; archive_color="$REPLY"  # Archives
+  hex_to_rgb "$gnohj_color01"; media_color="$REPLY"    # Images/videos
+  hex_to_rgb "$gnohj_color05"; audio_color="$REPLY"    # Audio
 
   export LS_COLORS="di=${dir_color}:ln=${link_color}:ex=${exec_color}:*.tar=${archive_color}:*.tgz=${archive_color}:*.zip=${archive_color}:*.gz=${archive_color}:*.bz2=${archive_color}:*.jpg=${media_color}:*.jpeg=${media_color}:*.png=${media_color}:*.gif=${media_color}:*.svg=${media_color}:*.mp4=${media_color}:*.mkv=${media_color}:*.webm=${media_color}:*.mp3=${audio_color}:*.flac=${audio_color}:*.wav=${audio_color}:*.ogg=${audio_color}"
 }

@@ -67,6 +67,10 @@
 
   # Shells
   programs.zsh.enable = true;
+  # zshrc owns compinit/bashcompinit/prompt; /etc/zshrc's copies ran first with a shorter fpath and rewrote .zcompdump every shell (60-800ms per pane).
+  programs.zsh.enableGlobalCompInit = false;
+  programs.zsh.enableBashCompletion = false;
+  programs.zsh.promptInit = "";
   programs.bash.enable = true;
 
   networking.hostName = "macbook";
