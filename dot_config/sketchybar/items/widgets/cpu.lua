@@ -27,6 +27,7 @@ end
 
 local cpu = sbar.add("item", constants.items.CPU, {
 	position = "right",
+	padding_left = -12,
 	popup = { align = "center" },
 	update_freq = 10,
 	icon = {
