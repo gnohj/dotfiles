@@ -35,11 +35,11 @@ state="${state:-off}"
 if [ "$state" = "on" ]; then
   TARGET_SHORTCUT="FocusOff"
   new_state="off"
-  new_color="$YELLOW"
+  new_color="$RED"
 else
   TARGET_SHORTCUT="FocusOn"
   new_state="on"
-  new_color="$MAGENTA"
+  new_color="$ICON_BLUE"
 fi
 
 echo "[$(ts)] state=$state, running $TARGET_SHORTCUT" >>"$LOG"
@@ -49,9 +49,7 @@ if ! shortcuts run "$TARGET_SHORTCUT" 2>>"$LOG"; then
   exit 0
 fi
 
-# Marker makes dnd.sh trust this cache briefly while Control Center's pref catches up.
 echo "$new_state" >"$STATE_FILE"
-touch "$(dirname "$STATE_FILE")/dnd_click_ts"
 sketchybar --set "$NAME" icon.color="$new_color"
 
 echo "[$(ts)] click finished — now $new_state" >>"$LOG"

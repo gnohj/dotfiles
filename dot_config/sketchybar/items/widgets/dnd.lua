@@ -1,9 +1,6 @@
 local colors = require("config.colors")
 local dimens = require("config.dimens")
 
--- Do Not Disturb (Focus) toggle.
--- Always visible. Color reflects state: yellow when off, purple when on.
--- Left-click toggles DnD via Shortcuts (FocusOn / FocusOff).
 -- Trailing 2, not the usual gap: the clock's label carries 8px of its own leading padding.
 local dnd = sbar.add("item", "widgets.dnd", {
 	position = "right",
@@ -12,7 +9,7 @@ local dnd = sbar.add("item", "widgets.dnd", {
 	updates = "on",
 	icon = {
 		string = "􀆺", -- SF Symbol moon.fill (matches Apple's Focus icon)
-		color = colors.yellow,
+		color = colors.red,
 		padding_left = 0,
 		padding_right = 0,
 	},
