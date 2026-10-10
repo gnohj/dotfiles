@@ -701,7 +701,7 @@ echo ""
 
 # Tinycast - settings live in a .tinycast backup, always remind
 PENDING=$((PENDING + 1))
-echo "[$PENDING] Tinycast: Settings > Backup > import your .tinycast file, then enable Extensions and Apple Shortcuts"
+echo "[$PENDING] Tinycast: Settings > Backup > import your .tinycast file, then enable Extensions and Custom Commands (DND toggle)"
 echo ""
 
 echo "----------------------------------------------"

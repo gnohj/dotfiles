@@ -482,7 +482,7 @@ git config --global core.excludesfile
 1. Install Tinycast (automated via Homebrew, `tinycast@beta`)
 2. Open Tinycast Settings → Backup → Import and pick the `.tinycast` file
 3. Enable Settings → Extensions, then Install New → Search extensions → Kill Process
-4. Enable Settings → Apple Shortcuts (Do Not Disturb runs the `DND Raycast` shortcut)
+4. Enable Settings → Custom Commands and add "Toggle Do Not Disturb" running `~/.config/sketchybar/items/widgets/dnd-click.sh`; the `DND Raycast` shortcut does nothing without the Raycast extension's `on`/`off` input
 5. Enable Snippets again: a backup never grants keystroke listening
 
 **Key settings**:
