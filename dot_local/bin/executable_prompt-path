@@ -139,7 +139,9 @@ ref_w=0
 # 📁 non-git, per herdr's vocabulary - it also keeps row 1's leader 3 columns wide outside a repo, so the two rows' text never falls out of step.
 kind_glyph='📁'
 inside='' gd='' gcd='' head_ref=''
-if command -v git >/dev/null 2>&1 && [ -d "$dir" ]; then
+needs_git=1
+[ "$mode" = path ] && [ "$align" -eq 0 ] && [ "$glyph" = 0 ] && needs_git=0
+if [ "$needs_git" = 1 ] && command -v git >/dev/null 2>&1 && [ -d "$dir" ]; then
   # One call for every git fact (five overran starship's timeout on a cold spawn); --path-format=absolute resolves symlinks for both dirs like the old pwd -P pair.
   info="$(git -C "$dir" rev-parse --path-format=absolute --is-inside-work-tree --git-dir --git-common-dir --abbrev-ref HEAD 2>/dev/null)"
   # --abbrev-ref, never a bare HEAD: it holds the output at 4 lines - a bare HEAD emits nothing on an unborn branch and silently shifts these fields.
