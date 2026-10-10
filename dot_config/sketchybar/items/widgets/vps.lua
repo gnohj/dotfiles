@@ -13,7 +13,7 @@ end
 
 return {
 	temp = function()
-		add("widgets.vps_temp", "󰔏", -12, -5)
+		add("widgets.vps_temp", "󰔏", -16, -2)
 	end,
 	disk = function()
 		add("widgets.vps_disk", "󰋊", -12, 0)

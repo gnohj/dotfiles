@@ -13,7 +13,7 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	label = {
 		drawing = true,
 		padding_left = 0,
-		padding_right = 8,
+		padding_right = 11,
 	},
 	script = "~/.config/sketchybar/items/widgets/mic.sh",
 	click_script = "~/.config/sketchybar/items/widgets/mic-click.sh",
