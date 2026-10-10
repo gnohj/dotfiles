@@ -1,12 +1,5 @@
 #!/bin/bash
-# Refresh the VPN widget from the Private Internet Access CLI (piactl).
-#   piactl get connectionstate  -> Connected | Connecting | Disconnected | ...
-#   piactl get region           -> region id, e.g. "ca-toronto", "us-georgia"
-#
-# Color = always ICON_BLUE (not BLUE, which is the palette's aqua and predates the real blue); the glyph carries the state, so the bar never recolours.
-# Label  = "<COUNTRY>" or, for US/Canada, "<COUNTRY>-<STATE>" (e.g. US-GA, CA-ON).
-# PIA region suffixes are a mix of state names (us-georgia), city names
-# (us-atlanta -> GA), and directionals (us-east -> US-E); region_label maps them.
+# PIA widget, drawn only while connected; label is the exit country, plus state/province for US/CA (US-GA, CA-ON).
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
@@ -14,13 +7,9 @@ source "$HOME/.config/sketchybar/config/colors.sh"
 
 NAME="${NAME:-widgets.vpn}"
 
-# Nerd Font shield glyphs (mirror config/icons.lua vpn.on / vpn.off)
+# Nerd Font shield glyph (mirrors config/icons.lua vpn.on)
 ICON_ON="󰒘"
-ICON_OFF="󰦞"
 
-# Map a PIA region id to a display label. US/CA regions resolve to a
-# country + 2-letter state/province abbreviation; everything else is just the
-# uppercased country prefix.
 region_label() {
   local region="$1"
   local country="${region%%-*}"           # "us-georgia" -> "us"
@@ -61,8 +50,7 @@ region_label() {
 PIACTL="$(command -v piactl || echo '/Applications/Private Internet Access.app/Contents/MacOS/piactl')"
 
 if [ ! -x "$PIACTL" ]; then
-  sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$GREY" \
-    label="n/a" label.color="$GREY" label.drawing=on
+  sketchybar --set "$NAME" drawing=off
   exit 0
 fi
 
@@ -72,17 +60,9 @@ label="$(region_label "$region")"
 
 case "$state" in
   Connected)
-    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ICON_BLUE" \
+    sketchybar --set "$NAME" drawing=on icon="$ICON_ON" icon.color="$ICON_BLUE" \
       icon.padding_right=2 \
       label="$label" label.color="$ICON_BLUE" label.drawing=on ;;
-  Connecting | Disconnecting | DisconnectingToReconnect | Interrupting | StillNeedsRetry)
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" \
-      icon.padding_right=2 \
-      label="…" label.color="$ICON_BLUE" label.drawing=on ;;
   *)
-    # Disconnected / Interrupted / unknown -> not protected. Slashed shield only;
-    # the exit region is moot when not connected, so hide the label entirely.
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" \
-      icon.padding_right=0 \
-      label.drawing=off ;;
+    sketchybar --set "$NAME" drawing=off ;;
 esac
