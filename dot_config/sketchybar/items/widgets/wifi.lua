@@ -242,7 +242,7 @@ local function refreshIcon()
 	})
 
 	sbar.exec("ipconfig getifaddr en0", function(ip)
-		local wifiIcon, wifiColor
+		local wifiIcon, wifiColor = settings.icons.text.wifi.disconnected, settings.colors.red
 
 		if ip ~= "" then
 			wifiIcon = settings.icons.text.wifi.connected

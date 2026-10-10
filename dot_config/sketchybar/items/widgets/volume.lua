@@ -139,7 +139,7 @@ volumeValue:subscribe("volume_change", function(env)
 		volumeValue:set({
 			icon = {
 				string = icon,
-				color = settings.colors.blue,
+				color = hasVolume and settings.colors.blue or settings.colors.red,
 			},
 			label = {
 				string = hasVolume and lead .. volume .. "%" or "",
