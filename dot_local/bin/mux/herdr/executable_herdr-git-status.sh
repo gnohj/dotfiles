@@ -235,7 +235,7 @@ ws_panes = {}
 for p in plist:
     ws_panes.setdefault(p.get("workspace_id"), set()).add(p.get("pane_id"))
 
-# A crewmate's kind mark leads row 1 as $kind and its model sits on row 2; its title can't say so, since firstmate recovery matches that title exactly.
+# A crewmate's row 2 leads with its kind and model; its title can't say so, since firstmate recovery matches that title exactly.
 KIND_MARK = {"scout": "\U0001f52d", "ship": "\u26f5"}
 VENDOR_WORDS = {"claude", "gpt"}
 
@@ -321,20 +321,20 @@ for w, label in ws_label.items():
         picker[c] = entry
     if is_pin(label):
         # Rows below belong to sysinfo. Cleared, not skipped, so a stale branch goes rather than lingering.
-        report("workspace", w, (("br", ""), ("br_on", ""), ("mdl", ""), ("kind", "")))
+        report("workspace", w, (("br", ""), ("br_on", ""), ("mdl", "")))
         continue
     # Branch only where it adds something over row 0 (see wants_branch); a projection duplicates it unless detached, where the checkout is off the line its label implies.
     projected = label.startswith("└ ")
-    br = mark = ""
+    br = ""
     kind, model = kinds.get(w, ("", ""))
     if projected and kind in KIND_MARK:
-        br, mark = model, KIND_MARK[kind]
+        br = " ".join(filter(None, (KIND_MARK[kind], model)))
     elif c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
         br = branch(c, keep_key=projected)
     if br:
         br = row_indent(label) + br
     lit = w in focused
-    report("workspace", w, (("br", "" if lit else br), ("br_on", br if lit else ""), ("mdl", models.get(w, "")), ("kind", mark)))
+    report("workspace", w, (("br", "" if lit else br), ("br_on", br if lit else ""), ("mdl", models.get(w, ""))))
 
 # Agent rows never carry a checkout's state (the spaces panel's job), so all four pane tokens are cleared; a pane outside its workspace's worktree still feeds the picker.
 for p in plist:
