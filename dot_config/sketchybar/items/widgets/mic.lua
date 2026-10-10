@@ -4,7 +4,7 @@ local mic = sbar.add("item", constants.items.MIC or "mic", {
 	position = "right",
 	updates = true,
 	update_freq = 10,
-	padding_right = 4,
+	padding_right = -2,
 	icon = {
 		padding_left = 0,
 		-- 2, not the default 10: cpu/memory/volume all sit their value this close to the glyph.
