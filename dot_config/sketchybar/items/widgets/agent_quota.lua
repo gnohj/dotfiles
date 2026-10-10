@@ -4,7 +4,7 @@ local dimens = require("config.dimens")
 -- Tightest remaining quota window across Claude (both accounts), Codex and Copilot.
 local agent_quota = sbar.add("item", "agent_quota", {
 	position = "right",
-	padding_left = 0,
+	padding_left = dimens.padding.gap - 3,
 	padding_right = dimens.padding.gap,
 	updates = "on",
 	update_freq = 1800,
