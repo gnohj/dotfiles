@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rate-limit usage percentage, colored by severity: green under 70%, purple from 70%, red from 90%.
+# Rate-limit quota left, colored by severity: green above 30% left, purple from 30%, red from 10%.
 # Usage: claude-usage-pct <five_hour|seven_day>   (session payload JSON on stdin)
 #
 # A `custom-command` widget with preserveColors=true, because ccstatusline's own usage widgets take one static color and have no threshold support.
@@ -42,10 +42,12 @@ fi
 # The API hands back raw floats (7% arrives as 7.000000000000001), so round to one decimal and drop a trailing ".0": "7%", "76%", "69.9%".
 read -r hex pct <<<"$(awk -v p="$pct" -v g="$green" -v w="$warn" -v r="$red" 'BEGIN {
   c = (p >= 90 ? r : (p >= 70 ? w : g))
-  s = sprintf("%.1f", p)
+  left = 100 - p
+  if (left < 0) left = 0
+  s = sprintf("%.1f", left)
   sub(/\.0$/, "", s)
   print c, s
 }')"
 
-printf '\033[38;2;%d;%d;%dm%s%%\033[0m' \
+printf '\033[38;2;%d;%d;%dm%s%% left\033[0m' \
   "$((16#${hex:1:2}))" "$((16#${hex:3:2}))" "$((16#${hex:5:2}))" "$pct"
