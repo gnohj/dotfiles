@@ -28,11 +28,8 @@ ICON_BT_OFF=$'\xf3\xb0\x82\xb2'
 
 profile() { system_profiler SPBluetoothDataType -json 2>/dev/null; }
 
+# Not blueutil -p: without Bluetooth TCC it reads 0 under sketchybar even when power is on.
 power_state() {
-  if [ -n "$BLUEUTIL" ]; then
-    [ "$("$BLUEUTIL" -p 2>/dev/null)" = "1" ] && echo on || echo off
-    return
-  fi
   case "$(profile | jq -r '.SPBluetoothDataType[0].controller_properties.controller_state // ""')" in
     attrib_on) echo on ;;
     *) echo off ;;
