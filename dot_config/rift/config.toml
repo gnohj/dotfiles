@@ -116,6 +116,7 @@ app_rules = [
   { app_id = "com.apple.systempreferences", floating = true, workspace = "F" },
   { app_id = "net.imput.helium", workspace = "B" },
   { app_id = "com.kunchenguid.firstmate3000", workspace = "I" },
+  { app_id = "app.getmoshi.desktop", workspace = "I" },
 ]
 
 [keys]
