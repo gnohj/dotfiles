@@ -703,6 +703,7 @@ generate_borders_config() {
 options=(
   width=5
   hidpi=off
+  order=above
   active_color=0xff${gnohj_color03#\#}
   inactive_color=0x33${gnohj_color09#\#}
 )
