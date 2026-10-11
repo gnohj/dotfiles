@@ -14,6 +14,8 @@ RIFT = "/opt/homebrew/bin/rift-cli"
 CHURN = 0.15
 # Rift's wrong raise lands within ~130ms of the close; focus changes after this window are the user's.
 ARM_WINDOW = 0.35
+# The launching app can win macOS activation back ~30-250ms after a new window appears.
+CLAIM_WINDOW = 0.6
 HISTORY_LIMIT = 50
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
 
@@ -23,6 +25,7 @@ members = {}
 centers = {}
 focused_before = set()
 armed = None
+claimed = None
 
 
 def log(message):
@@ -154,12 +157,18 @@ def follow_new_window(wid):
 
 
 def on_focused_window_changed(event, now):
-    global armed
+    global armed, claimed
     key = workspace_key(event)
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
     if wid not in focused_before:
         focused_before.add(wid)
         follow_new_window(wid)
+        claimed = (wid, now + CLAIM_WINDOW)
+    elif claimed is not None and now > claimed[1]:
+        claimed = None
+    elif claimed is not None and wid != claimed[0]:
+        focus(key, claimed[0], now)
+        return
     log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
     hist = history[key]
     hist.append((now, wid))
