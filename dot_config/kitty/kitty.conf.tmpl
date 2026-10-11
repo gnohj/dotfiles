@@ -43,9 +43,11 @@ cursor_shape block
 cursor_blink_interval 0
 cursor_stop_blinking_after 0
 
-# Cursor trail animation (similar to ghostty cursor shaders)
+# Matches ghostty's bloom025 + cursor_smear_fade shaders; see shaders/ghostty.pipeline.
+custom_shaders ghostty
 cursor_trail 1
 cursor_trail_decay 0.1 0.5
+cursor_trail_start_threshold 0
 
 # Shell integration
 shell_integration enabled

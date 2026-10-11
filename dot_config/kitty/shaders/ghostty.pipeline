@@ -1,0 +1,12 @@
+startgroup
+    animation_step 0
+    var float BLOOM_STRENGTH = 0.025
+    var float BLOOM_THRESHOLD = 0.033
+    shaders bloom
+endgroup
+startgroup
+    animation_start cursor-trail-move
+    animation_stop 600
+    animation_step 16
+    shaders cursor-smear-fade
+endgroup
