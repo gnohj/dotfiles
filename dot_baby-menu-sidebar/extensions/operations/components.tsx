@@ -171,8 +171,8 @@ function WindowRow({
         color={color}
         markerColor={markerColor}
       />
-      <span className="w-9 shrink-0 text-right" style={{ color }}>
-        {pct === undefined ? "?" : `${Math.round(pct)}%`}
+      <span className="w-[5.25rem] shrink-0 text-right" style={{ color }}>
+        {pct === undefined ? "?" : `${Math.round(pct)}% left`}
       </span>
       <span className="w-14 shrink-0 text-ink-soft">
         {resetCountdown(window, generatedAtMs)}
@@ -242,10 +242,10 @@ function LiveCard({
                     className="font-semibold"
                     style={{ color: healthColor(effective, colors) }}
                   >
-                    {Math.round(effective)}%
+                    {Math.round(effective)}% left
                   </span>{" "}
                   <span className="text-ink-soft">
-                    {headlineLabel(provider, headline)}
+                    · {headlineLabel(provider, headline)}
                   </span>
                 </span>
               ) : (
