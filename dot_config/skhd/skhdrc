@@ -100,8 +100,8 @@ lalt + shift - f : osascript -e 'tell application "System Events" to keystroke "
 # Rift - toggle back and forth between workspaces
 lalt - tab : /opt/homebrew/bin/rift-cli execute workspace last
 
-# Rift - wrap around
-lalt + shift - tab : /opt/homebrew/bin/rift-cli execute display move-workspace --direction right --wrap-around
+# Rift - send the active workspace to the other display
+lalt + shift - tab : ~/.config/skhd/rift-swap-display.sh
 
 # Rift - Service mode (bindings live in [binding_modes.service] of ~/.config/rift/config.toml)
 lalt + shift - 0x29 : /opt/homebrew/bin/rift-cli execute binding-mode service
