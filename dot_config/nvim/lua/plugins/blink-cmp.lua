@@ -181,7 +181,7 @@ return {
       opts.keymap = {
         preset = "default",
         ["<CR>"] = { "fallback" }, -- Only fallback, don't accept completion
-        ["<C-y>"] = { "accept" }, -- Keep your working keybind
+        ["<C-y>"] = { "accept", "fallback" }, -- Keep your working keybind
         ["<Tab>"] = { "snippet_forward", "fallback" },
         ["<S-Tab>"] = { "snippet_backward", "fallback" },
 
