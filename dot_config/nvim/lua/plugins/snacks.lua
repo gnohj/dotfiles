@@ -417,14 +417,6 @@ return {
       end,
       desc = "Git Log",
     },
-    -- gh-dash keybindings
-    {
-      "<leader>gp",
-      function()
-        require("config.mux").new_window("gh-dash", { name = "🐙" })
-      end,
-      desc = "gh-dash PRs (window)",
-    },
     -- Package Picker (monorepo) - overrides LazyVim's <leader>fp
     {
       "<leader>fp",
@@ -604,30 +596,6 @@ return {
         })
       end,
       desc = "Git Unstaged Changes",
-    },
-    {
-      "<leader>gP",
-      function()
-        local root = vim.fn.systemlist("git rev-parse --show-toplevel")[1] or ""
-        local base
-        if root:match("/Developer/web/") then
-          base = "origin/master"
-        elseif root:match("/Developer/inferno/") then
-          base = "origin/develop"
-        else
-          local head = vim.fn.systemlist(
-            "git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null"
-          )[1]
-          base = head and head:match("(refs/remotes/origin/.+)")
-            or "origin/main"
-        end
-        Snacks.picker.git_diff({
-          title = "PR Changes (vs " .. base:gsub("origin/", "") .. ")",
-          base = base,
-          group = true,
-        })
-      end,
-      desc = "PR Branch Changes",
     },
     {
       "<leader>se",
