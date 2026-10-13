@@ -9,7 +9,7 @@ return {
     debug = {
       show_scores = true,
     },
-    lazy_sync = false,
+    lazy_sync = true,
     max_threads = 4,
     layout = {
       prompt_position = "top",
