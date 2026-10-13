@@ -43,16 +43,35 @@ mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') mode=$mode PR $pr ($repo) ==="
 
+notify_msg() {
+  case "$("$HOME/.local/bin/mux/mux" kind)" in
+    herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$1" --sound request >/dev/null 2>&1 || true ;;
+    tmux) tmux display-message -d 6000 "$1" 2>/dev/null || true ;;
+  esac
+}
+
 notify_fail() {
   local rc=$?
   [ "$rc" -eq 0 ] && return 0
-  local msg="review-open: $mode PR $pr failed (exit $rc) — see $LOG"
-  case "$("$HOME/.local/bin/mux/mux" kind)" in
-    herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$msg" --sound request >/dev/null 2>&1 || true ;;
-    tmux) tmux display-message -d 6000 "$msg" 2>/dev/null || true ;;
-  esac
+  notify_msg "review-open: $mode PR $pr failed (exit $rc) — see $LOG"
 }
 trap notify_fail EXIT
+
+# A repeated keypress used to start a second agent on the same PR, and the two fought over one Lavish page.
+stamp_dir="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-open.d"
+stamp="$stamp_dir/${repo//\//_}-$pr-$mode"
+mkdir -p "$stamp_dir"
+now=$(date +%s)
+if ! (set -C; printf '%s\n' "$now" >"$stamp") 2>/dev/null; then
+  last=$(cat "$stamp" 2>/dev/null || echo 0)
+  case "$last" in '' | *[!0-9]*) last=0 ;; esac
+  if [ $((now - last)) -lt "${REVIEW_OPEN_DEBOUNCE:-30}" ]; then
+    echo "review-open: $mode PR $pr already started $((now - last))s ago, skipping"
+    notify_msg "review-open: $mode PR $pr already starting, ignored repeat"
+    exit 0
+  fi
+  printf '%s\n' "$now" >"$stamp"
+fi
 
 # MUX is overridable so the command strings can be dry-run with `MUX=echo`.
 mux_bin="${MUX:-$HOME/.local/bin/mux/mux}"
