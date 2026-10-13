@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# lavish-axi wrapper: opening an artifact goes through lavish-desktop so its url is always the HTTPS tailnet route.
+set -uo pipefail
+
+self_dir=$(cd "$(dirname "$0")" && pwd -P)
+real=""
+IFS=: read -ra path_dirs <<<"$PATH"
+for dir in "${path_dirs[@]}"; do
+  [ -n "$dir" ] && [ -x "$dir/lavish-axi" ] || continue
+  [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
+  real="$dir/lavish-axi"
+  break
+done
+[ -n "$real" ] || { echo "lavish-axi: the real lavish-axi is not on PATH" >&2; exit 127; }
+
+case "${1:-}" in
+  *.html | *.htm)
+    if [ -f "$1" ] && [ -x "$self_dir/lavish-desktop" ]; then
+      LAVISH_AXI_REAL="$real" exec "$self_dir/lavish-desktop" "$@"
+    fi
+    ;;
+esac
+exec "$real" "$@"

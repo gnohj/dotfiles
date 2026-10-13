@@ -24,8 +24,9 @@ if [ "$mode" = auto ]; then
   fi
 fi
 
+# HTTPS route in every mode: lavish-axi's own url is plain http.
 ts_host=""
-if [ "$mode" = tailnet ]; then
+if command -v tailscale >/dev/null 2>&1; then
   https_port="${LAVISH_DESKTOP_HTTPS_PORT:-10001}"
   case "$https_port" in
     '' | *[!0-9]*) echo "lavish-desktop: invalid HTTPS port: $https_port" >&2; exit 1 ;;
@@ -38,11 +39,11 @@ if [ "$mode" = tailnet ]; then
 fi
 
 # --no-open is the documented switch; this script owns the opening so the workstation never gets two tabs.
-out=$(LAVISH_AXI_NO_OPEN=1 lavish-axi "$file" "$@" 2>&1) || {
+# Set by the lavish-axi wrapper so this never calls back into it.
+out=$(LAVISH_AXI_NO_OPEN=1 "${LAVISH_AXI_REAL:-lavish-axi}" "$file" "$@" 2>&1) || {
   printf '%s\n' "$out" >&2
   exit 1
 }
-printf '%s\n' "$out"
 
 local_url=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*url:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)
 session_status=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*status:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -n1)
@@ -50,7 +51,7 @@ session_status=$(printf '%s' "$out" | sed -n 's/^[[:space:]]*status:[[:space:]]*
 
 url="$local_url"
 # No tailnet resolved is not fatal: fall through with the local url rather than failing the review.
-if [ "$mode" = tailnet ] && [ -n "$ts_host" ]; then
+if [ -n "$ts_host" ]; then
   origin=${local_url%%/session/*}
   port=${origin##*:}
   case "$port" in '' | *[!0-9]*) echo "lavish-desktop: unexpected origin: $origin" >&2; exit 1 ;; esac
@@ -81,6 +82,8 @@ if [ "$mode" = tailnet ] && [ -n "$ts_host" ]; then
     echo "lavish-desktop: $public rejects this host - a server started before LAVISH_AXI_ALLOWED_HOSTS is still running; 'lavish-axi stop' then re-run (keeps sessions, restarts the shared server)" >&2
   fi
 fi
+
+printf '%s%s%s\n' "${out%%"$local_url"*}" "$url" "${out#*"$local_url"}"
 
 # LAVISH_DESKTOP_BACKGROUND=1 lands the page without foregrounding the browser, for an unattended caller (a gh-dash review). Relayed to to-desktop too.
 [ "${LAVISH_DESKTOP_BACKGROUND:-}" = 1 ] && export TO_DESKTOP_BACKGROUND=1
