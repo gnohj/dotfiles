@@ -19,11 +19,9 @@ local review_paths = {
 }
 
 local review_keys = {
-  { "P", "full", "Lavish agent review" },
   { "D", "diff", "Diff in hunk + agent notes" },
   { "E", "enhance", "Checks in ENHANCE" },
   { "C", "claude", "Claude /review" },
-  { "F", "fan", "Fan-out review" },
 }
 
 local function current_pr()
@@ -77,18 +75,46 @@ local function reclaim()
   vim.notify("Reclaiming idle treehouse review slots")
 end
 
-local function jira_key()
+local function pr_jira_key(pr)
   local pattern = "%u[%u%d]+%-%d+"
+  local branch = type(pr.source) == "table" and pr.source.branch or ""
+  return branch:match(pattern) or (pr.title or ""):match(pattern)
+end
+
+local function jira_key()
   local item = require("atlas.ui.navigation").current_item()
   local pr = type(item) == "table" and item.pr or {}
-  local branch = type(pr.source) == "table" and pr.source.branch or ""
-  local key = branch:match(pattern)
-    or (pr.title or ""):match(pattern)
-    or vim.api.nvim_get_current_line():match(pattern)
+  local key = pr_jira_key(pr)
+    or vim.api.nvim_get_current_line():match("%u[%u%d]+%-%d+")
   if not key then
     vim.notify("No Jira key on this PR", vim.log.levels.WARN)
   end
   return key
+end
+
+local function open_pr_links(pr)
+  if type(pr) ~= "table" then
+    return vim.notify("No PR selected", vim.log.levels.WARN)
+  end
+  local choices =
+    { { label = "GitHub PR #" .. pr.id, url = pr.link and pr.link.html } }
+  local key = pr_jira_key(pr)
+  if key then
+    table.insert(
+      choices,
+      { label = "Jira " .. key, url = jira_url .. "/browse/" .. key }
+    )
+  end
+  vim.ui.select(choices, {
+    prompt = "Open in browser",
+    format_item = function(c)
+      return c.label
+    end,
+  }, function(choice)
+    if choice and choice.url then
+      vim.ui.open(choice.url)
+    end
+  end)
 end
 
 local function open_jira()
@@ -220,6 +246,14 @@ local function dashboard_items()
     })
   end
   vim.list_extend(items, {
+    {
+      key = "o",
+      desc = "Open PR or Jira in browser",
+      callback = function()
+        local item = require("atlas.ui.navigation").current_item()
+        open_pr_links(type(item) == "table" and item.pr or nil)
+      end,
+    },
     { key = "v", desc = "Approve PR", callback = approve },
     { key = "X", desc = "Reclaim idle review slots", callback = reclaim },
     { key = "J", desc = "Jira ticket details", callback = open_jira },
@@ -230,6 +264,29 @@ local function dashboard_items()
     },
   })
   return items
+end
+
+local function extend_pulls_detail()
+  local help = require("atlas.ui.popups.help")
+  local keymaps = require("atlas.pulls.ui.detail.keymaps")
+  local register, remove = keymaps.register, keymaps.remove
+  local items = {
+    {
+      key = "o",
+      desc = "Open PR or Jira in browser",
+      callback = function()
+        open_pr_links(require("atlas.pulls.ui.detail.state").current_pr)
+      end,
+    },
+  }
+  keymaps.register = function(buf, ...)
+    register(buf, ...)
+    help.register("Links", items, { buffer = buf, index = 4 })
+  end
+  keymaps.remove = function(buf, ...)
+    remove(buf, ...)
+    help.remove("Links", items, { buffer = buf })
+  end
 end
 
 -- Atlas has no dashboard custom-keymap option, so piggyback its pulls register/remove pair.
@@ -266,7 +323,12 @@ return {
     return {
       ui = { picker = "snacks" },
       keymaps = {
-        ui = { open_in_browser = "o", help = "?", search = "/" },
+        ui = {
+          open_in_browser = "gP",
+          toggle_panel = "P",
+          help = "?",
+          search = "/",
+        },
         pulls = { open_repository = "gO" },
       },
       providers = {
@@ -304,6 +366,7 @@ return {
     vim.env.GITHUB_TOKEN = nil
     require("atlas").setup(opts)
     extend_pulls_dashboard()
+    extend_pulls_detail()
     vim.api.nvim_create_autocmd({ "FileType", "BufWinEnter" }, {
       callback = function(ev)
         if vim.bo[ev.buf].filetype:match("^atlas") then
