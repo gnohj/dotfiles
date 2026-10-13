@@ -41,7 +41,7 @@ local function repo_path(repo)
   return vim.fn.expand(path)
 end
 
-local function review_open(mode)
+local function review_open(mode, label)
   local pr = current_pr()
   if not pr then
     return
@@ -50,6 +50,7 @@ local function review_open(mode)
   local args = { "bash", script, mode, tostring(pr.id), pr.repo_full_name }
   table.insert(args, repo_path(pr.repo_full_name))
   vim.system(args, { detach = true })
+  vim.notify(string.format("Starting %s for #%s", label, pr.id))
 end
 
 local function approve()
@@ -214,7 +215,7 @@ local function dashboard_items()
       key = k[1],
       desc = k[3],
       callback = function()
-        review_open(k[2])
+        review_open(k[2], k[3])
       end,
     })
   end
@@ -222,7 +223,11 @@ local function dashboard_items()
     { key = "v", desc = "Approve PR", callback = approve },
     { key = "X", desc = "Reclaim idle review slots", callback = reclaim },
     { key = "J", desc = "Jira ticket details", callback = open_jira },
-    { key = "gJ", desc = "Open Jira ticket in browser", callback = open_jira_in_browser },
+    {
+      key = "gJ",
+      desc = "Open Jira ticket in browser",
+      callback = open_jira_in_browser,
+    },
   })
   return items
 end
