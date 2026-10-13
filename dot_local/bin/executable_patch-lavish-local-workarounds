@@ -218,7 +218,7 @@ remove_route = r'''  app.post("/api/:key/remove-review-file", async (req, res, n
 
 server_rules = (
     (session_open_original, session_open_connected, 'const browserConnected = [...liveEventClients.values()].includes(key);', False),
-    ('let annotationMode = true;', 'let annotationMode = false;', 'let annotationMode = false;', False),
+    ('const initialAnnotationMode = document.documentElement.getAttribute("data-lavish-annotate") !== "off";', 'const initialAnnotationMode = document.documentElement.getAttribute("data-lavish-annotate") === "on";', 'getAttribute("data-lavish-annotate") === "on";', False),
     ('id="annotation" type="button" aria-pressed="true"', 'id="annotation" type="button" aria-pressed="false"', 'id="annotation" type="button" aria-pressed="false"', False),
     (
         'app.get("/session/:key", async (req, res, next) => {\n    try {\n      const chromeLoad = await store.issueReviewerHandoff(req.params.key);',
