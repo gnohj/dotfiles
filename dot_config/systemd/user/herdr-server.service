@@ -14,6 +14,8 @@ After=default.target
 
 [Service]
 Type=simple
+# A live server outside the unit (live-handoff, autodetect) holds the socket; skip instead of failing into a restart loop.
+ExecCondition=/usr/bin/python3 -c "import socket,sys; sys.exit(1 if socket.socket(socket.AF_UNIX).connect_ex(sys.argv[1]) == 0 else 0)" %h/.config/herdr/herdr.sock
 # Via `zsh -l -c` on purpose. A systemd unit starts with a near-empty environment, but
 # the server needs the login chain: PATH (config.toml invokes helper scripts by BARE
 # name — herdr-sesh.sh, yazi-herdr.sh, the hack-herdr-* pair) and

@@ -8,6 +8,8 @@ After=default.target
 Type=simple
 Environment=HERDR_SESSION=%i
 Environment=SHELL=/usr/bin/zsh
+# A live server outside the unit (live-handoff, autodetect) holds the socket; skip instead of failing into a restart loop.
+ExecCondition=/usr/bin/python3 -c "import socket,sys; sys.exit(1 if socket.socket(socket.AF_UNIX).connect_ex(sys.argv[1]) == 0 else 0)" %h/.config/herdr/sessions/%i/herdr.sock
 ExecStart=/usr/bin/zsh -l -c 'exec "$(mise which herdr)" server --session "$HERDR_SESSION"'
 Restart=on-failure
 RestartSec=5
