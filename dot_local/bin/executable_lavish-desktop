@@ -38,9 +38,22 @@ if command -v tailscale >/dev/null 2>&1; then
   [ -n "$ts_host" ] && { mkdir -p "$HOME/.cache" && printf '%s\n' "$ts_host" > "$HOME/.cache/tailnet-host"; } 2>/dev/null
 fi
 
+# Called directly, a bare `lavish-axi` is the wrapper, which re-enters here and routes an https url onto a dead port.
+real="${LAVISH_AXI_REAL:-}"
+if [ -z "$real" ]; then
+  self_dir=$(cd "$(dirname "$0")" && pwd -P)
+  IFS=: read -ra path_dirs <<<"$PATH"
+  for dir in "${path_dirs[@]}"; do
+    [ -n "$dir" ] && [ -x "$dir/lavish-axi" ] || continue
+    [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
+    real="$dir/lavish-axi"
+    break
+  done
+  [ -n "$real" ] || { echo "lavish-desktop: the real lavish-axi is not on PATH" >&2; exit 127; }
+fi
+
 # --no-open is the documented switch; this script owns the opening so the workstation never gets two tabs.
-# Set by the lavish-axi wrapper so this never calls back into it.
-out=$(LAVISH_AXI_NO_OPEN=1 "${LAVISH_AXI_REAL:-lavish-axi}" "$file" "$@" 2>&1) || {
+out=$(LAVISH_AXI_NO_OPEN=1 "$real" "$file" "$@" 2>&1) || {
   printf '%s\n' "$out" >&2
   exit 1
 }
