@@ -216,6 +216,10 @@ in
         ];
         RunAtLoad = true;
         AbandonProcessGroup = true;
+        EnvironmentVariables = {
+          PATH = daemonPath;
+          LANG = "en_US.UTF-8";
+        };
         StandardOutPath = "${homeDir}/.logs/lavish-library/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/lavish-library/launchagent.err.log";
       };
