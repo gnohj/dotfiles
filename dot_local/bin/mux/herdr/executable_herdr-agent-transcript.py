@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Claude or pi session transcript as text for the herdr scrollback viewer, whose prompt jumps key on `❯ ` lines. Usage: herdr-agent-transcript.py <claude|pi> <session-kind> <session-value> <cwd>"""
+import hashlib
 import json
 import os
 import re
 import sys
+import tempfile
+import time
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
@@ -25,6 +28,7 @@ CODE = "\x1b[38;2;177;185;249m"
 INLINE_CODE = re.compile(r"`([^`\n]+)`")
 INLINE_BOLD = re.compile(r"\*\*([^*\n]+)\*\*")
 RESULT_PREVIEW = 3
+CACHE_DAYS = 7
 
 
 def markdown(line):
@@ -147,17 +151,59 @@ def render_pi(entry):
     return out
 
 
-def render(path, renderer):
+def render(chunk, renderer):
     out = []
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            try:
-                entry = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(entry, dict):
-                out += renderer(entry)
+    for line in chunk.split(b"\n"):
+        try:
+            entry = json.loads(line.decode("utf-8", errors="replace"))
+        except ValueError:
+            continue
+        if isinstance(entry, dict):
+            out += renderer(entry)
     return out
+
+
+def cache_path(path):
+    root = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "herdr-scrollback")
+    os.makedirs(root, mode=0o700, exist_ok=True)
+    now = time.time()
+    for stale in os.scandir(root):
+        try:
+            if now - stale.stat().st_mtime > CACHE_DAYS * 86400:
+                os.unlink(stale.path)
+        except FileNotFoundError:
+            pass
+    return os.path.join(root, hashlib.sha256(os.path.realpath(path).encode()).hexdigest() + ".txt")
+
+
+def cached_render(path, renderer):
+    # Sessions are append-only JSONL, so only the bytes past the cached offset need parsing.
+    source = os.stat(path)
+    script = os.stat(os.path.realpath(__file__))
+    stamp = {"inode": source.st_ino, "script": [script.st_mtime_ns, script.st_size]}
+    cache = cache_path(path)
+    meta, text = {}, ""
+    try:
+        with open(cache, encoding="utf-8") as handle:
+            meta, text = json.loads(handle.readline()), handle.read()
+    except (OSError, ValueError):
+        pass
+    offset = meta.get("offset", 0)
+    if {k: meta.get(k) for k in stamp} != stamp or offset > source.st_size:
+        offset, text = 0, ""
+    with open(path, "rb") as handle:
+        handle.seek(offset)
+        chunk = handle.read()
+    end = chunk.rfind(b"\n") + 1
+    rows = render(chunk[:end], renderer)
+    if rows:
+        text += "".join(row + "\n" for row in rows)
+    if end:
+        fd, temporary = tempfile.mkstemp(dir=os.path.dirname(cache))
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps({**stamp, "offset": offset + end}) + "\n" + text)
+        os.replace(temporary, cache)
+    return text
 
 
 def pi_session(kind, value, cwd):
@@ -184,7 +230,7 @@ def main():
         sys.exit(f"herdr-agent-transcript: no transcript reader for {agent!r}")
     if not path:
         sys.exit(f"herdr-agent-transcript: no {agent} transcript for {value or cwd}")
-    sys.stdout.write("\n".join(render(path, renderer)).rstrip() + "\n")
+    sys.stdout.write(cached_render(path, renderer).rstrip() + "\n")
 
 
 if __name__ == "__main__":
