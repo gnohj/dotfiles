@@ -116,7 +116,10 @@ function HerdrScrollbackView(opts)
   local prompt_rows = find_prompt_rows(lines)
   local ok_baleia, baleia = pcall(require, "baleia")
   if ok_baleia then
-    baleia.setup({}).buf_set_lines(buf, 0, -1, false, lines)
+    -- The view opens at the bottom, so colour the tail first.
+    local tail = math.max(0, #lines - 2000)
+    baleia.setup({ async = false }).buf_set_lines(buf, tail, -1, false, vim.list_slice(lines, tail + 1))
+    baleia.setup({}).buf_set_lines(buf, 0, tail, false, vim.list_slice(lines, 1, tail))
   else
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.tbl_map(strip_ansi, lines))
   end
