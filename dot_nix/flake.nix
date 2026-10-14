@@ -11,6 +11,9 @@
     # past 4.24.1 lands in nixpkgs-unstable.
     nixpkgs-ghdash.url = "github:NixOS/nixpkgs/c92a446a730c";
 
+    # Pinned nixpkgs whose sesh still builds; go-mockery 3.8.0 can't read go 1.27 export data, drop once nixpkgs bumps it.
+    nixpkgs-sesh.url = "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30";
+
     darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -36,6 +39,8 @@
           overlays = [
             (final: prev: {
               gh-dash = inputs.nixpkgs-ghdash.legacyPackages."x86_64-linux".gh-dash;
+              # Pin sesh until go-mockery builds under go 1.27; see flake.nix nixpkgs-sesh.
+              sesh = inputs.nixpkgs-sesh.legacyPackages."x86_64-linux".sesh;
             })
           ];
         };
