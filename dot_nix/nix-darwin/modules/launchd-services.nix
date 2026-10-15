@@ -146,6 +146,9 @@ in
           TODO_FILE = "${homeDir}/.local/share/tasks/todo.txt";
           DONE_FILE = "${homeDir}/.local/share/tasks/done.txt";
           TASKS_REMINDERS_LIST = "Projects (Personal)";
+          TASKS_CAPTURE_SKIP = "Groceries";
+          TASKS_EVENT_CALENDARS = "gnohj,Calendar,hongsautoinc@gmail.com,jdms8911";
+          TASKS_EVENT_DAYS = "14";
         };
         StandardOutPath = "${homeDir}/.logs/tasks-sync/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/tasks-sync/launchagent.err.log";

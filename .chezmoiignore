@@ -105,6 +105,7 @@ Library/
 # macOS-only helper sources (EventKit, IOKit, AppKit); their shared shell entry points stay cross-platform.
 .local/bin/tasks-sync
 .local/libexec/tasks-reminders.swift
+.local/libexec/tasks-reminders.Info.plist
 .local/libexec/cpu-temp.swift
 .local/libexec/rift-layout
 .local/libexec/rift-workspace
