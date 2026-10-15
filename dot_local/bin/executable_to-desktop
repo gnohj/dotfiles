@@ -191,6 +191,11 @@ shift
 
 # Restricted ssh entry: authorized_keys forces this, so $SSH_ORIGINAL_COMMAND is re-parsed against the same verbs.
 if [ "$verb" = --forced ]; then
+  # Exact string library.py's remote_request sends; the peer Library then reads and drives this one's API over stdin JSON.
+  if [ "${SSH_ORIGINAL_COMMAND:-}" = "cd ~/Developer/agents/shared/skills/lavish-library && python3 library.py remote" ]; then
+    cd "$HOME/Developer/agents/shared/skills/lavish-library" || die "forced: no lavish-library checkout" 2
+    exec "$HOME/.local/share/mise/installs/python/latest/bin/python3" library.py remote
+  fi
   # noglob: word-splitting is wanted, but a `?` in a query string must not expand against the cwd.
   set -f
   # shellcheck disable=SC2086
