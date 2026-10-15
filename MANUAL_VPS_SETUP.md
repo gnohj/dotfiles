@@ -137,7 +137,9 @@ Lets the box reach the workstation for the things a headless machine can't do it
 
 `active-tab` is what lets the 🎫 **AI Add Worktree (Chrome tab → worktree)** launcher entry work from the box: it prints one `<browser>\t<url>` line per open browser and `worktree jira` picks the first Jira URL. Note it is a **different browser** from `browser-debug`, which deliberately launches a throwaway profile (`~/.cache/chrome-cdp-profile`). `active-tab` reads your real logged-in windows instead, which is why it goes through Apple Events rather than CDP.
 
-**Trust model.** The box's key is pinned in the Mac's `authorized_keys` to `command="$HOME/.local/bin/to-desktop --forced"` with `no-pty` and no forwarding, so it can never obtain a shell. `to-desktop --forced` re-parses `$SSH_ORIGINAL_COMMAND` against its own verb allowlist, so the box gets exactly `open` / `clip` / `notify` / `browser-debug` / `active-tab` and nothing else. Every one of those takes fixed argv the box cannot steer, so a trailing `; id` or `$(id)` is either refused outright or lands as inert text. Reachability stays tailnet-only; public 22 on the Mac is never opened.
+**Trust model.** The box's key is pinned in the Mac's `authorized_keys` to `command="$HOME/.local/bin/to-desktop --forced"` with `no-pty` and no forwarding, so it can never obtain a shell. `to-desktop --forced` re-parses `$SSH_ORIGINAL_COMMAND` against its own verb allowlist, so the box gets exactly `open` / `clip` / `notify` / `browser-debug` / `active-tab` and nothing else. Every one of those takes fixed argv the box cannot steer, so a trailing `; id` or `$(id)` is either refused outright or lands as inert text.
+The one other entry is the Lavish Library peer read: the exact command string `library.py remote` (no word-splitting, so nothing appends to it), which lets the box's Library list and act on the Mac's artifacts through the Library's own remote route allowlist.
+Reachability stays tailnet-only; public 22 on the Mac is never opened.
 
 **One-time, on the Mac.** System Settings → General → Sharing → **Remote Login: ON**.
 
