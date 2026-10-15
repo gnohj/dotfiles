@@ -473,6 +473,8 @@ zinit load zsh-users/zsh-completions
 # shows a single suggestions (gray text after your cursor) based on latest cmd history
 # can accept it with right arrow.. this plugin has no back suggestions..
 # if you want to go back to (recento to latest comand history) just toggle <C-p> previous or <C-n> next
+# Bind widgets once instead of on every prompt; rebound below after the deferred plugins add theirs.
+ZSH_AUTOSUGGEST_MANUAL_REBIND=1
 zinit light zsh-users/zsh-autosuggestions
 
 # 📎 ZSH plugin that reminds you to use existing aliases for commands you just typed
@@ -583,6 +585,8 @@ fi
 function _history_substring_search_config() {
   bindkey '^P' history-substring-search-up # ctrl + p
   bindkey '^N' history-substring-search-down # ctrl + n
+  # Last deferred plugin, so this wraps every widget the deferred plugins created.
+  _zsh_autosuggest_bind_widgets
 }
 
 # Set ice modifiers BEFORE loading the plugin
