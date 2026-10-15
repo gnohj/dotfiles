@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two-way sync between tuxedo's todo.txt and an Apple Reminders list."""
+"""Two-way sync between tuxedo's todo.txt and Apple Reminders, plus one-way capture of Calendar events."""
 import json
 import os
 import re
@@ -19,6 +19,7 @@ SNAPSHOT = STATE_DIR / "snapshot.json"
 SALVAGE = STATE_DIR / "removed.log"
 
 REM_RE = re.compile(r"(?:^|\s)rem:([0-9A-Fa-f-]{36})(?=\s|$)")
+EVT_RE = re.compile(r"(?:^|\s)evt:(\S+)(?=\s|$)")
 DUE_RE = re.compile(r"(?:^|\s)due:(\d{4}-\d{2}-\d{2})(?=\s|$)")
 PRI_RE = re.compile(r"^\((?P<p>[A-Z])\)\s+")
 # A threshold is absolute or an offset from due (-3d); both must resolve to one date.
@@ -30,7 +31,9 @@ DATES_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\s+){0,2}")
 KEYVAL_RE = re.compile(r"(?:^|\s)[A-Za-z][A-Za-z0-9_]*:(?!//)\S+")
 TAG_RE = re.compile(r"(?:^|\s)[+@]\S+")
 CONTEXT_RE = re.compile(r"(?:^|\s)@(\S+)")
-INBOX_LIST = os.environ.get("TASKS_REMINDERS_LIST", "Projects (Personal)")
+CAPTURE_SKIP = {l.strip() for l in os.environ.get("TASKS_CAPTURE_SKIP", "Groceries").split(",") if l.strip()}
+EVENT_CALENDARS = [c.strip() for c in os.environ.get("TASKS_EVENT_CALENDARS", "").split(",") if c.strip()]
+EVENT_DAYS = int(os.environ.get("TASKS_EVENT_DAYS", "14"))
 
 TODO_PRI_TO_REM = {"A": 1, "B": 5, "C": 9}
 REM_PRI_TO_TODO = {1: "A", 2: "A", 3: "A", 4: "A", 5: "B", 6: "C", 7: "C", 8: "C", 9: "C"}
@@ -117,6 +120,7 @@ def parse(line):
         rest = PRI_RE.sub("", rest, count=1)
     rest = DATES_RE.sub("", rest, count=1)
     rem = REM_RE.search(line)
+    evt = EVT_RE.search(line)
     due = DUE_RE.search(line)
     thr = T_RE.search(line)
     title = KEYVAL_RE.sub("", rest)
@@ -126,6 +130,7 @@ def parse(line):
         "completed": completed,
         "priority": priority,
         "rem": rem.group(1) if rem else None,
+        "evt": evt.group(1) if evt else None,
         "due": due.group(1) if due else None,
         "alarm": resolve_threshold(thr.group(1) if thr else None,
                                    due.group(1) if due else None),
@@ -166,11 +171,92 @@ def load_snapshot():
     return {"reminders": {}}
 
 
+def append_inbox(captures, source):
+    INBOX_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with INBOX_FILE.open("a", encoding="utf-8") as fh:
+        for c in captures:
+            fh.write(c + "\n")
+    log(f"captured {len(captures)} from {source}")
+
+
+def salvage(line):
+    SALVAGE.parent.mkdir(parents=True, exist_ok=True)
+    with SALVAGE.open("a") as fh:
+        fh.write(f"{date.today().isoformat()} {line}\n")
+
+
+def one_line(text):
+    return " ".join(text.split())
+
+
+def event_fingerprint(e):
+    # Exchange reports no modification date, so change is detected from the fields we mirror.
+    return [e["title"], e["start"], e["time"]]
+
+
+def sync_events(lines, snap, archived, dry):
+    """Calendar -> tuxedo, one way: new events land in the inbox, linked lines follow their event."""
+    by_evt = {t["evt"]: t for t in (parse(l) for l in lines) if t["evt"]}
+    linked = set(snap.get("events_linked", []))
+    prev = snap.get("events", {})
+    query = {"days": EVENT_DAYS, "calendars": EVENT_CALENDARS,
+             "ids": sorted(set(by_evt) | linked)}
+    live = {e["id"]: e for e in helper(["events"], stdin=json.dumps(query))}
+
+    captures, changed = [], False
+    today = date.today().isoformat()
+    for eid, e in live.items():
+        t = by_evt.get(eid)
+        if t is None:
+            if (eid in prev or eid in linked or eid in archived
+                    or e["declined"] or e["start"] < today):
+                continue
+            at = f" at:{e['time']}" if e["time"] else ""
+            captures.append(f"{one_line(e['title'])} due:{e['start']}{at} @{e['source']} evt:{eid}")
+            continue
+        if t["completed"] or event_fingerprint(e) == prev.get(eid):
+            continue
+        i = lines.index(t["raw"])
+        new = set_token(lines[i], "due", e["start"])
+        new = set_token(new, "at", e["time"]) if e["time"] else drop_token(new, "at")
+        title = one_line(e["title"])
+        if title and title != t["title"]:
+            new = new.replace(t["title"], title, 1)
+        if new != lines[i]:
+            lines[i], changed = new, True
+
+    for eid, t in by_evt.items():
+        if eid in live or eid not in linked or t["completed"]:
+            continue
+        # The event is gone, so the line goes too; salvage keeps what was typed.
+        salvage(t["raw"])
+        lines.remove(t["raw"])
+        changed = True
+
+    if dry:
+        for c in captures:
+            log(f"would capture event: {c}")
+    elif captures:
+        append_inbox(captures, "Calendar")
+
+    now_linked = {t["evt"] for t in (parse(l) for l in lines) if t["evt"]} | archived
+    return changed, {eid: event_fingerprint(e) for eid, e in live.items()}, sorted(now_linked)
+
+
+def capture_line(rid, r):
+    pri = REM_PRI_TO_TODO.get(r["priority"], "")
+    pri = f"({pri}) " if pri else ""
+    due = f" due:{r['due']}" if r["due"] else ""
+    # Without t: the next pass would read the missing threshold as "no alarm" and clear it.
+    thr = f" t:{r['alarm']}" if r.get("alarm") and not r["recurring"] else ""
+    return f"{pri}{r['title']}{due}{thr} @reminders rem:{rid}"
+
+
 def baseline():
     """Record what Reminders holds now without importing any of it, so an Inbox
     that predates the bridge stays where it is and only later additions flow in."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    fresh = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    fresh = {r["id"]: r for r in helper(["list"])}
     SNAPSHOT.write_text(json.dumps(
         {"reminders": fresh, "linked": []}, indent=1, sort_keys=True))
     log(f"baseline: {len(fresh)} existing reminders marked seen, none linked")
@@ -187,15 +273,19 @@ def sync_once(dry=False):
     prev = snap.get("reminders", {})
     linked = set(snap.get("linked", []))
 
-    live = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    live = {r["id"]: r for r in helper(["list"])}
     by_rem = {t["rem"]: t for t in todo if t["rem"]}
+    # A recurring reminder keeps its id forever, so each occurrence is remembered as id@due.
+    occurrences = set(snap.get("occurrences", []))
+    horizon = (date.today() + timedelta(days=EVENT_DAYS)).isoformat()
+    finished_series = {}
 
     ops, refs, captures = [], [], []
     lines = [t["raw"] for t in todo]
     changed = False
 
     for t in todo:
-        if t["rem"] or t["completed"]:
+        if t["rem"] or t["evt"] or t["completed"]:
             continue
         ref = f"create:{len(ops)}"
         op = {"op": "create", "ref": ref, "title": t["title"]}
@@ -215,26 +305,33 @@ def sync_once(dry=False):
         if t is None:
             if rid in archived:
                 continue
+            if r["recurring"]:
+                # Deleting the line drops one occurrence, never the series; the next one returns in window.
+                key = f"{rid}@{r['due']}"
+                if (not r["completed"] and r["list"] not in CAPTURE_SKIP and r["due"]
+                        and r["due"] <= horizon and key not in occurrences):
+                    captures.append(capture_line(rid, r))
+                    occurrences.add(key)
+                continue
             if rid in linked:
                 # Only a reminder that HAD a line counts as deleted; merely seen is not enough.
                 ops.append({"op": "delete", "ref": f"del:{rid}", "id": rid})
-            elif rid not in prev and not r["completed"] and r["list"] == INBOX_LIST:
-                due = f" due:{r['due']}" if r["due"] else ""
-                pri = REM_PRI_TO_TODO.get(r["priority"], "")
-                pri = f"({pri}) " if pri else ""
-                captures.append(f"{pri}{r['title']}{due} rem:{rid}")
+            elif rid not in prev and not r["completed"] and r["list"] not in CAPTURE_SKIP:
+                captures.append(capture_line(rid, r))
             continue
         was = prev.get(rid, {})
         if t["list"] and not t["completed"] and t["list"] != r["list"]:
             ops.append({"op": "update", "ref": f"move:{rid}", "id": rid, "list": t["list"]})
         if t["completed"] and not r["completed"]:
             ops.append({"op": "update", "ref": f"done:{rid}", "id": rid, "completed": True})
+            if r["recurring"]:
+                finished_series[f"done:{rid}"] = (t, f"{rid}@{r['due']}")
         elif r["completed"] and not t["completed"]:
             i = lines.index(t["raw"])
             # Drop the priority like tuxedo's own `do`: (A) between the two dates is invalid.
             lines[i] = f"x {date.today().isoformat()} {PRI_RE.sub('', t['raw'], count=1)}"
             changed = True
-        elif t["alarm"] != r.get("alarm"):
+        elif not r["recurring"] and t["alarm"] != r.get("alarm"):
             ops.append({"op": "update", "ref": f"alarm:{rid}", "id": rid,
                         "alarm": t["alarm"]})
         elif r["modified"] != was.get("modified"):
@@ -259,12 +356,20 @@ def sync_once(dry=False):
         t = by_rem.get(rid)
         if t is not None:
             # The only branch that destroys typed input, so it keeps a salvage copy.
-            i = lines.index(t["raw"])
-            SALVAGE.parent.mkdir(parents=True, exist_ok=True)
-            with SALVAGE.open("a") as fh:
-                fh.write(f"{date.today().isoformat()} {t['raw']}\n")
-            del lines[i]
+            salvage(t["raw"])
+            lines.remove(t["raw"])
             changed = True
+
+    archived_evts = {t["evt"] for t in (parse(l) for l in read_lines(DONE_FILE)) if t["evt"]}
+    events = {"events": snap.get("events", {}), "events_linked": snap.get("events_linked", [])}
+    if EVENT_CALENDARS:
+        try:
+            evt_changed, events["events"], events["events_linked"] = sync_events(
+                lines, snap, archived_evts, dry)
+            changed = changed or evt_changed
+        except RuntimeError as exc:
+            # Calendar is optional; a missing grant must never stall the Reminders side.
+            log(f"events skipped: {exc}")
 
     if dry:
         for op in ops:
@@ -285,22 +390,27 @@ def sync_once(dry=False):
                     i = lines.index(t["raw"])
                     lines[i] = set_token(lines[i], "rem", res["id"])
                     changed = True
+            if res["ref"] in finished_series:
+                # Reminders rolled the series forward under the same id; this line keeps only the done occurrence.
+                t, key = finished_series[res["ref"]]
+                i = lines.index(t["raw"])
+                lines[i] = drop_token(lines[i], "rem")
+                occurrences.add(key)
+                changed = True
 
     if captures:
-        INBOX_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with INBOX_FILE.open("a", encoding="utf-8") as fh:
-            for c in captures:
-                fh.write(c + "\n")
-        log(f"captured {len(captures)} from Reminders")
+        append_inbox(captures, "Reminders")
 
     if changed:
         write_atomic(TODO_FILE, lines)
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    fresh = {r["id"]: r for r in helper(["list"]) if not r["recurring"]}
+    fresh = {r["id"]: r for r in helper(["list"])}
     now_linked = {t["rem"] for t in (parse(l) for l in lines) if t["rem"]} | archived
     SNAPSHOT.write_text(json.dumps(
-        {"reminders": fresh, "linked": sorted(now_linked)}, indent=1, sort_keys=True))
+        {"reminders": fresh, "linked": sorted(now_linked), **events,
+         "occurrences": sorted(k for k in occurrences if k.split("@")[0] in fresh)},
+        indent=1, sort_keys=True))
 
 
 def main():
