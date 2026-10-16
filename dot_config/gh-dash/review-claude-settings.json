@@ -3,5 +3,43 @@
     { "serverName": "playwright" },
     { "serverName": "chrome-devtools" },
     { "serverName": "apple-notes" }
-  ]
+  ],
+  "env": {
+    "BASH_MAX_TIMEOUT_MS": "300000"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/gh-dash/review-e2e-budget.sh pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/gh-dash/review-e2e-budget.sh post PostToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/gh-dash/review-e2e-budget.sh post PostToolUseFailure"
+          }
+        ]
+      }
+    ]
+  }
 }
