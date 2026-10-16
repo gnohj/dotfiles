@@ -206,9 +206,16 @@ seal_on_exit() {
   printf '; rc=$?; [ -f .review/%s.done ] || printf "finder exited (%%s) without writing %s.done\\n" "$rc" > .review/%s.failed' "$1" "$1" "$1"
 }
 
+# Read by `review-lavish-state usage` to name and price each finder in the retro line.
+write_finder_meta() {
+  jq -n --arg slot "$2" --arg harness "$3" --arg model "$4" --arg effort "$5" --argjson started "$(date +%s)" \
+    '{slot: $slot, harness: $harness, model: $model, effort: $effort, started: $started}' >"$1/.review/$2.json"
+}
+
 # Sealed-bid: each finder writes its own file plus a .done marker and never reads a sibling's.
 open_finder_claude() {
   write_finder_brief "$1" opus
+  write_finder_meta "$1" opus claude "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT"
   mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
@@ -216,6 +223,7 @@ open_finder_claude() {
 # The finder is pinned; $2 labels the tab with the rung resolved by --check.
 open_finder_pi() {
   write_finder_brief "$1" gpt
+  write_finder_meta "$1" gpt ladder "$REVIEW_FINDER_MODEL" "$REVIEW_FINDER_THINKING"
   # Only when set: review-finder-pi.sh treats an EMPTY ladder as "no fallback, fail on rung 1", so
   # forwarding it unconditionally would disable the ladder on every unpinned review.
   local ladder_env=()

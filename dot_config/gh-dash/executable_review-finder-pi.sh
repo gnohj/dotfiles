@@ -59,6 +59,8 @@ for rung in $LADDER; do
   [ "$CHECK" = 1 ] && [ "$harness" = codex ] && { printf '%s\n' "$rung"; exit 0; }
 
   echo "review-finder-pi: $slot on $rung"
+  # pi idles at its prompt after sealing, so the post-run write lands too late for the merge.
+  [ "$CHECK" = 1 ] || printf '%s\n' "$rung" >".review/$slot.model"
   case "$harness" in
     codex)
       # `codex exec` is non-interactive and EXITS, so it needs no deadline and no preflight - a refusal is its exit.
@@ -98,7 +100,8 @@ for rung in $LADDER; do
         # $BASHPID is this watchdog - $PPID would be the script's own launcher and killed nothing, verified.
         for c in $(pgrep -P "$$" 2>/dev/null); do [ "$c" = "$BASHPID" ] || kill "$c" 2>/dev/null; done ) &
       watchdog=$!
-      pi --no-session --provider "$provider" --model "$model" --thinking "$THINKING" "$(cat "$brief")"
+      # Not --no-session: this session dir is the only record of what the finder spent.
+      pi --session-dir ".review/pi-$slot" --provider "$provider" --model "$model" --thinking "$THINKING" "$(cat "$brief")"
       kill "$watchdog" 2>/dev/null
       wait "$watchdog" 2>/dev/null
       ;;
@@ -121,5 +124,6 @@ done
 # Nothing eligible is a legitimate outcome, not a stall: the caller's seal_on_exit writes .failed, review-fanout
 # counts that as settled and merges opus alone with its INCOMPLETE disclosure. Degrading to one bid, said out loud,
 # beats waiting out a timeout for a second bid that was never reachable.
+rm -f ".review/$slot.model"
 echo "review-finder-pi: no rung could seal $slot - every candidate was pruned, refused, or produced no findings" >&2
 exit 1
