@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Enable the resource-watch recorder; Linux/systemd only, macOS runs it from the nix-darwin launchd agent.
+# service sha256: {{ include "dot_config/systemd/user/resource-watch.service" | sha256sum }}
+# script sha256: {{ include "dot_local/bin/executable_resource-watch" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+systemctl --user enable resource-watch.service
+# restart, not --now: the recorder holds the loaded script, so an edit only takes effect on restart.
+systemctl --user restart resource-watch.service
+
+echo "resource-watch.service enabled."
