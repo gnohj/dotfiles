@@ -1,13 +1,20 @@
+local colors = require("config.colors")
 local dimens = require("config.dimens")
 
--- No glyph or width: the status group's border shows Focus and its padded ends toggle it.
 local dnd = sbar.add("item", "widgets.dnd", {
 	position = "right",
-	width = 0,
-	padding_left = 0,
-	padding_right = 0,
+	drawing = false,
+	-- Calendar label already trails padding.label; top up to the usual gap.
+	padding_left = dimens.padding.gap - dimens.padding.label,
+	padding_right = dimens.padding.label,
 	updates = "on",
-	icon = { drawing = false },
+	icon = {
+		string = "!",
+		font = "SF Pro:Light:" .. dimens.text.icon,
+		color = colors.red,
+		padding_left = 0,
+		padding_right = 0,
+	},
 	label = {
 		drawing = false,
 	},

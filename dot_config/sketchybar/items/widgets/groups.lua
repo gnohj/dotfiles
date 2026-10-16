@@ -16,7 +16,6 @@ local groups <const> = {
 	vps = {
 		members = { "widgets.vps_cpu", "widgets.vps_memory", "widgets.vps_disk", "widgets.vps_temp" },
 	},
-	-- The DND scripts own this border: red while Focus is off, green while it is on.
 	status = {
 		members = {
 			"mic",
