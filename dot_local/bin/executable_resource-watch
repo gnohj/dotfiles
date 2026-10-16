@@ -37,6 +37,7 @@ DROP_TICKS = 3
 REMOTE_HOSTS = [h for h in os.environ.get("RESOURCE_WATCH_REMOTES", "fleet-dev-box" if DARWIN else "").split() if h]
 REMOTE_EVENTS = os.environ.get("RESOURCE_WATCH_REMOTE_EVENTS", "~/.local/state/resource-watch/events")
 LIBRARY = os.path.join(HOME, "Developer", "agents", "shared", "skills", "lavish-library", "library.py")
+LIBRARY_PROJECT = "System Resource Report"
 CPU_TEMP = os.path.join(HOME, ".local", "bin", "cpu-temp")
 HERDR = shutil.which("herdr") or os.path.join(HOME, ".local", "bin", "herdr")
 RIFT = shutil.which("rift-cli") or "/opt/homebrew/bin/rift-cli"
@@ -803,7 +804,7 @@ def report(day, partial=False):
         os.remove(marker)
     print(path)
     if os.path.exists(LIBRARY):
-        subprocess.run([library_python(), LIBRARY, "observe", path], check=False)
+        subprocess.run([library_python(), LIBRARY, "observe", path, "--project", LIBRARY_PROJECT], check=False)
     for failure in failures:
         print(f"resource-watch: {failure}", file=sys.stderr)
     return path
