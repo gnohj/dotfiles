@@ -52,6 +52,7 @@ function Rift:list_all_windows()
 			windows[#windows + 1] = {
 				["window-id"] = math.tointeger(w.window_server_id) or w.window_server_id,
 				["app-name"] = w.app_name,
+				["bundle-id"] = w.bundle_id,
 				["window-title"] = w.title,
 				["workspace"] = ws.name,
 				rift_id = cjson.encode(w.id),
