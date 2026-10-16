@@ -36,7 +36,9 @@ lalt - l : /opt/homebrew/bin/rift-cli execute window focus right
 # Rift - Layout commands
 lalt - 0x2C : ~/.local/libexec/rift-layout bsp          # your / key
 lalt - 0x2B : ~/.local/libexec/rift-layout stack        # your , key
-lalt - 0x2F : ~/.local/libexec/rift-layout scrolling    # your . key (niri-style columns; again: back to default)
+lalt - 0x2F : ~/.local/libexec/rift-layout scrolling    # your . key (niri-style columns)
+lalt - 0x29 : ~/.local/libexec/rift-layout traditional  # your ; key
+lalt - 0x27 : ~/.local/libexec/rift-layout floating     # your ' key
 
 # Rift - Move commands
 lalt + shift - h : /opt/homebrew/bin/rift-cli execute layout move-node left
@@ -94,8 +96,8 @@ lalt + shift - z : /opt/homebrew/bin/rift-cli execute workspace move-window 25
 lalt + shift - i : /opt/homebrew/bin/rift-cli execute workspace move-window 8
 lalt + shift - p : /opt/homebrew/bin/rift-cli execute workspace move-window 15
 
-# Rift - Native fullscreen (Rift has no command for it, so send the macOS shortcut)
-lalt + shift - f : osascript -e 'tell application "System Events" to keystroke "f" using {control down, command down}'
+# Rift - Fullscreen inside the outer gaps, so sketchybar stays visible
+lalt + shift - f : /opt/homebrew/bin/rift-cli execute window toggle-fullscreen-within-gaps
 
 # Rift - toggle back and forth between workspaces
 lalt - tab : /opt/homebrew/bin/rift-cli execute workspace last
