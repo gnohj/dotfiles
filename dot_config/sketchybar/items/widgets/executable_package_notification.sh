@@ -141,10 +141,10 @@ if [ $TIMEOUT_OCCURRED -eq 1 ]; then
   COLOR=$GREY
   LABEL="?"
 elif [ $TOTAL_COUNT -eq 0 ]; then
-  COLOR=$GREEN
+  COLOR=$BLUE
   LABEL="􀆅"
 elif [ $TOTAL_COUNT -le 9 ]; then
-  COLOR=$WHITE
+  COLOR=$BLUE
 elif [ $TOTAL_COUNT -le 29 ]; then
   COLOR=$ORANGE
 else

@@ -4,6 +4,8 @@
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
+# Same faint outline groups.lua gives a badge with nothing to report.
+IDLE="0x7f${gnohj_color13#\#}"
 
 NAME="${NAME:-widgets.dnd}"
 STATE_FILE="$HOME/.cache/sketchybar/dnd_state"
@@ -12,7 +14,7 @@ state="off"
 [ -r "$STATE_FILE" ] && state="$(cat "$STATE_FILE" 2>/dev/null)"
 
 if [ "$state" = "on" ]; then
-  sketchybar --set "$NAME" icon.color="$ICON_BLUE"
+  sketchybar --set widgets.group.status background.border_color="$IDLE"
 else
-  sketchybar --set "$NAME" icon.color="$RED"
+  sketchybar --set widgets.group.status background.border_color="$RED"
 fi

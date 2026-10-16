@@ -23,7 +23,7 @@ return {
 	end,
 	cpu = function()
 		local cpu = add("widgets.vps_cpu", "", -12, 0)
-		cpu:set({ update_freq = 15, updates = "on", script = "~/.config/sketchybar/items/widgets/vps.sh" })
+		cpu:set({ icon = { padding_left = 8 }, update_freq = 15, updates = "on", script = "~/.config/sketchybar/items/widgets/vps.sh" })
 		cpu:subscribe({ "forced", "routine", "system_woke" })
 	end,
 }

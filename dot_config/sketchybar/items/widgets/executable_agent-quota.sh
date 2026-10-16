@@ -155,7 +155,7 @@ elif [ "$low" -le 35 ]; then
 elif [ "$low" -le 60 ]; then
   COLOR="$YELLOW"
 else
-  COLOR="$GREEN"
+  COLOR="$BLUE"
 fi
 
 sketchybar -m --set agent_quota icon.color="$COLOR"

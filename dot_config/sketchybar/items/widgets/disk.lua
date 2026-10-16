@@ -1,6 +1,7 @@
 local constants = require("constants")
 local syspanel = require("lib.syspanel")
 local colors = require("config.colors")
+local tiers = require("lib.tiers")
 
 -- counts the APFS reserve as used, matching duf rather than df's capacity column
 local function get_disk_percentage(callback)
@@ -34,12 +35,12 @@ local disk = sbar.add("item", constants.items.DISK, {
 	update_freq = 300,
 	icon = {
 		string = "󰋊",
-		color = colors.blue,
+		color = colors.cyan,
 		padding_right = 2,
 	},
 	label = {
 		string = "??%",
-		color = colors.green,
+		color = colors.cyan,
 		padding_left = 0,
 		-- Real padding, not the trailing spaces this used to append: a glyph is not a spacing unit.
 		padding_right = 10,
@@ -51,6 +52,7 @@ local function update()
 		disk:set({
 			label = {
 				string = percentage .. "%  ",
+				color = tiers.color(percentage, tiers.usage, colors.cyan),
 			},
 		})
 	end)

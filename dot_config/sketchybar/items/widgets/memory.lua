@@ -3,6 +3,7 @@ local constants = require("constants")
 local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
+local tiers = require("lib.tiers")
 
 -- Memory usage percentage (matching btop: used = active + wired, over hw.memsize)
 local function get_memory_percentage(callback)
@@ -40,12 +41,12 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 	update_freq = 10,
 	icon = {
 		string = "",
-		color = colors.blue,
+		color = colors.cyan,
 		padding_right = 2,
 	},
 	label = {
 		string = "??%",
-		color = colors.green,
+		color = colors.cyan,
 		padding_left = 0,
 		-- Real padding, not the trailing spaces this used to append: a glyph is not a spacing unit.
 		padding_right = 10,
@@ -57,6 +58,7 @@ local function update()
 		memory:set({
 			label = {
 				string = percentage .. "%  ",
+				color = tiers.color(percentage, tiers.usage, colors.cyan),
 			},
 		})
 	end)

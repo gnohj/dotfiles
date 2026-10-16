@@ -7,14 +7,14 @@ local calendar = sbar.add("item", constants.items.CALENDAR, {
 	icon = { padding_left = 0, padding_right = 0 },
 	-- Battery's box already carries a trailing 8, so the label's default padding doubled the seam.
 	label = { padding_left = 0 },
-	color = settings.colors.green,
+	color = settings.colors.cyan,
 })
 
 calendar:subscribe({ "forced", "routine", "system_woke" }, function(env)
 	calendar:set({
 		label = {
 			string = os.date("%a %d, %H:%M"),
-			color = settings.colors.green,
+			color = settings.colors.cyan,
 		},
 	})
 end)
