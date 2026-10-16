@@ -73,6 +73,18 @@ export type TokenRow = {
   expires: string;
 };
 
+export type SubscriptionBasis =
+  "recorded" | "confirmed" | "projected" | "missing";
+
+export type SubscriptionRow = {
+  service: string;
+  plan?: string;
+  renewsAt: string | null;
+  basis: SubscriptionBasis;
+  confirmedAt?: string;
+  remedyCommand?: string;
+};
+
 export type ScheduleJob = {
   name: string;
   remaining: string;
@@ -106,6 +118,7 @@ export type OperationsDashboard = {
   quotaGeneratedAt: string;
   quotaColors: QuotaColors;
   tokens: TokenRow[];
+  subscriptions: SubscriptionRow[];
   schedules: ScheduleSection[];
   activeSchedules: number;
   problemSchedules: number;

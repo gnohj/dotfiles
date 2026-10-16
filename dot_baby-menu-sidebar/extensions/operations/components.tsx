@@ -27,6 +27,7 @@ import type {
   QuotaWindow,
   RunScheduleResult,
   ScheduleJob,
+  SubscriptionRow,
   ToggleScheduleResult,
   TokenRow,
 } from "./types";
@@ -448,6 +449,77 @@ function TokenLine({ row }: { row: TokenRow }) {
   );
 }
 
+const DAY_MS = 86_400_000;
+
+function daysUntil(iso: string, nowMs: number): number {
+  const target = new Date(iso);
+  const today = new Date(nowMs);
+  const start = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return Math.round((start(target) - start(today)) / DAY_MS);
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function SubscriptionLine({
+  row,
+  nowMs,
+}: {
+  row: SubscriptionRow;
+  nowMs: number;
+}) {
+  const days = row.renewsAt ? daysUntil(row.renewsAt, nowMs) : null;
+  const detail = row.renewsAt
+    ? [
+        `renews ${shortDate(row.renewsAt)}`,
+        row.basis === "projected" && row.confirmedAt
+          ? `last confirmed ${shortDate(row.confirmedAt)}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "renewal day not recorded";
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 border-b border-line-faint py-2.5 last:border-0">
+      <div className="min-w-0">
+        <div className="truncate text-sm text-ink-strong">
+          {row.service}
+          {row.plan ? (
+            <span className="ml-2 text-xs text-ink-soft">{row.plan}</span>
+          ) : null}
+        </div>
+        <div className="text-xs text-ink-soft">{detail}</div>
+      </div>
+      <div className="text-right">
+        <div
+          className={`font-mono text-md ${
+            days === null
+              ? "text-ink-soft"
+              : days <= 3
+                ? "text-signal-warn"
+                : "text-signal-live"
+          }`}
+        >
+          {days === null ? "unknown" : days === 0 ? "today" : `${days}d`}
+        </div>
+        <div className="text-xxs uppercase tracking-caps text-ink-label">
+          {row.basis}
+        </div>
+      </div>
+      {row.remedyCommand ? (
+        <div className="col-span-2 truncate font-mono text-xxs text-ink-soft">
+          {row.remedyCommand}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ScheduleLine({
   job,
   busy,
@@ -712,6 +784,11 @@ export function OperationsView({
       .map((row) => row.daysLeft)
       .filter((days): days is number => days !== null) ?? [];
   const soonestToken = tokenDays.length ? Math.min(...tokenDays) : null;
+  const tokenSummary = tokenAlerts
+    ? `${tokenAlerts} need refreshing`
+    : soonestToken !== null
+      ? `${soonestToken}d until the first renewal`
+      : "no tokens stored";
 
   return (
     <div
@@ -738,11 +815,7 @@ export function OperationsView({
               ? variant === "usage" && displayDashboard
                 ? quotaSummary(displayDashboard)
                 : variant === "accounts"
-                  ? tokenAlerts
-                    ? `${tokenAlerts} need refreshing`
-                    : soonestToken !== null
-                      ? `${soonestToken}d until the first renewal`
-                      : "no tokens stored"
+                  ? tokenSummary
                   : `${dashboard.activeSchedules}/${dashboard.totalSchedules} schedules active`
               : "Loading live state"}
           </div>
@@ -812,6 +885,26 @@ export function OperationsView({
         </section>
       ) : null}
 
+      {variant === "usage" || variant === "all" ? (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xxs uppercase tracking-caps text-ink-label">
+              Subscriptions
+            </span>
+            <span className="text-xs text-ink-soft">personal only</span>
+          </div>
+          <div className="rounded-md border border-line bg-surface px-3">
+            {dashboard?.subscriptions?.length ? (
+              dashboard.subscriptions.map((row) => (
+                <SubscriptionLine key={row.service} row={row} nowMs={nowMs} />
+              ))
+            ) : (
+              <EmptyState>No subscription data</EmptyState>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       {variant === "accounts" || variant === "all" ? (
         <section>
           {variant === "all" ? (
@@ -826,11 +919,7 @@ export function OperationsView({
                     : "text-xs text-ink-soft"
                 }
               >
-                {tokenAlerts
-                  ? `${tokenAlerts} need refreshing`
-                  : soonestToken !== null
-                    ? `${soonestToken}d until the first renewal`
-                    : "no tokens stored"}
+                {tokenSummary}
               </span>
             </div>
           ) : null}
