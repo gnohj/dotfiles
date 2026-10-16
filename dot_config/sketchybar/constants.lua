@@ -1,5 +1,6 @@
 local events <const> = {
 	RIFT_WORKSPACE_CHANGED = "rift_workspace_changed",
+	RIFT_LAYOUT_CHANGED = "rift_layout_changed",
 	SWAP_MENU_AND_SPACES = "swap_menu_and_spaces",
 	FRONT_APP_SWITCHED = "front_app_switched",
 	UPDATE_WINDOWS = "update_windows",
@@ -14,6 +15,7 @@ local items <const> = {
 	SPOTIFY = "spotify",
 	MENU_TOGGLE = "menu_toggle",
 	FRONT_APPS = "front_apps",
+	RIFT_LAYOUT = "rift_layout",
 	MESSAGE = "message",
 	VOLUME = "widgets.volume",
 	WIFI = "widgets.wifi",

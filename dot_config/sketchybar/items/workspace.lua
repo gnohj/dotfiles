@@ -44,69 +44,67 @@ local function ensure_connection()
 	return true
 end
 
--- Support multiple apps per workspace (array of apps or single app string)
-local spaceConfigs = {
-	["Q"] = { name = "Browser", app = "Google Chrome" },
-	["W"] = { name = "Slack", app = "Slack" },
-	["E"] = { name = "Teams", app = "Microsoft Teams" },
-	["B"] = { name = "Helium", app = "Helium" },
-	["G"] = { name = "Mail", apps = { "Mail", "Outlook (PWA)" } },
-	["R"] = { name = "Kitty", app = "kitty" },
-	["F"] = { name = "System", apps = { "Finder", "Photos" } },
-	["D"] = { name = "Discord", app = "Discord" },
-	["C"] = { name = "Calendar", app = "Calendar" },
-	["V"] = { name = "Passwords", app = "Bitwarden" },
-	["S"] = { name = "Music", app = "Spotify" },
-	["T"] = { name = "Terminal", app = "Ghostty" },
-	["Y"] = { name = "Notes", app = "Notes" },
-	["X"] = { name = "Productivity", apps = { "Whimsical", "Claude", "Zoom" } },
-	["A"] = { name = "Social", apps = { "YouTube", "Reddit", "Twitch", "X" } },
-	["M"] = { name = "Texting", app = "Messages" },
-	["K"] = { name = "Settings", apps = { "System Settings", "OpenSuperWhisper" } },
-	["Z"] = { name = "Brave", app = "Zen" },
-	["U"] = { name = "Tailscale", app = "Tailscale" },
-	["I"] = { name = "Firstmate", app = "Firstmate 3000" },
-}
-
-local function getAppForWorkspace(workspace, focusedApp)
-	local config = spaceConfigs[workspace]
-	if not config then
-		return nil
-	end
-
-	if config.apps then
-		for _, app in ipairs(config.apps) do
-			if focusedApp == app then
-				return app
-			end
-		end
-		return config.apps[1]
-	end
-
-	return config.app
+-- Fixed chip slots are reused in place, since adding and removing items reflows the whole bar.
+local chips = {}
+for i = 1, 8 do
+	chips[i] = sbar.add("item", constants.items.FRONT_APPS .. "." .. i, {
+		position = "left",
+		drawing = false,
+		icon = {
+			string = "",
+			width = 34,
+			padding_left = 0,
+			padding_right = 0,
+			background = { drawing = true, image = { scale = 0.56, padding_left = 10 } },
+		},
+		label = {
+			font = { size = 13.0 },
+			color = settings.colors.dark_grey,
+			padding_left = 0,
+			padding_right = 3,
+		},
+		padding_left = 0,
+		padding_right = 0,
+	})
 end
 
 local workspaceItem = sbar.add("item", constants.items.SPACES, {
 	position = "left",
 	icon = {
-		drawing = false,
+		string = utf8.char(0xF0635),
+		font = { size = 12.0 },
+		color = settings.colors.cyan,
+		padding_left = 6,
+		padding_right = 2,
 	},
 	label = {
-		drawing = false,
+		font = { style = settings.fonts.styles.bold, size = 13.0 },
+		color = settings.colors.cyan,
+		padding_left = 0,
+		padding_right = 11,
 	},
-	background = {
-		height = 26,
-		corner_radius = 9,
-		border_width = 2,
-		color = settings.colors.bg1,
-		image = "app.default",
-	},
-	padding_left = 3,
-	padding_right = 3,
+	padding_left = 0,
+	padding_right = 0,
 	drawing = isShowingSpaces,
 })
 
-sbar.add("bracket", constants.items.FRONT_APPS, {}, { position = "left" })
+local chipNames = { constants.items.SPACES }
+for _, chip in ipairs(chips) do
+	chipNames[#chipNames + 1] = chip.name
+end
+sbar.add("bracket", constants.items.FRONT_APPS, chipNames, {
+	position = "left",
+	background = {
+		height = 24,
+		corner_radius = 12,
+		border_width = 1,
+		color = settings.colors.transparent,
+		border_color = settings.colors.cyan,
+		padding_left = 0,
+		padding_right = 0,
+	},
+})
+require("items.rift_layout")
 local frontAppWatcher = sbar.add("item", {
 	drawing = false,
 	updates = true,
@@ -121,38 +119,14 @@ local shownSignature = nil
 local function selectFocusedWindow(frontAppName)
 	for appName, app in pairs(frontApps) do
 		local isSelected = appName == frontAppName
-		-- Active: cyan, Inactive: dark grey
 		local color = isSelected and settings.colors.cyan or settings.colors.dark_grey
-		app:set({
-			label = { color = color },
-			icon = { color = color },
-		})
+		app:set({ label = { color = color } })
 	end
 end
 
-local function updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedApp)
-	if not ensure_connection() then
-		return
-	end
-
-	if not hasWindows then
-		return
-	end
-
-	if currentWorkspace then
-		local appToShow = getAppForWorkspace(currentWorkspace, focusedApp)
-
-		if appToShow then
-			workspaceItem:set({
-				background = { image = "app." .. appToShow },
-				drawing = isShowingSpaces,
-			})
-		else
-			workspaceItem:set({
-				background = { image = "app.default" },
-				drawing = isShowingSpaces,
-			})
-		end
+local function updateWorkspaceIndicator(currentWorkspace, hasWindows)
+	if hasWindows and currentWorkspace then
+		workspaceItem:set({ label = { string = currentWorkspace }, drawing = isShowingSpaces })
 	end
 end
 
@@ -229,29 +203,26 @@ local function updateWindows()
 	shownSignature = signature
 	shownWorkspace = currentWorkspace
 
-	sbar.remove("/" .. constants.items.FRONT_APPS .. "\\.*/")
 	frontApps = {}
 	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
-	updateWorkspaceIndicator(currentWorkspace, hasWindows, focusedAppName)
+	updateWorkspaceIndicator(currentWorkspace, hasWindows)
 
+	local used = 0
 	for _, window in ipairs(windowsJson) do
-		local windowId = tostring(window["window-id"])
 		local windowName = window["app-name"]
-		local workspace = window["workspace"]
-
-		if workspace == currentWorkspace then
-			local labelString = windowName .. " | " .. workspace
-
-			frontApps[windowName] = sbar.add("item", constants.items.FRONT_APPS .. "." .. windowName, {
-				position = "left",
-				label = {
-					padding_left = -15,
-					string = labelString,
-				},
-				click_script = Rift.focus_command(window),
+		if window["workspace"] == currentWorkspace and not frontApps[windowName] and used < #chips then
+			used = used + 1
+			chips[used]:set({
 				drawing = isShowingSpaces,
+				icon = { background = { image = { string = "app." .. windowName } } },
+				label = { string = windowName },
+				click_script = Rift.focus_command(window),
 			})
+			frontApps[windowName] = chips[used]
 		end
+	end
+	for i = used + 1, #chips do
+		chips[i]:set({ drawing = false })
 	end
 
 	if focusedAppName then
@@ -306,9 +277,6 @@ frontAppWatcher:subscribe(constants.events.FRONT_APP_SWITCHED, function(env)
 	log_message("INFO", "FRONT_APP_SWITCHED event received: " .. tostring(env.INFO))
 	if env.INFO then
 		selectFocusedWindow(env.INFO)
-		if shownWorkspace and next(frontApps) then
-			updateWorkspaceIndicator(shownWorkspace, true, env.INFO)
-		end
 	end
 end)
 
