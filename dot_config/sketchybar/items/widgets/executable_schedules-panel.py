@@ -36,6 +36,8 @@ KNOWN_NAMES = {
     "org.nixos.gh-auto-review": "Automatic PR reviews",
     "org.nixos.log-cleanup": "Log cleanup",
     "org.nixos.sb-audit-reminder": "Vault audit reminder",
+    "org.nixos.resource-report": "Resource report",
+    "org.nixos.resource-watch": "Resource watch",
     "org.nixos.screenshot-cleanup": "Screenshot cleanup",
     "org.nixos.sketchybar-watchdog": "SketchyBar watchdog",
     "org.nixos.usage-sampler": "Usage sampler",
@@ -44,6 +46,7 @@ KNOWN_NAMES = {
 }
 PERSISTENT_LABELS = {
     "org.nixos.agentsview",
+    "org.nixos.resource-watch",
 }
 
 

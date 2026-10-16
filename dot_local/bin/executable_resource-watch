@@ -1,0 +1,847 @@
+#!/usr/bin/env python3
+"""usage:
+  resource-watch record            run the recorder (launchd on macOS, systemd on Linux)
+  resource-watch snapshot [cpu|rss] print one attributed process snapshot
+  resource-watch report [DATE]     build DATE's report (default yesterday) into the Lavish Library
+  resource-watch report --today    build a partial report for today
+  resource-watch catchup           build any missing or incomplete report from the last 7 days
+"""
+import ctypes
+import datetime as dt
+import html
+import json
+import os
+import plistlib
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+sys.dont_write_bytecode = True
+
+DARWIN = sys.platform == "darwin"
+LINUX = sys.platform.startswith("linux")
+HOME = os.path.expanduser("~")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "resource-watch")
+EVENTS = os.path.join(STATE, "events")
+REMOTE = os.path.join(STATE, "remote")
+REPORTS = os.path.join(STATE, "reports")
+BEAT = os.path.join(STATE, "beat.json")
+HOST = os.uname().nodename.split(".")[0]
+INTERVAL = float(os.environ.get("RESOURCE_WATCH_INTERVAL", "10"))
+SUSTAIN = 300
+GAP = INTERVAL * 3
+DROP_TICKS = 3
+REMOTE_HOSTS = [h for h in os.environ.get("RESOURCE_WATCH_REMOTES", "fleet-dev-box" if DARWIN else "").split() if h]
+REMOTE_EVENTS = os.environ.get("RESOURCE_WATCH_REMOTE_EVENTS", "~/.local/state/resource-watch/events")
+LIBRARY = os.path.join(HOME, "Developer", "agents", "shared", "skills", "lavish-library", "library.py")
+CPU_TEMP = os.path.join(HOME, ".local", "bin", "cpu-temp")
+HERDR = shutil.which("herdr") or os.path.join(HOME, ".local", "bin", "herdr")
+RIFT = shutil.which("rift-cli") or "/opt/homebrew/bin/rift-cli"
+CLK_TCK = os.sysconf("SC_CLK_TCK") if LINUX else 100
+
+# Mirrors sketchybar lib/tiers.lua, cpu_temp.lua and vps.sh; change all three together.
+TIERS = {
+    "cpu": (60, 75, 90),
+    "memory": (70, 80, 90),
+    "disk": (70, 80, 90),
+    "temp": (65, 80, 90),
+}
+TIER_NAMES = ("ok", "yellow", "orange", "red")
+UNITS = {"cpu": "%", "memory": "%", "disk": "%", "temp": "°"}
+
+
+def tier(metric, value):
+    if value is None:
+        return 0
+    return sum(value >= step for step in TIERS[metric])
+
+
+def run(args, timeout=5):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def iso(t):
+    return dt.datetime.fromtimestamp(t).astimezone().isoformat(timespec="seconds")
+
+
+class HostCpuLoad(ctypes.Structure):
+    _fields_ = [("ticks", ctypes.c_uint32 * 4)]
+
+
+class CpuGauge:
+    def __init__(self):
+        self.prev = None
+        if DARWIN:
+            self.libc = ctypes.CDLL("/usr/lib/libSystem.dylib")
+            self.libc.mach_host_self.restype = ctypes.c_uint32
+
+    def counters(self):
+        if DARWIN:
+            # HOST_CPU_LOAD_INFO: user, system, idle, nice; top's "CPU usage" (the bar's source) is user + sys.
+            load, count = HostCpuLoad(), ctypes.c_uint32(4)
+            if self.libc.host_statistics(self.libc.mach_host_self(), 3, ctypes.byref(load), ctypes.byref(count)) != 0:
+                return None
+            user, system, idle, nice = load.ticks
+            return user + system + idle + nice, user + system
+        with open("/proc/stat") as f:
+            vals = [int(x) for x in f.readline().split()[1:]]
+        total = sum(vals)
+        return total, total - vals[3] - (vals[4] if len(vals) > 4 else 0)
+
+    def read(self):
+        now = self.counters()
+        prev, self.prev = self.prev, now
+        if not now or not prev or now[0] <= prev[0]:
+            return None
+        return round_half((now[1] - prev[1]) / (now[0] - prev[0]) * 100)
+
+
+def round_half(x):
+    return int(x + 0.5)
+
+
+def memory_pct():
+    if DARWIN:
+        out = run(["/usr/bin/vm_stat"])
+        page = re.search(r"page size of (\d+)", out)
+        active = re.search(r"Pages active:\s+(\d+)", out)
+        wired = re.search(r"Pages wired down:\s+(\d+)", out)
+        total = int(run(["/usr/sbin/sysctl", "-n", "hw.memsize"]) or 0)
+        if not (page and active and wired and total):
+            return None
+        return round_half((int(active.group(1)) + int(wired.group(1))) * int(page.group(1)) / total * 100)
+    info = {}
+    with open("/proc/meminfo") as f:
+        for line in f:
+            key, _, val = line.partition(":")
+            info[key] = int(val.split()[0])
+    return round_half((info["MemTotal"] - info.get("MemAvailable", info["MemFree"])) / info["MemTotal"] * 100)
+
+
+def disk_pct():
+    path = "/System/Volumes/Data" if DARWIN and os.path.isdir("/System/Volumes/Data") else "/"
+    st = os.statvfs(path)
+    return round_half((1 - st.f_bavail / st.f_blocks) * 100) if st.f_blocks else None
+
+
+def temp():
+    out = run([CPU_TEMP]).strip()
+    return int(out) if out.isdigit() else None
+
+
+def cpu_seconds(field):
+    days, _, clock = field.rpartition("-")
+    total = 0.0
+    for part in clock.split(":"):
+        total = total * 60 + float(part)
+    return total + (int(days) * 86400 if days else 0)
+
+
+class ProcessMeter:
+
+    def __init__(self):
+        self.prev, self.prev_at = {}, None
+        self.procs = {}
+
+    def sample(self):
+        out = run(["ps", "-A", "-o", "pid=,ppid=,time=,rss=,comm="])
+        now = time.time()
+        elapsed = now - self.prev_at if self.prev_at else None
+        procs, times = {}, {}
+        for line in out.splitlines():
+            parts = line.split(None, 4)
+            if len(parts) < 5:
+                continue
+            pid, ppid = int(parts[0]), int(parts[1])
+            try:
+                if LINUX:
+                    with open(f"/proc/{pid}/stat") as f:
+                        fields = f.read().rsplit(")", 1)[1].split()
+                    used = (int(fields[11]) + int(fields[12])) / CLK_TCK
+                else:
+                    used = cpu_seconds(parts[2])
+            except (OSError, ValueError, IndexError):
+                continue
+            times[pid] = used
+            before = self.prev.get(pid, used if elapsed is None else 0.0)
+            delta = used - before if used >= before else used
+            cpu = delta / elapsed * 100 if elapsed else 0.0
+            procs[pid] = {"pid": pid, "ppid": ppid, "cpu": round(cpu, 1), "rss": int(parts[3]) * 1024, "comm": parts[4]}
+        self.prev, self.prev_at, self.procs = times, now, procs
+        return procs
+
+
+def args_of(pid):
+    if LINUX:
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                return f.read().replace(b"\0", b" ").decode(errors="replace").strip()
+        except OSError:
+            return ""
+    return run(["ps", "-o", "args=", "-p", str(pid)]).strip()
+
+
+def short_args(args, limit=140):
+    args = args.replace(HOME, "~")
+    return args if len(args) <= limit else args[: limit - 1] + "…"
+
+
+def herdr_sockets():
+    """Every live herdr server: the flat socket plus each named session (the dev-box runs as session fm-remote)."""
+    root = os.path.join(HOME, ".config", "herdr")
+    candidates = [os.environ.get("HERDR_SOCKET_PATH"), os.path.join(root, "herdr.sock")]
+    try:
+        candidates += [os.path.join(root, "sessions", name, "herdr.sock") for name in sorted(os.listdir(os.path.join(root, "sessions")))]
+    except OSError:
+        pass
+    result = []
+    for path in candidates:
+        if path and path not in result and os.path.exists(path):
+            result.append(path)
+    return result
+
+
+def herdr_request(sock, method, params):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.settimeout(3)
+        s.connect(sock)
+        s.sendall((json.dumps({"id": "resource-watch", "method": method, "params": params}) + "\n").encode())
+        with s.makefile("rb") as stream:
+            line = stream.readline()
+    return json.loads(line) if line else {}
+
+
+class Context:
+
+    shell_pids = {}
+    bundles = {}
+
+    def __init__(self):
+        self.panes = self.herdr_panes()
+        self.panes.update(self.tmux_panes())
+        self.windows = self.rift_windows() if DARWIN else self.hypr_windows()
+        self.window_pids = {w["pid"] for w in self.windows}
+
+    def herdr_panes(self):
+        result = {}
+        for sock in herdr_sockets():
+            result.update(self.herdr_session(sock))
+        return result
+
+    def herdr_session(self, sock):
+        try:
+            out = subprocess.run([HERDR, "api", "snapshot"], capture_output=True, text=True, timeout=5,
+                                 env=dict(os.environ, HERDR_SOCKET_PATH=sock)).stdout
+            snap = json.loads(out).get("result", {}).get("snapshot", {})
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return {}
+        session = os.path.basename(os.path.dirname(sock)) if os.sep + "sessions" + os.sep in sock else ""
+        prefix = f"herdr[{session}]" if session else "herdr"
+        workspaces = {w["workspace_id"]: w.get("label", "") for w in snap.get("workspaces", [])}
+        tabs = {t["tab_id"]: t.get("label", "") for t in snap.get("tabs", [])}
+        result = {}
+        for pane in snap.get("panes", []):
+            key = (sock, pane["pane_id"])
+            if key not in Context.shell_pids:
+                try:
+                    info = herdr_request(sock, "pane.process_info", {"pane_id": pane["pane_id"]}).get("result", {}).get("process_info", {})
+                except (OSError, ValueError):
+                    info = {}
+                if info.get("shell_pid"):
+                    Context.shell_pids[key] = info["shell_pid"]
+            pid = Context.shell_pids.get(key)
+            if not pid:
+                continue
+            title = pane.get("title") or pane.get("terminal_title_stripped") or ""
+            result[pid] = {
+                "kind": "herdr",
+                "key": f"herdr:{session}:{pane['pane_id']}",
+                "label": f"{prefix} {workspaces.get(pane['workspace_id'], '?')} › {tabs.get(pane['tab_id'], '?')}",
+                "detail": " · ".join(x for x in (pane.get("agent"), title, (pane.get("cwd") or "").replace(HOME, "~")) if x),
+            }
+        return result
+
+    def tmux_panes(self):
+        if not shutil.which("tmux"):
+            return {}
+        out = run(["tmux", "list-panes", "-a", "-F", "#{pane_pid}\t#{session_name}\t#{window_index}:#{window_name}\t#{pane_title}"])
+        result = {}
+        for line in out.splitlines():
+            parts = line.split("\t")
+            if len(parts) == 4 and parts[0].isdigit():
+                result[int(parts[0])] = {"kind": "tmux", "key": f"tmux:{parts[1]}:{parts[2]}",
+                                         "label": f"tmux {parts[1]} › {parts[2]}", "detail": parts[3]}
+        return result
+
+    def rift_windows(self):
+        try:
+            displays = json.loads(run([RIFT, "query", "displays"]) or "[]")
+        except ValueError:
+            return []
+        windows, seen = [], set()
+        for display in displays:
+            try:
+                spaces = json.loads(run([RIFT, "query", "workspaces", "--display", display.get("uuid", "")]) or "[]")
+            except ValueError:
+                continue
+            for space in spaces:
+                for w in space.get("windows") or []:
+                    wid = w.get("window_server_id") or json.dumps(w.get("id"))
+                    if wid in seen:
+                        continue
+                    seen.add(wid)
+                    windows.append({"workspace": space.get("name", "?"), "display": display.get("name", ""),
+                                    "app": w.get("app_name", ""), "title": w.get("title", ""),
+                                    "pid": (w.get("id") or {}).get("pid"), "bundle": w.get("bundle_id", "")})
+        return windows
+
+    @staticmethod
+    def hypr_windows():
+        if not shutil.which("hyprctl"):
+            return []
+        try:
+            clients = json.loads(run(["hyprctl", "-i", "0", "clients", "-j"]) or "[]")
+        except ValueError:
+            return []
+        return [{"workspace": (c.get("workspace") or {}).get("name", "?"), "app": c.get("class", ""),
+                 "title": c.get("title", ""), "pid": c.get("pid"), "bundle": c.get("class", "")}
+                for c in clients if c.get("mapped", True)]
+
+    @staticmethod
+    def bundle_id(app_path):
+        if app_path not in Context.bundles:
+            try:
+                with open(os.path.join(app_path, "Contents", "Info.plist"), "rb") as f:
+                    Context.bundles[app_path] = plistlib.load(f).get("CFBundleIdentifier", "")
+            except (OSError, ValueError, plistlib.InvalidFileException):
+                Context.bundles[app_path] = ""
+        return Context.bundles[app_path]
+
+    def app_windows(self, app_path, pids):
+        bundle = self.bundle_id(app_path)
+        own, pwas = [], []
+        for w in self.windows:
+            if w["pid"] in pids or (bundle and w["bundle"] == bundle):
+                own.append(w)
+            elif bundle and w["bundle"].startswith(bundle + ".app."):
+                pwas.append(w)
+        return own, pwas
+
+    def owner(self, pid, procs):
+        seen, cur, window_pid = set(), pid, None
+        while cur and cur not in seen and cur in procs:
+            seen.add(cur)
+            if cur in self.panes:
+                return self.panes[cur]
+            if window_pid is None and LINUX and cur in self.window_pids:
+                window_pid = cur
+            cur = procs[cur]["ppid"]
+        if window_pid:
+            app = next(w["app"] for w in self.windows if w["pid"] == window_pid)
+            return {"kind": "app", "key": f"win:{window_pid}", "label": app or os.path.basename(procs[window_pid]["comm"]),
+                    "window_pid": window_pid}
+        comm = procs[pid]["comm"]
+        app = re.match(r"^(.*?/([^/]+)\.app)/", comm)
+        if app:
+            path, name = app.group(1), app.group(2)
+            pwa = "Apps.localized/" in path
+            return {"kind": "pwa" if pwa else "app", "key": f"app:{path}", "label": f"{name} (PWA)" if pwa else name,
+                    "app_path": path}
+        if LINUX:
+            unit = self.systemd_unit(pid)
+            if unit:
+                return {"kind": "unit", "key": f"unit:{unit}", "label": unit}
+        name = os.path.basename(comm)
+        # Matches the `errors` orphan rule: launchd parents every macOS daemon, so only non-system ppid-1 processes count.
+        orphan = procs[pid]["ppid"] == 1 and not re.match(r"^/(System|usr|sbin|bin|Library/Apple|nix)/", comm) and DARWIN
+        return {"kind": "process", "key": f"proc:{name}", "label": name + (" (orphan)" if orphan else "")}
+
+    @staticmethod
+    def systemd_unit(pid):
+        try:
+            with open(f"/proc/{pid}/cgroup") as f:
+                path = f.read().strip().split(":", 2)[-1]
+        except OSError:
+            return ""
+        for part in reversed(path.split("/")):
+            if part.startswith("docker-") and part.endswith(".scope"):
+                return f"docker container {part[7:19]}"
+            if part.endswith((".service", ".scope")) and not part.startswith(("user@", "session-")):
+                return part
+        return ""
+
+
+def snapshot(procs, rank, ctx=None, owners_limit=6, procs_limit=3):
+    ctx = ctx or Context()
+    groups = {}
+    for pid, p in procs.items():
+        if p[rank] <= 0:
+            continue
+        o = ctx.owner(pid, procs)
+        g = groups.setdefault(o["key"], dict(o, cpu=0.0, rss=0, pids=set(), procs=[]))
+        g["cpu"] += p["cpu"]
+        g["rss"] += p["rss"]
+        g["pids"].add(pid)
+        g["procs"].append(p)
+    top = sorted(groups.values(), key=lambda g: g[rank], reverse=True)[:owners_limit]
+    result = []
+    for g in top:
+        entry = {k: g[k] for k in ("kind", "key", "label") if k in g}
+        entry["detail"] = g.get("detail", "")
+        entry["cpu"] = round(g["cpu"], 1)
+        entry["rss"] = g["rss"]
+        entry["count"] = len(g["pids"])
+        entry["procs"] = [
+            {"pid": p["pid"], "cpu": p["cpu"], "rss": p["rss"], "name": os.path.basename(p["comm"]), "args": "" if "app_path" in g or "window_pid" in g else short_args(args_of(p["pid"]))}
+            for p in sorted(g["procs"], key=lambda p: p[rank], reverse=True)[:procs_limit]
+        ]
+        if "window_pid" in g:
+            entry["windows"] = [{"workspace": w["workspace"], "app": w["app"], "title": w["title"]}
+                                for w in ctx.windows if w["pid"] == g["window_pid"]]
+            entry["pwas"] = []
+        if "app_path" in g:
+            own, pwas = ctx.app_windows(g["app_path"], g["pids"])
+            entry["windows"] = [{"workspace": w["workspace"], "app": w["app"], "title": w["title"]} for w in own]
+            entry["pwas"] = [{"workspace": w["workspace"], "app": w["app"], "title": w["title"]} for w in pwas]
+        result.append(entry)
+    return {"rank": rank, "owners": result}
+
+
+def append(event):
+    os.makedirs(EVENTS, exist_ok=True)
+    event.setdefault("t", time.time())
+    event.setdefault("ts", iso(event["t"]))
+    event.setdefault("host", HOST)
+    day = dt.datetime.fromtimestamp(event["t"]).strftime("%Y-%m-%d")
+    with open(os.path.join(EVENTS, f"{day}.jsonl"), "a") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+def write_beat(t, tiers):
+    tmp = BEAT + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"t": t, "tiers": tiers}, f)
+    os.replace(tmp, BEAT)
+
+
+def read_metrics(gauge):
+    values = {"cpu": gauge.read(), "memory": None, "disk": None, "temp": None}
+    for name, fn in (("memory", memory_pct), ("disk", disk_pct), ("temp", temp)):
+        try:
+            values[name] = fn()
+        except (OSError, ValueError, KeyError, ZeroDivisionError):
+            pass
+    return values
+
+
+RANK = {"cpu": "cpu", "temp": "cpu", "memory": "rss"}
+
+
+def record():
+    os.makedirs(STATE, exist_ok=True)
+    now = time.time()
+    try:
+        with open(BEAT) as f:
+            last = json.load(f).get("t")
+    except (OSError, ValueError):
+        last = None
+    if last and now - last > GAP:
+        append({"type": "gap", "from": last, "to": now, "reason": "recorder not running"})
+    append({"type": "start", "pid": os.getpid()})
+    gauge, meter = CpuGauge(), ProcessMeter()
+    gauge.read()
+    meter.sample()
+    current = {m: 0 for m in TIERS}
+    lower_ticks = {m: 0 for m in TIERS}
+    last_snap = {m: 0.0 for m in TIERS}
+    prev_tick = time.time()
+    time.sleep(INTERVAL)
+    while True:
+        tick = time.time()
+        if tick - prev_tick > GAP:
+            append({"type": "gap", "from": prev_tick, "to": tick, "reason": "asleep"})
+            gauge.read()
+            meter.sample()
+            prev_tick = tick
+            time.sleep(INTERVAL)
+            continue
+        prev_tick = tick
+        values = read_metrics(gauge)
+        procs = meter.sample()
+        ctx = None
+        for metric, value in values.items():
+            target = tier(metric, value)
+            was = current[metric]
+            if target > was:
+                lower_ticks[metric] = 0
+            elif target < was:
+                lower_ticks[metric] += 1
+                if lower_ticks[metric] < DROP_TICKS:
+                    continue
+                lower_ticks[metric] = 0
+            else:
+                lower_ticks[metric] = 0
+            event = None
+            if target != was:
+                event = {"type": "tier", "metric": metric, "from": was, "to": target, "value": value, "values": values}
+                current[metric] = target
+            elif target and metric in RANK and tick - last_snap[metric] >= SUSTAIN:
+                event = {"type": "sustained", "metric": metric, "tier": target, "value": value, "values": values}
+            if event is None:
+                continue
+            rising = event["type"] == "sustained" or event["to"] > event["from"]
+            if rising and metric in RANK:
+                ctx = ctx or Context()
+                event["snapshot"] = snapshot(procs, RANK[metric], ctx)
+            last_snap[metric] = tick
+            append(event)
+        write_beat(tick, current)
+        time.sleep(max(0.0, INTERVAL - (time.time() - tick)))
+
+
+def load_events(day, hosts_dirs):
+    events = []
+    days = [(day + dt.timedelta(days=d)).strftime("%Y-%m-%d") for d in (-2, -1, 0, 1)]
+    for directory in hosts_dirs:
+        for name in days:
+            path = os.path.join(directory, f"{name}.jsonl")
+            try:
+                with open(path) as f:
+                    for line in f:
+                        try:
+                            events.append(json.loads(line))
+                        except ValueError:
+                            pass
+            except OSError:
+                pass
+    return events
+
+
+def pull_remotes(day):
+    dirs, failures = [], []
+    names = " ".join(f"{(day + dt.timedelta(days=d)).strftime('%Y-%m-%d')}.jsonl" for d in (-2, -1, 0, 1))
+    for host in REMOTE_HOSTS:
+        target = os.path.join(REMOTE, host)
+        os.makedirs(target, exist_ok=True)
+        script = f'cd {REMOTE_EVENTS} 2>/dev/null || exit 3; for f in {names}; do [ -f "$f" ] && printf "\\n==> %s\\n" "$f" && cat "$f"; done; exit 0'
+        try:
+            proc = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, script],
+                                  capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.SubprocessError) as e:
+            failures.append(f"{host}: {e}")
+            dirs.append(target)
+            continue
+        if proc.returncode != 0:
+            failures.append(f"{host}: ssh exit {proc.returncode} {proc.stderr.strip()[:200]}")
+        else:
+            current = None
+            chunks = {}
+            for line in proc.stdout.splitlines():
+                m = re.match(r"^==> (\S+\.jsonl)$", line)
+                if m:
+                    current = m.group(1)
+                    chunks[current] = []
+                elif current and line.strip():
+                    chunks[current].append(line)
+            for name, lines in chunks.items():
+                with open(os.path.join(target, name), "w") as f:
+                    f.write("\n".join(lines) + "\n")
+        dirs.append(target)
+    return dirs, failures
+
+
+def analyse(events, start, end):
+    hosts = {}
+    by_host = {}
+    for e in sorted(events, key=lambda e: e.get("t", 0)):
+        by_host.setdefault(e.get("host", "?"), []).append(e)
+    for host, evs in by_host.items():
+        state = {m: 0 for m in TIERS}
+        at = {m: [0.0] * 4 for m in TIERS}
+        gaps, crossings, offenders = [], [], {}
+        cursor = start
+        online = False
+
+        def accrue(until):
+            nonlocal cursor
+            lo, hi = max(cursor, start), min(until, end)
+            if hi > lo and online:
+                for m in TIERS:
+                    at[m][state[m]] += hi - lo
+            cursor = max(cursor, until)
+
+        for e in evs:
+            t = e.get("t", 0)
+            kind = e.get("type")
+            if kind == "gap":
+                accrue(e["from"])
+                if e["to"] > start and e["from"] < end:
+                    gaps.append({"from": max(e["from"], start), "to": min(e["to"], end), "reason": e.get("reason", "")})
+                cursor = max(cursor, e["to"])
+                continue
+            accrue(t)
+            if kind == "start":
+                state = {m: 0 for m in TIERS}
+                online = True
+                continue
+            online = True
+            if kind == "tier":
+                state[e["metric"]] = e["to"]
+            if start <= t < end and kind in ("tier", "sustained"):
+                if kind == "sustained" or e["to"] > e["from"] or e["to"] == 0:
+                    crossings.append(e)
+                snap = e.get("snapshot")
+                level = e.get("to", e.get("tier", 0))
+                if snap and level:
+                    for rank_pos, o in enumerate(snap.get("owners", [])[:3]):
+                        rec = offenders.setdefault(o["key"], {"label": o["label"], "kind": o.get("kind"), "detail": o.get("detail", ""),
+                                                              "hits": 0, "worst": 0, "metrics": set(), "peak_cpu": 0.0, "peak_rss": 0,
+                                                              "first": t, "lead": 0, "windows": {}, "pwas": {}})
+                        rec["hits"] += 1
+                        rec["lead"] += 1 if rank_pos == 0 else 0
+                        rec["worst"] = max(rec["worst"], level)
+                        rec["metrics"].add(e["metric"])
+                        rec["peak_cpu"] = max(rec["peak_cpu"], o.get("cpu", 0))
+                        rec["peak_rss"] = max(rec["peak_rss"], o.get("rss", 0))
+                        if o.get("detail"):
+                            rec["detail"] = o["detail"]
+                        for w in o.get("windows", []):
+                            rec["windows"][(w["workspace"], w["title"])] = w
+                        for w in o.get("pwas", []):
+                            rec["pwas"][(w["workspace"], w["app"])] = w
+        if online:
+            accrue(end if end < time.time() else time.time())
+        hosts[host] = {"at": at, "gaps": gaps, "crossings": crossings, "offenders": offenders}
+    return hosts
+
+
+def esc(x):
+    return html.escape(str(x), quote=True)
+
+
+def human_secs(s):
+    s = int(s)
+    if s < 60:
+        return f"{s}s"
+    m, s = divmod(s, 60)
+    if m < 60:
+        return f"{m}m"
+    h, m = divmod(m, 60)
+    return f"{h}h {m:02d}m"
+
+
+def human_bytes(n):
+    n = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit in ("B", "KB", "MB") else f"{n:.1f} {unit}"
+        n /= 1024
+
+
+BADGE = {1: "badge-warning", 2: "tier-orange", 3: "badge-error"}
+
+
+def tier_badge(level):
+    if not level:
+        return '<span class="badge badge-ghost badge-sm">ok</span>'
+    return f'<span class="badge badge-sm {BADGE[level]}">{TIER_NAMES[level]}</span>'
+
+
+def window_list(windows, pwas):
+    parts = []
+    for w in windows:
+        parts.append(f'<span class="ws">{esc(w["workspace"])}</span> {esc(w["title"].strip() or w["app"])}')
+    for w in pwas:
+        parts.append(f'<span class="ws">{esc(w["workspace"])}</span> <b>{esc(w["app"])}</b> PWA' + (f' · {esc(w["title"])}' if w.get("title") else ""))
+    return "<br>".join(parts)
+
+
+def owner_html(o, rank):
+    value = f'{o.get("cpu", 0):.0f}% cpu' if rank == "cpu" else human_bytes(o.get("rss", 0))
+    other = human_bytes(o.get("rss", 0)) if rank == "cpu" else f'{o.get("cpu", 0):.0f}% cpu'
+    procs = "".join(
+        f'<li><code>{esc(p["name"])}</code> <span class="opacity-70">pid {p["pid"]} · {p["cpu"]:.0f}% · {human_bytes(p["rss"])}</span>'
+        + (f'<div class="args">{esc(p["args"])}</div>' if p.get("args") else "") + "</li>"
+        for p in o.get("procs", [])
+    )
+    wins = window_list(o.get("windows", []), o.get("pwas", []))
+    note = ""
+    if any("Renderer" in p["name"] for p in o.get("procs", [])):
+        note = '<div class="note">Renderer CPU is shared across this browser\'s tabs and PWAs; these were open.</div>'
+    return (f'<div class="owner"><div class="flex justify-between gap-2"><b>{esc(o["label"])}</b>'
+            f'<span class="whitespace-nowrap">{value} <span class="opacity-60">· {other} · {o.get("count", 1)} proc</span></span></div>'
+            + (f'<div class="opacity-70 text-sm">{esc(o["detail"])}</div>' if o.get("detail") else "")
+            + (f'<div class="windows">{wins}</div>{note}' if wins else "")
+            + f'<ul class="procs">{procs}</ul></div>')
+
+
+def render(day, hosts, failures, partial, name):
+    title = f"Resource report {day.isoformat()}"
+    host_order = sorted(hosts, key=lambda h: (h != HOST, h))
+    summary_rows = []
+    for host in host_order:
+        a = hosts[host]["at"]
+        for m in TIERS:
+            secs = a[m]
+            total = sum(secs) or 1
+            bar = "".join(f'<span class="seg t{i}" style="width:{secs[i] / total * 100:.2f}%"></span>' for i in range(4) if secs[i])
+            summary_rows.append(
+                f'<tr><td>{esc(host)}</td><td>{m}</td><td class="w-1/3"><div class="stack">{bar}</div></td>'
+                + "".join(f'<td class="text-right tabular-nums">{human_secs(secs[i]) if secs[i] else "-"}</td>' for i in (1, 2, 3)) + "</tr>")
+    sections = []
+    for host in host_order:
+        h = hosts[host]
+        offenders = sorted(h["offenders"].values(), key=lambda r: (r["worst"], r["lead"], r["hits"]), reverse=True)
+        off_rows = "".join(
+            f'<tr><td>{tier_badge(r["worst"])}</td><td class="owner-cell"><b>{esc(r["label"])}</b>'
+            + (f'<div class="opacity-70 text-sm">{esc(r["detail"])}</div>' if r["detail"] else "")
+            + (f'<div class="windows">{window_list(list(r["windows"].values()), list(r["pwas"].values()))}</div>' if r["windows"] or r["pwas"] else "")
+            + f'</td><td>{", ".join(sorted(r["metrics"]))}</td><td class="text-right">{r["lead"]} / {r["hits"]}</td>'
+            f'<td class="text-right">{r["peak_cpu"]:.0f}%</td><td class="text-right">{human_bytes(r["peak_rss"])}</td></tr>'
+            for r in offenders
+        ) or '<tr><td colspan="6" class="opacity-60">No threshold crossings.</td></tr>'
+        timeline = []
+        for e in h["crossings"]:
+            t = dt.datetime.fromtimestamp(e["t"]).strftime("%H:%M:%S")
+            unit = UNITS[e["metric"]]
+            if e["type"] == "tier":
+                head = f'{tier_badge(e["from"])} → {tier_badge(e["to"])}'
+                label = "cleared" if e["to"] == 0 else "rose"
+            else:
+                head = f'{tier_badge(e["tier"])} still'
+                label = "sustained"
+            snap = e.get("snapshot")
+            body = "".join(owner_html(o, snap["rank"]) for o in snap["owners"]) if snap else ""
+            summary = f'<span class="tabular-nums opacity-70">{t}</span> <b>{e["metric"]}</b> {e.get("value")}{unit} {head} <span class="opacity-60">{label}</span>'
+            if snap and snap["owners"]:
+                summary += f' <span class="opacity-80">· {esc(snap["owners"][0]["label"])}</span>'
+                timeline.append(f'<details class="event"><summary>{summary}</summary><div class="body">{body}</div></details>')
+            else:
+                timeline.append(f'<div class="event plain">{summary}</div>')
+        gaps = "".join(
+            f'<li>{dt.datetime.fromtimestamp(g["from"]).strftime("%H:%M")} – {dt.datetime.fromtimestamp(g["to"]).strftime("%H:%M")} '
+            f'({human_secs(g["to"] - g["from"])}, {esc(g["reason"])})</li>' for g in h["gaps"])
+        sections.append(f'''
+<section class="card bg-base-100 border border-base-300 mb-6"><div class="card-body p-4 sm:p-6">
+<h2 class="card-title">{esc(host)}</h2>
+<h3 class="font-semibold mt-2">Responsible</h3>
+<p class="text-sm opacity-70">Ranked by worst colour reached, then how often it led the snapshot. "Led / seen" counts snapshots where it was first / in the top three.</p>
+<div class="overflow-x-auto"><table class="table table-sm"><thead><tr><th>Worst</th><th>Owner</th><th>Metric</th><th class="text-right">Led / seen</th><th class="text-right">Peak cpu</th><th class="text-right">Peak mem</th></tr></thead><tbody>{off_rows}</tbody></table></div>
+<h3 class="font-semibold mt-4">Timeline</h3>
+<div class="timeline-list">{"".join(timeline) or '<p class="opacity-60">Nothing crossed a threshold.</p>'}</div>
+{f'<h3 class="font-semibold mt-4">Not recorded</h3><ul class="text-sm list-disc ml-5">{gaps}</ul>' if gaps else ""}
+</div></section>''')
+    warn = "".join(f'<div class="alert alert-warning mb-4">Could not pull {esc(f)}</div>' for f in failures)
+    stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    scope = "so far today" if partial else "midnight to midnight"
+    return f'''<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{esc(title)}</title>
+<script src="lavish-library.js" data-artifact="{name}" onerror="window.__LAVISH_LIBRARY__=null"></script>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<style>
+.stack{{display:flex;height:.7rem;border-radius:.35rem;overflow:hidden;background:var(--color-base-200)}}
+.seg.t0{{background:var(--color-base-300)}}.seg.t1{{background:var(--color-warning)}}.seg.t2{{background:#f97316}}.seg.t3{{background:var(--color-error)}}
+.tier-orange{{background:#f97316;color:#fff;border-color:#f97316}}
+.ws{{display:inline-block;min-width:1.4rem;text-align:center;font-weight:700;border-radius:.3rem;background:var(--color-base-200);margin-right:.25rem}}
+.event{{border-bottom:1px solid var(--color-base-200);padding:.35rem 0}}.event summary{{cursor:pointer}}.event .body{{padding:.5rem 0 .5rem 1rem}}
+.owner{{border-left:3px solid var(--color-base-300);padding:.25rem .75rem;margin:.4rem 0}}
+.procs{{font-size:.85rem;margin:.25rem 0 0 1rem;list-style:disc}}.args{{font-family:ui-monospace,monospace;font-size:.75rem;opacity:.6;word-break:break-all}}
+.windows{{font-size:.85rem;margin-top:.25rem}}.owner-cell{{overflow-wrap:anywhere;min-width:12rem}}.note{{font-size:.75rem;opacity:.6}}
+</style></head>
+<body class="bg-base-200 text-base-content min-h-screen">
+<main class="max-w-5xl mx-auto px-4 py-6">
+<div class="flex items-center justify-between gap-2 mb-4">
+<div><h1 class="text-2xl font-bold">Resource report · {day.strftime("%a %b %-d, %Y")}</h1>
+<p class="text-sm opacity-70">Every time a sketchybar widget turned yellow, orange or red, {scope}. Built {stamp}.</p></div>
+<button class="btn btn-sm" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+</div>
+{warn}
+<section class="card bg-base-100 border border-base-300 mb-6"><div class="card-body p-4 sm:p-6">
+<h2 class="card-title">Time at each colour</h2>
+<div class="overflow-x-auto"><table class="table table-sm"><thead><tr><th>Host</th><th>Metric</th><th></th><th class="text-right">Yellow</th><th class="text-right">Orange</th><th class="text-right">Red</th></tr></thead>
+<tbody>{"".join(summary_rows) or '<tr><td colspan="6" class="opacity-60">No data recorded for this day.</td></tr>'}</tbody></table></div>
+<p class="text-xs opacity-60">Thresholds: cpu 60/75/90%, memory and disk 70/80/90%, temperature 65/80/90°. Time asleep or powered off is excluded.</p>
+</div></section>
+{"".join(sections)}
+</main></body></html>
+'''
+
+
+def library_python():
+    # library.py needs a modern python; launchd's /usr/bin/python3 is 3.9 and mise shims fail without a shell.
+    for candidate in (os.path.join(HOME, ".local/share/mise/installs/python/latest/bin/python3"), shutil.which("python3")):
+        if candidate and os.access(candidate, os.X_OK):
+            return candidate
+    return sys.executable
+
+
+def report(day, partial=False):
+    start = time.mktime(dt.datetime.combine(day, dt.time()).timetuple())
+    end = time.mktime(dt.datetime.combine(day + dt.timedelta(days=1), dt.time()).timetuple())
+    dirs, failures = pull_remotes(day)
+    events = load_events(day, [EVENTS] + dirs)
+    hosts = analyse(events, start, end)
+    os.makedirs(REPORTS, exist_ok=True)
+    name = "today.html" if partial else f"{day.isoformat()}.html"
+    path = os.path.join(REPORTS, name)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(render(day, hosts, failures, partial, name))
+    os.replace(tmp, path)
+    marker = path + ".incomplete"
+    if failures and not partial:
+        open(marker, "w").close()
+    elif os.path.exists(marker):
+        os.remove(marker)
+    print(path)
+    if os.path.exists(LIBRARY):
+        subprocess.run([library_python(), LIBRARY, "observe", path], check=False)
+    for failure in failures:
+        print(f"resource-watch: {failure}", file=sys.stderr)
+    return path
+
+
+def catchup():
+    today = dt.date.today()
+    for back in range(7, 0, -1):
+        day = today - dt.timedelta(days=back)
+        path = os.path.join(REPORTS, f"{day.isoformat()}.html")
+        if os.path.exists(path) and not os.path.exists(path + ".incomplete"):
+            continue
+        if os.path.exists(os.path.join(EVENTS, f"{day.isoformat()}.jsonl")):
+            report(day)
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "record":
+        record()
+    elif cmd == "snapshot":
+        meter = ProcessMeter()
+        meter.sample()
+        time.sleep(2)
+        rank = sys.argv[2] if len(sys.argv) > 2 else "cpu"
+        print(json.dumps(snapshot(meter.sample(), rank), indent=2, ensure_ascii=False, default=list))
+    elif cmd == "report":
+        arg = sys.argv[2] if len(sys.argv) > 2 else ""
+        if arg == "--today":
+            report(dt.date.today(), partial=True)
+        else:
+            report(dt.date.fromisoformat(arg) if arg else dt.date.today() - dt.timedelta(days=1))
+    elif cmd == "catchup":
+        catchup()
+    else:
+        print(__doc__.strip())
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,17 @@
+# Linux counterpart of the macOS launchd agent `resource-watch`; the Mac pulls this box's event log over ssh for the daily report.
+[Unit]
+Description=Log which processes are responsible when a resource widget changes colour
+Documentation=file:%h/.local/bin/resource-watch
+After=default.target
+
+[Service]
+Type=simple
+# systemd user services start near-empty; the recorder shells out to ps, herdr, tmux and cpu-temp.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Environment=HERDR_SOCKET_PATH=%h/.config/herdr/herdr.sock
+ExecStart=/usr/bin/python3 %h/.local/bin/resource-watch record
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

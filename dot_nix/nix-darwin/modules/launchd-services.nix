@@ -366,6 +366,54 @@ in
       };
     };
 
+    # Logs which processes, apps, windows and herdr panes are responsible each time a sketchybar resource widget changes colour.
+    resource-watch = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/resource-watch
+            exec /usr/bin/python3 ${homeDir}/.local/bin/resource-watch record
+          ''
+        ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        ThrottleInterval = 30;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/bin:${daemonPath}:/usr/sbin:/sbin";
+          HERDR_SOCKET_PATH = "${homeDir}/${muxDaemons.socket}";
+        };
+        StandardOutPath = "${homeDir}/.logs/resource-watch/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/resource-watch/launchagent.err.log";
+      };
+    };
+
+    # Builds yesterday's resource report (Mac + dev-box) into the Lavish Library; RunAtLoad catches up days missed while the Mac was off.
+    resource-report = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/resource-watch
+            exec /usr/bin/python3 ${homeDir}/.local/bin/resource-watch catchup
+          ''
+        ];
+        StartCalendarInterval = [{
+          Hour = 0;
+          Minute = 5;
+        }];
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/bin:${daemonPath}:/usr/sbin:/sbin";
+          LANG = "en_US.UTF-8";
+        };
+        StandardOutPath = "${homeDir}/.logs/resource-watch/report.out.log";
+        StandardErrorPath = "${homeDir}/.logs/resource-watch/report.err.log";
+      };
+    };
+
     # Claude cost totals out of band so the ccstatusline `mocost` widget stays cat-only; runs the script rather than ccusage directly so ccusage keeps a live parent and never trips the orphan monitor as a ppid-1 CPU hog.
     claude-cost-refresh = {
       serviceConfig = {

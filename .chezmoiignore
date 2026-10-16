@@ -183,6 +183,9 @@ linux-bootstrap.sh
 .config/systemd/user/axi-bridge-sweep.service
 .config/systemd/user/axi-bridge-sweep.timer
 
+# resource-watch recorder - same story: macOS runs the identical script from its launchd agent `resource-watch`.
+.config/systemd/user/resource-watch.service
+
 # mise trust list for user services — read by the systemd user manager, so inert on macOS.
 .config/environment.d/
 {{- end }}
