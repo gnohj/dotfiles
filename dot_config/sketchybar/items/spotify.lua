@@ -55,25 +55,25 @@ local initialPosition = "left"
 
 sbar.exec("sleep 0.1 && sketchybar --add event spotify_poll")
 
+local GLYPH_SPOTIFY = utf8.char(0xF04C7)
+local GLYPH_PODCAST = utf8.char(0xF0994)
+local fallbackGlyph = GLYPH_SPOTIFY
+
 local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	position = initialPosition,
-	padding_left = 1,
-	padding_right = 5,
+	padding_left = 0,
+	padding_right = 0,
 	drawing = false,
 	icon = {
-		string = "􀑬",
-		color = settings.colors.blue,
+		string = GLYPH_SPOTIFY,
+		color = settings.colors.cyan,
+		font = { size = 14.0 },
+		width = 34,
+		padding_left = 0,
 		padding_right = 0,
-		drawing = true,
+		background = { drawing = false, image = { corner_radius = 3, scale = 0.56, padding_left = 10 } },
 	},
-	background = {
-		image = {
-			corner_radius = 2,
-			scale = 1.0,
-			drawing = false,
-		},
-		drawing = true,
-	},
+	label = { drawing = false },
 })
 
 local spotify = sbar.add("item", constants.items.SPOTIFY, {
@@ -85,14 +85,42 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	updates = true,
 	-- spotify_poll from media-control-bridge is the real refresh; this is the dead-bridge safety net.
 	update_freq = 30,
+	icon = { drawing = false },
+	label = { font = { size = 13.0 }, max_chars = 22, padding_left = 0, padding_right = 6 },
 })
 
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
 	position = initialPosition,
-	y_offset = -1.75,
-	padding_left = -18,
+	padding_left = 0,
 	padding_right = 0,
 	drawing = false,
+	icon = { font = { size = 13.0 }, padding_left = 0, padding_right = 11 },
+	label = { drawing = false },
+})
+
+local gap = sbar.add("item", constants.items.SPOTIFY .. ".gap", {
+	position = initialPosition,
+	drawing = false,
+	width = 6,
+	icon = { drawing = false },
+	label = { drawing = false },
+	padding_left = 0,
+	padding_right = 0,
+})
+
+local bracket = sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
+	constants.items.SPOTIFY .. ".icon",
+	constants.items.SPOTIFY,
+	constants.items.SPOTIFY .. ".play",
+}, {
+	position = initialPosition,
+	background = {
+		height = 24,
+		corner_radius = 12,
+		border_width = 1,
+		color = settings.colors.transparent,
+		border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.4),
+	},
 })
 
 local function hideWidget()
@@ -100,6 +128,7 @@ local function hideWidget()
 		spotify:set({ drawing = false })
 		spotifyIcon:set({ drawing = false })
 		playIcon:set({ drawing = false })
+		gap:set({ drawing = false })
 		isSpotifyRunning = false
 		lastTrackInfo = ""
 	end
@@ -130,50 +159,53 @@ local function applyArtwork(trackKey)
 
 	sbar.exec(extract, function(result)
 		if not result or not result:match("ok") then
+			spotifyIcon:set({ icon = { string = fallbackGlyph, background = { drawing = false } } })
 			return
 		end
 		spotifyIcon:set({
 			drawing = true,
-			icon = {
-				drawing = false,
-			},
-			background = {
-				height = 16,
-				image = {
-					string = artworkPath,
-					corner_radius = 2,
-					scale = 1.0,
-					drawing = true,
-				},
-			},
+			icon = { string = "", background = { drawing = true, image = { string = artworkPath } } },
 		})
+	end)
+end
+
+-- SbarLua already decodes JSON stdout into a table; a string only arrives if that failed.
+local function spotifyTrack(result)
+	local data = result
+	if type(data) == "string" then
+		local ok, decoded = pcall(cjson.decode, data)
+		data = ok and decoded or nil
+	end
+	if type(data) ~= "table" or not spotifyBundleIds[data.bundleIdentifier or ""] or (data.title or "") == "" then
+		return nil
+	end
+	return data
+end
+
+-- Now Playing goes blank for a moment between tracks, so only hide once it stays blank.
+local hidePending = false
+local function requestHide()
+	if not isSpotifyRunning or hidePending then
+		return
+	end
+	hidePending = true
+	sbar.exec("sleep 2; " .. MEDIA_CONTROL .. " get --no-artwork 2>/dev/null", function(result)
+		hidePending = false
+		if not spotifyTrack(result) then
+			hideWidget()
+		end
 	end)
 end
 
 local function updateSpotifyInfo()
 	sbar.exec(MEDIA_CONTROL .. " get --no-artwork 2>/dev/null", function(result)
-		-- SbarLua already decodes JSON stdout into a table; a string only arrives if that failed.
-		local data = result
-		if type(data) == "string" then
-			local ok, decoded = pcall(cjson.decode, data)
-			data = ok and decoded or nil
-		end
-
-		if type(data) ~= "table" then
-			hideWidget()
+		local data = spotifyTrack(result)
+		if not data then
+			requestHide()
 			return
 		end
 
-		if not spotifyBundleIds[data.bundleIdentifier or ""] then
-			hideWidget()
-			return
-		end
-
-		local trackName = data.title or ""
-		if trackName == "" then
-			hideWidget()
-			return
-		end
+		local trackName = data.title
 
 		isSpotifyRunning = true
 
@@ -204,49 +236,28 @@ local function updateSpotifyInfo()
 			log_message("INFO", "Music detected: " .. displayText)
 		end
 
-		local playIconString = isPlaying and "⏸" or "▶"
-		local playIconSize = isPlaying and "20.0" or "18.0"
-		local color = isPlaying and settings.colors.orange or settings.colors.dirty_white
+		local color = isPlaying and settings.colors.cyan or settings.colors.dark_grey
 
-		spotifyIcon:set({
-			drawing = true,
-			icon = {
-				string = isPodcast and "🎙" or "􀑬",
-				color = settings.colors.blue,
-				padding_right = 0,
-				drawing = true,
-			},
-			background = {
-				image = {
-					drawing = false,
-				},
-			},
-		})
+		fallbackGlyph = isPodcast and GLYPH_PODCAST or GLYPH_SPOTIFY
+		spotifyIcon:set({ drawing = true, icon = { color = color } })
 
 		applyArtwork((currentTrackInfo:gsub("[^%w]", "")))
 
 		spotify:set({
 			drawing = true,
-			icon = {
-				string = displayText,
-				color = isPlaying and settings.colors.light_blue or settings.colors.dirty_white,
-				padding_left = 5,
-				padding_right = 5,
-				max_chars = 20,
-			},
-			label = {
-				string = "",
-			},
+			label = { string = displayText, color = isPlaying and settings.colors.white or settings.colors.dark_grey },
 		})
+
+		gap:set({ drawing = true })
 
 		playIcon:set({
 			drawing = true,
-			icon = {
-				string = playIconString,
-				color = color,
-				font = "SF Pro:Regular:" .. playIconSize,
-				padding_left = 8,
-				padding_right = 0,
+			icon = { string = utf8.char(isPlaying and 0xF03E4 or 0xF040A), color = color },
+		})
+
+		bracket:set({
+			background = {
+				border_color = isPlaying and color or settings.colors.with_alpha(color, 0.4),
 			},
 		})
 	end)
@@ -288,14 +299,6 @@ end)
 playIcon:subscribe("mouse.clicked", function()
 	togglePlayback("spotify.play")
 end)
-
-sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
-	constants.items.SPOTIFY .. ".icon",
-	constants.items.SPOTIFY,
-	constants.items.SPOTIFY .. ".play",
-}, {
-	position = initialPosition,
-})
 
 -- The widget no longer handles monitor changes, so a leftover display-monitor.sh has no consumer.
 sbar.exec("pkill -f display-monitor.sh 2>/dev/null")
