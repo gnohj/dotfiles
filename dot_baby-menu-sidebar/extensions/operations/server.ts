@@ -18,6 +18,7 @@ import {
   type Captures,
   type DesktopSample,
 } from "./claude-quota";
+import { personalSubscriptions } from "./subscriptions";
 import type {
   OperationsDashboard,
   QuotaColors,
@@ -507,12 +508,14 @@ export const actions = {
     const tokens = parseTokens(tokenResult);
     if (!tokens.length)
       errors.push("claude-account token-check returned no rows");
+    const subscriptions = await personalSubscriptions(errors);
 
     return {
       quotaProviders: providers,
       quotaGeneratedAt: new Date().toISOString(),
       quotaColors,
       tokens,
+      subscriptions,
       ...parseSchedules(scheduleResult),
       errors,
       refreshedAt: new Date().toISOString(),
