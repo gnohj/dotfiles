@@ -26,7 +26,7 @@ run_on_start = [
 hot_reload = true
 
 [settings.layout]
-# BSP everywhere except A, which defaults to niri-style scrolling columns (see workspace_rules).
+# BSP everywhere except A and T, which default to niri-style scrolling columns (see workspace_rules).
 mode = "bsp"
 window_insertion_point = "next_to_selection"
 
@@ -72,6 +72,7 @@ workspace_names = [
 ]
 workspace_rules = [
   { workspace = "A", layout = "scrolling" },
+  { workspace = "T", layout = "scrolling" },
 ]
 
 # Matching is case-insensitive and more matcher fields win, so the title rules beat their plain app rules.
@@ -91,7 +92,6 @@ app_rules = [
   { app_id = "net.imput.helium.app.lodlkdfmihgonocnmddehnfgiljnadcf", workspace = "A" },
   { app_id = "net.imput.helium.app.lgnggepjiihbfdbedefdhcffnmhcahbm", workspace = "A" },
   { app_id = "net.imput.helium.app.comkdlimbkhemidbbpchhepidbmjpnhh", workspace = "A" },
-  { app_id = "net.imput.helium.app.aoomiljoogeaanbcnagokhoinfebhmgd", workspace = "A" },
   { app_id = "com.apple.iCal", workspace = "C" },
   { app_id = "com.apple.reminders", workspace = "Y" },
   { app_id = "com.whimsical.desktop", workspace = "X" },
@@ -108,6 +108,7 @@ app_rules = [
   { app_id = "com.mitchellh.ghostty", workspace = "T" },
   { app_id = "net.kovidgoyal.kitty", workspace = "R" },
   { app_id = "com.apple.Terminal", workspace = "N" },
+  { app_id = "com.google.Chrome.app.aoomiljoogeaanbcnagokhoinfebhmgd", workspace = "T" },
   { app_name = "slack", title_regex = "huddle", floating = true, workspace = "W" },
   { app_name = "slack", workspace = "W" },
   { app_id = "com.bitwarden.desktop", workspace = "V" },
