@@ -221,6 +221,12 @@ server_rules = (
     ('const initialAnnotationMode = document.documentElement.getAttribute("data-lavish-annotate") !== "off";', 'const initialAnnotationMode = document.documentElement.getAttribute("data-lavish-annotate") === "on";', 'getAttribute("data-lavish-annotate") === "on";', False),
     ('id="annotation" type="button" aria-pressed="true"', 'id="annotation" type="button" aria-pressed="false"', 'id="annotation" type="button" aria-pressed="false"', False),
     (
+        '    window.addEventListener("animationend", () => scheduleLayoutAudit(), { passive: true });\n    window.addEventListener("transitionend", () => scheduleLayoutAudit(), { passive: true });\n',
+        '    /* local: every hover transition re-ran a seconds-long occlusion audit, so only load and resize re-audit */\n',
+        '/* local: every hover transition re-ran',
+        False,
+    ),
+    (
         'app.get("/session/:key", async (req, res, next) => {\n    try {\n      const chromeLoad = await store.issueReviewerHandoff(req.params.key);',
         'app.get("/session/:key", async (req, res, next) => {\n    try {\n      if (req.query.reopen === "1") {\n        const existing = await store.findByKey(req.params.key);\n        if (existing?.status === "ended" && existsSync3(existing.file)) {\n          await store.upsertSession(existing.file, existing.url);\n          clearFeedbackDelivery(req.params.key, activePolls, deliveredFeedback, events);\n        }\n      }\n      const chromeLoad = await store.issueReviewerHandoff(req.params.key);',
         'if (req.query.reopen === "1") {',
