@@ -44,13 +44,6 @@ const statusColor: Record<string, string> = {
 // Match the tab strip's signal green, not the palette green.
 const SIGNAL_GREEN = "var(--color-signal-live)";
 
-const PROVIDER_ACCENTS: Record<string, (colors: QuotaColors) => string> = {
-  claude: (colors) => colors.groups[0] ?? SIGNAL_GREEN,
-  codex: () => SIGNAL_GREEN,
-  copilot: (colors) => colors.groups[1] ?? SIGNAL_GREEN,
-  cursor: (colors) => colors.groups[4] ?? SIGNAL_GREEN,
-};
-
 function healthColor(percentRemaining: number, colors: QuotaColors): string {
   const level = health(percentRemaining);
   return level === "ok"
@@ -199,10 +192,7 @@ function LiveCard({
   colors: QuotaColors;
 }) {
   const stale = provider.state.status === "stale";
-  const accent =
-    PROVIDER_ACCENTS[provider.provider]?.(colors) ??
-    colors.groups[0] ??
-    SIGNAL_GREEN;
+  const accent = colors.groups[0] ?? SIGNAL_GREEN;
   const right = [provider.plan, provider.source, stale ? "stale" : undefined]
     .filter(Boolean)
     .join(" · ");
