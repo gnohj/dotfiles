@@ -8,7 +8,7 @@ local groups <const> = {
 			"widgets.package_notification",
 			"agent_quota",
 		},
-		counts = true,
+		red_only = true,
 	},
 	system = {
 		members = { "widgets.cpu", "widgets.memory", "widgets.disk", "widgets.cpu_temp" },
@@ -89,11 +89,6 @@ local function warning(item)
 	return label, item.label.color
 end
 
-local function has_count(item)
-	local label = item.label.value or ""
-	return item.geometry.drawing == "on" and label ~= "" and label ~= "􀆅" and label ~= "?"
-end
-
 function M.build()
 	local brackets = {}
 	for name, group in pairs(groups) do
@@ -115,21 +110,17 @@ function M.build()
 			if group.manual then
 				goto continue
 			end
-			local worst, border, counted = 0, nil, false
+			local worst, border = 0, nil
 			for _, member in ipairs(group.members) do
 				local item = sbar.query(member)
 				if type(item) == "table" and item.geometry then
 					local rank, color = warning(item)
-					if rank > worst then
+					if rank > worst and (rank == 3 or not group.red_only) then
 						worst, border = rank, color
 					end
-					counted = counted or (group.counts and has_count(item))
 				end
 			end
-			if not border then
-				border = counted and hex(colors.cyan) or hex(IDLE)
-			end
-			brackets[name]:set({ background = { border_color = border } })
+			brackets[name]:set({ background = { border_color = border or hex(IDLE) } })
 			::continue::
 		end
 	end
