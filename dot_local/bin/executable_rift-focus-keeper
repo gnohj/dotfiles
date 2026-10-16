@@ -136,24 +136,42 @@ def on_windows_changed(event, now):
         armed = None
 
 
+def window_ids(ws):
+    return {(w["id"]["pid"], w["id"]["idx"]) for w in ws.get("windows", [])}
+
+
+def rift_run(*args):
+    subprocess.run([RIFT, "execute", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+
+
 def follow_new_window(wid):
     # Rift focuses a fresh window on its rule's hidden workspace but never switches there.
     try:
-        workspaces = rift_json("query", "workspaces")
-    except (subprocess.SubprocessError, ValueError):
+        displays = rift_json("query", "displays")
+        layouts = {d["uuid"]: rift_json("query", "workspaces", "--display", d["uuid"]) for d in displays}
+    except (subprocess.SubprocessError, ValueError, KeyError):
         return
-    for index, ws in enumerate(workspaces):
-        ids = {(w["id"]["pid"], w["id"]["idx"]) for w in ws.get("windows", [])}
-        if wid in ids:
-            if not ws.get("is_active"):
-                subprocess.run(
-                    [RIFT, "execute", "workspace", "switch", str(index)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=2,
-                )
-                print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
+    home = next(((uuid, ws) for uuid, wss in layouts.items() for ws in wss if wid in window_ids(ws)), None)
+    if home is None:
+        return
+    uuid, ws = home
+    index = ws["index"]
+    # Each display has its own A-Z and macOS can open the window on the wrong one.
+    if window_ids(ws) == {wid}:
+        sibling = next(
+            (u for u, wss in layouts.items() if u != uuid and any(o["index"] == index and window_ids(o) for o in wss)),
+            None,
+        )
+        if sibling is not None:
+            rift_run("display", "focus", "--uuid", sibling)
+            rift_run("workspace", "switch", str(index))
+            rift_run("display", "move-window", "--uuid", sibling, "--window-id", str(wid[1]))
+            print(f"rift-focus-keeper: moved {wid[0]}:{wid[1]} to {ws.get('name')} on {sibling}", flush=True)
             return
+    if not ws.get("is_active") or not next(d for d in displays if d["uuid"] == uuid).get("is_active_context"):
+        rift_run("display", "focus", "--uuid", uuid)
+        rift_run("workspace", "switch", str(index))
+        print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
 
 
 def on_focused_window_changed(event, now):
