@@ -214,7 +214,7 @@ local function updateWindows()
 			used = used + 1
 			chips[used]:set({
 				drawing = isShowingSpaces,
-				icon = { background = { image = { string = "app." .. windowName } } },
+				icon = { background = { image = { string = "app." .. (window["bundle-id"] or windowName) } } },
 				label = { string = windowName },
 				click_script = Rift.focus_command(window),
 			})
