@@ -89,13 +89,13 @@ fi
 
 # Green check when the queue is empty, matching the errors and package badges. It used to hide instead, which made "nothing to review" indistinguishable from the broken query above.
 if [ "$PR_COUNT" -eq 0 ]; then
-  sketchybar --set "$NAME" drawing=on icon.color="$ICON_BLUE" label="􀆅" label.color="$GREEN"
+  sketchybar --set "$NAME" drawing=on icon.color="$ICON_BLUE" label="􀆅" label.color="$BLUE"
   log_message "INFO" "No PRs awaiting review — green check shown"
   exit 0
 fi
 
 if [ "$PR_COUNT" -le 3 ]; then
-  COLOR=$WHITE
+  COLOR=$BLUE
 elif [ "$PR_COUNT" -le 5 ]; then
   COLOR=$ORANGE
 else

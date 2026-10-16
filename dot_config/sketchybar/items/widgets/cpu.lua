@@ -2,6 +2,7 @@ local constants = require("constants")
 local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
+local tiers = require("lib.tiers")
 
 -- CPU usage percentage (matching btop: proper 1s sample window, not back-to-back)
 local function get_cpu_percentage(callback)
@@ -32,12 +33,13 @@ local cpu = sbar.add("item", constants.items.CPU, {
 	update_freq = 10,
 	icon = {
 		string = "",
-		color = colors.blue,
+		color = colors.cyan,
+		padding_left = 8,
 		padding_right = 2,
 	},
 	label = {
 		string = "??%",
-		color = colors.green,
+		color = colors.cyan,
 		padding_left = 0,
 		-- Real padding, not the trailing spaces this used to append: a glyph is not a spacing unit.
 		padding_right = 10,
@@ -49,6 +51,7 @@ local function update()
 		cpu:set({
 			label = {
 				string = percentage .. "%  ",
+				color = tiers.color(percentage, tiers.cpu, colors.cyan),
 			},
 		})
 	end)

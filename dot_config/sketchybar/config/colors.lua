@@ -33,6 +33,8 @@ local colors <const> = {
 	blue = hex_to_sketchybar(colorscheme.gnohj_color04 or "987afb"),
 	light_blue = hex_to_sketchybar(colorscheme.gnohj_color03 or "04d1f9"),
 	yellow = hex_to_sketchybar(colorscheme.gnohj_color05 or "19dfcf"),
+	-- colors.sh calls this one YELLOW, so shell-driven widgets warn in it.
+	shell_yellow = hex_to_sketchybar(colorscheme.gnohj_color12 or "ccd19d"),
 	orange = hex_to_sketchybar(colorscheme.gnohj_color06 or "04d1f9"),
 	magenta = hex_to_sketchybar(colorscheme.gnohj_color01 or "949ae5"),
 	purple = hex_to_sketchybar(colorscheme.gnohj_color01 or "949ae5"),

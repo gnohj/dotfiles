@@ -7,6 +7,7 @@ local isCharging = false
 local battery = sbar.add("item", constants.items.BATTERY, {
 	position = "right",
 	update_freq = 60,
+	icon = { padding_left = 0 },
 })
 
 local popupWidth <const> = settings.dimens.graphics.popup.width
@@ -72,7 +73,7 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 				color = color,
 			},
 			label = {
-				color = settings.colors.light_green,
+				color = settings.colors.cyan,
 				string = lead .. label,
 				padding_left = -8,
 			},

@@ -5,25 +5,25 @@ local THRESHOLDS = {
 	{ at = 90, color = colors.red },
 	{ at = 80, color = colors.orange },
 	{ at = 65, color = colors.yellow },
-	{ at = 0, color = colors.green },
+	{ at = 0, color = colors.cyan },
 }
 
 local cpu_temp = sbar.add("item", constants.items.CPU_TEMP, {
 	position = "right",
 	padding_left = -5,
 	update_freq = 10,
-	icon = { string = "󰔏", padding_left = 3, padding_right = 5 },
-	label = { string = "--°", color = colors.green, padding_left = 0, padding_right = 10 },
+	icon = { string = "󰔏", color = colors.cyan, padding_left = 3, padding_right = 5 },
+	label = { string = "--°", color = colors.cyan, padding_left = 0, padding_right = 8 },
 })
 
 local function update()
 	sbar.exec("$HOME/.local/bin/cpu-temp 2>/dev/null", function(result)
 		local degrees = tonumber(result)
 		if not degrees then
-			cpu_temp:set({ label = { string = "--°", color = colors.green } })
+			cpu_temp:set({ label = { string = "--°", color = colors.cyan } })
 			return
 		end
-		local color = colors.green
+		local color = colors.cyan
 		for _, step in ipairs(THRESHOLDS) do
 			if degrees >= step.at then
 				color = step.color

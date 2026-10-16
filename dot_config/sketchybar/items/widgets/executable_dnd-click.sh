@@ -4,6 +4,8 @@
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
+# Same faint outline groups.lua gives a badge with nothing to report.
+IDLE="0x7f${gnohj_color13#\#}"
 
 NAME="${NAME:-widgets.dnd}"
 STATE_FILE="$HOME/.cache/sketchybar/dnd_state"
@@ -39,7 +41,7 @@ if [ "$state" = "on" ]; then
 else
   TARGET_SHORTCUT="FocusOn"
   new_state="on"
-  new_color="$ICON_BLUE"
+  new_color="$IDLE"
 fi
 
 echo "[$(ts)] state=$state, running $TARGET_SHORTCUT" >>"$LOG"
@@ -50,6 +52,6 @@ if ! shortcuts run "$TARGET_SHORTCUT" 2>>"$LOG"; then
 fi
 
 echo "$new_state" >"$STATE_FILE"
-sketchybar --set "$NAME" icon.color="$new_color"
+sketchybar --set widgets.group.status background.border_color="$new_color"
 
 echo "[$(ts)] click finished — now $new_state" >>"$LOG"

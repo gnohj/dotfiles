@@ -1,18 +1,13 @@
-local colors = require("config.colors")
 local dimens = require("config.dimens")
 
--- Trailing 2, not the usual gap: the clock's label carries 8px of its own leading padding.
+-- No glyph or width: the status group's border shows Focus and its padded ends toggle it.
 local dnd = sbar.add("item", "widgets.dnd", {
 	position = "right",
+	width = 0,
 	padding_left = 0,
-	padding_right = 2,
+	padding_right = 0,
 	updates = "on",
-	icon = {
-		string = "􀆺", -- SF Symbol moon.fill (matches Apple's Focus icon)
-		color = colors.red,
-		padding_left = 0,
-		padding_right = 0,
-	},
+	icon = { drawing = false },
 	label = {
 		drawing = false,
 	},

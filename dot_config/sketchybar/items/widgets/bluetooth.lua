@@ -9,7 +9,8 @@ local settingsPane <const> = "open 'x-apple.systempreferences:com.apple.Bluetoot
 -- sbar.exec, not the item's `script` property: an item carrying both `script` and `popup` never receives it.
 local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	position = "right",
-	padding_left = 0,
+	-- Offsets the -4 trailing padding of the volume item on its left, leaving a 3px gap.
+	padding_left = 7,
 	padding_right = settings.dimens.padding.gap,
 	update_freq = 30,
 	label = { drawing = false },

@@ -23,10 +23,20 @@ else
   temp_label="--°"
 fi
 
+# Same tiers as lib/tiers.lua: cpu warns from 60/75/90, memory and disk from 70/80/90.
+tier() {
+  if (( $1 >= $4 )); then echo "$RED"
+  elif (( $1 >= $3 )); then echo "$ORANGE"
+  elif (( $1 >= $2 )); then echo "0xff${gnohj_color05#\#}"
+  else echo "$VPS_COLOR"
+  fi
+}
+
 if [[ "$cpu" =~ ^[0-9]+$ && "$mem" =~ ^[0-9]+$ && "$disk" =~ ^[0-9]+$ ]]; then
-  sketchybar --set widgets.vps_cpu label="$((10#$cpu))%  " label.color="$VPS_COLOR" \
-             --set widgets.vps_memory label="$((10#$mem))%  " label.color="$VPS_COLOR" \
-             --set widgets.vps_disk label="$((10#$disk))%  " label.color="$VPS_COLOR" \
+  cpu=$((10#$cpu)) mem=$((10#$mem)) disk=$((10#$disk))
+  sketchybar --set widgets.vps_cpu label="${cpu}%  " label.color="$(tier "$cpu" 60 75 90)" \
+             --set widgets.vps_memory label="${mem}%  " label.color="$(tier "$mem" 70 80 90)" \
+             --set widgets.vps_disk label="${disk}%  " label.color="$(tier "$disk" 70 80 90)" \
              --set widgets.vps_temp label="$temp_label" label.color="$temp_color"
 else
   sketchybar --set widgets.vps_cpu label="--" label.color="$GREY" \

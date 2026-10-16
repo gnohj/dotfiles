@@ -84,6 +84,6 @@ else
   if [[ $MIC_VOLUME -eq 0 ]]; then
     sketchybar -m --set mic label="$MIC_LABEL" icon= icon.color="$RED" label.color="$RED"
   else
-    sketchybar -m --set mic label="$MIC_LABEL" icon= icon.color="$ICON_BLUE" label.color="$GREEN"
+    sketchybar -m --set mic label="$MIC_LABEL" icon= icon.color="$ICON_BLUE" label.color="$BLUE"
   fi
 fi

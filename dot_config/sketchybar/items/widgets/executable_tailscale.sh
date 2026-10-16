@@ -23,7 +23,7 @@ case "$state" in
   Running)
     if [ -n "$exit_node" ]; then
       sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" \
-        label="$exit_node" label.color="$GREEN" label.drawing=on
+        label="$exit_node" label.color="$BLUE" label.drawing=on
     else
       sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" label.drawing=off
     fi
