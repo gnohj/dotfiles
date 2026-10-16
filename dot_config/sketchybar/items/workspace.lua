@@ -99,7 +99,7 @@ sbar.add("bracket", constants.items.FRONT_APPS, chipNames, {
 		corner_radius = 12,
 		border_width = 1,
 		color = settings.colors.transparent,
-		border_color = settings.colors.cyan,
+		border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
 		padding_left = 0,
 		padding_right = 0,
 	},

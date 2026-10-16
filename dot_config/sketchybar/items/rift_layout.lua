@@ -66,7 +66,7 @@ local function paint(item, style, text, active)
 		label = { string = text, color = color },
 		background = {
 			color = settings.colors.transparent,
-			border_color = active and settings.colors.cyan or settings.colors.with_alpha(color, 0.4),
+			border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
 		},
 	})
 end

@@ -119,7 +119,7 @@ local bracket = sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
 		corner_radius = 12,
 		border_width = 1,
 		color = settings.colors.transparent,
-		border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.4),
+		border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
 	},
 })
 
@@ -245,7 +245,7 @@ local function updateSpotifyInfo()
 
 		spotify:set({
 			drawing = true,
-			label = { string = displayText, color = isPlaying and settings.colors.white or settings.colors.dark_grey },
+			label = { string = displayText, color = color },
 		})
 
 		gap:set({ drawing = true })
@@ -257,7 +257,7 @@ local function updateSpotifyInfo()
 
 		bracket:set({
 			background = {
-				border_color = isPlaying and color or settings.colors.with_alpha(color, 0.4),
+				border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
 			},
 		})
 	end)
