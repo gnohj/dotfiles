@@ -9,6 +9,12 @@ local groups <const> = {
 			"agent_quota",
 		},
 		red_only = true,
+		priority = {
+			"widgets.pr_review_notification",
+			"widgets.github_notification",
+			"widgets.package_notification",
+			"agent_quota",
+		},
 	},
 	system = {
 		members = { "widgets.cpu", "widgets.memory", "widgets.disk", "widgets.cpu_temp" },
@@ -49,7 +55,6 @@ local severity <const> = {
 }
 
 local INNER <const> = 10
-local VALUE_GAP <const> = 4
 local SWAP_MARGIN <const> = 5
 
 for _, group in pairs(groups) do
@@ -79,19 +84,11 @@ end
 local apply
 
 function M.toggle(group)
-	local name = "widgets.group_toggle." .. group
-	local toggle = sbar.add("item", name, {
-		position = "right",
-		padding_left = 0,
-		padding_right = 0,
-		icon = { drawing = false },
-		label = { string = "󰄾", color = colors.grey, padding_left = 0, padding_right = INNER },
-	})
-	table.insert(groups[group].members, name)
-	groups[group].toggle = name
+	groups[group].collapsible = true
 	local event = "group_toggle_" .. group
 	sbar.add("event", event)
-	toggle:subscribe({ "mouse.clicked", event }, function()
+	local listener = sbar.add("item", { drawing = false, updates = true })
+	listener:subscribe(event, function()
 		groups[group].expanded = not groups[group].expanded
 		apply(groups[group])
 	end)
@@ -151,19 +148,52 @@ local function pick(group)
 	return best
 end
 
+local function pending(name, item)
+	if name == "agent_quota" then
+		return true
+	elseif name == "widgets.github_notification" then
+		return item.label.value ~= ""
+	end
+	return value(item) ~= nil
+end
+
+local function first_pending(group)
+	for _, member in ipairs(group.priority) do
+		local item = sbar.query(member)
+		if type(item) == "table" and item.label and pending(member, item) then
+			return { name = member }
+		end
+	end
+end
+
+local function present(group, member)
+	if member ~= "widgets.github_notification" then
+		return true
+	end
+	local item = sbar.query(member)
+	return type(item) == "table" and item.label ~= nil and pending(member, item)
+end
+
 local function trail(item)
-	return item.label.padding_right + item.geometry.padding_right
+	local inner = item.label.drawing == "on" and item.label.padding_right or item.icon.padding_right
+	return inner + item.geometry.padding_right
 end
 
 function apply(group)
-	local shown = pick(group) or { name = group.shown or group.metrics[1] }
+	local shown = (group.priority and first_pending(group)) or (not group.priority and pick(group))
+		or { name = group.shown or group.metrics[1] }
 	group.shown = shown.name
+	local first, last
 	for _, member in ipairs(group.metrics) do
-		sbar.set(member, { drawing = (group.expanded or member == shown.name) and "on" or "off" })
+		local on = group.expanded and present(group, member) or member == shown.name
+		sbar.set(member, { drawing = on and "on" or "off" })
+		if on then
+			first, last = first or member, member
+		end
 	end
 
-	local left = sbar.query(group.expanded and group.metrics[1] or shown.name)
-	local rightmost = sbar.query(group.expanded and group.metrics[#group.metrics] or shown.name)
+	local left = sbar.query(first or shown.name)
+	local rightmost = sbar.query(last or shown.name)
 	if type(left) ~= "table" or not left.icon or type(rightmost) ~= "table" or not rightmost.label then
 		return
 	end
@@ -172,12 +202,7 @@ function apply(group)
 		width = group.expanded and edge.width
 			or math.max(-left.geometry.padding_left, INNER - left.geometry.padding_left - left.icon.padding_left),
 	})
-	local featured = sbar.query(shown.name)
-	local level, color = rank(featured)
-	sbar.set(group.toggle, {
-		padding_left = VALUE_GAP - trail(rightmost),
-		label = { string = group.expanded and "󰄽" or "󰄾", color = level > 0 and color or featured.label.color },
-	})
+	sbar.set(group.edges[1].name, { width = math.max(0, INNER - trail(rightmost)) })
 end
 
 
@@ -198,11 +223,9 @@ function M.build()
 	end
 
 	for name, group in pairs(groups) do
-		if group.toggle then
+		if group.collapsible then
 			for _, member in ipairs(group.members) do
-				if member ~= group.toggle then
-					sbar.set(member, { click_script = "sketchybar --trigger group_toggle_" .. name })
-				end
+				sbar.set(member, { click_script = "sketchybar --trigger group_toggle_" .. name })
 			end
 			-- Hidden members must keep sampling or a collapsed badge never sees their alarms.
 			for _, member in ipairs(group.metrics) do
@@ -213,7 +236,7 @@ function M.build()
 
 	local function refresh()
 		for _, group in pairs(groups) do
-			if group.toggle then
+			if group.collapsible then
 				apply(group)
 			end
 		end
@@ -225,9 +248,9 @@ function M.build()
 			for _, member in ipairs(group.members) do
 				local item = sbar.query(member)
 				if type(item) == "table" and item.geometry then
-					local rank, color = warning(item)
-					if rank > worst and (rank == 3 or not group.red_only) then
-						worst, border = rank, color
+					local level, color = (group.collapsible and rank or warning)(item)
+					if level > worst and (level == 3 or not group.red_only) then
+						worst, border = level, color
 					end
 				end
 			end

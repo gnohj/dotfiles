@@ -152,7 +152,6 @@ else
 fi
 
 sketchybar --set "$NAME" \
-  drawing=on \
   label="$LABEL" \
   label.color="$COLOR" \
   icon.color="$ICON_BLUE"

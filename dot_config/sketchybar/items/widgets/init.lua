@@ -32,6 +32,7 @@ require("items.widgets.cpu")
 groups.edge("system", 12)
 groups.spacer()
 groups.edge("notifications", 0)
+groups.toggle("notifications")
 require("items.widgets.agent_quota")
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
