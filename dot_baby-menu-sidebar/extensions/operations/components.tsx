@@ -36,7 +36,6 @@ const statusColor: Record<string, string> = {
   scheduled: "bg-signal-live",
   running: "bg-signal-live",
   failed: "bg-signal-danger",
-  unloaded: "bg-signal-warn",
   disabled: "bg-ink-faint",
   complete: "bg-ink-faint",
 };
@@ -529,7 +528,7 @@ function ScheduleLine({
   return (
     <div className="flex items-center gap-2 border-b border-line-faint py-2 last:border-0">
       <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-pill ${statusColor[job.status] ?? "bg-ink-faint"}`}
+        className={`h-1.5 w-1.5 shrink-0 rounded-pill ${job.problem ? "bg-signal-danger" : (statusColor[job.status] ?? "bg-ink-faint")}`}
       />
       <span className="min-w-0 flex-1 truncate text-sm text-ink">
         {job.name}

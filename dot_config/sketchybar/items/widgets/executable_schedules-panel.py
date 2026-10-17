@@ -427,6 +427,7 @@ def main():
             job.get("toggle_source", ""),
             "true" if job.get("enabled") else "false",
             "true" if job.get("ai") else "false",
+            "true" if job.get("problem") else "false",
         )
 
 
