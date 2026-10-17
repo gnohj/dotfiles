@@ -15,6 +15,7 @@ local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	label = { drawing = false },
 	icon = {
 		string = settings.icons.text.bluetooth.on,
+		font = { size = 14.0 },
 		color = settings.colors.grey,
 		padding_left = 0,
 		padding_right = 0,

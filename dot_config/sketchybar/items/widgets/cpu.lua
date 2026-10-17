@@ -24,6 +24,7 @@ local cpu = sbar.add("item", constants.items.CPU, {
 	update_freq = 10,
 	updates = true,
 	icon = {
+		font = { size = 14.0 },
 		string = "",
 		color = colors.blue,
 		padding_left = 8,

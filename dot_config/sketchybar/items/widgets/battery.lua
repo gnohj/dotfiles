@@ -10,7 +10,7 @@ local battery = sbar.add("item", constants.items.BATTERY, {
 	padding_left = 7,
 	padding_right = settings.dimens.padding.gap - 8,
 	update_freq = 60,
-	icon = { padding_left = 0 },
+	icon = { padding_left = 0, font = { size = 14.0 } },
 })
 
 local popupWidth <const> = settings.dimens.graphics.popup.width
