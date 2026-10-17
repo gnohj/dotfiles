@@ -3,13 +3,13 @@ local dimens = require("config.dimens")
 
 local dnd = sbar.add("item", "widgets.dnd", {
 	position = "right",
-	-- Calendar label already trails padding.label; top up to the usual gap.
-	padding_left = dimens.padding.gap - dimens.padding.label,
-	padding_right = dimens.padding.label,
+	padding_left = 0,
+	padding_right = dimens.padding.gap,
 	updates = "on",
 	icon = {
 		string = "􀆺", -- SF Symbol moon.fill (matches Apple's Focus icon)
 		color = colors.red,
+		font = { size = 13.0 },
 		padding_left = 0,
 		padding_right = 0,
 	},
