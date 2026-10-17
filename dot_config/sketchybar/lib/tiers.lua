@@ -3,6 +3,7 @@ local colors = require("config.colors")
 local M = {}
 
 M.cpu = { { at = 90, color = colors.red }, { at = 75, color = colors.orange }, { at = 60, color = colors.yellow } }
+M.disk = { { at = 75, color = colors.red }, { at = 50, color = colors.orange } }
 M.usage = { { at = 90, color = colors.red }, { at = 80, color = colors.orange }, { at = 70, color = colors.yellow } }
 
 function M.color(value, steps, default)

@@ -47,7 +47,7 @@ CLK_TCK = os.sysconf("SC_CLK_TCK") if LINUX else 100
 TIERS = {
     "cpu": (60, 75, 90),
     "memory": (70, 80, 90),
-    "disk": (70, 80, 90),
+    "disk": (50, 50, 75),
     "temp": (65, 80, 90),
 }
 TIER_NAMES = ("ok", "yellow", "orange", "red")
