@@ -17,13 +17,11 @@ local groups <const> = {
 	},
 	system = {
 		members = { "widgets.cpu", "widgets.memory", "widgets.disk", "widgets.cpu_temp" },
-		idle = { ["widgets.cpu"] = true, ["widgets.memory"] = true },
-		pinned = "widgets.cpu",
+		pinned = { ["widgets.cpu"] = true, ["widgets.memory"] = true },
 	},
 	vps = {
 		members = { "widgets.vps_cpu", "widgets.vps_memory", "widgets.vps_disk", "widgets.vps_temp" },
-		idle = { ["widgets.vps_cpu"] = true, ["widgets.vps_memory"] = true },
-		pinned = "widgets.vps_cpu",
+		pinned = { ["widgets.vps_cpu"] = true, ["widgets.vps_memory"] = true },
 	},
 	push = {
 		members = { "widgets.github_notification" },
@@ -60,7 +58,6 @@ local severity <const> = {
 }
 
 local INNER <const> = 10
-local SWAP_MARGIN <const> = 5
 local GLYPH_GAP <const> = 6
 local UPTIME_GAP <const> = 8
 
@@ -103,7 +100,6 @@ function M.glyph(group, icon, color, y_offset)
 	})
 	table.insert(groups[group].members, name)
 	groups[group].glyph = name
-	groups[group].glyph_color = hex(color)
 end
 
 function M.uptime(group, name)
@@ -187,28 +183,6 @@ local function value(item)
 	return tonumber((item.label.value or ""):match("^%d+"))
 end
 
-local function pick(group)
-	local best, current
-	for _, member in ipairs(group.metrics) do
-		local item = sbar.query(member)
-		local reading = type(item) == "table" and item.label and value(item)
-		local level = reading and rank(item)
-		if reading and member ~= group.pinned and (level > 0 or group.idle[member]) then
-			local candidate = { name = member, level = level, value = reading }
-			if not best or level > best.level or (level == best.level and reading > best.value) then
-				best = candidate
-			end
-			if member == group.shown then
-				current = candidate
-			end
-		end
-	end
-	if current and best and current.level == best.level and best.value - current.value < SWAP_MARGIN then
-		return current
-	end
-	return best
-end
-
 local function pending(name, item)
 	if name == "agent_quota" then
 		return true
@@ -231,20 +205,18 @@ local function trail(item)
 end
 
 function apply(group)
-	local shown = (group.priority and first_pending(group)) or (not group.priority and pick(group))
-		or { name = group.shown or group.metrics[1] }
-	group.shown = shown.name
+	local shown = group.pinned or { [(first_pending(group) or { name = group.metrics[1] }).name] = true }
 	local first, last
 	for _, member in ipairs(group.metrics) do
-		local on = group.expanded or member == shown.name or member == group.pinned
+		local on = group.expanded or shown[member] or false
 		sbar.set(member, { drawing = on and "on" or "off" })
 		if on then
 			first, last = first or member, member
 		end
 	end
 
-	local left = sbar.query(first or shown.name)
-	local rightmost = sbar.query(last or shown.name)
+	local left = sbar.query(first or group.metrics[1])
+	local rightmost = sbar.query(last or group.metrics[1])
 	if type(left) ~= "table" or not left.icon or type(rightmost) ~= "table" or not rightmost.label then
 		return
 	end
@@ -317,12 +289,6 @@ function M.build()
 				end
 			end
 			brackets[name]:set({ background = { border_color = border or hex(IDLE) } })
-			if group.glyph then
-				sbar.set(group.glyph, { icon = { color = border or group.glyph_color } })
-				if group.uptime then
-					sbar.set(group.uptime, { icon = { color = border or group.glyph_color }, label = { color = border or hex(colors.cyan) } })
-				end
-			end
 			::continue::
 		end
 	end
