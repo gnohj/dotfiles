@@ -5,12 +5,12 @@ local CLI = "/opt/homebrew/bin/rift-cli"
 local LAYOUT = os.getenv("HOME") .. "/.local/libexec/rift-layout"
 
 local modes <const> = {
-	bsp = { icon = utf8.char(0xF0574), label = "BSP", color = settings.colors.cyan },
-	traditional = { icon = utf8.char(0xF0BCC), label = "TILE", color = settings.colors.blue },
-	stack = { icon = utf8.char(0xF0328), label = "STACK", color = settings.colors.magenta },
-	master_stack = { icon = utf8.char(0xF056E), label = "MASTER", color = settings.colors.yellow },
-	scrolling = { icon = utf8.char(0xF056C), label = "SCROLL", color = settings.colors.green },
-	floating = { icon = utf8.char(0xF10AC), label = "FLOAT", color = settings.colors.red },
+	bsp = { icon = utf8.char(0xF0574), label = "BSP" },
+	traditional = { icon = utf8.char(0xF0BCC), label = "TILE" },
+	stack = { icon = utf8.char(0xF0328), label = "STACK" },
+	master_stack = { icon = utf8.char(0xF056E), label = "MASTER" },
+	scrolling = { icon = utf8.char(0xF056C), label = "SCROLL" },
+	floating = { icon = utf8.char(0xF10AC), label = "FLOAT" },
 }
 
 local bound <const> = {
@@ -60,11 +60,11 @@ local expanded = false
 local current
 
 local function paint(item, style, text, active)
-	local color = active and style.color or settings.colors.dark_grey
+	local color = settings.colors.dark_grey
 	item:set({
 		drawing = shown and (expanded or active),
-		icon = { string = style.icon, color = color },
-		label = { string = text, color = color },
+		icon = { string = style.icon, color = active and settings.colors.blue or color },
+		label = { string = text, color = active and settings.colors.cyan or color },
 		background = {
 			color = settings.colors.transparent,
 			border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
