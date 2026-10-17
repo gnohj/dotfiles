@@ -1,5 +1,6 @@
 local constants = require("constants")
 local colors = require("config.colors")
+local groups = require("items.widgets.groups")
 
 local THRESHOLDS = {
 	{ at = 90, color = colors.red },
@@ -21,6 +22,7 @@ local function update()
 		local degrees = tonumber(result)
 		if not degrees then
 			cpu_temp:set({ icon = { color = colors.blue }, label = { string = "--°", color = colors.cyan } })
+			groups.changed()
 			return
 		end
 		local color
@@ -31,6 +33,7 @@ local function update()
 			end
 		end
 		cpu_temp:set({ icon = { color = color or colors.blue }, label = { string = degrees .. "°", color = color or colors.cyan } })
+		groups.changed()
 	end)
 end
 

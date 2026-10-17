@@ -120,7 +120,13 @@ function M.days(seconds)
 	return string.format("󰁝%02dd", math.min(math.floor(seconds / 86400), 999))
 end
 
-local apply
+local apply, refresh
+
+function M.changed()
+	if refresh then
+		refresh()
+	end
+end
 
 function M.toggle(group)
 	groups[group].collapsible = true
@@ -288,7 +294,7 @@ function M.build()
 		end
 	end
 
-	local function refresh()
+	function refresh()
 		for _, group in pairs(groups) do
 			if group.collapsible then
 				apply(group)
@@ -320,7 +326,8 @@ function M.build()
 	end
 
 	local watcher = sbar.add("item", { drawing = false, updates = true, update_freq = 5 })
-	watcher:subscribe({ "routine", "forced", "system_woke" }, refresh)
+	sbar.add("event", "group_refresh")
+	watcher:subscribe({ "routine", "forced", "system_woke", "group_refresh" }, refresh)
 	refresh()
 	sbar.exec("$HOME/.config/sketchybar/items/widgets/dnd.sh")
 end

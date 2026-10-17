@@ -1,6 +1,7 @@
 local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
+local groups = require("items.widgets.groups")
 local tiers = require("lib.tiers")
 
 -- user + sys over 1s via iostat; top cost ~1.5s of CPU per sample
@@ -44,6 +45,7 @@ local function update()
 			icon = { color = color or colors.blue },
 			label = { string = percentage .. "%  ", color = color or colors.cyan },
 		})
+		groups.changed()
 	end)
 end
 
