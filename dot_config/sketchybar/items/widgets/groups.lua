@@ -18,10 +18,12 @@ local groups <const> = {
 	system = {
 		members = { "widgets.cpu", "widgets.memory", "widgets.disk", "widgets.cpu_temp" },
 		idle = { ["widgets.cpu"] = true, ["widgets.memory"] = true },
+		pinned = "widgets.cpu",
 	},
 	vps = {
 		members = { "widgets.vps_cpu", "widgets.vps_memory", "widgets.vps_disk", "widgets.vps_temp" },
 		idle = { ["widgets.vps_cpu"] = true, ["widgets.vps_memory"] = true },
+		pinned = "widgets.vps_cpu",
 	},
 	push = {
 		members = { "widgets.github_notification" },
@@ -191,7 +193,7 @@ local function pick(group)
 		local item = sbar.query(member)
 		local reading = type(item) == "table" and item.label and value(item)
 		local level = reading and rank(item)
-		if reading and (level > 0 or group.idle[member]) then
+		if reading and member ~= group.pinned and (level > 0 or group.idle[member]) then
 			local candidate = { name = member, level = level, value = reading }
 			if not best or level > best.level or (level == best.level and reading > best.value) then
 				best = candidate
@@ -234,7 +236,7 @@ function apply(group)
 	group.shown = shown.name
 	local first, last
 	for _, member in ipairs(group.metrics) do
-		local on = group.expanded or member == shown.name
+		local on = group.expanded or member == shown.name or member == group.pinned
 		sbar.set(member, { drawing = on and "on" or "off" })
 		if on then
 			first, last = first or member, member
