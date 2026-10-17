@@ -109,15 +109,15 @@ function M.uptime(group, name)
 		position = "right",
 		padding_left = 0,
 		padding_right = 0,
-		icon = { drawing = false },
-		label = { string = "󰁝--", color = colors.cyan, padding_left = 0, padding_right = 10 },
+		icon = { string = "󰁝", color = colors.blue, padding_left = 0, padding_right = 0 },
+		label = { string = "--", color = colors.cyan, padding_left = 0, padding_right = 10 },
 	})
 	table.insert(groups[group].members, name)
 	groups[group].uptime = name
 end
 
 function M.days(seconds)
-	return string.format("󰁝%02dd", math.min(math.floor(seconds / 86400), 999))
+	return string.format("%02dd", math.min(math.floor(seconds / 86400), 999))
 end
 
 local apply, refresh
@@ -318,7 +318,7 @@ function M.build()
 			if group.glyph then
 				sbar.set(group.glyph, { icon = { color = border or group.glyph_color } })
 				if group.uptime then
-					sbar.set(group.uptime, { label = { color = border or hex(colors.cyan) } })
+					sbar.set(group.uptime, { icon = { color = border or group.glyph_color }, label = { color = border or hex(colors.cyan) } })
 				end
 			end
 			::continue::

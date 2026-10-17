@@ -43,7 +43,7 @@ if [[ "$cpu" =~ ^[0-9]+$ && "$mem" =~ ^[0-9]+$ && "$disk" =~ ^[0-9]+$ ]]; then
   cpu=$((10#$cpu)) mem=$((10#$mem)) disk=$((10#$disk))
   if [[ "$uptime" =~ ^[0-9]+$ ]]; then
     days=$(( uptime / 86400 ))
-    sketchybar --set widgets.vps_uptime label="$(printf '󰁝%02dd' $(( days > 999 ? 999 : days )))"
+    sketchybar --set widgets.vps_uptime label="$(printf '%02dd' $(( days > 999 ? 999 : days )))"
   fi
   sketchybar --set widgets.vps_cpu label="${cpu}%  " label.color="$(tier "$cpu" 60 75 90)" \
              --set widgets.vps_memory label="${mem}%  " label.color="$(tier "$mem" 70 80 90)" \
@@ -51,7 +51,7 @@ if [[ "$cpu" =~ ^[0-9]+$ && "$mem" =~ ^[0-9]+$ && "$disk" =~ ^[0-9]+$ ]]; then
              --set widgets.vps_temp label="$temp_label" label.color="$temp_color" \
              --trigger group_refresh
 else
-  sketchybar --set widgets.vps_uptime label="󰁝--" \
+  sketchybar --set widgets.vps_uptime label="--" \
              --set widgets.vps_cpu label="--" label.color="$GREY" \
              --set widgets.vps_memory label="--" label.color="$GREY" \
              --set widgets.vps_disk label="--" label.color="$GREY" \
