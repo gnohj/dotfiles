@@ -3,13 +3,14 @@ local settings = require("config.settings")
 local colors = require("config.colors")
 local dimens = require("config.dimens")
 
--- Private Internet Access exit-location indicator, drawn only while connected; vpn.sh toggles it and left-click opens the PIA app.
+-- Private Internet Access exit-location indicator, drawn while connected and the cluster is expanded (network.lua); left-click opens the PIA app.
 local vpn = sbar.add("item", constants.items.VPN, {
 	position = "right",
 	drawing = false,
 	padding_left = 0,
 	padding_right = dimens.padding.gap,
 	update_freq = 30,
+	updates = true,
 	icon = {
 		string = settings.icons.text.vpn.on,
 		color = colors.blue,
@@ -17,7 +18,7 @@ local vpn = sbar.add("item", constants.items.VPN, {
 		padding_right = 2,
 	},
 	label = {
-		string = "—",
+		string = "",
 		color = colors.blue,
 		padding_left = 0,
 	},
