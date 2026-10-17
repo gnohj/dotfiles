@@ -151,13 +151,13 @@ class ProcessMeter:
         self.procs = {}
 
     def sample(self):
-        out = run(["ps", "-A", "-o", "pid=,ppid=,time=,rss=,comm="])
+        out = run(["ps", "-A", "-o", "pid=,ppid=,uid=,time=,rss=,comm="])
         now = time.time()
         elapsed = now - self.prev_at if self.prev_at else None
         procs, times = {}, {}
         for line in out.splitlines():
-            parts = line.split(None, 4)
-            if len(parts) < 5:
+            parts = line.split(None, 5)
+            if len(parts) < 6:
                 continue
             pid, ppid = int(parts[0]), int(parts[1])
             try:
@@ -166,14 +166,15 @@ class ProcessMeter:
                         fields = f.read().rsplit(")", 1)[1].split()
                     used = (int(fields[11]) + int(fields[12])) / CLK_TCK
                 else:
-                    used = cpu_seconds(parts[2])
+                    used = cpu_seconds(parts[3])
             except (OSError, ValueError, IndexError):
                 continue
             times[pid] = used
             before = self.prev.get(pid, used if elapsed is None else 0.0)
             delta = used - before if used >= before else used
             cpu = delta / elapsed * 100 if elapsed else 0.0
-            procs[pid] = {"pid": pid, "ppid": ppid, "cpu": round(cpu, 1), "rss": int(parts[3]) * 1024, "comm": parts[4]}
+            procs[pid] = {"pid": pid, "ppid": ppid, "cpu": round(cpu, 1), "uid": int(parts[2]),
+                          "rss": int(parts[4]) * 1024, "comm": parts[5]}
         self.prev, self.prev_at, self.procs = times, now, procs
         return procs
 
@@ -228,6 +229,12 @@ class Context:
         self.panes.update(self.tmux_panes())
         self.windows = self.rift_windows() if DARWIN else self.hypr_windows()
         self.window_pids = {w["pid"] for w in self.windows}
+        self.launchd_jobs = self.launchd_job_pids() if DARWIN else set()
+
+    @staticmethod
+    def launchd_job_pids():
+        rows = (line.split("\t", 1)[0] for line in run(["launchctl", "list"]).splitlines())
+        return {int(pid) for pid in rows if pid.isdigit()}
 
     def herdr_panes(self):
         result = {}
@@ -360,7 +367,8 @@ class Context:
                 return {"kind": "unit", "key": f"unit:{unit}", "label": unit}
         name = os.path.basename(comm)
         # Matches the `errors` orphan rule: launchd parents every macOS daemon, so only non-system ppid-1 processes count.
-        orphan = procs[pid]["ppid"] == 1 and not re.match(r"^/(System|usr|sbin|bin|Library/Apple|nix)/", comm) and DARWIN
+        orphan = (DARWIN and procs[pid]["ppid"] == 1 and procs[pid]["uid"] == os.getuid() and pid not in self.launchd_jobs
+                  and not re.match(r"^/(System|usr|sbin|bin|Library/Apple|nix)/", comm))
         return {"kind": "process", "key": f"proc:{name}", "label": name + (" (orphan)" if orphan else "")}
 
     @staticmethod
