@@ -12,6 +12,7 @@ local agent_quota = sbar.add("item", "agent_quota", {
 	icon = {
 		string = "󰚩",
 		color = colors.cyan,
+		y_offset = 1,
 		padding_left = 0,
 		padding_right = 0,
 	},
