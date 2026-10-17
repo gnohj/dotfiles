@@ -1603,28 +1603,9 @@ if command -v sketchybar &>/dev/null; then
 fi
 
 # -----------------------------  System Fetch
-# fastfetch in every terminal (ghosttyfetch stays available as an alias).
-# Only run on first shell level outside tmux. Skipped when SKIP_FETCH=1
-# is set by callers that spawn fresh Ghostty windows for one-off tasks
-# (e.g. `worktree jira`).
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
-    _show_fetch=1
-    # herdr spawns every pane as a fresh SHLVL=1 shell outside $TMUX, so the
-    # guard above would fire the fetch in each pane. Restrict it to the first
-    # pane per herdr launch via a sentinel keyed on the socket's start time
-    # (zstat is portable across macOS/Linux; the mtime rotates each restart).
-    if [[ -n "$HERDR_ENV" ]]; then
-        zmodload -F zsh/stat b:zstat 2>/dev/null
-        _herdr_start=$(zstat +mtime "$HERDR_SOCKET_PATH" 2>/dev/null)
-        _herdr_ff_flag="${XDG_RUNTIME_DIR:-/tmp}/herdr-fastfetch-${_herdr_start:-0}"
-        if [[ -e "$_herdr_ff_flag" ]]; then
-            _show_fetch=
-        else
-            : > "$_herdr_ff_flag"
-        fi
-        unset _herdr_start _herdr_ff_flag
-    fi
-    if [[ -n "$_show_fetch" ]] && command -v fastfetch &>/dev/null; then
+# Only in a new terminal's top shell: not in tmux/herdr panes (already shown) or SKIP_FETCH one-off windows.
+if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
+    if command -v fastfetch &>/dev/null; then
         # The image plus the 36-column boxes need ~75 columns; narrower panes drop the image, and below the boxes skip it.
         _fetch_render() {
             if (( COLUMNS >= 75 )); then
@@ -1646,7 +1627,6 @@ if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
         add-zsh-hook preexec _fetch_stop_redraw
         _fetch_render
     fi
-    unset _show_fetch
 fi
 
 #-------------------------------------------------------------------------------
