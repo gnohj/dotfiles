@@ -5,9 +5,11 @@ export PATH="/opt/homebrew/bin:$PATH"
 STAGE="/tmp/agent-clip"          # writable on macOS and Linux alike
 HOSTS=()                         # add ssh aliases here to enable remote paste (none yet — no VPS)
 
-# Match macshot's "Screenshot-{date} at {time}" so hyper+x and hyper+s produce identical iCloud archive naming.
-ARCHIVE="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Screenshot-$(date +'%Y-%m-%d at %H-%M-%S').png"
+# Match macshot's "Screenshot-{date} at {time}" so hyper+x and hyper+s produce identical archive naming.
+SHOT_DIR="$HOME/Pictures/screenshots"   # not iCloud: TCC blocks terminals and agents from reading iCloud Drive
+ARCHIVE="$SHOT_DIR/Screenshot-$(date +'%Y-%m-%d at %H-%M-%S').png"
 
+mkdir -p "$SHOT_DIR"
 mkdir -p -m 700 "$STAGE"                # 700: screenshots routinely catch tokens/DMs, and /tmp is world-readable
 chmod 700 "$STAGE" 2>/dev/null          # mkdir -m is a no-op on an existing dir, so fix an older 755 one
 find "$STAGE" -type f -mmin +1440 -delete 2>/dev/null   # prune local staged shots >24h
@@ -17,7 +19,7 @@ path="$STAGE/$name"
 screencapture -i "$path"
 [ -f "$path" ] || exit 0         # Esc = user cancelled
 
-cp "$path" "$ARCHIVE" 2>/dev/null # keep the nicely-named iCloud archive
+cp "$path" "$ARCHIVE" 2>/dev/null # keep the nicely-named archive
 printf %s "$path" | pbcopy        # the ONE path — valid on Mac and any mirrored VPS
 
 # Mirror to each VPS at the identical path. Backgrounded so the hotkey returns instantly; unreachable hosts fail harmlessly.

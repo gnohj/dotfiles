@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# The screenshot folder is also the real downloads folder, so this matches exact names, never sweeps the directory.
+# Matches exact screenshot names rather than sweeping the directory, so anything else dropped there survives.
 
 set -uo pipefail
 
-SHOT_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
+SHOT_DIR="$HOME/Pictures/screenshots"
 LOG_DIR="$HOME/.logs/screenshot-cleanup"
 LOG_FILE="$LOG_DIR/screenshot-cleanup_$(date '+%Y%m').log"
 

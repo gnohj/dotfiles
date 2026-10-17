@@ -124,7 +124,7 @@ in
 
     # Screenshot settings
     screencapture = {
-      location = "~/Library/Mobile Documents/com~apple~CloudDocs/Downloads"; # Save screenshots to iCloud Downloads
+      location = "~/Pictures/screenshots"; # Not iCloud: TCC blocks terminals and agents from reading iCloud Drive
       type = "png";                       # Save as PNG format
       disable-shadow = false;             # Keep window shadows in screenshots
       show-thumbnail = false;             # Disable thumbnail preview (no focus stealing)
@@ -161,6 +161,9 @@ in
   # Uses `defaults -dict-add` (MERGE) NOT system.defaults.CustomUserPreferences, which would rewrite the whole AppleSymbolicHotKeys dict and WIPE the ~65 other hotkeys.
   # keycodes: 1=18 2=19 3=20 4=21 5=23 6=22 7=26 8=28 9=25 0=29 ; control mod = 262144
   system.activationScripts.postActivation.text = lib.mkAfter ''
+    # screencapture silently falls back to the Desktop when its location is missing.
+    sudo -u ${config.system.primaryUser} mkdir -p "${homeDir}/Pictures/screenshots"
+
     # macshot's prefs live in its sandbox container, which macOS 27 locks to other apps; a failed write must not abort activation.
     if ! sudo -u ${config.system.primaryUser} defaults write com.sw33tlie.macshot.macshot copyPathAfterSave -bool true 2>/dev/null; then
       echo "⚠️  macshot: could not set copyPathAfterSave (sandbox container); enable 'Copy path after save' in macshot's settings" >&2

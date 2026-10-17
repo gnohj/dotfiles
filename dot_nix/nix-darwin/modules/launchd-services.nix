@@ -494,7 +494,7 @@ in
       };
     };
 
-    # Screenshot Cleanup - 04:00 daily; the script name-matches because that folder is also the real downloads folder.
+    # Screenshot Cleanup - 04:00 daily; the script name-matches so non-screenshot files in the folder survive.
     screenshot-cleanup = {
       serviceConfig = {
         ProgramArguments = [
