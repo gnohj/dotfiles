@@ -6,6 +6,9 @@ local isCharging = false
 
 local battery = sbar.add("item", constants.items.BATTERY, {
 	position = "right",
+	-- Offsets the -4 trailing padding of volume on the left; the right tops the label's 8 up to the gap.
+	padding_left = 7,
+	padding_right = settings.dimens.padding.gap - 8,
 	update_freq = 60,
 	icon = { padding_left = 0 },
 })

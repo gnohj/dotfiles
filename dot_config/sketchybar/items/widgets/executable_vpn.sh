@@ -1,5 +1,5 @@
 #!/bin/bash
-# PIA widget, drawn only while connected; label is the exit country, plus state/province for US/CA (US-GA, CA-ON).
+# PIA widget; an empty label means disconnected and network.lua owns drawing; label is the exit country, plus state/province for US/CA (US-GA, CA-ON).
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
@@ -50,7 +50,7 @@ region_label() {
 PIACTL="$(command -v piactl || echo '/Applications/Private Internet Access.app/Contents/MacOS/piactl')"
 
 if [ ! -x "$PIACTL" ]; then
-  sketchybar --set "$NAME" drawing=off
+  sketchybar --set "$NAME" drawing=off label=""
   exit 0
 fi
 
@@ -60,9 +60,11 @@ label="$(region_label "$region")"
 
 case "$state" in
   Connected)
-    sketchybar --set "$NAME" drawing=on icon="$ICON_ON" icon.color="$ICON_BLUE" \
+    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ICON_BLUE" \
       icon.padding_right=2 \
       label="$label" label.color="$ICON_BLUE" label.drawing=on ;;
   *)
-    sketchybar --set "$NAME" drawing=off ;;
+    sketchybar --set "$NAME" drawing=off label="" ;;
 esac
+
+sketchybar --trigger network_refresh
