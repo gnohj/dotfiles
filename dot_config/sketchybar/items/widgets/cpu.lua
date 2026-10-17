@@ -32,7 +32,7 @@ local cpu = sbar.add("item", constants.items.CPU, {
 	updates = true,
 	icon = {
 		string = "",
-		color = colors.cyan,
+		color = colors.blue,
 		padding_left = 8,
 		padding_right = 2,
 	},
@@ -47,10 +47,10 @@ local cpu = sbar.add("item", constants.items.CPU, {
 
 local function update()
 	get_cpu_percentage(function(percentage)
-		local color = tiers.color(percentage, tiers.cpu, colors.cyan)
+		local color = tiers.color(percentage, tiers.cpu)
 		cpu:set({
-			icon = { color = color },
-			label = { string = percentage .. "%  ", color = color },
+			icon = { color = color or colors.blue },
+			label = { string = percentage .. "%  ", color = color or colors.cyan },
 		})
 	end)
 end
