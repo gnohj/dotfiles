@@ -14,7 +14,6 @@ local wifi = sbar.add("item", constants.items.WIFI, {
 	padding_left = 0,
 	padding_right = settings.dimens.padding.gap,
 	update_freq = 30,
-	updates = true,
 	label = { drawing = false },
 	icon = {
 		string = settings.icons.text.wifi.disconnected,

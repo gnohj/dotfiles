@@ -5,14 +5,11 @@ local DND_CLICK = "~/.config/sketchybar/items/widgets/dnd-click.sh"
 groups.edge("status", 0, DND_CLICK)
 require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle, a moon, red while Focus is off and blue while on
 require("items.widgets.calendar")
-local network = require("items.widgets.network") -- collapsible Bluetooth/Wi-Fi/VPN/Tailscale cluster
-network.toggle()
+require("items.widgets.battery")
 require("items.widgets.tailscale") -- Tailscale tailnet connection indicator
 require("items.widgets.vpn") -- PIA VPN exit-location indicator
 require("items.widgets.wifi") -- WiFi status icon + details popover
 require("items.widgets.bluetooth") -- Bluetooth power toggle + connected/paired device panel
-network.watch()
-require("items.widgets.battery")
 require("items.widgets.volume")
 require("items.widgets.mic")
 groups.edge("status", 8, DND_CLICK)

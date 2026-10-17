@@ -22,17 +22,15 @@ exit_node="$(printf '%s' "$json" | jq -r 'first(.Peer[]? | select(.ExitNode==tru
 case "$state" in
   Running)
     if [ -n "$exit_node" ]; then
-      sketchybar --set "$NAME" icon="$ICON" icon.color="$ICON_BLUE" \
+      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" \
         label="$exit_node" label.color="$BLUE" label.drawing=on
     else
-      sketchybar --set "$NAME" icon="$ICON" icon.color="$ICON_BLUE" label.drawing=off
+      sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$ICON_BLUE" label.drawing=off
     fi
     ;;
   Starting | Stopping)
-    sketchybar --set "$NAME" icon="$ICON" icon.color="$YELLOW" \
+    sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$YELLOW" \
       label="…" label.color="$YELLOW" label.drawing=on ;;
   *)
-    sketchybar --set "$NAME" icon="$ICON" icon.color="$RED" label.drawing=off ;;
+    sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$RED" label.drawing=off ;;
 esac
-
-sketchybar --trigger network_refresh

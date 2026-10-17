@@ -8,7 +8,6 @@ local tailscale = sbar.add("item", constants.items.TAILSCALE, {
 	padding_left = 0,
 	padding_right = dimens.padding.gap,
 	update_freq = 30,
-	updates = true,
 	icon = {
 		string = settings.icons.text.tailscale.off,
 		color = colors.red,
