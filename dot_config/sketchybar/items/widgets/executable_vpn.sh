@@ -1,5 +1,5 @@
 #!/bin/bash
-# PIA widget, drawn only while connected; label is the exit country, plus state/province for US/CA (US-GA, CA-ON).
+# PIA widget: shield + exit country (state/province for US/CA, e.g. US-GA) while connected, slashed shield otherwise.
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
@@ -7,8 +7,9 @@ source "$HOME/.config/sketchybar/config/colors.sh"
 
 NAME="${NAME:-widgets.vpn}"
 
-# Nerd Font shield glyph (mirrors config/icons.lua vpn.on)
+# Nerd Font shield glyphs (mirror config/icons.lua vpn.on / vpn.off)
 ICON_ON="󰒘"
+ICON_OFF="󰦞"
 
 region_label() {
   local region="$1"
@@ -50,7 +51,7 @@ region_label() {
 PIACTL="$(command -v piactl || echo '/Applications/Private Internet Access.app/Contents/MacOS/piactl')"
 
 if [ ! -x "$PIACTL" ]; then
-  sketchybar --set "$NAME" drawing=off
+  sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$GREY" label="n/a" label.color="$GREY" label.drawing=on
   exit 0
 fi
 
@@ -60,9 +61,11 @@ label="$(region_label "$region")"
 
 case "$state" in
   Connected)
-    sketchybar --set "$NAME" drawing=on icon="$ICON_ON" icon.color="$ICON_BLUE" \
-      icon.padding_right=2 \
-      label="$label" label.color="$ICON_BLUE" label.drawing=on ;;
+    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ICON_BLUE" icon.padding_right=2 \
+      label="$label" label.color="$BLUE" label.drawing=on ;;
+  Connecting | Disconnecting | DisconnectingToReconnect | Interrupting | StillNeedsRetry)
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" icon.padding_right=2 \
+      label="…" label.color="$BLUE" label.drawing=on ;;
   *)
-    sketchybar --set "$NAME" drawing=off ;;
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" icon.padding_right=0 label.drawing=off ;;
 esac
