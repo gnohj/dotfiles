@@ -3,6 +3,8 @@
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
+source "$HOME/.config/sketchybar/config/colors.sh"
+
 NAME="${NAME:-widgets.dnd}"
 STATE_FILE="$HOME/.cache/sketchybar/dnd_state"
 
@@ -10,7 +12,7 @@ state="off"
 [ -r "$STATE_FILE" ] && state="$(cat "$STATE_FILE" 2>/dev/null)"
 
 if [ "$state" = "on" ]; then
-  sketchybar --set "$NAME" drawing=off
+  sketchybar --set "$NAME" icon.color="$ICON_BLUE"
 else
-  sketchybar --set "$NAME" drawing=on
+  sketchybar --set "$NAME" icon.color="$RED"
 fi
