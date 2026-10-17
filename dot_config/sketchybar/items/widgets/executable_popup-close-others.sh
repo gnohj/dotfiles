@@ -17,9 +17,7 @@ widgets.battery
 widgets.schedules
 widgets.volume.bracket
 mic
-widgets.cpu
-widgets.memory
-widgets.disk
+agent_quota
 "
 
 args=()
