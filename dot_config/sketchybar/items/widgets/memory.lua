@@ -1,6 +1,5 @@
 ---@diagnostic disable-next-line: undefined-global
 local constants = require("constants")
-local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
 local tiers = require("lib.tiers")
@@ -36,9 +35,9 @@ end
 
 local memory = sbar.add("item", constants.items.MEMORY, {
 	position = "right",
-	popup = { align = "center" },
 	padding_left = -12,
 	update_freq = 10,
+	updates = true,
 	icon = {
 		string = "",
 		color = colors.cyan,
@@ -55,11 +54,10 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 
 local function update()
 	get_memory_percentage(function(percentage)
+		local color = tiers.color(percentage, tiers.usage, colors.cyan)
 		memory:set({
-			label = {
-				string = percentage .. "%  ",
-				color = tiers.color(percentage, tiers.usage, colors.cyan),
-			},
+			icon = { color = color },
+			label = { string = percentage .. "%  ", color = color },
 		})
 	end)
 end
@@ -67,10 +65,3 @@ end
 memory:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
-
-syspanel.attach(memory, {
-	icon = "",
-	title = "Memory",
-	section = "TOP PROCESSES",
-	mode = "memory",
-})

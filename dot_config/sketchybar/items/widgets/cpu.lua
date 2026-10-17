@@ -1,5 +1,4 @@
 local constants = require("constants")
-local syspanel = require("lib.syspanel")
 local settings = require("config.settings")
 local colors = require("config.colors")
 local tiers = require("lib.tiers")
@@ -29,8 +28,8 @@ end
 local cpu = sbar.add("item", constants.items.CPU, {
 	position = "right",
 	padding_left = -12,
-	popup = { align = "center" },
 	update_freq = 10,
+	updates = true,
 	icon = {
 		string = "",
 		color = colors.cyan,
@@ -48,11 +47,10 @@ local cpu = sbar.add("item", constants.items.CPU, {
 
 local function update()
 	get_cpu_percentage(function(percentage)
+		local color = tiers.color(percentage, tiers.cpu, colors.cyan)
 		cpu:set({
-			label = {
-				string = percentage .. "%  ",
-				color = tiers.color(percentage, tiers.cpu, colors.cyan),
-			},
+			icon = { color = color },
+			label = { string = percentage .. "%  ", color = color },
 		})
 	end)
 end
@@ -60,10 +58,3 @@ end
 cpu:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
-
-syspanel.attach(cpu, {
-	icon = "",
-	title = "CPU",
-	section = "TOP PROCESSES",
-	mode = "cpu",
-})

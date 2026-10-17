@@ -1,5 +1,4 @@
 local constants = require("constants")
-local syspanel = require("lib.syspanel")
 local colors = require("config.colors")
 local tiers = require("lib.tiers")
 
@@ -29,10 +28,10 @@ end
 
 local disk = sbar.add("item", constants.items.DISK, {
 	position = "right",
-	popup = { align = "center" },
 	padding_left = -12,
 	padding_right = 0,
 	update_freq = 300,
+	updates = true,
 	icon = {
 		string = "󰋊",
 		color = colors.cyan,
@@ -49,11 +48,10 @@ local disk = sbar.add("item", constants.items.DISK, {
 
 local function update()
 	get_disk_percentage(function(percentage)
+		local color = tiers.color(percentage, tiers.disk, colors.cyan)
 		disk:set({
-			label = {
-				string = percentage .. "%  ",
-				color = tiers.color(percentage, tiers.usage, colors.cyan),
-			},
+			icon = { color = color },
+			label = { string = percentage .. "%  ", color = color },
 		})
 	end)
 end
@@ -61,10 +59,3 @@ end
 disk:subscribe({ "routine", "forced", "system_woke" }, update)
 
 update()
-
-syspanel.attach(disk, {
-	icon = "󰋊",
-	title = "Disk",
-	section = "VOLUMES",
-	mode = "disk",
-})
