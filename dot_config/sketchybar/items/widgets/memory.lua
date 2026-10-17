@@ -40,7 +40,7 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 	updates = true,
 	icon = {
 		string = "",
-		color = colors.cyan,
+		color = colors.blue,
 		padding_right = 2,
 	},
 	label = {
@@ -54,10 +54,10 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 
 local function update()
 	get_memory_percentage(function(percentage)
-		local color = tiers.color(percentage, tiers.usage, colors.cyan)
+		local color = tiers.color(percentage, tiers.usage)
 		memory:set({
-			icon = { color = color },
-			label = { string = percentage .. "%  ", color = color },
+			icon = { color = color or colors.blue },
+			label = { string = percentage .. "%  ", color = color or colors.cyan },
 		})
 	end)
 end

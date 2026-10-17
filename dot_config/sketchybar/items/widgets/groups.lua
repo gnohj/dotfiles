@@ -110,7 +110,7 @@ function M.uptime(group, name)
 		padding_left = 0,
 		padding_right = 0,
 		icon = { drawing = false },
-		label = { string = "󰁝--", color = colors.grey, padding_left = 0, padding_right = 10 },
+		label = { string = "󰁝--", color = colors.cyan, padding_left = 0, padding_right = 10 },
 	})
 	table.insert(groups[group].members, name)
 	groups[group].uptime = name
@@ -312,7 +312,7 @@ function M.build()
 			if group.glyph then
 				sbar.set(group.glyph, { icon = { color = border or group.glyph_color } })
 				if group.uptime then
-					sbar.set(group.uptime, { label = { color = border or group.glyph_color } })
+					sbar.set(group.uptime, { label = { color = border or hex(colors.cyan) } })
 				end
 			end
 			::continue::

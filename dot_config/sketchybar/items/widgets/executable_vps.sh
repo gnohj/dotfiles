@@ -3,7 +3,7 @@
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
-VPS_COLOR="$WHITE"
+VPS_COLOR="$BLUE"
 
 # fleet-dev-box has no port forwards, so it never clashes with an interactive session.
 { read -r cpu mem disk temp; read -r uptime; } < <(ssh -o BatchMode=yes -o ConnectTimeout=4 -o ServerAliveInterval=2 -o ServerAliveCountMax=2 fleet-dev-box \
@@ -11,7 +11,7 @@ VPS_COLOR="$WHITE"
 
 cpu="${cpu%\%}" mem="${mem%\%}" disk="${disk%\%}" temp="${temp%°}"
 
-# Same steps as cpu_temp.lua but resting on the VPS glyph colour; colour05 is the Lua yellow, which colors.sh has no name for.
+# Same steps as cpu_temp.lua but resting on the label green; colour05 is the Lua yellow, which colors.sh has no name for.
 temp_color="$VPS_COLOR"
 if [[ "$temp" =~ ^[0-9]+$ ]]; then
   if (( temp >= 90 )); then temp_color="$RED"
