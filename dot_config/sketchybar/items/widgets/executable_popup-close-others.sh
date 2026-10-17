@@ -17,7 +17,6 @@ widgets.battery
 widgets.schedules
 widgets.volume.bracket
 mic
-agent_quota
 widgets.cpu
 widgets.memory
 widgets.disk

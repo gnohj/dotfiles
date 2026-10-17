@@ -1,3 +1,4 @@
+local dimens = require("config.dimens")
 local groups = require("items.widgets.groups")
 
 local DND_CLICK = "~/.config/sketchybar/items/widgets/dnd-click.sh"
@@ -30,9 +31,8 @@ require("items.widgets.cpu")
 groups.edge("system", 12)
 groups.spacer()
 groups.edge("notifications", 0)
-require("items.widgets.agent_quota")
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
 require("items.widgets.github_notification")
-groups.edge("notifications", 8)
+groups.edge("notifications", dimens.padding.gap)
 groups.build()

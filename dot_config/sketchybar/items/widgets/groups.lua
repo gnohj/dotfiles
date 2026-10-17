@@ -6,7 +6,6 @@ local groups <const> = {
 			"widgets.github_notification",
 			"widgets.pr_review_notification",
 			"widgets.package_notification",
-			"agent_quota",
 		},
 		red_only = true,
 	},
