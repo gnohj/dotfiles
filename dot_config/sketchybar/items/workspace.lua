@@ -58,7 +58,7 @@ for i = 1, 8 do
 			background = { drawing = true, image = { scale = 0.56, padding_left = 10 } },
 		},
 		label = {
-			font = { size = 13.0 },
+			font = { size = 14.0 },
 			color = settings.colors.dark_grey,
 			padding_left = 0,
 			padding_right = 3,
@@ -78,7 +78,7 @@ local workspaceItem = sbar.add("item", constants.items.SPACES, {
 		padding_right = 2,
 	},
 	label = {
-		font = { style = settings.fonts.styles.bold, size = 13.0 },
+		font = { style = settings.fonts.styles.bold, size = 14.0 },
 		color = settings.colors.cyan,
 		padding_left = 0,
 		padding_right = 11,
