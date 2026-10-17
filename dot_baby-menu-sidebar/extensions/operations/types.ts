@@ -79,6 +79,7 @@ export type SubscriptionBasis =
 export type SubscriptionRow = {
   service: string;
   plan?: string;
+  monthlyUsd?: number;
   renewsAt: string | null;
   basis: SubscriptionBasis;
   confirmedAt?: string;

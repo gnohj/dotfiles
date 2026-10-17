@@ -20,6 +20,13 @@ type CodexAuthClaims = {
   chatgpt_subscription_last_checked?: string;
 };
 
+const claudePersonalMonthlyUsd = 100;
+const chatgptMonthlyUsdByPlan: Record<string, number> = {
+  plus: 20,
+  prolite: 100,
+  pro: 200,
+};
+
 function addMonths(anchor: Date, months: number): Date {
   const shifted = new Date(anchor);
   shifted.setUTCDate(1);
@@ -55,6 +62,7 @@ export function claudeSubscription(
   const valid = Number.isInteger(day) && day >= 1 && day <= 28;
   return {
     service: "Claude personal",
+    monthlyUsd: claudePersonalMonthlyUsd,
     renewsAt: valid ? nextBillingDay(day, now).toISOString() : null,
     basis: valid ? "recorded" : "missing",
     remedyCommand: valid
@@ -81,6 +89,7 @@ export function codexSubscription(
   return {
     service: "ChatGPT",
     plan: claims.chatgpt_plan_type,
+    monthlyUsd: chatgptMonthlyUsdByPlan[claims.chatgpt_plan_type ?? ""],
     renewsAt: new Date(
       confirmed ? untilMs : nextMonthlyRenewal(startMs, nowMs),
     ).toISOString(),
