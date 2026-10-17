@@ -3,7 +3,6 @@ local colors = require("config.colors")
 local groups <const> = {
 	notifications = {
 		members = {
-			"widgets.github_notification",
 			"widgets.pr_review_notification",
 			"widgets.package_notification",
 			"agent_quota",
@@ -11,7 +10,6 @@ local groups <const> = {
 		red_only = true,
 		priority = {
 			"widgets.pr_review_notification",
-			"widgets.github_notification",
 			"widgets.package_notification",
 			"agent_quota",
 		},
@@ -23,6 +21,10 @@ local groups <const> = {
 	vps = {
 		members = { "widgets.vps_cpu", "widgets.vps_memory", "widgets.vps_disk", "widgets.vps_temp" },
 		idle = { ["widgets.vps_cpu"] = true, ["widgets.vps_memory"] = true },
+	},
+	push = {
+		members = { "widgets.github_notification" },
+		manual = true,
 	},
 	status = {
 		members = {
@@ -110,9 +112,13 @@ function M.toggle(group)
 end
 
 local spacers = 0
-function M.spacer()
+function M.spacer(group)
 	spacers = spacers + 1
-	sbar.add("item", "widgets.group_gap." .. spacers, {
+	local name = "widgets.group_gap." .. spacers
+	if group then
+		groups[group].gap = name
+	end
+	sbar.add("item", name, {
 		position = "right",
 		width = 6,
 		icon = { drawing = false },
@@ -120,6 +126,16 @@ function M.spacer()
 		padding_left = 0,
 		padding_right = 0,
 	})
+end
+
+function M.show(group, on)
+	local drawing = on and "on" or "off"
+	for _, member in ipairs(groups[group].members) do
+		sbar.set(member, { drawing = drawing })
+	end
+	if groups[group].gap then
+		sbar.set(groups[group].gap, { drawing = drawing })
+	end
 end
 
 local function rank(item)
@@ -166,8 +182,6 @@ end
 local function pending(name, item)
 	if name == "agent_quota" then
 		return true
-	elseif name == "widgets.github_notification" then
-		return item.label.value ~= ""
 	end
 	return value(item) ~= nil
 end
@@ -181,14 +195,6 @@ local function first_pending(group)
 	end
 end
 
-local function present(group, member)
-	if member ~= "widgets.github_notification" then
-		return true
-	end
-	local item = sbar.query(member)
-	return type(item) == "table" and item.label ~= nil and pending(member, item)
-end
-
 local function trail(item)
 	local inner = item.label.drawing == "on" and item.label.padding_right or item.icon.padding_right
 	return inner + item.geometry.padding_right
@@ -200,7 +206,7 @@ function apply(group)
 	group.shown = shown.name
 	local first, last
 	for _, member in ipairs(group.metrics) do
-		local on = group.expanded and present(group, member) or member == shown.name
+		local on = group.expanded or member == shown.name
 		sbar.set(member, { drawing = on and "on" or "off" })
 		if on then
 			first, last = first or member, member

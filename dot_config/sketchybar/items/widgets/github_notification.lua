@@ -1,13 +1,26 @@
 local constants = require("constants")
-local dimens = require("config.dimens")
+local colors = require("config.colors")
+local groups = require("items.widgets.groups")
 
--- Flex-gap convention: leading 0, glyph<->number 2, trailing = dimens.padding.gap.
-sbar.add("item", constants.items.GITHUB_NOTIFICATION, {
+local FLAG <const> = os.getenv("HOME") .. "/github-custom-notification.txt"
+
+local push = sbar.add("item", constants.items.GITHUB_NOTIFICATION, {
 	position = "right",
 	padding_left = 0,
-	padding_right = dimens.padding.gap,
-	icon = { padding_left = 0, padding_right = 2 },
-	label = { padding_left = 0, padding_right = 0 },
-	script = "~/.config/sketchybar/items/widgets/github_notification.sh",
-	drawing = false,
+	padding_right = 0,
+	updates = "on",
+	icon = { drawing = false },
+	label = { string = "\u{f09b} \u{f062}", color = colors.blue, padding_left = 0, padding_right = 0 },
 })
+
+local function update()
+	local file = io.open(FLAG, "r")
+	if file then
+		file:close()
+	end
+	groups.show("push", file ~= nil)
+end
+
+push:subscribe({ "forced", "routine", "system_woke" }, update)
+
+return update
