@@ -3,7 +3,6 @@ local dimens = require("config.dimens")
 
 local dnd = sbar.add("item", "widgets.dnd", {
 	position = "right",
-	drawing = false,
 	-- Calendar label already trails padding.label; top up to the usual gap.
 	padding_left = dimens.padding.gap - dimens.padding.label,
 	padding_right = dimens.padding.label,

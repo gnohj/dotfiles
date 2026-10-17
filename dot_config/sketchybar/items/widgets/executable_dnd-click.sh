@@ -3,6 +3,8 @@
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
+source "$HOME/.config/sketchybar/config/colors.sh"
+
 NAME="${NAME:-widgets.dnd}"
 STATE_FILE="$HOME/.cache/sketchybar/dnd_state"
 mkdir -p "$(dirname "$STATE_FILE")"
@@ -33,11 +35,11 @@ state="${state:-off}"
 if [ "$state" = "on" ]; then
   TARGET_SHORTCUT="FocusOff"
   new_state="off"
-  new_drawing="on"
+  new_color="$RED"
 else
   TARGET_SHORTCUT="FocusOn"
   new_state="on"
-  new_drawing="off"
+  new_color="$ICON_BLUE"
 fi
 
 echo "[$(ts)] state=$state, running $TARGET_SHORTCUT" >>"$LOG"
@@ -48,6 +50,6 @@ if ! shortcuts run "$TARGET_SHORTCUT" 2>>"$LOG"; then
 fi
 
 echo "$new_state" >"$STATE_FILE"
-sketchybar --set "$NAME" drawing="$new_drawing"
+sketchybar --set "$NAME" icon.color="$new_color"
 
 echo "[$(ts)] click finished — now $new_state" >>"$LOG"
