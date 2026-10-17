@@ -23,16 +23,15 @@ local bound <const> = {
 
 sbar.add("event", constants.events.RIFT_LAYOUT_CHANGED)
 
-local function add_pill(name, click_script)
+local function add_pill(name)
 	return sbar.add("item", name, {
 		position = "left",
 		drawing = false,
 		icon = { font = { size = 14.0 }, padding_left = 10, padding_right = 5 },
-		label = { font = { style = settings.fonts.styles.bold, size = 12.0 }, padding_left = 0, padding_right = 11 },
+		label = { font = { style = settings.fonts.styles.bold, size = 14.0 }, padding_left = 0, padding_right = 11 },
 		background = { height = 24, corner_radius = 12, border_width = 1 },
 		padding_left = 3,
 		padding_right = 3,
-		click_script = click_script,
 	})
 end
 
@@ -51,17 +50,19 @@ for _, b in ipairs(bound) do
 	pills[#pills + 1] = {
 		mode = b.mode,
 		key = b.key,
-		item = add_pill(constants.items.RIFT_LAYOUT .. "." .. b.mode, LAYOUT .. " " .. b.mode),
+		item = add_pill(constants.items.RIFT_LAYOUT .. "." .. b.mode),
 	}
 end
-local extra = add_pill(constants.items.RIFT_LAYOUT .. ".other", CLI .. " execute layout toggle-orientation")
+local extra = add_pill(constants.items.RIFT_LAYOUT .. ".other")
 
 local shown = true
+local expanded = true
+local current
 
 local function paint(item, style, text, active)
 	local color = active and style.color or settings.colors.dark_grey
 	item:set({
-		drawing = shown,
+		drawing = shown and (expanded or active),
 		icon = { string = style.icon, color = color },
 		label = { string = text, color = color },
 		background = {
@@ -84,10 +85,12 @@ local FULLSCREEN = " " .. utf8.char(0xF0293)
 
 local function render(active, kind, fullscreen)
 	local arrow = fullscreen and FULLSCREEN or (oriented[active] and arrows[kind] or "")
+	local chevron = expanded and " 󰄽" or " 󰄾"
+	current = active
 	for _, p in ipairs(pills) do
 		local is_active = p.mode == active
-		local text = modes[p.mode].label .. (is_active and arrow or "") .. " " .. utf8.char(0xF0635) .. p.key
-		paint(p.item, modes[p.mode], text, is_active)
+		local text = modes[p.mode].label .. (is_active and arrow or "") .. " " .. utf8.char(0xF0635) .. " " .. p.key
+		paint(p.item, modes[p.mode], text .. (is_active and chevron or ""), is_active)
 	end
 	local other = modes[active]
 	local is_bound = false
@@ -95,7 +98,7 @@ local function render(active, kind, fullscreen)
 		is_bound = is_bound or p.mode == active
 	end
 	if other and not is_bound then
-		paint(extra, other, other.label .. arrow, true)
+		paint(extra, other, other.label .. arrow .. chevron, true)
 	else
 		extra:set({ drawing = false })
 	end
@@ -135,6 +138,23 @@ watcher:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 	gap:set({ drawing = shown })
 	refresh()
 end)
+
+local function toggle()
+	expanded = not expanded
+	refresh()
+end
+
+for _, p in ipairs(pills) do
+	p.item:subscribe("mouse.clicked", function()
+		if p.mode == current then
+			return toggle()
+		end
+		sbar.exec(LAYOUT .. " " .. p.mode, refresh)
+	end)
+end
+extra:subscribe("mouse.clicked", toggle)
+sbar.add("event", "rift_layout_toggle")
+watcher:subscribe("rift_layout_toggle", toggle)
 
 refresh()
 
