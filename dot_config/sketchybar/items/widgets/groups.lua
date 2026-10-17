@@ -56,6 +56,7 @@ local severity <const> = {
 
 local INNER <const> = 10
 local SWAP_MARGIN <const> = 5
+local GLYPH_GAP <const> = 6
 
 for _, group in pairs(groups) do
 	group.metrics = { table.unpack(group.members) }
@@ -79,6 +80,20 @@ function M.edge(group, width, click_script)
 	})
 	table.insert(groups[group].members, name)
 	table.insert(groups[group].edges, { name = name, width = width or 8 })
+end
+
+function M.glyph(group, icon, color, y_offset)
+	local name = "widgets.group_glyph." .. group
+	sbar.add("item", name, {
+		position = "right",
+		padding_left = 0,
+		padding_right = 0,
+		icon = { string = icon, color = color, padding_left = 0, padding_right = 0, y_offset = y_offset or 0 },
+		label = { drawing = false },
+	})
+	table.insert(groups[group].members, name)
+	groups[group].glyph = name
+	groups[group].glyph_color = hex(color)
 end
 
 local apply
@@ -197,9 +212,13 @@ function apply(group)
 	if type(left) ~= "table" or not left.icon or type(rightmost) ~= "table" or not rightmost.label then
 		return
 	end
+	if group.glyph then
+		sbar.set(group.glyph, { padding_right = GLYPH_GAP - left.geometry.padding_left - left.icon.padding_left })
+		left = sbar.query(group.glyph)
+	end
 	local edge = group.edges[#group.edges]
 	sbar.set(edge.name, {
-		width = group.expanded and edge.width
+		width = (group.expanded and not group.glyph) and edge.width
 			or math.max(-left.geometry.padding_left, INNER - left.geometry.padding_left - left.icon.padding_left),
 	})
 	sbar.set(group.edges[1].name, { width = math.max(0, INNER - trail(rightmost)) })
@@ -247,7 +266,7 @@ function M.build()
 			local worst, border = 0, nil
 			for _, member in ipairs(group.members) do
 				local item = sbar.query(member)
-				if type(item) == "table" and item.geometry then
+				if member ~= group.glyph and type(item) == "table" and item.geometry then
 					local level, color = (group.collapsible and rank or warning)(item)
 					if level > worst and (level == 3 or not group.red_only) then
 						worst, border = level, color
@@ -255,6 +274,9 @@ function M.build()
 				end
 			end
 			brackets[name]:set({ background = { border_color = border or hex(IDLE) } })
+			if group.glyph then
+				sbar.set(group.glyph, { icon = { color = border or group.glyph_color } })
+			end
 			::continue::
 		end
 	end

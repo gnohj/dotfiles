@@ -290,6 +290,7 @@ local text <const> = {
 		plus = "",
 		loading = "",
 		apple = "",
+		linux = "",
 		gear = "",
 		cpu = "",
 		clock = "󰥔",
