@@ -33,7 +33,7 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 		local found, _, charge = batteryInfo:find("(%d+)%%")
 		if found then
 			charge = tonumber(charge)
-			label = charge
+			label = charge .. "%"
 		end
 
 		local color = settings.colors.blue

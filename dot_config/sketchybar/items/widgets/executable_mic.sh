@@ -76,7 +76,7 @@ fi
 sketchybar --set mic.pop.slider slider.highlight_color="$SLIDER_COLOR" >/dev/null 2>&1
 
 # Device name is dropped from the bar - the popup names it, and this matches the volume widget.
-MIC_LABEL="$MIC_VOLUME"
+MIC_LABEL="$MIC_VOLUME%"
 
 if [[ "$MIC_NAME" != "$VALIDATED_MIC_NAME" || -z "$MIC_NAME" ]]; then
   sketchybar -m --set mic label="" icon= icon.color="$YELLOW" label.color="$YELLOW"

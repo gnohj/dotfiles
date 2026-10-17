@@ -9,7 +9,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	padding_left = -10,
 	padding_right = -4,
 	label = {
-		string = "??",
+		string = "??%",
 		-- net 2px to the glyph, matching cpu/memory/mic; the icons above carry no padding of their own.
 		padding_left = -8,
 		color = settings.colors.cyan,
@@ -142,7 +142,7 @@ volumeValue:subscribe("volume_change", function(env)
 				color = hasVolume and settings.colors.blue or settings.colors.red,
 			},
 			label = {
-				string = hasVolume and lead .. volume or "",
+				string = hasVolume and lead .. volume .. "%" or "",
 				padding_right = hasVolume and 8 or 0,
 			},
 		})
