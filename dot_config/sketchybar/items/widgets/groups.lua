@@ -8,6 +8,7 @@ local groups <const> = {
 			"agent_quota",
 		},
 		red_only = true,
+		side = "left",
 		priority = {
 			"widgets.pr_review_notification",
 			"widgets.package_notification",
@@ -68,12 +69,16 @@ end
 
 local M = {}
 
+local function side(group)
+	return group and groups[group].side or "right"
+end
+
 local edges = 0
 function M.edge(group, width, click_script)
 	edges = edges + 1
 	local name = "widgets.group_edge." .. edges
 	sbar.add("item", name, {
-		position = "right",
+		position = side(group),
 		width = width or 8,
 		icon = { drawing = false },
 		label = { drawing = false },
@@ -136,7 +141,7 @@ function M.spacer(group)
 		groups[group].gap = name
 	end
 	sbar.add("item", name, {
-		position = "right",
+		position = side(group),
 		width = 6,
 		icon = { drawing = false },
 		label = { drawing = false },
@@ -243,12 +248,15 @@ function apply(group)
 		sbar.set(group.glyph, { padding_right = GLYPH_GAP - left.geometry.padding_left - left.icon.padding_left })
 		left = sbar.query(group.glyph)
 	end
-	local edge = group.edges[#group.edges]
+	local edge, closing = group.edges[#group.edges], group.edges[1]
+	if group.side == "left" then
+		edge, closing = closing, edge
+	end
 	sbar.set(edge.name, {
 		width = (group.expanded and not group.glyph) and edge.width
 			or math.max(-left.geometry.padding_left, INNER - left.geometry.padding_left - left.icon.padding_left),
 	})
-	sbar.set(group.edges[1].name, { width = math.max(0, INNER - trail(rightmost)) })
+	sbar.set(closing.name, { width = math.max(0, INNER - trail(rightmost)) })
 end
 
 

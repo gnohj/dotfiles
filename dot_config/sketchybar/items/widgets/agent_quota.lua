@@ -3,7 +3,7 @@ local dimens = require("config.dimens")
 
 -- Tightest remaining quota window across Claude (both accounts), Codex and Copilot.
 local agent_quota = sbar.add("item", "agent_quota", {
-	position = "right",
+	position = "left",
 	padding_left = 0,
 	-- Last item in the notifications badge, so this is the badge's closing inner space.
 	padding_right = 8,

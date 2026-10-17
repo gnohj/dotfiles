@@ -36,13 +36,6 @@ require("items.widgets.memory")
 require("items.widgets.cpu")
 groups.glyph("system", settings.icons.text.apple, colors.cyan, 1)
 groups.edge("system", 12)
-groups.spacer()
-groups.edge("notifications", 0)
-groups.toggle("notifications")
-require("items.widgets.agent_quota")
-require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
-require("items.widgets.pr_review_notification") -- GitHub PR review requests
-groups.edge("notifications", 8)
 groups.spacer("push")
 groups.edge("push", 10)
 local push = require("items.widgets.github_notification")
