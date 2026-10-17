@@ -1,5 +1,6 @@
 local constants = require("constants")
 local colors = require("config.colors")
+local groups = require("items.widgets.groups")
 local tiers = require("lib.tiers")
 
 -- counts the APFS reserve as used, matching duf rather than df's capacity column
@@ -53,6 +54,7 @@ local function update()
 			icon = { color = color or colors.blue },
 			label = { string = percentage .. "%  ", color = color or colors.cyan },
 		})
+		groups.changed()
 	end)
 end
 

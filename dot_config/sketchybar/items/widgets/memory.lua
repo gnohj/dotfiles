@@ -2,6 +2,7 @@
 local constants = require("constants")
 local settings = require("config.settings")
 local colors = require("config.colors")
+local groups = require("items.widgets.groups")
 local tiers = require("lib.tiers")
 
 -- Memory usage percentage (matching btop: used = active + wired, over hw.memsize)
@@ -59,6 +60,7 @@ local function update()
 			icon = { color = color or colors.blue },
 			label = { string = percentage .. "%  ", color = color or colors.cyan },
 		})
+		groups.changed()
 	end)
 end
 
