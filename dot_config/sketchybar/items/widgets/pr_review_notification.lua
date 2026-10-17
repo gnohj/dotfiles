@@ -4,7 +4,7 @@ local dimens = require("config.dimens")
 
 -- Flex-gap convention: leading 0, glyph<->number 2, trailing = dimens.padding.gap.
 local pr_review = sbar.add("item", "widgets.pr_review_notification", {
-	position = "right",
+	position = "left",
 	padding_left = 0,
 	padding_right = dimens.padding.gap,
 	updates = "on",
