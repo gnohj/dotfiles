@@ -40,6 +40,10 @@ groups.toggle("notifications")
 require("items.widgets.agent_quota")
 require("items.widgets.package_notification") -- Unified Brew + MAS + Mise
 require("items.widgets.pr_review_notification") -- GitHub PR review requests
-require("items.widgets.github_notification")
 groups.edge("notifications", 8)
+groups.spacer("push")
+groups.edge("push", 10)
+local push = require("items.widgets.github_notification")
+groups.edge("push", 10)
 groups.build()
+push()
