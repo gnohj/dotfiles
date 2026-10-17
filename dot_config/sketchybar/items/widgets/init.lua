@@ -3,7 +3,7 @@ local groups = require("items.widgets.groups")
 local DND_CLICK = "~/.config/sketchybar/items/widgets/dnd-click.sh"
 
 groups.edge("status", 0, DND_CLICK)
-require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle, a thin red "!" while Focus is off
+require("items.widgets.dnd") -- Do Not Disturb (Focus) toggle, a red moon while Focus is off
 require("items.widgets.calendar")
 require("items.widgets.battery")
 require("items.widgets.tailscale") -- Tailscale tailnet connection indicator
