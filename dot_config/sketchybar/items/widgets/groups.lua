@@ -59,6 +59,7 @@ local severity <const> = {
 local INNER <const> = 10
 local SWAP_MARGIN <const> = 5
 local GLYPH_GAP <const> = 6
+local UPTIME_GAP <const> = 8
 
 for _, group in pairs(groups) do
 	group.metrics = { table.unpack(group.members) }
@@ -96,6 +97,22 @@ function M.glyph(group, icon, color, y_offset)
 	table.insert(groups[group].members, name)
 	groups[group].glyph = name
 	groups[group].glyph_color = hex(color)
+end
+
+function M.uptime(group, name)
+	sbar.add("item", name, {
+		position = "right",
+		padding_left = 0,
+		padding_right = 0,
+		icon = { drawing = false },
+		label = { string = "󰁝--", color = colors.grey, padding_left = 0, padding_right = 10 },
+	})
+	table.insert(groups[group].members, name)
+	groups[group].uptime = name
+end
+
+function M.days(seconds)
+	return string.format("󰁝%02dd", math.min(math.floor(seconds / 86400), 999))
 end
 
 local apply
@@ -218,6 +235,10 @@ function apply(group)
 	if type(left) ~= "table" or not left.icon or type(rightmost) ~= "table" or not rightmost.label then
 		return
 	end
+	if group.uptime then
+		sbar.set(group.uptime, { padding_left = UPTIME_GAP - trail(rightmost) })
+		rightmost = sbar.query(group.uptime)
+	end
 	if group.glyph then
 		sbar.set(group.glyph, { padding_right = GLYPH_GAP - left.geometry.padding_left - left.icon.padding_left })
 		left = sbar.query(group.glyph)
@@ -272,7 +293,7 @@ function M.build()
 			local worst, border = 0, nil
 			for _, member in ipairs(group.members) do
 				local item = sbar.query(member)
-				if member ~= group.glyph and type(item) == "table" and item.geometry then
+				if member ~= group.glyph and member ~= group.uptime and type(item) == "table" and item.geometry then
 					local level, color = (group.collapsible and rank or warning)(item)
 					if level > worst and (level == 3 or not group.red_only) then
 						worst, border = level, color
@@ -282,6 +303,9 @@ function M.build()
 			brackets[name]:set({ background = { border_color = border or hex(IDLE) } })
 			if group.glyph then
 				sbar.set(group.glyph, { icon = { color = border or group.glyph_color } })
+				if group.uptime then
+					sbar.set(group.uptime, { label = { color = border or group.glyph_color } })
+				end
 			end
 			::continue::
 		end
