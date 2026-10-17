@@ -1,3 +1,7 @@
+import type {
+  BabyMenuSectionAttention,
+  BabyMenuSidebarSection,
+} from "@babymenu/contracts";
 import { Switch } from "@babymenu/ui";
 import {
   useCallback,
@@ -31,6 +35,36 @@ import type {
   ToggleScheduleResult,
   TokenRow,
 } from "./types";
+
+const TOKEN_ATTENTION_DAYS = 30;
+
+function tokenNeedsAttention(row: TokenRow): boolean {
+  return (
+    row.status !== "ok" ||
+    (row.daysLeft !== null && row.daysLeft < TOKEN_ATTENTION_DAYS)
+  );
+}
+
+function sectionNeedsAttention(
+  section: BabyMenuSidebarSection,
+  dashboard: OperationsDashboard | null,
+): boolean {
+  if (!dashboard) return false;
+  if (section === "accounts") return dashboard.tokens.some(tokenNeedsAttention);
+  if (section === "cron") return dashboard.problemSchedules > 0;
+  return false;
+}
+
+function flagSection(section: BabyMenuSidebarSection, active: boolean) {
+  const detail: BabyMenuSectionAttention = {
+    section,
+    source: "operations",
+    active,
+  };
+  window.dispatchEvent(
+    new CustomEvent("babymenu:section-attention", { detail }),
+  );
+}
 
 const statusColor: Record<string, string> = {
   scheduled: "bg-signal-live",
@@ -699,6 +733,16 @@ export function OperationsView({
       document.removeEventListener("visibilitychange", tick);
     };
   }, []);
+
+  const flagged = sectionNeedsAttention(
+    variant === "accounts" || variant === "cron" ? variant : "usage",
+    dashboard,
+  );
+  useEffect(() => {
+    if (variant !== "accounts" && variant !== "cron") return;
+    flagSection(variant, flagged);
+    return () => flagSection(variant, false);
+  }, [variant, flagged]);
 
   useEffect(() => {
     if (document.documentElement.dataset.windowMode === "sidebar") return;
