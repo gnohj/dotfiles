@@ -25,7 +25,7 @@ local review_keys = {
 }
 
 local function current_pr()
-  local item = require("atlas.ui.navigation").current_item()
+  local item = require("atlas.pulls.ui.dashboard.navigation").current_item()
   local pr = type(item) == "table" and item.pr
   if type(pr) ~= "table" or not pr.repo_full_name then
     vim.notify("No PR selected", vim.log.levels.WARN)
@@ -82,7 +82,7 @@ local function pr_jira_key(pr)
 end
 
 local function jira_key()
-  local item = require("atlas.ui.navigation").current_item()
+  local item = require("atlas.pulls.ui.dashboard.navigation").current_item()
   local pr = type(item) == "table" and item.pr or {}
   local key = pr_jira_key(pr)
     or vim.api.nvim_get_current_line():match("%u[%u%d]+%-%d+")
@@ -183,7 +183,7 @@ local function sync_detail_when_loaded()
       if state.is_loading then
         return
       end
-      local item = require("atlas.ui.navigation").current_item()
+      local item = require("atlas.pulls.ui.dashboard.navigation").current_item()
       if type(item) == "table" and item.kind == "pr" then
         if detail_wanted then
           show_detail(item)
@@ -250,7 +250,7 @@ local function dashboard_items()
       key = "o",
       desc = "Open PR or Jira in browser",
       callback = function()
-        local item = require("atlas.ui.navigation").current_item()
+        local item = require("atlas.pulls.ui.dashboard.navigation").current_item()
         open_pr_links(type(item) == "table" and item.pr or nil)
       end,
     },
