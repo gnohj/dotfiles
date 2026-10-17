@@ -86,7 +86,7 @@ local spotify = sbar.add("item", constants.items.SPOTIFY, {
 	-- spotify_poll from media-control-bridge is the real refresh; this is the dead-bridge safety net.
 	update_freq = 30,
 	icon = { drawing = false },
-	label = { font = { size = 13.0 }, max_chars = 22, padding_left = 0, padding_right = 6 },
+	label = { font = { size = 14.0 }, max_chars = 22, padding_left = 0, padding_right = 6 },
 })
 
 local playIcon = sbar.add("item", constants.items.SPOTIFY .. ".play", {
