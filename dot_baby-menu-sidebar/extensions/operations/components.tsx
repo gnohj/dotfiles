@@ -464,16 +464,17 @@ function SubscriptionLine({
   nowMs: number;
 }) {
   const days = row.renewsAt ? daysUntil(row.renewsAt, nowMs) : null;
-  const detail = row.renewsAt
-    ? [
-        `renews ${shortDate(row.renewsAt)}`,
-        row.basis === "projected" && row.confirmedAt
-          ? `last confirmed ${shortDate(row.confirmedAt)}`
-          : undefined,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : "renewal day not recorded";
+  const detail = [
+    row.monthlyUsd !== undefined ? `$${row.monthlyUsd}/mo` : undefined,
+    row.renewsAt
+      ? `renews ${shortDate(row.renewsAt)}`
+      : "renewal day not recorded",
+    row.renewsAt && row.basis === "projected" && row.confirmedAt
+      ? `last confirmed ${shortDate(row.confirmedAt)}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 border-b border-line-faint py-2.5 last:border-0">
       <div className="min-w-0">
