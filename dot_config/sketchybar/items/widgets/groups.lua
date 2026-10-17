@@ -17,11 +17,12 @@ local groups <const> = {
 	},
 	system = {
 		members = { "widgets.cpu", "widgets.memory", "widgets.disk", "widgets.cpu_temp" },
-		pinned = { ["widgets.cpu"] = true, ["widgets.memory"] = true },
+		-- Collapsed slots; an alerting hidden metric bumps an idle one, first listed goes first.
+		core = { "widgets.cpu", "widgets.memory" },
 	},
 	vps = {
 		members = { "widgets.vps_cpu", "widgets.vps_memory", "widgets.vps_disk", "widgets.vps_temp" },
-		pinned = { ["widgets.vps_cpu"] = true, ["widgets.vps_memory"] = true },
+		core = { "widgets.vps_cpu", "widgets.vps_memory" },
 	},
 	push = {
 		members = { "widgets.github_notification" },
@@ -183,6 +184,48 @@ local function value(item)
 	return tonumber((item.label.value or ""):match("^%d+"))
 end
 
+local function level(member)
+	local item = sbar.query(member)
+	if type(item) ~= "table" or not item.icon or not item.label then
+		return 0
+	end
+	return (rank(item))
+end
+
+local function slots(group)
+	local shown, free, core, levels = {}, #group.core, {}, {}
+	for _, member in ipairs(group.metrics) do
+		levels[member] = level(member)
+	end
+	for _, member in ipairs(group.core) do
+		core[member] = true
+		if levels[member] > 0 then
+			shown[member], free = true, free - 1
+		end
+	end
+	local alerts = {}
+	for _, member in ipairs(group.metrics) do
+		if not core[member] and levels[member] > 0 then
+			table.insert(alerts, member)
+		end
+	end
+	table.sort(alerts, function(a, b)
+		return levels[a] > levels[b]
+	end)
+	for _, member in ipairs(alerts) do
+		if free > 0 then
+			shown[member], free = true, free - 1
+		end
+	end
+	for i = #group.core, 1, -1 do
+		local member = group.core[i]
+		if free > 0 and not shown[member] then
+			shown[member], free = true, free - 1
+		end
+	end
+	return shown
+end
+
 local function pending(name, item)
 	if name == "agent_quota" then
 		return true
@@ -205,7 +248,7 @@ local function trail(item)
 end
 
 function apply(group)
-	local shown = group.pinned or { [(first_pending(group) or { name = group.metrics[1] }).name] = true }
+	local shown = group.core and slots(group) or { [(first_pending(group) or { name = group.metrics[1] }).name] = true }
 	local first, last
 	for _, member in ipairs(group.metrics) do
 		local on = group.expanded or shown[member] or false
