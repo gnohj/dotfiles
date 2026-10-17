@@ -60,6 +60,7 @@ local severity <const> = {
 
 local INNER <const> = 10
 local GLYPH_GAP <const> = 6
+local GLYPH_PAD <const> = 6
 local UPTIME_GAP <const> = 8
 
 for _, group in pairs(groups) do
@@ -90,13 +91,20 @@ function M.edge(group, width, click_script)
 	table.insert(groups[group].edges, { name = name, width = width or 8 })
 end
 
-function M.glyph(group, icon, color, y_offset)
+function M.glyph(group, icon, background, y_offset)
 	local name = "widgets.group_glyph." .. group
 	sbar.add("item", name, {
 		position = "right",
 		padding_left = 0,
 		padding_right = 0,
-		icon = { string = icon, color = color, padding_left = 0, padding_right = 0, y_offset = y_offset or 0 },
+		background = { drawing = true, color = background, height = 18, corner_radius = 9 },
+		icon = {
+			string = icon,
+			color = colors.black,
+			padding_left = GLYPH_PAD,
+			padding_right = GLYPH_PAD,
+			y_offset = y_offset or 0,
+		},
 		label = { drawing = false },
 	})
 	table.insert(groups[group].members, name)
