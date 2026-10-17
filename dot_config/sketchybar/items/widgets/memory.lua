@@ -40,6 +40,7 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 	update_freq = 10,
 	updates = true,
 	icon = {
+		font = { size = 14.0 },
 		string = "",
 		color = colors.blue,
 		padding_right = 2,

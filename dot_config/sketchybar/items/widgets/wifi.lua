@@ -18,6 +18,7 @@ local wifi = sbar.add("item", constants.items.WIFI, {
 	icon = {
 		string = settings.icons.text.wifi.disconnected,
 		color = settings.colors.magenta,
+		font = { size = 14.0 },
 		padding_left = 0,
 		padding_right = 0,
 	},

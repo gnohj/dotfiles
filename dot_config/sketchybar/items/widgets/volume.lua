@@ -8,6 +8,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 	position = "right",
 	padding_left = -10,
 	padding_right = -4,
+	icon = { font = { size = 14.0 } },
 	label = {
 		string = "??%",
 		-- net 2px to the glyph, matching cpu/memory/mic; the icons above carry no padding of their own.

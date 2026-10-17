@@ -10,6 +10,7 @@ local tailscale = sbar.add("item", constants.items.TAILSCALE, {
 	update_freq = 30,
 	icon = {
 		string = settings.icons.text.tailscale.off,
+		font = { size = 14.0 },
 		color = colors.red,
 		padding_left = 0,
 		padding_right = 0,

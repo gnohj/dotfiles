@@ -11,6 +11,7 @@ local vpn = sbar.add("item", constants.items.VPN, {
 	update_freq = 30,
 	icon = {
 		string = settings.icons.text.vpn.on,
+		font = { size = 14.0 },
 		color = colors.blue,
 		padding_left = 0,
 		padding_right = 2,
