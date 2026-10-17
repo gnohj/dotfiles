@@ -56,7 +56,7 @@ end
 local extra = add_pill(constants.items.RIFT_LAYOUT .. ".other")
 
 local shown = true
-local expanded = true
+local expanded = false
 local current
 
 local function paint(item, style, text, active)
@@ -85,12 +85,11 @@ local FULLSCREEN = " " .. utf8.char(0xF0293)
 
 local function render(active, kind, fullscreen)
 	local arrow = fullscreen and FULLSCREEN or (oriented[active] and arrows[kind] or "")
-	local chevron = expanded and " 󰄽" or " 󰄾"
 	current = active
 	for _, p in ipairs(pills) do
 		local is_active = p.mode == active
 		local text = modes[p.mode].label .. (is_active and arrow or "") .. " " .. utf8.char(0xF0635) .. " " .. p.key
-		paint(p.item, modes[p.mode], text .. (is_active and chevron or ""), is_active)
+		paint(p.item, modes[p.mode], text, is_active)
 	end
 	local other = modes[active]
 	local is_bound = false
@@ -98,7 +97,7 @@ local function render(active, kind, fullscreen)
 		is_bound = is_bound or p.mode == active
 	end
 	if other and not is_bound then
-		paint(extra, other, other.label .. arrow .. chevron, true)
+		paint(extra, other, other.label .. arrow, true)
 	else
 		extra:set({ drawing = false })
 	end
@@ -149,6 +148,7 @@ for _, p in ipairs(pills) do
 		if p.mode == current then
 			return toggle()
 		end
+		expanded = false
 		sbar.exec(LAYOUT .. " " .. p.mode, refresh)
 	end)
 end
