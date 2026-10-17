@@ -124,8 +124,8 @@ local function selectFocusedWindow(frontAppName)
 	end
 end
 
-local function updateWorkspaceIndicator(currentWorkspace, hasWindows)
-	if hasWindows and currentWorkspace then
+local function updateWorkspaceIndicator(currentWorkspace)
+	if currentWorkspace then
 		workspaceItem:set({ label = { string = currentWorkspace }, drawing = isShowingSpaces })
 	end
 end
@@ -204,8 +204,7 @@ local function updateWindows()
 	shownWorkspace = currentWorkspace
 
 	frontApps = {}
-	workspaceItem:set({ drawing = hasWindows and isShowingSpaces })
-	updateWorkspaceIndicator(currentWorkspace, hasWindows)
+	updateWorkspaceIndicator(currentWorkspace)
 
 	local used = 0
 	for _, window in ipairs(windowsJson) do
