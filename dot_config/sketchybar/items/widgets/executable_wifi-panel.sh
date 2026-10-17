@@ -183,8 +183,21 @@ list() {
 
 notify() { sketchybar --trigger wifi_refresh; }
 
+LOCK="$CACHE.lock"
+SAMPLE_MIN_AGE=20
+
+sample_once() {
+  local sampled_at
+  sampled_at="$(cache_get sampled_at)"
+  [ -n "$sampled_at" ] && [ $(($(date +%s) - sampled_at)) -lt "$SAMPLE_MIN_AGE" ] && return 0
+  [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$LOCK" 2>/dev/null
+  mkdir "$LOCK" 2>/dev/null || return 0
+  trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+  sample
+}
+
 case "${1:-list}" in
-  sample) sample ;;
+  sample) sample_once ;;
   list) list ;;
   toggle)
     [ "$(power_state)" = on ] && networksetup -setairportpower "$IFACE" off || networksetup -setairportpower "$IFACE" on

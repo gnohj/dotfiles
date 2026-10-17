@@ -3,26 +3,18 @@ local settings = require("config.settings")
 local colors = require("config.colors")
 local tiers = require("lib.tiers")
 
--- CPU usage percentage (matching btop: proper 1s sample window, not back-to-back)
+-- user + sys over 1s via iostat; top cost ~1.5s of CPU per sample
+local sampling = false
+
 local function get_cpu_percentage(callback)
-	sbar.exec(
-		[[top -l 2 -n 0 -s 1 | grep "CPU usage" | tail -1 | awk '{
-      user = $3
-      sys = $5
-      gsub(/%/, "", user)
-      gsub(/%/, "", sys)
-      total = user + sys
-      printf "%.0f", total
-    }']],
-		function(result)
-			local percentage = tonumber(result)
-			if percentage and callback then
-				callback(percentage)
-			elseif callback then
-				callback(0)
-			end
-		end
-	)
+	if sampling then
+		return
+	end
+	sampling = true
+	sbar.exec([[iostat -n0 -c2 -w1 | tail -1 | awk '{ printf "%.0f", $1 + $2 }']], function(result)
+		sampling = false
+		callback(tonumber(result) or 0)
+	end)
 end
 
 local cpu = sbar.add("item", constants.items.CPU, {
