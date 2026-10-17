@@ -39,6 +39,7 @@ KNOWN_NAMES = {
     "org.nixos.resource-report": "Lavish resource report",
     "org.nixos.resource-watch": "Lavish resource watch",
     "org.nixos.screenshot-cleanup": "Screenshot cleanup",
+    "org.nixos.screenshot-mirror": "Screenshot mirror",
     "org.nixos.sketchybar-watchdog": "SketchyBar watchdog",
     "org.nixos.usage-sampler": "Usage sampler",
     "org.nixos.nix-gc": "Nix garbage collection",

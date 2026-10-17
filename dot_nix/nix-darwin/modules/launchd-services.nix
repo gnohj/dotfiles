@@ -494,6 +494,20 @@ in
       };
     };
 
+    # Screenshot Mirror - copies each new capture to the dev-box so remote crewmates can open a pasted Mac path.
+    screenshot-mirror = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "${homeDir}/.local/bin/screenshot-mirror.sh"
+        ];
+        WatchPaths = [ "${homeDir}/Pictures/screenshots" ];
+        ThrottleInterval = 2;
+        StandardOutPath = "${homeDir}/.logs/screenshot-mirror/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/screenshot-mirror/launchagent.err.log";
+      };
+    };
+
     # Screenshot Cleanup - 04:00 daily; the script name-matches so non-screenshot files in the folder survive.
     screenshot-cleanup = {
       serviceConfig = {

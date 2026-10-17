@@ -3,7 +3,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 STAGE="/tmp/agent-clip"          # writable on macOS and Linux alike
-HOSTS=()                         # add ssh aliases here to enable remote paste (none yet — no VPS)
+HOSTS=(fleet-dev-box)            # ssh aliases that get a copy at the same path, for remote crewmates
 
 # Match macshot's "Screenshot-{date} at {time}" so hyper+x and hyper+s produce identical archive naming.
 SHOT_DIR="$HOME/Pictures/screenshots"   # not iCloud: TCC blocks terminals and agents from reading iCloud Drive
@@ -24,6 +24,6 @@ printf %s "$path" | pbcopy        # the ONE path — valid on Mac and any mirror
 
 # Mirror to each VPS at the identical path. Backgrounded so the hotkey returns instantly; unreachable hosts fail harmlessly.
 for h in "${HOSTS[@]}"; do
-  ( ssh -o ConnectTimeout=3 "$h" "mkdir -p -m 700 $STAGE && chmod 700 $STAGE && find $STAGE -type f -mmin +1440 -delete 2>/dev/null" \
-      && scp -q "$path" "$h:$path" ) >/dev/null 2>&1 &
+  ( ssh -o BatchMode=yes -o ConnectTimeout=3 "$h" "mkdir -p -m 700 $STAGE && chmod 700 $STAGE && find $STAGE -type f -mmin +1440 -delete 2>/dev/null" \
+      && scp -q -o BatchMode=yes "$path" "$h:$path" ) >/dev/null 2>&1 &
 done
