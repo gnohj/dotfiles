@@ -9,8 +9,7 @@ local settingsPane <const> = "open 'x-apple.systempreferences:com.apple.Bluetoot
 -- sbar.exec, not the item's `script` property: an item carrying both `script` and `popup` never receives it.
 local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	position = "right",
-	-- Offsets the -4 trailing padding of the volume item on its left, leaving a 3px gap.
-	padding_left = 7,
+	padding_left = 0,
 	padding_right = settings.dimens.padding.gap,
 	update_freq = 30,
 	label = { drawing = false },
@@ -53,8 +52,7 @@ local sectionTitles <const> = {
 	available = "AVAILABLE",
 }
 
--- Per-generation row names: SbarLua flushes a remove and the re-add together, so a name match would swallow the new rows.
--- Most reopens are byte-identical, so skip the rebuild and its layout churn entirely.
+-- Per-generation row names, since SbarLua flushes remove+re-add together; byte-identical reopens skip the rebuild.
 local lastResult = nil
 local opening = false
 local removePattern = nil
