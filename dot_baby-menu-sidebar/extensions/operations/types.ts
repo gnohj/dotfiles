@@ -95,6 +95,7 @@ export type ScheduleJob = {
   toggleSource: string | null;
   enabled: boolean;
   ai: boolean;
+  problem: boolean;
 };
 
 export type ScheduleSection = {

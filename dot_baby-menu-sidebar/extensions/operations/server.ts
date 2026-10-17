@@ -379,6 +379,7 @@ function parseSchedules(
       eighth = "",
       ninth = "",
       tenth = "",
+      eleventh = "",
     ] = line.split("\t");
     if (kind === "summary") {
       activeSchedules = Number(first) || 0;
@@ -402,6 +403,7 @@ function parseSchedules(
         toggleSource: sixth === "launchd" && eighth ? eighth : null,
         enabled: ninth === "true",
         ai: tenth === "true",
+        problem: eleventh === "true",
       };
       current.jobs.push(job);
     }
