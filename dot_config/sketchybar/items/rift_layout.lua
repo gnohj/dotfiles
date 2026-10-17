@@ -28,7 +28,7 @@ local function add_pill(name)
 		position = "left",
 		drawing = false,
 		icon = { font = { size = 14.0 }, padding_left = 10, padding_right = 5 },
-		label = { font = { style = settings.fonts.styles.bold, size = 14.0 }, padding_left = 0, padding_right = 11 },
+		label = { font = { style = settings.fonts.styles.regular, size = 14.0 }, padding_left = 0, padding_right = 11 },
 		background = { height = 24, corner_radius = 12, border_width = 1 },
 		padding_left = 3,
 		padding_right = 3,
