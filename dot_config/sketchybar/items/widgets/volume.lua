@@ -71,12 +71,20 @@ local volumeToggle = sbar.add("item", constants.items.VOLUME .. ".toggle", {
 	click_script = muteToggle .. " && sketchybar --trigger sound_refresh",
 })
 
+local volumeSlider = sbar.add("slider", constants.items.VOLUME .. ".slider", settings.dimens.graphics.popup.width, {
+	position = "popup." .. volumeBracket.name,
+	click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
+})
+
 local function updateHeader()
-	sbar.exec("osascript -e 'output muted of (get volume settings)'", function(muted)
-		local on = not muted:match("true")
-		sbar.exec("osascript -e 'output volume of (get volume settings)'", function(level)
-			volumeSlider:set({ slider = { highlight_color = levelColor(tonumber(level) or 0, not on) } })
-		end)
+	sbar.exec("osascript -e 'get volume settings'", function(result)
+		local muted = result:match("output muted:%s*(%a+)")
+		local level = tonumber(result:match("output volume:%s*(%d+)")) or 0
+		if muted ~= "true" and muted ~= "false" then
+			return
+		end
+		local on = muted == "false"
+		volumeSlider:set({ slider = { highlight_color = levelColor(level, not on) } })
 		volumeHeader:set({
 			icon = {
 				string = (on and settings.icons.text.volume._100 or settings.icons.text.volume._0) .. "  Output",
@@ -95,11 +103,6 @@ end
 
 volumeValue:subscribe("sound_refresh", updateHeader)
 
-local volumeSlider = sbar.add("slider", constants.items.VOLUME .. ".slider", settings.dimens.graphics.popup.width, {
-	position = "popup." .. volumeBracket.name,
-	click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
-})
-
 volumeValue:subscribe("volume_change", function(env)
 	local icon = settings.icons.text.volume._0
 	local volume = tonumber(env.INFO)
@@ -113,8 +116,7 @@ volumeValue:subscribe("volume_change", function(env)
 			icon = "􀪷"
 		elseif volume > 0 and currentOutputDevice == "Thunder Flash" or currentOutputDevice == "AirPods von Anna" then
 			icon = "􀺹"
-		-- elseif currentOutputDevice == "External Headphones" then
-		-- 	icon = "􀝎 "
+		-- elseif currentOutputDevice == "External Headphones" then icon = "􀝎 "
 		elseif volume > 60 then
 			icon = settings.icons.text.volume._100
 		elseif volume > 30 then
