@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """rift-focus-keeper - refocuses the nearest tile after a close, and follows a new window to its rule's workspace."""
 
+import fcntl
 import json
 import os
 import re
+import select
+import signal
 import subprocess
 import sys
 import time
@@ -201,24 +204,82 @@ def on_focused_window_changed(event, now):
         armed = None
 
 
-def main():
-    seed()
-    proc = subprocess.Popen([RIFT, "subscribe", "mach", "*"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-    for line in proc.stdout:
+def acquire_lock():
+    root = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "rift")
+    os.makedirs(root, exist_ok=True)
+    lock = open(os.path.join(root, "focus-keeper.lock"), "a")
+    for _ in range(20):
         try:
-            event = json.loads(line)
-        except ValueError:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lock
+        except BlockingIOError:
+            time.sleep(0.1)
+    lock.close()
+    return None
+
+
+def stop(signum, frame):
+    raise SystemExit(0)
+
+
+def events(proc, parent):
+    pending = b""
+    while parent == 1 or os.getppid() == parent:
+        if not select.select([proc.stdout], [], [], 0.5)[0]:
+            if proc.poll() is not None:
+                return
             continue
-        now = time.monotonic()
-        kind = event.get("type")
-        if kind == "windows_changed":
-            on_windows_changed(event, now)
-            refresh_centers()
-        elif kind == "layout_changed":
-            refresh_centers()
-        elif kind == "focused_window_changed":
-            on_focused_window_changed(event, now)
-    sys.exit(proc.wait() or 1)
+        chunk = os.read(proc.stdout.fileno(), 65536)
+        if not chunk:
+            return
+        pending += chunk
+        while b"\n" in pending:
+            line, pending = pending.split(b"\n", 1)
+            try:
+                yield json.loads(line)
+            except ValueError:
+                continue
+
+
+def main():
+    parent = os.getppid()
+    lock = acquire_lock()
+    if lock is None:
+        return
+    proc = None
+    status = 0
+    try:
+        if parent != 1 and os.getppid() != parent:
+            return
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
+        seed()
+        proc = subprocess.Popen([RIFT, "subscribe", "mach", "*"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        for event in events(proc, parent):
+            now = time.monotonic()
+            kind = event.get("type")
+            if kind == "windows_changed":
+                on_windows_changed(event, now)
+                refresh_centers()
+            elif kind == "layout_changed":
+                refresh_centers()
+            elif kind == "focused_window_changed":
+                on_focused_window_changed(event, now)
+        if parent == 1 or os.getppid() == parent:
+            status = proc.poll() or 1
+    finally:
+        if proc is not None:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+            proc.stdout.close()
+        lock.close()
+    if status:
+        sys.exit(status)
 
 
 if __name__ == "__main__":
