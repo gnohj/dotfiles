@@ -53,7 +53,7 @@ refresh_once() {
   command -v python3 >/dev/null 2>&1 || return 0
   command -v gitmux >/dev/null 2>&1 || return 0
   GITMUX_CFG="$GITMUX_CFG" SCRIPTS_DIR="$SCRIPTS_DIR" python3 - <<'PY'
-import glob, os, json, re, subprocess, sys, time
+import glob, os, json, re, socket, subprocess, sys, time
 
 sys.dont_write_bytecode = True             # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bin/mux/herdr")))
@@ -79,6 +79,28 @@ SYNC_SIGNS = ("\U0001f446", "\U0001f447")
 # Suffix IS the colour, so a remap is a slot move here; unknown stays bare on `ws` for herdr's own text/subtext0. Mirror of MARK_BY_STATUS in herdr-agent-activity.py.
 CFG = os.environ.get("GITMUX_CFG", os.path.expanduser("~/.config/gitmux/gitmux.yml"))
 TTL = os.environ.get("TTL_MS", "60000")
+SOCK = os.environ.get("HERDR_SOCKET_PATH")
+if not SOCK:
+    root = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "herdr")
+    session = os.environ.get("HERDR_SESSION")
+    SOCK = os.path.join(root, "sessions", session, "herdr.sock") if session else os.path.join(root, "herdr.sock")
+
+def rpc(method, params):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+        conn.settimeout(4)
+        conn.connect(SOCK)
+        conn.sendall((json.dumps({"id": "gitmux", "method": method, "params": params}) + "\n").encode())
+        with conn.makefile("rb") as stream:
+            result = json.loads(stream.readline())
+        if "error" in result:
+            raise ValueError(result["error"])
+        return result
+
+def listing(kind):
+    try:
+        return rpc(kind + ".list", {})
+    except (OSError, ValueError):
+        return json.loads(out([HERDR, kind, "list"]))
 
 def out(args, cwd=None):
     try:
@@ -92,12 +114,20 @@ def out(args, cwd=None):
 # name, so it falls back to the short sha rather than leaving the row blank.
 TICKET_PREFIX = re.compile(r"^[A-Z]+-[0-9]+-")
 _BRANCH = {}
+_HEAD = {}
+
+def branch_name(cwd):
+    if cwd not in _BRANCH:
+        _BRANCH[cwd] = out(["git", "-C", cwd, "branch", "--show-current"]).strip()
+    return _BRANCH[cwd]
+
+def short_head(cwd):
+    if cwd not in _HEAD:
+        _HEAD[cwd] = out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    return _HEAD[cwd]
 
 def raw_branch(cwd):
-    if cwd not in _BRANCH:
-        name = out(["git", "-C", cwd, "branch", "--show-current"]).strip()
-        _BRANCH[cwd] = name or out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
-    return _BRANCH[cwd]
+    return branch_name(cwd) or short_head(cwd)
 
 # firstmate's owner segment (fm/) names the owner of a workspace you are already inside, so it goes; lookahead keeps an ordinary feature/foo whole.
 OWNER_PREFIX = re.compile(r"^[a-z][A-Za-z0-9_.-]*/(?=[A-Z]+-)")
@@ -119,9 +149,7 @@ def detached_head(cwd):
     detached checkout has to read as detached rather than as a branch that happens to look like a
     sha. Every detached row renders `(<sha>)*`, homes included.
     """
-    if out(["git", "-C", cwd, "branch", "--show-current"]).strip():
-        return ""
-    return out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    return "" if branch_name(cwd) else short_head(cwd)
 
 def branch(cwd, keep_key=False):
     """Row 2 text: `<line>(<sha>)`, with a trailing `*` when HEAD is detached.
@@ -134,7 +162,7 @@ def branch(cwd, keep_key=False):
     keep_key leaves a projection's ticket key on: its row 1 is a truncated task label, not the clean
     `<repo>/<number>` an ordinary ticket worktree gets, so row 2 there names the branch as created.
     """
-    head = out(["git", "-C", cwd, "rev-parse", "--short", "HEAD"]).strip()
+    head = short_head(cwd)
     if detached_head(cwd):
         base = default_branch(cwd)
         on_line = bool(base) and subprocess.run(
@@ -158,7 +186,7 @@ def ident(cwd):
     """
     if cwd not in _IDENT:
         parts = out(["git", "-C", cwd, "rev-parse", "--path-format=absolute",
-                     "--show-toplevel", "--git-common-dir"]).split()
+                     "--show-toplevel", "--git-common-dir"]).splitlines()
         _IDENT[cwd] = (parts[0], parts[1]) if len(parts) == 2 else ("", "")
     return _IDENT[cwd]
 
@@ -188,15 +216,23 @@ def sign(cwd):
 # went second. --token and --clear-token are both repeatable and mix freely.
 def report(kind, target, values, ttl=None):
     # Fresh seq PER CALL: same source + same seq is dropped as not-newer, so a workspace needing two calls (names TTL-less, branch not) would lose the second.
-    args = [HERDR, kind, "report-metadata", target, "--source", "gitmux", "--seq", str(time.time_ns())]
+    sequence = time.time_ns()
+    args = [HERDR, kind, "report-metadata", target, "--source", "gitmux", "--seq", str(sequence)]
     if ttl != "":
         args += ["--ttl-ms", ttl or TTL]
     for name, value in values:
         args += ["--token", name + "=" + value] if value else ["--clear-token", name]
-    subprocess.run(args, capture_output=True)
+    params = {kind + "_id": target, "source": "gitmux", "seq": sequence,
+              "tokens": {name: value or None for name, value in values}}
+    if ttl != "":
+        params["ttl_ms"] = int(ttl or TTL)
+    try:
+        rpc(kind + ".report_metadata", params)
+    except (OSError, ValueError):
+        subprocess.run(args, capture_output=True)
 
 try:
-    panes = json.loads(out([HERDR, "pane", "list"]))
+    panes = listing("pane")
 except Exception:
     sys.exit(0)
 
@@ -204,7 +240,7 @@ except Exception:
 # The swap itself is herdr-focus-tracker.py's job, event-driven off workspace.focused; this
 # pass only has to agree with it, or every poll would drag the accent back to the wrong space.
 try:
-    _spaces = json.loads(out([HERDR, "workspace", "list"]))["result"]["workspaces"]
+    _spaces = listing("workspace")["result"]["workspaces"]
     focused = {w["workspace_id"] for w in _spaces if w.get("focused")}
     ws_label = {w["workspace_id"]: w.get("label") or "" for w in _spaces}
     # herdr's own rolled-up state, the same value the row's state_icon dot uses - never our guess.
@@ -274,7 +310,7 @@ def fleet_kinds():
 def live_models():
     """workspace_id -> model label (model + effort) the workspace's live agent is running now; crewmates carry theirs on row 2."""
     try:
-        agents = json.loads(out([HERDR, "agent", "list"]))["result"]["agents"]
+        agents = listing("agent")["result"]["agents"]
     except Exception:
         return {}
     models = {}
