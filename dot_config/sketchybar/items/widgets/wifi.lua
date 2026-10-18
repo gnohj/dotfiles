@@ -243,14 +243,17 @@ local function samplePopup()
 	end)
 end
 
+local refreshingIcon = false
+local iconRefreshPending = false
+local displayedIcon, displayedColor
+
 -- Bar icon stays on a fast path; ping and system_profiler take seconds, so the panel reads a cached sample.
 local function refreshIcon()
-	wifi:set({
-		icon = {
-			string = settings.icons.text.wifi.disconnected,
-			color = settings.colors.magenta,
-		},
-	})
+	if refreshingIcon then
+		iconRefreshPending = true
+		return
+	end
+	refreshingIcon = true
 
 	sbar.exec("ipconfig getifaddr en0", function(ip)
 		local wifiIcon, wifiColor = settings.icons.text.wifi.disconnected, settings.colors.red
@@ -266,14 +269,21 @@ local function refreshIcon()
 			end
 		end
 
-		wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
-
 		sbar.exec([[sleep 2; scutil --nwi | grep -m1 'utun' | awk '{ print $1 }']], function(vpn)
+			refreshingIcon = false
+			if iconRefreshPending then
+				iconRefreshPending = false
+				refreshIcon()
+				return
+			end
 			if vpn ~= "" then
 				wifiIcon = settings.icons.text.wifi.vpn
 				wifiColor = settings.colors.blue
 			end
-			wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
+			if wifiIcon ~= displayedIcon or wifiColor ~= displayedColor then
+				wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
+				displayedIcon, displayedColor = wifiIcon, wifiColor
+			end
 		end)
 	end)
 end
