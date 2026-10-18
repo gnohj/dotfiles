@@ -6,6 +6,7 @@ import os
 import plistlib
 import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from xml.parsers.expat import ExpatError
@@ -97,9 +98,36 @@ def disabled_labels(domain):
     return set(re.findall(r'"([^"]+)"\s*=>\s*disabled', result.stdout))
 
 
-def launch_state(label, domain, plist_disabled, disabled):
+def launch_snapshot():
+    result = run(["/bin/launchctl", "list"])
+    if result.returncode != 0:
+        return None
+    lines = result.stdout.splitlines()
+    if not lines or lines[0].split() != ["PID", "Status", "Label"]:
+        return None
+    rows = {}
+    for line in lines[1:]:
+        fields = line.split(None, 2)
+        if len(fields) == 3:
+            try:
+                rows[fields[2]] = (fields[0], int(fields[1]))
+            except ValueError:
+                return None
+    return rows
+
+
+def launch_state(label, domain, plist_disabled, disabled, snapshot=None):
     if plist_disabled or label in disabled:
         return {"status": "disabled", "runs": None, "active": False, "problem": False}
+    if snapshot is not None and domain == f"gui/{UID}":
+        if label not in snapshot:
+            return {"status": "unloaded", "runs": None, "active": False, "problem": True}
+        pid, exit_code = snapshot[label]
+        if pid != "-":
+            return {"status": "running", "runs": None, "active": True, "problem": False}
+        if exit_code >= 0:
+            status = "failed" if exit_code else "scheduled"
+            return {"status": status, "runs": None, "active": True, "problem": bool(exit_code)}
     result = run(["/bin/launchctl", "print", f"{domain}/{label}"])
     if result.returncode != 0:
         return {"status": "unloaded", "runs": None, "active": False, "problem": True}
@@ -187,8 +215,9 @@ def interval_remaining(label, interval, runs, now, cache):
     return human_duration(remaining)
 
 
-def plist_jobs(now, cache):
+def plist_jobs(now, cache, summary=False):
     jobs = []
+    snapshot = launch_snapshot() if summary else None
     disabled_by_domain = {}
     for directory, domain in PLIST_LOCATIONS:
         if not directory.is_dir():
@@ -210,13 +239,16 @@ def plist_jobs(now, cache):
             section = section_for(label, path)
             if section is None:
                 continue
-            state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain])
+            state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain],
+                                 None if interval else snapshot)
             manageable = domain.startswith("gui/")
             runnable = manageable and state["active"]
             if state["status"] in {"disabled", "unloaded", "failed", "running"}:
                 remaining = state["status"]
             elif interval:
                 remaining = interval_remaining(label, int(interval), state["runs"], now, cache)
+            elif summary:
+                remaining = ""
             elif calendar:
                 next_run = next_calendar(calendar, now)
                 remaining = human_duration((next_run - now).total_seconds()) if next_run else "unknown"
@@ -402,9 +434,10 @@ def claude_jobs(now):
 
 
 def main():
+    summary = "--summary" in sys.argv[1:]
     now = dt.datetime.now().astimezone()
     cache = load_cache()
-    jobs = plist_jobs(now, cache) + claude_jobs(now) + cron_jobs(now)
+    jobs = plist_jobs(now, cache, summary) + claude_jobs(now) + cron_jobs(now)
     save_cache(cache)
     jobs.sort(key=lambda job: (SECTION_ORDER[job["section"]], job["name"].lower()))
     active = sum(job["active"] for job in jobs)
