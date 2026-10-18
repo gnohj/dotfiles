@@ -33,8 +33,8 @@ config-file = ghostty-theme
 custom-shader = ./shaders/bloom025.glsl
 # custom-shader = ./shaders/cursor_blaze.gsl
 custom-shader = ./shaders/cursor_smear_fade.glsl
-# Force per-frame redraws so cursor trail shaders animate inside tmux/nvim/TUIs
-custom-shader-animation = always
+# Animate cursor trails only while focused, including inside tmux/nvim/TUIs.
+custom-shader-animation = true
 # custom-shader = ./shaders/cursor_smear.gsl
 # custom-shader = ./shaders/cineShader-Lava.glsl
 # custom-shader = ./shaders/retro-terminal.glsl
