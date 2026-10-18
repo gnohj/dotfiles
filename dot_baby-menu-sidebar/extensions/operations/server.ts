@@ -19,6 +19,7 @@ import {
   type DesktopSample,
 } from "./claude-quota";
 import { personalSubscriptions } from "./subscriptions";
+import { sharedRequest } from "./shared-request";
 import type {
   OperationsDashboard,
   QuotaColors,
@@ -487,8 +488,8 @@ async function persistSchedulePreference(
   await writeFile(marker, "");
 }
 
-export const actions = {
-  async getDashboard(): Promise<OperationsDashboard> {
+const dashboardRequest = sharedRequest(
+  async (): Promise<OperationsDashboard> => {
     const errors: string[] = [];
     const providers = await quotaProviders(errors);
     const scheduleResult = await execute("/usr/bin/python3", [
@@ -523,6 +524,10 @@ export const actions = {
       refreshedAt: new Date().toISOString(),
     };
   },
+);
+
+export const actions = {
+  getDashboard: dashboardRequest.get,
 
   async toggleSchedule(input: unknown): Promise<ToggleScheduleResult> {
     const { target, enabled } = toggleRequestFrom(input);
@@ -583,6 +588,8 @@ export const actions = {
         error: cause instanceof Error ? cause.message : String(cause),
       });
       throw cause;
+    } finally {
+      dashboardRequest.invalidate();
     }
   },
 
@@ -625,6 +632,8 @@ export const actions = {
         error: cause instanceof Error ? cause.message : String(cause),
       });
       throw cause;
+    } finally {
+      dashboardRequest.invalidate();
     }
   },
 };
