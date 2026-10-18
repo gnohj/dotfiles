@@ -28,6 +28,10 @@ config-file = ?"~/.local/state/omarchy/current/theme/ghostty.conf"
 {{- else -}}
 config-file = ghostty-theme
 {{- end }}
+{{ if eq .chezmoi.hostname .devbox_host -}}
+custom-shader =
+custom-shader-animation = false
+{{- else }}
 # custom-shader = ./shaders/tesla_coil.glsl
 # custom-shader = ./shaders/glow.glsl
 custom-shader = ./shaders/bloom025.glsl
@@ -42,6 +46,7 @@ custom-shader-animation = true
 # custom-shader = ./shaders/drunkard.glsl
 # custom-shader = ./shaders/tft.glsl
 # custom-shader = ./shaders/inside-the-matrix.glsl
+{{- end }}
 
 # fonts
 # Family name only - the face comes from font-style-*; all four pinned so kitty can't diverge.
