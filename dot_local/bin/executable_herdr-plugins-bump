@@ -2,7 +2,7 @@
 # Bump herdr plugin pins in the chezmoi source to their latest release or HEAD.
 set -euo pipefail
 
-file="$(chezmoi source-path)/run_after_mise-tools-herdr-plugins.sh"
+file="$(chezmoi source-path)/.chezmoiscripts/run_after_mise-tools-herdr-plugins.sh"
 changed=0
 
 while IFS='|' read -r id src ref track; do
