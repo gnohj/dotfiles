@@ -1,0 +1,10 @@
+[Unit]
+Description=Free review worktree leases whose review GitHub shows finished
+Documentation=file:%h/.config/gh-dash/review-worktree.sh
+
+[Service]
+Type=oneshot
+# systemd user services start near-empty; the script needs gh, jq, git, treehouse and the mux helpers.
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env bash %h/.config/gh-dash/review-worktree.sh settle
+TimeoutStartSec=300

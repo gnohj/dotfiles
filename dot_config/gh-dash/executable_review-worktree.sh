@@ -17,6 +17,7 @@
 #   review-worktree.sh release <pr-number>   # return ONE slot by PR, kills its windows
 #   review-worktree.sh reclaim               # return EVERY idle slot now, then finish any submitted-but-untorn review (gh-dash R)
 #   review-worktree.sh sweep                 # same, but two-strike deferred (auto; disabled)
+#   review-worktree.sh settle                # free leases GitHub shows finished and nothing runs in (timer)
 
 set -euo pipefail
 
@@ -95,6 +96,27 @@ mux_kind() { "$MUX" kind; }
 cwd_in_worktree() {
   printf '%s\n' "$1" | awk -v wt="$2" '$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit f ? 0 : 1 }'
 }
+
+# /proc first: the VPS has no lsof.
+_process_cwds() {
+  if [ -d /proc/self ]; then
+    for p in /proc/[0-9]*/cwd; do readlink "$p" 2>/dev/null || true; done
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' || true
+  else
+    return 1
+  fi
+}
+
+# Unknown counts as occupied: this backs a destructive release.
+_occupied() {
+  local cwds
+  cwds="$(_process_cwds)" || return 0
+  cwd_in_worktree "$cwds" "$1"
+}
+
+# -u on macOS: GitHub timestamps are UTC, and a local-time parse shifts them by the zone offset.
+_epoch() { date -d "$1" +%s 2>/dev/null || date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s 2>/dev/null || echo 0; }
 
 cmd="${1:-}"
 pr="${2:-}"
@@ -252,6 +274,42 @@ reconcile_artifacts() {
     [ -n "$out" ] && printf '%s\n' "$out" | while IFS= read -r l; do _slog "  reconcile: $l"; done
     return 0
   done
+}
+
+_review_done() {
+  local wt="$1" pr="$2" since="$3" repo state me newest
+  repo="$(git -C "$wt" remote get-url origin 2>/dev/null | sed -E 's#^(git@[^:]+:|[a-z]+://([^@/]+@)?[^/]+/)##; s#\.git$##' || true)"
+  [ -n "$repo" ] || return 1
+  state="$(gh api "repos/$repo/pulls/$pr" -q '.merged_at // .state' 2>/dev/null)" || return 1
+  case "$state" in
+    closed | 20*) echo "PR merged/closed"; return 0 ;;
+  esac
+  me="$(gh api user -q .login 2>/dev/null)" || return 1
+  newest="$(gh api "repos/$repo/pulls/$pr/reviews" --paginate --slurp 2>/dev/null |
+    jq -r --arg me "$me" '[add // [] | .[] | select(.user.login == $me and .submitted_at != null) | .submitted_at] | max // empty' 2>/dev/null)"
+  [ -n "$newest" ] && [ "$(_epoch "$newest")" -gt "$since" ] || return 1
+  echo "review posted $newest"
+}
+
+# Timer backstop for leases finish never freed: a failed return, or a page reopened after posting.
+settle() {
+  local f pr wt why freed=0
+  [ -d "$STATE_DIR" ] || return 0
+  command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
+  for f in "$STATE_DIR"/*; do
+    [ -f "$f" ] || continue
+    pr="${f##*/}"
+    case "$pr" in '' | *[!0-9]*) continue ;; esac
+    wt="$(cat "$f" 2>/dev/null || true)"
+    [ -n "$wt" ] && [ -d "$wt" ] || continue
+    _occupied "$wt" && continue
+    why="$(_review_done "$wt" "$pr" "$(_mtime "$f")")" || continue
+    _slog "  SETTLE $pr: $why, nothing running in $wt"
+    release_pr "$pr"
+    freed=$((freed + 1))
+  done
+  [ "$freed" -eq 0 ] || notify "🧹 Freed $freed finished review slot$([ "$freed" -eq 1 ] || echo s)"
+  return 0
 }
 
 # Prints why an artifact must survive teardown: a page open in a browser is invisible to any window check.
@@ -447,6 +505,7 @@ case "$cmd" in
   release) release_pr "$pr" ;;
   sweep) sweep ;;
   reclaim) sweep immediate; reconcile_artifacts ;;
+  settle) settle ;;
   *)
     echo "unknown command: $cmd" >&2
     exit 2

@@ -39,6 +39,7 @@ KNOWN_NAMES = {
     "org.nixos.sb-audit-reminder": "Vault audit reminder",
     "org.nixos.resource-report": "Lavish resource report",
     "org.nixos.resource-watch": "Lavish resource watch",
+    "org.nixos.review-settle": "Review slot settle",
     "org.nixos.screenshot-cleanup": "Screenshot cleanup",
     "org.nixos.screenshot-mirror": "Screenshot mirror",
     "org.nixos.sketchybar-watchdog": "SketchyBar watchdog",

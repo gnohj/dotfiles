@@ -542,6 +542,25 @@ in
       };
     };
 
+    # Frees review worktree leases once GitHub shows the review finished and nothing runs in them.
+    review-settle = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/review-settle
+            export PATH="${homeDir}/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:${homeDir}/.local/share/mise/shims:/usr/bin:/bin:/usr/sbin"
+            exec /bin/bash ${homeDir}/.config/gh-dash/review-worktree.sh settle
+          ''
+        ];
+        StartInterval = 900;
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/review-settle/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/review-settle/launchagent.err.log";
+      };
+    };
+
     # Log Cleanup
     # Cleans up old log files from ~/.logs every 72 hours
     # Keeps logs from current month and previous month only
