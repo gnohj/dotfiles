@@ -145,7 +145,14 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
   #
   # Check for recent modifications only if NOWAIT is false
   if ! $NOWAIT; then
-    RECENT_MODIFICATIONS=$(find . -type f -not -path './.git/*' -newermt "-${PUSH_INTERVAL} seconds" 2>/dev/null)
+    if command -v python3 >/dev/null 2>&1 && [[ -f "$HOME/.local/libexec/git-recent-files.py" ]]; then
+      if ! RECENT_MODIFICATIONS=$(python3 "$HOME/.local/libexec/git-recent-files.py" "$PUSH_INTERVAL"); then
+        log_message "ERROR" "$REPO_NAME" "Could not check recent modifications - skipping push"
+        continue
+      fi
+    else
+      RECENT_MODIFICATIONS=$(find . -type f -not -path './.git/*' -newermt "-${PUSH_INTERVAL} seconds" 2>/dev/null)
+    fi
     # If RECENT_MODIFICATIONS is not empty (-n), it skips pushing changes for this repository
     if [[ -n "$RECENT_MODIFICATIONS" ]]; then
       log_message "INFO" "$REPO_NAME" "Skipping push due to recent modifications"
