@@ -2,12 +2,12 @@ if vim.g.vscode then
   return {}
 end
 
--- set in ~/.config/colorscheme/colorscheme-vars.sh
--- set in ~/.config/nvim/init.lua
+-- init.lua reads transparency from colorscheme-vars.sh.
 local transparent = vim.g.theme_transparent == "transparent"
 return {
   "everviolet/nvim",
   name = "evergarden",
+  lazy = true,
   priority = 1000, -- Colorscheme plugin is loaded first before any other plugins
   opts = {
     theme = {
