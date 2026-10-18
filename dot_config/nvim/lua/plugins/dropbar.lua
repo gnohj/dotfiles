@@ -264,13 +264,10 @@ return {
                 file_path = home .. file_path:sub(2)
               end
 
-              local git_root = vim.fn.system(
-                "cd "
-                  .. vim.fn.shellescape(vim.fn.fnamemodify(file_path, ":h"))
-                  .. " && git rev-parse --show-toplevel 2>/dev/null"
+              local git_root = require("config.repo-root").resolve(
+                vim.fn.fnamemodify(file_path, ":h")
               )
-              git_root = git_root:gsub("\n", "")
-              local is_git_repo = git_root ~= "" and vim.v.shell_error == 0
+              local is_git_repo = git_root ~= ""
 
               local base_path = ""
               local relative_path = ""
