@@ -81,6 +81,7 @@ import os
 import re
 import select
 import socket
+import string
 import subprocess
 import sys
 import time
@@ -267,6 +268,17 @@ class Sampler:
         self.city_at = 0.0
         self.repos = None
         self.repos_at = None
+        self.required = {"hostcity"}
+        pending = [FORMAT, RES_FORMAT, TIME_FORMAT]
+        while pending:
+            try:
+                for _, field, spec, _ in string.Formatter().parse(pending.pop()):
+                    if field:
+                        self.required.add(re.split(r"[.\[]", field, maxsplit=1)[0])
+                    if spec:
+                        pending.append(spec)
+            except ValueError:
+                pass
 
     def cpu(self):
         total, idle = cpu_times()
@@ -365,38 +377,45 @@ class Sampler:
         fields["host"] = host
         fields["city"] = town or "-"
         fields["hostcity"] = f"{host}@{town}" if town else host
-        fields["time"], fields["tz"] = clock()
-        try:
-            fields["load"] = f"{os.getloadavg()[0]:.2f}"
-        except OSError:
-            pass
-        try:
-            st = os.statvfs("/")
-            fields["disk"] = f"{(1 - st.f_bavail / st.f_blocks) * 100:02.0f}%"
-        except (OSError, ZeroDivisionError):
-            pass
-        try:
-            fields["cpu"] = self.cpu()
-        except (OSError, IndexError, ValueError):
-            pass
-        try:
-            # The shared entry point, not sysfs inline, so macOS and Linux cannot drift apart.
-            reading = subprocess.run([os.path.expanduser("~/.local/bin/cpu-temp")],
-                                     capture_output=True, text=True, timeout=3)
-            if reading.returncode == 0 and reading.stdout.strip():
-                fields["temp"] = reading.stdout.strip() + "\u00b0"
-        except (OSError, subprocess.SubprocessError):
-            pass
-        try:
-            used, total = meminfo()
-            fields["mem"], fields["memtot"] = human(used), human(total)
-            fields["memp"] = f"{used / total * 100:02.0f}%"
-        except (OSError, KeyError, ZeroDivisionError):
-            pass
-        try:
-            fields["up"] = uptime()
-        except (OSError, IndexError, ValueError, AttributeError, subprocess.SubprocessError):
-            pass
+        if self.required & {"time", "tz"}:
+            fields["time"], fields["tz"] = clock()
+        if "load" in self.required:
+            try:
+                fields["load"] = f"{os.getloadavg()[0]:.2f}"
+            except OSError:
+                pass
+        if "disk" in self.required:
+            try:
+                st = os.statvfs("/")
+                fields["disk"] = f"{(1 - st.f_bavail / st.f_blocks) * 100:02.0f}%"
+            except (OSError, ZeroDivisionError):
+                pass
+        if "cpu" in self.required:
+            try:
+                fields["cpu"] = self.cpu()
+            except (OSError, IndexError, ValueError):
+                pass
+        if "temp" in self.required:
+            try:
+                # The shared entry point, not sysfs inline, so macOS and Linux cannot drift apart.
+                reading = subprocess.run([os.path.expanduser("~/.local/bin/cpu-temp")],
+                                         capture_output=True, text=True, timeout=3)
+                if reading.returncode == 0 and reading.stdout.strip():
+                    fields["temp"] = reading.stdout.strip() + "\u00b0"
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if self.required & {"mem", "memtot", "memp"}:
+            try:
+                used, total = meminfo()
+                fields["mem"], fields["memtot"] = human(used), human(total)
+                fields["memp"] = f"{used / total * 100:02.0f}%"
+            except (OSError, KeyError, ZeroDivisionError):
+                pass
+        if "up" in self.required:
+            try:
+                fields["up"] = uptime()
+            except (OSError, IndexError, ValueError, AttributeError, subprocess.SubprocessError):
+                pass
         return fields
 
     def sample(self):
@@ -564,9 +583,12 @@ def main():
     sampler = Sampler()
     if arg in ("--print", "--once"):
         # Prefer the previous run's counters (a full refresh interval); prime only on a cold start.
-        if not sampler.load_prev():
-            sampler.sample()
-            time.sleep(PRIME)
+        if "cpu" in sampler.required and LINUX and not sampler.load_prev():
+            try:
+                sampler.cpu()
+                time.sleep(PRIME)
+            except (OSError, IndexError, ValueError):
+                pass
         (line, res_line, time_line), (repos_line, sync_line, _) = sampler.sample(), sampler.render_repos()
         sampler.save_prev()
         if arg == "--print":
