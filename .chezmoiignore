@@ -186,6 +186,10 @@ Library/
 .config/systemd/user/axi-bridge-sweep.service
 .config/systemd/user/axi-bridge-sweep.timer
 
+# review settle - same story: macOS runs the identical command from its launchd agent `review-settle`.
+.config/systemd/user/review-settle.service
+.config/systemd/user/review-settle.timer
+
 # resource-watch recorder - same story: macOS runs the identical script from its launchd agent `resource-watch`.
 .config/systemd/user/resource-watch.service
 
