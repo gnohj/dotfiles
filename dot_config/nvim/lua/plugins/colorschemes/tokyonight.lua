@@ -4,8 +4,7 @@ end
 
 local colors = require("config.colors")
 
--- set in ~/.config/colorscheme/colorscheme-vars.sh
--- set in ~/.config/nvim/init.lua
+-- init.lua reads transparency from colorscheme-vars.sh.
 local transparent = vim.g.theme_transparent == "transparent"
 
 return {
@@ -14,12 +13,7 @@ return {
   config = function()
     require("tokyonight").setup({
       style = "storm",
-      -- tokyonight keys its compiled-highlight cache on {version, opts,
-      -- plugins, on_colors palette} — but NOT on the on_highlights function
-      -- body. Editing on_highlights (e.g. Diff* groups) therefore never busts
-      -- the cache and the stale compile is served forever. Disable the cache so
-      -- highlight tweaks always take effect; the recompile cost is negligible.
-      cache = false,
+      cache = true,
       transparent = transparent,
       styles = {
         sidebars = transparent and "transparent" or "dark",
@@ -205,8 +199,7 @@ return {
           italic = true,
         }
 
-        -- Codeblocks for the render-markdown plugin
-        -- RenderMarkdownCode = { bg = colors["gnohj_color02"] }
+        -- Optional RenderMarkdownCode background: gnohj_color02.
 
         -- Core syntax elements
         hl["@variable"] = { fg = colors["gnohj_color14"] } -- normal text color for variables
@@ -309,12 +302,10 @@ return {
         -- fff.nvim picker normal text (filename, prompt body) — gnohj white.
         hl.FFFNormal = { fg = colors["gnohj_color6"] }
 
-        -- fff.nvim directory-path text. Default links to Comment which
-        -- collides with the cursor-row highlight on the active row.
+        -- FFF's default Comment link clashes with the selected row.
         hl.FFFDirectoryPath = { fg = colors["gnohj_color47"] }
 
-        -- fff.nvim git status colors — match the rest of the gnohj
-        -- git convention (gitsigns, mini.diff, diff*).
+        -- FFF git colors match gitsigns, mini.diff, and diff highlights.
         hl.FFFGitStaged = { fg = colors["gnohj_color02"] }
         hl.FFFGitModified = { fg = colors["gnohj_color05"] }
         hl.FFFGitDeleted = { fg = colors["gnohj_color11"] }
@@ -350,11 +341,9 @@ return {
         hl.DropBarIconKindFolder = { fg = colors["gnohj_color09"] }
         hl.DropBarKindFolder = { fg = colors["gnohj_color04"] }
         hl.DropBarKindFile = { fg = colors["gnohj_color06"] }
-        -- RenderMarkdownQuote = { fg = colors["gnohj_color12"] }
-        -- hl.RenderMarkdownLink = { fg = hl_colors.blue, sp = "NONE", undercurl = false }
+        -- Optional Markdown styles: color12 quotes, blue links without undercurl.
 
-        -- Noice
-        -- Default/generic elements
+        -- Noice default elements.
         hl.NoiceCmdlinePopupBorder = { fg = hl_colors.border }
         hl.NoiceCmdlinePopupTitle = { fg = colors["gnohj_color04"] }
         hl.NoiceCmdlineIcon = { fg = colors["gnohj_color04"] }

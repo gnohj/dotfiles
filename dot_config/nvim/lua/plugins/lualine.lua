@@ -7,10 +7,7 @@ end
 local function buffer_count_with_unsaved()
   local unsaved_count = 0
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if
-      vim.api.nvim_buf_is_loaded(buf)
-      and vim.bo[buf].modified
-    then
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].modified then
       unsaved_count = unsaved_count + 1
     end
   end
@@ -40,14 +37,10 @@ local function get_file_permissions()
   return file_path and vim.fn.getfperm(file_path) or ""
 end
 
--- codediff hunk count — renders only when a codediff session is active
--- in the current tab. Reads session.stored_diff_result.changes (the
--- internal hunk array — same source navigation.lua / next_hunk uses).
--- Returns empty string when there's no session, which makes lualine
--- hide the component automatically (no `cond` callback needed).
+-- Count active-tab CodeDiff navigation hunks; empty output hides the component.
 local function codediff_hunk_count()
-  local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
-  if not ok then
+  local lifecycle = package.loaded["codediff.ui.lifecycle"]
+  if not lifecycle then
     return ""
   end
   local session = lifecycle.get_session(vim.api.nvim_get_current_tabpage())
@@ -58,9 +51,7 @@ local function codediff_hunk_count()
   if not changes or #changes == 0 then
     return ""
   end
-  -- modified_path tracks the currently-viewed file (updated on file switch in
-  -- explorer mode); fall back to original_path for deletes/renames. It's stored
-  -- relative to the git root, so it's already repo-relative.
+  -- Explorer paths are repo-relative; deletes/renames may need original_path.
   local path = session.modified_path or session.original_path
   local hunks = "󰊢 " .. tostring(#changes) .. " hunks"
   if path and path ~= "" then
@@ -211,15 +202,7 @@ return {
       sections = {
         lualine_a = { { "mode", separator = { left = "", right = "" } } },
         lualine_b = {
-          -- {
-          --   "branch",
-          --   color = {
-          --     -- bg = colors["gnohj_color08"],
-          --     fg = colors["gnohj_color24"],
-          --     gui = "bold",
-          --   },
-          --   separator = { left = "", right = "" },
-          -- },
+          -- Optional branch: bold color24, optional color08 bg, no separators.
         },
         lualine_c = {
           {
@@ -235,25 +218,7 @@ return {
               hint = icons.diagnostics.Hint,
             },
           },
-          -- {
-          --   "diff",
-          --   symbols = {
-          --     added = icons.git.added,
-          --     modified = icons.git.modified,
-          --     removed = icons.git.removed,
-          --   },
-          --   source = function()
-          --     local gitsigns = vim.b.gitsigns_status_dict
-          --     if gitsigns then
-          --       return {
-          --         added = gitsigns.added,
-          --
-          --         modified = gitsigns.changed,
-          --         removed = gitsigns.removed,
-          --       }
-          --     end
-          --   end,
-          -- },
+          -- Optional diff: icons.git signs with vim.b.gitsigns_status_dict counts.
           {
             current_buffer_unsaved_dot,
             color = { fg = colors["gnohj_color11"] },
@@ -303,15 +268,7 @@ return {
           { "filetype" },
         },
         lualine_y = {
-          -- {
-          --   "progress",
-          --   color = {
-          --     fg = colors["gnohj_color04"],
-          --     bg = "NONE",
-          --   },
-          --   separator = { left = "", right = "" },
-          --   padding = { left = 0, right = 1 },
-          -- },
+          -- Optional progress: color04 on NONE, no separators, padding 0/1.
         },
         lualine_z = {
           {
@@ -325,26 +282,7 @@ return {
           },
         },
       },
-      -- winbar = {
-      --   lualine_b = {
-      --     {
-      --       file_path,
-      --       color = { fg = colors["gnohj_color03"], bg = "NONE", gui = "bold" },
-      --     },
-      --   },
-      -- },
-      -- inactive_winbar = {
-      --   lualine_b = {
-      --     {
-      --       file_path,
-      --       color = {
-      --         fg = colors["gnohj_color09"],
-      --         bg = "NONE",
-      --         gui = "italic",
-      --       },
-      --     },
-      --   },
-      -- },
+      -- Optional lualine_b file_path winbar: bold color03, inactive italic color09; bg NONE.
     }
   end,
 }
