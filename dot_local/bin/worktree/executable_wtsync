@@ -19,6 +19,10 @@ command -v zoxide >/dev/null 2>&1 || exit 0
 # which the user's `z` never reads — so the entries would silently vanish.
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
 
+if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.local/libexec/worktree-sync.py" ]; then
+  exec python3 "$HOME/.local/libexec/worktree-sync.py"
+fi
+
 # Add ONLY worktrees not already in the DB. `zoxide add` bumps a path's
 # frecency score on every call, so bulk-adding existing entries on each shell
 # start / picker open would inflate worktree ranks over dirs actually visited.
