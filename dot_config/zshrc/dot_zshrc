@@ -22,10 +22,16 @@ _evalcache() {
   local name=$1
   local cache="$ZDOTDIR/.zsh_cache/$name.zsh"
   shift
-  [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache"
+  [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache" || return
   # ~/.zshenv too: `mise activate` bakes the live PATH in, so a PATH edit there must bust this cache.
   if [[ ! -s "$cache" || "${commands[$1]}" -nt "$cache" || "$HOME/.zshenv" -nt "$cache" ]]; then
-    "$@" > "$cache" 2>/dev/null
+    local pending
+    pending=$(mktemp "$cache.XXXXXX") || return
+    if "$@" > "$pending" 2>/dev/null && [[ -s "$pending" ]]; then
+      command mv -f -- "$pending" "$cache"
+    else
+      command rm -f -- "$pending"
+    fi
   fi
   [[ -s "$cache" ]] && source "$cache"
 }
@@ -407,7 +413,14 @@ _worktree_autofetch_origin() {
   # deleted (merged PR cleanup, dependabot churn, etc.). Free side
   # effect every 5 min — keeps `git branch -r` and lazygit's branch
   # list from accumulating dead refs.
-  ( git -C "$bare" fetch origin --quiet --prune 2>/dev/null && print -n "$now" > "$stamp" ) &!
+  (
+    zmodload zsh/system || return
+    : >> "$bare/.fetch-lock" || return
+    zsystem flock -t 0 "$bare/.fetch-lock" || return
+    [[ -f "$stamp" ]] && last=$(<"$stamp")
+    (( EPOCHSECONDS - last < 300 )) && return
+    git -C "$bare" fetch origin --quiet --prune && print -n "$EPOCHSECONDS" > "$stamp"
+  ) 2>/dev/null &!
 }
 add-zsh-hook chpwd _worktree_autofetch_origin
 
@@ -562,24 +575,27 @@ zinit snippet OMZP::golang
 
 # Load completions - run full audit once per day, use cache otherwise
 autoload -Uz compinit
-# Day-of-year of the compdump's mtime vs today, via zsh modules so no stat/date forks.
+# Compare calendar dates through zsh modules, without stat/date processes.
 zmodload zsh/datetime
 zmodload -F zsh/stat b:zstat
 # Runs after the first prompt (fzf-tab's atinit), so the ~15ms of compinit never delays it.
 _compinit_deferred() {
   local compdump_day= today= compdump_mtime
-  strftime -s today %j $EPOCHSECONDS
+  strftime -s today %Y-%m-%d $EPOCHSECONDS
   if zstat -A compdump_mtime +mtime -- "$ZSH_COMPDUMP" 2>/dev/null; then
-    strftime -s compdump_day %j $compdump_mtime
+    strftime -s compdump_day %Y-%m-%d $compdump_mtime
   fi
   if [[ -n "$compdump_day" && "$today" == "$compdump_day" ]]; then
-    compinit -C -d "$ZSH_COMPDUMP"  # Same day: skip audit, use cache
+    compinit -C -d "$ZSH_COMPDUMP" || return  # Same day: skip audit, use cache
   else
-    compinit -d "$ZSH_COMPDUMP"     # New day: full audit + rebuild cache
+    compinit -d "$ZSH_COMPDUMP" || return  # New day: full audit + rebuild cache
+    [[ -s "$ZSH_COMPDUMP" ]] && command touch -- "$ZSH_COMPDUMP"
     rm -f -- "$ZSH_COMPDUMP".*(N.mh+1)  # temp dumps orphaned by shells killed mid-compinit
   fi
   # compinit sources the .zwc when it is newer, which loads faster than the plain dump.
-  [[ ! -s "$ZSH_COMPDUMP" || "$ZSH_COMPDUMP.zwc" -nt "$ZSH_COMPDUMP" ]] || zcompile "$ZSH_COMPDUMP"
+  if [[ -s "$ZSH_COMPDUMP" && ( ! -s "$ZSH_COMPDUMP.zwc" || "$ZSH_COMPDUMP" -nt "$ZSH_COMPDUMP.zwc" ) ]]; then
+    zcompile "$ZSH_COMPDUMP"
+  fi
   zinit cdreplay -q
   # Resolve AWS completions beside the active CLI, not a stale /usr/local install.
   local aws_completer=${commands[aws]:h}/aws_completer
@@ -1496,7 +1512,7 @@ if [[ -n "$TMUX" ]]; then
   }
   trap cleanup_tmux_pane EXIT
 
-  chpwd_functions+=(update_tmux_pwd)
+  add-zsh-hook chpwd update_tmux_pwd
   function z() {
     __zoxide_z "$@" && update_tmux_pwd
   }
