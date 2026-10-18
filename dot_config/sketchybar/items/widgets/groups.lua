@@ -69,6 +69,17 @@ for _, group in pairs(groups) do
 end
 
 local M = {}
+local applied = {}
+
+local function set_changed(name, property, value)
+	local previous = applied[name] or {}
+	if previous[property] == value then
+		return
+	end
+	sbar.set(name, { [property] = value })
+	previous[property] = value
+	applied[name] = previous
+end
 
 local function side(group)
 	return group and groups[group].side or "right"
@@ -166,10 +177,10 @@ end
 function M.show(group, on)
 	local drawing = on and "on" or "off"
 	for _, member in ipairs(groups[group].members) do
-		sbar.set(member, { drawing = drawing })
+		set_changed(member, "drawing", drawing)
 	end
 	if groups[group].gap then
-		sbar.set(groups[group].gap, { drawing = drawing })
+		set_changed(groups[group].gap, "drawing", drawing)
 	end
 end
 
@@ -260,7 +271,7 @@ function apply(group)
 	local first, last
 	for _, member in ipairs(group.metrics) do
 		local on = group.expanded or shown[member] or false
-		sbar.set(member, { drawing = on and "on" or "off" })
+		set_changed(member, "drawing", on and "on" or "off")
 		if on then
 			first, last = first or member, member
 		end
@@ -272,24 +283,25 @@ function apply(group)
 		return
 	end
 	if group.uptime then
-		sbar.set(group.uptime, { padding_left = UPTIME_GAP - trail(rightmost) })
+		set_changed(group.uptime, "padding_left", UPTIME_GAP - trail(rightmost))
 		rightmost = sbar.query(group.uptime)
 	end
 	if group.glyph then
-		sbar.set(group.glyph, { padding_right = GLYPH_GAP - left.geometry.padding_left - left.icon.padding_left })
+		set_changed(group.glyph, "padding_right", GLYPH_GAP - left.geometry.padding_left - left.icon.padding_left)
 		left = sbar.query(group.glyph)
 	end
 	local edge, closing = group.edges[#group.edges], group.edges[1]
 	if group.side == "left" then
 		edge, closing = closing, edge
 	end
-	sbar.set(edge.name, {
-		width = (group.expanded and not group.glyph) and edge.width
-			or math.max(-left.geometry.padding_left, INNER - left.geometry.padding_left - left.icon.padding_left),
-	})
-	sbar.set(closing.name, { width = math.max(0, INNER - trail(rightmost)) })
+	set_changed(
+		edge.name,
+		"width",
+		(group.expanded and not group.glyph) and edge.width
+			or math.max(-left.geometry.padding_left, INNER - left.geometry.padding_left - left.icon.padding_left)
+	)
+	set_changed(closing.name, "width", math.max(0, INNER - trail(rightmost)))
 end
-
 
 function M.build()
 	local brackets = {}
@@ -339,7 +351,7 @@ function M.build()
 					end
 				end
 			end
-			brackets[name]:set({ background = { border_color = border or hex(IDLE) } })
+			set_changed(brackets[name].name, "background.border_color", border or hex(IDLE))
 			::continue::
 		end
 	end
