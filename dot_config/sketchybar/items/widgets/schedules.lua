@@ -170,18 +170,34 @@ local function render(state)
 	opening = false
 end
 
+local refreshId = 0
+
 local function refresh()
-	sbar.exec(scriptPath, function(result)
-		local state = parse(result)
-		updateIcon(state)
-		if opening then
-			render(state)
+	refreshId = refreshId + 1
+	local requestId = refreshId
+	popup.query(schedules, function(isOpen)
+		if requestId ~= refreshId then
 			return
 		end
-		popup.query(schedules, function(isOpen)
-			if isOpen then
-				render(state)
+		local details = opening or isOpen
+		sbar.exec(scriptPath .. (details and "" or " --summary"), function(result)
+			if requestId ~= refreshId then
+				return
 			end
+			local state = parse(result)
+			updateIcon(state)
+			if not details then
+				return
+			end
+			if opening then
+				render(state)
+				return
+			end
+			popup.query(schedules, function(stillOpen)
+				if stillOpen and requestId == refreshId then
+					render(state)
+				end
+			end)
 		end)
 	end)
 end
