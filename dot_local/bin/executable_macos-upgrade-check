@@ -95,7 +95,7 @@ check_keyboard() {
   ext="$(systemextensionsctl list 2>/dev/null | grep -i 'Karabiner-DriverKit-VirtualHIDDevice')"
   case "$ext" in
     *"activated enabled"*) ok driver-ext "VirtualHIDDevice activated enabled" ;;
-    "") bad driver-ext "VirtualHIDDevice extension missing" "step 5: bash ~/.local/share/chezmoi/run_onchange_after_karabiner-driverkit.sh, approve in Login Items & Extensions > Driver Extensions" ;;
+    "") bad driver-ext "VirtualHIDDevice extension missing" "step 5: bash ~/.local/share/chezmoi/.chezmoiscripts/run_onchange_after_karabiner-driverkit.sh, approve in Login Items & Extensions > Driver Extensions" ;;
     *) bad driver-ext "VirtualHIDDevice not active: $ext" "step 5: Manager forceActivate, approve in Login Items & Extensions > Driver Extensions, reboot (external keyboard)" ;;
   esac
   if [ "$(daemon_state org.nixos.karabiner-vhid-daemon)" = "running" ]; then

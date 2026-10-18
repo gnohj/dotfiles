@@ -68,11 +68,11 @@ tasks
 # NOTE: .chezmoiignore matches the TARGET path (.config/foo), NOT the source
 # name (dot_config/foo) — source-style patterns silently match nothing.
 {{- if ne .chezmoi.os "darwin" }}
-# macOS system scripts (stripped target names)
-mac_system.sh
-karabiner-driverkit.sh
-claude-desktop-launchers.sh
-msteams-url-handler.sh
+# macOS system scripts (stripped target names under .chezmoiscripts/)
+.chezmoiscripts/mac_system.sh
+.chezmoiscripts/karabiner-driverkit.sh
+.chezmoiscripts/claude-desktop-launchers.sh
+.chezmoiscripts/msteams-url-handler.sh
 
 # macOS LaunchAgents/Daemons
 Library/
@@ -113,7 +113,7 @@ Library/
 .local/libexec/rift-layout
 .local/libexec/rift-workspace
 .local/bin/rift-focus-keeper
-build-libexec-helpers.sh
+.chezmoiscripts/build-libexec-helpers.sh
 
 # Nix: only nix-darwin reads ~/.nix; the VPS runs home-manager straight from the chezmoi source tree, so no copy is needed there.
 .nix/
@@ -161,8 +161,8 @@ build-libexec-helpers.sh
 .local/bin/wl-copy
 
 # Slim non-Nix toolchain bootstrap — only runs on a Linux VPS. .chezmoiignore
-# matches the TARGET name (source run_onchange_after_linux-bootstrap.sh.tmpl).
-linux-bootstrap.sh
+# matches the TARGET name (source .chezmoiscripts/run_onchange_after_linux-bootstrap.sh.tmpl).
+.chezmoiscripts/linux-bootstrap.sh
 
 # herdr systemd user services + .path activation units — Linux/systemd only (macOS
 # would be launchd jobs). The enable scripts (run_onchange_after_enable-herdr-*.sh.tmpl)
