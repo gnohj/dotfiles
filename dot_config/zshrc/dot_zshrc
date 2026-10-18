@@ -1644,21 +1644,32 @@ fi
 if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
     if command -v fastfetch &>/dev/null; then
         # The image plus the 36-column boxes need ~75 columns; narrower panes drop the image, and below the boxes skip it.
-        _fetch_render() {
-            if (( COLUMNS >= 75 )); then
+        _fetch_draw() {
+            local cols=${1#* }
+            print -n '\e_Ga=d\e\\\e[H\e[2J\e[3J'
+            if (( cols >= 75 )); then
                 fastfetch
-            elif (( COLUMNS >= 38 )); then
+            elif (( cols >= 38 )); then
                 fastfetch --logo none
             fi
         }
+        # A resize while fastfetch runs signals fastfetch, not the shell, so redraw until the size holds still.
+        _fetch_render() {
+            local size=$(stty size) drawn i
+            for i in {1..5}; do
+                drawn=$size
+                _fetch_draw $drawn
+                size=$(stty size)
+                [[ $size == $drawn ]] && break
+            done
+        }
         # Tiling shrinks the window after (or while) the fetch draws, so redraw it on every resize until the first command runs.
         TRAPWINCH() {
-            print -n '\e_Ga=d\e\\\e[H\e[2J\e[3J'
             _fetch_render
             zle && zle reset-prompt
         }
         _fetch_stop_redraw() {
-            unfunction TRAPWINCH _fetch_render _fetch_stop_redraw
+            unfunction TRAPWINCH _fetch_render _fetch_draw _fetch_stop_redraw
             add-zsh-hook -d preexec _fetch_stop_redraw
         }
         add-zsh-hook preexec _fetch_stop_redraw
