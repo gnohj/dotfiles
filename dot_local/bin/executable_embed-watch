@@ -24,12 +24,30 @@ sweep() {
   local snapshot pid ppid cmd walk depth
   declare -A ppid_of cmd_of
   # One snapshot feeds both detection and the walk, so the chain cannot rot between two ps calls.
-  snapshot=$(ps -axo pid=,ppid=,command= 2>/dev/null)
+  snapshot=$(ps -axo pid=,ppid=,command= 2>/dev/null | awk '
+    {
+      pid = $1; parent[pid] = $2; executable = $3
+      $1 = $2 = ""; sub(/^ +/, ""); command[pid] = $0
+      if (executable ~ /(^|\/)nvim$/ && $0 ~ / --embed/) embedded[pid] = 1
+    }
+    END {
+      for (pid in embedded) {
+        wanted[pid] = 1
+        walk = parent[pid]
+        for (depth = 0; walk && depth < 12; depth++) {
+          if (!(walk in command)) break
+          wanted[walk] = 1
+          if (walk == 1) break
+          walk = parent[walk]
+        }
+      }
+      for (pid in wanted) print pid " " parent[pid] " " command[pid]
+    }')
   while read -r pid ppid cmd; do
     [ -n "${pid:-}" ] || continue
     ppid_of[$pid]=$ppid
     cmd_of[$pid]=$cmd
-  done <<<"$(printf '%s\n' "$snapshot" | awk '{pid=$1;pp=$2;$1=$2="";sub(/^ +/,"");print pid" "pp" "$0}')"
+  done <<<"$snapshot"
 
   local exe base
   for pid in "${!cmd_of[@]}"; do
