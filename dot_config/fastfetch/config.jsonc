@@ -50,11 +50,6 @@
       "keyColor": "red",
     },
     {
-      "type": "swap",
-      "key": "│ ├SW",
-      "keyColor": "red",
-    },
-    {
       "type": "display",
       "key": "│ ├ ",
       "keyColor": "red",
