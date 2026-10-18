@@ -10,10 +10,17 @@ local calendar = sbar.add("item", constants.items.CALENDAR, {
 	color = settings.colors.cyan,
 })
 
+local displayedDate
+
 calendar:subscribe({ "forced", "routine", "system_woke" }, function(env)
+	local date = os.date("%a %d, %H:%M")
+	if date == displayedDate then
+		return
+	end
+	displayedDate = date
 	calendar:set({
 		label = {
-			string = os.date("%a %d, %H:%M"),
+			string = date,
 			color = settings.colors.cyan,
 		},
 	})

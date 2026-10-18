@@ -39,8 +39,14 @@ local cpu = sbar.add("item", constants.items.CPU, {
 	},
 })
 
+local displayedPercentage
+
 local function update()
 	get_cpu_percentage(function(percentage)
+		if percentage == displayedPercentage then
+			return
+		end
+		displayedPercentage = percentage
 		local color = tiers.color(percentage, tiers.cpu)
 		cpu:set({
 			icon = { color = color or colors.blue },

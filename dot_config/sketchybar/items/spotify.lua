@@ -10,6 +10,7 @@ local ARTWORK_PX = 32
 local isPlaying = false
 local isSpotifyRunning = false
 local lastTrackInfo = ""
+local artworkTrack
 local lastClickTime = 0
 local spotifyBundleIds = { ["com.spotify.client"] = true }
 
@@ -131,10 +132,11 @@ local function hideWidget()
 		gap:set({ drawing = false })
 		isSpotifyRunning = false
 		lastTrackInfo = ""
+		artworkTrack = nil
 	end
 end
 
-local function applyArtwork(trackKey)
+local function applyArtwork(trackKey, trackInfo)
 	local artworkPath = "/tmp/spotify_" .. trackKey .. ".jpg"
 	local extract = MEDIA_CONTROL
 		.. " get 2>/dev/null | "
@@ -158,7 +160,11 @@ local function applyArtwork(trackKey)
 		.. ".part'; fi"
 
 	sbar.exec(extract, function(result)
+		if artworkTrack ~= trackInfo or not isSpotifyRunning then
+			return
+		end
 		if not result or not result:match("ok") then
+			artworkTrack = nil
 			spotifyIcon:set({ icon = { string = fallbackGlyph, background = { drawing = false } } })
 			return
 		end
@@ -241,7 +247,11 @@ local function updateSpotifyInfo()
 		fallbackGlyph = isPodcast and GLYPH_PODCAST or GLYPH_SPOTIFY
 		spotifyIcon:set({ drawing = true, icon = { color = color } })
 
-		applyArtwork((currentTrackInfo:gsub("[^%w]", "")))
+		local trackInfo = trackName .. "|" .. artistName .. "|" .. albumName
+		if artworkTrack ~= trackInfo then
+			artworkTrack = trackInfo
+			applyArtwork((trackInfo:gsub("[^%w]", "")), trackInfo)
+		end
 
 		spotify:set({
 			drawing = true,

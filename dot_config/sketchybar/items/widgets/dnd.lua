@@ -17,8 +17,24 @@ local dnd = sbar.add("item", "widgets.dnd", {
 		drawing = false,
 	},
 	update_freq = 5,
-	script = "~/.config/sketchybar/items/widgets/dnd.sh",
 	click_script = "~/.config/sketchybar/items/widgets/dnd-click.sh",
 })
 
-dnd:subscribe({ "forced", "routine", "system_woke", "dnd_changed" })
+local statePath = os.getenv("HOME") .. "/.cache/sketchybar/dnd_state"
+local displayedColor
+
+local function update()
+	local file = io.open(statePath, "r")
+	local state = file and file:read("*a") or ""
+	if file then
+		file:close()
+	end
+	local color = state:gsub("\n+$", "") == "on" and colors.blue or colors.red
+	if color ~= displayedColor then
+		dnd:set({ icon = { color = color } })
+		displayedColor = color
+	end
+end
+
+dnd:subscribe({ "forced", "routine", "system_woke", "dnd_changed" }, update)
+update()
