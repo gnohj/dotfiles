@@ -1,14 +1,7 @@
 #!/bin/bash
-# Wi-Fi panel backend: cached sampling on a timer, fast row emission on popup open, plus the actions.
-#
-#   wifi-panel.sh sample        # slow probes (ping, system_profiler) -> cache; runs on the routine
-#   wifi-panel.sh list          # TSV rows for the popup, reads the cache for anything slow
-#   wifi-panel.sh toggle        # Wi-Fi power
-#   wifi-panel.sh dns <preset>  # dhcp | cloudflare | google
-#   wifi-panel.sh join <ssid>   # re-join a known network
-#
-# The SSID is derived, not read: every API redacts it without Location Services, so the interface's
-# private MAC is matched against CachedPrivateMACAddress (see nix-darwin/modules/wifi-ssid-sudoers.nix).
+# On-demand sample caches probes; list emits TSV; toggle, dns <preset>, and join <ssid> change Wi-Fi.
+
+# SSID uses CachedPrivateMACAddress without Location Services; see wifi-ssid-sudoers.nix.
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 

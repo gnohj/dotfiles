@@ -233,6 +233,16 @@ local function refreshPopup()
 	end)
 end
 
+local function samplePopup()
+	sbar.exec(scriptPath .. " sample", function()
+		popup.query(wifi, function(isOpen)
+			if isOpen then
+				refreshPopup()
+			end
+		end)
+	end)
+end
+
 -- Bar icon stays on a fast path; ping and system_profiler take seconds, so the panel reads a cached sample.
 local function refreshIcon()
 	wifi:set({
@@ -266,8 +276,6 @@ local function refreshIcon()
 			wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
 		end)
 	end)
-
-	sbar.exec(scriptPath .. " sample")
 end
 
 local function toggleDetails(env)
@@ -280,9 +288,17 @@ local function toggleDetails(env)
 		opening = true
 		popup.close_others(wifi.name)
 		refreshPopup()
+		samplePopup()
 	end)
 end
 
 wifi:subscribe({ "wifi_change", "system_woke", "forced", "routine" }, refreshIcon)
-wifi:subscribe(refreshEvent, refreshPopup)
+wifi:subscribe(refreshEvent, function()
+	popup.query(wifi, function(isOpen)
+		if isOpen then
+			refreshPopup()
+			samplePopup()
+		end
+	end)
+end)
 wifi:subscribe("mouse.clicked", toggleDetails)
