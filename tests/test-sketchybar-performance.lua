@@ -265,3 +265,135 @@ m.finish(" sample")
 m.finish(" list", "power\ton\tHome\nstat\tPing\tfresh\n")
 assert(builds == previousBuilds, "Byte-identical popup rows must not rebuild")
 print("Wi-Fi demand-driven tests passed")
+
+m = mock()
+sbar = m.api
+dofile(root .. "items/widgets/wifi.lua")
+local vpnCommand = [[sleep 2; scutil --nwi | grep -m1 'utun' | awk '{ print $1 }']]
+local function finishIcon(ip, vpn)
+	m.finish("ipconfig getifaddr en0", ip)
+	m.finish(vpnCommand, vpn)
+end
+m.emit("routine", "widgets.wifi")
+finishIcon("192.168.1.10\n", "utun4\n")
+assert(m.state("widgets.wifi").icon.string == "vpn", "VPN must keep priority over Wi-Fi")
+before = #m.sets
+for _ = 1, 10 do
+	m.emit("routine", "widgets.wifi")
+	finishIcon("192.168.1.10\n", "utun4\n")
+end
+print("Unchanged Wi-Fi refresh writes (10 polls): " .. (#m.sets - before))
+assert(#m.sets == before, "Unchanged Wi-Fi state must not rewrite the icon")
+
+for _, case in ipairs({
+	{ ip = "192.168.1.10\n", vpn = "", icon = "wifi", color = colors.blue },
+	{ ip = "172.20.10.2\n", vpn = "", icon = "hotspot", color = colors.yellow },
+	{ ip = "", vpn = "", icon = "off", color = colors.red },
+	{ ip = "", vpn = "utun4\n", icon = "vpn", color = colors.blue },
+}) do
+	before = #m.sets
+	m.emit("wifi_change", "widgets.wifi")
+	assert(#m.sets == before, "Refresh must not flash a disconnected icon")
+	m.finish("ipconfig getifaddr en0", case.ip)
+	assert(#m.sets == before, "Refresh must wait for the VPN result before painting")
+	m.finish(vpnCommand, case.vpn)
+	assert(#m.sets == before + 1, "A changed network state must paint once")
+	assert(m.state("widgets.wifi").icon.string == case.icon, "Wrong network icon")
+	assert(m.state("widgets.wifi").icon.color == case.color, "Wrong network colour")
+end
+
+local probes = m.count("ipconfig getifaddr en0")
+before = #m.sets
+for _, event in ipairs({ "routine", "wifi_change", "system_woke", "forced" }) do
+	m.emit(event, "widgets.wifi")
+end
+assert(m.count("ipconfig getifaddr en0") == probes + 1, "Overlapping refreshes must share the active probe")
+finishIcon("", "")
+assert(#m.sets == before, "A superseded sample must not paint")
+assert(m.count("ipconfig getifaddr en0") == probes + 2, "A burst must request one follow-up sample")
+finishIcon("192.168.1.10\n", "")
+assert(m.state("widgets.wifi").icon.string == "wifi", "Follow-up sample must show the latest state")
+assert(#m.sets == before + 1, "A refresh burst must paint once")
+m.emit("routine", "widgets.wifi")
+finishIcon("192.168.1.10\n", "")
+assert(#m.sets == before + 1, "Sampling must recover after a refresh burst")
+print("Wi-Fi icon redraw and overlapping refresh tests passed")
+
+local function workspaceMock(debugLogging, reachable)
+	local wm = mock()
+	sbar = wm.api
+	package.loaded["constants"] = {
+		items = { FRONT_APPS = "front_apps", SPACES = "spaces" },
+		events = {
+			RIFT_WORKSPACE_CHANGED = "workspace_changed",
+			FRONT_APP_SWITCHED = "front_app_switched",
+			UPDATE_WINDOWS = "update_windows",
+			SWAP_MENU_AND_SPACES = "swap_menu",
+		},
+	}
+	package.loaded["items.rift_layout"] = true
+	package.loaded["cjson"] = {
+		decode = function()
+			return { { ["app-name"] = "Ghostty" } }
+		end,
+	}
+	package.loaded["lib.rift"] = {
+		new = function()
+			assert(reachable, "Rift unavailable")
+			return {
+				is_initialized = function()
+					return true
+				end,
+				list_current = function()
+					return "T"
+				end,
+				list_all_windows = function()
+					return { { workspace = "T", ["window-id"] = 1, ["app-name"] = "Ghostty" } }
+				end,
+				focused_window = function()
+					return "focused"
+				end,
+			}
+		end,
+		focus_command = function()
+			return "focus"
+		end,
+	}
+	local getenv = os.getenv
+	os.getenv = function(name)
+		if name == "SKETCHYBAR_WORKSPACE_DEBUG" then
+			return debugLogging and "1" or nil
+		end
+		return getenv(name)
+	end
+	local ok, err = pcall(dofile, root .. "items/workspace.lua")
+	os.getenv = getenv
+	assert(ok, err)
+	return wm
+end
+
+local wm = workspaceMock(false, true)
+before = #wm.commands
+for _ = 1, 10 do
+	wm.emit("workspace_changed", nil, { FOCUSED_WORKSPACE = "T" })
+	wm.emit("front_app_switched", nil, { INFO = "Ghostty" })
+end
+print("Routine workspace logging commands (20 events): " .. (#wm.commands - before))
+assert(#wm.commands == before, "Routine workspace events must not launch logging shells")
+assert(wm.state("spaces").label.string == "T", "Workspace rendering must remain intact")
+assert(wm.state("front_apps.1").label.string == "Ghostty", "App rendering must remain intact")
+
+wm = workspaceMock(true, true)
+before = #wm.commands
+wm.emit("workspace_changed", nil, { FOCUSED_WORKSPACE = "T" })
+assert(#wm.commands > before, "Opt-in workspace diagnostics must retain detailed logs")
+
+wm = workspaceMock(false, false)
+local warning, failure = false, false
+for _, command in ipairs(wm.commands) do
+	warning = warning or command:find("[WARN]", 1, true)
+	failure = failure or command:find("[ERROR]", 1, true)
+end
+assert(warning and failure, "Workspace warnings and errors must remain enabled")
+assert(wm.count("sleep 5 && sketchybar --trigger workspace_retry_init") == 1, "Rift retry must remain enabled")
+print("Workspace logging tests passed")

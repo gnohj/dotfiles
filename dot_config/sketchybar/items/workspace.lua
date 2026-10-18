@@ -14,7 +14,12 @@ local log_dir = os.getenv("HOME") .. "/.logs/sketchybar"
 local log_file = log_dir .. "/workspace_" .. os.date("%Y%m") .. ".log"
 sbar.exec("mkdir -p " .. log_dir)
 
+local debug_logging = os.getenv("SKETCHYBAR_WORKSPACE_DEBUG") == "1"
+
 local function log_message(level, message)
+	if level == "INFO" and not debug_logging then
+		return
+	end
 	local timestamp = os.date("%Y-%m-%d %H:%M:%S")
 	local log_entry = string.format("[%s] [%s] [WORKSPACE] %s", timestamp, level, message)
 	-- Use async logging to avoid blocking the event loop
@@ -145,7 +150,7 @@ local function updateWindows()
 
 	if not ok then
 		log_message("ERROR", "Failed to get current workspace: " .. tostring(currentWorkspace))
-		rift = nil  -- force full reconnect on next call
+		rift = nil -- force full reconnect on next call
 		update_running = false
 		return
 	end
@@ -158,7 +163,7 @@ local function updateWindows()
 
 	if not ok2 then
 		log_message("ERROR", "Failed to list windows: " .. tostring(windowsJson))
-		rift = nil  -- force full reconnect on next call
+		rift = nil -- force full reconnect on next call
 		update_running = false
 		return
 	end
