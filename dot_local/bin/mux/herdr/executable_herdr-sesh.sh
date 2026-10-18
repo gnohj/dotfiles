@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # herdr-sesh.sh — sesh-style session picker for herdr (the ctrl+t navigator, the
 # herdr-native replacement for the tmux sesh popup). Runs as a herdr `type = "pane"`
 # command (zoom overlay like ctrl+g/prefix+y) → server-side, so it works local AND
@@ -52,6 +52,7 @@ build_list() {
   WORKACCT="${gnohj_color04:-}" PERSONALACCT="${gnohj_color01:-}" \
   WARM_NEEDED_FILE="$src/warm" HOME="$HOME" python3 -c '
 import os, json, re
+from functools import lru_cache
 
 def load(name):
     try:
@@ -62,6 +63,7 @@ home = os.environ.get("HOME", "")
 def short(p): return "~" + p[len(home):] if home and p.startswith(home) else p
 
 # A pane reports the RESOLVED cwd, so a symlinked config path only matches once both sides are resolved.
+@lru_cache(maxsize=None)
 def real(p):
     try: return os.path.realpath(p).rstrip("/") or p
     except Exception: return p
@@ -114,15 +116,19 @@ SYM_W, dwidth = hg.SYM_W, hg.dwidth
 
 def dclip(s, w, left=False):  # plain-text clip to display width w, "…" on the clipped end
     if dwidth(s) <= w: return s
-    out = ""
+    out, used = "", 0
     if left:
         for ch in reversed(s):
-            if dwidth(ch) + dwidth(out) > w - 1: break
+            cw = dwidth(ch)
+            if used + cw > w - 1: break
             out = ch + out
+            used += cw
         return "…" + out
     for ch in s:
-        if dwidth(ch) + dwidth(out) > w - 1: break
+        cw = dwidth(ch)
+        if used + cw > w - 1: break
         out += ch
+        used += cw
     return out + "…"
 
 def dpad(s, w):
@@ -471,7 +477,7 @@ os.execv(script, [script, "--warm-locked"])
       : >"$VIEW"
       POS=1
     elif [ -z "$Q" ]; then
-      cp "$ROWS" "$VIEW"
+      VIEW="$ROWS"
       POS=1
     else
       # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
@@ -509,7 +515,7 @@ END {
 }' "$ROWS" -)
     fi
     # pos() is UNCONDITIONAL: reload-sync keeps the old cursor index, so without it the cursor drifts as the query narrows.
-    printf 'reload-sync(cat %s)+pos(%s)\n' "$VIEW" "${POS:-1}"
+    printf 'reload-sync(cat %q)+pos(%s)\n' "$VIEW" "${POS:-1}"
     exit 0
     ;;
   --git)
@@ -645,30 +651,33 @@ while true; do
   export SESH_GIT_ONLY="$GIT_ONLY"
   build_list >"$ROWS_FILE"
   # Nothing dirty says so in the header and lists what was watched, instead of a bare 0/0 or a silent revert to the full list.
-  HEADER=()
+  HEADER=""
   if [ "$GIT_ONLY" = 1 ]; then
     PROMPT='󰊢 '
     # The keys work in the full list too, but this is the view they are FOR, so only it spends a header line on them.
     HINT='ctrl-f pull · ctrl-p push · ctrl-g lazygit · esc close'
-    CLEAN=$(cat "$CLEAN_FILE" 2>/dev/null) || CLEAN=""
+    CLEAN=""
+    [ ! -r "$CLEAN_FILE" ] || CLEAN=$(<"$CLEAN_FILE")
     if [ -n "$CLEAN" ] && [ "$CLEAN" != 0 ]; then
-      HEADER=(--header "󰊢 all clean - nothing to commit, push or pull · watching $CLEAN repos · $HINT")
+      HEADER="󰊢 all clean - nothing to commit, push or pull · watching $CLEAN repos · $HINT"
     elif [ -n "$CLEAN" ]; then
-      HEADER=(--header '󰊢 no git repos in this list')
+      HEADER='󰊢 no git repos in this list'
     else
-      HEADER=(--header "󰊢 $HINT")
+      HEADER="󰊢 $HINT"
     fi
   else
     PROMPT='⚡ '
   fi
-  START_POS=$(cat "$FOCUS_FILE" 2>/dev/null) || START_POS=1
+  START_POS=1
+  [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
   [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
+    --with-shell '/bin/bash -c' \
     --no-border --ansi --layout=reverse --list-border --no-sort \
     --prompt "$PROMPT" --gutter=' ' --color "$color_string" \
-    --input-border --header-border "${HEADER[@]}" \
+    --input-border --header-border --header "$HEADER" \
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
     --expect=ctrl-w,ctrl-g \
@@ -677,14 +686,18 @@ while true; do
     --bind 'tab:down,btab:up' \
     --bind 'ctrl-j:down,ctrl-k:up' \
     --bind 'ctrl-b:abort' \
-    --bind "change:transform($SELF --view $ROWS_FILE $VIEW_FILE {q})" \
-    --bind "ctrl-d:execute-silent($SELF --delete {-1})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)" \
-    --bind "ctrl-f:execute($SELF --git pull {3})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)" \
-    --bind "ctrl-p:execute($SELF --git push {3})+transform($SELF --view $ROWS_FILE $VIEW_FILE {q} --rebuild)")
+    --bind "change:transform(\"$SELF\" --view \"$ROWS_FILE\" \"$VIEW_FILE\" {q})" \
+    --bind "ctrl-d:execute-silent(\"$SELF\" --delete {-1})+transform(\"$SELF\" --view \"$ROWS_FILE\" \"$VIEW_FILE\" {q} --rebuild)" \
+    --bind "ctrl-f:execute(\"$SELF\" --git pull {3})+transform(\"$SELF\" --view \"$ROWS_FILE\" \"$VIEW_FILE\" {q} --rebuild)" \
+    --bind "ctrl-p:execute(\"$SELF\" --git push {3})+transform(\"$SELF\" --view \"$ROWS_FILE\" \"$VIEW_FILE\" {q} --rebuild)")
 
   # With --expect, line 1 is the pressed key (blank on plain enter) and line 2 the selection; on esc both come back empty.
-  KEY=$(printf '%s' "$OUT" | head -1)
-  SELECTED=$(printf '%s\n' "$OUT" | sed -n '2p')
+  KEY="${OUT%%$'\n'*}"
+  SELECTED=""
+  if [[ "$OUT" == *$'\n'* ]]; then
+    SELECTED="${OUT#*$'\n'}"
+    SELECTED="${SELECTED%%$'\n'*}"
+  fi
 
   # ctrl-g means "git" in both views: turn the git filter on from the full list, open the row's lazygit once already in it.
   if [ "$KEY" = "ctrl-g" ]; then
