@@ -17,9 +17,15 @@ local cpu_temp = sbar.add("item", constants.items.CPU_TEMP, {
 	label = { string = "--°", color = colors.cyan, padding_left = 0, padding_right = 8 },
 })
 
+local displayedDegrees = false
+
 local function update()
 	sbar.exec("$HOME/.local/bin/cpu-temp 2>/dev/null", function(result)
 		local degrees = tonumber(result)
+		if degrees == displayedDegrees then
+			return
+		end
+		displayedDegrees = degrees
 		if not degrees then
 			cpu_temp:set({ icon = { color = colors.blue }, label = { string = "--°", color = colors.cyan } })
 			groups.changed()
@@ -32,7 +38,10 @@ local function update()
 				break
 			end
 		end
-		cpu_temp:set({ icon = { color = color or colors.blue }, label = { string = degrees .. "°", color = color or colors.cyan } })
+		cpu_temp:set({
+			icon = { color = color or colors.blue },
+			label = { string = degrees .. "°", color = color or colors.cyan },
+		})
 		groups.changed()
 	end)
 end

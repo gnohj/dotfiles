@@ -172,6 +172,8 @@ local function parse(result)
 	return state
 end
 
+local displayedIcon, displayedColor
+
 local function applyIcon(state)
 	local icon, color
 	if state.power ~= "on" then
@@ -181,7 +183,10 @@ local function applyIcon(state)
 	else
 		icon, color = settings.icons.text.bluetooth.on, settings.colors.grey
 	end
-	bluetooth:set({ icon = { string = icon, color = color } })
+	if icon ~= displayedIcon or color ~= displayedColor then
+		bluetooth:set({ icon = { string = icon, color = color } })
+		displayedIcon, displayedColor = icon, color
+	end
 end
 
 local function applyPopup(state)

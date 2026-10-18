@@ -54,8 +54,14 @@ local memory = sbar.add("item", constants.items.MEMORY, {
 	},
 })
 
+local displayedPercentage
+
 local function update()
 	get_memory_percentage(function(percentage)
+		if percentage == displayedPercentage then
+			return
+		end
+		displayedPercentage = percentage
 		local color = tiers.color(percentage, tiers.usage)
 		memory:set({
 			icon = { color = color or colors.blue },

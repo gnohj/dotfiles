@@ -83,8 +83,15 @@ local oriented <const> = { bsp = true, traditional = true, stack = true }
 
 local FULLSCREEN = " " .. utf8.char(0xF0293)
 
+local renderedView
+
 local function render(active, kind, fullscreen)
 	local arrow = fullscreen and FULLSCREEN or (oriented[active] and arrows[kind] or "")
+	local view = active .. "|" .. arrow .. "|" .. tostring(shown) .. "|" .. tostring(expanded)
+	if view == renderedView then
+		return
+	end
+	renderedView = view
 	current = active
 	for _, p in ipairs(pills) do
 		local is_active = p.mode == active
@@ -157,4 +164,3 @@ sbar.add("event", "rift_layout_toggle")
 watcher:subscribe("rift_layout_toggle", toggle)
 
 refresh()
-

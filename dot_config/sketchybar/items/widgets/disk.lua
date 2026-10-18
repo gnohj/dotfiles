@@ -48,8 +48,14 @@ local disk = sbar.add("item", constants.items.DISK, {
 	},
 })
 
+local displayedPercentage
+
 local function update()
 	get_disk_percentage(function(percentage)
+		if percentage == displayedPercentage then
+			return
+		end
+		displayedPercentage = percentage
 		local color = tiers.color(percentage, tiers.disk)
 		disk:set({
 			icon = { color = color or colors.blue },
