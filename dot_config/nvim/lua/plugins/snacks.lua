@@ -228,12 +228,75 @@ local function colorize_stat_graph(graph)
   return chunks
 end
 
-local function get_unstaged_changes()
+local changes_by_dashboard = setmetatable({}, { __mode = "k" })
+
+local function get_unstaged_changes(dashboard)
   if not Snacks.git.get_root() then
+    changes_by_dashboard[dashboard] = nil
     return
   end
-  local result = vim.fn.system("git diff --stat=55")
-  if vim.v.shell_error ~= 0 or result:match("^%s*$") then
+  local cwd = vim.fn.getcwd()
+  local state = changes_by_dashboard[dashboard]
+  if not state or state.cwd ~= cwd then
+    state = { cwd = cwd, result = "" }
+    changes_by_dashboard[dashboard] = state
+  end
+  if state.redraw then
+    state.redraw = false
+  elseif not state.pending then
+    state.pending = true
+    local ok = pcall(
+      vim.system,
+      { "git", "diff", "--stat=55" },
+      { cwd = cwd, text = true, timeout = 10000 },
+      vim.schedule_wrap(function(result)
+        state.pending = false
+        if changes_by_dashboard[dashboard] ~= state then
+          return
+        end
+        local output = result.code == 0 and result.stdout or ""
+        if output == state.result then
+          return
+        end
+        state.result = output
+        if
+          not dashboard.buf
+          or not dashboard.win
+          or not vim.api.nvim_buf_is_valid(dashboard.buf)
+          or not vim.api.nvim_win_is_valid(dashboard.win)
+          or vim.api.nvim_win_get_buf(dashboard.win) ~= dashboard.buf
+        then
+          return
+        end
+        vim.api.nvim_win_call(dashboard.win, function()
+          if vim.fn.getcwd() ~= cwd then
+            return
+          end
+          local selected =
+            dashboard:find(vim.api.nvim_win_get_cursor(dashboard.win))
+          state.redraw = true
+          dashboard:update()
+          if selected and selected.key then
+            for _, item in ipairs(dashboard.items) do
+              if item.key == selected.key and item._ then
+                vim.api.nvim_win_set_cursor(
+                  dashboard.win,
+                  { item._.row, item._.col }
+                )
+                break
+              end
+            end
+          end
+        end)
+      end)
+    )
+    if not ok then
+      state.pending = false
+      state.result = ""
+    end
+  end
+  local result = state.result
+  if not result or result:match("^%s*$") then
     return
   end
 
