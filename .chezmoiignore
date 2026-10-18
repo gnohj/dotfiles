@@ -1,6 +1,8 @@
 README.md
 MANUAL_SETUP.md
 MANUAL_VPS_SETUP.md
+tests
+tests/**
 
 # Repo-local agent instructions — symlinked into the source root so the chezmoi
 # repo itself has its CLAUDE.md/AGENTS.md (read via ~/.local/share/chezmoi/). They

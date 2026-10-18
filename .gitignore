@@ -43,5 +43,6 @@ __pycache__/
 
 # Agent scratch dirs; ~/.gitignore_global covers them too, but not before chezmoi has applied it.
 /tasks/
+/tests/
 .claude/
 .playwright-mcp/
