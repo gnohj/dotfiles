@@ -1,14 +1,5 @@
 #!/bin/bash
-# Bluetooth widget backend: bar icon on `update`, popup rows on `list`, actions for the popup clicks.
-#
-#   bluetooth.sh              # update the bar item (routine / bluetooth_change)
-#   bluetooth.sh list         # TSV the Lua side turns into popup rows
-#   bluetooth.sh toggle       # flip controller power
-#   bluetooth.sh connect <addr>
-#   bluetooth.sh disconnect <addr>
-#   bluetooth.sh scan         # Classic-BT inquiry, cached for `list` to pick up
-#
-# system_profiler reads (no dependency, ~60ms); blueutil is only needed to write, and without it the panel is read-only.
+# Bluetooth backend: update (bar), list (popup TSV), toggle/connect/disconnect/scan; writes need blueutil.
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
@@ -30,7 +21,7 @@ profile() { system_profiler SPBluetoothDataType -json 2>/dev/null; }
 
 # Not blueutil -p: without Bluetooth TCC it reads 0 under sketchybar even when power is on.
 power_state() {
-  case "$(profile | jq -r '.SPBluetoothDataType[0].controller_properties.controller_state // ""')" in
+  case "$(jq -r '.SPBluetoothDataType[0].controller_properties.controller_state // ""')" in
     attrib_on) echo on ;;
     *) echo off ;;
   esac
@@ -56,12 +47,14 @@ DEVICE_ROWS='
 '
 
 list() {
-  printf 'power\t%s\t\t\t\n' "$(power_state)"
+  local data paired
+  data="$(profile)"
+  printf 'power\t%s\t\t\t\n' "$(power_state <<<"$data")"
   printf 'blueutil\t%s\t\t\t\n' "$([ -n "$BLUEUTIL" ] && echo yes || echo no)"
-  profile | jq -r "$DEVICE_ROWS" 2>/dev/null
+  jq -r "$DEVICE_ROWS" <<<"$data" 2>/dev/null
   # Scan results are a cached snapshot; already-paired devices are dropped since the inquiry re-reports them.
   if [ -s "$SCAN_CACHE" ]; then
-    paired="$(profile | jq -r '.SPBluetoothDataType[0] | (.device_connected + .device_not_connected // []) | .[] | to_entries[] | .value.device_address // empty' 2>/dev/null | tr 'A-Z' 'a-z')"
+    paired="$(jq -r '.SPBluetoothDataType[0] | (.device_connected + .device_not_connected // []) | .[] | to_entries[] | .value.device_address // empty' <<<"$data" 2>/dev/null | tr 'A-Z' 'a-z')"
     while IFS=$'\t' read -r addr devname; do
       [ -n "$addr" ] || continue
       printf '%s\n' "$paired" | grep -qi -- "$(printf '%s' "$addr" | tr 'A-Z' 'a-z')" && continue
@@ -82,9 +75,10 @@ scan() {
 notify() { sketchybar --trigger bluetooth_refresh; }
 
 update() {
-  local state count icon color
-  state="$(power_state)"
-  count="$(profile | jq -r '(.SPBluetoothDataType[0].device_connected // []) | length' 2>/dev/null)"
+  local data state count icon color
+  data="$(profile)"
+  state="$(power_state <<<"$data")"
+  count="$(jq -r '(.SPBluetoothDataType[0].device_connected // []) | length' <<<"$data" 2>/dev/null)"
   case "$count" in '' | *[!0-9]*) count=0 ;; esac
 
   if [ "$state" = off ]; then
@@ -106,7 +100,7 @@ case "${1:-update}" in
   scan) scan; notify ;;
   toggle)
     if [ -n "$BLUEUTIL" ]; then
-      [ "$(power_state)" = on ] && "$BLUEUTIL" -p 0 || "$BLUEUTIL" -p 1
+      [ "$(profile | power_state)" = on ] && "$BLUEUTIL" -p 0 || "$BLUEUTIL" -p 1
       sleep 1
       update
       notify
