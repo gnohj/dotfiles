@@ -10,7 +10,8 @@ rewrite the affected tab's ratios with layout.set_split_ratio.
 Rules, kept in step with smart-split-layout.sh:
   * pure single axis only — a tab mixing right- and down-splits is left alone, so nested
     splits stay local to the pane they were made in
-  * two panes side by side with nvim on the left -> 75/25; the editor wants the room
+  * two panes side by side with nvim on the left -> 75/25; the editor wants the room,
+    unless the right pane is an Atlas ticket/PR companion (herdr-atlas-open.sh), which stays 50/50
   * otherwise every leaf ends up the same size: each split's ratio is
     leaves(first) / leaves(node), which is what turns a right-leaning chain of splits into
     equal columns
@@ -38,6 +39,7 @@ same rules are available on a keybinding.
 """
 import json
 import os
+import re
 import socket
 import sys
 import time
@@ -47,6 +49,8 @@ SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herd
 SUBSCRIPTIONS = ["pane.created", "pane.closed", "pane.moved"]
 
 EDITORS = {"nvim", "vim"}
+# Labels herdr-atlas-open.sh gives its ticket/PR companion panes.
+COMPANION_LABEL = re.compile(r"^(🔷 [A-Z]+-[0-9]+|🐙 PR-[0-9]+)$")
 MAIN_PANE_RATIO = 0.75
 # herdr stores ratios as f32, so a round-tripped 0.5 comes back as 0.50000001-ish.
 EPSILON = 1e-3
@@ -125,6 +129,14 @@ def runs_editor(pane_id):
     return False
 
 
+def is_companion(pane_id):
+    result = request("pane.list", {})
+    for pane in (result or {}).get("panes", []):
+        if pane.get("pane_id") == pane_id:
+            return bool(COMPANION_LABEL.match(pane.get("label") or ""))
+    return False
+
+
 def plan(root):
     """Desired (path, ratio) list for a tab root, or [] when the tab is left alone."""
     if root.get("type") != "split":
@@ -133,6 +145,8 @@ def plan(root):
         return []
     # Single side-by-side pair with the editor on the left keeps a big main pane.
     if leaves(root) == 2 and root.get("direction") == "right" and runs_editor(leftmost_pane(root)):
+        if is_companion(leftmost_pane(root["second"])):
+            return even_ratios(root, [], [])
         return [([], MAIN_PANE_RATIO)]
     return even_ratios(root, [], [])
 
