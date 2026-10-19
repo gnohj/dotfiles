@@ -319,7 +319,7 @@ run_direct() {
   done
 }
 
-# tkrm deletes your PERSONAL worktrees, but gh-dash `P` reviews lease SEPARATE
+# tkrm deletes your PERSONAL worktrees, but gh-dash `M` reviews lease SEPARATE
 # treehouse pool worktrees (under ~/.treehouse/, tracked in gh-review-worktrees/)
 # that tkrm never touches — so a review whose windows you've closed keeps holding
 # a pool slot silently. Piggyback on the cleanup you already do: after removing

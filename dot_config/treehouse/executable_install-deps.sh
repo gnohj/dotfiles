@@ -3,7 +3,7 @@
 # worktree. Extracted from post-create.sh so BOTH callers share one copy:
 #
 #   post-create.sh   non-review leases (agents), right after the master reset
-#   review-open.sh   gh-dash `P` reviews, AFTER `checkout --detach origin/$HEAD`
+#   review-open.sh   gh-dash `M` reviews, AFTER `checkout --detach origin/$HEAD`
 #
 # The split exists because treehouse resets a slot to the default branch and runs
 # post_create BEFORE review-open.sh checks out the PR head. Installing at hook

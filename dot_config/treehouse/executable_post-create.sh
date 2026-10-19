@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # treehouse post_create hook — prep a freshly provisioned/reset pool worktree so
-# gh-dash `P` reviews and orchestrator `-e` agents get deps + env ready.
+# gh-dash `M` reviews and orchestrator `-e` agents get deps + env ready.
 #
 # Deliberately LEAN vs treekanga's worktree_setup.sh: this does NOT create a
 # thread-state note, wire up sesh/herdr/pbcopy sessions, run codegen, fire
