@@ -74,7 +74,7 @@ dir="${dir/#\~/$HOME}"
 # web/.bare); a main repo's two match. An explicit $2 always wins (no glyph).
 label_explicit="$label"
 # Twins share a path, and a leaf can read as something it is not (fm-settings, chezmoi, gh-dash) - all label by sesh Name.
-if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ] || [ "$entry_name" = dotfiles ] || [ "$entry_name" = fm ] || [ "$entry_name" = hermes ] || [ "$entry_name" = atlas ]; }; then
+if [ -z "$label" ] && { [ "$entry_shared" = shared ] || [ "$entry_name" = fm-settings ] || [ "$entry_name" = dotfiles ] || [ "$entry_name" = fm ] || [ "$entry_name" = hermes ] || [ "$entry_name" = jira ] || [ "$entry_name" = github ]; }; then
   label="$entry_name"
 elif [ -z "$label" ]; then
   case "$dir" in
@@ -117,7 +117,8 @@ if [ -z "$label_explicit" ]; then
   fi
   [ "${dir%/}" = "${HOME%/}" ] && glyph="🖥️"
   case "$label" in
-    atlas) glyph="🌎" ;;
+    jira) glyph="🔷" ;;
+    github) glyph="🐙" ;;
     browser) glyph="🌐" ;;
     fm) glyph="🚢" ;;
     hermes) glyph="🤖" ;;
