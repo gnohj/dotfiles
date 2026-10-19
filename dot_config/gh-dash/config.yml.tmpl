@@ -74,10 +74,14 @@ keybindings:
       command: >
         $HOME/.local/bin/mux/mux window --popup "🐙 New Issue" "{{.RepoPath}}" 'nvim --cmd "let g:zen_disabled=1" -c ":silent Octo issue create"'
   prs:
-    - key: P
-      name: 🤖 Review PR - Lavish agent review
+    - key: M
+      name: 🤖 Review PR - Lavish agent review on this machine
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh full {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
+    - key: Z
+      name: 🛰️ Review PR - Lavish agent review on the dev box
+      command: >
+        nohup bash $HOME/.config/gh-dash/review-devbox.sh full {{.PrNumber}} {{.RepoName}} </dev/null >/dev/null 2>&1 &
     - key: enter
       name: 🐙 Open PR in Octo (review branch)
       command: >

@@ -19,6 +19,8 @@ local review_paths = {
 }
 
 local review_keys = {
+  { "M", "full", "Lavish review on this machine" },
+  { "Z", "full", "Lavish review on the dev box", true },
   { "D", "diff", "Diff in hunk + agent notes" },
   { "E", "enhance", "Checks in ENHANCE" },
   { "C", "claude", "Claude /review" },
@@ -39,14 +41,17 @@ local function repo_path(repo)
   return vim.fn.expand(path)
 end
 
-local function review_open(mode, label)
+local function review_open(mode, label, devbox)
   local pr = current_pr()
   if not pr then
     return
   end
-  local script = vim.fn.expand("~/.config/gh-dash/review-open.sh")
+  local name = devbox and "review-devbox.sh" or "review-open.sh"
+  local script = vim.fn.expand("~/.config/gh-dash/" .. name)
   local args = { "bash", script, mode, tostring(pr.id), pr.repo_full_name }
-  table.insert(args, repo_path(pr.repo_full_name))
+  if not devbox then
+    table.insert(args, repo_path(pr.repo_full_name))
+  end
   vim.system(args, { detach = true })
   vim.notify(string.format("Starting %s for #%s", label, pr.id))
 end
@@ -673,7 +678,7 @@ local function dashboard_items()
       key = k[1],
       desc = k[3],
       callback = function()
-        review_open(k[2], k[3])
+        review_open(k[2], k[3], k[4])
       end,
     })
   end
