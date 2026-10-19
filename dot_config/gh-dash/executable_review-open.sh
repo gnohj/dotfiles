@@ -7,7 +7,7 @@
 #
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
-#   full       P        Claude /review-lavish
+#   full       M / Z    Claude /review-lavish (Z runs it on the dev box via review-devbox.sh)
 #   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   hunk       -        hunk alone, no agent (the Library's "Show diff in terminal")
