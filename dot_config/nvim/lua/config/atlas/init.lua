@@ -817,10 +817,14 @@ end
 
 local function cycle_issue_view(step)
   local state = require("atlas.issues.state")
-  local views = state.views
+  local views = require("atlas.ui.shared.bookmarks").views(
+    state.views,
+    state.bookmarks,
+    state.starred_items
+  )
   local current = 1
   for i, view in ipairs(views) do
-    if state.view and view.name == state.view.name then
+    if view == state.view then
       current = i
     end
   end
@@ -830,11 +834,29 @@ local function cycle_issue_view(step)
   end
 end
 
+-- Landing on the bookmarks tab opens Starred instead of the bare bookmark list.
+local function expand_starred_on_switch()
+  local controller = require("atlas.issues.ui.dashboard.controller")
+  local switch_view = controller.switch_view
+  controller.switch_view = function(view)
+    local state = require("atlas.issues.state")
+    if view ~= state.bookmarks.tab or #state.starred_items == 0 then
+      return switch_view(view)
+    end
+    state.view = view
+    controller.select_bookmark({ kind = "starred" })
+    require("atlas.issues.ui.dashboard.navigation").focus_first_item({
+      all_columns = true,
+    })
+  end
+end
+
 -- h/l switch Jira tabs like the PR dashboard instead of stepping stacked columns.
 local function extend_issues_dashboard()
   local help = require("atlas.ui.popups.help")
   local keymaps = require("atlas.issues.ui.dashboard.keymaps")
   local register, remove = keymaps.register, keymaps.remove
+  expand_starred_on_switch()
   local items = {
     {
       key = "h",
@@ -853,6 +875,7 @@ local function extend_issues_dashboard()
   }
   keymaps.register = function(buf, ...)
     register(buf, ...)
+    require("atlas.issues.state").bookmarks.tab.key = nil
     help.register("Views", items, { buffer = buf, index = 3 })
   end
   keymaps.remove = function(buf, ...)
