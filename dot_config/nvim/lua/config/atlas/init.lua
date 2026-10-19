@@ -641,6 +641,14 @@ local function sync_detail_when_loaded()
   )
 end
 
+local function switch_pull_view(target)
+  local state = require("atlas.pulls.state")
+  detail_wanted = require("atlas.pulls.ui.detail").is_open()
+    or #state.pulls == 0 and detail_wanted
+  require("atlas.pulls.ui.dashboard.controller").switch_view(target)
+  sync_detail_when_loaded()
+end
+
 local function cycle_view(step)
   local state = require("atlas.pulls.state")
   local views = state.views
@@ -652,11 +660,7 @@ local function cycle_view(step)
   end
   local target = views[(current - 1 + step) % #views + 1]
   if target then
-    local state = require("atlas.pulls.state")
-    detail_wanted = require("atlas.pulls.ui.detail").is_open()
-      or #state.pulls == 0 and detail_wanted
-    require("atlas.pulls.ui.dashboard.controller").switch_view(target)
-    sync_detail_when_loaded()
+    switch_pull_view(target)
   end
 end
 
@@ -894,6 +898,43 @@ local function extend_issues_dashboard()
   end
 end
 
+local function dashboard_views(state)
+  return require("atlas.ui.shared.bookmarks").views(
+    state.views,
+    state.bookmarks,
+    state.starred_items
+  )
+end
+
+local navbar_clicks = {
+  issues = function(segment)
+    local state = require("atlas.issues.state")
+    local controller = require("atlas.issues.ui.dashboard.controller")
+    if segment.kind == "item" then
+      local view = dashboard_views(state)[segment.index]
+      if view and view ~= state.view then
+        controller.switch_view(view)
+      end
+    elseif segment.label:find("⇄", 1, true) then
+      toggle_scope()
+    elseif segment.label:find("^Refresh") then
+      controller.refresh_view()
+    end
+  end,
+  pulls = function(segment)
+    local state = require("atlas.pulls.state")
+    local controller = require("atlas.pulls.ui.dashboard.controller")
+    if segment.kind == "item" then
+      local view = dashboard_views(state)[segment.index]
+      if view and not (state.view and view.name == state.view.name) then
+        switch_pull_view(view)
+      end
+    elseif vim.tbl_contains(state.available_states, segment.label:lower()) then
+      controller.toggle_status_filter(segment.label:lower())
+    end
+  end,
+}
+
 local function tiled_windows()
   return vim.tbl_filter(function(win)
     return vim.api.nvim_win_get_config(win).relative == ""
@@ -1055,6 +1096,7 @@ function M.setup(opts)
   vim.env.GH_TOKEN = nil
   vim.env.GITHUB_TOKEN = nil
   require("atlas").setup(opts)
+  require("config.atlas.tab-clicks").setup(navbar_clicks)
   extend_pulls_dashboard()
   extend_issues_dashboard()
   extend_standalone_detail()
