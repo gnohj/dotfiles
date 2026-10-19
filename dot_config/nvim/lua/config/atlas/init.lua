@@ -505,6 +505,10 @@ local function open_under_cursor()
   if links.on_back_chip(line, col) then
     return links.go_back()
   end
+  local hyperlink = require("config.atlas.hyperlinks").at_cursor()
+  if hyperlink then
+    return links.follow(hyperlink)
+  end
   local target = links.target(state.line_map[row], line, col, jira_url)
   if target then
     links.follow(target)
@@ -726,7 +730,8 @@ local function pr_enter()
   if links.on_back_chip(line, col) then
     return links.go_back()
   end
-  local target = links.target_here(line, col, jira_url)
+  local target = require("config.atlas.hyperlinks").at_cursor()
+    or links.target_here(line, col, jira_url)
   if target then
     return links.follow(target)
   end
@@ -1057,6 +1062,7 @@ function M.setup(opts)
   extend_issue_details()
   extend_issue_detail_width()
   extend_issue_detail_keys()
+  require("config.atlas.hyperlinks").setup(jira_url)
   require("config.atlas.jira-backlog").setup({
     board_id = 1254,
     sprint_field = "customfield_10010",
