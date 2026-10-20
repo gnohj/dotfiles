@@ -96,6 +96,20 @@ EOF
   echo "Ghostty configuration updated at '$ghostty_conf_file'."
 }
 
+# Rex imports Ghostty theme files and names the theme after the file; re-importing "gnohj" updates it in place, so a switch never piles up copies.
+generate_rex_theme() {
+  local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
+  command -v "$rex" >/dev/null 2>&1 || rex="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+  [ -x "$rex" ] || return 0
+  local rex_theme_file="$HOME/.config/rex/themes/gnohj.ghostty"
+  mkdir -p "$(dirname "$rex_theme_file")"
+  cp -f "$HOME/.config/ghostty/ghostty-theme" "$rex_theme_file"
+  # Needs the app running with Remote Control on; otherwise the import is skipped quietly.
+  if "$rex" do -C "$("$rex" client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')" client.theme.import path="$rex_theme_file" >/dev/null 2>&1; then
+    echo "Rex theme updated from '$rex_theme_file'."
+  fi
+}
+
 generate_kitty_theme() {
   kitty_conf_file="$HOME/.config/kitty/kitty-theme.conf"
   mkdir -p "$(dirname "$kitty_conf_file")"
@@ -2728,6 +2742,7 @@ if [ "$UPDATED" = true ]; then
   if [[ "$OSTYPE" == darwin* ]]; then
     generate_ghostty_theme
     pkill -USR2 -x ghostty 2>/dev/null || true
+    generate_rex_theme
     generate_kitty_theme
   fi
 
