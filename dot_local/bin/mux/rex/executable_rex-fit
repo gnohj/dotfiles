@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+# rex-fit WIDTH_FRACTION HEIGHT_FRACTION CMD... - runs CMD on a pty that fraction of this terminal's size, for Rex popups whose terminal is larger than the visible box.
+import fcntl
+import os
+import pty
+import select
+import signal
+import struct
+import sys
+import termios
+import tty
+
+
+def fitted_size(width_fraction, height_fraction):
+    rows, cols = struct.unpack("hh", fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, b"\0" * 4))
+    return max(1, int(rows * height_fraction)), max(1, int(cols * width_fraction))
+
+
+def set_size(fd, rows, cols):
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+
+def main():
+    width_fraction, height_fraction = float(sys.argv[1]), float(sys.argv[2])
+    command = sys.argv[3:]
+    parent, child = pty.openpty()
+    set_size(child, *fitted_size(width_fraction, height_fraction))
+    pid = os.fork()
+    if pid == 0:
+        os.close(parent)
+        os.setsid()
+        fcntl.ioctl(child, termios.TIOCSCTTY, 0)
+        for fd in (0, 1, 2):
+            os.dup2(child, fd)
+        if child > 2:
+            os.close(child)
+        os.execvp(command[0], command)
+    os.close(child)
+
+    signal.signal(signal.SIGWINCH, lambda *_: set_size(parent, *fitted_size(width_fraction, height_fraction)))
+    stdin = sys.stdin.fileno()
+    saved = termios.tcgetattr(stdin)
+    tty.setraw(stdin)
+    try:
+        while True:
+            try:
+                ready, _, _ = select.select([stdin, parent], [], [])
+            except InterruptedError:
+                continue
+            if parent in ready:
+                try:
+                    data = os.read(parent, 65536)
+                except OSError:
+                    break
+                if not data:
+                    break
+                os.write(sys.stdout.fileno(), data)
+            if stdin in ready:
+                data = os.read(stdin, 65536)
+                if not data:
+                    break
+                os.write(parent, data)
+    finally:
+        termios.tcsetattr(stdin, termios.TCSAFLUSH, saved)
+    _, status = os.waitpid(pid, 0)
+    sys.exit(os.waitstatus_to_exitcode(status))
+
+
+main()

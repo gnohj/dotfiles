@@ -24,6 +24,14 @@
 set -uo pipefail
 
 herdr="${HERDR_BIN_PATH:-herdr}"
+LAYOUT=("$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh")
+CACHE_NAME=sesh-rows
+# Inside a Rex floating layer: rex-herdr answers the herdr calls, opens sessions via init.lua's sesh_open, and keeps its own row cache.
+if [ -n "${REX_SESSION:-}" ] && [ -z "${HERDR_SOCKET_PATH:-}" ]; then
+  herdr="$HOME/.local/bin/mux/rex/rex-herdr"
+  LAYOUT=("$herdr" layout)
+  CACHE_NAME=sesh-rows-rex
+fi
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
 SELF="$HOME/.local/bin/mux/herdr/herdr-sesh.sh"
@@ -35,7 +43,7 @@ else
   BG=(nice -n 19)
 fi
 
-CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/herdr/sesh-rows"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/herdr/$CACHE_NAME"
 save_cache() {
   mkdir -p "${CACHE_FILE%/*}" && cp -f "$1" "$CACHE_FILE.$$" && mv -f "$CACHE_FILE.$$" "$CACHE_FILE"
 }
@@ -690,6 +698,12 @@ esac
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 color_string="list-border:6,input-border:6,header-bg:-1,header-border:6,bg+:${gnohj_color13:-},fg+:${gnohj_color02:-},hl+:${gnohj_color04:-},fg:${gnohj_color02:-},info:${gnohj_color09:-},prompt:${gnohj_color04:-},pointer:${gnohj_color04:-},marker:${gnohj_color04:-},header:${gnohj_color09:-}"
+FRAME=(--no-border)
+# A Rex floating layer has a transparent background and no frame, where herdr's popup drew both.
+if [ "$CACHE_NAME" = sesh-rows-rex ] && [ -n "${gnohj_color10:-}" ]; then
+  color_string+=",bg:${gnohj_color10},list-bg:${gnohj_color10},input-bg:${gnohj_color10},header-bg:${gnohj_color10},border:6"
+  FRAME=(--border=rounded --padding=0,1)
+fi
 
 command -v fzf     >/dev/null 2>&1 || { echo "fzf required";     sleep 1; exit 0; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0; }
@@ -755,7 +769,7 @@ while true; do
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
     --with-shell '/bin/bash -c' \
-    --no-border --ansi --layout=reverse --list-border --no-sort \
+    "${FRAME[@]}" --ansi --layout=reverse --list-border --no-sort \
     --prompt "$PROMPT" --gutter=' ' --color "$color_string" \
     --input-border --header-border --header "$HEADER" \
     --delimiter='\t' --with-nth=2 --nth=1 \
@@ -809,7 +823,7 @@ while true; do
       # Seed zoxide on entry (_ZO_DATA_DIR is exported above) so the worktree shows in the default view immediately - the chpwd hook only fires on a later cd.
       zoxide add "$WT_PATH" 2>/dev/null
       rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE"   # exec replaces us, so the EXIT trap never runs
-      exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WT_PATH"
+      exec "${LAYOUT[@]}" "$WT_PATH"
     fi
     # esc in the worktree view closes the popup outright rather than re-showing the picker behind it.
     exit 0
@@ -831,8 +845,8 @@ while true; do
         *) exec "$herdr" agent focus "$inner" ;;
       esac
       ;;
-    cfg:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" --entry "${TARGET#cfg:}" ;;
-    zox:*)         exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${TARGET#zox:}" ;;
+    cfg:*)         exec "${LAYOUT[@]}" --entry "${TARGET#cfg:}" ;;
+    zox:*)         exec "${LAYOUT[@]}" "${TARGET#zox:}" ;;
     *)             exit 0 ;;
   esac
 done

@@ -48,6 +48,56 @@ local function windows()
   return view
 end
 
+-- herdr-style toggle popup over an opaque theme backdrop (Rex leaves default bg see-through), {l,t,r,b} bounds, rex-fit sizes the pty to the box.
+local WAIT_FOR_SIZE = 'for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(stty size 2>/dev/null)" != "24 80" ] && break; sleep 0.03; done'
+local RUN_THEN_CLOSE_BACKDROP = WAIT_FOR_SIZE .. [[; rex="$REX_BIN_DIR/rex"; layer=$1; block=$2; shift 2; s=$(stty size); "$rex" api call -s "$REX_SESSION" com.superlogical.terminal.resize "{\"block_id\":\"$block\",\"args\":{\"columns\":${s#* },\"rows\":${s% *}}}" >/dev/null 2>&1; "$@"; "$rex" api call -s "$REX_SESSION" session.close_layer "{\"layer_id\":\"$layer\"}" >/dev/null 2>&1]]
+local PAINT = [[c=$1; paint() { s=$(stty size); w=${s#* }; r=${s% *}; row=$(printf '%*s' "$w" ''); printf '\033[?25l\033[H\033[48;2;%sm' "$c"; i=0; while [ "$i" -lt "$r" ]; do printf '%s' "$row"; i=$((i + 1)); done; }; trap paint WINCH; paint; while :; do sleep 3600 & wait $!; done]]
+local REX_FIT = HOME .. "/.local/bin/mux/rex/rex-fit"
+
+local function theme_background()
+  local f = io.open(HOME .. "/.config/ghostty/ghostty-theme")
+  local hex = "0f1419"
+  if f ~= nil then
+    for line in f:lines() do
+      local h = line:match("^%s*background%s*=%s*#?(%x%x%x%x%x%x)")
+      if h ~= nil then hex = h end
+    end
+    f:close()
+  end
+  return string.format("%d;%d;%d", tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16))
+end
+
+local function popup(ctx, side, top, command, cwd)
+  local view = windows()
+  for _, w in ipairs(view.windows) do
+    if w.window_id == view.active_window_id then
+      local open = false
+      for _, layer in ipairs(w.layers or {}) do
+        if layer.kind ~= "tiled" then
+          open = true
+          rex.session.close_layer{ layer_id = layer.layer_id }
+        end
+      end
+      if open then return end
+    end
+  end
+  local box = { side, top, 1 - side, 1 - top }
+  local backdrop, berr = rex.session.new_layer{
+    bounds = box,
+    focus = false,
+    layout = rex.layout.block{ flavor = SHELL, options = { command = { "/bin/sh", "-c", PAINT, "sh", theme_background() } } },
+  }
+  fail(berr)
+  local argv = { "/bin/sh", "-c", RUN_THEN_CLOSE_BACKDROP, "sh", backdrop.layer_id, backdrop.block_ids[1],
+                 REX_FIT, tostring((box[3] - side) / box[3]), tostring((box[4] - top) / box[4]) }
+  for _, a in ipairs(command) do table.insert(argv, a) end
+  fail(select(2, rex.session.new_layer{
+    bounds = box,
+    focus = true,
+    layout = rex.layout.block{ flavor = SHELL, options = { command = argv, cwd = cwd } },
+  }))
+end
+
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
 
@@ -260,7 +310,7 @@ rex.action{
 }
 rex.bind(P .. "shift+n", "new_session_here")
 
--- Called by rex-sesh.sh once a row is picked; an empty startup means the dev layout.
+-- Called by rex-herdr when herdr-sesh.sh opens a sesh.toml entry or zoxide dir; an empty startup means the dev layout.
 rex.action{
   name = "sesh_open",
   title = "Open Sesh Session",
@@ -273,20 +323,13 @@ rex.action{
   end,
 }
 
--- ctrl+t: rex-sesh.sh fzf picker in a floating layer (herdr-sesh.sh popup, 48% x 70%).
+-- ctrl+t: herdr-sesh.sh itself as a floating popup, 56% x 76% centred like herdr's, its herdr calls answered by rex-herdr.
 rex.action{
   name = "sesh_picker",
   title = "Sesh Picker",
   category = "Sesh",
   run = function(ctx, args)
-    fail(select(2, rex.session.new_layer{
-      bounds = { 0.26, 0.15, 0.48, 0.7 },
-      focus = true,
-      layout = rex.layout.block{
-        flavor = SHELL,
-        options = { command = { HOME .. "/.local/bin/mux/rex/rex-sesh.sh" }, cwd = HOME },
-      },
-    }))
+    popup(ctx, 0.22, 0.12, { HOME .. "/.local/bin/mux/herdr/herdr-sesh.sh" }, HOME)
   end,
 }
 rex.bind("ctrl+t", "sesh_picker")
@@ -330,20 +373,13 @@ for _, e in ipairs(read_sesh(HOME .. "/.config/sesh/sesh.toml")) do
   end
 end
 
--- ctrl+g: lazygit in a floating layer on the pane's repo (herdr lazygit popup, 90%).
+-- ctrl+g: lazygit as a floating popup on the pane's repo (herdr lazygit popup, 90%).
 rex.action{
   name = "lazygit",
   title = "Lazygit (floating)",
   category = "herdr",
   run = function(ctx, args)
-    fail(select(2, rex.session.new_layer{
-      bounds = { 0.05, 0.05, 0.9, 0.9 },
-      focus = true,
-      layout = rex.layout.block{
-        flavor = SHELL,
-        options = { command = { "lazygit" }, cwd = block_cwd(ctx.block_id) },
-      },
-    }))
+    popup(ctx, 0.05, 0.05, { "lazygit" }, block_cwd(ctx.block_id))
   end,
 }
 rex.bind("ctrl+g", "lazygit")
