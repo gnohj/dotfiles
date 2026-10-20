@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review-open.sh — open a PR-review window layout (Octo / hunk / Claude / ENHANCE)
+# review-open.sh — open a PR-review window layout (hunk / Claude / ENHANCE)
 # for one PR in tmux/herdr windows. Dispatches on <mode> to match each gh-dash
 # `prs` binding.
 #
@@ -8,7 +8,6 @@
 #   mode       binding  windows
 #   ---------  -------  --------------------------------------------------
 #   full       M / Z    Claude /review-lavish (Z runs it on the dev box via review-devbox.sh)
-#   octo       enter    Octo
 #   diff       D        hunk + Claude /hunk-review
 #   hunk       -        hunk alone, no agent (the Library's "Show diff in terminal")
 #   enhance    E        ENHANCE
@@ -152,10 +151,6 @@ head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
 
 # After the checkout, not at lease time - post_create would resolve master's manifests (see install-deps.sh).
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
-
-open_octo() {
-  mux "🐙 #$pr" "$1" "${GH_KEYRING}nvim --cmd \"let g:zen_disabled=1\" -c \":silent Octo pr edit $pr\""
-}
 
 # --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
 open_hunk() {
@@ -310,14 +305,6 @@ case "$mode" in
       window_opts+=(--env REVIEW_FANOUT_EXPECTED=1)
     fi
     open_fanout_owner "$WT"
-    ;;
-  octo)
-    WT="$("$wt_script" acquire "$pr")"
-    HEAD="$(head_ref)"
-    git -C "$WT" fetch origin "$HEAD" 2>/dev/null
-    git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
-    install_deps "$WT"
-    open_octo "$WT"
     ;;
   diff | hunk)
     # `hunk` was opened to look at now, so it takes focus; mux is silent across workspaces by default.

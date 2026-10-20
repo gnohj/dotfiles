@@ -337,7 +337,7 @@ end
 return {
   "sand4rt/zen.nvim",
   -- Don't load zen.nvim if vim.g.zen_disabled is set (e.g., nvim --cmd "let g:zen_disabled=1")
-  -- This allows diffview/codediff/octo to open in tmux windows without zen
+  -- This allows diffview/codediff to open in tmux windows without zen
   cond = function()
     return not vim.g.zen_disabled
   end,
