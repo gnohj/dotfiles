@@ -32,9 +32,10 @@ if [ -n "$existing_tab" ]; then
   [ -n "${existing_pane:-}" ] || { echo "review-lavish-resume: the existing PR $pr tab has no Claude agent" >&2; exit 1; }
   case "$existing_status" in
     idle | done)
-      herdr agent prompt "$existing_pane" "/review-lavish $pr" --wait --until working --timeout 10000 >/dev/null
-      printf 'review agent resumed: %s#%s in pane %s\n' "$repo" "$pr" "$existing_pane"
-      exit 0
+      # An idle owner ended its turn without polling, so its context is the thing that failed; replace it rather than re-prompt it.
+      herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("(🤖|🔎[0-9]*) #" + $pr + "([^0-9]|$)"))) | .tab_id' |
+        while read -r stale_tab; do herdr tab close "$stale_tab" >/dev/null 2>&1 || true; done
+      printf 'closed stale review tabs for %s#%s\n' "$repo" "$pr"
       ;;
     working | blocked)
       echo "review-lavish-resume: the agent for PR $pr is already $existing_status" >&2

@@ -174,7 +174,7 @@ open_claude_hunk() {
 open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr" "$1" \
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
