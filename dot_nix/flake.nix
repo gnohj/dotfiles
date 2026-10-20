@@ -41,6 +41,12 @@
               gh-dash = inputs.nixpkgs-ghdash.legacyPackages."x86_64-linux".gh-dash;
               # Pin sesh until go-mockery builds under go 1.27; see flake.nix nixpkgs-sesh.
               sesh = inputs.nixpkgs-sesh.legacyPackages."x86_64-linux".sesh;
+              # viceroy denies warnings and rustc 1.99 deprecated std::u32::MAX; drop once upstream builds.
+              viceroy = prev.viceroy.overrideAttrs (old: {
+                postPatch = (old.postPatch or "") + ''
+                  substituteInPlace src/lib.rs --replace-fail "deny(warnings)" "warn(warnings)"
+                '';
+              });
             })
           ];
         };

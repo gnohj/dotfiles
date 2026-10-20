@@ -62,6 +62,13 @@
 
       # Pin sesh until go-mockery builds under go 1.27; see flake.nix nixpkgs-sesh.
       sesh = inputs.nixpkgs-sesh.legacyPackages."aarch64-darwin".sesh;
+
+      # viceroy denies warnings and rustc 1.99 deprecated std::u32::MAX; drop once upstream builds.
+      viceroy = prev.viceroy.overrideAttrs (old: {
+        postPatch = (old.postPatch or "") + ''
+          substituteInPlace src/lib.rs --replace-fail "deny(warnings)" "warn(warnings)"
+        '';
+      });
     })
   ];
 
