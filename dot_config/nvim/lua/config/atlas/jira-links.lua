@@ -178,7 +178,7 @@ function M.previous_label()
   return previous.kind == "pr" and ("#" .. previous.ref.id) or previous.key
 end
 
--- Opening an item any other way (dashboard, J, gl) starts a fresh trail.
+-- Opening an item any other way (dashboard, X, gl) starts a fresh trail.
 function M.setup()
   local openers = {
     { issue_detail(), { "open", "open_ref" } },
