@@ -72,6 +72,9 @@ with pkgs;
   # Image/video processing for terminal (yazi previews)
   imagemagick
   ffmpeg
+  ghostscript  # snacks.image PDF rendering
+  tectonic     # snacks.image LaTeX math
+  mermaid-cli  # snacks.image Mermaid (mmdc)
 
   # Security & Development
   mkcert     # Local certificate tool

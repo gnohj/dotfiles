@@ -7,6 +7,13 @@ vim.g.snacks_animate = false
 
 vim.g.snacks_scroll = false
 
+-- nixpkgs mermaid-cli bundles no browser on macOS
+local chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+if vim.fn.executable(chrome) == 1 then
+  vim.env.PUPPETEER_EXECUTABLE_PATH = vim.env.PUPPETEER_EXECUTABLE_PATH
+    or chrome
+end
+
 vim.opt.completeopt = { "menuone", "popup", "noinsert" }
 
 vim.opt.autoread = true
