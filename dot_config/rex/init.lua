@@ -231,7 +231,22 @@ rex.bind(P .. "0", "close_other_tabs")
 rex.bind(P .. "v", "pane.split", { direction = "right" })
 rex.bind(P .. "-", "pane.split", { direction = "down" })
 rex.bind(P .. "=", "pane.split", { direction = "down" })
-rex.bind(P .. "x", "pane.close")
+-- prefix+x: Rex disables pane.close on a tab's last pane, so close the tab instead (herdr close_pane).
+rex.action{
+  name = "close_pane",
+  title = "Close Pane or Last-Pane Tab",
+  category = "herdr",
+  run = function(ctx, args)
+    local w = tab_of_block(windows(), ctx.block_id)
+    if w == nil then return end
+    local panes = 0
+    for _, layer in ipairs(w.layers or {}) do
+      if layer.kind == "tiled" then panes = panes + #(layer.blocks or {}) end
+    end
+    rex.client.queue(panes > 1 and "pane.close" or "client.tab.close")
+  end,
+}
+rex.bind(P .. "x", "close_pane")
 rex.bind(P .. "z", "pane.zoom")
 rex.bind(P .. "o", "pane.focus_next")
 rex.bind(P .. "tab", "pane.focus_next")
