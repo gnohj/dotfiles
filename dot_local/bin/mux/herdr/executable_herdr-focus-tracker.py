@@ -10,8 +10,8 @@ the press-based hacks and native last_pane can't: previous-workspace, previous-t
 workspace, and previous-pane per tab. It writes three state files the ctrl+b /
 ctrl+space / ctrl+enter wrappers read:
 
-  ~/.local/state/hack-herdr-last-workspace  -> workspace to jump back to
-  ~/.local/state/hack-herdr-last-tab        -> previous tab IN the current workspace
+  ~/.local/state/hack-herdr-last-workspace  -> workspace to jump back to, then the one it last saw focused
+  ~/.local/state/hack-herdr-last-tab        -> previous tab IN the current workspace, then the one it last saw focused
   ~/.local/state/hack-herdr-last-pane       -> previous pane IN the current tab
 
 It also keeps tab labels numbered by POSITION - see renumber_tabs below.
@@ -430,8 +430,10 @@ class MRU:
                 del self.pane_prev[tab]
 
     def flush(self):
-        write_atomic(LAST_WS, self.prev_ws or "")
-        write_atomic(LAST_TAB, self.tab_prev.get(self.cur_ws, "") if self.cur_ws else "")
+        write_atomic(LAST_WS, f"{self.prev_ws or ''}\n{self.cur_ws or ''}\n")
+        prev_tab = self.tab_prev.get(self.cur_ws, "") if self.cur_ws else ""
+        cur_tab = self.tab_cur.get(self.cur_ws, "") if self.cur_ws else ""
+        write_atomic(LAST_TAB, f"{prev_tab}\n{cur_tab}\n")
         write_atomic(LAST_PANE, self.pane_prev.get(self.cur_tab, "") if self.cur_tab else "")
 
 
@@ -513,6 +515,8 @@ def handle(mru, msg):
         renumber_tabs()
     else:
         return False
+    # Flush before painting so a fast second toggle never reads a target the repaint is holding back.
+    mru.flush()
     # Unlike the branch row, this one DOES track within-tab pane hops - that is the point of it.
     if event in PANE_PAINT_EVENTS:
         paint_panes()
@@ -553,8 +557,7 @@ def session(mru):
                 msg = json.loads(raw)
             except ValueError:
                 continue
-            if handle(mru, msg):
-                mru.flush()
+            handle(mru, msg)
 
 
 def main():
