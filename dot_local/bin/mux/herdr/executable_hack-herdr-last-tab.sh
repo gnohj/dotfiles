@@ -12,8 +12,15 @@ set -uo pipefail
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-tab"
 
-target=""
-[ -f "$state" ] && target=$(cat "$state" 2>/dev/null)
+target="" seen=""
+[ -f "$state" ] && { read -r target; read -r seen; } <"$state" 2>/dev/null
+
+# A fast second press can beat the tracker's write; it is then one switch behind and $seen is where we came from.
+if [ -n "$seen" ]; then
+  behind=$("$herdr" tab list 2>/dev/null | jq -r --arg seen "$seen" '.result.tabs as $t | ($t[] | select(.focused)) as $cur
+    | select($cur.tab_id != $seen and any($t[]; .tab_id == $seen and .workspace_id == $cur.workspace_id)) | $seen')
+  [ -n "$behind" ] && target="$behind"
+fi
 
 if [ -n "$target" ]; then
   "$herdr" tab focus "$target" >/dev/null 2>&1

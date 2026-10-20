@@ -13,8 +13,14 @@ set -uo pipefail
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-workspace"
 
-target=""
-[ -f "$state" ] && target=$(cat "$state" 2>/dev/null)
+target="" seen=""
+[ -f "$state" ] && { read -r target; read -r seen; } <"$state" 2>/dev/null
+
+# A fast second press can beat the tracker's write; it is then one switch behind and $seen is where we came from.
+if [ -n "$seen" ]; then
+  current=$("$herdr" workspace list 2>/dev/null | jq -r '.result.workspaces[] | select(.focused) | .workspace_id')
+  [ -n "$current" ] && [ "$current" != "$seen" ] && target="$seen"
+fi
 
 if [ -n "$target" ]; then
   "$herdr" workspace focus "$target" >/dev/null 2>&1
