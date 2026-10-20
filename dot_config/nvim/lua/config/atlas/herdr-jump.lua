@@ -32,7 +32,7 @@ function M.open_pr_url(url)
   )
 end
 
-local function current_pr()
+function M.current_pr()
   local detail = require("atlas.pulls.ui.detail.state")
   if vim.bo.filetype == "atlas-ui.detail" and detail.current_pr then
     return detail.current_pr
@@ -42,7 +42,7 @@ local function current_pr()
 end
 
 function M.pr_to_jira()
-  local pr = current_pr()
+  local pr = M.current_pr()
   if type(pr) ~= "table" then
     return vim.notify("No PR selected", vim.log.levels.WARN)
   end
@@ -129,24 +129,12 @@ local function choose(key, prs)
   if #prs == 0 then
     return vim.notify("No pull request found for " .. key, vim.log.levels.WARN)
   end
-  table.sort(prs, function(a, b)
-    return (a.status == "OPEN" and 0 or 1) < (b.status == "OPEN" and 0 or 1)
-  end)
   if #prs == 1 then
     return open_pr(prs[1])
   end
   vim.ui.select(prs, {
     prompt = "Pull requests for " .. key,
-    format_item = function(pr)
-      local repo, number = pr.url:match("github%.com/[^/]+/([^/]+)/pull/(%d+)")
-      return string.format(
-        "%s #%s  [%s]  %s",
-        repo or "",
-        number or "",
-        pr.status,
-        pr.title
-      )
-    end,
+    format_item = M.pr_label,
   }, function(pr)
     if pr then
       open_pr(pr)
@@ -154,26 +142,52 @@ local function choose(key, prs)
   end)
 end
 
-function M.jira_to_pr(issue)
-  if not (issue and issue.key) then
-    return vim.notify("No issue selected", vim.log.levels.WARN)
+function M.pr_label(pr)
+  local repo, number = pr.url:match("github%.com/[^/]+/([^/]+)/pull/(%d+)")
+  return string.format(
+    "%s #%s  [%s]  %s",
+    repo or "",
+    number or "",
+    pr.status,
+    pr.title
+  )
+end
+
+function M.linked_prs(issue, on_done)
+  local function sorted(prs)
+    table.sort(prs, function(a, b)
+      return (a.status == "OPEN" and 0 or 1) < (b.status == "OPEN" and 0 or 1)
+    end)
+    vim.schedule(function()
+      on_done(prs)
+    end)
   end
   local function done(prs)
-    vim.schedule(function()
-      if #prs > 0 then
-        return choose(issue.key, prs)
-      end
-      search_prs(issue.key, function(found)
-        vim.schedule(function()
-          choose(issue.key, found)
-        end)
-      end)
-    end)
+    if #prs > 0 then
+      return sorted(prs)
+    end
+    search_prs(issue.key, sorted)
   end
   if issue.id then
     return dev_panel_prs(issue.id, done)
   end
   done({})
+end
+
+function M.jira_to_pr(issue)
+  if not (issue and issue.key) then
+    return vim.notify("No issue selected", vim.log.levels.WARN)
+  end
+  M.linked_prs(issue, function(prs)
+    choose(issue.key, prs)
+  end)
+end
+
+function M.jump(ctx)
+  if type(ctx) == "table" and ctx.issue then
+    return M.jira_to_pr(ctx.issue)
+  end
+  M.pr_to_jira()
 end
 
 return M

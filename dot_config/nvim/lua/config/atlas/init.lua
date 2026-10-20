@@ -98,19 +98,7 @@ local function jira_key()
   return key
 end
 
-local function open_pr_links(pr)
-  if type(pr) ~= "table" then
-    return vim.notify("No PR selected", vim.log.levels.WARN)
-  end
-  local choices =
-    { { label = "GitHub PR #" .. pr.id, url = pr.link and pr.link.html } }
-  local key = pr_jira_key(pr)
-  if key then
-    table.insert(
-      choices,
-      { label = "Jira " .. key, url = jira_url .. "/browse/" .. key }
-    )
-  end
+local function pick_and_open(choices)
   vim.ui.select(choices, {
     prompt = "Open in browser",
     format_item = function(c)
@@ -121,6 +109,60 @@ local function open_pr_links(pr)
       vim.ui.open(choice.url)
     end
   end)
+end
+
+local function jira_choice(key)
+  return { label = "Jira " .. key, url = jira_url .. "/browse/" .. key }
+end
+
+local function open_pr_links(pr)
+  if type(pr) ~= "table" then
+    return vim.notify("No PR selected", vim.log.levels.WARN)
+  end
+  local choices =
+    { { label = "GitHub PR #" .. pr.id, url = pr.link and pr.link.html } }
+  local key = pr_jira_key(pr)
+  if key then
+    table.insert(choices, jira_choice(key))
+  end
+  pick_and_open(choices)
+end
+
+local function open_issue_links(issue)
+  local jump = require("config.atlas.herdr-jump")
+  jump.linked_prs(issue, function(prs)
+    local choices = { jira_choice(issue.key) }
+    for _, pr in ipairs(prs) do
+      table.insert(
+        choices,
+        { label = "GitHub " .. jump.pr_label(pr), url = pr.url }
+      )
+    end
+    pick_and_open(choices)
+  end)
+end
+
+local function jump_counterpart()
+  return {
+    key = "J",
+    desc = "Open the linked PR or Jira ticket in a split",
+    callback = function(ctx)
+      require("config.atlas.herdr-jump").jump(ctx)
+    end,
+  }
+end
+
+local function open_links()
+  return {
+    key = "o",
+    desc = "Open PR or Jira in browser",
+    callback = function(ctx)
+      if type(ctx) == "table" and ctx.issue then
+        return open_issue_links(ctx.issue)
+      end
+      open_pr_links(require("config.atlas.herdr-jump").current_pr())
+    end,
+  }
 end
 
 local function open_jira_in_browser()
@@ -669,24 +711,10 @@ local function dashboard_items()
     })
   end
   vim.list_extend(items, {
-    {
-      key = "o",
-      desc = "Open PR or Jira in browser",
-      callback = function()
-        local item =
-          require("atlas.pulls.ui.dashboard.navigation").current_item()
-        open_pr_links(type(item) == "table" and item.pr or nil)
-      end,
-    },
+    open_links(),
     { key = "v", desc = "Approve PR", callback = approve },
     { key = "X", desc = "Reclaim idle review slots", callback = reclaim },
-    {
-      key = "J",
-      desc = "Open Jira ticket in a split",
-      callback = function()
-        require("config.atlas.herdr-jump").pr_to_jira()
-      end,
-    },
+    jump_counterpart(),
     {
       key = "gJ",
       desc = "Open Jira ticket in browser",
@@ -746,13 +774,7 @@ local function extend_pulls_detail()
   local register, remove = keymaps.register, keymaps.remove
   pr_back_chip()
   local items = {
-    {
-      key = "o",
-      desc = "Open PR or Jira in browser",
-      callback = function()
-        open_pr_links(require("atlas.pulls.ui.detail.state").current_pr)
-      end,
-    },
+    open_links(),
     {
       key = "ge",
       desc = "Edit field under cursor",
@@ -760,13 +782,7 @@ local function extend_pulls_detail()
         require("config.atlas.github-edit").edit_detail()
       end,
     },
-    {
-      key = "J",
-      desc = "Open Jira ticket in a split",
-      callback = function()
-        require("config.atlas.herdr-jump").pr_to_jira()
-      end,
-    },
+    jump_counterpart(),
     {
       key = "<CR>",
       desc = "Open PR, Jira or URL under cursor",
@@ -1003,13 +1019,8 @@ function M.opts()
             desc = "Toggle mine / everyone",
             callback = toggle_scope,
           },
-          {
-            key = "P",
-            desc = "Open PR in a split",
-            callback = function(ctx)
-              require("config.atlas.herdr-jump").jira_to_pr(ctx.issue)
-            end,
-          },
+          jump_counterpart(),
+          open_links(),
           {
             key = "ge",
             desc = "Edit field under cursor",
