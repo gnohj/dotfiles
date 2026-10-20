@@ -14,8 +14,15 @@ set -uo pipefail
 herdr="${HERDR_BIN_PATH:-herdr}"
 state="${XDG_STATE_HOME:-$HOME/.local/state}/hack-herdr-last-pane"
 
-target=""
-[ -f "$state" ] && target=$(cat "$state" 2>/dev/null)
+target="" seen=""
+[ -f "$state" ] && { read -r target; read -r seen; } <"$state" 2>/dev/null
+
+# A fast second press can beat the tracker's write; it is then one switch behind and $seen is where we came from.
+if [ -n "$seen" ]; then
+  behind=$("$herdr" pane list 2>/dev/null | jq -r --arg seen "$seen" '.result.panes as $p | ($p[] | select(.focused)) as $cur
+    | select($cur.pane_id != $seen and any($p[]; .pane_id == $seen and .tab_id == $cur.tab_id)) | $seen')
+  [ -n "$behind" ] && target="$behind"
+fi
 
 if [ -n "$target" ]; then
   "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$target" >/dev/null 2>&1
