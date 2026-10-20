@@ -35,6 +35,11 @@ else
   BG=(nice -n 19)
 fi
 
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/herdr/sesh-rows"
+save_cache() {
+  mkdir -p "${CACHE_FILE%/*}" && cp -f "$1" "$CACHE_FILE.$$" && mv -f "$CACHE_FILE.$$" "$CACHE_FILE"
+}
+
 build_list() {
   # Probes fan out into files, not command substitution: a subshell cannot hand a variable back.
   local src
@@ -483,12 +488,19 @@ os.execv(script, [script, "--warm-locked"])
       # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
       # $ROWS is read first (guaranteed non-empty above) so FNR==NR still means "first file" when nothing matched.
       POS=$(fzf --ansi --delimiter='\t' --nth=1 --no-sort --filter="$Q" <"$ROWS" \
-        | awk -F'\t' -v out="$VIEW" -v q="$Q" '
+        | awk -F'\t' -v out="$VIEW" -v q="$Q" -v aliases="${SESH_ALIASES:-}" '
+BEGIN {
+  q = tolower(q)
+  # Jump without enter only when no other alias starts with the query, so "b" never shadows "bm".
+  na = split(tolower(aliases), al, " ")
+  for (i = 1; i <= na; i++) { if (al[i] == q) exact = 1; else if (index(al[i], q) == 1) longer = 1 }
+  unique = exact && !longer
+}
 FNR == NR {
   line[FNR] = $0; tgt[FNR] = $NF; n = FNR
   # An exactly-typed alias parks the cursor on its row whatever else fuzzy-matched.
   nw = split($1, w, " ")
-  if (nw > 1 && w[nw] == q) aliasrow[FNR] = 1
+  if (nw > 1 && tolower(w[nw]) == q) aliasrow[FNR] = 1
   # Ancestors come from POSITION not from parsing ids: rows are emitted parent-first, so a row belongs to the nearest preceding ws:/tab: row.
   if ($NF ~ /^ws:/)         { ws = FNR; tab = 0 }
   else if ($NF ~ /^tab:/)   { tab = FNR; up1[FNR] = ws }
@@ -507,15 +519,63 @@ END {
     # 1-based cursor position of the first genuine hit; borrowed ancestors are context, not hits.
     k++
     if (!hit && (tgt[i] in sel)) { pos = k; hit = 1 }
-    if (i in aliasrow) apos = k
+    if (i in aliasrow) { apos = k; arow = line[i] }
   }
   if (apos) pos = apos
   close(out)
+  # accept would read the pre-reload list, so the row goes to a file that become() hands back as the fzf output.
+  if (apos && exact) { printf "\n%s\n", arow >(out ".pick"); close(out ".pick"); pos = pos (unique ? " pick" : " later") }
   print pos
 }' "$ROWS" -)
     fi
+    PICK=""
+    if [ "${5:-}" != --rebuild ]; then
+      # Every keystroke stamps the query, so a pending delayed pick fires only if nothing was typed after it.
+      printf '%s' "$Q" >"$VIEW.q"
+      case "$POS" in
+        *" pick") PICK=$(printf '+become(cat %q)' "$VIEW.pick") ;;
+        *" later")
+          # sesh alias_auto_connect_delay: "b" also starts "bm", so it connects only after a 150ms pause.
+          ( sleep 0.15
+            [ "$(cat "$VIEW.q" 2>/dev/null)" = "$Q" ] && [ -n "${FZF_PORT:-}" ] &&
+              curl -s -m 1 -H "x-api-key: ${FZF_API_KEY:-}" -XPOST "localhost:$FZF_PORT" -d "become(cat $(printf '%q' "$VIEW.pick"))"
+          ) >/dev/null 2>&1 &
+          ;;
+      esac
+    fi
+    POS="${POS%% *}"
     # pos() is UNCONDITIONAL: reload-sync keeps the old cursor index, so without it the cursor drifts as the query narrows.
-    printf 'reload-sync(cat %q)+pos(%s)\n' "$VIEW" "${POS:-1}"
+    printf 'reload-sync(cat %q)+pos(%s)%s\n' "$VIEW" "${POS:-1}" "$PICK"
+    exit 0
+    ;;
+  --refresh)
+    ROWS="${2:-}"
+    [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
+      source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+    build_list >"$ROWS.tmp" && mv -f "$ROWS.tmp" "$ROWS"
+    save_cache "$ROWS"
+    : >"$ROWS.fresh"
+    cat "$ROWS"
+    exit 0
+    ;;
+  --loaded)
+    # First load starts the rebuild, the fresh load re-applies the query or focus row, --view reloads are no-ops.
+    ROWS="${2:-}"
+    VIEW="${3:-}"
+    Q="${4:-}"
+    if [ ! -e "$ROWS.started" ]; then
+      : >"$ROWS.started"
+      printf 'reload(%q --refresh %q)\n' "$SELF" "$ROWS"
+      exit 0
+    fi
+    [ -e "$ROWS.fresh" ] || exit 0
+    rm -f "$ROWS.fresh"
+    if [ -n "$Q" ]; then
+      exec "$SELF" --view "$ROWS" "$VIEW" "$Q"
+    fi
+    P=1
+    [ ! -r "$FOCUS_FILE" ] || read -r P <"$FOCUS_FILE"
+    printf 'pos(%s)\n' "${P:-1}"
     exit 0
     ;;
   --git)
@@ -641,7 +701,13 @@ VIEW_FILE="${TMPDIR:-/tmp}/herdr-sesh-view.$$"
 export FOCUS_FILE="${TMPDIR:-/tmp}/herdr-sesh-pos.$$"
 # The watched-repo count when the git view found nothing dirty; the header reads it.
 export CLEAN_FILE="${TMPDIR:-/tmp}/herdr-sesh-clean.$$"
-trap 'rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE" "$CLEAN_FILE"' EXIT
+trap 'rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE" "$CLEAN_FILE"' EXIT
+# --listen lets a delayed alias pick reach fzf from a background job; the key keeps other local users off the port.
+export FZF_API_KEY="$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM"
+# Read once per open: every keystroke runs --view, and re-reading sesh.toml there cost ~45ms a key.
+SESH_ALIASES=$(awk -F'\t' '{printf "%s ", $1}' "${XDG_CACHE_HOME:-$HOME/.cache}/sesh/aliases.tsv" 2>/dev/null)
+[ -n "$SESH_ALIASES" ] || SESH_ALIASES=$("$HOME/.config/sesh/sesh-aliases.sh" 2>/dev/null | awk -F'\t' '{printf "%s ", $1}')
+export SESH_ALIASES
 
 # Looped so ctrl-g can re-enter with a different view, and so the picker comes back after lazygit exits. esc no longer returns here from a sub-menu: it closes the popup from wherever you are.
 # GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
@@ -649,7 +715,15 @@ GIT_ONLY=0
 while true; do
   # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
   export SESH_GIT_ONLY="$GIT_ONLY"
-  build_list >"$ROWS_FILE"
+  CACHED=0
+  if [ "$GIT_ONLY" = 0 ] && [ -z "${REOPEN:-}" ] && [ -s "$CACHE_FILE" ]; then
+    cp -f "$CACHE_FILE" "$ROWS_FILE"
+    CACHED=1
+  else
+    build_list >"$ROWS_FILE"
+    [ "$GIT_ONLY" = 1 ] || save_cache "$ROWS_FILE"
+  fi
+  REOPEN=1
   # Nothing dirty says so in the header and lists what was watched, instead of a bare 0/0 or a silent revert to the full list.
   HEADER=""
   if [ "$GIT_ONLY" = 1 ]; then
@@ -669,7 +743,13 @@ while true; do
     PROMPT='⚡ '
   fi
   START_POS=1
-  [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
+  [ "$CACHED" = 1 ] || [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
+  # A second start: bind replaces the first; the refresh hangs off load since --sync holds the first paint for start actions.
+  START_ACTION="pos($START_POS)"
+  LOAD_ACTION="ignore"
+  if [ "$CACHED" = 1 ]; then
+    LOAD_ACTION="transform(\"$SELF\" --loaded \"$ROWS_FILE\" \"$VIEW_FILE\" {q})"
+  fi
   [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
@@ -681,8 +761,9 @@ while true; do
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
     --expect=ctrl-w,ctrl-g \
-    --sync \
-    --bind "start:pos($START_POS)" \
+    --sync --listen \
+    --bind "start:$START_ACTION" \
+    --bind "load:$LOAD_ACTION" \
     --bind 'tab:down,btab:up' \
     --bind 'ctrl-j:down,ctrl-k:up' \
     --bind 'ctrl-b:abort' \
@@ -727,7 +808,7 @@ while true; do
       WT_PATH="${WT##*$'\t'}"
       # Seed zoxide on entry (_ZO_DATA_DIR is exported above) so the worktree shows in the default view immediately - the chpwd hook only fires on a later cd.
       zoxide add "$WT_PATH" 2>/dev/null
-      rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # exec replaces us, so the EXIT trap never runs
+      rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE"   # exec replaces us, so the EXIT trap never runs
       exec "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "$WT_PATH"
     fi
     # esc in the worktree view closes the popup outright rather than re-showing the picker behind it.
@@ -738,7 +819,7 @@ while true; do
   [ -z "$SELECTED" ] && exit 0
 
   TARGET="${SELECTED##*$'\t'}"
-  rm -f "$ROWS_FILE" "$VIEW_FILE" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
+  rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
   case "$TARGET" in
     ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
     agent:* | tab:*)
