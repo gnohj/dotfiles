@@ -1,11 +1,6 @@
 # `fff-orphans` — find (or reap) leaked fff.nvim orphan processes.
 #
-# Ephemeral `nvim --embed` popups (Octo `pr edit`, `CodeDiff`, any one-shot
-# `-c :silent ...` command) get reparented to launchd when their terminal
-# dies without nvim exiting. They keep the fff LMDB reader lock open forever
-# and pile up until they exhaust LMDB's 126-slot reader table
-# (MDB_READERS_FULL). Plain `--embed` editors (no `-c :silent`) are real
-# sessions and are left alone.
+# Orphaned `nvim --embed -c :silent ...` popups hold an fff LMDB reader slot until MDB_READERS_FULL; plain editors are left alone.
 #
 #   fff-orphans        # list orphaned popups holding the fff lock
 #   fff-orphans -k     # reap them (SIGTERM, then SIGKILL any straggler)

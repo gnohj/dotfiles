@@ -27,7 +27,6 @@ return {
       { "<leader>L", hidden = true },
       { "<leader>m", group = "Toggle C [+]", icon = "󰔡" },
       { "<leader>n", hidden = true },
-      { "<leader>o", group = "Octo [+]", icon = "󰭹" },
       { "<leader>p", group = "Yank History [+]", icon = "󰅍" },
       { "<leader>q", group = "Quit/Session [+]" },
       { "<leader>s", group = "Search [+]" },

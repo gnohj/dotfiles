@@ -159,6 +159,11 @@ local function lazygit_open()
 end
 keymap("n", "<leader>gg", lazygit_open, { desc = "Lazygit" })
 
+keymap("n", "<leader>gi", function()
+  local cmd = "gh-dash --config " .. vim.fn.expand("~/.config/gh-dash/issues.yml")
+  require("config.mux").new_window(cmd, { name = "🐙" })
+end, { desc = "gh-dash Issues (window)" })
+
 -- Grugfar
 keymap(
   { "v" },
