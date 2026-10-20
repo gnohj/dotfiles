@@ -72,12 +72,15 @@ personal=$(jq -r '
 
 # The statusline's own rate_limits, persisted per account by claude-usage-pct, win over both reads above while under 6h old.
 statusline_rows() {
-  local acct="$1" win label f used
+  local acct="$1" win label f used reset_at
   for win in five_hour seven_day; do
+    used=""
     case "$win" in five_hour) label=session ;; *) label=week ;; esac
     f="$HOME/.logs/sketchybar/claude_pct_${acct}_${win}"
     [ -n "$(find "$f" -mmin -360 2>/dev/null)" ] || continue
-    used=$(cat "$f")
+    reset_at=$(cat "$HOME/.logs/sketchybar/claude_reset_${acct}_${win}" 2>/dev/null)
+    case "$reset_at" in '' | *[!0-9]*) ;; *) [ "$reset_at" -gt "$(date +%s)" ] || used=0 ;; esac
+    [ -n "${used:-}" ] || used=$(cat "$f")
     case "$used" in '' | *[!0-9.]*) continue ;; esac
     printf 'Claude %s\t%s\t%s\t\n' "$acct" "$label" "$(awk -v u="$used" 'BEGIN { r = 100 - u; if (r < 0) r = 0; printf "%d", r + 0.5 }')"
   done
