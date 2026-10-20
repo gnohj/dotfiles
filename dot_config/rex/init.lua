@@ -257,7 +257,7 @@ rex.action{
 }
 rex.bind("ctrl+enter", "last_session")
 
--- Session layout from herdr-sesh-layout.sh: a startup_command gets one 🐟 tab, otherwise 🖋️ nvim + 🤖 and 🔨 tabs of three even shells.
+-- Session layout from herdr-sesh-layout.sh: a startup_command gets one tab with Rex's default name, otherwise 🖋️ nvim + 🤖 and 🔨 tabs of three even shells.
 local function shell(dir, input)
   local options = { cwd = dir }
   if input ~= nil then options.initial_input = input .. "\n" end
@@ -270,7 +270,7 @@ end
 
 local function dev_windows(dir, startup)
   if startup ~= nil then
-    return { { window_label = "🐟", layout = shell(dir, startup) } }
+    return { { layout = shell(dir, startup) } }
   end
   return {
     { window_label = "🖋️", layout = shell(dir, "nvim") },
