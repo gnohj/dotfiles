@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# rex-herdr - answers herdr-sesh.sh's herdr calls against Rex (ids as rex-snapshot.lua writes them); needs Rex Remote Control on.
+set -uo pipefail
+
+rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+die() {
+  printf '\n%s\n\nPress any key to close.' "$1"
+  read -rsn1
+  exit 1
+}
+
+app_do() {
+  local client out
+  client=$("$rex" client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')
+  [ -n "$client" ] || die "No Rex app is connected."
+  out=$("$rex" do -C "$client" "$@" 2>&1) || die "$out"
+}
+
+select_session() {
+  app_do session.select session_id="session:$1"
+}
+
+case "${1:-} ${2:-}" in
+  "api snapshot")
+    exec "$rex" do "$here/rex-snapshot.lua"
+    ;;
+  "workspace list")
+    printf '{"result":{"workspaces":[]}}\n'
+    ;;
+  "workspace focus")
+    select_session "$3"
+    ;;
+  "workspace close")
+    "$rex" kill "session:$3" >/dev/null 2>&1
+    ;;
+  "tab focus")
+    "$rex" api call -s "session:${3%%:*}" session.focus_window "{\"window_id\":\"window:${3#*:}\"}" >/dev/null 2>&1
+    select_session "${3%%:*}"
+    ;;
+  "agent focus")
+    "$rex" focus -s "session:${3%%:*}" "block:${3#*:}" >/dev/null 2>&1
+    select_session "${3%%:*}"
+    ;;
+  "pane close")
+    "$rex" block close -s "session:${3%%:*}" "block:${3#*:}" >/dev/null 2>&1
+    ;;
+  "layout --entry")
+    args=$(sesh list -c -j 2>/dev/null | jq -c --arg n "$3" \
+      'first(.[] | select(.Name == $n) | {label: .Name, dir: (.Path | rtrimstr("/") | if . == "" then "/" else . end), startup: .StartupCommand})')
+    [ -n "$args" ] || die "No sesh.toml entry named $3."
+    app_do sesh_open --args "$args"
+    ;;
+  layout*)
+    dir="${2%/}"
+    app_do sesh_open --args "$(jq -cn --arg d "$dir" '{label: ($d | split("/") | last), dir: $d}')"
+    ;;
+  *)
+    die "rex-herdr: unsupported call: $*"
+    ;;
+esac
