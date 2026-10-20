@@ -9,7 +9,8 @@ return {
     -- herdr-navigator.lua owns <C-hjkl>. Everywhere else (the Mac under tmux)
     -- this loads exactly as before, so no behavior change off-herdr.
     cond = function()
-      return vim.env.HERDR_SOCKET_PATH == nil
+      local bare_rex = vim.env.REX_BLOCK ~= nil and vim.env.TMUX == nil
+      return vim.env.HERDR_SOCKET_PATH == nil and not bare_rex
     end,
     -- Own every <C-hjkl> mapping ourselves (below) so the plugin never installs
     -- its default <C-h> → TmuxNavigateLeft over our custom sidebar-aware one.
