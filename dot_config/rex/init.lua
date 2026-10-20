@@ -53,6 +53,7 @@ local WAIT_FOR_SIZE = 'for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(stty size 2>/dev/n
 local RUN_THEN_CLOSE_BACKDROP = WAIT_FOR_SIZE .. [[; rex="$REX_BIN_DIR/rex"; layer=$1; block=$2; shift 2; s=$(stty size); "$rex" api call -s "$REX_SESSION" com.superlogical.terminal.resize "{\"block_id\":\"$block\",\"args\":{\"columns\":${s#* },\"rows\":${s% *}}}" >/dev/null 2>&1; "$@"; "$rex" api call -s "$REX_SESSION" session.close_layer "{\"layer_id\":\"$layer\"}" >/dev/null 2>&1]]
 local PAINT = [[c=$1; paint() { s=$(stty size); w=${s#* }; r=${s% *}; row=$(printf '%*s' "$w" ''); printf '\033[?25l\033[H\033[48;2;%sm' "$c"; i=0; while [ "$i" -lt "$r" ]; do printf '%s' "$row"; i=$((i + 1)); done; }; trap paint WINCH; paint; while :; do sleep 3600 & wait $!; done]]
 local REX_FIT = HOME .. "/.local/bin/mux/rex/rex-fit"
+local REX_CLI = (os.getenv("REX_BIN_DIR") or "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS") .. "/rex"
 
 local function theme_background()
   local f = io.open(HOME .. "/.config/ghostty/ghostty-theme")
@@ -106,15 +107,37 @@ local function last_tab_key(ctx)
   return "last-tab-" .. ctx.session_id:gsub("[^%w]", "_")
 end
 
+-- The app's shown tab is not the server's active_window_id, so locate the tab holding the pressed-in pane.
+local function tab_of_block(view, block_id)
+  for _, w in ipairs(view.windows) do
+    for _, layer in ipairs(w.layers or {}) do
+      for _, b in ipairs(layer.blocks or {}) do
+        if b.block_id == block_id then return w end
+      end
+    end
+  end
+end
+
+local function current_tab(ctx, view)
+  local w = tab_of_block(view, ctx.block_id)
+  return w and w.window_id or view.active_window_id
+end
+
 local function switch_tab(ctx, view, window_id)
-  if window_id == nil or window_id == view.active_window_id then return end
-  write_state(last_tab_key(ctx), view.active_window_id)
+  local current = current_tab(ctx, view)
+  if window_id == nil or window_id == current then return end
+  write_state(last_tab_key(ctx), current)
+  if ctx.client_id ~= nil then
+    rex.client.queue("session.select", { session_id = ctx.session_id, window_id = window_id })
+    return
+  end
   fail(select(2, rex.session.focus_window{ window_id = window_id }))
 end
 
-local function neighbour_tab(view, step)
+local function neighbour_tab(ctx, view, step)
+  local current = current_tab(ctx, view)
   for i, w in ipairs(view.windows) do
-    if w.window_id == view.active_window_id then
+    if w.window_id == current then
       local n = view.windows[(i - 1 + step) % #view.windows + 1]
       return n and n.window_id
     end
@@ -128,7 +151,7 @@ rex.action{
   category = "herdr",
   run = function(ctx, args)
     local view = windows()
-    switch_tab(ctx, view, neighbour_tab(view, 1))
+    switch_tab(ctx, view, neighbour_tab(ctx, view, 1))
   end,
 }
 
@@ -138,7 +161,7 @@ rex.action{
   category = "herdr",
   run = function(ctx, args)
     local view = windows()
-    switch_tab(ctx, view, neighbour_tab(view, -1))
+    switch_tab(ctx, view, neighbour_tab(ctx, view, -1))
   end,
 }
 
@@ -178,16 +201,15 @@ rex.action{
     local view = windows()
     local target = read_state(last_tab_key(ctx))
     for _, w in ipairs(view.windows) do
-      if w.window_id == target and target ~= view.active_window_id then
+      if w.window_id == target and target ~= current_tab(ctx, view) then
         switch_tab(ctx, view, target)
         return
       end
     end
-    switch_tab(ctx, view, neighbour_tab(view, -1))
+    switch_tab(ctx, view, neighbour_tab(ctx, view, -1))
   end,
 }
 rex.bind("ctrl+space", "last_tab")
-rex.bind("ctrl+[Space]", "last_tab")
 
 -- ctrl+0: close every tab but the first (herdr hack-herdr-close-other-tabs.sh).
 rex.action{
@@ -424,18 +446,22 @@ rex.action{
 }
 rex.bind("ctrl+g", "lazygit")
 
--- prefix+y: yazi in a new tab at the pane's cwd (herdr yazi-herdr.sh).
+-- prefix+y: yazi in a new tab at the pane's cwd (herdr yazi-herdr.sh); keyboard focus follows only a client session.select.
 rex.action{
   name = "yazi_tab",
   title = "Yazi in New Tab",
   category = "herdr",
   run = function(ctx, args)
-    fail(select(2, rex.session.new_window{
+    local created, err = rex.session.new_window{
       layout = rex.layout.block{
         flavor = SHELL,
         options = { command = { "yazi" }, cwd = block_cwd(ctx.block_id) },
       },
-    }))
+    }
+    fail(err)
+    if ctx.client_id ~= nil then
+      rex.exec.start({ "/bin/sh", "-c", 'for d in 0.2 0.4; do sleep "$d"; "$0" -C "$1" do session.select session_id="$2" window_id="$3"; done', REX_CLI, ctx.client_id, ctx.session_id, created.window_id }, { detach = true })
+    end
   end,
 }
 rex.bind(P .. "y", "yazi_tab")
