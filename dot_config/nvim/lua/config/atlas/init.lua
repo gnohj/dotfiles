@@ -144,7 +144,7 @@ end
 
 local function jump_counterpart()
   return {
-    key = "J",
+    key = "X",
     desc = "Open the linked PR or Jira ticket in a split",
     callback = function(ctx)
       require("config.atlas.herdr-jump").jump(ctx)
@@ -713,7 +713,7 @@ local function dashboard_items()
   vim.list_extend(items, {
     open_links(),
     { key = "v", desc = "Approve PR", callback = approve },
-    { key = "X", desc = "Reclaim idle review slots", callback = reclaim },
+    { key = "gX", desc = "Reclaim idle review slots", callback = reclaim },
     jump_counterpart(),
     {
       key = "gJ",
@@ -942,7 +942,7 @@ local function is_blank(buf)
     and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == ""
 end
 
--- A detail opened by `:Atlas open` (the J/P split panes) has no dashboard beside it, so it takes the tab.
+-- A detail opened by `:Atlas open` (the X split panes) has no dashboard beside it, so it takes the tab.
 local function fill_standalone_detail()
   local detail
   for _, win in ipairs(tiled_windows()) do
