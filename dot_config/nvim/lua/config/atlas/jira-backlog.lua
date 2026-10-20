@@ -108,6 +108,32 @@ local function tighten(rows, row_map, row_spans, keep_header)
   return lines, map, spans
 end
 
+local function with_points(spec)
+  local columns = vim.deepcopy(spec.columns)
+  table.insert(columns, #columns, {
+    key = "points",
+    name = "Pts",
+    can_grow = false,
+    align = "right",
+    header_align = "right",
+  })
+  return vim.tbl_extend("force", spec, {
+    columns = columns,
+    values = function(issue, ...)
+      local row = spec.values(issue, ...)
+      local value = tonumber(issue.story_points)
+      row.points = value and string.format("%g", value) or "-"
+      return row
+    end,
+    highlights = function(row, column, ...)
+      if column.key == "points" then
+        return "AtlasTextMuted"
+      end
+      return spec.highlights and spec.highlights(row, column, ...)
+    end,
+  })
+end
+
 function M.render(opts, issues)
   if opts.loading and #issues == 0 then
     return { " " .. (opts.spinner or "") .. " Loading..." }, {}, {}
@@ -115,6 +141,8 @@ function M.render(opts, issues)
   load_sprint_rank()
   local utils = require("atlas.ui.shared.utils")
   local rows_layout = require("atlas.issues.ui.layouts.plain")
+  local row_spec =
+    with_points(rows_layout[opts.provider_id] or rows_layout.default)
   local row_opts = vim.tbl_extend("force", opts, { loading = false })
   row_opts.groups = nil
   local lines, spans, line_map = {}, {}, {}
@@ -140,11 +168,8 @@ function M.render(opts, issues)
       end_col = #title + #count,
       hl_group = "Comment",
     })
-    local rows, row_map, row_spans = rows_layout.render(
-      row_opts,
-      group.issues,
-      rows_layout[opts.provider_id] or rows_layout.default
-    )
+    local rows, row_map, row_spans =
+      rows_layout.render(row_opts, group.issues, row_spec)
     rows, row_map, row_spans = tighten(rows, row_map, row_spans, index == 1)
     local base = #lines
     utils.append_block(lines, spans, { lines = rows, highlights = row_spans })
