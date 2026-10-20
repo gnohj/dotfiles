@@ -147,6 +147,14 @@ in
       StageManagerHideWidgets = true;
     };
 
+    # Rex keeps UI prefs here, not in init.lua; Glass + pane glass is the closest it gets to Ghostty's background-opacity
+    CustomUserPreferences."com.superlogical.rex" = {
+      "Workspace.terminalFontName" = "JetBrainsMono Nerd Font Mono";
+      "Workspace.terminalFontPointSize" = 15;
+      "Workspace.interfaceStyle" = "glass";
+      "Workspace.usesPaneGlass" = true;
+    };
+
   };
 
   # Keyboard settings
