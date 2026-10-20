@@ -101,13 +101,53 @@ end
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
 
+-- Keyboard tab switches record the tab they leave, for ctrl+space (rex.on is script-only).
+local function last_tab_key(ctx)
+  return "last-tab-" .. ctx.session_id:gsub("[^%w]", "_")
+end
+
+local function switch_tab(ctx, view, window_id)
+  if window_id == nil or window_id == view.active_window_id then return end
+  write_state(last_tab_key(ctx), view.active_window_id)
+  fail(select(2, rex.session.focus_window{ window_id = window_id }))
+end
+
+local function neighbour_tab(view, step)
+  for i, w in ipairs(view.windows) do
+    if w.window_id == view.active_window_id then
+      local n = view.windows[(i - 1 + step) % #view.windows + 1]
+      return n and n.window_id
+    end
+  end
+end
+
 -- Tabs (herdr: new_tab, next/previous_tab, close_tab, rename_tab on prefix+%).
+rex.action{
+  name = "next_tab",
+  title = "Next Tab",
+  category = "herdr",
+  run = function(ctx, args)
+    local view = windows()
+    switch_tab(ctx, view, neighbour_tab(view, 1))
+  end,
+}
+
+rex.action{
+  name = "previous_tab",
+  title = "Previous Tab",
+  category = "herdr",
+  run = function(ctx, args)
+    local view = windows()
+    switch_tab(ctx, view, neighbour_tab(view, -1))
+  end,
+}
+
 rex.bind(P .. "c", "client.tab.new")
-rex.bind(P .. "n", "client.tab.next")
-rex.bind(P .. "p", "client.tab.previous")
-rex.bind("ctrl+tab", "client.tab.next")
-rex.bind("ctrl+shift+tab", "client.tab.previous")
-rex.bind("ctrl+[Backquote]", "client.tab.previous")
+rex.bind(P .. "n", "next_tab")
+rex.bind(P .. "p", "previous_tab")
+rex.bind("ctrl+tab", "next_tab")
+rex.bind("ctrl+shift+tab", "previous_tab")
+rex.bind("ctrl+[Backquote]", "previous_tab")
 rex.bind(P .. "shift+x", "client.tab.close")
 rex.bind(P .. "shift+5", "client.tab.rename")
 
@@ -117,9 +157,10 @@ rex.action{
   category = "herdr",
   args = { index = "integer" },
   run = function(ctx, args)
-    local w = windows().windows[args.index]
+    local view = windows()
+    local w = view.windows[args.index]
     if w == nil then return end
-    fail(select(2, rex.session.focus_window{ window_id = w.window_id }))
+    switch_tab(ctx, view, w.window_id)
   end,
 }
 
@@ -128,26 +169,25 @@ for i = 1, 9 do
   rex.bind("ctrl+" .. i, "goto_tab", { index = i })
 end
 
--- ctrl+space: bounce to the tab last left with ctrl+space (herdr hack-herdr-last-tab.sh).
+-- ctrl+space: bounce to the tab last left by a keyboard switch (herdr hack-herdr-last-tab.sh).
 rex.action{
   name = "last_tab",
   title = "Last Tab Toggle",
   category = "herdr",
   run = function(ctx, args)
     local view = windows()
-    local key = "last-tab-" .. ctx.session_id:gsub("[^%w]", "_")
-    local target = read_state(key)
-    write_state(key, view.active_window_id)
+    local target = read_state(last_tab_key(ctx))
     for _, w in ipairs(view.windows) do
       if w.window_id == target and target ~= view.active_window_id then
-        fail(select(2, rex.session.focus_window{ window_id = target }))
+        switch_tab(ctx, view, target)
         return
       end
     end
-    fail(select(2, rex.session.focus_previous_window{}))
+    switch_tab(ctx, view, neighbour_tab(view, -1))
   end,
 }
 rex.bind("ctrl+space", "last_tab")
+rex.bind("ctrl+[Space]", "last_tab")
 
 -- ctrl+0: close every tab but the first (herdr hack-herdr-close-other-tabs.sh).
 rex.action{
