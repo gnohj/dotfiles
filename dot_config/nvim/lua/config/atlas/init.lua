@@ -1,4 +1,5 @@
 local jira_url = "https://ihm-it.atlassian.net"
+local jira_board_id = 1254
 
 local function jira_provider()
   if not (vim.env.JIRA_EMAIL and vim.env.JIRA_API_TOKEN) then
@@ -315,38 +316,6 @@ local function with_sections(details)
   )
 end
 
-local function open_issue_detail_when_loaded()
-  local state = require("atlas.issues.state")
-  local dashboard = require("atlas.issues.ui.dashboard")
-  local detail = require("atlas.issues.ui.detail")
-  local timer, waited = vim.uv.new_timer(), 0
-  local function finish()
-    if not timer:is_closing() then
-      timer:stop()
-      timer:close()
-    end
-  end
-  timer:start(
-    200,
-    100,
-    vim.schedule_wrap(function()
-      waited = waited + 100
-      if waited >= 15000 or detail.is_open() then
-        return finish()
-      end
-      if state.is_loading then
-        return
-      end
-      finish()
-      local win = vim.api.nvim_get_current_win()
-      dashboard.toggle_detail()
-      if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_set_current_win(win)
-      end
-    end)
-  )
-end
-
 local function issue_detail_ratio()
   local dashboard = require("atlas.issues.ui.dashboard.window")
   return dashboard.is_active() and 0.75 or 0.45
@@ -416,26 +385,35 @@ local function extend_issue_details()
   end
   local dashboard = require("atlas.issues.ui.dashboard")
   local init = dashboard.init
-  local function apply_view_layout(view)
-    if view and view.layout == "board" then
-      open_issue_detail_when_loaded()
-    elseif require("atlas.issues.ui.detail").is_open() then
+  local function close_issue_detail()
+    if require("atlas.issues.ui.detail").is_open() then
       require("atlas.issues.ui.detail").close()
     end
   end
   dashboard.init = function(...)
     init(...)
-    apply_view_layout(require("atlas.issues.state").view)
+    close_issue_detail()
+  end
+  local toggle_detail = dashboard.toggle_detail
+  dashboard.toggle_detail = function()
+    local detail = require("atlas.issues.ui.detail")
+    local was_open = detail.is_open()
+    toggle_detail()
+    local win = require("atlas.issues.ui.detail.state").win
+    if not was_open and detail.is_open() and vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_set_current_win(win)
+    end
   end
   local controller = require("atlas.issues.ui.dashboard.controller")
   local switch_view = controller.switch_view
   controller.switch_view = function(view)
     switch_view(view)
-    apply_view_layout(view)
+    close_issue_detail()
   end
   local links = require("config.atlas.jira-links")
   links.setup()
   require("config.atlas.jira-children").setup()
+  require("config.atlas.jira-board").setup(jira_board_id)
   local detail_ui = require("atlas.issues.providers.jira.ui.detail")
   local chips = detail_ui.chips
   detail_ui.chips = function(...)
@@ -1106,7 +1084,7 @@ function M.setup(opts)
   extend_issue_detail_keys()
   require("config.atlas.hyperlinks").setup(jira_url)
   require("config.atlas.jira-backlog").setup({
-    board_id = 1254,
+    board_id = jira_board_id,
     sprint_field = "customfield_10010",
   })
   -- The theme's CursorLine is transparent, so Atlas windows use herdr's sidebar active_row_bg.
