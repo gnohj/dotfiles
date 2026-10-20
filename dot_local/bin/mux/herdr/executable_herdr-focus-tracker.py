@@ -12,7 +12,7 @@ ctrl+space / ctrl+enter wrappers read:
 
   ~/.local/state/hack-herdr-last-workspace  -> workspace to jump back to, then the one it last saw focused
   ~/.local/state/hack-herdr-last-tab        -> previous tab IN the current workspace, then the one it last saw focused
-  ~/.local/state/hack-herdr-last-pane       -> previous pane IN the current tab
+  ~/.local/state/hack-herdr-last-pane       -> previous pane IN the current tab, then the one it last saw focused
 
 It also keeps tab labels numbered by POSITION - see renumber_tabs below.
 
@@ -434,7 +434,9 @@ class MRU:
         prev_tab = self.tab_prev.get(self.cur_ws, "") if self.cur_ws else ""
         cur_tab = self.tab_cur.get(self.cur_ws, "") if self.cur_ws else ""
         write_atomic(LAST_TAB, f"{prev_tab}\n{cur_tab}\n")
-        write_atomic(LAST_PANE, self.pane_prev.get(self.cur_tab, "") if self.cur_tab else "")
+        prev_pane = self.pane_prev.get(self.cur_tab, "") if self.cur_tab else ""
+        cur_pane = self.pane_cur.get(self.cur_tab, "") if self.cur_tab else ""
+        write_atomic(LAST_PANE, f"{prev_pane}\n{cur_pane}\n")
 
 
 def initialize_focus(mru):
