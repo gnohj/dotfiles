@@ -52,7 +52,7 @@ Model attribution for models[] - use these, not the slot names:$RAN"
   MISSING=""
   if [ -n "$failed" ]; then
     for f in $failed; do
-      MISSING="$MISSING The $(basename "$f" .failed) finder did not run to completion ($(head -1 "$f" 2>/dev/null)), so its perspective is MISSING from this merge - say so in the overview and do not present this as a two-model agreement."
+      MISSING="$MISSING The $(basename "$f" .failed) finder did not run to completion ($(head -1 "$f" 2>/dev/null)), so its perspective is MISSING from this merge. Open the overview with one plain sentence naming which model is missing and that reason (for example that the Codex/GPT subscription or login refused), then continue as a single-model review; do not present this as a two-model agreement."
     done
   elif [ "$(find .review -maxdepth 1 -name '*.done' | wc -l | tr -d ' ')" -lt "$expected" ]; then
     MISSING=" One or more finders did not finish within ${timeout}s, so this merge is incomplete - say so in the overview."

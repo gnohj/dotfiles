@@ -193,7 +193,7 @@ EOF
 # The exit code only, never the output: both finders are interactive TUIs and piping them through tee to capture
 # an error message hands them a non-tty. The message stays readable in the pane, which is what --keep-open is for.
 seal_on_exit() {
-  printf '; rc=$?; [ -f .review/%s.done ] || printf "finder exited (%%s) without writing %s.done\\n" "$rc" > .review/%s.failed' "$1" "$1" "$1"
+  printf '; rc=$?; [ -f .review/%s.done ] || [ -s .review/%s.failed ] || printf "finder exited (%%s) without writing %s.done\\n" "$rc" > .review/%s.failed' "$1" "$1" "$1" "$1"
 }
 
 # Read by `review-lavish-state usage` to name and price each finder in the retro line.
@@ -293,12 +293,18 @@ case "$mode" in
     # Ask BEFORE spawning: with every second-model rung pruned or refusing, the gpt tab only ever renders an error
     # and the owner then waits for a seal that cannot arrive. Degrade to a one-finder review up front instead, and
     # tell the owner to expect one bid so it merges immediately rather than sitting out its timeout.
-    if RUNG=$(cd "$WT" && "$HOME/.config/gh-dash/review-finder-pi.sh" --check 2>/dev/null | tail -n1); [ -n "$RUNG" ]; then
-      open_finder_pi "$WT" "$(finder_label "$RUNG")"
-    else
-      echo "review-open: no second finder is available (copilot/codex both refusing) - single-finder review"
-      window_opts+=(--env REVIEW_FANOUT_EXPECTED=1)
-    fi
+    RUNG=$(cd "$WT" && "$HOME/.config/gh-dash/review-finder-pi.sh" --check 2>/dev/null | tail -n1)
+    case "$RUNG" in
+      '' | UNAVAILABLE:*)
+        # The .failed settles the gpt slot at once and carries the reason the merge and the page report.
+        reason="${RUNG#UNAVAILABLE: }"
+        echo "review-open: ${reason:-second-model finder unavailable} - single-finder review"
+        printf '%s\n' "${reason:-second-model finder unavailable - the eligibility check printed nothing}" >"$WT/.review/gpt.failed"
+        write_finder_meta "$WT" gpt ladder "$REVIEW_FINDER_MODEL" "$REVIEW_FINDER_THINKING"
+        notify_msg "PR $pr: Codex/GPT finder unavailable, continuing with Claude only"
+        ;;
+      *) open_finder_pi "$WT" "$(finder_label "$RUNG")" ;;
+    esac
     open_fanout_owner "$WT"
     ;;
   diff | hunk)
