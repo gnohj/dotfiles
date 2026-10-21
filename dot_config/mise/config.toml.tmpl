@@ -56,14 +56,13 @@ herdr = "latest"                                   # agent multiplexer; on `late
 
 # Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
 # mise here owns only what nix deliberately doesn't (AI agents are shared, above):
-#   - pnpm (Mac gets it via corepack); treekanga (not in nixpkgs, brew on macOS)
+#   - pnpm (Mac gets it via corepack)
 #   - opencode: Linux-only — the Mac install is a separate tangle (its own installer
 #     shadows an anomalyco/tap build; sst vs anomalyco forks), left unmerged on purpose.
 # NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64`.
 # Applying the trim without home-manager active would drop nvim/rg/etc. off the box.
 # starship is NOT here: zinit installs it (gh-r binary + prompt init) on BOTH OSes.
 pnpm = "latest"
-"github:garrettkrohn/treekanga" = "latest"          # not in nixpkgs; brew on macOS
 "github:sst/opencode" = "latest"                   # OpenCode (linux-x64 release binary; Mac has its own installer/brew)
 # Pinned to web's @pulumi/pulumi SDK (packages/infra), whose automation API shells out to this CLI, so a local run can't write stack state CI reads back; Linux-only like opencode - the Mac has its own pulumi.
 pulumi = "3.207.0"
