@@ -104,6 +104,29 @@ local function navbar_click(handlers)
   end
 end
 
+-- The default tabline draws its close X in the last column of row 1.
+local function map_tab_close(buf, detail)
+  vim.keymap.set("n", "<LeftMouse>", function()
+    local pos = vim.fn.getmousepos()
+    local on_x = pos.screenrow == 1 and pos.screencol == vim.o.columns
+    if on_x and #vim.api.nvim_list_tabpages() > 1 and detail().is_open() then
+      vim.schedule(detail().close)
+      return ""
+    end
+    return "<LeftMouse>"
+  end, { buffer = buf, expr = true, desc = "Tabline X closes the open panel first" })
+end
+
+local function open_clicked(dashboard)
+  local prefix = "atlas." .. dashboard .. ".ui."
+  if
+    require(prefix .. "dashboard.navigation").current_item()
+    and not require(prefix .. "detail").is_open()
+  then
+    require(prefix .. "dashboard").toggle_detail()
+  end
+end
+
 local function map_dashboard_clicks(handlers)
   for dashboard in pairs(handlers) do
     local keymaps = require("atlas." .. dashboard .. ".ui.dashboard.keymaps")
@@ -113,6 +136,13 @@ local function map_dashboard_clicks(handlers)
       vim.keymap.set("n", "<LeftRelease>", function()
         navbar_click(handlers)
       end, { buffer = buf, desc = "Switch to the clicked view" })
+      map_tab_close(buf, function()
+        return require("atlas." .. dashboard .. ".ui.detail")
+      end)
+      vim.keymap.set("n", "<2-LeftMouse>", "<Nop>", { buffer = buf })
+      vim.keymap.set("n", "<2-LeftRelease>", function()
+        open_clicked(dashboard)
+      end, { buffer = buf, desc = "Open the clicked item's detail panel" })
     end
   end
 end
@@ -129,6 +159,9 @@ function M.setup(handlers)
         click,
         { buffer = ev.buf, desc = "Switch to the clicked tab" }
       )
+      map_tab_close(ev.buf, function()
+        return (panel(ev.buf))
+      end)
     end,
   })
 end
