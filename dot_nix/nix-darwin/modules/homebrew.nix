@@ -60,6 +60,10 @@
       # gitmux, sesh, television → moved to Nix (dot_nix/common/package-list.nix,
       # shared cross-platform). atuin stays on brew (aarch64 rustc lag).
       "morantron/tmux-fingers/tmux-fingers"
+      # Deps of the source-built tmux 3.6b pin (build-pinned-tmux); zap removes them otherwise.
+      "libevent"
+      "ncurses"
+      "pkgconf"
 
       # macOS utilities
       "terminal-notifier"
