@@ -1,5 +1,5 @@
 {{- /* One OS-split file, not a second sesh-vps.toml: sesh reads only ~/.config/sesh/sesh.toml unless every caller passes -C. */ -}}
-{{- /* Aliases: unique case-insensitively across BOTH branches (else sesh rejects the whole config at load), and none a strict prefix of another. */ -}}
+{{- /* Aliases: unique case-insensitively across BOTH branches (else sesh rejects the whole config at load); a prefix alias (d/dv) connects after herdr-sesh.sh's 150ms pause. */ -}}
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
 startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
@@ -30,7 +30,7 @@ alias = "lg"
 [[session]]
 name = "dotfiles"
 path = "~/.local/share/chezmoi"
-alias = "cz"
+alias = "d"
 startup_command = "git status"
 
 [[session]]
@@ -115,13 +115,13 @@ startup_command = "ghd"
 [[session]]
 name = "jira"
 path = "~/.config/gh-dash"
-alias = "ji"
+alias = "j"
 startup_command = "nvim -c 'Atlas issues jira'"
 
 [[session]]
 name = "github"
 path = "~/.config/gh-dash"
-alias = "gi"
+alias = "g"
 startup_command = "nvim -c 'Atlas pulls github'"
 
 [[session]]
@@ -133,7 +133,7 @@ startup_command = "n"
 [[session]]
 name = "tasks"
 path = "~/.local/share/tasks"
-alias = "ts"
+alias = "t"
 startup_command = "tuxedo"
 preview_command = "tuxedo ls"
 
@@ -194,7 +194,7 @@ startup_command = "hermes-container"
 [[session]]
 name = "fm"
 path = "~/Developer/firstmate"
-alias = "fm"
+alias = "f"
 startup_command = "fm"
 
 [[session]]

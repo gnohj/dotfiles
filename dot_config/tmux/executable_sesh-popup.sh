@@ -36,7 +36,7 @@ fzf_common=(
   --bind 'ctrl-b:abort'
 )
 
-# One row source for every view, so the "[cz]" alias chips survive a source switch.
+# One row source for every view, so the "[d]" alias chips survive a source switch.
 ROWS="$HOME/.config/tmux/sesh-agents.sh"
 
 # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
