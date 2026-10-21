@@ -761,6 +761,16 @@ btop2() {
 # Github Dash
 alias ghd='env -u GH_TOKEN -u GITHUB_TOKEN gh-dash'
 
+# GitHub Actions runs: bare `ghe` opens the current branch's PR checks, else all repo runs
+ghe() {
+  if (( $# == 0 )); then
+    local pr
+    pr=$(env -u GH_TOKEN -u GITHUB_TOKEN gh pr view --json number -q .number 2>/dev/null)
+    [[ -n $pr ]] && set -- "$pr"
+  fi
+  env -u GH_TOKEN -u GITHUB_TOKEN ENHANCE_THEME=iceberg_dark gh-enhance "$@"
+}
+
 # RTK token savings graph
 alias rtkg='rtk gain --graph'
 
