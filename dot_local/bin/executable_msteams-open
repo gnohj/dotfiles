@@ -24,4 +24,24 @@ esac
 mkdir -p "$(dirname "$LOG")"
 printf '[%s] %s -> %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$url" "$target" >>"$LOG"
 
+# A running PWA only focuses on relaunch and drops the URL, so steer its open window to the target instead.
+steered=$(osascript - "$target" <<'SCPT' 2>>"$LOG" || true
+on run argv
+	if application "Helium" is not running then return "no"
+	tell application "Helium"
+		repeat with w in windows
+			if URL of active tab of w starts with "https://teams.microsoft.com/v2/" then
+				set URL of active tab of w to item 1 of argv
+				return "yes"
+			end if
+		end repeat
+	end tell
+	return "no"
+end run
+SCPT
+)
+
+if [ "$steered" = "yes" ]; then
+  exec open -b "$BUNDLE_ID"
+fi
 exec open -b "$BUNDLE_ID" "$target"
