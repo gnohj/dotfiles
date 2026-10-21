@@ -13,11 +13,11 @@
         },
         "gpt": {
           "model": "gpt-6-luna",
-          "effort": "xhigh"
+          "effort": "medium"
         },
         "rungTimeout": 600
       },
-      "why": "A handful of lines across a few files has no architecture to reason about - the whole diff fits in one read, and depth buys nothing but spend. The cheaper class on both sides finds the same typo, and quota exhaustion is the real failure mode of this flow, not a missed nit."
+      "why": "A handful of lines across a few files has no architecture to reason about - the whole diff fits in one read, and depth buys nothing but spend. The cheaper class on both sides finds the same typo, and quota exhaustion is the real failure mode of this flow, not a missed nit. GPT runs at medium here to match Sonnet; effort scales up with the band."
     },
     {
       "when": {
@@ -32,11 +32,11 @@
         },
         "gpt": {
           "model": "gpt-6.1-sol",
-          "effort": "high"
+          "effort": "xhigh"
         },
         "rungTimeout": 600
       },
-      "why": "The ordinary PR. Both finders think as hard as each other, which is the condition review-finder-pi.sh states for a bid being worth merging at all."
+      "why": "The ordinary PR. The GPT finder runs at xhigh once there is real structure to reason about."
     },
     {
       "when": {},
@@ -48,11 +48,11 @@
         },
         "gpt": {
           "model": "gpt-6.1-sol",
-          "effort": "high"
+          "effort": "xhigh"
         },
         "rungTimeout": 1500
       },
-      "why": "Large or high-risk PRs keep both finders at high effort, with a longer timeout for cross-file review."
+      "why": "Large or high-risk PRs: Opus at high and the GPT finder at xhigh, with a longer timeout for cross-file review."
     }
   ],
   "default": {
@@ -63,7 +63,7 @@
     },
     "gpt": {
       "model": "gpt-6.1-sol",
-      "effort": "high"
+      "effort": "xhigh"
     },
     "rungTimeout": 600
   },
