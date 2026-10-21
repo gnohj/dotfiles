@@ -15,10 +15,18 @@ end, { desc = "Go to Definition" })
 
 keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
 
+-- An `nvim -c 'Atlas ...'` relaunch rebuilds its own tabs, and a restored session would bury them under blanks.
+local function restart()
+  local atlas = vim.iter(vim.v.argv):any(function(arg)
+    return arg:match("^Atlas ")
+  end)
+  vim.cmd(atlas and "restart!" or "restart")
+end
+
 -- Restart Neovim (nvim 0.12+)
-keymap("n", "<leader>qr", "<cmd>restart<cr>", { desc = "[P]Restart Neovim" })
+keymap("n", "<leader>qr", restart, { desc = "[P]Restart Neovim" })
 -- Normal-mode only: insert/cmdline <C-r> (paste register) stays native; redo moves to <M-u>.
-keymap("n", "<C-r>", "<cmd>restart<cr>", { desc = "[P]Restart Neovim" })
+keymap("n", "<C-r>", restart, { desc = "[P]Restart Neovim" })
 keymap("n", "<M-u>", "<C-r>", { desc = "[P]Redo" })
 
 keymap("n", "<leader>tn", function()
