@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rules run narrowest-first; both finders use matching effort so their bids remain comparable, except luna (always xhigh) and sol (always high).
+# Rules run narrowest-first; GPT effort scales with the band: medium on small diffs, xhigh on everything larger.
 
 case "$(uname -s)" in
   Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
@@ -22,7 +22,7 @@ emit() {
 
 # No config, no gh, or an unreachable PR all fall back rather than blocking the review.
 fallback() {
-  if [ "$output" = mode ]; then printf 'full\n'; else emit claude-opus-5-5 high gpt-6.1-sol high 600 fallback; fi
+  if [ "$output" = mode ]; then printf 'full\n'; else emit claude-opus-5-5 high gpt-6.1-sol xhigh 600 fallback; fi
   exit 0
 }
 [ -f "$CONFIG" ] || fallback
