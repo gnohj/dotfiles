@@ -329,8 +329,6 @@ def agent_model_effort(a):
     cwd, session = (a.get("cwd") or "").rstrip("/"), a.get("agent_session") or {}
     if agent == "hermes":
         return stores.hermes_model_effort()
-    if agent in ("opencode", "open_code"):
-        return stores.opencode_model_effort(session, cwd)
     if agent == "codex":
         path = stores.codex_rollout(session, cwd)
         return stores.codex_model_effort(path) if path else (None, None)

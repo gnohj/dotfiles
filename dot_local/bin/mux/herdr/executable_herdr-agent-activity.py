@@ -18,10 +18,9 @@ which gets touched without new turns. herdr makes that cheap: the snapshot hands
 `agent_session.value` (the session id) directly, so no process-subtree walk is needed to
 find which forked worker owns the session file.
 
-claude, pi and opencode — every agent that records its own wall-clock time, which is the
-bar for appearing here. pi stamps its transcript with the same ISO `timestamp` key claude
-uses, so it shares the tail reader; opencode keeps no transcript at all and its age comes
-from `session.time_updated` in its SQLite store (epoch ms). Any other agent gets the token
+claude and pi — every agent that records its own wall-clock time, which is the bar for
+appearing here. pi stamps its transcript with the same ISO `timestamp` key claude uses, so
+it shares the tail reader. Any other agent gets the token
 CLEARED rather than a guess: the only signal
 left would be event-arrival time, which is blind on cold start and would show every agent
 as brand new after a restart — see report_all.
@@ -141,18 +140,6 @@ def last_timestamp(path):
     return None
 
 
-def opencode_activity(session, cwd):
-    """Last-activity epoch for an opencode session, from `session.time_updated` (epoch ms).
-
-    opencode keeps no transcript file to tail - its store is SQLite - so this is the one
-    agent whose age is a query rather than a JSONL tail.
-    """
-    if not stores:
-        return None
-    updated = stores.opencode_by_session_or_cwd("time_updated", session, cwd)
-    return int(updated) // 1000 if updated is not None else None
-
-
 def format_age(then_epoch, now):
     """Compact age. Past a day it becomes a date, which doubles as the stale marker."""
     secs = max(0, int(now - then_epoch))
@@ -207,8 +194,6 @@ def report_all():
             path = session.get("value") if session.get("kind") == "path" else None
             if not path and cwd:
                 path = stores.pi_newest_session(cwd) if stores else None
-        elif kind in ("opencode", "open_code"):
-            stamp = opencode_activity(session, cwd)
         if path and os.path.exists(path):
             stamp = last_timestamp(path)
         if stamp:

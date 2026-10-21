@@ -17,10 +17,9 @@ with (argument first: `/hunk-review 19426` -> `19426-hunk-review`), else its fir
 It is a FALLBACK, not an override - the moment claude names itself the OSC title wins again, so
 the pane converges on the real summary.
 
-pi and opencode DO set an OSC title, but never a session one: pi shows `π - <cwd basename>`
-and opencode prefixes its own with `OC | `, so slugging those gives a name that is either
-the directory or a wasted segment. For them the session store is authoritative instead and
-their OSC title is never consulted (`STORE_READERS` below): Pi uses its generated name with a first-user fallback, and opencode uses its stored session title.
+pi DOES set an OSC title, but never a session one: it shows `π - <cwd basename>`, so slugging
+that gives the directory name. For pi the session store is authoritative instead and its OSC
+title is never consulted (`STORE_READERS` below): it uses its generated name with a first-user fallback.
 
 Where every one of those stores lives is owned by the sibling herdr_agent_stores module,
 shared with herdr-agent-activity.py.
@@ -206,7 +205,7 @@ TRAILING_STOPWORDS = {"a", "an", "and", "at", "for", "in", "of", "on", "or", "th
 
 # The agent's pre-summary placeholder title. Claude shows this until the session has enough
 # context to name itself; naming a pane from it would label every fresh pane identically.
-PLACEHOLDERS = {"claude code", "claude", "codex", "opencode", "pi", "hermes", "hermes agent"}
+PLACEHOLDERS = {"claude code", "claude", "codex", "pi", "hermes", "hermes agent"}
 FALLBACK_TITLES = {"hermes": "hermes"}
 
 # On-disk title reads for the agents the OSC title fails (see lookup_title); 64 KB window.
@@ -214,8 +213,6 @@ HEAD_BYTES = 64 * 1024
 TITLE_TTL = int(os.environ.get("HERDR_SUMMARY_TITLE_TTL", "30"))
 # A miss expires sooner: it is usually a new session whose first prompt has yet to hit disk.
 TITLE_MISS_TTL = int(os.environ.get("HERDR_SUMMARY_TITLE_MISS_TTL", "5"))
-# opencode names a session `New session - <iso>` until its summarizer replaces it.
-OPENCODE_PLACEHOLDER = "New session"
 # claude wraps a slash-command turn in these: `<command-name>/tidy-commit</command-name>` -> `tidy-commit`.
 CLAUDE_COMMAND_OPEN = "<command-name>"
 CLAUDE_COMMAND_CLOSE = "</command-name>"
@@ -461,15 +458,8 @@ def pi_title(ref, cwd):
     return (pi_session_name(path) or pi_first_user_title(path)) if path else None
 
 
-def opencode_title(ref, cwd):
-    if not stores:
-        return None
-    title = (stores.opencode_by_session_or_cwd("title", ref, cwd) or "").strip()
-    return None if title.startswith(OPENCODE_PLACEHOLDER) else (title or None)
-
-
 # Authoritative for agents that never title their OSC, so their terminal title is not consulted.
-STORE_READERS = {"pi": pi_title, "opencode": opencode_title, "open_code": opencode_title}
+STORE_READERS = {"pi": pi_title}
 # Consulted only once the OSC title has proved useless, so a titled session pays nothing.
 TRANSCRIPT_READERS = {"claude": claude_transcript_title}
 
@@ -480,7 +470,7 @@ def lookup_title(pane, readers):
     Keyed precisely: herdr's agent integrations report the exact session via
     `pane.report_agent_session`, so two panes in one directory never collide. The cwd stays
     in the key as the fallback for a session whose integration has not reported yet - and so
-    does the agent, without which a pi and an opencode pane sharing a cwd would both land on
+    does the agent, without which a pi and a claude pane sharing a cwd would both land on
     the same (None, None, cwd) entry and inherit each other's title.
     """
     reader = readers.get(pane.get("agent"))

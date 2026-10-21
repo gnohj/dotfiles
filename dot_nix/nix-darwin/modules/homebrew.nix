@@ -19,7 +19,6 @@
 
     # Taps (third-party repositories)
     taps = [
-      "anomalyco/tap"
       "blacktop/tap"
       "FelixKratz/formulae"
       "oven-sh/bun"
@@ -39,9 +38,6 @@
     # CLI packages (formulae)
     brews = [
       # AI Tools — claude-code/codex/gemini/pi/rtk moved to mise (shared, both OSes).
-      # opencode stays: its own installer (~/.opencode/bin) shadows this, and the
-      # anomalyco vs sst forks may differ — left unmerged on purpose.
-      "anomalyco/tap/opencode"
       # From the tap, not the curl|sh installer, which drops it in chezmoi-owned ~/.local/bin.
       "rjyo/moshi/moshi-hook"
 

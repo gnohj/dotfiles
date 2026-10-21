@@ -197,7 +197,7 @@ No per-tool config, no nvim override, and anything new that respects either vari
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
-- [ ] on PATH: `treehouse herdr no-mistakes atuin claude codex gemini pi opencode`
+- [ ] on PATH: `treehouse herdr no-mistakes atuin claude codex gemini pi`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives

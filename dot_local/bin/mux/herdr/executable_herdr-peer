@@ -39,8 +39,7 @@ resolves its path across both claude roots. Measured on a real 16.7MB session: t
 ~4.16M - four times a 1M context. That is why --full means every text TURN and the raw file is
 not reachable through any flag.
 
-Only claude keeps a transcript this can read. pi's is a different store and opencode keeps none
-at all, so non-claude panes fall back to the screen automatically and the digest says so.
+Only claude keeps a transcript this can read. pi's is a different store, so non-claude panes fall back to the screen automatically and the digest says so.
 
 MANUAL USE ONLY, for `grab`. Isolation between agent panes is a feature - it is what stops one
 specialist's reasoning polluting another's - so pulling a sibling's context is a thing the user

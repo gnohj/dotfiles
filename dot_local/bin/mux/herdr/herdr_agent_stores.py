@@ -1,9 +1,9 @@
-"""herdr_agent_stores — where claude, pi, opencode, codex and hermes keep their sessions, in one place.
+"""herdr_agent_stores — where claude, pi, codex and hermes keep their sessions, in one place.
 
 Imported by herdr-pane-summary.py (which wants each session's TITLE) and by
 herdr-agent-activity.py (which wants its last-activity TIME). Every one of them has to be
-read off disk for something: pi and opencode put no usable session title in their OSC
-terminal title, opencode keeps no transcript to tail at all, and claude's title is missing
+read off disk for something: pi puts no usable session title in its OSC terminal title,
+and claude's title is missing
 from its OSC exactly when it never named the session. What the daemons share is not the
 queries - those differ - but the FACTS about where those stores live and how they are keyed.
 Those facts belong to the agents, not to either daemon, so they get one owner here.
@@ -25,18 +25,8 @@ import os
 import re
 import subprocess
 
-try:
-    import sqlite3
-except ImportError:  # a python built without the sqlite module: opencode reads degrade to None
-    sqlite3 = None
-
-# pi's config root, and opencode's SQLite store. Both honour the same env overrides the
-# agents themselves do, so a relocated store keeps working.
+# pi's config root honours the same env override pi itself does, so a relocated store keeps working.
 PI_ROOT = os.environ.get("PI_CODING_AGENT_DIR") or os.path.expanduser("~/.pi/agent")
-OPENCODE_DB = os.path.join(
-    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
-    "opencode", "opencode.db",
-)
 CODEX_HOME = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
 # Both claude config roots (the VPS has only ~/.claude); a missing root just never matches.
 CLAUDE_ROOTS = [os.path.expanduser("~/.claude"), os.path.expanduser("~/.claude-work")]
@@ -242,58 +232,6 @@ def pi_newest_session(cwd):
         if mtime > best_mtime:
             best, best_mtime = path, mtime
     return best
-
-
-def opencode_query(sql, args):
-    """One read-only query against opencode's store, or None on any failure.
-
-    Read-only so it can never block or corrupt opencode's own writer, and short-timeout so
-    a locked database costs a tick rather than wedging the caller.
-    """
-    if sqlite3 is None or not os.path.exists(OPENCODE_DB):
-        return None
-    try:
-        conn = sqlite3.connect("file:%s?mode=ro" % OPENCODE_DB, uri=True, timeout=1)
-        try:
-            return conn.execute(sql, args).fetchall()
-        finally:
-            conn.close()
-    except sqlite3.Error:
-        return None
-
-
-def opencode_by_session_or_cwd(column, session, cwd):
-    """`column` for the pane's opencode session: exact by reported id, else newest for cwd.
-
-    The cwd branch prefers the session's own directory (a non-git session's worktree is "/"), then the longest worktree prefix.
-    """
-    session_id = session.get("value") if session.get("kind") == "id" else None
-    if session_id:
-        rows = opencode_query(
-            "SELECT %s FROM session WHERE id = ? LIMIT 1;" % column, (session_id,)
-        )
-    elif cwd:
-        rows = opencode_query(
-            "SELECT s.%s FROM session s JOIN project p ON s.project_id = p.id "
-            "WHERE s.directory = ? OR p.worktree = ? OR ? LIKE p.worktree || '/%%' "
-            "ORDER BY s.directory = ? DESC, length(p.worktree) DESC, s.time_updated DESC LIMIT 1;" % column,
-            (cwd, cwd, cwd, cwd),
-        )
-    else:
-        return None
-    return rows[0][0] if rows and rows[0][0] is not None else None
-
-
-def opencode_model_effort(session, cwd):
-    """(model, variant) of the newest assistant message in the pane's opencode session; no variant is the model default."""
-    session_id = opencode_by_session_or_cwd("id", session, cwd)
-    rows = opencode_query(
-        "SELECT json_extract(data, '$.modelID'), json_extract(data, '$.variant') FROM message "
-        "WHERE session_id = ? AND json_extract(data, '$.role') = 'assistant' "
-        "ORDER BY time_created DESC LIMIT 1;",
-        (session_id,),
-    ) if session_id else None
-    return tuple(rows[0]) if rows else (None, None)
 
 
 def codex_rollout(session, cwd, scan=40):
