@@ -3,7 +3,6 @@ set -euo pipefail
 
 # mise's real binary, not ~/.local/bin/codex: a stale VPS wrapper there pins an older codex.
 codex_bin="$(mise which codex 2>/dev/null || command -v codex || true)"
-[ -n "$codex_bin" ] || { printf '%s\n' 'codex-headless: codex is unavailable' >&2; exit 127; }
 
 dir="$PWD"
 skill=""
@@ -21,11 +20,33 @@ case "$skill" in *[!A-Za-z0-9._-]*) printf 'codex-headless: invalid skill name: 
 prompt="Run the \$$skill skill non-interactively and finish without asking questions."
 [ $# -gt 0 ] && prompt="$prompt Arguments: $*"
 
+# A Codex refusal (no subscription, login, quota, 5xx) reruns the same skill on Claude instead of failing every tick.
+run_on_claude() {
+  printf 'codex-headless: %s, running %s on Claude instead\n' "$1" "$skill" >&2
+  rm -f "${log:-}"
+  cd "$dir"
+  eval "$("$HOME/.local/bin/claude-account" env)"
+  local ask="Run the /$skill skill non-interactively and finish without asking questions."
+  [ $# -gt 1 ] && ask="$ask Arguments: $2"
+  exec "$HOME/.local/bin/claude" -p --dangerously-skip-permissions --model claude-sonnet-5-5 --effort medium "$ask" </dev/null
+}
+args="$*"
+[ -n "$codex_bin" ] || run_on_claude "codex is unavailable" "$args"
+
+log="$(mktemp "${TMPDIR:-/tmp}/codex-headless.XXXXXX")"
+trap 'rm -f "$log"' EXIT
 # Skills write thread state and vault notes outside the workdir, so the workspace sandbox is too narrow.
-exec "$codex_bin" exec \
+set +e
+"$codex_bin" exec \
   --skip-git-repo-check \
   --cd "$dir" \
   --model gpt-6-luna \
   -c 'model_reasoning_effort="xhigh"' \
   --sandbox danger-full-access \
-  "$prompt" </dev/null
+  "$prompt" </dev/null 2>&1 | tee "$log"
+rc=${PIPESTATUS[0]}
+set -e
+[ "$rc" -eq 0 ] && exit 0
+refusal="$(grep -iE 'unexpected status|unauthori|forbidden|not logged in|quota|usage limit|rate limit|subscription|credits|overloaded' "$log" | tail -n1 | cut -c1-160)"
+[ -n "$refusal" ] && run_on_claude "codex refused (exit $rc: $refusal)" "$args"
+exit "$rc"
