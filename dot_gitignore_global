@@ -22,7 +22,6 @@ AGENTS.md
 tasks
 tasks/
 .claude.json
-opencode.json
 .DS_Store
 .claude.json.backup
 .zsh_gnohj_env

@@ -605,13 +605,6 @@ return {
       desc = "Find Claude Conversations",
     },
     {
-      "<leader>fo",
-      function()
-        require("plugins.snacks.ai_sessions").opencode()
-      end,
-      desc = "Find Opencode Sessions",
-    },
-    {
       "<leader>fI",
       function()
         require("plugins.snacks.ai_sessions").pi()
@@ -1024,28 +1017,6 @@ return {
             end,
             action = function()
               require("plugins.snacks.ai_sessions").pi()
-            end,
-          },
-          {
-            icon = "ø ",
-            key = "O",
-            desc = "Opencode (New)",
-            enabled = function()
-              return not is_personal_vault()
-            end,
-            action = function()
-              agent_split("opencode")
-            end,
-          },
-          {
-            icon = "ø ",
-            key = "N",
-            desc = "Opencode (Sessions)",
-            enabled = function()
-              return not is_personal_vault()
-            end,
-            action = function()
-              require("plugins.snacks.ai_sessions").opencode()
             end,
           },
         },

@@ -1168,20 +1168,6 @@ pior() { pi -r --provider openai-codex --model openai-codex/gpt-6.1-sol:high $(_
 pigr() { pi -r --provider openai-codex --model openai-codex/gpt-6-luna:xhigh $(_pi_sp) "$@"; }
 picr() { pi -r --provider github-copilot --model github-copilot/gpt-6.1-sol:high $(_pi_sp) "$@"; }
 
-# Opencode shortcuts (parallel to cs/cr, pis/pir). Plain pass-throughs:
-# --dangerously-skip-permissions is documented upstream but rejected by
-# the locally installed opencode (1.14.24); --agent plan needs a "plan"
-# agent that has to be created with `opencode agent create plan` first
-# (only `build` is configured by default). Add either back in here if the
-# upstream catches up or you create the agent.
-#
-# No interactive session picker exists at the CLI — `oc` continues the
-# LAST session (closest analog to claude --resume / pi -r); the in-TUI
-# `/sessions` slash command (alias `/resume`, keybind `ctrl+x l`) handles
-# the picker.
-alias os='opencode'    # opencode start (new session)
-alias oc='opencode -c' # opencode continue (last session)
-
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://radioedit.iheart.com | grep APP_TOKEN | cut -d= -f2 | xargs)
   echo "✓ APP_TOKEN set"
@@ -1572,9 +1558,6 @@ reload_prompt() {
 
 export _ZO_DATA_DIR="$ZDOTDIR"
 export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*"
-
-# opencode: added before mise activate so the mise-pinned opencode stays first on PATH
-export PATH="$HOME/.opencode/bin:$PATH"
 
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)

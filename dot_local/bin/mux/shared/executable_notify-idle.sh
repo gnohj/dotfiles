@@ -29,7 +29,7 @@ echo "${PANE_ID:-$SESSION}" > /tmp/notify-idle.latest 2>/dev/null || true
 TERM_ID=$(tmux display-message -p -t "$SESSION" '#{client_termtype}' 2>/dev/null)
 TERM_ID="${TERM_ID:-${TERM:-}}"
 
-# Which agent fired the hook — walk up the process tree (claude = direct child; opencode = zx-shell grandparent).
+# Which agent fired the hook — walk up the process tree (claude = direct child).
 AGENT="Agent"
 _pid=$PPID
 for _ in 1 2 3 4 5; do
@@ -37,8 +37,7 @@ for _ in 1 2 3 4 5; do
   case "$_pid" in 0|1) break ;; esac
   _name=$(ps -o comm= -p "$_pid" 2>/dev/null | xargs basename 2>/dev/null)
   case "$_name" in
-    claude)   AGENT="Claude";   break ;;
-    opencode) AGENT="Opencode"; break ;;
+    claude) AGENT="Claude"; break ;;
   esac
   _pid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ')
 done

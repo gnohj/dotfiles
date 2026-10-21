@@ -1,6 +1,6 @@
 -- Rex state shaped like `herdr api snapshot`, ids unprefixed and nested as <session>:<window|block> for herdr-sesh.sh.
 local TERM = "com.superlogical.terminal"
-local AGENTS = { claude = true, pi = true, codex = true, opencode = true, hermes = true, droid = true }
+local AGENTS = { claude = true, pi = true, codex = true, hermes = true, droid = true }
 
 local function bare(id) return (id or ""):gsub("^%a+:", "") end
 

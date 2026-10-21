@@ -1,5 +1,5 @@
--- Unified Snacks picker over a coding agent's past sessions - Claude Code, Pi,
--- and opencode - read straight from each agent's on-disk history so it works
+-- Unified Snacks picker over a coding agent's past sessions - Claude Code and
+-- Pi - read straight from each agent's on-disk history so it works
 -- whether or not that agent's terminal is running. Fuzzy-matches on a derived
 -- label, previews the recent exchange, and resumes the pick.
 --
@@ -10,7 +10,7 @@
 --
 -- Resume has two modes, chosen by the AI_PICK_FILE env var:
 --   * Handoff (AI_PICK_FILE set): the picker was launched by a terminal wrapper
---     (cr / pir / ocr) that opened nvim solely to pick. Write the chosen id to
+--     (cr / pir) that opened nvim solely to pick. Write the chosen id to
 --     that file and quit nvim; the wrapper then execs the agent in the SAME
 --     pane. This is the "resume in place" terminal flow.
 --   * Split (no AI_PICK_FILE): the picker was opened inside a working nvim
@@ -21,9 +21,6 @@
 --   Claude    ~/.claude*/projects/<cwd with / and . -> ->/<uuid>.jsonl  (EVERY
 --             account root: ~/.claude = personal, ~/.claude-work = work, …)
 --   Pi        ~/.pi/agent/sessions/--<cwd sans leading /, / -> ->--/<ts>_<uuid>.jsonl
---   opencode  ~/.local/share/opencode/opencode.db (SQLite; session/message/part
---             tables) - opencode >=1.x abandoned the old JSON storage/ tree, so
---             sessions are read via `sqlite3 -readonly`, filtered by .directory
 
 local M = {}
 
@@ -241,52 +238,6 @@ function M.pi()
     preview_cmd = pi_preview,
     resume = function(item)
       return "pir " .. item.id
-    end,
-  })
-end
-
--- ---- opencode --------------------------------------------------------------
-
--- opencode >=1.x keeps sessions in a SQLite DB (the old JSON storage/ tree is no
--- longer written), so read them with `sqlite3 -readonly`: filter by the
--- session's own directory (= cwd) and skip child (sub-agent) sessions. Emit the
--- same id/mtime/file/label columns as the jsonl agents (file is the session id,
--- which the preview pass expands into its DB messages).
-local opencode_batch = [==[
-db="$HOME/.local/share/opencode/opencode.db"
-[ -f "$db" ] || exit 0
-cwd="${1//\'/\'\'}"
-sqlite3 -readonly "$db" "
-  SELECT s.id || char(9) || (s.time_updated/1000) || char(9) || s.id || char(9)
-         || CASE WHEN trim(s.title) = '' THEN 'Untitled (' || substr(s.id,1,8) || ')'
-                 ELSE replace(replace(s.title, char(9), ' '), char(10), ' ') END
-  FROM session s
-  WHERE s.directory = '$cwd' AND s.parent_id IS NULL
-  ORDER BY s.time_updated DESC;
-" 2>/dev/null
-]==]
-
-local opencode_preview = [[
-db="$HOME/.local/share/opencode/opencode.db"
-sid="$1"
-sqlite3 -readonly -json "$db" "
-  SELECT json_extract(m.data,'\$.role') AS role,
-         json_extract(p.data,'\$.text') AS text
-  FROM message m JOIN part p ON p.message_id = m.id
-  WHERE m.session_id = '$sid' AND json_extract(p.data,'\$.type') = 'text'
-  ORDER BY m.time_created, p.time_created;
-" 2>/dev/null | jq -r '.[] | "-- \(.role) --\n\(.text)\n"' 2>/dev/null | tail -120
-]]
-
-function M.opencode()
-  pick({
-    title = "Opencode Sessions",
-    icon = " ",
-    cmd = "bash",
-    args = { "-c", opencode_batch, "oc", vim.fn.getcwd() },
-    preview_cmd = opencode_preview,
-    resume = function(item)
-      return "ocr " .. item.id
     end,
   })
 end

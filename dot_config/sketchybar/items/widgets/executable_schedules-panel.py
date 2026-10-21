@@ -29,7 +29,7 @@ SECTION_ORDER = {
 AI_LABELS = {
     "org.nixos.gh-auto-review",
 }
-AI_COMMAND_RE = re.compile(r"(^|/)(claude|pi|opencode|ollama|llm)(\s|$)")
+AI_COMMAND_RE = re.compile(r"(^|/)(claude|pi|ollama|llm)(\s|$)")
 KNOWN_NAMES = {
     "org.nixos.agentsview": "AgentsView",
     "org.nixos.claude-cost-refresh": "Claude cost refresh",

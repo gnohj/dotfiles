@@ -157,6 +157,9 @@ scripts/open-tmux-attach.sh
 # opencode-usage retired: the OpenCode Go subscription was cancelled.
 .local/bin/opencode-usage
 
+# ocr retired: OpenCode was removed from every machine.
+.local/bin/ocr
+
 # treekanga retired: wt-add/wt-setup/wtrm in .local/bin/worktree replace it; hooks moved to .config/worktree/postcreate.
 .config/treekanga/treekanga-add.sh
 .config/treekanga/treekanga-rm.sh
