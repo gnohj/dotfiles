@@ -48,8 +48,7 @@ label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
   fi
   case "$MUX" in
     tmux)
-      # status message on the session that has a pane in this worktree (the
-      # review/agent windows), plus a desktop notif — mirrors treekanga.
+      # Status message on the session with a pane in this worktree, plus a desktop notif - mirrors wt-setup.
       sess="$(tmux list-panes -a -F '#{pane_current_path}|#{session_name}' 2>/dev/null \
         | awk -F'|' -v w="$WT" '$1==w||index($1,w"/")==1{print $2; exit}')"
       [ -n "$sess" ] && command -v tmux >/dev/null 2>&1 && tmux display-message -d 6000 -t "$sess" "$msg" 2>/dev/null

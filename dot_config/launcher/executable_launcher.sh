@@ -892,16 +892,7 @@ act_system_up() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
 
-# Kick off an AI-worktree capture script, per host:
-#   tmux mode  — hand off via `tmux run-shell -b`. The launcher runs inside a tmux
-#     popup and the capture opens another popup; tmux can't nest popups, so the
-#     server schedules it for after THIS popup closes.
-#   herdr mode (ql) — run the capture inline in the quake (no tmux), signaling
-#     worktree_setup.sh to open the result as a herdr workspace. WORKTREE_OPEN_IN
-#     rides the worktree runner's env chain (open→Terminal, then claude→treekanga→
-#     postScript), the same channel TREEKANGA_POSTSCRIPT_LOG uses. When the
-#     capture returns, the persistent picker redraws root.
-# Dismissal waits for the capture to return: it prompts inside the quake.
+# AI capture per host: tmux hands off via run-shell -b (popups can't nest); herdr runs inline in the quake with WORKTREE_OPEN_IN=herdr.
 run_worktree_capture() {
   local verb="$1"
   if [ "$(active_mux)" = herdr ]; then
@@ -911,9 +902,8 @@ run_worktree_capture() {
   fi
 }
 
-# treekanga-add.sh self-detects its host: tmux → new tmux window, herdr/quake →
-# new herdr tab running `treekanga tui`. Runs in both modes.
-act_worktree_add() { ~/.config/treekanga/treekanga-add.sh && dismiss_quake; }
+# wt-new runs inline and self-detects its host: tmux → sesh connect, herdr → new workspace.
+act_worktree_add() { ~/.local/bin/worktree/wt-new && dismiss_quake; }
 act_worktree_ai_prompt() { run_worktree_capture prompt; }
 act_worktree_jira() {
   if [ "$(active_mux)" = herdr ]; then
@@ -925,8 +915,8 @@ act_worktree_jira() {
 act_worktree_clipboard() { run_worktree_capture clipboard; }
 act_worktree_bug() { run_worktree_capture bug; }
 act_worktree_retry() { run_worktree_capture retry; }
-# treekanga-rm.sh sweeps both tmux sessions and herdr workspaces in the worktree.
-act_worktree_delete() { ~/.config/treekanga/treekanga-rm.sh; }
+# wtrm sweeps both tmux sessions and herdr workspaces in the worktree.
+act_worktree_delete() { ~/.local/bin/worktree/wtrm; }
 
 act_outdated() {
   zsh -c "source ~/.config/zshrc/.zshrc && outdated && echo '\nPress any key to continue...' && read -k1"

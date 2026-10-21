@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Seed every git worktree (as enumerated by its sibling worktree-list) into
-# zoxide, so sesh's default view and the `z` command surface worktrees even
-# when they were never manually cd'd into (e.g. created by Claude Code's
-# worktree isolation, a bare `git worktree add`, or an agent tool). treekanga
-# already seeds at creation time; this is the catch-all for everything else.
-#
-# Meant to run DETACHED (`wtsync &!`) — the scan is ~1s, but nothing waits on
-# it. Called from ~/.config/zshrc/.zshrc (startup) and ~/.config/tmux/
-# sesh-popup.sh (each picker open, so the NEXT open is fresh).
+# Seed every worktree from worktree-list into zoxide (catch-all for trees not made by wt-setup); run detached from zshrc and sesh-popup.sh.
 
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.local/bin/worktree:$PATH"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"

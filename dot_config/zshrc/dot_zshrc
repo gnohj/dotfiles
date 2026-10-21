@@ -379,20 +379,7 @@ _update_prompt_path() {
 _update_prompt_path
 add-zsh-hook chpwd _update_prompt_path
 
-# Pattern A worktree workflow: keep `origin/HEAD` (and the rest of
-# `refs/remotes/origin/*`) fresh in the bare repo so any tool that
-# branches off `origin/HEAD` — `treekanga add … -b origin/HEAD`,
-# lazygit, manual `git checkout -b … origin/master` — sees the latest
-# remote without the user thinking about it. The AI flows
-# (`worktree prompt` fast-path, /worktree skill) already fetch before
-# branching; this hook covers manual TUI usage of lazygit/treekanga.
-#
-# Behavior:
-#   • Fires only when cwd is inside `$HOME/Developer/<repo>/...`.
-#   • Debounced via `<bare>/.last-fetch` stamp — at most once every
-#     5 minutes per repo to avoid network thrash on rapid `cd` chains.
-#   • Background + disowned (`&!`) so prompts never block.
-#   • Silent on failure (offline, auth blip) — never disrupts cd.
+# Keep a bare repo's origin/* fresh on cd into ~/Developer/<repo>: debounced 5min via <bare>/.last-fetch, backgrounded, silent on failure.
 _worktree_autofetch_origin() {
   case "$PWD" in
     "$HOME/Developer/"*) ;;
@@ -808,12 +795,10 @@ ghpr() {
   [[ "$involved_count" -gt 0 ]] && echo "$involved_prs" | eval "$format_prs"
 }
 
-# Treekanga
-alias tk='treekanga'
-alias tkd='treekanga --log debug'
-alias tkl='treekanga list -v'
-alias tka='~/.config/treekanga/treekanga-add.sh'
-alias tkrm='~/.config/treekanga/treekanga-rm.sh'
+# Worktrees (bare-layout repos under ~/Developer)
+alias wta='wt-add'
+alias wtn='wt-new'
+alias wtl='git worktree list'
 
 # Treehouse — `th` (the herdr host tmux moved to `thh`, see the tmux profiles above)
 alias th='treehouse'
@@ -1354,7 +1339,7 @@ cdm() {
 # pool capacity (the leak that stranded 19153/19179 before). Reads treehouse's
 # own per-pool state files, so it spans EVERY pool (web review, inferno,
 # orchestration) regardless of cwd. Complements gh-dash `R` (review pool only)
-# and tkrm.
+# and wtrm.
 #   treehouse-orphans        list orphaned leases
 #   treehouse-orphans -r     return them (treehouse return --force)
 treehouse-orphans() {
@@ -1683,9 +1668,7 @@ fi
 
 # Cached integrations (regenerate if binary updates)
 command -v zoxide &>/dev/null && _evalcache zoxide zoxide init zsh
-# Seed git worktrees into zoxide once per shell, detached so it never blocks
-# startup. Keeps sesh's default view + `z` complete for worktrees created
-# outside treekanga (the sesh picker also refreshes this on each open).
+# Seed git worktrees into zoxide once per shell, detached, for ones created outside wt-add.
 command -v wtsync &>/dev/null && wtsync &!
 command -v fzf &>/dev/null && _evalcache fzf fzf --zsh
 # Pre-sets atuin's session id (a UUIDv7, same shape as `atuin uuid`) so its init skips forking atuin; urandom via sysread, no process.

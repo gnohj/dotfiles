@@ -1,45 +1,24 @@
 #!/usr/bin/env bash
+# wt-setup - post-create setup for a new worktree (cwd = the worktree); wt-add runs it.
 
 set -e
 
 CURRENT_WORKTREE="$(pwd)"
 
-# treekanga v2 captures the postScript's stdout/stderr via shell.CmdWithDir
-# and discards the result, so anything we `echo` from here is invisible to
-# the calling terminal (kitty window, tmux pane, etc.). Mirror every status
-# line into a log file so callers (e.g. ~/.local/bin/worktree (runner verb) and
-# the worktree-* entry points) can tail it post-hoc and surface what
-# actually happened.
-#
-# Honor TREEKANGA_POSTSCRIPT_LOG when set — the runner uses this to give
-# each invocation its own per-run log file, eliminating byte-offset
-# accounting and the cross-run race when two runners fire near-simultaneously
-# (each would read the other's postScript output via shared log tail).
-# When unset (TUI / interactive treekanga add), fall back to the global log.
-LOGFILE="${TREEKANGA_POSTSCRIPT_LOG:-$HOME/.logs/treekanga-postscript.log}"
+# Mirror status into a log the runner reads back; WORKTREE_SETUP_LOG gives each run its own file.
+LOGFILE="${WORKTREE_SETUP_LOG:-$HOME/.logs/worktree-setup.log}"
 mkdir -p "$(dirname "$LOGFILE")"
 log() {
   local msg="$*"
-  echo "$msg" # treekanga discards this
+  echo "$msg"
   printf '[%s] %s\n' "$(date +%H:%M:%S)" "$msg" >>"$LOGFILE"
 }
 log "=== START $CURRENT_WORKTREE ==="
 
-# treekanga's postScript runs in whatever shell context spawned `treekanga add`
-# (often bash without mise's interactive hooks), so the wrong node ends up
-# active and pnpm warns about engine mismatch. Put mise shims first on PATH
-# so node/pnpm/npm/yarn resolve to the version specified by .mise.toml /
-# .tool-versions in the worktree.
+# Mise shims first so node/pnpm match the worktree's .mise.toml / .tool-versions under non-interactive callers.
 export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:$PATH"
 
-# ~/.zsh_gnohj_env is the user's full environment file (bash-safe) — it
-# exports PNPM_HOME, GIT_AUTHOR_*, XDG paths, and chains into the secrets
-# file (GPR_AUTH_TOKEN, NPM_TOKEN, etc.) and any .local overrides. Without
-# this, the postScript runs with a different PNPM_HOME than interactive
-# zsh, so pnpm uses a different store path. The next interactive `pn i`
-# detects the layout mismatch and helpfully nukes node_modules to recreate
-# from the user's actual store — wasting the install we just did. Sourcing
-# this file aligns the contexts and makes the postScript install reusable.
+# Source the user's env so PNPM_HOME and secrets match interactive zsh, or the next `pn i` nukes node_modules over a store mismatch.
 if [ -f "$HOME/.zsh_gnohj_env" ]; then
   # shellcheck disable=SC1091
   source "$HOME/.zsh_gnohj_env"
@@ -91,21 +70,9 @@ if [ "$IS_MAIN_WORKTREE" = true ]; then
   exit 0
 fi
 
-# treekanga v2 removed auto-zoxide and sesh integration; replicate it here.
-# Behavior is split based on `$TMUX`:
-#   - TMUX set  →  TUI / manual flow (user already in tmux). Auto-attach
-#                  via sesh — matches v1 `add -s` behavior.
-#   - TMUX unset → headless wrapper flow (the worktree runner spawned a
-#                  fresh Terminal via worktree jira / prompt /
-#                  clipboard / bug). Do not switch
-#                  anyone's client;
-#                  pbcopy the session name so the user can paste it into
-#                  their preferred switcher.
+# Register with zoxide, then open: herdr workspace (WORKTREE_OPEN_IN=herdr), sesh inside tmux, else copy the session name.
 if command -v zoxide &>/dev/null; then
-  # Match the interactive zshrc's custom DB location ($ZDOTDIR). Without
-  # this, non-interactive invocations (treekanga -x, claude -p, etc.) write
-  # to zoxide's default DB at ~/.local/share/zoxide/db.zo — which the
-  # user's `z` command never reads, so the entry effectively vanishes.
+  # Use the interactive zshrc's zoxide DB, or non-interactive runs write to a default DB that `z` never reads.
   export _ZO_DATA_DIR="$HOME/.config/zshrc"
   if zoxide add "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
     log "✓ zoxide registered ($CURRENT_WORKTREE)"
@@ -116,11 +83,7 @@ else
   log "· zoxide not on PATH, skipped"
 fi
 
-# Thread state file: a JSON doc that links this worktree to its branch +
-# tmux session + (later, when discovered) vault note + PR URL. Read by
-# the dashboards to surface 📝🎟️🔀 badges and by the "open notes"
-# launcher item. Idempotent — re-runs of treekanga on the same worktree
-# don't overwrite the existing state.
+# Thread state links this worktree to branch, session, vault note and PR for the dashboards; never overwritten.
 THREAD_BRANCH=$(git -C "$CURRENT_WORKTREE" branch --show-current 2>/dev/null || true)
 if [ -n "$THREAD_BRANCH" ]; then
   THREAD_DIR="$HOME/.local/state/threads"
@@ -241,18 +204,12 @@ log "=== END ==="
 WORKTREE_NAME=$(basename "$CURRENT_WORKTREE")
 SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 
-# Detach via double-fork ( ( cmd & ) ) so the bg subshell reparents
-# to init and survives this script's exit, treekanga's exit, claude's
-# exit, and the runner's exit. Output continues appending to LOGFILE
-# so `tail -f ~/.logs/treekanga-postscript.log` (or the per-run log)
-# still works for debugging.
+# Double-fork so the bg subshell outlives wt-add, claude and the runner; it keeps appending to LOGFILE.
 ( (
   cd "$CURRENT_WORKTREE" || exit
   set +e
 
-  # Re-source env so PNPM_HOME, GPR_AUTH_TOKEN, etc. are present in
-  # the bg subshell. The fg postScript already sourced this; re-sourcing
-  # is idempotent and keeps the bg path self-contained.
+  # Re-source env so PNPM_HOME and GPR_AUTH_TOKEN reach the bg subshell.
   if [ -f "$HOME/.zsh_gnohj_env" ]; then
     # shellcheck disable=SC1091
     source "$HOME/.zsh_gnohj_env"
@@ -303,8 +260,8 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     fi
   fi
 
-  # Per-repo post-create hook (looks for ~/.config/treekanga/postcreate/<repo>.sh).
-  HOOK="$HOME/.config/treekanga/postcreate/$REPO_NAME.sh"
+  # Per-repo post-create hook (looks for ~/.config/worktree/postcreate/<repo>.sh).
+  HOOK="$HOME/.config/worktree/postcreate/$REPO_NAME.sh"
   if [ -x "$HOOK" ]; then
     hook_start=$(date +%s)
     bg_log "→ (bg) per-repo post-create hook: $HOOK"
@@ -326,7 +283,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     final_msg="✅ $WORKTREE_NAME setup complete (deps + codegen done)"
     notify_title="✓ Background setup done"
   else
-    final_msg="⚠️ $WORKTREE_NAME setup completed with errors — check ~/.logs/treekanga-postscript.log"
+    final_msg="⚠️ $WORKTREE_NAME setup completed with errors - check $LOGFILE"
     notify_title="⚠️ Background setup had errors"
   fi
   "$HOME/.local/bin/mux/mux" notify --title "$notify_title" --duration 8000 "$final_msg" 2>/dev/null || true
@@ -340,28 +297,3 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 # ready (sync part done); the bg subshell fires again when deps + codegen finish.
 "$HOME/.local/bin/mux/mux" notify --title "🌳 worktree ready" --duration 5000 \
   "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null || true
-
-# Close the '🌳' treekanga selector (rctrl-semi) in both muxes; herdr labels prefix a number.
-if command -v tmux &>/dev/null; then
-  tmux list-windows -a -F '#{session_name}:#{window_index}|#{window_name}' 2>/dev/null |
-    awk -F'|' '$2 == "🌳" { print $1 }' |
-    while read -r target; do
-      tmux kill-window -t "$target" 2>/dev/null || true
-    done
-fi
-
-if command -v "${HERDR_BIN_PATH:-herdr}" &>/dev/null && command -v jq &>/dev/null; then
-  herdr_bin="${HERDR_BIN_PATH:-herdr}"
-  "$herdr_bin" workspace list 2>/dev/null |
-    jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null |
-    while IFS= read -r ws; do
-      [ -n "$ws" ] || continue
-      # herdr 0.8.0 closes the workspace when its LAST tab closes, so skip single-tab workspaces.
-      "$herdr_bin" tab list --workspace "$ws" 2>/dev/null |
-        jq -r 'select(((.result.tabs? // []) | length) > 1)
-               | .result.tabs[]? | select((.label // "") | test("(^|\\.)🌳$")) | .tab_id' 2>/dev/null
-    done |
-    while IFS= read -r tid; do
-      [ -n "$tid" ] && "$herdr_bin" tab close "$tid" >/dev/null 2>&1 || true
-    done
-fi

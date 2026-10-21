@@ -11,7 +11,7 @@
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
 #   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
-#   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare treekanga container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
+#   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare-layout container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
 #   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
 #   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
 #   ctrl-b  → abort
@@ -596,7 +596,7 @@ END {
 
     [ -n "$GPATH" ] || { echo "no directory on this row"; pause; exit 0; }
     git -C "$GPATH" rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repo: $GPATH"; pause; exit 0; }
-    # A treekanga container (.bare + worktrees) is a BARE repo, where --show-toplevel fatals - falling back to the dir itself keeps those rows working.
+    # A bare-layout container (.bare + worktrees) is a BARE repo, where --show-toplevel fatals - falling back to the dir itself keeps those rows working.
     ROOT=$(git -C "$GPATH" rev-parse --show-toplevel 2>/dev/null)
     [ -n "$ROOT" ] || ROOT="$GPATH"
     BRANCH=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)

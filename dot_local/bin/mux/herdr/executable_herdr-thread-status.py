@@ -95,12 +95,12 @@ REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
 )
-# Shared with tkrm's deferral path: both drop a thread-file copy here for herdr-sb-drain to freeze.
+# Shared with wtrm's deferral path: both drop a thread-file copy here for herdr-sb-drain to freeze.
 FINISH_QUEUE = os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
     "sb-ticket-finish-pending",
 )
-# Same ticket-key shape treekanga's worktree_setup.sh matches, so both writers agree on the id.
+# Same ticket-key shape wt-setup matches, so both writers agree on the id.
 TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
 # Lowercase fallback for branches like `fm/web-ihrweb-24720-...`; tried only AFTER the strict pass, so every branch that resolves today keeps resolving to the same key.
 TICKET_RE_LOOSE = re.compile(r"([A-Za-z]+-[0-9]+)")
@@ -115,7 +115,7 @@ def ticket_key(text):
     """
     match = TICKET_RE.search(text) or TICKET_RE_LOOSE.search(text)
     return match.group(1).upper() if match else None
-# worktree_setup.sh derives tmux_session by stripping this prefix; mirrored so the two agree.
+# wt-setup derives tmux_session by stripping this prefix; mirrored so the two agree.
 DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 
 # Absolute path: a herdr daemon's PATH is whatever the server was launched with.
@@ -341,7 +341,7 @@ def thread_for(cwd, branch, entries):
     A worktree hit must ALSO still be on the thread's branch. Treehouse slots are recycled:
     `…/web-130256/1/web` carried IHRWEB-12344 until it merged, then got re-checked-out onto an
     unrelated backport branch, and nothing deletes the thread file unless the worktree is torn
-    down through tkrm. The path alone therefore stayed a unique hit and handed the new branch
+    down through wtrm. The path alone therefore stayed a unique hit and handed the new branch
     the old ticket's `jira_status: Completed`. `branch` is written once at creation and never
     rewritten by persist(), so it is a reliable witness of which checkout the file describes.
 
@@ -364,15 +364,15 @@ def thread_for(cwd, branch, entries):
 def create_thread(cwd, branch):
     """Write the thread file a ticket workspace is missing, or (None, None) if it cannot.
 
-    treekanga's worktree_setup.sh postScript is the original writer, but it only runs for a
-    worktree born through treekanga. herdr's built-in new_worktree, lazygit's worktree UI and a
+    wt-setup is the original writer, but it only runs for a
+    worktree born through wt-add. herdr's built-in new_worktree, lazygit's worktree UI and a
     bare `git worktree add` all produce a checkout with no thread file, leaving $jira and the
     cached $pr fields blank forever — so this reconciles from the workspace list the poller
     already walks instead of relying on the creation moment.
 
     Ticket-shaped branches only: an untracked branch gets no Jira badge anyway, so a file for it
     would just add a `branch` collision to thread_for(). Schema and the skip-if-exists rule are
-    copied from worktree_setup.sh so the two writers cannot disagree, and O_EXCL makes losing a
+    copied from wt-setup so the two writers cannot disagree, and O_EXCL makes losing a
     concurrent race against it a no-op rather than a clobber.
     """
     key = ticket_key(branch)
@@ -400,7 +400,7 @@ def create_thread(cwd, branch):
             with open(os.open(candidate, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
                 json.dump(data, handle, indent=2)
         except FileExistsError:
-            continue  # taken by us on a past pass, by worktree_setup.sh, or by a sibling branch
+            continue  # taken by us on a past pass, by wt-setup, or by a sibling branch
         except OSError:
             return None, None
         return candidate, data

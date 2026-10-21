@@ -34,12 +34,8 @@ __pycache__/
 # file. One repo name per line; blank lines and `#` comments allowed.
 /dot_local/bin/worktree/repos.conf
 
-# Per-repo post-create hooks consumed by treekanga's postScript
-# (executable_worktree_setup.sh). Each file is `<repo>.sh` and runs
-# after the generic setup with cwd = new worktree, REPO_NAME +
-# WORKTREE_PATH exported. Personal / machine-local customization —
-# never part of the public dotfiles commit.
-/dot_config/treekanga/postcreate/
+# Per-repo wt-setup hooks (<repo>.sh, cwd = new worktree, REPO_NAME + WORKTREE_PATH set); machine-local, never published.
+/dot_config/worktree/postcreate/
 
 # Agent scratch dirs; ~/.gitignore_global covers them too, but not before chezmoi has applied it.
 /tasks/

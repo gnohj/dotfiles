@@ -3,7 +3,7 @@
 #
 # Companion to vault-path: that one answers WHICH vault, this one which note inside it.
 # One resolver for the herdr $sb badge, prefix+O, sb-ticket-log, the session-start
-# hook, the launcher and tkrm, so none of them can disagree.
+# hook, the launcher and wtrm, so none of them can disagree.
 #
 # Resolution order, first hit wins:
 #   1. ~/.local/state/threads/<KEY>.json → vault_note, when that file still exists
@@ -41,7 +41,7 @@ done
 
 dir="${1:-$PWD}"
 
-# An explicit --ticket needs no branch, so a deleted worktree still resolves (tkrm's hook).
+# An explicit --ticket needs no branch, so a deleted worktree still resolves (wtrm's hook).
 if [ -z "$TICKET" ]; then
   [ -d "$dir" ] || exit 1
   branch=$(git -C "$dir" branch --show-current 2>/dev/null) || exit 1

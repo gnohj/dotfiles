@@ -2,7 +2,7 @@
 # treehouse post_create hook — prep a freshly provisioned/reset pool worktree so
 # gh-dash `M` reviews and orchestrator `-e` agents get deps + env ready.
 #
-# Deliberately LEAN vs treekanga's worktree_setup.sh: this does NOT create a
+# Deliberately LEAN vs wt-setup (~/.local/bin/worktree): this does NOT create a
 # thread-state note, wire up sesh/herdr/pbcopy sessions, run codegen, fire
 # notifications, or kill windows — treehouse owns the pool-worktree lifecycle,
 # so all we want is a usable checkout. Just three things:

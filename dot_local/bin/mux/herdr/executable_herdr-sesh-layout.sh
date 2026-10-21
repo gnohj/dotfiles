@@ -3,7 +3,7 @@
 # layout: pen (🖋️ nvim, focused) + robot (🤖 AI) + hammer (🔨 dev), each a 3-EVEN
 # -shell tab, backgrounded. The herdr-native replacement for dev.sh + dev-window.sh
 # (which were tmux-only). Shared
-# by the herdr-sesh.sh picker AND the treekanga worktree bridge, so the layout lives
+# by the herdr-sesh.sh picker AND wt-setup (new worktrees), so the layout lives
 # in one place. Pure herdr CLI → runs server-side, works local and over --remote.
 #
 # Usage: herdr-sesh-layout.sh <dir> [label]
@@ -127,14 +127,7 @@ if [ -z "$label_explicit" ]; then
   label="$glyph $label"
 fi
 
-# Honor the sesh entry's startup_command. sesh runs an explicit per-session
-# startup_command in a SINGLE window (it overrides the default dev layout), so
-# web/review + inferno/review (startup_command = "ghd") open one gh-dash window,
-# not the dev layout. Mirror that below. Entries with no explicit startup_command
-# (StartupCommand empty) — plus zoxide/treekanga dirs not in sesh config — fall
-# through to the pen/robot/hammer dev layout.
-#
-# --entry matches the NAME instead, so a twin runs its own command rather than inheriting `first`.
+# Like sesh, an explicit startup_command gets one window (e.g. ghd); none falls through to the dev layout; --entry matches by NAME.
 startup_cmd=""
 if [ -n "$sesh_json" ] && [ -n "$entry_name" ]; then
   startup_cmd=$(printf '%s' "$sesh_json" | jq -r --arg n "$entry_name" \

@@ -6,7 +6,7 @@ SELF="$HOME/.local/bin/worktree/worktree"
 WT_DIR="$HOME/.local/bin/worktree"
 MUX="$HOME/.local/bin/mux/mux"
 
-# Callers (skhd, launcher popups, gh-dash) spawn with a minimal PATH, so pin one that resolves claude/git/treekanga/notifier/clipboard tools.
+# Callers (skhd, launcher popups, gh-dash) spawn with a minimal PATH, so pin one that resolves claude/git/wt-add/notifier/clipboard tools.
 export PATH="$HOME/.local/bin:$HOME/.local/bin/mux:$WT_DIR:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 die() { printf 'worktree: %s\n' "$1" >&2; exit "${2:-1}"; }
@@ -297,7 +297,7 @@ read_jira_conventions() {
 #   WORKTREE_START_TITLE     "creating…" banner title.
 #   WORKTREE_START_MESSAGE   "creating…" banner message.
 #   WORKTREE_FALLBACK_LABEL  banner message when SESSION couldn't be derived.
-#   WORKTREE_OPEN_IN         where worktree_setup.sh should open the result.
+#   WORKTREE_OPEN_IN         where wt-setup should open the result.
 #
 # Vault capture (default: failures + NOT_BUG decisions get an inbox note):
 #   WORKTREE_CAPTURE_PAYLOAD   original input; "image:<path>" for image payloads.
@@ -400,18 +400,9 @@ cmd_runner() {
     printf '%s' "${WORKTREE_CAPTURE_CONTEXT:-}" > "$CAPTURE_CONTEXT_FILE"
   fi
 
-  # Per-run postScript log. treekanga's worktree_setup.sh honors
-  # TREEKANGA_POSTSCRIPT_LOG, which the inner script exports before invoking
-  # claude, so each runner reads its own file — no cross-contamination.
-  #
-  # Fallback: if the var fails to propagate from claude's Bash tool through to
-  # treekanga's postScript subprocess (claude's tooling sometimes scrubs env), the
-  # per-run log is empty and the inner script falls back to byte-offset accounting
-  # against the global log. The single-runner case still detects success; the
-  # concurrent case can mis-attribute under that fallback, but no detection at all
-  # is worse than the rare race.
+  # Per-run setup log via WORKTREE_SETUP_LOG; if claude scrubs the env, the inner script falls back to a byte-offset slice of the global log.
   PS_LOG_PER_RUN=$(mktemp -t "${WORKTREE_LOG_TAG}-ps.XXXXXX.log")
-  PS_LOG_GLOBAL="$HOME/.logs/treekanga-postscript.log"
+  PS_LOG_GLOBAL="$HOME/.logs/worktree-setup.log"
   # 2>/dev/null first: redirections apply left to right, so it must precede the input redirect.
   PS_LOG_GLOBAL_SIZE_BEFORE=$(wc -c 2>/dev/null < "$PS_LOG_GLOBAL" || echo 0)
 
@@ -461,11 +452,7 @@ cleanup() {
       if (count of windows) is 0 then quit
     end tell
   end run' "\$our_tty" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
-  # Note: $PS_LOG_PER_RUN is NOT removed here. The bg subshell postScript spawns
-  # keeps writing pnpm install + codegen + hook output to it AFTER this script
-  # (and treekanga, and claude) has exited. Removing it would race with those
-  # writes. /var/folders/…/T is auto-cleaned by macOS, so leaking the per-run log
-  # is harmless and useful for debugging.
+  # $PS_LOG_PER_RUN stays: wt-setup's bg subshell keeps writing to it after exit, and macOS cleans its temp dir.
   rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$WT_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
 }
 trap cleanup EXIT
@@ -481,22 +468,15 @@ TAG=$WORKTREE_LOG_TAG
 STARTED=\$(date +%s)
 STATE
 
-# Strip TMUX env so the postScript's \`[ -n "\$TMUX" ]\` branch correctly reads this
-# as a non-tmux (headless wrapper) flow. Without it, \`open -na Terminal\`
-# propagates the launcher popup's tmux env and the postScript hijacks the user's
-# tmux client via sesh connect.
+# Strip TMUX so wt-setup sees a headless flow and doesn't hijack the user's tmux client via sesh connect.
 unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
 
-# Terminal.app's spawn env lacks the user's full PATH. Restore enough for claude
-# + git + treekanga + pnpm to resolve.
+# Terminal.app's spawn env lacks the user's PATH; restore enough for claude, git, wt-add and pnpm.
 export PATH="\$HOME/.local/bin:\$HOME/.local/bin/mux:\$HOME/.local/bin/worktree:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export SKIP_FETCH=1
-# Point treekanga's postScript at OUR per-run file instead of the global log:
-# claude inherits this env → treekanga inherits from claude → postScript reads it.
-export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
-# Where worktree_setup.sh should open the new worktree (herdr workspace vs sesh vs
-# clipboard). Rides the SAME env chain, set by the ql / herdr launcher actions and
-# baked here so it survives the open→Terminal boundary. Empty (tmux) is a no-op.
+# claude → wt-add → wt-setup inherit this, so setup writes to OUR per-run log instead of the global one.
+export WORKTREE_SETUP_LOG="$PS_LOG_PER_RUN"
+# Where wt-setup opens the result (herdr / sesh / clipboard), baked in so it survives the open→Terminal boundary.
 export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
 
 # Inject account creds like the interactive claude() function does — raw
@@ -565,9 +545,7 @@ wait 2>/dev/null || true
 sleep 0.5
 echo
 
-# treekanga -x discards the postScript's stdout/stderr, so claude can't see (and
-# won't faithfully report) what actually happened. The postScript writes its own
-# per-run log; print it here so the Terminal window shows authoritative ✓/✗ status.
+# claude summarizes rather than relays wt-add's output, so print wt-setup's per-run log for an authoritative ✓/✗.
 PS_LOG="$PS_LOG_PER_RUN"
 SESSION=""
 WORKTREE_PATH=""
@@ -584,18 +562,13 @@ REASON=""
 # **Worktree:** path grep below — both read \$LATEST_RUN_LOG, not \$LOGFILE.
 LATEST_RUN_LOG=\$(awk '/^=== / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }' $LOGFILE 2>/dev/null)
 
-# Step A — claude may carry an explicit NOT_BUG marker (a deliberate skip from
-# \`worktree bug\` when the clipboard isn't a reproducible bug). Wins over the
-# postScript check: if claude bailed before /worktree, postScript output wouldn't
-# exist anyway.
+# Step A: an explicit NOT_BUG marker from claude wins, since bailing before /worktree means no setup output anyway.
 if printf '%s' "\$LATEST_RUN_LOG" | grep -qE '^NOT_BUG:'; then
   OUTCOME="not-a-bug"
   REASON=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -m1 -E '^NOT_BUG:' | sed 's/^NOT_BUG:[[:space:]]*//' | head -c 200)
 fi
 
-# Step B — read this run's postScript output. Per-run log first (concurrency-safe
-# when TREEKANGA_POSTSCRIPT_LOG propagated); else a byte-offset slice of the
-# global log. awk extracts the LATEST "=== START …" block, which works for both.
+# Step B: read this run's wt-setup output (per-run log, else a byte-offset slice of the global log), latest START block only.
 PS_LOG_NEW=""
 if [ -s "\$PS_LOG" ]; then
   PS_LOG_NEW=\$(cat "\$PS_LOG")
@@ -609,7 +582,7 @@ if [ -n "\$PS_LOG_NEW" ]; then
   LATEST_RUN=\$(printf '%s' "\$PS_LOG_NEW" | awk '/=== START / { buf = \$0 "\n"; next } { buf = buf \$0 "\n" } END { printf "%s", buf }')
   # Through the log, not just stdout: detached there is no pane, and the viewer reads this from the file.
   {
-    echo "── postScript output (this run) ──"
+    echo "── wt-setup output (this run) ──"
     printf '%s' "\$LATEST_RUN"
     echo "──"
   } | tee -a $LOGFILE
@@ -628,10 +601,7 @@ if [ -n "\$PS_LOG_NEW" ]; then
   fi
 fi
 
-# Step B-fallback — postScript marker absent BUT claude's natural-language output
-# says it created a worktree: parse the path from the "**Worktree:**" line. A
-# stepping stone to the rescue below — once we have the path and confirm it
-# exists, we can run postScript manually if treekanga's invocation skipped it.
+# Step B-fallback: no setup marker, so recover the path from claude's "**Worktree:**" line for the rescue below.
 if [ -z "\$WORKTREE_PATH" ]; then
   CLAUDE_PATH=\$(printf '%s' "\$LATEST_RUN_LOG" | grep -E '\*\*Worktree( path)?:\*\*' \\
     | tail -1 \\
@@ -678,38 +648,31 @@ if [ -z "\$WORKTREE_PATH" ] && [ -f "$WT_SNAPSHOT" ]; then
   fi
 fi
 
-# Step B-rescue — postScript log empty AND we know the path AND the dir exists.
-# Treekanga created the worktree but its postScript hook silently didn't fire
-# (likely claude omitted -x). Run worktree_setup.sh manually so sesh/zoxide
-# registration + pnpm install + .env copy + per-repo postcreate hooks still
-# happen, then re-read the per-run log for the "complete!" marker.
+# Step B-rescue: the worktree exists but wt-setup never ran, so run it now and re-check the per-run log for the marker.
 if [ "\$OUTCOME" = "failed" ] \\
    && [ -z "\$PS_LOG_NEW" ] \\
    && [ -n "\$WORKTREE_PATH" ] \\
    && [ -d "\$WORKTREE_PATH" ]; then
-  echo "[\$(date +%H:%M:%S)] postScript didn't fire via treekanga — running manually as rescue at \$WORKTREE_PATH" >> $LOGFILE
+  echo "[\$(date +%H:%M:%S)] wt-setup didn't run - running manually as rescue at \$WORKTREE_PATH" >> $LOGFILE
   (
     cd "\$WORKTREE_PATH"
-    export TREEKANGA_POSTSCRIPT_LOG="$PS_LOG_PER_RUN"
+    export WORKTREE_SETUP_LOG="$PS_LOG_PER_RUN"
     export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
-    bash "\$HOME/.config/treekanga/worktree_setup.sh"
+    bash "\$HOME/.local/bin/worktree/wt-setup"
   ) >> $LOGFILE 2>&1
   if [ -s "\$PS_LOG" ]; then
     PS_LOG_NEW=\$(cat "\$PS_LOG")
     if printf '%s' "\$PS_LOG_NEW" | grep -q "worktree setup complete!"; then
       OUTCOME="success"
-      echo "[\$(date +%H:%M:%S)] rescue succeeded — postScript ran, marker found" >> $LOGFILE
+      echo "[\$(date +%H:%M:%S)] rescue succeeded - wt-setup ran, marker found" >> $LOGFILE
     fi
   fi
 fi
 
-# Step B-claude-only-fallback — last resort. Even rescue couldn't get the marker
-# (postScript itself errored), but the worktree dir exists. Treat it as success at
-# the surface level so the switch hotkey takes you there. Setup is partial (no
-# install / no codegen) but you can run those manually.
+# Step B-claude-only-fallback: rescue found no marker but the dir exists, so report success with a partial setup.
 if [ "\$OUTCOME" = "failed" ] && [ -n "\$WORKTREE_PATH" ] && [ -d "\$WORKTREE_PATH" ]; then
   OUTCOME="success"
-  echo "[\$(date +%H:%M:%S)] success via claude-output fallback (no postScript marker — partial setup): \$WORKTREE_PATH" >> $LOGFILE
+  echo "[\$(date +%H:%M:%S)] success via claude-output fallback (no wt-setup marker - partial setup): \$WORKTREE_PATH" >> $LOGFILE
 fi
 
 # Step C — one-line failure reason from THIS run's log (same per-run scoping
@@ -1225,10 +1188,7 @@ EOF
   local LABEL
   LABEL=$(slugify "$INPUT")
 
-  # FAST PATH — if INPUT is now in canonical Mode-B-rewrite shape
-  # (`<repo> <slug> <bucket>/<slug>`), skip claude entirely and run `treekanga
-  # add` directly. Saves ~25-30s per worktree for the common case of typing
-  # `<repo> <known-bucket> <slug>` at the popup.
+  # FAST PATH: canonical `<repo> <slug> <bucket>/<slug>` input skips claude and runs wt-add directly (~25-30s faster).
   local FAST_PATH_CMD="" CANON CANON_REPO CANON_SLUG CANON_BUCKET CANON_SLUG2 BARE_REPO
   read -r -a CANON <<< "$INPUT"
   if [ "${#CANON[@]}" -eq 3 ] && [[ "${CANON[2]}" =~ ^([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]]; then
@@ -1241,16 +1201,8 @@ EOF
        && is_bucket "$CANON_BUCKET" \
        && [ "$CANON_SLUG" = "$CANON_SLUG2" ] \
        && [ -d "$BARE_REPO" ]; then
-      # Pattern A (ephemeral worktrees, no permanent default-branch worktree):
-      #   `git fetch origin --quiet` updates remote-tracking refs only — it does
-      #   NOT advance local master/develop, so no INDEX drift in any other
-      #   worktree on those branches.
-      #   `-b origin/HEAD` cuts the branch from the actual upstream default
-      #   (master for web, develop for inferno — git resolves origin/HEAD
-      #   per-repo automatically).
-      #   `-x` runs the postScript hook (sesh/zoxide/install).
-      # Single-quoted args — slug/bucket are already validated as alnum-safe.
-      FAST_PATH_CMD="cd '$BARE_REPO' && git fetch origin --quiet && treekanga add '$CANON_SLUG' -d '../$CANON_BUCKET' -n '$CANON_SLUG' -b origin/HEAD -x"
+      # wt-add fetches without moving local master/develop, branches off origin/HEAD, runs wt-setup; --clean-orphan since nobody can confirm headless.
+      FAST_PATH_CMD="wt-add '$CANON_REPO' '$CANON_SLUG' '$CANON_BUCKET/$CANON_SLUG' --clean-orphan"
     fi
   fi
 

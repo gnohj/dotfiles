@@ -91,7 +91,7 @@ drain_finish() {
     ref="$wt"
     [ -n "$ref" ] && [ -d "$ref" ] || ref="$HOME"
 
-    # Same cheap idempotency check tkrm makes: tkrm's pre-delete hook fires for these tickets too.
+    # Same cheap idempotency check wtrm makes: wtrm's pre-delete hook fires for these tickets too.
     note=$("$VAULT_NOTE" --ticket "$ticket" "$ref" 2>/dev/null) || note=""
     if [ -n "$note" ] && grep -q '^state: frozen' "$note" 2>/dev/null; then
       log "SKIP finish $ticket — already frozen"
@@ -104,12 +104,12 @@ drain_finish() {
       log "DEFER finish $ticket — vault not mounted"
       continue
     fi
-    if run_capped "$CAP" env SB_TICKET_FINISH_FROM_TKRM=1 \
+    if run_capped "$CAP" env SB_TICKET_FINISH_FROM_WTRM=1 \
         bash "$AGENT_RUNNER" --dir "$ref" --command sb-ticket-finish -- "$ticket $pr"; then
       log "OK finish $ticket"
       rm -f "$f"
     else
-      # Keep the job: a failed freeze must stay retryable, same rationale as tkrm keeping thread state.
+      # Keep the job: a failed freeze must stay retryable, same rationale as wtrm keeping thread state.
       log "RETRY finish $ticket"
     fi
   done

@@ -22,11 +22,7 @@ export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mis
 [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
-# Detached, non-blocking zoxide reconciliation: seed any git worktree not yet
-# in zoxide so the default view + `z` stay complete (catches worktrees made
-# outside treekanga). Reparented via the subshell so it survives this popup
-# closing. Refreshes the NEXT picker open, never blocks this one. ctrl-w's
-# live scan is independent of this.
+# Detached zoxide seed of unseen worktrees, so the NEXT picker open is complete without blocking this one.
 ( wtsync >/dev/null 2>&1 & ) 2>/dev/null
 
 # Canonical picker theme (the rctrl-t look) — one definition for both modes.

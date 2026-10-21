@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Set up repos as a bare-repo + worktree layout under ~/Developer (.bare + `gitdir: .bare` + a primary worktree), so treekanga/worktree-list/wtsync/dev-window work on a fresh box.
+# Set up repos as a bare-repo + worktree layout under ~/Developer (.bare + `gitdir: .bare` + a primary worktree), so wt-add/worktree-list/wtsync/dev-window work on a fresh box.
 # Idempotent: skips repos already bare, never clobbers a plain clone. Reads a PRIVATE manifest kept out of the public repo: ~/.config/worktree-repos.local
 # Manifest line: <git-url> <dest-dir> <primary-branch>   e.g. git@github.com:org/repo.git ~/Developer/repo main
 set -uo pipefail
@@ -12,7 +12,7 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
-# `git worktree add <path> <branch>` DWIMs the local head from origin/* but writes no tracking config, so lazygit's fast-forward and a bare `git pull` both fail with "no upstream". Runs on every invocation, so it also repairs heads added later by treekanga or an agent.
+# `git worktree add <path> <branch>` DWIMs the local head from origin/* but writes no tracking config, so lazygit's fast-forward and a bare `git pull` both fail with "no upstream". Runs on every invocation, so it also repairs heads added later by wt-add or an agent.
 ensure_upstreams() {
   local dest="$1" branch
   while IFS= read -r branch; do
@@ -22,7 +22,7 @@ ensure_upstreams() {
   done < <(git -C "$dest" for-each-ref --format='%(refname:short)' refs/heads)
 }
 
-# pnpm install needs GPR_AUTH_TOKEN and the interactive pnpm store path, neither of which chezmoi's env has; ~/.config/treekanga/worktree_setup.sh sources this same file for the same reason.
+# pnpm install needs GPR_AUTH_TOKEN and the interactive pnpm store path, neither of which chezmoi's env has; ~/.local/bin/worktree/wt-setup sources this same file for the same reason.
 load_shell_env() {
   [ -n "${_WT_ENV_LOADED:-}" ] && return 0
   _WT_ENV_LOADED=1

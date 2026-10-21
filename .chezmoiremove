@@ -157,6 +157,15 @@ scripts/open-tmux-attach.sh
 # opencode-usage retired: the OpenCode Go subscription was cancelled.
 .local/bin/opencode-usage
 
+# treekanga retired: wt-add/wt-setup/wtrm in .local/bin/worktree replace it; hooks moved to .config/worktree/postcreate.
+.config/treekanga/treekanga-add.sh
+.config/treekanga/treekanga-rm.sh
+.config/treekanga/treekanga.yml
+.config/treekanga/worktree_setup.sh
+.config/treekanga/postcreate/inferno.sh
+.config/treekanga/postcreate/web.sh
+.local/bin/mux/tmux/treekanga-selector.sh
+
 # AeroSpace retired for Rift; its config, monitor profiles, bounce helper and the AeroSpace/Rift switch layer.
 .config/aerospace/aerospace.toml
 .config/aerospace/.active-profile
