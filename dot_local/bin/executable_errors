@@ -70,7 +70,7 @@ if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
   echo   'env (launch context):'
   # redact token/secret-shaped vars so the tool never prints credentials
   proc_env "$pid" |
-    grep -Ei '^(TMUX|TERM_PROGRAM|PWD|OLDPWD|SSH_CONNECTION|SSH_TTY|SSH_CLIENT|WORKTREE|TREEKANGA|SESH|HERDR|NVIM|SHLVL)=' |
+    grep -Ei '^(TMUX|TERM_PROGRAM|PWD|OLDPWD|SSH_CONNECTION|SSH_TTY|SSH_CLIENT|WORKTREE|SESH|HERDR|NVIM|SHLVL)=' |
     sed -E 's/^([^=]*(TOKEN|SECRET|KEY|PASS|CRED)[^=]*)=.*/\1=<redacted>/I' |
     sed 's/^/  /'
   exit 0

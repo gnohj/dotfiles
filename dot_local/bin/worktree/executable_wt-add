@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# wt-add - create a worktree in a bare-layout repo (~/Developer/<repo>/.bare), then run wt-setup in it.
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:$HOME/.local/bin/worktree:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
+[ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
+
+die() { printf 'wt-add: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+usage() {
+  cat <<'EOF'
+wt-add <repo> <branch> [<folder>/<name> | <name>] [options]
+
+  <repo>          a dir under ~/Developer holding a .bare repo (web, inferno, ...)
+  <branch>        branch to check out; created when it exists neither locally nor on origin
+  <folder>/<name> worktree path under the repo root (default: <branch>)
+
+  -b <base>       base for a NEW branch: `master` or `origin/master` (default: origin/HEAD)
+  --clean-orphan  rm -rf a target dir that exists but is not a registered worktree
+  --no-fetch      skip `git fetch origin` before creating
+  --no-setup      skip wt-setup (zoxide, mux open, .env copy, deps install)
+
+An already-registered target is not an error: setup re-runs, which reopens it.
+EOF
+}
+
+repo="" branch="" rel="" base="" clean_orphan=0 fetch=1 setup=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h | --help) usage; exit 0 ;;
+    -b | --base) base="${2:?-b needs a branch}"; shift 2 ;;
+    --clean-orphan) clean_orphan=1; shift ;;
+    --no-fetch) fetch=0; shift ;;
+    --no-setup) setup=0; shift ;;
+    -*) die "unknown option: $1" 2 ;;
+    *)
+      if [ -z "$repo" ]; then repo="$1"
+      elif [ -z "$branch" ]; then branch="$1"
+      elif [ -z "$rel" ]; then rel="$1"
+      else die "unexpected argument: $1" 2
+      fi
+      shift
+      ;;
+  esac
+done
+[ -n "$repo" ] && [ -n "$branch" ] || { usage >&2; exit 2; }
+
+[[ "$repo" =~ ^[A-Za-z0-9._-]+$ && "$repo" != .* ]] || die "invalid repo name: $repo"
+root="$HOME/Developer/$repo"
+bare="$root/.bare"
+[ -d "$bare" ] || die "no bare repo at $bare"
+git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "invalid branch name: $branch"
+
+rel="${rel:-$branch}"
+case "$rel" in /* | *..*) die "worktree path must stay inside $root: $rel" ;; esac
+wt="$root/$rel"
+
+is_registered() {
+  git -C "$bare" worktree list --porcelain | sed -n 's/^worktree //p' | grep -qxF "$1"
+}
+
+run_setup() {
+  [ "$setup" = 1 ] || return 0
+  (cd "$wt" && wt-setup)
+}
+
+if is_registered "$wt"; then
+  echo "· already a registered worktree: $wt"
+  run_setup
+  echo "✓ worktree: $wt"
+  exit 0
+fi
+
+if [ -e "$wt" ]; then
+  [ "$clean_orphan" = 1 ] || die "$wt exists but is not a registered worktree (pass --clean-orphan to remove it)"
+  echo "· removing orphan dir $wt"
+  rm -rf "$wt"
+fi
+
+[ "$fetch" = 1 ] && git -C "$bare" fetch origin --quiet
+
+if [ -z "$base" ]; then
+  base=$(git -C "$bare" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) ||
+    die "origin/HEAD is unset; pass -b <base> or run: git -C $bare remote set-head origin --auto"
+elif git -C "$bare" show-ref --verify --quiet "refs/remotes/origin/$base"; then
+  base="origin/$base"
+fi
+
+mkdir -p "$(dirname "$wt")"
+if git -C "$bare" show-ref --verify --quiet "refs/heads/$branch"; then
+  echo "→ checking out existing branch $branch"
+  git -C "$bare" worktree add "$wt" "$branch"
+  if ! git -C "$wt" rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1 &&
+    git -C "$bare" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    git -C "$wt" branch --quiet --set-upstream-to "origin/$branch"
+  fi
+elif git -C "$bare" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+  echo "→ tracking origin/$branch"
+  git -C "$bare" worktree add --track -b "$branch" "$wt" "origin/$branch"
+else
+  echo "→ new branch $branch from $base"
+  # --no-track: an upstream of origin/<default> would aim a bare `git push` at the default branch.
+  git -C "$bare" worktree add --no-track -b "$branch" "$wt" "$base"
+fi
+
+run_setup
+echo "✓ worktree: $wt"

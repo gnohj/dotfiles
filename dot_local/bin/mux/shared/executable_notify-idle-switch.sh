@@ -31,8 +31,7 @@ ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
 case "$ENTRY" in
 vault\|*)
   STATE_NOTE="${ENTRY#vault|}"
-  # Worktree captures are work-context (treekanga worktrees = work tickets), so
-  # they land in the work vault + its session. Resolved via vault-path (no hardcode).
+  # Worktree captures are work tickets, so they land in the work vault + its session (resolved via vault-path).
   VAULT_DIR="$("$HOME/.local/bin/vault-path" --work)"
   VAULT_INBOX="$VAULT_DIR/Notes-Inbox"
   VAULT_SESSION="$(basename "$VAULT_DIR")"
