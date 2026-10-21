@@ -67,6 +67,10 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
+# Here, not .zshrc: worktree pickers and hooks run `zoxide add` outside .zshrc and would ignore the excludes.
+export _ZO_DATA_DIR="$ZDOTDIR"
+export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*:$HOME/.local/share/chezmoi:$HOME/.local/share/chezmoi/*:$HOME/.treehouse/chezmoi-*"
+
 # yazi-herdr.sh hands the tab its target here so yazi replaces the shell before .zshrc's ~2s init.
 if [[ -n "${YAZI_FAST_TARGET:-}" ]]; then
   _yazi_target="$YAZI_FAST_TARGET"
