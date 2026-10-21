@@ -79,6 +79,7 @@ Library/
 
 # macOS window management & system utilities
 .config/borders/
+.config/helium/
 .config/rift/
 .config/launchpad/
 .config/skhd/

@@ -2,6 +2,13 @@
 
 let
   heliumPolicy = (pkgs.formats.plist { }).generate "net.imput.helium.plist" {
+    # The teams-links extension hands /l/ links to msteams:, so skip the "Open msteams-handler?" prompt.
+    AutoLaunchProtocolsFromOrigins = [
+      {
+        protocol = "msteams";
+        allowed_origins = [ "*" ];
+      }
+    ];
     WebAppInstallForceList = [
       {
         url = "https://discord.com/app";
