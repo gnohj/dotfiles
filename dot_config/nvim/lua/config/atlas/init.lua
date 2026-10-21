@@ -23,7 +23,6 @@ local review_keys = {
   { "M", "full", "Lavish review on this machine" },
   { "Z", "full", "Lavish review on the dev box", true },
   { "D", "diff", "Diff in hunk + agent notes" },
-  { "E", "enhance", "Checks in ENHANCE" },
   { "C", "claude", "Claude /review" },
 }
 
