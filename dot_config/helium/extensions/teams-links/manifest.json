@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Teams links to PWA",
+  "version": "1.0",
+  "description": "Hands teams.microsoft.com/l/ links opened in a browser tab to the msteams: handler, which opens them in the Teams PWA.",
+  "permissions": ["webNavigation", "tabs"],
+  "host_permissions": ["https://teams.microsoft.com/*"],
+  "background": { "service_worker": "background.js" }
+}
