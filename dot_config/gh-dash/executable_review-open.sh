@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review-open.sh — open a PR-review window layout (hunk / Claude / ENHANCE)
+# review-open.sh - open a PR-review window layout (hunk / Claude)
 # for one PR in tmux/herdr windows. Dispatches on <mode> to match each gh-dash
 # `prs` binding.
 #
@@ -10,7 +10,6 @@
 #   full       M / Z    Claude /review-lavish (Z runs it on the dev box via review-devbox.sh)
 #   diff       D        hunk + Claude /hunk-review
 #   hunk       -        hunk alone, no agent (the Library's "Show diff in terminal")
-#   enhance    E        ENHANCE
 #   claude     A        Claude /review
 #   fan        F        sealed Opus/gpt finders + Lavish merge owner
 #
@@ -173,10 +172,6 @@ open_claude_review() {
     "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
-open_enhance() {
-  mux "✨ #$pr" "$1" "${GH_KEYRING}ENHANCE_THEME=iceberg_dark gh-enhance -R $repo $pr"
-}
-
 # Brief goes to a file so no quoting form has to survive whichever shell the multiplexer uses.
 write_finder_brief() {
   local wt="$1" model="$2"
@@ -319,9 +314,6 @@ case "$mode" in
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
     PANE="$(open_hunk "$WT" "$MERGE_BASE")"
     [ "$mode" = diff ] && open_claude_hunk "$WT" "$PANE"
-    ;;
-  enhance)
-    open_enhance "$repo_path"
     ;;
   claude)
     WT="$("$wt_script" acquire "$pr")"
