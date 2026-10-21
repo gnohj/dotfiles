@@ -120,7 +120,9 @@ local function with_points(spec)
   return vim.tbl_extend("force", spec, {
     columns = columns,
     values = function(issue, ...)
-      local row = spec.values(issue, ...)
+      local unpointed = vim.tbl_extend("force", {}, issue)
+      unpointed.story_points = nil
+      local row = spec.values(unpointed, ...)
       local value = tonumber(issue.story_points)
       row.points = value and string.format("%g", value) or "-"
       return row
@@ -257,6 +259,11 @@ function M.setup(opts)
   layouts.render = function(layout_opts, issues)
     if layout_opts.layout == "sprints" then
       return M.render(layout_opts, issues)
+    end
+    local name = layouts.resolve(layout_opts.layout, layout_opts.provider_id)
+    if name == "compact" and layout_opts.provider_id == "jira" then
+      local compact = require("atlas.issues.ui.layouts.compact")
+      return compact.render(layout_opts, issues, with_points(compact.jira))
     end
     return render(layout_opts, issues)
   end
