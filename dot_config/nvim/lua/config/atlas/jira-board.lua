@@ -73,6 +73,26 @@ local function status_groups(issues, statuses, provider)
   end, groups)
 end
 
+local function trailing(issue)
+  local person = require("atlas.issues.ui.layouts.utils")
+  local truncate = require("atlas.ui.shared.utils").truncate
+  local segments = {}
+  if issue.parent then
+    local icon = require("atlas.ui.shared.icons").get("link")
+    local label = issue.parent.title ~= "" and issue.parent.title
+      or issue.parent.key
+    table.insert(segments, {
+      text = icon .. " " .. truncate(label, 30),
+      hl_group = "AtlasTextMuted",
+    })
+  end
+  table.insert(segments, {
+    text = person.person_value(issue.assignee, "Unassigned"),
+    hl_group = person.person_hl(issue, "assignee") or "AtlasTextMuted",
+  })
+  return segments
+end
+
 local function stacked(groups, opts, provider)
   local lines, line_map, spans = {}, {}, {}
   local pad = string.rep(" ", MARGIN)
@@ -90,17 +110,45 @@ local function stacked(groups, opts, provider)
       hl_group = "AtlasColumnHeader",
     })
     for _, issue in ipairs(group.issues) do
-      local card = provider.card(issue, width)
-      table.insert(lines, pad .. card.text)
+      local tail = trailing(issue)
+      local tail_width = 0
+      for _, segment in ipairs(tail) do
+        tail_width = tail_width + vim.fn.strdisplaywidth(segment.text) + 1
+      end
+      local kind = issue.icon and issue.icon.icon ~= "" and issue.icon
+      local lead = kind and (kind.icon .. " ") or ""
+      local card =
+        provider.card(issue, width - tail_width - vim.fn.strdisplaywidth(lead))
+      local text = pad .. lead .. card.text
+      table.insert(lines, text)
       line_map[#lines] = { kind = "issue", issue = issue }
+      if kind then
+        table.insert(spans, {
+          line = #lines - 1,
+          start_col = MARGIN,
+          end_col = MARGIN + #kind.icon,
+          hl_group = kind.hl_group,
+        })
+      end
       for _, span in ipairs(card.spans) do
         table.insert(spans, {
           line = #lines - 1,
-          start_col = MARGIN + span.start_col,
-          end_col = MARGIN + span.end_col,
+          start_col = MARGIN + #lead + span.start_col,
+          end_col = MARGIN + #lead + span.end_col,
           hl_group = span.hl_group,
         })
       end
+      for _, segment in ipairs(tail) do
+        text = text .. " "
+        table.insert(spans, {
+          line = #lines - 1,
+          start_col = #text,
+          end_col = #text + #segment.text,
+          hl_group = segment.hl_group,
+        })
+        text = text .. segment.text
+      end
+      lines[#lines] = text
     end
   end
   if opts.loading then
