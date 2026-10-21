@@ -77,10 +77,6 @@ keybindings:
       name: 🔀 Open PR Diff in hunk (agent notes)
       command: >
         nohup bash $HOME/.config/gh-dash/review-open.sh diff {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
-    - key: E
-      name: ✨ Open PR checks in ENHANCE
-      command: >
-        nohup bash $HOME/.config/gh-dash/review-open.sh enhance {{.PrNumber}} {{.RepoName}} {{.RepoPath}} </dev/null >/dev/null 2>&1 &
     - key: A
       name: 🤖 Run Claude /review on PR
       command: >
