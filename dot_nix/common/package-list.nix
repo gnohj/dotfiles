@@ -29,6 +29,7 @@ with pkgs;
   # Git tools
   gh         # GitHub CLI
   gh-dash    # GitHub CLI dashboard for PRs and issues
+  gh-enhance # GitHub Actions TUI for branch/build runs - runs as `gh enhance`
   lazygit    # Git TUI
   lazydocker # Docker TUI
 
