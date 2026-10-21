@@ -16,7 +16,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
 - **Multiplexer**: [herdr](https://herdr.dev) (primary, including `herdr --remote` into the VPS), with [Tmux](https://github.com/tmux/tmux) kept working as the fallback
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Version Control**: Git worktrees with [Treekanga](https://github.com/garrettkrohn/treekanga) CLI, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **Version Control**: Git worktrees (bare repos + `wt-add`/`wtrm` helpers), [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
 - **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; each platform also runs a lightweight background recorder - see below)
 
 ### macOS desktop

@@ -22,7 +22,6 @@
       "anomalyco/tap"
       "blacktop/tap"
       "FelixKratz/formulae"
-      "garrettkrohn/treekanga"
       "oven-sh/bun"
       "fastly/tap"
       "pulumi/tap"
@@ -65,7 +64,6 @@
       # gitmux, sesh, television → moved to Nix (dot_nix/common/package-list.nix,
       # shared cross-platform). atuin stays on brew (aarch64 rustc lag).
       "morantron/tmux-fingers/tmux-fingers"
-      "garrettkrohn/treekanga/treekanga"
 
       # macOS utilities
       "terminal-notifier"

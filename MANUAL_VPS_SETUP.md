@@ -2,7 +2,7 @@
 
 The **interactive / secret-touching** steps that `chezmoi` + `run_onchange_after_linux-bootstrap.sh` can't script. Distinct from `MANUAL_SETUP.md` (which is the macOS/nix path).
 
-What's automated (don't do by hand): the bootstrap installs the toolchain, agent CLIs (claude/codex/gemini), custom tools (treehouse/no-mistakes/treekanga/atuin), tailscale binary, and `enable-linger`. Everything below is the manual remainder.
+What's automated (don't do by hand): the bootstrap installs the toolchain, agent CLIs (claude/codex/gemini), custom tools (treehouse/no-mistakes/atuin), tailscale binary, and `enable-linger`. Everything below is the manual remainder.
 
 ---
 
@@ -197,7 +197,7 @@ No per-tool config, no nvim override, and anything new that respects either vari
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
-- [ ] on PATH: `treehouse treekanga herdr no-mistakes atuin claude codex gemini pi opencode`
+- [ ] on PATH: `treehouse herdr no-mistakes atuin claude codex gemini pi opencode`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives
