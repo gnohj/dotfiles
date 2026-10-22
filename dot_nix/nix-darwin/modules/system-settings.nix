@@ -197,6 +197,11 @@ in
     disable_desktop_hotkey 127 29   # control+0
     sudo -u ${config.system.primaryUser} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
 
+    # Rebuilds change nix binaries' cdhash; re-sign so macOS privacy grants persist.
+    if [ -x "${homeDir}/.local/bin/tcc-sign" ]; then
+      sudo -H -u ${config.system.primaryUser} "${homeDir}/.local/bin/tcc-sign" || echo "⚠️  tcc-sign failed; macOS may re-prompt for privacy access" >&2
+    fi
+
     # Accessibility (TCC) can't be granted declaratively (SIP-protected TCC.db; only MDM/PPPC can) - this marker-gated reminder just makes the manual grant unmissable on a fresh machine. macos-mcp/Cowork spun 2 cores because uv (not Claude.app) makes the AX calls and was ungranted.
     ACCESSIBILITY_MARKER="${homeDir}/.config/.accessibility-granted"
     if [ ! -f "$ACCESSIBILITY_MARKER" ]; then

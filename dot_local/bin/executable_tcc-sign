@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Re-sign nix CLIs with a stable local cert so macOS privacy grants survive darwin-rebuild.
+set -uo pipefail
+
+[ "$(uname)" = Darwin ] || exit 0
+
+STATE="$HOME/.local/share/tcc-sign"
+KEYCHAIN="$STATE/tcc-sign.keychain-db"
+PASSFILE="$STATE/keychain-pass"
+IDENTITY="tcc-sign-local"
+SYSTEM_BIN="/run/current-system/sw/bin"
+OUT_BIN="$HOME/.local/bin"
+DEFAULT_TOOLS="yazi"
+
+say() { printf 'tcc-sign: %s\n' "$*" >&2; }
+
+create_identity() {
+  local work
+  work=$(mktemp -d) || return 1
+  cat >"$work/cert.cnf" <<'EOF'
+[req]
+distinguished_name=dn
+x509_extensions=ext
+prompt=no
+[dn]
+CN=tcc-sign-local
+[ext]
+basicConstraints=critical,CA:false
+keyUsage=critical,digitalSignature
+extendedKeyUsage=critical,codeSigning
+EOF
+  # LibreSSL's p12 is what `security import` accepts; an OpenSSL 3+ AES p12 is rejected.
+  /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 7300 -config "$work/cert.cnf" \
+    -keyout "$work/key.pem" -out "$work/cert.pem" 2>/dev/null &&
+    /usr/bin/openssl pkcs12 -export -inkey "$work/key.pem" -in "$work/cert.pem" \
+      -out "$work/id.p12" -passout pass:import &&
+    security create-keychain -p "$(cat "$PASSFILE")" "$KEYCHAIN" &&
+    security set-keychain-settings "$KEYCHAIN" &&
+    security unlock-keychain -p "$(cat "$PASSFILE")" "$KEYCHAIN" &&
+    security import "$work/id.p12" -k "$KEYCHAIN" -P import -T /usr/bin/codesign >/dev/null &&
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$(cat "$PASSFILE")" "$KEYCHAIN" >/dev/null
+  local rc=$?
+  rm -rf "$work"
+  return $rc
+}
+
+ensure_identity() {
+  mkdir -p "$STATE" && chmod 700 "$STATE" || return 1
+  if [ ! -f "$KEYCHAIN" ]; then
+    (umask 077 && /usr/bin/openssl rand -hex 24 >"$PASSFILE") || return 1
+    create_identity || { say "could not create the signing identity"; rm -f "$KEYCHAIN"; return 1; }
+    say "created signing identity '$IDENTITY' in $KEYCHAIN"
+  fi
+  security unlock-keychain -p "$(cat "$PASSFILE")" "$KEYCHAIN"
+}
+
+real_binary_of() {
+  local src=$1
+  if file -b "$src" | grep -q '^Mach-O'; then
+    printf '%s\n' "$src"
+  else
+    sed -n 's/^exec "\(\/nix\/store\/[^"]*\)".*/\1/p' "$src" | tail -1
+  fi
+}
+
+sign_tool() {
+  local tool=$1 src real signed
+  src=$(readlink -f "$SYSTEM_BIN/$tool" 2>/dev/null)
+  [ -n "$src" ] && [ -f "$src" ] || { say "$tool: not in $SYSTEM_BIN, skipping"; return 1; }
+  real=$(real_binary_of "$src")
+  [ -n "$real" ] && [ -f "$real" ] || { say "$tool: could not find the real binary behind $src"; return 1; }
+
+  signed="$STATE/signed/$tool"
+  if [ "$(cat "$signed.src" 2>/dev/null)" != "$real" ] || ! codesign -v "$signed" 2>/dev/null; then
+    mkdir -p "${signed%/*}" &&
+      cp -f "$real" "$signed.tmp" && chmod 755 "$signed.tmp" &&
+      codesign -f -s "$IDENTITY" --keychain "$KEYCHAIN" -i "$tool" "$signed.tmp" 2>/dev/null &&
+      mv -f "$signed.tmp" "$signed" &&
+      printf '%s\n' "$real" >"$signed.src" ||
+      { say "$tool: signing failed"; rm -f "$signed.tmp"; return 1; }
+    say "$tool: signed $real"
+  fi
+
+  # Keep the nix wrapper (it puts preview deps on PATH); only swap its exec target.
+  if [ "$src" = "$real" ]; then
+    ln -sfn "$signed" "$OUT_BIN/$tool"
+  else
+    sed "s|\"$real\"|\"$signed\"|" "$src" >"$OUT_BIN/$tool.tmp" &&
+      chmod 755 "$OUT_BIN/$tool.tmp" && mv -f "$OUT_BIN/$tool.tmp" "$OUT_BIN/$tool"
+  fi
+}
+
+ensure_identity || exit 1
+rc=0
+for tool in ${*:-$DEFAULT_TOOLS}; do
+  sign_tool "$tool" || rc=1
+done
+exit $rc
