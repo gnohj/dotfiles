@@ -19,6 +19,10 @@ CHURN = 0.15
 ARM_WINDOW = 0.35
 # The launching app can win macOS activation back ~30-250ms after a new window appears.
 CLAIM_WINDOW = 0.6
+# Chrome/Helium web apps hand activation back to their browser ~2-4s after opening.
+BROWSER_CLAIM_WINDOW = 6.0
+# Login items launch after Rift; following each would throw the desktop around.
+LAUNCH_GRACE = 20.0
 HISTORY_LIMIT = 50
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
 
@@ -27,6 +31,9 @@ history = defaultdict(list)
 members = {}
 centers = {}
 focused_before = set()
+known_windows = set()
+known_pids = set()
+started = time.monotonic()
 armed = None
 claimed = None
 
@@ -177,17 +184,68 @@ def follow_new_window(wid):
         print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
 
 
+def all_window_ids():
+    ids = set()
+    for display in rift_json("query", "displays"):
+        for ws in rift_json("query", "workspaces", "--display", display["uuid"]):
+            ids |= window_ids(ws)
+    return ids
+
+
+def remember_windows():
+    try:
+        known_windows.update(all_window_ids())
+        known_pids.update(app["pid"] for app in rift_json("query", "applications"))
+    except (subprocess.SubprocessError, ValueError, KeyError):
+        pass
+
+
+def adopt_new_windows(now):
+    # A window opening on a hidden workspace often gets no focus event from Rift.
+    global claimed
+    try:
+        fresh = all_window_ids() - known_windows
+        if not fresh:
+            return
+        apps = rift_json("query", "applications")
+    except (subprocess.SubprocessError, ValueError, KeyError):
+        return
+    known_windows.update(fresh)
+    frontmost = {app["pid"] for app in apps if app.get("is_frontmost")}
+    for wid in fresh:
+        launched = wid[0] not in known_pids and now - started > LAUNCH_GRACE
+        if wid in focused_before or not (wid[0] in frontmost or launched):
+            continue
+        focused_before.add(wid)
+        follow_new_window(wid)
+        rift_run("window", "focus", "--window-id", json.dumps({"pid": wid[0], "idx": wid[1]}))
+        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW)
+    known_pids.update(app["pid"] for app in apps)
+
+
+def is_parent_browser(web_app, other):
+    try:
+        bundles = {app["pid"]: app.get("bundle_id") or "" for app in rift_json("query", "applications")}
+    except (subprocess.SubprocessError, ValueError, KeyError):
+        return False
+    browser = bundles.get(other[0])
+    return bool(browser) and bundles.get(web_app[0], "").startswith(browser + ".app.")
+
+
 def on_focused_window_changed(event, now):
     global armed, claimed
     key = workspace_key(event)
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
     if wid not in focused_before:
         focused_before.add(wid)
+        known_windows.add(wid)
         follow_new_window(wid)
-        claimed = (wid, now + CLAIM_WINDOW)
-    elif claimed is not None and now > claimed[1]:
+        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW)
+    elif claimed is not None and now > claimed[2]:
         claimed = None
-    elif claimed is not None and wid != claimed[0]:
+    elif claimed is not None and wid != claimed[0] and (now <= claimed[1] or is_parent_browser(claimed[0], wid)):
+        # Focus by id leaves a hidden workspace hidden, so switch to it first.
+        follow_new_window(claimed[0])
         focus(key, claimed[0], now)
         return
     log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
@@ -222,11 +280,27 @@ def stop(signum, frame):
     raise SystemExit(0)
 
 
-def events(proc, parent):
+def rift_server_pid():
+    found = subprocess.run(["/usr/bin/pgrep", "-nx", "rift"], capture_output=True, text=True).stdout.strip()
+    return int(found) if found else None
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def events(proc, parent, server):
     pending = b""
     while parent == 1 or os.getppid() == parent:
         if not select.select([proc.stdout], [], [], 0.5)[0]:
-            if proc.poll() is not None:
+            # The subscription never closes when Rift restarts, so watch the server pid.
+            if proc.poll() is not None or (server is not None and not alive(server)):
                 return
             continue
         chunk = os.read(proc.stdout.fileno(), 65536)
@@ -253,13 +327,16 @@ def main():
             return
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
+        server = rift_server_pid()
         seed()
+        remember_windows()
         proc = subprocess.Popen([RIFT, "subscribe", "mach", "*"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        for event in events(proc, parent):
+        for event in events(proc, parent, server):
             now = time.monotonic()
             kind = event.get("type")
             if kind == "windows_changed":
                 on_windows_changed(event, now)
+                adopt_new_windows(now)
                 refresh_centers()
             elif kind == "layout_changed":
                 refresh_centers()
