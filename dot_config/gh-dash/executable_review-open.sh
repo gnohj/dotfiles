@@ -13,6 +13,8 @@
 #   claude     A        Claude /review
 #   fan        F        sealed Opus/gpt finders + Lavish merge owner
 #
+# REVIEW_HARNESS=pi runs full/resume on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
+#
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
 # `tmux new-window` (no -d), which steals the active window away from gh-dash
@@ -71,6 +73,34 @@ if ! (set -C; printf '%s\n' "$now" >"$stamp") 2>/dev/null; then
   printf '%s\n' "$now" >"$stamp"
 fi
 
+# Remembered per PR so a resume restarts a Pi review on Pi, not Claude.
+harness_file="$stamp_dir/${repo//\//_}-$pr.harness"
+if [ "$mode" = resume ] && [ -z "${REVIEW_HARNESS:-}" ] && [ -f "$harness_file" ]; then
+  while IFS='=' read -r key value; do
+    case "$key" in REVIEW_HARNESS | REVIEW_PI_MODEL | REVIEW_PI_THINKING) export "$key=$value" ;; esac
+  done <"$harness_file"
+fi
+harness=${REVIEW_HARNESS:-claude}
+REVIEW_PI_MODEL=${REVIEW_PI_MODEL:-openai-codex/gpt-6.1-sol} REVIEW_PI_THINKING=${REVIEW_PI_THINKING:-high}
+case "$harness" in
+  claude) ;;
+  pi)
+    case "$mode" in full | resume) ;; *) echo "review-open: the pi harness runs full reviews only, not $mode" >&2; exit 2 ;; esac
+    [[ "$REVIEW_PI_MODEL" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+$ ]] || { echo "review-open: invalid REVIEW_PI_MODEL" >&2; exit 2; }
+    case "$REVIEW_PI_THINKING" in off | minimal | low | medium | high | xhigh) ;; *) echo "review-open: invalid REVIEW_PI_THINKING" >&2; exit 2 ;; esac
+    ;;
+  *) echo "review-open: REVIEW_HARNESS must be claude or pi" >&2; exit 2 ;;
+esac
+case "$mode" in
+  full | fan)
+    if [ "$harness" = pi ]; then
+      printf 'REVIEW_HARNESS=pi\nREVIEW_PI_MODEL=%s\nREVIEW_PI_THINKING=%s\n' "$REVIEW_PI_MODEL" "$REVIEW_PI_THINKING" >"$harness_file"
+    else
+      rm -f "$harness_file"
+    fi
+    ;;
+esac
+
 # MUX is overridable so the command strings can be dry-run with `MUX=echo`.
 mux_bin="${MUX:-$HOME/.local/bin/mux/mux}"
 window_opts=()
@@ -122,8 +152,8 @@ GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '
 AGENT_FLAGS_WIN='unset CLAUDE_CODE_EFFORT_LEVEL CLAUDE_EFFORT ANTHROPIC_MODEL; '
 
 CLAUDE_ACCOUNT_ENV=()
-case "$mode" in
-  full | resume | diff | claude | fan)
+case "$harness:$mode" in
+  claude:full | claude:resume | claude:diff | claude:claude | claude:fan)
     resolve_review_claude_account
     CLAUDE_ACCOUNT_ENV=(--env CLAUDE_ACCOUNT="$REVIEW_CLAUDE_ACCOUNT")
     echo "review-open: Claude account $REVIEW_CLAUDE_ACCOUNT ($REVIEW_CLAUDE_ACCOUNT_REASON)"
@@ -135,7 +165,12 @@ esac
 pinned_model=${REVIEW_CLAUDE_MODEL:-} pinned_effort=${REVIEW_CLAUDE_EFFORT:-}
 pinned_finder=${REVIEW_FINDER_MODEL:-} pinned_thinking=${REVIEW_FINDER_THINKING:-}
 REVIEW_CLAUDE_MODEL="" REVIEW_CLAUDE_EFFORT="" REVIEW_FINDER_MODEL="" REVIEW_FINDER_THINKING="" REVIEW_FINDER_RUNG_TIMEOUT="" REVIEW_DISPATCH_TIER=""
-IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT REVIEW_DISPATCH_TIER < <("$HOME/.config/gh-dash/review-dispatch.sh" "$pr" "$repo" 2>/dev/null) || true
+# Dispatch (and its Jev call) only fills what the caller left open; Pi or a pinned one-agent review leaves nothing.
+if [ "$harness" = pi ] || { [ "$mode" != fan ] && [ -n "$pinned_model" ] && [ -n "$pinned_effort" ]; }; then
+  REVIEW_DISPATCH_TIER=manual
+else
+  IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT REVIEW_DISPATCH_TIER < <("$HOME/.config/gh-dash/review-dispatch.sh" "$pr" "$repo" 2>/dev/null) || true
+fi
 [ -n "$pinned_model" ] && { REVIEW_CLAUDE_MODEL=$pinned_model; REVIEW_DISPATCH_TIER="${REVIEW_DISPATCH_TIER:-?}+pinned"; }
 [ -n "$pinned_effort" ] && REVIEW_CLAUDE_EFFORT=$pinned_effort
 [ -n "$pinned_finder" ] && REVIEW_FINDER_MODEL=$pinned_finder
@@ -143,7 +178,11 @@ IFS=$'\t' read -r REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_FINDER_MODEL R
 : "${REVIEW_CLAUDE_MODEL:=claude-opus-5-5}" "${REVIEW_CLAUDE_EFFORT:=high}"
 : "${REVIEW_FINDER_MODEL:=gpt-6.1-sol}" "${REVIEW_FINDER_THINKING:=high}" "${REVIEW_FINDER_RUNG_TIMEOUT:=600}"
 export REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_RUNG_TIMEOUT
-echo "review-open: dispatch ${REVIEW_DISPATCH_TIER:-?} -> claude $REVIEW_CLAUDE_MODEL/$REVIEW_CLAUDE_EFFORT, gpt $REVIEW_FINDER_MODEL/$REVIEW_FINDER_THINKING, timeout ${REVIEW_FINDER_RUNG_TIMEOUT}s"
+if [ "$harness" = pi ]; then
+  echo "review-open: dispatch skipped -> pi $REVIEW_PI_MODEL/$REVIEW_PI_THINKING"
+else
+  echo "review-open: dispatch ${REVIEW_DISPATCH_TIER:-?} -> claude $REVIEW_CLAUDE_MODEL/$REVIEW_CLAUDE_EFFORT, gpt $REVIEW_FINDER_MODEL/$REVIEW_FINDER_THINKING, timeout ${REVIEW_FINDER_RUNG_TIMEOUT}s"
+fi
 
 base_ref() { gh pr view "$pr" --json baseRefName -q .baseRefName; }
 head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
@@ -170,6 +209,17 @@ open_claude_review() {
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
+}
+
+# Pi expands /review-lavish from the shared commands; the 🤖 label is how the Library finds it.
+open_pi_review() {
+  local provider="${REVIEW_PI_MODEL%%/*}" model="${REVIEW_PI_MODEL#*/}"
+  mux --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr" "$1" \
+    "$GH_KEYRING"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; pi --provider '"$provider"' --model '"$model"' --thinking '"$REVIEW_PI_THINKING"' "/review-lavish '"$pr"'"'
+}
+
+open_lavish_review() {
+  if [ "$harness" = pi ]; then open_pi_review "$1"; else open_claude_review "$1" review-lavish; fi
 }
 
 # Brief goes to a file so no quoting form has to survive whichever shell the multiplexer uses.
@@ -265,7 +315,7 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    open_claude_review "$WT" review-lavish
+    open_lavish_review "$WT"
     ;;
   resume)
     background_review
@@ -275,7 +325,7 @@ case "$mode" in
     git -C "$WT" fetch origin "$BASE" "$HEAD" 2>/dev/null
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
-    open_claude_review "$WT" review-lavish
+    open_lavish_review "$WT"
     ;;
   fan)
     background_review
