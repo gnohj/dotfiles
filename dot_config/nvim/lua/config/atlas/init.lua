@@ -41,6 +41,28 @@ local function repo_path(repo)
   return vim.fn.expand(path)
 end
 
+local own_pr_reviewer = {
+  REVIEW_HARNESS = "pi",
+  REVIEW_PI_MODEL = "openai-codex/gpt-6.1-sol",
+  REVIEW_PI_THINKING = "high",
+}
+
+local github_login
+local function my_login()
+  if github_login == nil then
+    local res = vim
+      .system({ "gh", "api", "user", "--jq", ".login" }, { text = true })
+      :wait()
+    github_login = res.code == 0 and vim.trim(res.stdout) or false
+  end
+  return github_login
+end
+
+local function is_mine(pr)
+  local login = my_login()
+  return login and type(pr.author) == "table" and pr.author.username == login
+end
+
 local function review_open(mode, label, devbox)
   local pr = current_pr()
   if not pr then
@@ -52,7 +74,12 @@ local function review_open(mode, label, devbox)
   if not devbox then
     table.insert(args, repo_path(pr.repo_full_name))
   end
-  vim.system(args, { detach = true })
+  local opts = { detach = true }
+  if mode == "full" and is_mine(pr) then
+    opts.env = own_pr_reviewer
+    label = label .. " (Codex)"
+  end
+  vim.system(args, opts)
   vim.notify(string.format("Starting %s for #%s", label, pr.id))
 end
 
