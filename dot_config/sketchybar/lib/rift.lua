@@ -7,8 +7,8 @@ local CLI = "/opt/homebrew/bin/rift-cli"
 local Rift = {}
 Rift.__index = Rift
 
-local function query_workspaces()
-	local handle = io.popen(CLI .. " query workspaces 2>/dev/null")
+local function query(args)
+	local handle = io.popen(CLI .. " query " .. args .. " 2>/dev/null")
 	if not handle then
 		error("rift-cli could not be started")
 	end
@@ -19,6 +19,32 @@ local function query_workspaces()
 		error("rift is not reachable")
 	end
 	return data
+end
+
+local function query_workspaces()
+	return query("workspaces")
+end
+
+local function has_focused_window(ws)
+	for _, w in ipairs(ws.windows or {}) do
+		if w.is_focused then
+			return true
+		end
+	end
+	return false
+end
+
+-- Shared display mode marks one workspace active per display, so ask the active display.
+local function active_display_workspace()
+	for _, display in ipairs(query("displays")) do
+		if display.is_active_context then
+			for _, ws in ipairs(query("workspaces --display " .. display.uuid)) do
+				if ws.is_active then
+					return ws.name
+				end
+			end
+		end
+	end
 end
 
 function Rift.new()
@@ -37,12 +63,19 @@ end
 
 function Rift:list_current()
 	self.workspaces = query_workspaces()
+	local active = {}
 	for _, ws in ipairs(self.workspaces) do
 		if ws.is_active then
-			return ws.name
+			if has_focused_window(ws) then
+				return ws.name
+			end
+			active[#active + 1] = ws.name
 		end
 	end
-	error("rift reported no active workspace")
+	if #active > 1 then
+		return active_display_workspace() or active[1]
+	end
+	return active[1] or error("rift reported no active workspace")
 end
 
 function Rift:list_all_windows()
