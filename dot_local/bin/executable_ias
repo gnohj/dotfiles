@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Which account Infinitary bills, and each saved login, on this machine and the dev box.
+exec "$HOME/.local/bin/infinitary-account" status "$@"
