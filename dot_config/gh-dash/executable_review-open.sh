@@ -294,7 +294,7 @@ open_fanout_owner() {
 # The brief lives outside the worktree so the agent's own `git status` stays clean.
 open_resolver() {
   local brief="$stamp_dir/${repo//\//_}-$pr-resolve.txt"
-  printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push origin HEAD:refs/heads/%s\n' "$pr" "$2" >"$brief"
+  printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nCI owns typecheck, lint and tests for this push, so --no-verify skips the pre-push hook that would run them all locally first. No measured CI run is in flight, so push as soon as the fixes are committed. Run the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too.\n' "$pr" "$2" >"$brief"
   if [ "$harness" = pi ]; then
     mux "💬 #$pr" "$1" \
       "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'
