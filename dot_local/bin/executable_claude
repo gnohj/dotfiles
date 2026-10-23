@@ -36,6 +36,17 @@ if [ -z "$_bin" ]; then
   exit 127
 fi
 
+# Infinitary renews its default login through these, so they must reach the native store.
+case "${1:-}" in
+auth | doctor)
+  case "$(ps -o comm= -p "$PPID" 2>/dev/null || true)" in
+  */Infinitary | infinitary | */infinitary)
+    exec env -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT "$_bin" "$@"
+    ;;
+  esac
+  ;;
+esac
+
 # claude-account-state-v1
 if [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]; then
   # set only inside a running session, so these were inherited and must not outrank the pin
