@@ -95,7 +95,9 @@ Create it, then add one `export NAME="value"` line per token, reading each value
 touch ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
 ```
 
-`dot_config/bitwarden/vars.txt` is the canonical list; copy only the **scoped subset** this box actually needs, never the whole vault. At minimum that has been: `CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `GPR_AUTH_TOKEN`, `JIRA_API_TOKEN`, `OPENAI_API_KEY`, `TURBO_TOKEN`, `TYPESAFE_API_KEY`.
+`dot_config/bitwarden/vars.txt` is the canonical list; copy only the **scoped subset** this box actually needs, never the whole vault. At minimum that has been: `CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `GPR_AUTH_TOKEN`, `JIRA_API_TOKEN`, `JIRA_EMAIL`, `OPENAI_API_KEY`, `TURBO_TOKEN`, `TYPESAFE_API_KEY`.
+
+**`JIRA_EMAIL` and `JIRA_API_TOKEN` go together.** atlas.nvim and the Lavish Library authenticate with the pair, so a token without the email is useless, and a stale `JIRA_API_TOKEN` in `~/.zsh_gnohj_env.secrets` answers 401 until this file overrides it. After changing either, run `python3 library.py save-jira-env` in `~/Developer/agents/shared/skills/lavish-library` so the Library's server, which never sees this shell, picks them up.
 
 **`TYPESAFE_API_KEY` fails silently.** It is Jev's key, and gh-dash's `review-dispatch.sh` treats a failing `jev-route` as "no opinion", so reviews still launch but never get Jev's `deep`/`critical` model bump.
 
