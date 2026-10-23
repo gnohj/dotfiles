@@ -1,0 +1,7 @@
+# Dev-box only (hermes-container adds it there); loopback publish, reached from the tailnet through tailscale serve.
+services:
+  hermes:
+    environment:
+      HERMES_DASHBOARD: "1"
+    ports:
+      - 127.0.0.1:9119:9119
