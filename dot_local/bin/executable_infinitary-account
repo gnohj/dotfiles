@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# Switch Infinitary's Claude account: a path pin on its data dir plus a matching default login, here and on the dev box.
+set -euo pipefail
+
+SELF=infinitary-account
+REMOTE_HOST="${INFINITARY_REMOTE_HOST:-dev-box}"
+STATE_DIR="$HOME/.local/state/claude"
+CURRENT_FILE="$STATE_DIR/infinitary-login"
+ACCOUNT_BIN="$HOME/.local/bin/claude-account"
+LIVE_SERVICE="Claude Code-credentials"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: infinitary-account [status] [--local]          account per machine, and each saved login
+       infinitary-account <work|personal> [--local]   switch Infinitary here and on the dev box
+       infinitary-account auto [--local]              drop the pin: per-repo rule (work orgs -> work) again
+       infinitary-account login <work|personal>       browser sign-in for that account on THIS machine
+       infinitary-account adopt <work|personal>       record whose login the default login already holds
+EOF
+}
+
+die() {
+  echo "$SELF: $*" >&2
+  exit 1
+}
+
+data_dir() {
+  if [ "$(uname)" = Darwin ]; then
+    printf '%s' "$HOME/Library/Application Support/infinitary"
+  else
+    printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/infinitary"
+  fi
+}
+
+is_mac() { [ "$(uname)" = Darwin ]; }
+
+check_account() {
+  case "${1:-}" in
+  work | personal) ;;
+  *) die "account must be work or personal" ;;
+  esac
+}
+
+# The real client, never the wrapper: a sign-in must land in the native store, not the wrapper's token.
+real_claude() {
+  local c=""
+  command -v mise >/dev/null 2>&1 && c="$(mise which claude 2>/dev/null || true)"
+  [ -n "$c" ] && [ -x "$c" ] && { printf '%s' "$c"; return; }
+  c="$HOME/.local/share/mise/shims/claude"
+  [ -x "$c" ] && { printf '%s' "$c"; return; }
+  die "no Claude Code binary found (tried mise and its shims)"
+}
+
+hex() { od -An -v -tx1 | tr -d ' \n'; }
+
+keychain_read() {
+  security find-generic-password -a "$USER" -s "$1" -w 2>/dev/null || true
+}
+
+# Through `security -i` so the credential never appears on a process command line.
+keychain_write() {
+  local value
+  value="$(printf '%s' "$2" | hex)"
+  printf 'add-generic-password -U -a "%s" -s "%s" -X %s\n' "$USER" "$1" "$value" | security -i >/dev/null
+}
+
+file_write() {
+  local tmp
+  mkdir -p "$(dirname "$1")"
+  tmp="$(mktemp "$1.XXXXXX")"
+  chmod 600 "$tmp"
+  printf '%s' "$2" >"$tmp"
+  mv -f "$tmp" "$1"
+}
+
+live_json() {
+  if is_mac; then keychain_read "$LIVE_SERVICE"; else cat "$HOME/.claude/.credentials.json" 2>/dev/null || true; fi
+}
+
+live_login() {
+  live_json | jq -c '.claudeAiOauth // empty' 2>/dev/null || true
+}
+
+set_live_login() {
+  local merged base="${2:-$(live_json)}"
+  merged="$(printf '%s' "$base" | jq -c --argjson login "$1" '(. // {}) + {claudeAiOauth: $login}' 2>/dev/null)" ||
+    merged="$(jq -cn --argjson login "$1" '{claudeAiOauth: $login}')"
+  if is_mac; then keychain_write "$LIVE_SERVICE" "$merged"; else file_write "$HOME/.claude/.credentials.json" "$merged"; fi
+}
+
+slot_read() {
+  if is_mac; then keychain_read "infinitary-login-$1"; else cat "$STATE_DIR/infinitary-login-$1.json" 2>/dev/null || true; fi
+}
+
+slot_write() {
+  if is_mac; then keychain_write "infinitary-login-$1" "$2"; else file_write "$STATE_DIR/infinitary-login-$1.json" "$2"; fi
+}
+
+current() {
+  local v=""
+  [ -r "$CURRENT_FILE" ] && v="$(tr -d '[:space:]' <"$CURRENT_FILE")"
+  case "$v" in work | personal) printf '%s' "$v" ;; esac
+}
+
+set_current() {
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$1" >"$CURRENT_FILE"
+}
+
+expiry() {
+  printf '%s' "$1" | jq -r 'if .expiresAt then (.expiresAt / 1000 | floor | strftime("%Y-%m-%d %H:%M UTC")) else "no expiry" end' 2>/dev/null || printf 'unreadable'
+}
+
+pinned_account() {
+  local dir
+  dir="$(data_dir)"
+  "$ACCOUNT_BIN" path-pin | awk -F'\t' -v p="$dir" '$1 == p { print $2 }'
+}
+
+# Saves the outgoing login first: a renewal replaces its refresh token, so an older saved copy goes stale.
+stash_live() {
+  local cur login
+  cur="$(current)"
+  login="$(live_login)"
+  [ -n "$login" ] || return 0
+  [ -n "$cur" ] || die "the default login belongs to an unrecorded account; run '$SELF adopt <work|personal>' first"
+  slot_write "$cur" "$login"
+}
+
+switch_login() {
+  local want="$1" login
+  [ "$(current)" = "$want" ] && [ -n "$(live_login)" ] && { echo "$SELF: default login is already $want"; return 0; }
+  login="$(slot_read "$want")"
+  [ -n "$login" ] || { echo "$SELF: no saved $want login on this machine; run '$SELF login $want' here" >&2; return 1; }
+  stash_live
+  set_live_login "$login"
+  set_current "$want"
+  echo "$SELF: default login is now $want (expires $(expiry "$login"))"
+}
+
+set_pin() {
+  local dir
+  dir="$(data_dir)"
+  "$ACCOUNT_BIN" path-pin "$dir" "$1" >/dev/null
+  if [ "$1" = auto ]; then
+    echo "$SELF: Infinitary follows the per-repo rule again"
+  else
+    echo "$SELF: Infinitary's crewmates now bill $1"
+  fi
+}
+
+status_here() {
+  local pin cur acct login
+  pin="$(pinned_account)"
+  cur="$(current)"
+  echo "$(hostname -s): crewmates bill ${pin:-per repo (no pin)}; default login ${cur:-unrecorded}"
+  for acct in personal work; do
+    login="$(slot_read "$acct")"
+    [ "$acct" = "$cur" ] && login="$(live_login)"
+    if [ -n "$login" ]; then
+      echo "  $acct login: saved, access token expires $(expiry "$login")"
+    else
+      echo "  $acct login: none on this machine ($SELF login $acct)"
+    fi
+  done
+}
+
+remote() {
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE_HOST" "\$HOME/.local/bin/$SELF $* --local" ||
+    echo "$SELF: $REMOTE_HOST did not finish '$*'; run it there by hand" >&2
+}
+
+local_only=0
+args=()
+for a in "$@"; do
+  case "$a" in
+  --local) local_only=1 ;;
+  *) args+=("$a") ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
+
+command -v jq >/dev/null 2>&1 || die "jq required"
+[ -x "$ACCOUNT_BIN" ] || die "$ACCOUNT_BIN missing"
+
+case "${1:-status}" in
+status)
+  status_here
+  [ "$local_only" = 1 ] || remote status
+  ;;
+work | personal)
+  set_pin "$1"
+  rc=0
+  switch_login "$1" || rc=1
+  [ "$local_only" = 1 ] || remote "$1"
+  exit "$rc"
+  ;;
+auto)
+  set_pin auto
+  [ "$local_only" = 1 ] || remote auto
+  ;;
+adopt)
+  check_account "${2:-}"
+  [ -n "$(live_login)" ] || die "there is no default login to adopt; run '$SELF login $2'"
+  set_current "$2"
+  slot_write "$2" "$(live_login)"
+  echo "$SELF: recorded the default login as $2"
+  ;;
+login)
+  check_account "${2:-}"
+  stash_live
+  before="$(live_json)"
+  # A sign-in rewrites the shared ~/.claude.json oauthAccount, so the terminal's copy is restored after.
+  saved_account="$(jq -c '.oauthAccount // empty' "$HOME/.claude.json" 2>/dev/null || true)"
+  env -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_ACCOUNT -u ANTHROPIC_API_KEY "$(real_claude)" auth login --claudeai
+  login="$(live_login)"
+  [ -n "$login" ] || die "the sign-in did not leave a login in the default store"
+  [ -n "$before" ] && set_live_login "$login" "$before"
+  if [ -n "$saved_account" ]; then
+    tmp="$(mktemp "$HOME/.claude.json.XXXXXX")"
+    jq --argjson a "$saved_account" '.oauthAccount = $a' "$HOME/.claude.json" >"$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$HOME/.claude.json" || rm -f "$tmp"
+  fi
+  slot_write "$2" "$login"
+  set_current "$2"
+  echo "$SELF: saved the $2 login (expires $(expiry "$login")); '$SELF $2' now switches Infinitary to it"
+  ;;
+*)
+  usage
+  exit 2
+  ;;
+esac
