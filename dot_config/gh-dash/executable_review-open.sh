@@ -44,6 +44,12 @@ mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') mode=$mode PR $pr ($repo) ==="
 
+# Everything but the bare hunk viewer runs on the dev box unless the Library picked this Mac (REVIEW_RUN_HERE=1).
+if [ "$(uname -s)" = Darwin ] && [ "$mode" != hunk ] && [ "${REVIEW_RUN_HERE:-}" != 1 ]; then
+  echo "review-open: $mode PR $pr goes to the dev box"
+  exec bash "$HOME/.config/gh-dash/review-devbox.sh" "$mode" "$pr" "$repo"
+fi
+
 notify_msg() {
   case "$("$HOME/.local/bin/mux/mux" kind)" in
     herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$1" --sound request >/dev/null 2>&1 || true ;;

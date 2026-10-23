@@ -34,9 +34,21 @@ harness="${REVIEW_HARNESS:--}" pi_model="${REVIEW_PI_MODEL:--}" pi_thinking="${R
 [[ "$pi_model" =~ ^(-|[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+)$ ]] || { echo "review-devbox: invalid REVIEW_PI_MODEL" >&2; exit 2; }
 [[ "$pi_thinking" =~ ^(-|off|minimal|low|medium|high|xhigh)$ ]] || { echo "review-devbox: invalid REVIEW_PI_THINKING" >&2; exit 2; }
 
+# Whatever the caller pinned for this one review (model, effort, finder, no-browser) rides along as NAME=value args.
+pinned=()
+for name in REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_CLAUDE_ACCOUNT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_LADDER REVIEW_NO_BROWSER; do
+  value="${!name:-}"
+  [ -z "$value" ] && continue
+  [[ "$value" =~ ^[A-Za-z0-9._:/|-]+$ ]] || { echo "review-devbox: invalid $name" >&2; exit 2; }
+  pinned+=("$name=$value")
+done
+ssh_pinned=()
+for pair in ${pinned[@]+"${pinned[@]}"}; do ssh_pinned+=("$(printf %q "$pair")"); done
+
 read -r -d '' remote <<'EOF' || true
 set -euo pipefail
 mode="$1" pr="$2" repo="$3" harness="${4:--}" pi_model="${5:--}" pi_thinking="${6:--}"
+shift 6
 case "$repo" in
   iheartradio/web) repo_path="$HOME/Developer/web/review" ;;
   iheartradio/inferno-monorepo) repo_path="$HOME/Developer/inferno/review" ;;
@@ -57,13 +69,19 @@ fi
 [ "$harness" != - ] && envs+=(REVIEW_HARNESS="$harness")
 [ "$pi_model" != - ] && envs+=(REVIEW_PI_MODEL="$pi_model")
 [ "$pi_thinking" != - ] && envs+=(REVIEW_PI_THINKING="$pi_thinking")
+for pair in "$@"; do
+  case "${pair%%=*}" in
+    REVIEW_CLAUDE_MODEL | REVIEW_CLAUDE_EFFORT | REVIEW_CLAUDE_ACCOUNT | REVIEW_FINDER_MODEL | REVIEW_FINDER_THINKING | REVIEW_FINDER_LADDER | REVIEW_NO_BROWSER)
+      [[ "${pair#*=}" =~ ^[A-Za-z0-9._:/|-]+$ ]] && envs+=("$pair") ;;
+  esac
+done
 # setsid -f so the review outlives this ssh session; no herdr socket leaves mux detection to review-open.sh.
 env ${envs[@]+"${envs[@]}"} setsid -f bash "$HOME/.config/gh-dash/review-open.sh" "$mode" "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1
 echo "review-devbox: started $mode PR $pr on $(hostname -s) in workspace ${ws:-<active>}$([ "$harness" = - ] || printf ' on %s %s' "$harness" "$pi_model")"
 EOF
 
 if [ -z "$host" ] || [ "$(hostname -s)" = "$host" ]; then
-  bash -c "$remote" _ "$mode" "$pr" "$repo" "$harness" "$pi_model" "$pi_thinking"
+  bash -c "$remote" _ "$mode" "$pr" "$repo" "$harness" "$pi_model" "$pi_thinking" ${pinned[@]+"${pinned[@]}"}
 else
-  ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" bash -s -- "$mode" "$pr" "$repo" "$harness" "$pi_model" "$pi_thinking" <<<"$remote"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" bash -s -- "$mode" "$pr" "$repo" "$harness" "$pi_model" "$pi_thinking" ${ssh_pinned[@]+"${ssh_pinned[@]}"} <<<"$remote"
 fi
