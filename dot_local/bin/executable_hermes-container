@@ -54,7 +54,12 @@ if [[ $system == Linux ]]; then
   done
 fi
 
+dashboard_port=9119
+is_devbox=false
+"$HOME/.local/bin/machine-identity" is devbox 2>/dev/null && is_devbox=true
+
 compose=(docker compose -f "$compose_file")
+[[ $is_devbox == true ]] && compose+=(-f "$config_home/hermes-container/compose.dashboard.yaml")
 action=${1:-chat}
 
 if [[ $action == compose-config ]]; then
@@ -83,6 +88,25 @@ case $action in
   docker-status)
     exec "${compose[@]}" ps
     ;;
+  dashboard-setup)
+    [[ $is_devbox == true ]] || {
+      printf '%s\n' 'hermes-container: the dashboard is only served on the dev-box.' >&2
+      exit 1
+    }
+    ts_host=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
+    [[ -n $ts_host ]] || {
+      printf '%s\n' 'hermes-container: tailscale is not connected.' >&2
+      exit 1
+    }
+    read -rsp 'Dashboard password: ' password
+    printf '\n'
+    read -rsp 'Repeat password: ' confirm
+    printf '\n'
+    [[ -n $password && $password == "$confirm" ]] || {
+      printf '%s\n' 'hermes-container: passwords are empty or do not match.' >&2
+      exit 1
+    }
+    ;;
 esac
 
 "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 60 hermes
@@ -98,6 +122,30 @@ case $action in
   shell)
     shift
     exec "${compose[@]}" exec "${exec_options[@]}" --user "$uid:$gid" -e HOME=/opt/data hermes bash "$@"
+    ;;
+  dashboard-setup)
+    public_url=https://$ts_host:$dashboard_port
+    printf '%s' "$password" | "${compose[@]}" exec -T --user "$uid:$gid" -e HOME=/opt/data -w /opt/hermes hermes sh -c '
+      set -e
+      credentials=$(.venv/bin/python -c "import secrets, sys; from plugins.dashboard_auth.basic import hash_password; print(hash_password(sys.stdin.read())); print(secrets.token_urlsafe(48))")
+      hermes config set dashboard.basic_auth.username "$1" >/dev/null
+      hermes config set dashboard.basic_auth.password_hash "$(printf "%s\n" "$credentials" | sed -n 1p)" >/dev/null
+      hermes config set dashboard.basic_auth.secret "$(printf "%s\n" "$credentials" | sed -n 2p)" >/dev/null
+      hermes config set dashboard.public_url "$2" >/dev/null
+    ' sh "$username" "$public_url"
+    # cap_drop leaves root without CAP_KILL, so s6-svc cannot signal the hermes-owned dashboard; it is signalled as its own uid.
+    dashboard_pid=$("${compose[@]}" exec -T hermes /command/s6-svstat -p /run/service/dashboard)
+    if [[ $dashboard_pid =~ ^[0-9]+$ && $dashboard_pid -gt 0 ]]; then
+      "${compose[@]}" exec -T --user "$uid:$gid" hermes kill "$dashboard_pid"
+      for _ in {1..30}; do
+        sleep 1
+        [[ $("${compose[@]}" exec -T hermes /command/s6-svstat -p /run/service/dashboard) != "$dashboard_pid" ]] &&
+          curl -fs -o /dev/null --max-time 2 "http://127.0.0.1:$dashboard_port/api/status" && break
+      done
+    fi
+    tailscale serve status --json 2>/dev/null | jq -e --arg host "$ts_host:$dashboard_port" '.Web[$host]' >/dev/null ||
+      tailscale serve --yes --bg --https="$dashboard_port" "http://127.0.0.1:$dashboard_port" >/dev/null
+    printf 'Dashboard: %s (user %s, tailnet only)\n' "$public_url" "$username"
     ;;
   *)
     exec "${compose[@]}" exec "${exec_options[@]}" hermes hermes "$@"
