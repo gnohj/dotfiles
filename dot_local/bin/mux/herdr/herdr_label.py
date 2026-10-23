@@ -2,9 +2,10 @@
 
 herdr puts a workspace's glyph inside its LABEL (`🖥️ gnohj`, `🌿 repo`, `└ <task>`, and firstmate's
 patched `🚢 sm-<id>`), so row 0's text starts a few cells in while every row below it starts at the
-edge. Each writer owns different tokens on different rows - herdr-git-status.sh row 2,
-herdr-thread-status.py row 3, herdr-sysinfo.py rows 2-4 - so they all need the same answer to "how
-far in does this label's text start". That answer lives here once rather than in three copies.
+edge. Each writer owns different tokens on different rows - herdr-git-status.sh the spaces panel's
+row 2, herdr-pane-summary.py and herdr-agent-activity.py the agents panel's - so they all need the
+same answer to "how far in does this label's text start". That answer lives here once rather than in
+several copies.
 
 The pad is U+2800 BRAILLE PATTERN BLANK, never spaces: herdr trims leading whitespace from a token
 value (plain space, NBSP and U+2007 figure space all verified stripped), while U+2800 survives
@@ -102,19 +103,3 @@ def row_indent(label):
         return ""
     return INDENT_CELL * _cells((label or "")[:run])
 
-
-def indent_first(tokens, label, order):
-    """Indent one row by padding the first LIT token in `order`. Mutates and returns `tokens`.
-
-    Only the first lit token takes the pad, because that is what actually starts the row, and which
-    one that is varies per workspace - a ticket with no PR leads with $jira, one with approvals
-    leads with $pr_on.
-    """
-    pad = row_indent(label)
-    if not pad:
-        return tokens
-    for name in order:
-        if tokens.get(name):
-            tokens[name] = pad + tokens[name]
-            break
-    return tokens

@@ -271,8 +271,9 @@ ws_panes = {}
 for p in plist:
     ws_panes.setdefault(p.get("workspace_id"), set()).add(p.get("pane_id"))
 
-# A crewmate's row 2 leads with its kind and model; its title can't say so, since firstmate recovery matches that title exactly.
+# A crewmate's row 2 leads with its kind, PR number and model; its title can't say so, since firstmate recovery matches that title exactly.
 KIND_MARK = {"scout": "\U0001f52d", "ship": "\u26f5"}
+PR_NUMBER_RE = re.compile(r"/pull/([0-9]+)")
 VENDOR_WORDS = {"claude", "gpt"}
 
 def short_model(model):
@@ -290,8 +291,13 @@ def model_label(model, effort):
     shown = "" if effort in ("", "off", "none", "default") else EFFORT_SHORT.get(effort, effort)
     return " ".join(filter(None, (short_model(model), shown))) if model else ""
 
+def pr_number(url):
+    """`#<number>` from the PR url firstmate records once a ship task opens one, or "" before that."""
+    match = PR_NUMBER_RE.search(url or "")
+    return "#" + match.group(1) if match else ""
+
 def fleet_kinds():
-    """workspace_id -> (firstmate task kind, model label), for tasks whose recorded pane is live in that workspace here."""
+    """workspace_id -> (firstmate task kind, PR number, model label), for tasks whose recorded pane is live in that workspace here."""
     m = re.search(r"/sessions/([^/]+)/herdr\.sock$", os.environ.get("HERDR_SOCKET_PATH", ""))
     session, kinds = (m.group(1) if m else "default"), {}
     for path in glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta")):
@@ -304,7 +310,7 @@ def fleet_kinds():
             continue
         w, p = meta.get("herdr_workspace_id"), meta.get("herdr_pane_id")
         if w and p in ws_panes.get(w, ()):
-            kinds[w] = (meta.get("kind", ""), model_label(meta.get("model", ""), meta.get("effort")))
+            kinds[w] = (meta.get("kind", ""), pr_number(meta.get("pr")), model_label(meta.get("model", ""), meta.get("effort")))
     return kinds
 
 def live_models():
@@ -360,9 +366,9 @@ for w, label in ws_label.items():
     # Branch only where it adds something over row 0 (see wants_branch); a projection duplicates it unless detached, where the checkout is off the line its label implies.
     projected = label.startswith("└ ")
     br = ""
-    kind, model = kinds.get(w, ("", ""))
+    kind, pr, model = kinds.get(w, ("", "", ""))
     if projected and kind in KIND_MARK:
-        br = " ".join(filter(None, (KIND_MARK[kind], model)))
+        br = " ".join(filter(None, (KIND_MARK[kind], pr, model)))
     elif c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
         br = branch(c, keep_key=projected)
     if br:

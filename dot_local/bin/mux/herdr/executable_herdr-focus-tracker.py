@@ -67,10 +67,6 @@ SELF_WRITES = collections.defaultdict(lambda: collections.deque(maxlen=8))
 # Both kept in step with herdr-git-status.sh, the other writer of these two tokens - see
 # paint_branch. TTL outlives a couple of that poller's missed passes, same as its own.
 BRANCH_SOURCE = "gitmux"
-# herdr-thread-status.py's source, shared for the same reason as BRANCH_SOURCE - see paint_row3.
-THREAD_SOURCE = "thread-status"
-# Row 3 zones: (lit slot, dim slot). Mirrors ROW3_ZONES in herdr-thread-status.py.
-ROW3_ZONES = (("prn", "prn_d"), ("cpr", "cpr_d"), ("cjira", "cjira_d"), ("pr", "pr_d"), ("jira", "jira_d"))
 BRANCH_TTL_MS = 38000
 
 # herdr-pane-summary.py's source, shared for the same reason as BRANCH_SOURCE - see paint_panes.
@@ -263,45 +259,6 @@ def paint_branch():
             "source": BRANCH_SOURCE,
             "tokens": {"br": want_dim or None, "br_on": want_lit or None},
             "ttl_ms": BRANCH_TTL_MS,
-            "workspace_id": ws["workspace_id"],
-        })
-
-
-
-def paint_row3():
-    """Move row 3 (PR / CI / vault note / Jira) between its lit and dim slots by focus.
-
-    Same problem and same shape as paint_branch: a custom `$token` takes one flat inline fg, and
-    ANSI inside a token VALUE renders literally (verified on screen), so "dim when not selected"
-    can only be a second token with a dim fg. Each zone therefore has a `_d` twin, exactly one of
-    the pair ever populated, and an empty token emits no separator so the row still reads as one.
-
-    `source` MUST match herdr-thread-status.py's, since a token can only be cleared by the source
-    that set it - a second source would leave both halves lit at once.
-    """
-    reply = request("workspace.list", {})
-    if not reply or "result" not in reply:
-        return
-    for ws in reply["result"].get("workspaces", []):
-        tokens = ws.get("tokens") or {}
-        focused = bool(ws.get("focused"))
-        want = {}
-        for lit, dim in ROW3_ZONES:
-            value = tokens.get(dim) or tokens.get(lit) or ""
-            if not value:
-                continue
-            slot = dim if not focused else lit
-            for name in (lit, dim):
-                want[name] = value if name == slot else None
-        if not want:
-            continue
-        # Only write where a slot is actually wrong, so a steady sidebar costs one workspace.list.
-        if all((tokens.get(k) or None) == v for k, v in want.items()):
-            continue
-        request("workspace.report_metadata", {
-            "seq": time.time_ns(),
-            "source": THREAD_SOURCE,
-            "tokens": want,
             "workspace_id": ws["workspace_id"],
         })
 
@@ -528,7 +485,6 @@ def handle(mru, msg):
     # tab-label events, which never move focus, so they need no repaint.
     if mru.cur_ws != was_ws:
         paint_branch()
-        paint_row3()
     return True
 
 
@@ -548,7 +504,6 @@ def session(mru):
     # Same reason for the branch row: focus can move while this daemon is down, which leaves
     # the accent stuck on whichever space was lit at the time.
     paint_branch()
-    paint_row3()
     paint_panes()
     with conn.makefile("rb") as stream:
         for raw in stream:

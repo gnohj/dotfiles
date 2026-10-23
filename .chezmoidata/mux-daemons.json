@@ -37,11 +37,10 @@
         "pathDesc": "herdr-git-status poller"
       },
       "herdr-jira-status": {
-        "desc": "herdr sidebar Jira poller ($jira metadata token, via the sb-agent-refresh skill)",
+        "desc": "Jira status poller for thread files (ticket-band, via the sb-agent-refresh skill)",
         "script": "herdr-jira-status.sh",
         "args": "",
         "interp": "",
-        "token": "$jira",
         "needsPath": true,
         "note": "drives Codex luna 6 xhigh every 2h through codex-headless (`codex exec` running the sb-agent-refresh skill), falling back to Claude Sonnet when Codex refuses (auth, quota, 5xx) because jira_status lives behind MCP; needs `codex mcp login atlassian` and `unblocked` once per host"
       },
@@ -62,13 +61,12 @@
         "note": "drives Codex luna 6 xhigh through codex-headless for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. codex-headless falls back to Claude Sonnet when Codex refuses (auth, quota, 5xx). The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-thread-status": {
-        "desc": "herdr thread-status ($pr PR approvals, $jira status)",
+        "desc": "herdr thread-status (PR url, CI and vault note into thread files)",
         "script": "herdr-thread-status.py",
         "args": "",
         "interp": "/usr/bin/python3",
-        "token": "$pr/$jira",
         "needsPath": true,
-        "note": "gh only feeds $pr; $sb is a local vault-note lookup and still renders without it"
+        "note": "gh only feeds the PR and CI fields; the vault note is a local lookup and still persists without it"
       }
     }
   }
