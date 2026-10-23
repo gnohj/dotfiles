@@ -1,28 +1,15 @@
 #!/usr/bin/env python3
-"""herdr-thread-status — feed each workspace's PR approvals ($pr) and Jira status ($jira) to the sidebar.
+"""herdr-thread-status — keep each ticket workspace's thread file current with its PR, CI and vault note.
 
-herdr knows nothing about GitHub, so the signs come from `gh` and are pushed back in as a
-custom metadata token, exactly like $git (working-tree signs), $sys (host stats) and $act
-(agent age). Every workspace on a branch gets a badge — the token needs only a checkout.
+herdr knows nothing about GitHub, so this poller walks the open workspaces, asks `gh` about the
+branch each one is on, and, only where a thread file under ~/.local/state/threads/ unambiguously
+owns the workspace, is the WRITER of record for `pr_url` / `ci_status` / `pr_last_checked` /
+`vault_note`. One fetcher, no disagreement. ticket-band, sb-ticket-log and the freeze queue read
+those fields; nothing here renders in the sidebar any more, since a crewmate's PR number now rides
+row 2 from its firstmate meta (herdr-git-status.sh).
 
-Separately, and only where a thread file under ~/.local/state/threads/ unambiguously owns
-the workspace, this poller is also the WRITER of record for `pr_url` / `pr_approvals` /
-`ci_status` / `pr_last_checked` — the fields the sidebar and split card read. One fetcher,
-no disagreement. A workspace with no thread file still gets its badge; it just caches
-nothing.
-
-The previous fetcher only ran for live tmux sessions whose thread_kind was "ticket", so
-working in herdr left the cache permanently cold. Anything reading those files benefits
-from the poller running here instead.
-
-Jira is RENDERED but never fetched. The same thread file carries `jira_status`, so the
-$jira token is filled from it (shortened by the table below), but nothing here
-writes that field: it needs Jira credentials this daemon does not have. Read-only, never a
-writer. The writer is the `sb-agent-refresh` skill, supervised by herdr-jira-status.service,
-which reaches Jira through MCP inside a real Claude session — the one place those credentials
-exist. $jira is therefore empty until that poller's first tick lands a status.
-
-CI and the vault note are still persisted (`ci_status`, `vault_note`) for sb-ticket-log and the freeze queue, but not rendered.
+Jira is never touched: `jira_status` needs credentials this daemon does not have, so its writer
+is the `sb-agent-refresh` skill, supervised by herdr-jira-status.service.
 
 Slow on purpose. The `gh` call per workspace is a network round-trip and counts against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. The call
@@ -39,30 +26,19 @@ also needs none of the newest-headSha filtering the old query hand-rolled. Its e
 CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ matches both
 shapes. Cost: a branch with no open PR now shows no CI, since the rollup hangs off the PR.
 
-Approvals print as their count (0, 1, 2...) and only while a PR is open; with no PR or no Jira status the token is empty and nothing renders.
-
-The approvals zone is one $pr token whose Herdr 0.9.0 value rule recolours 0 red; $pr_d remains because rules cannot see focus.
-
-Agent HOME workspaces opt OUT of every token (AGENT_HOME_RE): the captain's own `fm` sesh session,
-plus firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
-permanent branch of a read-only checkout, so approvals, CI, the vault note and Jira are all
-permanently empty there, and herdr has no per-workspace row layout: the row is global, so the
-only way it stops rendering as bare placeholders is for its tokens to carry no value. The tokens
-are cleared rather than skipped, so a token set by an earlier pass (or by an older build of this
-script) disappears instead of lingering at its stale glyph.
-
-Their PROJECTED TASK WORKTREES are not homes and keep the whole row - those are the `└ <branch>`
-children carrying a real ticket branch, which is exactly where the badge earns its place. The
-match is on label SHAPE, never on the sidebar glyph, which is presentation and does change.
+Agent HOME workspaces are skipped (AGENT_HOME_RE): the captain's own `fm` sesh session, plus
+firstmate's own `firstmate` home and every `2ndmate-<id>` secondmate home. A home sits on a
+permanent branch of a read-only checkout, so it has no PR, CI or vault note to record. Their
+PROJECTED TASK WORKTREES are not homes - those are the `└ <branch>` children carrying a real
+ticket branch. The match is on label SHAPE, never on the sidebar glyph, which is presentation.
 
 Runs wherever the herdr SERVER runs, so under `herdr --remote` it lives on the VPS and reads
 that box's thread files and checkouts — the state is per-host and that is correct, since a
 VPS workspace's PR belongs to the VPS checkout. Needs `gh` authenticated on whichever host
-that is; without it the token simply never appears. Stdlib only, no jq (gh embeds its own).
+that is. Stdlib only, no jq (gh embeds its own).
 
   herdr-thread-status.py           daemon: refresh every $HERDR_THREAD_INTERVAL seconds
   herdr-thread-status.py --once    one pass over every open workspace, then exit
-  herdr-thread-status.py --clear   drop every row token from every workspace, then exit
 """
 import json
 import os
@@ -73,23 +49,12 @@ import time
 
 sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from herdr_label import indent_first, is_agent_home, row_indent  # noqa: E402  (needs the path above)
+from herdr_label import is_agent_home  # noqa: E402  (needs the path above)
 
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
-# Minutes, not seconds: every pass is 2 network calls per workspace against a rate limit.
+# Minutes, not seconds: every pass is a network call per workspace against a rate limit.
 INTERVAL = int(os.environ.get("HERDR_THREAD_INTERVAL", "180"))
-TTL_MS = (INTERVAL + 120) * 1000  # outlive a couple of missed passes
-SOURCE = "thread-status"
-TOKEN = "pr"
-JIRA_TOKEN = "jira"
-CREW_PREFIX = "└ "
-PR_NUMBER_RE = re.compile(r"/pull/([0-9]+)")
-# Row 2's trailing token order in [ui.sidebar.spaces]; the indent rides whichever is lit first when no $br leads the row.
-# Each zone has a DIM twin because herdr cannot dim a custom token by focus - an inline fg is unconditional - so the unfocused state is a second token, as $br/$br_on already do.
-ROW3_ORDER = ("prn", "prn_d", "cpr", "cpr_d", "cjira", "cjira_d", "pr", "pr_d", "jira", "jira_d")
-# Zone -> (lit slot, dim slot). Shared with the focus tracker.
-ROW3_ZONES = (("prn", "prn_d"), ("cpr", "cpr_d"), ("cjira", "cjira_d"), ("pr", "pr_d"), ("jira", "jira_d"))
 # A `…/review` checkout is a POOL reused across PRs, so thread_for() matches on worktree and keeps labelling it with a long-shipped ticket.
 REVIEW_POOL_LEAF = "review"
 THREADS_DIR = os.path.join(
@@ -121,10 +86,9 @@ DEV_PREFIX = os.path.expanduser("~/Developer") + "/"
 # Absolute path: a herdr daemon's PATH is whatever the server was launched with.
 VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
 
-# Newest open PR -> "<url>\t<approved reviews>\t<ci state>", or "" for none. Its approval count is only a fallback for approval_count().
+# Newest open PR -> "<url>\t<ci state>", or "" for none.
 PR_JQ = (
     '.[0] | if . == null then "" else .url + "\\t" '
-    '+ ([.latestReviews[] | select(.state == "APPROVED")] | length | tostring) + "\\t" '
     '+ ((.statusCheckRollup // []) | if length == 0 then "" '
     'elif map(select(.status == "IN_PROGRESS" or .status == "QUEUED" '
     'or .state == "PENDING")) | length > 0 then "running" '
@@ -132,32 +96,6 @@ PR_JQ = (
     'or .conclusion == "CANCELLED" or .state == "FAILURE" or .state == "ERROR")) '
     '| length > 0 then "failure" else "success" end) end'
 )
-
-
-# Jira workflow status, shortened to fit a 32-col sidebar. The canonical full name stays in
-# the thread file and this is purely a display transform. Anything not listed falls through
-# unchanged.
-# Keys are matched lowercased; the spares are aliases for boards that name a step differently.
-JIRA_SHORT = {
-    "blocked": "blocked",
-    "to do": "todo",
-    "in dev": "dev",
-    "in dev/dqa review": "dev rev",
-    "in dev review": "dev rev",
-    "in dqa review": "dev rev",
-    "in qa": "qa",
-    "in code review": "code rev",
-    "code review": "code rev",
-    "in review": "code rev",
-    "stakeholder review": "stake",
-    "product review": "stake",
-    "ready to merge": "merge",
-    "done": "done",
-    "completed": "done",
-    "closed": "done",
-    "resolved": "done",
-}
-UNMERGED = "unmerged"
 
 
 def out(args, cwd=None, timeout=20):
@@ -174,7 +112,7 @@ def workspace_cwds():
 
     Sorted, and it has to be: a workspace can hold panes in DIFFERENT worktrees, so an unsorted
     "first pane seen" is a coin flip over which thread file this resolves to - and that decides
-    the $pr the space row shows. herdr-git-status.sh picks its baseline the same way.
+    the PR this records. herdr-git-status.sh picks its baseline the same way.
     """
     raw = out([HERDR, "pane", "list"], timeout=6)
     if not raw:
@@ -253,11 +191,7 @@ def detached_branch(cwd, label):
 
 
 def workspace_labels():
-    """workspace_id -> (label, focused, has a $br lead). One call, because these tokens need all three.
-
-    Focus decides the lit-or-dim slot; the focus TRACKER repaints on change, this only has to agree
-    with it so a slow poll never drags a row back to the wrong slot - same contract as $br/$br_on.
-    """
+    """workspace_id -> label, which decides agent homes and names a fleet task's own branch."""
     raw = out([HERDR, "workspace", "list"], timeout=6)
     if not raw:
         return {}
@@ -265,46 +199,7 @@ def workspace_labels():
         spaces = json.loads(raw).get("result", {}).get("workspaces", [])
     except ValueError:
         return {}
-    return {w.get("workspace_id"): (w.get("label") or "", bool(w.get("focused")),
-                                    any((w.get("tokens") or {}).get(t) for t in ("br", "br_on")))
-            for w in spaces if w.get("workspace_id")}
-
-
-def row3_slots(values, focused):
-    """Place each zone's value in its lit or dim slot; the other stays empty and emits no separator."""
-    slots = {name: "" for name in ROW3_ORDER}
-    for lit, dim in ROW3_ZONES:
-        value = values.get(lit)
-        if not value:
-            continue
-        slots[dim if not focused else lit] = value
-    return slots
-
-
-def is_crewmate(label):
-    """A firstmate crewmate is a `└ ` projection; its PR, approvals and Jira ride their own row."""
-    return label.startswith(CREW_PREFIX)
-
-
-def pr_number(url):
-    """`#<number>` from a PR url, or "" without one."""
-    match = PR_NUMBER_RE.search(url or "")
-    return "#" + match.group(1) if match else ""
-
-
-def lead_with_prefix(tokens, prefix):
-    """Put `prefix` on the first lit token in row order. Mutates and returns `tokens`."""
-    for name in ROW3_ORDER:
-        if tokens.get(name):
-            tokens[name] = prefix + tokens[name]
-            break
-    return tokens
-
-
-def blank_tokens():
-    """Every row token empty; report() turns each into a --clear-token, so nothing lingers."""
-    return {name: "" for name in ROW3_ORDER}
-
+    return {w.get("workspace_id"): w.get("label") or "" for w in spaces if w.get("workspace_id")}
 
 
 def thread_files():
@@ -366,11 +261,11 @@ def create_thread(cwd, branch):
 
     wt-setup is the original writer, but it only runs for a
     worktree born through wt-add. herdr's built-in new_worktree, lazygit's worktree UI and a
-    bare `git worktree add` all produce a checkout with no thread file, leaving $jira and the
-    cached $pr fields blank forever — so this reconciles from the workspace list the poller
+    bare `git worktree add` all produce a checkout with no thread file, leaving jira_status and
+    the cached PR fields blank forever — so this reconciles from the workspace list the poller
     already walks instead of relying on the creation moment.
 
-    Ticket-shaped branches only: an untracked branch gets no Jira badge anyway, so a file for it
+    Ticket-shaped branches only: an untracked branch has no Jira ticket anyway, so a file for it
     would just add a `branch` collision to thread_for(). Schema and the skip-if-exists rule are
     copied from wt-setup so the two writers cannot disagree, and O_EXCL makes losing a
     concurrent race against it a no-op rather than a clobber.
@@ -407,69 +302,45 @@ def create_thread(cwd, branch):
     return None, None
 
 
-PR_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)$")
-# latestOpinionatedReviews skips COMMENTED, which latestReviews counts as a reviewer's newest state even though it revokes nothing.
-APPROVALS_QUERY = ("query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name)"
-                   "{pullRequest(number:$number){latestOpinionatedReviews(first:100){nodes{state}}}}}")
-
-
-def approval_count(url, worktree):
-    """Reviewers whose standing review on this PR is an approval, or None when GitHub gave no answer."""
-    match = PR_URL_RE.match(url or "")
-    if not match:
-        return None
-    owner, name, number = match.groups()
-    raw = out(["gh", "api", "graphql", "-f", "query=" + APPROVALS_QUERY, "-F", "owner=" + owner,
-               "-F", "name=" + name, "-F", "number=" + number, "--jq",
-               '[.data.repository.pullRequest.latestOpinionatedReviews.nodes[] | select(.state == "APPROVED")] | length'],
-              cwd=worktree)
-    return int(raw) if raw and raw.isdigit() else None
-
-
 def fetch(branch, worktree):
-    """(pr_url, approvals, ci_status, reached) from one gh call; None where it gave nothing."""
+    """(pr_url, ci_status, reached) from one gh call; None where it gave nothing."""
     pr = out(
         ["gh", "pr", "list", "--head", branch, "--state", "open",
-         "--json", "url,latestReviews,statusCheckRollup", "--jq", PR_JQ],
+         "--json", "url,statusCheckRollup", "--jq", PR_JQ],
         cwd=worktree,
     )
     if pr is None:
-        return None, None, None, False
+        return None, None, False
     if not pr:
         # "" = checked, no open PR (distinct from "not checked"), and no PR means no CI to show.
-        return "", None, "", True
+        return "", "", True
     parts = pr.split("\t")
-    url = parts[0] or None
-    approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-    exact = approval_count(url, worktree)
-    return url, approvals if exact is None else exact, parts[2] if len(parts) > 2 else "", True
+    return parts[0] or None, parts[1] if len(parts) > 1 else "", True
 
 
 def ticket_pr_fallback(key, worktree, entries):
-    """(pr_url, approvals, ci_status) for the TICKET when this branch has no PR of its own.
+    """(pr_url, ci_status) for the TICKET when this branch has no PR of its own.
 
     Several branches can feed one ticket's single PR - the three IHRWEB-12345 workspaces all
-    contribute to one, and none of them carries a PR itself, so every badge on those rows stayed
-    empty while the ticket's PR sat there with real review and CI state. The ticket is what the
-    row is about, so the ticket's PR is the honest thing to show.
+    contribute to one, and none of them carries a PR itself, so their records stayed empty while
+    the ticket's PR sat there with real CI state. The ticket is what the workspace is about, so
+    the ticket's PR is the honest thing to record.
 
     Only ever a FALLBACK: a branch with its own PR keeps reporting that one, never the ticket's.
     """
     if not key:
-        return None, None, None
+        return None, None
     url = next((d.get("pr_url") for _, d in entries
                 if d.get("id") == key and d.get("pr_url")), None)
     if not url:
-        return None, None, None
+        return None, None
     # PR_JQ starts at `.[0]` for `gh pr list`'s array, so `gh pr view`'s single object is wrapped rather than the filter duplicated.
     raw = out(["gh", "pr", "view", url, "--json",
-               "url,latestReviews,statusCheckRollup", "--jq", "[.] | " + PR_JQ], cwd=worktree)
+               "url,statusCheckRollup", "--jq", "[.] | " + PR_JQ], cwd=worktree)
     if not raw:
-        return None, None, None
+        return None, None
     parts = raw.split("\t")
-    approvals = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-    exact = approval_count(parts[0], worktree)
-    return parts[0] or None, approvals if exact is None else exact, parts[2] if len(parts) > 2 else ""
+    return parts[0] or None, parts[1] if len(parts) > 1 else ""
 
 
 def enqueue_finish(path, data, cwd):
@@ -507,11 +378,11 @@ def enqueue_finish(path, data, cwd):
         return
 
 
-def persist(path, data, url, approvals, ci, note):
+def persist(path, data, url, ci, note):
     """Atomic write-back of the status fields. tmp+rename so no reader sees half."""
+    data.pop("pr_approvals", None)
     if url is not None:
         data["pr_url"] = url or None
-        data["pr_approvals"] = approvals
     if ci is not None:
         data["ci_status"] = ci or None
     # Mirror, not append-only: a deleted or renamed note clears the field.
@@ -530,71 +401,24 @@ def persist(path, data, url, approvals, ci, note):
             pass
 
 
-def approval_glyph(approvals):
-    """The approval count as a digit; $pr's `equals` rule paints 0 red and every other count green."""
-    return str(approvals or 0)
-
-
-def render(approvals, ci):
-    """The $pr glyph, or "" when the branch has no PR (neither approvals nor CI came back)."""
-    if approvals is None and not ci:
-        return ""
-    return approval_glyph(approvals)
-
-
 def vault_note(cwd):
     """Vault-relative path of this workspace's ticket note, or "" — the lookup is vault-note's."""
     return out([VAULT_NOTE, "--relative", cwd], timeout=6) or ""
 
 
-def jira_short(status):
-    """Jira status as the sidebar shows it, or "" when the thread carries none.
-
-    Read-only, deliberately: `sb-agent-refresh` owns this field, so this renders whatever last
-    landed in the thread file and never invents a value.
-    """
-    text = (status or "").strip()
-    return JIRA_SHORT.get(text.lower(), text)
-
-
-def report(workspace, tokens, seq):
-    """Push this source's tokens; each empty value clears its token rather than blanking."""
-    base = [HERDR, "workspace", "report-metadata", workspace, "--source", SOURCE, "--seq", seq]
-    args = []
-    for name, value in tokens.items():
-        args += ["--token", name + "=" + value] if value else ["--clear-token", name]
-    if any(tokens.values()):
-        args = ["--ttl-ms", str(TTL_MS)] + args
-    subprocess.run(base + args, capture_output=True)
-
-
 def refresh_once():
     """One pass: fetch per workspace, persist only where a thread file owns that workspace.
-
-    Fetching is deliberately NOT conditional on a thread file existing. The two concerns are
-    separate: the $pr token wants the state of whatever branch this workspace is on, while
-    the thread file is a cache other tools read. Tying them together meant the workspace that
-    most wants the badge — a ticket worktree whose thread file was never written, or was
-    cleaned up — showed nothing at all. So every git workspace gets a badge, and the
-    write-back happens only when a thread file unambiguously matches.
 
     A ticket workspace with no file gets one created here (see create_thread), so the "never
     written" case self-heals on the next pass instead of staying blank forever.
     """
-    # No gh skips only the PR half: $jira is a local read and still renders.
+    # No gh skips only the PR half: the vault note is a local lookup and still persists.
     have_gh = bool(out(["gh", "--version"], timeout=5))
     entries = thread_files()
     labels = workspace_labels()
-    seq = str(time.time_ns())  # ns: monotonic, and above any manual probe seq
     for workspace, cwd in workspace_cwds().items():
-        label, focused, led = labels.get(workspace, ("", False, False))
-        if is_agent_home(label):
-            # Cleared, not skipped, so stale glyphs go rather than linger as placeholders.
-            report(workspace, blank_tokens(), seq)
-            continue
-        if os.path.basename(cwd.rstrip("/")) == REVIEW_POOL_LEAF:
-            # The branch row still renders - that one comes from the checkout itself and is true.
-            report(workspace, blank_tokens(), seq)
+        label = labels.get(workspace, "")
+        if is_agent_home(label) or os.path.basename(cwd.rstrip("/")) == REVIEW_POOL_LEAF:
             continue
         if not os.path.isdir(cwd):
             continue
@@ -607,7 +431,6 @@ def refresh_once():
         if not branch:
             branch = detached_branch(cwd, label)
         if not branch:
-            report(workspace, blank_tokens(), seq)
             continue
         # A branch can carry no ticket at all (`fm/pr19552-increment`); the workspace label is the last source before giving up.
         key = ticket_key(branch) or ticket_key(label)
@@ -617,52 +440,25 @@ def refresh_once():
             path, data = create_thread(cwd, branch)
             if path:
                 entries.append((path, data))
-        if not data and not ticket_key(branch) and key:
-            # Read-only: this row does not own that ticket's file, and persisting would let one workspace's PR overwrite another's.
-            data = next((d for _, d in entries if d.get("id") == key), None)
-            path = None
+        if not path:
+            continue
         note = vault_note(cwd)
-        url, approvals, ci, reached = fetch(branch, cwd) if have_gh else (None, None, None, False)
+        url, ci, reached = fetch(branch, cwd) if have_gh else (None, None, False)
         # Captured BEFORE the fallback: borrowing the ticket's still-open PR would suppress the vault-note freeze forever.
         own_pr_url = url
-        if have_gh and reached and not url:
-            # No PR on this branch - show the TICKET's PR rather than an empty row.
-            alt_url, alt_approvals, alt_ci = ticket_pr_fallback(key, cwd, entries)
+        if reached and not url:
+            # No PR on this branch - record the TICKET's PR rather than none.
+            alt_url, alt_ci = ticket_pr_fallback(key, cwd, entries)
             if alt_url:
-                url, approvals, ci = alt_url, alt_approvals, alt_ci
+                url, ci = alt_url, alt_ci
         # Must run BEFORE persist, which clears pr_url to None once the PR leaves the open set.
-        if path and data and reached and own_pr_url == "" and data.get("pr_url"):
+        if reached and own_pr_url == "" and data.get("pr_url"):
             enqueue_finish(path, data, cwd)
-        if path and (reached or note != (data.get("vault_note") or "")):
-            persist(path, data, url, approvals, ci, note)
-        if not reached:
-            # Offline, or not a GitHub remote: fall back to whatever the thread file already
-            # holds rather than blanking a badge because one pass could not reach GitHub.
-            approvals = data.get("pr_approvals") if data else None
-            ci = data.get("ci_status") if data else None
-            url = data.get("pr_url") if data else None
-        pr_glyph = render(approvals, ci)
-        jira = jira_short(data.get("jira_status") if data else None)
-        jira_value = UNMERGED if pr_glyph and jira == "done" else jira
-        if is_crewmate(label):
-            values = {"prn": pr_number(url), "cpr": pr_glyph, "cjira": jira_value}
-            slots = lead_with_prefix(row3_slots(values, focused), row_indent(label) + CREW_PREFIX)
-        else:
-            slots = row3_slots({JIRA_TOKEN: jira_value, TOKEN: pr_glyph}, focused)
-            slots = slots if led else indent_first(slots, label, ROW3_ORDER)
-        report(workspace, slots, seq)
-
-
-def clear_all():
-    seq = str(time.time_ns())
-    for workspace in workspace_cwds():
-        report(workspace, blank_tokens(), seq)
+        if reached or note != (data.get("vault_note") or ""):
+            persist(path, data, url, ci, note)
 
 
 def main():
-    if "--clear" in sys.argv:
-        clear_all()
-        return
     if "--once" in sys.argv:
         refresh_once()
         return
