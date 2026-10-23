@@ -61,6 +61,12 @@ startup_command = "wt-new inferno"
 name = "inferno/develop"
 path = "~/Developer/inferno/develop"
 alias = "id"
+{{ if eq .chezmoi.os "darwin" }}
+[[session]]
+name = "inferno/infinitary"
+path = "~/Developer/inferno/infinitary"
+alias = "ii"
+{{ end }}
 
 [[session]]
 name = "inferno/review"
@@ -105,6 +111,12 @@ startup_command = "wt-new web"
 name = "web/master"
 path = "~/Developer/web/master"
 alias = "wm"
+{{ if eq .chezmoi.os "darwin" }}
+[[session]]
+name = "web/infinitary"
+path = "~/Developer/web/infinitary"
+alias = "wi"
+{{ end }}
 
 [[session]]
 name = "web/review"
