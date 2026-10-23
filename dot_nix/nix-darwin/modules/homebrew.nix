@@ -33,6 +33,7 @@
       "vjeantet/tap"
       "abue-ammar/tinycast"
       "acsandmann/tap"
+      "infinitary-labs/tap"
     ];
 
     # CLI packages (formulae)
@@ -110,7 +111,7 @@
 
       # Productivity
       "kunchenguid/tap/baby-menu"
-      "kunchenguid/tap/firstmate-3000"
+      "infinitary-labs/tap/infinitary"
       "bitwarden"
       "localsend"
       "abue-ammar/tinycast/tinycast@beta"
