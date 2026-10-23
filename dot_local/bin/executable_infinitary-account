@@ -57,11 +57,17 @@ keychain_read() {
   security find-generic-password -a "$USER" -s "$1" -w 2>/dev/null || true
 }
 
-# Through `security -i` so the credential never appears on a process command line.
+# `security -i` keeps the credential off the command line but truncates past one 4096-byte line, so a longer item goes on argv.
 keychain_write() {
-  local value
+  local value cmd
   value="$(printf '%s' "$2" | hex)"
-  printf 'add-generic-password -U -a "%s" -s "%s" -X %s\n' "$USER" "$1" "$value" | security -i >/dev/null
+  cmd="$(printf 'add-generic-password -U -a "%s" -s "%s" -X %s' "$USER" "$1" "$value")"
+  if [ "${#cmd}" -lt 4000 ]; then
+    printf '%s\n' "$cmd" | security -i >/dev/null
+  else
+    security add-generic-password -U -a "$USER" -s "$1" -X "$value"
+  fi
+  [ "$(keychain_read "$1")" = "$2" ] || die "the write to the '$1' keychain item did not read back intact"
 }
 
 file_write() {
@@ -81,11 +87,15 @@ live_login() {
   live_json | jq -c '.claudeAiOauth // empty' 2>/dev/null || true
 }
 
+write_store() {
+  if is_mac; then keychain_write "$LIVE_SERVICE" "$1"; else file_write "$HOME/.claude/.credentials.json" "$1"; fi
+}
+
 set_live_login() {
   local merged base="${2:-$(live_json)}"
   merged="$(printf '%s' "$base" | jq -c --argjson login "$1" '(. // {}) + {claudeAiOauth: $login}' 2>/dev/null)" ||
     merged="$(jq -cn --argjson login "$1" '{claudeAiOauth: $login}')"
-  if is_mac; then keychain_write "$LIVE_SERVICE" "$merged"; else file_write "$HOME/.claude/.credentials.json" "$merged"; fi
+  write_store "$merged"
 }
 
 slot_read() {
@@ -212,7 +222,11 @@ login)
   before="$(live_json)"
   # A sign-in rewrites the shared ~/.claude.json oauthAccount, so the terminal's copy is restored after.
   saved_account="$(jq -c '.oauthAccount // empty' "$HOME/.claude.json" 2>/dev/null || true)"
-  env -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_ACCOUNT -u ANTHROPIC_API_KEY "$(real_claude)" auth login --claudeai
+  # A failed sign-in can leave the store rewritten without its MCP sign-ins, so the saved copy goes back.
+  if ! env -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_ACCOUNT -u ANTHROPIC_API_KEY "$(real_claude)" auth login --claudeai; then
+    [ -n "$before" ] && write_store "$before"
+    die "the sign-in failed; the previous default login and MCP sign-ins were put back"
+  fi
   login="$(live_login)"
   [ -n "$login" ] || die "the sign-in did not leave a login in the default store"
   [ -n "$before" ] && set_live_login "$login" "$before"
