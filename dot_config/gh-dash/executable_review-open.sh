@@ -12,8 +12,9 @@
 #   hunk       -        hunk alone, no agent (the Library's "Show diff in terminal")
 #   claude     A        Claude /review
 #   fan        F        sealed Opus/gpt finders + Lavish merge owner
+#   resolve    -        agent runs /resolve-pr-comments on your own PR (the Library's flag button)
 #
-# REVIEW_HARNESS=pi runs full/resume on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
+# REVIEW_HARNESS=pi runs full/resume/resolve on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -85,7 +86,7 @@ REVIEW_PI_MODEL=${REVIEW_PI_MODEL:-openai-codex/gpt-6.1-sol} REVIEW_PI_THINKING=
 case "$harness" in
   claude) ;;
   pi)
-    case "$mode" in full | resume) ;; *) echo "review-open: the pi harness runs full reviews only, not $mode" >&2; exit 2 ;; esac
+    case "$mode" in full | resume | resolve) ;; *) echo "review-open: the pi harness runs full reviews and resolves only, not $mode" >&2; exit 2 ;; esac
     [[ "$REVIEW_PI_MODEL" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+$ ]] || { echo "review-open: invalid REVIEW_PI_MODEL" >&2; exit 2; }
     case "$REVIEW_PI_THINKING" in off | minimal | low | medium | high | xhigh) ;; *) echo "review-open: invalid REVIEW_PI_THINKING" >&2; exit 2 ;; esac
     ;;
@@ -153,7 +154,7 @@ AGENT_FLAGS_WIN='unset CLAUDE_CODE_EFFORT_LEVEL CLAUDE_EFFORT ANTHROPIC_MODEL; '
 
 CLAUDE_ACCOUNT_ENV=()
 case "$harness:$mode" in
-  claude:full | claude:resume | claude:diff | claude:claude | claude:fan)
+  claude:full | claude:resume | claude:diff | claude:claude | claude:fan | claude:resolve)
     resolve_review_claude_account
     CLAUDE_ACCOUNT_ENV=(--env CLAUDE_ACCOUNT="$REVIEW_CLAUDE_ACCOUNT")
     echo "review-open: Claude account $REVIEW_CLAUDE_ACCOUNT ($REVIEW_CLAUDE_ACCOUNT_REASON)"
@@ -284,6 +285,19 @@ open_fanout_owner() {
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "${GH_KEYRING}${AGENT_FLAGS_WIN}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
+# The brief lives outside the worktree so the agent's own `git status` stays clean.
+open_resolver() {
+  local brief="$stamp_dir/${repo//\//_}-$pr-resolve.txt"
+  printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push origin HEAD:refs/heads/%s\n' "$pr" "$2" >"$brief"
+  if [ "$harness" = pi ]; then
+    mux "💬 #$pr" "$1" \
+      "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'
+  else
+    mux "${CLAUDE_ACCOUNT_ENV[@]}" "💬 #$pr" "$1" \
+      "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat '"$brief"')"'
+  fi
+}
+
 background_review() {
   local desktop_open=1 cdp=""
   # Queued reviews still route through tailnet so the url stays https; they just never open it.
@@ -378,6 +392,15 @@ case "$mode" in
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
     open_claude_review "$WT"
+    ;;
+  resolve)
+    window_opts=(--no-focus)
+    WT="$("$wt_script" acquire "$pr")"
+    HEAD="$(head_ref)"
+    git -C "$WT" fetch origin "$HEAD" 2>/dev/null
+    git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
+    open_resolver "$WT" "$HEAD"
     ;;
   *)
     echo "review-open: unknown mode: $mode" >&2
