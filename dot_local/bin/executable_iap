@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Infinitary on the personal account, on this machine and the dev box.
+exec "$HOME/.local/bin/infinitary-account" personal "$@"
