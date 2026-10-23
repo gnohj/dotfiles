@@ -101,7 +101,8 @@ export TASKS_EVENT_DAYS=14
 # PR-review worktrees; ~/.local/share/chezmoi: the dotfiles source itself, so mise
 # loads its own config there cleanly instead of warning/erroring.
 # ~/.no-mistakes: the pipeline's per-run repo copies, created per run id so nothing narrower can scope them.
-export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi:$HOME/.no-mistakes"
+# ~/.config/infinitary/work: Infinitary's clones and crew worktrees on a Linux work computer.
+export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi:$HOME/.no-mistakes:$HOME/.config/infinitary/work"
 
 # Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: herdr's panes skip it.
 export BROWSER="desktop-open"
