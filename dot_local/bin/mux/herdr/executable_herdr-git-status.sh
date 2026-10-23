@@ -368,7 +368,7 @@ for w, label in ws_label.items():
     br = ""
     kind, pr, model = kinds.get(w, ("", "", ""))
     if projected and kind in KIND_MARK:
-        br = " ".join(filter(None, (KIND_MARK[kind], pr, model)))
+        br = KIND_MARK[kind] + " " + " · ".join(filter(None, (pr, model)))
     elif c and os.path.isdir(c) and wants_branch(label) and not (projected and not detached_head(c)):
         br = branch(c, keep_key=projected)
     if br:
