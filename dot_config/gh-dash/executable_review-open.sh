@@ -277,7 +277,7 @@ open_finder_pi() {
   [ -n "${REVIEW_FINDER_LADDER:-}" ] && ladder_env=(--env REVIEW_FINDER_LADDER="$REVIEW_FINDER_LADDER")
   mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
     --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
-    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" "${ladder_env[@]}" "🔎2 #$pr ${2:-gpt}" "$1" \
+    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" ${ladder_env[@]+"${ladder_env[@]}"} "🔎2 #$pr ${2:-gpt}" "$1" \
     "$GH_KEYRING"'"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
