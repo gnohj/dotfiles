@@ -32,6 +32,7 @@
 #   claude-account token-status [a]     one word: ok|warn|critical|expired|missing
 #   claude-account token-age [a]        human line: age, days left, expiry date
 #   claude-account token-check [--probe]  both accounts; --probe also asks the API
+#   claude-account probe [a]            one API call: live|REJECTED|missing|offline (code); exit 1 unless live or missing
 #   claude-account set-token-lifetime <days>  assumed grant lifetime (default 365)
 #   claude-account usage [a]            cached 5h/7d utilization TSV; refreshes in background
 #   claude-account usage-refresh [a]    fetch now (locked); for cron or a forced update
@@ -625,6 +626,12 @@ usage-refresh)
 token-status) token_status "${2:-}" ;;
 token-age) token_age "${2:-}" ;;
 token-check) token_check "${2:-}" ;;
+probe)
+  case "${2:-}" in personal | work | "") ;; *) echo "usage: claude-account probe [personal|work]" >&2; exit 2 ;; esac
+  _p="$(probe_token "${2:-$(resolve_account)}")"
+  printf '%s\n' "$_p"
+  case "$_p" in live | missing) ;; *) exit 1 ;; esac
+  ;;
 set-token-lifetime)
   [ -n "${2:-}" ] || {
     echo "usage: claude-account set-token-lifetime <days>" >&2

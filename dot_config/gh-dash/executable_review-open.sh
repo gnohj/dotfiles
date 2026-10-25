@@ -88,7 +88,7 @@ if [ "$mode" = resume ] && [ -z "${REVIEW_HARNESS:-}" ] && [ -f "$harness_file" 
   done <"$harness_file"
 fi
 harness=${REVIEW_HARNESS:-claude}
-REVIEW_PI_MODEL=${REVIEW_PI_MODEL:-openai-codex/gpt-6.1-sol} REVIEW_PI_THINKING=${REVIEW_PI_THINKING:-high}
+REVIEW_PI_MODEL=${REVIEW_PI_MODEL:-github-copilot/gpt-6.1-sol} REVIEW_PI_THINKING=${REVIEW_PI_THINKING:-high}
 case "$harness" in
   claude) ;;
   pi)
@@ -158,12 +158,29 @@ GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '
 # A herdr server started from a firstmate home inherits .zshenv's medium effort, and that env outranks --effort.
 AGENT_FLAGS_WIN='unset CLAUDE_CODE_EFFORT_LEVEL CLAUDE_EFFORT ANTHROPIC_MODEL; '
 
+# A dead token or an Anthropic outage otherwise opens a background pane that only ever shows an error.
+require_claude() {
+  local status reason
+  status="$("$HOME/.local/bin/claude-account" probe "$REVIEW_CLAUDE_ACCOUNT" 2>/dev/null)" && return 0
+  case "$status" in
+    REJECTED) reason="the $REVIEW_CLAUDE_ACCOUNT Claude token was rejected - run claude setup-token, then claude-account set-token $REVIEW_CLAUDE_ACCOUNT" ;;
+    offline*) reason="the Claude API is down or unreachable (HTTP $(printf '%s' "$status" | tr -dc '0-9'))" ;;
+    *) reason="the Claude API gave no answer" ;;
+  esac
+  echo "review-open: not starting, $reason"
+  notify_msg "PR $pr review not started: $reason"
+  rm -f "$stamp"
+  trap - EXIT
+  exit 1
+}
+
 CLAUDE_ACCOUNT_ENV=()
 case "$harness:$mode" in
   claude:full | claude:resume | claude:diff | claude:claude | claude:fan | claude:resolve)
     resolve_review_claude_account
     CLAUDE_ACCOUNT_ENV=(--env CLAUDE_ACCOUNT="$REVIEW_CLAUDE_ACCOUNT")
     echo "review-open: Claude account $REVIEW_CLAUDE_ACCOUNT ($REVIEW_CLAUDE_ACCOUNT_REASON)"
+    require_claude
     ;;
 esac
 
@@ -371,7 +388,7 @@ case "$mode" in
         echo "review-open: ${reason:-second-model finder unavailable} - single-finder review"
         printf '%s\n' "${reason:-second-model finder unavailable - the eligibility check printed nothing}" >"$WT/.review/gpt.failed"
         write_finder_meta "$WT" gpt ladder "$REVIEW_FINDER_MODEL" "$REVIEW_FINDER_THINKING"
-        notify_msg "PR $pr: Codex/GPT finder unavailable, continuing with Claude only"
+        notify_msg "PR $pr: second-model finder unavailable, continuing with Claude only"
         ;;
       *) open_finder_pi "$WT" "$(finder_label "$RUNG")" ;;
     esac
