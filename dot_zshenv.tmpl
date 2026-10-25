@@ -129,4 +129,9 @@ fi
 
 # Lavish reads its allowlist once at server start and outlives its starter, so every shell sets it; cached because `tailscale status` is too slow per-shell.
 export LAVISH_AXI_ALLOWED_HOSTS="${LAVISH_AXI_ALLOWED_HOSTS:-$(cat "$HOME/.cache/tailnet-host" 2>/dev/null)}"
+
+# Omarchy exports OMARCHY_PATH only to bash and the Hyprland session; `omarchy update` dies under set -u without it.
+if [[ -z "$OMARCHY_PATH" && -r /usr/share/omarchy/default/bash/env-bootstrap ]]; then
+  emulate sh -c '. /usr/share/omarchy/default/bash/env-bootstrap'
+fi
 {{- end }}
