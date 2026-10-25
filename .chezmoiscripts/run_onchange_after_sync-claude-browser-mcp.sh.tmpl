@@ -4,6 +4,8 @@ set -euo pipefail
 
 [ "$(uname -s)" = Darwin ] || exit 0
 command -v claude >/dev/null 2>&1 || exit 0
+# The ~/.local/bin/claude wrapper refuses a CLAUDE_CONFIG_DIR that differs from the pinned account's store.
+claude_bin="$(mise which claude 2>/dev/null || command -v claude)"
 
 for config_dir in "" "$HOME/.claude-work"; do
   if [ -n "$config_dir" ]; then
@@ -12,7 +14,7 @@ for config_dir in "" "$HOME/.claude-work"; do
   else
     unset CLAUDE_CONFIG_DIR
   fi
-  claude mcp remove chrome-devtools -s user >/dev/null 2>&1 || true
-  claude mcp add -s user chrome-devtools -- chrome-devtools-mcp-launch >/dev/null
+  "$claude_bin" mcp remove chrome-devtools -s user >/dev/null 2>&1 || true
+  "$claude_bin" mcp add -s user chrome-devtools -- chrome-devtools-mcp-launch >/dev/null
 done
 unset CLAUDE_CONFIG_DIR

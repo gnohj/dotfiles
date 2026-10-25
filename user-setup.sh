@@ -511,6 +511,8 @@ case "$(uname -s)" in
 esac
 
 if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
+  # The ~/.local/bin/claude wrapper refuses a CLAUDE_CONFIG_DIR that differs from the pinned account's store.
+  CLAUDE_BIN="$(mise which claude 2>/dev/null || command -v claude)"
   for config_dir in "${MCP_CONFIG_DIRS[@]}"; do
     if [ -n "$config_dir" ]; then
       mkdir -p "$config_dir"
@@ -541,13 +543,13 @@ if [ -f "$MCP_FILE" ] && command -v claude &>/dev/null; then
         continue
       fi
 
-      if claude mcp get "$name" &>/dev/null; then
+      if "$CLAUDE_BIN" mcp get "$name" &>/dev/null; then
         print_success "MCP already configured: $name"
       elif [ "$type" = "http" ]; then
-        claude mcp add -s user --transport http "$name" "$target" "${extra[@]}" >/dev/null &&
+        "$CLAUDE_BIN" mcp add -s user --transport http "$name" "$target" "${extra[@]}" >/dev/null &&
           print_success "Added MCP server: $name"
       else
-        claude mcp add -s user "$name" -- "$target" "${extra[@]}" >/dev/null &&
+        "$CLAUDE_BIN" mcp add -s user "$name" -- "$target" "${extra[@]}" >/dev/null &&
           print_success "Added MCP server: $name"
       fi
     done < "$MCP_FILE"
