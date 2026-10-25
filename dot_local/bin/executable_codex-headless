@@ -27,11 +27,13 @@ run_on_claude() {
   cd "$dir"
   eval "$("$HOME/.local/bin/claude-account" env)"
   local ask="Run the /$skill skill non-interactively and finish without asking questions."
-  [ $# -gt 1 ] && ask="$ask Arguments: $2"
+  [ -n "${2:-}" ] && ask="$ask Arguments: $2"
   exec "$HOME/.local/bin/claude" -p --dangerously-skip-permissions --model claude-sonnet-5-5 --effort medium "$ask" </dev/null
 }
 args="$*"
 [ -n "$codex_bin" ] || run_on_claude "codex is unavailable" "$args"
+# Logged out, codex burns five reconnects before its 401; the status check answers instantly.
+"$codex_bin" login status >/dev/null 2>&1 || run_on_claude "codex is not logged in" "$args"
 
 log="$(mktemp "${TMPDIR:-/tmp}/codex-headless.XXXXXX")"
 trap 'rm -f "$log"' EXIT

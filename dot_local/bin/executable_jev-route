@@ -18,7 +18,6 @@ ROUTE_CATALOGS = {
     "harness": {
         "claude": "Broad, ambiguous, architecture-heavy, context-heavy, or coordination work that benefits from deep interactive reasoning.",
         "pi": "Well-defined bounded implementation or debugging where an interactive agent and selectable model providers are useful.",
-        "codex": "Standalone noninteractive coding execution, a mechanical change, or an independent second implementation or review.",
     },
     "tool": {
         "local": "Read, search, edit, execute, or test files and commands in the local repository.",
