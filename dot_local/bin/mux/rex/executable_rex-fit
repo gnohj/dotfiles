@@ -12,7 +12,7 @@ import tty
 
 
 def fitted_size(width_fraction, height_fraction):
-    rows, cols = struct.unpack("hh", fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, b"\0" * 4))
+    rows, cols, _, _ = struct.unpack("HHHH", fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, b"\0" * 8))
     return max(1, int(rows * height_fraction)), max(1, int(cols * width_fraction))
 
 
