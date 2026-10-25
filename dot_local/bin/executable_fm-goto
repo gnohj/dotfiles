@@ -3,10 +3,60 @@
 set -eu
 
 root="${FIRSTMATE_DIR:-$HOME/Developer/firstmate}"
+home="${FM_HOME:-$HOME/.local/share/firstmate}"
 
-# tmux and bare shells have no workspace to route to; only herdr owns this concept.
-[ -n "${HERDR_SOCKET_PATH:-}" ] || exit 1
-herdr="$(command -v herdr 2>/dev/null)" || exit 1
+# The lock outlives its holder and pids get reused, so a live primary is a live lock pid sitting in the code root.
+lockpid=""
+[ -r "$home/state/.lock" ] && read -r lockpid <"$home/state/.lock" || true
+if [ -n "$lockpid" ]; then
+  if [ -d "/proc/$lockpid" ]; then
+    cwd="$(readlink "/proc/$lockpid/cwd" 2>/dev/null)" || cwd=""
+  else
+    cwd="$(lsof -a -p "$lockpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')" || cwd=""
+  fi
+  [ "$cwd" = "$root" ] || lockpid=""
+fi
+
+primary_env() {
+  if [ -r "/proc/$lockpid/environ" ]; then
+    tr '\0' '\n' <"/proc/$lockpid/environ" | sed -n "s/^$1=//p" | head -n 1
+  else
+    ps eww -o command= -p "$lockpid" 2>/dev/null | tr ' ' '\n' | sed -n "s/^$1=//p" | head -n 1
+  fi
+}
+
+rex_cli() {
+  local bundle="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+  if [ -n "${REX_BIN_DIR:-}" ] && [ -x "$REX_BIN_DIR/rex" ]; then printf '%s' "$REX_BIN_DIR/rex"
+  elif command -v rex >/dev/null 2>&1; then command -v rex
+  elif [ -x "$bundle" ]; then printf '%s' "$bundle"
+  else return 1
+  fi
+}
+
+# A primary inside Rex owns its block outright: show its session and block, wherever this `fm` was typed.
+if [ -n "$lockpid" ] && [ "$(primary_env TERM_PROGRAM)" = rex ]; then
+  session="$(primary_env REX_SESSION)"
+  block="$(primary_env REX_BLOCK)"
+  [ -n "$block" ] && [ "$block" = "${REX_BLOCK:-}" ] && exit 1
+  if rex="$(rex_cli)"; then
+    "$rex" --autostart=false do session.select "session_id=$session" >/dev/null 2>&1 || true
+    "$rex" --autostart=false focus -s "$session" "$block" >/dev/null 2>&1 || true
+  fi
+  echo "fm: the fleet is already sailing in Rex block $block - focused it." >&2
+  echo "fm: to browse or edit it from here instead, run: fm-compass" >&2
+  exit 0
+fi
+
+herdr=""
+[ -n "${HERDR_SOCKET_PATH:-}" ] && herdr="$(command -v herdr 2>/dev/null)" || herdr=""
+
+# Without herdr there is nothing to focus, but a primary running elsewhere still must not get a rival.
+if [ -z "$herdr" ]; then
+  [ -n "$lockpid" ] || exit 1
+  echo "fm: the fleet is already sailing as pid $lockpid outside this multiplexer - not starting a second primary." >&2
+  exit 0
+fi
 
 fleet="$("$HOME/.local/bin/fm-fleet-converge" json 2>/dev/null)" || fleet=""
 live_pane=""
@@ -20,6 +70,11 @@ if [ -n "$live_pane" ]; then
   "$herdr" pane focus "$live_pane" >/dev/null 2>&1 || true
   echo "fm: the fleet is already sailing in $live_pane - focused it." >&2
   echo "fm: to browse or edit it from here instead, run: fm-compass" >&2
+  exit 0
+fi
+
+if [ -n "$lockpid" ]; then
+  echo "fm: the fleet is already sailing as pid $lockpid outside herdr - not starting a second primary." >&2
   exit 0
 fi
 
