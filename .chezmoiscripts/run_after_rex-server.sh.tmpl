@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# run_after, not run_onchange: a box that gains REX_PACKAGE_TOKEN later must still install Rex.
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+if ! command -v rex >/dev/null 2>&1; then
+  # The token is the opt-in: hosts without it (the work VPS) never get Rex.
+  [ -n "${REX_PACKAGE_TOKEN:-}" ] || exit 0
+  echo "==> installing Rex from its package repository"
+  dir="$(mktemp -d)"
+  trap 'rm -rf "$dir"' EXIT
+  printf 'user = "rex:%s"\n' "$REX_PACKAGE_TOKEN" | curl -fsSL -K - -o "$dir/install.sh" https://pkgs.superlogical.com/rex/install.sh
+  # Run as root so OMARCHY_ALLOW_DIRECT_PACMAN reaches pacman's hook; Omarchy otherwise refuses install.sh's `pacman -Syu`.
+  if ! sudo --preserve-env=REX_PACKAGE_TOKEN env OMARCHY_ALLOW_DIRECT_PACMAN=1 sh "$dir/install.sh"; then
+    echo "!! Rex install failed - see https://www.superlogical.com/rex/docs/linux/installation"
+    exit 0
+  fi
+  # install.sh writes its token-bearing repo file root-only, which breaks every non-root pacman read, Omarchy migrations included.
+  [ ! -f /etc/pacman.d/rex.conf ] || sudo chmod 644 /etc/pacman.d/rex.conf
+fi
+
+unit=rex-server.service
+if [ "$(systemctl --user show -p LoadState --value "$unit")" != loaded ] || [ "$(systemctl --user show -p NeedDaemonReload --value "$unit")" = yes ]; then
+  systemctl --user daemon-reload
+fi
+systemctl --user is-enabled --quiet "$unit" || systemctl --user enable "$unit"
+# Start only when stopped: restarting would kill every live Rex session, so a changed unit is adopted at the next boot.
+systemctl --user is-active --quiet "$unit" || systemctl --user start "$unit" || true
+
+# Serve config lives in tailscaled's state, so this runs once per box; a Unix-socket target needs root even for the operator.
+serve_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rex/serve.sock"
+if command -v tailscale >/dev/null 2>&1 && ! tailscale serve status 2>/dev/null | grep -q "^https://.*:7297 "; then
+  sudo tailscale serve --bg --https=7297 "unix:$serve_sock" || echo "!! tailscale serve for Rex failed - run: sudo tailscale serve --bg --https=7297 unix:$serve_sock"
+fi

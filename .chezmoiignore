@@ -170,6 +170,9 @@ Library/
 # self-guard on uname, so only the unit files need skipping here.
 .config/systemd/user/herdr-server.service
 
+# Rex personal server - Linux only; on macOS the Rex app runs its own server.
+.config/systemd/user/rex-server.service
+
 # Autopush timer — same story: macOS schedules the identical script through the
 # nix-darwin launchd agent `github-auto-push` instead.
 .config/systemd/user/github-auto-push.service
