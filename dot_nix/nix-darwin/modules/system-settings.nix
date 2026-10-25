@@ -153,7 +153,7 @@ in
       "Workspace.terminalFontPointSize" = 15;
       "Workspace.interfaceStyle" = "glass";
       "Workspace.usesPaneGlass" = true;
-      "Workspace.inactivePaneFadeMode" = "none";
+      "Workspace.inactivePaneFadeMode" = "both";
       "Workspace.showsIdleProgramsInActivity" = true;
       "Workspace.showsProgramStatusInTabs" = true;
     };
