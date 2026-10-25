@@ -58,7 +58,7 @@ mates() {
       a="sm${suffix:0:i}"
       clash=""
       for other in "$HOME"/.local/share/firstmate-sm-*; do
-        [ "$other" = "$d" ] && continue
+        [ -d "$other" ] && [ "$other" != "$d" ] || continue
         osuffix="${other##*/firstmate-sm-}"
         [ "${osuffix:0:i}" = "${suffix:0:i}" ] && clash=1
       done
