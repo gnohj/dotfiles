@@ -312,25 +312,73 @@ rex.bind("resize/=", "pane.balance")
 rex.bind("resize/enter", "client.mode.exit")
 rex.bind("resize/q", "client.mode.exit")
 
+-- Keyboard session switches record the two sessions last left, as rex-herdr ids (<host>~<id> for another host), for ctrl+enter.
+local function session_ref(ctx)
+  if ctx.session_id == nil then return nil end
+  local id = (ctx.session_id:gsub("^session:", ""))
+  if type(ctx.server) == "string" then return (ctx.server:gsub("[^%w]", "-")) .. "~" .. id end
+  return id
+end
+
+local function left_sessions()
+  local f = io.open(STATE_DIR .. "/left-sessions")
+  if f == nil then return {} end
+  local refs = {}
+  for line in f:lines() do
+    if line ~= "" then table.insert(refs, line) end
+  end
+  f:close()
+  return refs
+end
+
+local function leave_session(ctx)
+  local here, refs = session_ref(ctx), left_sessions()
+  if here ~= nil and refs[1] ~= here then write_state("left-sessions", here .. "\n" .. (refs[1] or "")) end
+end
+
 -- Sessions = herdr workspaces (next/previous_workspace, rename on prefix+$, close_workspace).
-rex.bind(P .. "w", "session.next")
-rex.bind(P .. "shift+w", "session.previous")
+rex.action{
+  name = "switch_session",
+  title = "Switch Session",
+  category = "herdr",
+  args = { action = "string" },
+  run = function(ctx, args)
+    leave_session(ctx)
+    rex.client.queue(args.action)
+  end,
+}
+rex.bind(P .. "w", "switch_session", { action = "session.next" })
+rex.bind(P .. "shift+w", "switch_session", { action = "session.previous" })
 rex.bind(P .. "shift+4", "session.rename")
 rex.bind(P .. "shift+d", "session.close")
-rex.bind(P .. "g", "session.switch")
+rex.bind(P .. "g", "switch_session", { action = "session.switch" })
 
--- ctrl+enter: bounce to the session last left with ctrl+enter (herdr hack-herdr-last-workspace.sh).
+-- ctrl+enter: bounce to the session last left by keyboard (herdr hack-herdr-last-workspace.sh); a cancelled picker falls back to the one before.
 rex.action{
   name = "last_session",
   title = "Last Session Toggle",
   category = "herdr",
   run = function(ctx, args)
-    local target = read_state("last-session")
-    write_state("last-session", ctx.session_id)
-    if target ~= nil and target ~= ctx.session_id then
-      rex.client.queue("session.select", { session_id = target })
-    else
+    local here, live = session_ref(ctx), nil
+    if ctx.server == nil then
+      live = {}
+      for _, s in ipairs((rex.call("session.list") or {}).sessions or {}) do live[(s.session_id:gsub("^session:", ""))] = true end
+    end
+    local target
+    for _, ref in ipairs(left_sessions()) do
+      if ref ~= here and (live == nil or ref:find("~", 1, true) or live[ref]) then
+        target = ref
+        break
+      end
+    end
+    leave_session(ctx)
+    if target == nil then
       rex.client.queue("session.previous")
+    elseif ctx.server == nil and not target:find("~", 1, true) then
+      rex.client.queue("session.select", { session_id = "session:" .. target })
+    else
+      fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
+                                    { detach = true, env = { REX_BIN_DIR = REX_BIN } })))
     end
   end,
 }
@@ -384,6 +432,7 @@ rex.action{
   category = "herdr",
   run = function(ctx, args)
     local cwd = block_cwd(ctx.block_id)
+    leave_session(ctx)
     open_session(cwd:match("([^/]+)/?$") or "home", cwd)
   end,
 }
@@ -408,6 +457,7 @@ rex.action{
   title = "Sesh Picker",
   category = "Sesh",
   run = function(ctx, args)
+    leave_session(ctx)
     popup(ctx, 0.22, 0.12, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' })
   end,
 }
@@ -447,6 +497,7 @@ for _, e in ipairs(sesh_entries) do
       category = "Sesh",
       keywords = (e.alias or "") .. " " .. dir,
       run = function(ctx, args)
+        leave_session(ctx)
         if e.rex_host == nil and ctx.server == nil then
           open_session(e.name, dir, e.startup_command)
           return
