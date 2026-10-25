@@ -38,6 +38,18 @@ remote() {
   "$rex" ${server[@]+"${server[@]}"} "$@"
 }
 
+# sesh.toml plus the Mac's Rex-only rex.toml, which sesh itself never reads.
+rex_toml="$HOME/.config/sesh/rex.toml"
+
+entries() {
+  sesh list -c -j 2>/dev/null
+  [ ! -f "$rex_toml" ] || sesh -C "$rex_toml" list -c -j 2>/dev/null
+}
+
+entry_key() {
+  awk -v n="$1" -v k="$2" -F'"' 'FNR == 1 || /^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ ("^" k " *= *$") && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" "$rex_toml" 2>/dev/null
+}
+
 select_session() {
   app_do session.select session_id="session:$sid"
 }
@@ -72,11 +84,12 @@ case "${1:-} ${2:-}" in
     remote block close -s "session:$sid" "block:${3#*:}" >/dev/null 2>&1
     ;;
   "layout --entry")
-    # A rex_host entry opens on that host, its dir sent as ~/... so the host's own sesh_open resolves it.
-    host=$(awk -v n="$3" -F'"' '/^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ /^rex_host *= *$/ && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" 2>/dev/null)
+    # A rex_host entry opens on that host as rex_label (else its name), its dir sent as ~/... so the host's own sesh_open resolves it.
+    host=$(entry_key "$3" rex_host)
+    label=$(entry_key "$3" rex_label)
     [ -z "$host" ] || server=(-S "$host")
-    args=$(sesh list -c -j 2>/dev/null | jq -c --arg n "$3" --arg home "$HOME" --arg pinned "$host" \
-      'first(.[] | select(.Name == $n) | {label: .Name, dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand})')
+    args=$(entries | jq -sc --arg n "$3" --arg home "$HOME" --arg pinned "$host" --arg label "$label" \
+      'first(add[] | select(.Name == $n) | {label: (if $label != "" then $label else .Name end), dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand})')
     [ -n "$args" ] || die "No sesh.toml entry named $3."
     app_do sesh_open --args "$args"
     ;;

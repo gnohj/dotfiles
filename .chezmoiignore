@@ -77,6 +77,9 @@ tasks
 # macOS LaunchAgents/Daemons
 Library/
 
+# Rex picker entries that open on the Dev Box from the Mac
+.config/sesh/rex.toml
+
 # macOS window management & system utilities
 .config/borders/
 .config/helium/

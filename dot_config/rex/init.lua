@@ -432,7 +432,11 @@ local function read_sesh(path)
   return entries
 end
 
-for _, e in ipairs(read_sesh(HOME .. "/.config/sesh/sesh.toml")) do
+-- rex.toml adds the Mac's Rex-only entries that open on another host; sesh itself never reads it.
+local sesh_entries = read_sesh(HOME .. "/.config/sesh/sesh.toml")
+for _, e in ipairs(read_sesh(HOME .. "/.config/sesh/rex.toml")) do table.insert(sesh_entries, e) end
+
+for _, e in ipairs(sesh_entries) do
   if e.name ~= nil and e.path ~= nil then
     local dir = e.path:gsub("^~", HOME):gsub("(.)/$", "%1")
     local action = "sesh_" .. e.name:lower():gsub("[^%w]", "_")

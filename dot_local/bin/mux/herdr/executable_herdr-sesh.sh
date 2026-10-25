@@ -55,6 +55,7 @@ build_list() {
   src="$(mktemp -d "${TMPDIR:-/tmp}/herdr-sesh-src.XXXXXX")" || return 1
   "$herdr" api snapshot >"$src/sn" 2>/dev/null &
   sesh list -c -j >"$src/en" 2>/dev/null &
+  [ "${SESH_REX:-}" != 1 ] || sesh -C "$HOME/.config/sesh/rex.toml" list -c -j >"$src/rx" 2>/dev/null &
   zoxide query -l >"$src/zo" 2>/dev/null &
   # `sesh list` omits aliases in every output mode, so read them straight from sesh.toml.
   "$HOME/.config/sesh/sesh-aliases.sh" >"$src/al" 2>/dev/null &
@@ -99,6 +100,10 @@ def load_aliases():
     except Exception: pass
     return by_name, by_path
 alias_by_name, alias_by_path = load_aliases()
+# Rex also lists rex.toml, the Mac entries that open on another host; sesh, herdr and tmux never read it.
+rex_entries = (load("rx") or []) if os.environ.get("SESH_REX") == "1" else []
+for e in rex_entries:
+    if e.get("Name") and e.get("Alias"): alias_by_name.setdefault(e["Name"], e["Alias"])
 snapshot = (load("sn") or {}).get("result", {}).get("snapshot", {})
 # Chips pad to the widest alias so a one-letter one does not pull its name a column left.
 ALIAS_W = max([len(a) for a in list(alias_by_name.values()) + list(alias_by_path.values())] or [0])
@@ -109,6 +114,7 @@ def tc(hexs):  # hex "#rrggbb" -> truecolor SGR (matches the popup palette)
     return "\033[38;2;%d;%d;%dm" % (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 RESET, BOLD = "\033[0m", "\033[1m"
+REX = os.environ.get("SESH_REX") == "1"
 fg, dim, accent = tc(os.environ.get("FG")), tc(os.environ.get("DIM")), tc(os.environ.get("ACCENT"))
 TAB = "\t"
 rows = []
@@ -148,6 +154,12 @@ def dclip(s, w, left=False):  # plain-text clip to display width w, "…" on the
 def dpad(s, w):
     p = w - dwidth(s)
     return s + " " * p if p > 0 else s
+
+# Rex spans hosts, so each top-level row leads with its host: the Apple logo for the Mac, the Linux penguin for anything else (both as in sketchybar).
+HOST_W = 3 if REX else 0
+def host_cell(host):
+    mac = _sys.platform == "darwin" if not host else "mac" in host.lower()
+    return dpad("\uf179" if mac else "\uf17c", 2) + " " if REX else ""
 
 import time
 SEP = "❯"
@@ -195,7 +207,7 @@ def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailco
     cell = "%s%s%s" % (rcol, r, RESET)
     if t: cell += "%s · %s%s%s" % (dim, tailcol or dim, t, RESET)
     cell += " " * max(PATH_W - dwidth(r) - (dwidth(t) + 3 if t else 0), 0)
-    body = "%s %s  %s  %s" % (" " * ICON_W, nm, sep, cell)
+    body = "%s %s  %s  %s" % (" " * (HOST_W + ICON_W), nm, sep, cell)
     return (name or text) + TAB + body + TAB + path + TAB + target
 
 # Account = which config root owns the session.
@@ -272,7 +284,7 @@ def derive_name(cwd, full):
         return segs[-1] if len(segs) >= 3 else "/".join(segs)
     return os.path.basename(d)
 
-sesh_entries = load("en") or []
+sesh_entries = (load("en") or []) + rex_entries
 try:
     with open(os.path.join(os.environ["SRC"], "zo")) as fh:
         sesh_entries.extend({"Src": "zoxide", "Path": line.rstrip("\n")} for line in fh if line.rstrip("\n"))
@@ -296,28 +308,32 @@ for e in sesh_entries:
 # A hand-renamed workspace falls back to the path rule, ambiguous again for a twin - the stated
 # limit of carrying identity on a label, and it degrades to showing both rows, not to a crash.
 def resolve_entry(lname, cwd):
-    # alias_by_name also holds the secondmate homes sesh-aliases.sh emits, which are not sesh.toml entries.
-    if lname and (lname in cfg_names or lname in alias_by_name): return lname
+    # Under Rex, alias_by_name also names the secondmate homes sesh-aliases.sh emits, which are not sesh.toml entries.
+    if lname and (lname in cfg_names or (REX and lname in alias_by_name)): return lname
     for k in (cwd, real(cwd) if cwd else ""):
         got = names_by_path.get(k) if k else None
         if got and len(got) == 1: return got[0]
     return ""
 
-# Rex only: sesh.toml rex_host pins an entry to another host, so its local path never stands for it.
-pins = {}
-if os.environ.get("SESH_REX") == "1":
-    try:
+# Rex only: sesh.toml rex_host pins an entry to another host (as rex_label, else its name), so its local path never stands for it.
+pins, pin_labels, pinned_by_label = {}, {}, {}
+if REX:
+    for fname in ("sesh.toml", "rex.toml"):
+        try:
+            with open(os.path.join(home, ".config", "sesh", fname)) as fh: lines = list(fh) + ["["]
+        except Exception: continue
         cur = {}
-        with open(os.path.join(home, ".config", "sesh", "sesh.toml")) as fh:
-            for line in list(fh) + ["["]:
-                if line.lstrip().startswith("["):
-                    if cur.get("name") and cur.get("rex_host"): pins[cur["name"]] = cur["rex_host"]
-                    cur = {}
-                m = re.match(r"\s*(name|rex_host)\s*=\s*\"(.*)\"\s*$", line)
-                if m: cur[m.group(1)] = m.group(2)
-    except Exception: pass
+        for line in lines:
+            if line.lstrip().startswith("["):
+                if cur.get("name") and cur.get("rex_host"):
+                    lab = cur.get("rex_label") or cur["name"]
+                    pins[cur["name"]], pin_labels[cur["name"]] = cur["rex_host"], lab
+                    pinned_by_label[(cur["rex_host"], lab)] = cur["name"]
+                cur = {}
+            m = re.match(r"\s*(name|rex_host|rex_label)\s*=\s*\"(.*)\"\s*$", line)
+            if m: cur[m.group(1)] = m.group(2)
 
-# Collect every entry uniformly: (kind, icon, name, path, target, active, entry, shown path).
+# Collect every entry uniformly: (kind, icon, name, path, target, active, entry, shown path, host).
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
@@ -332,9 +348,9 @@ for w in snapshot.get("workspaces", []):
     # Another host: its cwd names a path over there, so no git column, and it only stands in for an entry pinned to that host.
     if host:
         there = re.sub(r"^/(Users|home)/[^/]+", "~", cwd)
-        ent = lname if pins.get(lname) == host else ""
+        ent = pinned_by_label.get((host, lname), "")
         if ent: active_names.add(ent)
-        entries.append(("ws", "🌐", label, "", "ws:" + wid, True, ent, "%s: %s" % (host, there) if there else host))
+        entries.append(("ws", "⚡", label, "", "ws:" + wid, True, ent, there, host))
         continue
     # No second row here, so re-expand the ticket tail - but only if the label is still the derived short form.
     if cwd:
@@ -344,7 +360,7 @@ for w in snapshot.get("workspaces", []):
     ent = resolve_entry(lname, cwd)
     if ent in pins: ent = ""
     if ent: active_names.add(ent)
-    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, ""))
+    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, "", ""))
 
 seen_names, seen_paths = set(), set()
 for e in sesh_entries:
@@ -361,7 +377,7 @@ for e in sesh_entries:
             continue
         if nm in pins:
             seen_names.add(nm); seen_paths.add(p)
-            entries.append(("cfg", "⚙️", nm, "", "cfg:" + nm, False, nm, "%s: %s" % (pins[nm], short(p))))
+            entries.append(("cfg", "⚙️", pin_labels[nm], "", "cfg:" + nm, False, nm, short(p), pins[nm]))
             continue
         if len(names_by_path.get(p, [nm])) == 1 and (p in active_paths or real(p) in active_paths): continue
         seen_names.add(nm); seen_paths.add(p)
@@ -376,7 +392,7 @@ for e in sesh_entries:
         else:
             kind, icon, name, ent = "zox", "📁", (os.path.basename(p) or p), ""  # dir basename, not full path
     # The target IS the identity: a path repeats across twins, so config rows key on Name and only zoxide rows stay path-keyed.
-    entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent, ""))
+    entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent, "", ""))
 
 now = time.time()
 cache = hg.load()
@@ -437,7 +453,7 @@ if os.environ.get("SESH_GIT_ONLY") == "1":
             with open(cpath, "w") as fh: fh.write("" if dirty else str(len(ordered)))
         except Exception: pass
 
-for kind, icon, label, path0, target, active, ent, shown in ordered:
+for kind, icon, label, path0, target, active, ent, shown, host in ordered:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     # Name lookup first, so twins show their own chip instead of whichever the shared path last wrote.
@@ -456,7 +472,7 @@ for kind, icon, label, path0, target, active, ent, shown in ordered:
     pth = "%s%s%s" % (dim, dpad(dclip(shown or short(path0), PATH_W, left=True), PATH_W), RESET)
     # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 is the raw path ctrl-f/ctrl-p act on; the target stays LAST so fzf {-1} and the awk $NF still find it.
     # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
-    rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + path0 + TAB + target)
+    rows.append((name + " " + al if al else name) + TAB + ("%s%s %s  %s  %s" % (host_cell(host), ic, nm, sep, pth)) + TAB + path0 + TAB + target)
     if kind == "ws":
         rows.extend(agent_rows(target[3:], cw))
 
@@ -752,6 +768,7 @@ export FZF_API_KEY="$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM"
 # Read once per open: every keystroke runs --view, and re-reading sesh.toml there cost ~45ms a key.
 SESH_ALIASES=$(awk -F'\t' '{printf "%s ", $1}' "${XDG_CACHE_HOME:-$HOME/.cache}/sesh/aliases.tsv" 2>/dev/null)
 [ -n "$SESH_ALIASES" ] || SESH_ALIASES=$("$HOME/.config/sesh/sesh-aliases.sh" 2>/dev/null | awk -F'\t' '{printf "%s ", $1}')
+[ "${SESH_REX:-}" != 1 ] || SESH_ALIASES+=$(awk -F'"' '$1 ~ /^alias *= *$/ {printf "%s ", $2}' "$HOME/.config/sesh/rex.toml" 2>/dev/null)
 export SESH_ALIASES
 
 # Looped so ctrl-g can re-enter with a different view, and so the picker comes back after lazygit exits. esc no longer returns here from a sub-menu: it closes the popup from wherever you are.
