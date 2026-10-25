@@ -749,7 +749,7 @@ FRAME=(--no-border)
 # A Rex floating layer has a transparent background and no frame, where herdr's popup drew both.
 if [ "$CACHE_NAME" = sesh-rows-rex ] && [ -n "${gnohj_color10:-}" ]; then
   color_string+=",bg:${gnohj_color10},list-bg:${gnohj_color10},input-bg:${gnohj_color10},header-bg:${gnohj_color10},border:6"
-  FRAME=(--border=rounded --padding=0,1)
+  FRAME=(--border=rounded)
 fi
 
 command -v fzf     >/dev/null 2>&1 || { echo "fzf required";     sleep 1; exit 0; }

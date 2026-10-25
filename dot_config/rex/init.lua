@@ -451,14 +451,14 @@ rex.action{
   end,
 }
 
--- ctrl+t: herdr-sesh.sh itself as a floating popup, 56% x 76% centred like herdr's, its herdr calls answered by rex-herdr.
+-- ctrl+t: herdr-sesh.sh itself as a floating popup, 48% x 70% centred like herdr's, its herdr calls answered by rex-herdr.
 rex.action{
   name = "sesh_picker",
   title = "Sesh Picker",
   category = "Sesh",
   run = function(ctx, args)
     leave_session(ctx)
-    popup(ctx, 0.22, 0.12, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' })
+    popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' })
   end,
 }
 rex.bind("ctrl+t", "sesh_picker")
