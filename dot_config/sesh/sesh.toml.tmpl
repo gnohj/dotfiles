@@ -1,5 +1,6 @@
 {{- /* One OS-split file, not a second sesh-vps.toml: sesh reads only ~/.config/sesh/sesh.toml unless every caller passes -C. */ -}}
 {{- /* Aliases: unique case-insensitively across BOTH branches (else sesh rejects the whole config at load); a prefix alias (d/dv) connects after herdr-sesh.sh's 150ms pause. */ -}}
+{{- /* rex_host (sesh ignores it): the Rex host label an entry opens on from the Mac's Rex picker and alias keys. */ -}}
 [default_session]
 preview_command = "eza --all --git --icons --color=always {}"
 startup_command = "~/.config/sesh/startup.sh {} >/dev/null 2>&1"
@@ -73,6 +74,9 @@ name = "inferno/review"
 path = "~/Developer/inferno/review"
 alias = "ir"
 startup_command = "ghd"
+{{- if eq .chezmoi.os "darwin" }}
+rex_host = "Dev Box"
+{{- end }}
 {{ if eq .chezmoi.os "darwin" }}
 [[session]]
 name = "second_brain"
@@ -123,6 +127,9 @@ name = "web/review"
 path = "~/Developer/web/review"
 alias = "wr"
 startup_command = "ghd"
+{{- if eq .chezmoi.os "darwin" }}
+rex_host = "Dev Box"
+{{- end }}
 
 [[session]]
 name = "jira"
@@ -202,7 +209,26 @@ name = "hermes"
 path = "~/.local/share/hermes/workspace"
 alias = "hm"
 startup_command = "hermes-container"
+{{ if eq .chezmoi.os "darwin" }}
+[[session]]
+name = "hermes-devbox"
+path = "~/.local/share/hermes/workspace"
+alias = "hd"
+startup_command = "hermes-container"
+rex_host = "Dev Box"
 
+[[session]]
+name = "sm-inferno"
+path = "~/.local/share/firstmate-sm-inferno"
+alias = "smi"
+rex_host = "Dev Box"
+
+[[session]]
+name = "sm-web"
+path = "~/.local/share/firstmate-sm-web"
+alias = "smw"
+rex_host = "Dev Box"
+{{ end }}
 [[session]]
 name = "fm"
 path = "~/Developer/firstmate"

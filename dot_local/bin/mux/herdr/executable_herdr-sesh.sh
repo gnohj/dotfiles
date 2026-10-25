@@ -31,6 +31,7 @@ if [ -n "${REX_SESSION:-}" ] && [ -z "${HERDR_SOCKET_PATH:-}" ]; then
   herdr="$HOME/.local/bin/mux/rex/rex-herdr"
   LAYOUT=("$herdr" layout)
   CACHE_NAME=sesh-rows-rex
+  export SESH_REX=1
 fi
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
@@ -228,7 +229,7 @@ def agent_rows(wid, pad=0):
     # Clears the parent'"'"'s alias chip so the tree hangs off its name, not the chip.
     sp = " " * pad
     # Children inherit the workspace cwd, so a git action fires on the same repo from any row of the tree.
-    wpath = (wscwd.get(wid) or "").rstrip("/")
+    wpath = "" if "~" in wid else (wscwd.get(wid) or "").rstrip("/")
     tabs = tabs_by_ws.get(wid, [])
     for ti, tb in enumerate(tabs):
         tlast = ti == len(tabs) - 1
@@ -295,13 +296,28 @@ for e in sesh_entries:
 # A hand-renamed workspace falls back to the path rule, ambiguous again for a twin - the stated
 # limit of carrying identity on a label, and it degrades to showing both rows, not to a crash.
 def resolve_entry(lname, cwd):
-    if lname and lname in cfg_names: return lname
+    # alias_by_name also holds the secondmate homes sesh-aliases.sh emits, which are not sesh.toml entries.
+    if lname and (lname in cfg_names or lname in alias_by_name): return lname
     for k in (cwd, real(cwd) if cwd else ""):
         got = names_by_path.get(k) if k else None
         if got and len(got) == 1: return got[0]
     return ""
 
-# Collect every entry uniformly: (kind, icon, name, path, target, active, entry).
+# Rex only: sesh.toml rex_host pins an entry to another host, so its local path never stands for it.
+pins = {}
+if os.environ.get("SESH_REX") == "1":
+    try:
+        cur = {}
+        with open(os.path.join(home, ".config", "sesh", "sesh.toml")) as fh:
+            for line in list(fh) + ["["]:
+                if line.lstrip().startswith("["):
+                    if cur.get("name") and cur.get("rex_host"): pins[cur["name"]] = cur["rex_host"]
+                    cur = {}
+                m = re.match(r"\s*(name|rex_host)\s*=\s*\"(.*)\"\s*$", line)
+                if m: cur[m.group(1)] = m.group(2)
+    except Exception: pass
+
+# Collect every entry uniformly: (kind, icon, name, path, target, active, entry, shown path).
 #   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
@@ -311,15 +327,24 @@ for w in snapshot.get("workspaces", []):
     # suffix a workspace label may carry to avoid a doubled/clipped name.
     label = (w.get("label", "?") or "?").split(" · ", 1)[0].rstrip()
     cwd = wscwd.get(wid, "").rstrip("/")
+    host = w.get("host") or ""
     deco, lname = split_label(label)
+    # Another host: its cwd names a path over there, so no git column, and it only stands in for an entry pinned to that host.
+    if host:
+        there = re.sub(r"^/(Users|home)/[^/]+", "~", cwd)
+        ent = lname if pins.get(lname) == host else ""
+        if ent: active_names.add(ent)
+        entries.append(("ws", "🌐", label, "", "ws:" + wid, True, ent, "%s: %s" % (host, there) if there else host))
+        continue
     # No second row here, so re-expand the ticket tail - but only if the label is still the derived short form.
     if cwd:
         if lname == derive_name(cwd, False):
             label = ("%s %s" % (deco, derive_name(cwd, True))).strip()
         active_paths.update((cwd, real(cwd)))
     ent = resolve_entry(lname, cwd)
+    if ent in pins: ent = ""
     if ent: active_names.add(ent)
-    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent))
+    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, ""))
 
 seen_names, seen_paths = set(), set()
 for e in sesh_entries:
@@ -331,7 +356,13 @@ for e in sesh_entries:
         # Suppress a config entry only when an open workspace resolved to THAT entry, so one twin
         # being open stops hiding the other. The path test still covers entries no workspace
         # resolved to, but never a shared path - that collapse is what this change undoes.
-        if nm in active_names: continue
+        if nm in active_names:
+            if nm in pins: seen_paths.add(p)
+            continue
+        if nm in pins:
+            seen_names.add(nm); seen_paths.add(p)
+            entries.append(("cfg", "⚙️", nm, "", "cfg:" + nm, False, nm, "%s: %s" % (pins[nm], short(p))))
+            continue
         if len(names_by_path.get(p, [nm])) == 1 and (p in active_paths or real(p) in active_paths): continue
         seen_names.add(nm); seen_paths.add(p)
         kind, icon, name, ent = "cfg", "⚙️", nm, nm                             # nice config name
@@ -345,7 +376,7 @@ for e in sesh_entries:
         else:
             kind, icon, name, ent = "zox", "📁", (os.path.basename(p) or p), ""  # dir basename, not full path
     # The target IS the identity: a path repeats across twins, so config rows key on Name and only zoxide rows stay path-keyed.
-    entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent))
+    entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent, ""))
 
 now = time.time()
 cache = hg.load()
@@ -406,7 +437,7 @@ if os.environ.get("SESH_GIT_ONLY") == "1":
             with open(cpath, "w") as fh: fh.write("" if dirty else str(len(ordered)))
         except Exception: pass
 
-for kind, icon, label, path0, target, active, ent in ordered:
+for kind, icon, label, path0, target, active, ent, shown in ordered:
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     # Name lookup first, so twins show their own chip instead of whichever the shared path last wrote.
@@ -422,7 +453,7 @@ for kind, icon, label, path0, target, active, ent in ordered:
     used = dwidth(lab) + (sw + 1 if sw else 0) + cw
     nm = "%s%s%s%s%s%s" % ((accent + chip + RESET + " ") if chip else "", ncol, lab, RESET,
                           (" " + scol) if sw else "", " " * max(NAME_W - used, 0))
-    pth = "%s%s%s" % (dim, dpad(dclip(short(path0), PATH_W, left=True), PATH_W), RESET)
+    pth = "%s%s%s" % (dim, dpad(dclip(shown or short(path0), PATH_W, left=True), PATH_W), RESET)
     # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 is the raw path ctrl-f/ctrl-p act on; the target stays LAST so fzf {-1} and the awk $NF still find it.
     # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
     rows.append((name + " " + al if al else name) + TAB + ("%s %s  %s  %s" % (ic, nm, sep, pth)) + TAB + path0 + TAB + target)

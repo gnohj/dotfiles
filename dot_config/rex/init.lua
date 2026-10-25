@@ -50,10 +50,11 @@ end
 
 -- herdr-style toggle popup over an opaque theme backdrop (Rex leaves default bg see-through), {l,t,r,b} bounds, rex-fit sizes the pty to the box.
 local WAIT_FOR_SIZE = 'for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(stty size 2>/dev/null)" != "24 80" ] && break; sleep 0.03; done'
-local RUN_THEN_CLOSE_BACKDROP = WAIT_FOR_SIZE .. [[; rex="$REX_BIN_DIR/rex"; layer=$1; block=$2; shift 2; s=$(stty size); "$rex" api call -s "$REX_SESSION" com.superlogical.terminal.resize "{\"block_id\":\"$block\",\"args\":{\"columns\":${s#* },\"rows\":${s% *}}}" >/dev/null 2>&1; "$@"; "$rex" api call -s "$REX_SESSION" session.close_layer "{\"layer_id\":\"$layer\"}" >/dev/null 2>&1]]
+-- Popup commands run on the session's own host, so paths resolve from that shell's $HOME, never this machine's.
+local RUN_THEN_CLOSE_BACKDROP = WAIT_FOR_SIZE .. [[; rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"; layer=$1; block=$2; shift 2; s=$(stty size); "$rex" api call -s "$REX_SESSION" com.superlogical.terminal.resize "{\"block_id\":\"$block\",\"args\":{\"columns\":${s#* },\"rows\":${s% *}}}" >/dev/null 2>&1; "$HOME/.local/bin/mux/rex/rex-fit" "$@"; "$rex" api call -s "$REX_SESSION" session.close_layer "{\"layer_id\":\"$layer\"}" >/dev/null 2>&1]]
 local PAINT = [[c=$1; paint() { s=$(stty size); w=${s#* }; r=${s% *}; row=$(printf '%*s' "$w" ''); printf '\033[?25l\033[H\033[48;2;%sm' "$c"; i=0; while [ "$i" -lt "$r" ]; do printf '%s' "$row"; i=$((i + 1)); done; }; trap paint WINCH; paint; while :; do sleep 3600 & wait $!; done]]
-local REX_FIT = HOME .. "/.local/bin/mux/rex/rex-fit"
-local REX_CLI = (os.getenv("REX_BIN_DIR") or "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS") .. "/rex"
+local REX_BIN = os.getenv("REX_BIN_DIR") or "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS"
+local REX_CLI = REX_BIN .. "/rex"
 
 local function theme_background()
   local f = io.open(HOME .. "/.config/ghostty/ghostty-theme")
@@ -90,7 +91,7 @@ local function popup(ctx, side, top, command, cwd)
   }
   fail(berr)
   local argv = { "/bin/sh", "-c", RUN_THEN_CLOSE_BACKDROP, "sh", backdrop.layer_id, backdrop.block_ids[1],
-                 REX_FIT, tostring((box[3] - side) / box[3]), tostring((box[4] - top) / box[4]) }
+                 tostring((box[3] - side) / box[3]), tostring((box[4] - top) / box[4]) }
   for _, a in ipairs(command) do table.insert(argv, a) end
   fail(select(2, rex.session.new_layer{
     bounds = box,
@@ -396,7 +397,7 @@ rex.action{
   run = function(ctx, args)
     local startup = args.startup
     if startup == "" then startup = nil end
-    open_session(args.label, args.dir, startup)
+    open_session(args.label, (args.dir:gsub("^~", HOME)), startup)
   end,
 }
 
@@ -406,7 +407,7 @@ rex.action{
   title = "Sesh Picker",
   category = "Sesh",
   run = function(ctx, args)
-    popup(ctx, 0.22, 0.12, { HOME .. "/.local/bin/mux/herdr/herdr-sesh.sh" }, HOME)
+    popup(ctx, 0.22, 0.12, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' })
   end,
 }
 rex.bind("ctrl+t", "sesh_picker")
@@ -441,7 +442,13 @@ for _, e in ipairs(read_sesh(HOME .. "/.config/sesh/sesh.toml")) do
       category = "Sesh",
       keywords = (e.alias or "") .. " " .. dir,
       run = function(ctx, args)
-        open_session(e.name, dir, e.startup_command)
+        if e.rex_host == nil and ctx.server == nil then
+          open_session(e.name, dir, e.startup_command)
+          return
+        end
+        -- Lua here only reaches the focused session's server, so a pinned entry or a press from another host goes through rex-herdr.
+        fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" layout --entry "$0"', e.name },
+                                      { detach = true, env = { REX_BIN_DIR = REX_BIN } })))
       end,
     }
     if e.alias ~= nil then

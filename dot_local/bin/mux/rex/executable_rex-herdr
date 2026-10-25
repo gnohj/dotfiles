@@ -13,13 +13,33 @@ die() {
 
 app_do() {
   local client out
-  client=$("$rex" client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')
+  client=$(remote client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')
   [ -n "$client" ] || die "No Rex app is connected."
-  out=$("$rex" do -C "$client" "$@" 2>&1) || die "$out"
+  out=$(remote do -C "$client" "$@" 2>&1) || die "$out"
+}
+
+# Splits a session id into $sid and the -S flags for its host: "<host>~<id>" lives on that `rex hosts` entry, a bare id here.
+on_host() {
+  sid="$1"
+  server=()
+  case "$1" in
+    *"~"*)
+      sid="${1#*~}"
+      local label
+      label=$("$rex" hosts --json 2>/dev/null | jq -r --arg t "${1%%~*}" 'first(.hosts[].host.label | select(gsub("[^A-Za-z0-9]"; "-") == $t)) // empty')
+      [ -n "$label" ] || die "No Rex host matches ${1%%~*}."
+      server=(-S "$label")
+      ;;
+  esac
+}
+
+server=()
+remote() {
+  "$rex" ${server[@]+"${server[@]}"} "$@"
 }
 
 select_session() {
-  app_do session.select session_id="session:$1"
+  app_do session.select session_id="session:$sid"
 }
 
 case "${1:-} ${2:-}" in
@@ -30,25 +50,33 @@ case "${1:-} ${2:-}" in
     printf '{"result":{"workspaces":[]}}\n'
     ;;
   "workspace focus")
-    select_session "$3"
+    on_host "$3"
+    select_session
     ;;
   "workspace close")
-    "$rex" kill "session:$3" >/dev/null 2>&1
+    on_host "$3"
+    remote kill "session:$sid" >/dev/null 2>&1
     ;;
   "tab focus")
-    "$rex" api call -s "session:${3%%:*}" session.focus_window "{\"window_id\":\"window:${3#*:}\"}" >/dev/null 2>&1
-    select_session "${3%%:*}"
+    on_host "${3%%:*}"
+    remote api call -s "session:$sid" session.focus_window "{\"window_id\":\"window:${3#*:}\"}" >/dev/null 2>&1
+    select_session
     ;;
   "agent focus")
-    "$rex" focus -s "session:${3%%:*}" "block:${3#*:}" >/dev/null 2>&1
-    select_session "${3%%:*}"
+    on_host "${3%%:*}"
+    remote focus -s "session:$sid" "block:${3#*:}" >/dev/null 2>&1
+    select_session
     ;;
   "pane close")
-    "$rex" block close -s "session:${3%%:*}" "block:${3#*:}" >/dev/null 2>&1
+    on_host "${3%%:*}"
+    remote block close -s "session:$sid" "block:${3#*:}" >/dev/null 2>&1
     ;;
   "layout --entry")
-    args=$(sesh list -c -j 2>/dev/null | jq -c --arg n "$3" \
-      'first(.[] | select(.Name == $n) | {label: .Name, dir: (.Path | rtrimstr("/") | if . == "" then "/" else . end), startup: .StartupCommand})')
+    # A rex_host entry opens on that host, its dir sent as ~/... so the host's own sesh_open resolves it.
+    host=$(awk -v n="$3" -F'"' '/^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ /^rex_host *= *$/ && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" 2>/dev/null)
+    [ -z "$host" ] || server=(-S "$host")
+    args=$(sesh list -c -j 2>/dev/null | jq -c --arg n "$3" --arg home "$HOME" --arg pinned "$host" \
+      'first(.[] | select(.Name == $n) | {label: .Name, dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand})')
     [ -n "$args" ] || die "No sesh.toml entry named $3."
     app_do sesh_open --args "$args"
     ;;
