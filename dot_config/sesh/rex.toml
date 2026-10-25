@@ -3,7 +3,7 @@
 [[session]]
 name = "hermes-devbox"
 path = "~/.local/share/hermes/workspace"
-alias = "hd"
+alias = "h"
 startup_command = "hermes-container"
 rex_host = "Dev Box"
 rex_label = "hermes"
