@@ -555,6 +555,79 @@ rex.action{
 }
 rex.bind(P .. "e", "scrollback_view")
 
+-- prefix+F: hint labels over the pane's visible tokens (herdr pluck), drawn by a twin block in a same-layout scratch tab that swaps into the pane's slot.
+local function scratch_layout(node, source, hint)
+  if node.block_id ~= nil then
+    return rex.layout.block{ flavor = SHELL, options = { command = node.block_id == source and hint or { "sleep", "600" } } }
+  end
+  local split = node.split.direction == "horizontal" and rex.layout.horizontal or rex.layout.vertical
+  return split(node.split.ratio, scratch_layout(node.split.before, source, hint), scratch_layout(node.split.after, source, hint))
+end
+
+local function layout_rect(node, block_id)
+  if node.block_id ~= nil then return node.block_id == block_id and node.rect or nil end
+  return layout_rect(node.split.before, block_id) or layout_rect(node.split.after, block_id)
+end
+
+local function block_at(node, rect)
+  if node.block_id ~= nil then
+    for i = 1, 4 do
+      if math.abs(node.rect[i] - rect[i]) > 1e-6 then return nil end
+    end
+    return node.block_id
+  end
+  return block_at(node.split.before, rect) or block_at(node.split.after, rect)
+end
+
+local function tiled_layout(window)
+  for _, layer in ipairs(window.layers or {}) do
+    if layer.kind == "tiled" then return layer.layout end
+  end
+end
+
+rex.action{
+  name = "pluck",
+  title = "Pluck Visible Token",
+  category = "herdr",
+  run = function(ctx, args)
+    local window = tab_of_block(windows(), ctx.block_id)
+    local layout = window and tiled_layout(window)
+    local rect = layout and layout_rect(layout, ctx.block_id)
+    if rect == nil then return end
+    local hint = { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-pluck" "$0" "$1"', ctx.block_id, window.window_id }
+    local created, err = rex.session.new_window{ layout = scratch_layout(layout, ctx.block_id, hint) }
+    fail(err)
+    for _, w in ipairs(windows().windows) do
+      if w.window_id == created.window_id then
+        local twin = block_at(tiled_layout(w), rect)
+        fail(select(2, rex.session.swap_blocks{ block_id = ctx.block_id, other_block_id = twin }))
+        fail(select(2, rex.session.focus_block{ block_id = twin }))
+      end
+    end
+  end,
+}
+rex.bind(P .. "shift+f", "pluck")
+
+-- rex-pluck opens a picked file here: nvim in a new tab at its line.
+rex.action{
+  name = "open_file_tab",
+  title = "Open File in Nvim Tab",
+  category = "herdr",
+  args = { path = "string", line = "integer?" },
+  run = function(ctx, args)
+    local created, err = rex.session.new_window{
+      layout = rex.layout.block{
+        flavor = SHELL,
+        options = { command = args.line and { "nvim", "+" .. args.line, "--", args.path } or { "nvim", "--", args.path }, cwd = args.path:match("^(.*)/") or HOME },
+      },
+    }
+    fail(err)
+    if ctx.client_id ~= nil then
+      rex.client.queue("session.select", { session_id = ctx.session_id, window_id = created.window_id })
+    end
+  end,
+}
+
 -- UI: herdr toggle_sidebar on prefix+E, settings, help, reload_config. prefix+V and prefix+a are Rex-only.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")
 rex.bind(P .. "shift+v", "client.tab_style.toggle")
