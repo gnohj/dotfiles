@@ -1636,8 +1636,11 @@ if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; th
         _fetch_draw() {
             local cols=${1#* }
             print -n '\e_Ga=d\e\\\e[H\e[2J\e[3J'
+            # Rex reports no pixel size, so kitten icat refuses and fastfetch falls back to the ASCII logo.
+            local logo=()
+            [[ $TERM_PROGRAM == rex ]] && logo=(--logo-type kitty-direct)
             if (( cols >= 75 )); then
-                fastfetch
+                fastfetch $logo
             elif (( cols >= 38 )); then
                 fastfetch --logo none
             fi
