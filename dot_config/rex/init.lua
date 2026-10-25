@@ -544,6 +544,17 @@ rex.action{
 }
 rex.bind(P .. "y", "yazi_tab")
 
+-- prefix+e: the pane's scrollback (or its agent transcript) in nvim (herdr scrollback-viewer).
+rex.action{
+  name = "scrollback_view",
+  title = "Scrollback in Nvim",
+  category = "herdr",
+  run = function(ctx, args)
+    popup(ctx, 0.05, 0.05, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-scrollback" "$0"', ctx.block_id })
+  end,
+}
+rex.bind(P .. "e", "scrollback_view")
+
 -- UI: herdr toggle_sidebar on prefix+E, settings, help, reload_config. prefix+V and prefix+a are Rex-only.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")
 rex.bind(P .. "shift+v", "client.tab_style.toggle")

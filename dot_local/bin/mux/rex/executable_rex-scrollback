@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# rex-scrollback BLOCK - herdr's prefix+e viewer for a Rex block: a claude/pi transcript, else the block's own scrollback, in nvim.
+set -uo pipefail
+
+rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
+block=${1:?usage: rex-scrollback BLOCK}
+init="$HOME/.config/herdr/lib/scrollback-nvim-init.lua"
+
+terminal() {
+  "$rex" api call -s "$REX_SESSION" "com.superlogical.terminal.$1" "{\"block_id\":\"$block\",\"args\":{}}" 2>/dev/null
+}
+
+file=$(mktemp -t rex-scrollview-XXXXXX)
+trap 'rm -f "$file"' EXIT
+
+app=$(terminal program_status | jq -r '.records[0].effective_app // empty')
+IFS=$'\t' read -r name cwd < <(terminal process | jq -r '[.foreground.name // "", .foreground.cwd // ""] | @tsv')
+case "$app:$name" in
+  claude-code:* | *:claude*) agent=claude ;;
+  pi:* | *:pi) agent=pi ;;
+  *) agent="" ;;
+esac
+
+# Agents redraw a full screen and keep no scrollback, so their history comes from the session transcript.
+if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "" "" "$cwd" >"$file" 2>/dev/null; then
+  "$rex" capture -s "$REX_SESSION" -b "$block" --format vt --unwrap --trim 2>/dev/null |
+    perl -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~])/$1 eq "m" ? $& : ""/ge; s/\e\][^\a\e]*(?:\a|\e\\)//g; s/\r//g' >"$file"
+fi
+
+nvim -u "$init" "$file" -c 'lua HerdrScrollbackView()'
