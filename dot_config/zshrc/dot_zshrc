@@ -116,6 +116,20 @@ _update_summary_end() {
   rm -rf "$_UPDATE_SUMMARY_DIR"
 }
 
+# Autopush pulls these repos too; a shared FETCH_HEAD breaks `pull` and a racing fetch can lose the ref lock.
+_update_ff() {
+  local try
+  for try in 1 2 3; do
+    if (( try < 3 )); then
+      git -C "$1" fetch --quiet --no-write-fetch-head 2>/dev/null || { sleep 2; continue; }
+    else
+      git -C "$1" fetch --quiet --no-write-fetch-head || return 1
+    fi
+    git -C "$1" merge --ff-only --autostash '@{upstream}'
+    return
+  done
+}
+
 # Third-party taps' DSL deprecations are not ours to fix; every other stderr line passes through.
 _drop_tap_deprecations() {
   # sudo's use_pty leaves the terminal raw, so a bare \n would stair-step.
@@ -217,7 +231,7 @@ update() {
         continue
       fi
       print -P "%F{cyan}==> git pull: $name%f"
-      git -C "$repo" pull --ff-only --autostash ||
+      _update_ff "$repo" ||
         { print -P "%F{red}   $name pull failed - left untouched (dirty/diverged?)%f"; fails=$((fails + 1)); }
     done
   else
