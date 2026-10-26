@@ -533,6 +533,18 @@ herdr_focused_cwd() {
     | .foreground_cwd // .cwd // empty' 2>/dev/null
 }
 
+rex_focused_cwd() {
+  [ -n "${REX_SESSION:-}" ] || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  local rex block
+  rex=$(rex_bin) || return 1
+  block=$("$rex" --autostart=false session inspect "$REX_SESSION" --json 2>/dev/null |
+    jq -r '.active_window_id as $w | first(.windows[]? | select(.window_id == $w) | .focused_block_id) // empty' 2>/dev/null) || return 1
+  [ -n "$block" ] || return 1
+  "$rex" --autostart=false block call -s "$REX_SESSION" -b "$block" process 2>/dev/null |
+    jq -r '.foreground.cwd // .child.cwd // empty' 2>/dev/null
+}
+
 focused_pane_path() {
   local line cmd path hcwd
   # `|| true` so a failing tmux (running standalone, e.g. from the quake, where
@@ -550,6 +562,11 @@ focused_pane_path() {
       jq -r '[.result.process_info.foreground_processes[].cwd]
                | map(select(. != null and . != "")) | .[-1] // empty' 2>/dev/null) || hcwd=""
     [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
+  fi
+
+  if [ -z "$path" ] && [ "$(active_mux)" = rex ]; then
+    hcwd=$(rex_focused_cwd) && [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
+    return 0
   fi
 
   # No tmux context around us (run via the `launcher` alias in the ghostty quake
@@ -630,7 +647,7 @@ mux_indicator() {
   host=$(sgr "${gnohj_color11:-#da858e}")
   mux=$(active_mux)
   case "$mux" in
-    herdr | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
+    herdr | rex | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
     *) badge="$(sgr "${gnohj_color08:-#505e62}" 1)● no mux${off}" ;;
   esac
   printf '%s %s·%s %s%s%s' "$badge" "$dim" "$off" "$host" "$(mux_host_label)" "$off"
@@ -648,7 +665,7 @@ open_window() {
 open_named_window() {
   local emoji="$1" name="$2" cmd="$3" close_on_exit="${4:-}" keep=""
   [ "$close_on_exit" = true ] || keep=1
-  if [ "$(active_mux)" = herdr ]; then
+  if [ "$(active_mux)" = herdr ] || [ "$(active_mux)" = rex ]; then
     open_window "$emoji" "$cmd" "" "$keep"
   else
     ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $close_on_exit &&
@@ -892,22 +909,25 @@ act_system_up() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
 
-# AI capture per host: tmux hands off via run-shell -b (popups can't nest); herdr runs inline in the quake with WORKTREE_OPEN_IN=herdr.
+# AI capture per host: tmux hands off via run-shell -b (popups can't nest); herdr and Rex run inline with WORKTREE_OPEN_IN naming the mux.
 run_worktree_capture() {
-  local verb="$1"
-  if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr "$HOME/.local/bin/worktree/worktree" "$verb" && dismiss_quake
+  local verb="$1" mux
+  mux=$(active_mux)
+  if [ "$mux" = herdr ] || [ "$mux" = rex ]; then
+    WORKTREE_OPEN_IN=$mux "$HOME/.local/bin/worktree/worktree" "$verb" && dismiss_quake
   else
     tmux run-shell -b "$HOME/.local/bin/worktree/worktree $verb"
   fi
 }
 
-# wt-new runs inline and self-detects its host: tmux → sesh connect, herdr → new workspace.
+# wt-new runs inline and self-detects its host: tmux → sesh connect, herdr/Rex → new workspace/session.
 act_worktree_add() { ~/.local/bin/worktree/wt-new && dismiss_quake; }
 act_worktree_ai_prompt() { run_worktree_capture prompt; }
 act_worktree_jira() {
-  if [ "$(active_mux)" = herdr ]; then
-    WORKTREE_OPEN_IN=herdr ~/.local/bin/worktree/worktree jira && dismiss_quake
+  local mux
+  mux=$(active_mux)
+  if [ "$mux" = herdr ] || [ "$mux" = rex ]; then
+    WORKTREE_OPEN_IN=$mux ~/.local/bin/worktree/worktree jira && dismiss_quake
   else
     ~/.local/bin/worktree/worktree jira
   fi

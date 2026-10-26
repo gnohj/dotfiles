@@ -70,7 +70,7 @@ if [ "$IS_MAIN_WORKTREE" = true ]; then
   exit 0
 fi
 
-# Register with zoxide, then open: herdr workspace (WORKTREE_OPEN_IN=herdr), sesh inside tmux, else copy the session name.
+# Register with zoxide, then open: herdr workspace or Rex session (WORKTREE_OPEN_IN=herdr|rex), sesh inside tmux, else copy the session name.
 if command -v zoxide &>/dev/null; then
   # Use the interactive zshrc's zoxide DB, or non-interactive runs write to a default DB that `z` never reads.
   export _ZO_DATA_DIR="$HOME/.config/zshrc"
@@ -134,6 +134,12 @@ if [ "${WORKTREE_OPEN_IN:-}" = "herdr" ] && command -v herdr &>/dev/null; then
     log "✓ herdr workspace opened in background ($CURRENT_WORKTREE)"
   else
     log "✗ herdr-sesh-layout.sh failed"
+  fi
+elif [ "${WORKTREE_OPEN_IN:-}" = "rex" ]; then
+  if MUX_FORCE_KIND=rex "$HOME/.local/bin/mux/mux" session --no-focus "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
+    log "✓ Rex session opened in background ($CURRENT_WORKTREE)"
+  else
+    log "✗ Rex session open failed"
   fi
 elif [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
   # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).

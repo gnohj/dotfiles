@@ -52,11 +52,12 @@ list_worktrees() {
   done < <(parse_repos)
 }
 
-# Close any session rooted in the worktree; sweep both, a stale one is broken either way.
+# Close any session rooted in the worktree; sweep every mux, a stale one is broken either way.
 kill_sessions_for() {
   local wt="$1"
   kill_tmux_sessions_for "$wt"
   kill_herdr_workspaces_for "$wt"
+  kill_rex_sessions_for "$wt"
 }
 
 kill_tmux_sessions_for() {
@@ -82,6 +83,26 @@ kill_herdr_workspaces_for() {
           | .workspace_id ] | unique | .[]' 2>/dev/null \
     | while read -r ws; do
         [ -n "$ws" ] && "$herdr_bin" workspace close "$ws" --group >/dev/null 2>&1 || true
+      done
+}
+
+# Rex reports a cwd per block only, so a session goes when any of its blocks sits in the worktree.
+kill_rex_sessions_for() {
+  local wt="$1" rex
+  rex="$(. "$HOME/.local/bin/mux/shared/mux-detect.sh" && rex_bin)" || return 0
+  command -v jq &>/dev/null || return 0
+  "$rex" --autostart=false ls --json 2>/dev/null | jq -r '.sessions[]?.session_id' 2>/dev/null \
+    | while read -r sid; do
+        [ -n "$sid" ] || continue
+        "$rex" --autostart=false block ls -s "$sid" --json 2>/dev/null | jq -r '.blocks[]?.block_id' 2>/dev/null \
+          | while read -r bid; do
+              "$rex" --autostart=false block call -s "$sid" -b "$bid" process 2>/dev/null \
+                | jq -r --arg wt "$wt" '(.foreground.cwd // .child.cwd // "") as $c
+                    | select($c == $wt or ($c | startswith($wt + "/"))) | "match"' 2>/dev/null
+            done | grep -q match && printf '%s\n' "$sid"
+      done \
+    | while read -r sid; do
+        "$rex" --autostart=false kill "$sid" >/dev/null 2>&1 || true
       done
 }
 

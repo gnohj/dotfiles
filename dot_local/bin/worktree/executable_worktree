@@ -1855,11 +1855,13 @@ cmd_jira_file() {
   # skhd → tmux run-shell respawn lands us in the tmux server's CWD (~ or /), not
   # the user's pane, so a plain `git rev-parse --show-toplevel` always fails with
   # "not a git repo". Ask tmux (or herdr's snapshot) where the user actually is.
-  local ACTIVE_PATH="$PWD" FOCUSED_PATH="" herdr_bin="${HERDR_BIN_PATH:-herdr}"
-  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+  local ACTIVE_PATH="$PWD" FOCUSED_PATH="" herdr_bin="${HERDR_BIN_PATH:-herdr}" in_rex=""
+  # Under Rex this runs inline in the focused block, so a herdr or detached tmux focus would point elsewhere.
+  [ "$("$MUX" kind 2>/dev/null)" = rex ] && in_rex=1
+  if [ -z "$in_rex" ] && command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
     FOCUSED_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
   fi
-  if [ -z "$FOCUSED_PATH" ] &&
+  if [ -z "$in_rex" ] && [ -z "$FOCUSED_PATH" ] &&
     command -v "$herdr_bin" >/dev/null 2>&1 &&
     command -v jq >/dev/null 2>&1; then
     FOCUSED_PATH=$("$herdr_bin" api snapshot 2>/dev/null | jq -r '

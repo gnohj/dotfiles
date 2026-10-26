@@ -32,7 +32,10 @@ read -r BRANCH
 REL="$BRANCH"
 [ "$BUCKET" = '(none)' ] || REL="$BUCKET/$BRANCH"
 
-[ "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" = herdr ] && export WORKTREE_OPEN_IN=herdr
+case "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" in
+  herdr) export WORKTREE_OPEN_IN=herdr ;;
+  rex) export WORKTREE_OPEN_IN=rex ;;
+esac
 
 if ! wt-add "$REPO" "$BRANCH" "$REL"; then
   printf '\nwt-add failed. Press enter to close.'
