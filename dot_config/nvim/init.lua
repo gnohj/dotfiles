@@ -44,6 +44,8 @@ local pane_key
 if vim.env.HERDR_PANE_ID and vim.env.HERDR_PANE_ID ~= "" then
   -- HERDR_PANE_ID looks like "w1:p2" — sanitize non-alphanumerics for the filename.
   pane_key = "herdr-" .. vim.env.HERDR_PANE_ID:gsub("[^%w]", "-")
+elseif vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK then
+  pane_key = "rex-" .. vim.env.REX_BLOCK:gsub("[^%w]", "-")
 elseif vim.env.TMUX_PANE then
   pane_key = vim.env.TMUX_PANE:gsub("%%", "")
 end

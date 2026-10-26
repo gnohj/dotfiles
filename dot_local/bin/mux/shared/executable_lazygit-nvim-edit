@@ -198,11 +198,40 @@ herdr_edit_and_exit() {
   close_popup_deferred
   exit 0
 }
+# The ctrl+g popup floats over its window, so a sibling block's nvim (socket named by init.lua) is the editor to reuse.
+rex_edit_and_exit() {
+  local rex blocks b sock
+  rex="$(. "$HOME/.local/bin/mux/shared/mux-detect.sh" && rex_bin)" || return 1
+  blocks="$("$rex" --autostart=false block ls -s "$REX_SESSION" --json 2>/dev/null | jq -r --arg me "$REX_BLOCK" \
+    '(.blocks // []) as $all | (first($all[] | select(.block_id == $me) | .window_id) // "") as $w
+     | $all[] | select(.window_id == $w and .block_id != $me) | .block_id' 2>/dev/null)"
+  for b in $blocks; do
+    sock="/tmp/nvim-rex-${b//[^[:alnum:]]/-}.sock"
+    [ -S "$sock" ] || continue
+    if nvim --server "$sock" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1; then
+      echo "  rex: opened in $b via $sock" >> "$DEBUG_LOG"
+      "$rex" --autostart=false focus -s "$REX_SESSION" "$b" >/dev/null 2>&1
+      close_popup_deferred
+      exit 0
+    fi
+  done
+  echo "  rex: no nvim beside the popup; new window in $OPEN_DIR" >> "$DEBUG_LOG"
+  "$HOME/.local/bin/mux/mux" window "🖋️" "$OPEN_DIR" "nvim $Q_FILE" >>"$DEBUG_LOG" 2>&1
+  close_popup_deferred
+  exit 0
+}
+
 # Ask the dispatcher, not $HERDR_PANE_ID: a popup sets no pane env, so the old guard fell through to tmux and opened the file on an unwatched server.
-if [ "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" = herdr ]; then
-  echo "  mux kind: herdr → herdr path" >> "$DEBUG_LOG"
-  herdr_edit_and_exit
-fi
+case "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" in
+  herdr)
+    echo "  mux kind: herdr → herdr path" >> "$DEBUG_LOG"
+    herdr_edit_and_exit
+    ;;
+  rex)
+    echo "  mux kind: rex → Rex path" >> "$DEBUG_LOG"
+    [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit
+    ;;
+esac
 
 # --- tmux path (unchanged) --------------------------------------------------
 PANE_ID="${LAZYGIT_HOST_PANE:-}"
