@@ -147,15 +147,47 @@ in
       StageManagerHideWidgets = true;
     };
 
-    # Rex keeps UI prefs here, not in init.lua; Glass + pane glass is the closest it gets to Ghostty's background-opacity
+    # Rex UI prefs live here, not init.lua; app-owned state and darkThemeID (a per-import theme UUID) are left out on purpose
     CustomUserPreferences."com.superlogical.rex" = {
-      "Workspace.terminalFontName" = "JetBrainsMono Nerd Font Mono";
-      "Workspace.terminalFontPointSize" = 15;
-      "Workspace.interfaceStyle" = "glass";
+      "Workspace.interfaceStyle" = "blendTheme";
       "Workspace.usesPaneGlass" = true;
+      "Workspace.appearance" = "system";
+      "Workspace.lightThemeID" = "merino-light";
+      "Workspace.appIcon" = "default";
+      "Workspace.appIconVisibility" = "dockAndMenuBar";
+      "Workspace.focusFollowsMouse" = true;
       "Workspace.inactivePaneFadeMode" = "both";
+      "Workspace.usesStandardInactiveWindowPaneStyles" = true;
+      "Workspace.tintsPanesWithProgramBackground" = true;
+      "Workspace.paneDensity" = "comfortable";
+      "Workspace.showsPaneHeaders" = true;
+      "Workspace.notificationPosition" = "top-right";
       "Workspace.showsIdleProgramsInActivity" = true;
       "Workspace.showsProgramStatusInTabs" = true;
+      "Workspace.sidebarPosition" = "left";
+      "Workspace.sidebarShowsActivity" = false;
+      "Workspace.sidebarWidth" = 321.0;
+      "Workspace.tabStyle" = "vertical";
+      "Workspace.shellIconTheme" = "themedAlt";
+      "Workspace.tabIconColorMode" = "activePanes";
+      "Workspace.tabIconCount" = 3;
+      "Workspace.tabIconTintMode" = "off";
+      "Workspace.terminalFontName" = "JetBrainsMono Nerd Font Mono";
+      "Workspace.terminalFontPointSize" = 15.0;
+      "Workspace.terminalFontSmoothing" = false;
+      "Workspace.terminalCellHeightPercent" = 0.0;
+      "Workspace.terminalCopyOnSelect" = true;
+      "Workspace.terminalImproveTextContrast" = true;
+      "Workspace.terminalSelectionForeground" = "theme";
+      "Workspace.terminalUseThemePalette" = false;
+      # remoteControl must stay on: colorscheme-set.sh imports the theme through the app client
+      "rex.client.label" = "macbook";
+      "rex.client.remoteControl" = true;
+      "rex.server.run-mode" = "bundled";
+      "rex.server.automatic-restart-enabled" = true;
+      "rex.server.block-plugin-reload-enabled" = false;
+      "rex.server.tailnet-enabled" = true;
+      "rex.server.web-client-origin-patterns" = [ "https://rex.superlogical.com" ];
     };
 
   };
