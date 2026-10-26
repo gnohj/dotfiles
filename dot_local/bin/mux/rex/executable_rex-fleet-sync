@@ -2,8 +2,10 @@
 # rex-fleet-sync - mirror each second mate on herdr's fm-remote session into a Rex session, one window per mate or task pane; run by rex-fleet-sync.timer.
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/herdr"))
@@ -13,6 +15,8 @@ HERDR_SESSION = "fm-remote"
 STATE = os.path.expanduser("~/.local/state/rex-fleet-sync.json")
 MATE_GLYPH = "\U0001f6a2 "
 SEP = " · "
+AGENT_APPS = {"claude": "claude-code"}
+APP_RE = re.compile(r"[A-Za-z0-9_.+-]{1,32}")
 
 
 def run(*args):
@@ -28,8 +32,40 @@ def rex_json(*args, command=()):
 
 
 def follow(pane):
-    loop = f"while :; do printf '\\033[H\\033[2J'; herdr --session {HERDR_SESSION} pane read {pane} 2>&1 | tail -n 45; sleep 3; done"
-    return ["bash", "-lc", loop]
+    return [sys.executable, os.path.abspath(__file__), "follow", pane]
+
+
+def agent_status(pane):
+    try:
+        info = herdr("pane", "get", pane)["pane"]
+    except (subprocess.CalledProcessError, ValueError, KeyError):
+        return "", "unknown"
+    return info.get("agent") or "", info.get("agent_status") or "unknown"
+
+
+def status_report(agent, state):
+    """OSC 7501 so Rex shows the mirrored agent's working/blocked/done badge; herdr swallows the agent's own."""
+    if state not in ("idle", "working", "blocked", "done"):
+        return "\033]7501;state=clear\033\\"
+    app = AGENT_APPS.get(agent, agent)
+    if not APP_RE.fullmatch(app):
+        app = ""
+    return f"\033]7501;state={state}" + (f":app={app}" if app else "") + "\033\\"
+
+
+def follow_loop(pane):
+    last = None
+    while True:
+        screen = subprocess.run(["herdr", "--session", HERDR_SESSION, "pane", "read", pane], capture_output=True, text=True)
+        lines = (screen.stdout + screen.stderr).splitlines()[-45:]
+        status = agent_status(pane)
+        out = "\033[H\033[2J" + "\n".join(lines) + "\n"
+        if status != last:
+            out += status_report(*status)
+            last = status
+        sys.stdout.write(out)
+        sys.stdout.flush()
+        time.sleep(3)
 
 
 def load_state():
@@ -119,4 +155,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["follow"]:
+        follow_loop(sys.argv[2])
+    else:
+        main()
