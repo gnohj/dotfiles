@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title> <message> | to-desktop browser-debug | to-desktop active-tab | to-desktop media <path>
+# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title|-> <message> | to-desktop browser-debug | to-desktop active-tab | to-desktop media <path>
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
 # deploys it to every machine. Machine routing only - which multiplexer is live is `mux`'s question.
@@ -11,7 +11,7 @@
 # Direction is resolved per call by machine-identity. Transports: ssh forced-command, kitty rc, OSC 52.
 set -uo pipefail
 
-export PATH="$HOME/.local/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.local/bin/mux:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 die() { printf 'to-desktop: %s\n' "$1" >&2; exit "${2:-1}"; }
 
@@ -234,8 +234,11 @@ case "$verb" in
     if at_desktop; then do_paste_image; else relay_read paste-image; fi
     ;;
   notify)
-    title="${1:?to-desktop notify: missing <title>}"; msg="${2:?to-desktop notify: missing <message>}"
-    if at_desktop; then do_notify "$title" "$msg"; else ship notify "$title" "$msg" || mux notify --title "$title" "$msg"; fi
+    title="${1:?to-desktop notify: missing <title|->}"
+    # `-` takes title line + message on stdin: whitespace can't survive the forced entry's re-split.
+    if [ "$title" = - ]; then { IFS= read -r title; msg="$(cat)"; } < <(head -c 4096); else msg="${2:?to-desktop notify: missing <message>}"; fi
+    if at_desktop; then do_notify "$title" "$msg"
+    else printf '%s\n%s' "${title//$'\n'/ }" "$msg" | relay notify - || mux notify --title "$title" "$msg"; fi
     ;;
   browser-debug)
     at_desktop || die "browser-debug only runs on the workstation" 2
