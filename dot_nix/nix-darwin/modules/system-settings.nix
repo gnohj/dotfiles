@@ -157,6 +157,7 @@ in
       "Workspace.appIconVisibility" = "dockAndMenuBar";
       "Workspace.focusFollowsMouse" = true;
       "Workspace.inactivePaneFadeMode" = "both";
+      "Workspace.showsActivePaneBorder" = true;
       "Workspace.usesStandardInactiveWindowPaneStyles" = true;
       "Workspace.tintsPanesWithProgramBackground" = true;
       "Workspace.paneDensity" = "comfortable";
