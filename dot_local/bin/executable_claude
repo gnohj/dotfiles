@@ -132,8 +132,8 @@ unset CLAUDE_CONFIG_DIR
 export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
 claude-account seed-config --dir "${_expected:-ordinary}"
 
-# herdr answers XTVERSION itself, so Claude Code distrusts the kitty graphics it does pass through.
-if [ "${TERM_PROGRAM:-}" = herdr ]; then
+# Claude Code trusts kitty graphics only from terminals it names; herdr and Rex pass them through unnamed.
+if [ "${TERM_PROGRAM:-}" = herdr ] || [ "${TERM_PROGRAM:-}" = rex ]; then
   export CLAUDE_CODE_FORCE_TERMINAL_IMAGES="${CLAUDE_CODE_FORCE_TERMINAL_IMAGES:-1}"
 fi
 
