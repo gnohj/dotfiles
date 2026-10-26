@@ -13,8 +13,8 @@ die() {
 
 app_do() {
   local client out
-  client=$(remote client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
-  [ -n "$client" ] || die "No Rex app is connected."
+  client=$(remote client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
+  [ -n "$client" ] || die "No Rex desktop app is connected."
   out=$(remote do -C "$client" "$@" 2>&1) || die "$out"
 }
 

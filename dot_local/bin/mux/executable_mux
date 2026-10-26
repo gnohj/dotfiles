@@ -107,7 +107,7 @@ focused_workspace() {
 
 rex_app_client() {
   "$1" --autostart=false client ls --json 2>/dev/null | jq -r \
-    '[.clients[]? | select(.info.kind == "app" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty'
+    '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty'
 }
 
 # tmux runs the command AS the window process so it closes on exit; herdr spawns a
