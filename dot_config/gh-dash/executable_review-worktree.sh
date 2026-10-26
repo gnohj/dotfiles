@@ -14,7 +14,7 @@
 # which a per-PR release can't reach). Acquiring the same PR twice reuses its slot.
 #
 #   review-worktree.sh acquire <pr-number>   # prints the worktree path
-#   review-worktree.sh release <pr-number>   # return ONE idle slot by PR
+#   review-worktree.sh release <pr-number>   # return ONE slot by PR, closes its tabs
 #   review-worktree.sh reclaim               # return EVERY idle slot now, then finish any submitted-but-untorn review (gh-dash R)
 #   review-worktree.sh sweep                 # same, but two-strike deferred (auto; disabled)
 #   review-worktree.sh settle                # free leases GitHub shows finished and nothing runs in (timer)
@@ -185,10 +185,11 @@ acquire() {
 release_pr() {
   # Digits only: this interpolates into an rm -rf path, and an empty value makes the tab pattern match every "#".
   case "${1:-}" in '' | *[!0-9]*) return 0 ;; esac
-  local pr="$1" state_file="$STATE_DIR/$1" wt="" busy="" lavish_dir="$LAVISH_DIR/$1"
+  local pr="$1" mode="${2:-idle}" state_file="$STATE_DIR/$1" wt="" busy="" lavish_dir="$LAVISH_DIR/$1"
   # Read tolerantly: a concurrent sweep may remove this file between the test and the read, aborting under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
-  review_idle "$pr" "$wt" || return 1
+  # An explicit release is the review's own teardown, run from one of the tabs it closes, so only automatic releases wait for idle.
+  [ "$mode" = explicit ] || review_idle "$pr" "$wt" || return 1
 
   # End idle review resources before returning the worktree.
 
@@ -227,11 +228,13 @@ release_pr() {
     _detach bash -c '
       # Return from outside the worktree to survive process cleanup.
       cd / 2>/dev/null || true
-      wt="$1"; pr="$2"; mux="$3"; log="$4"; sf="$5"
-      tabs=$("$mux" tabs --all-muxes) && cwds=$("$mux" pane-cwds --all-muxes) || exit 1
-      printf "%s\n" "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" && exit 1
-      if [ -n "$wt" ]; then
-        printf "%s\n" "$cwds" | awk -v wt="$wt" '\''$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit !f }'\'' && exit 1
+      wt="$1"; pr="$2"; mux="$3"; log="$4"; sf="$5"; mode="$6"
+      if [ "$mode" != explicit ]; then
+        tabs=$("$mux" tabs --all-muxes) && cwds=$("$mux" pane-cwds --all-muxes) || exit 1
+        printf "%s\n" "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" && exit 1
+        if [ -n "$wt" ]; then
+          printf "%s\n" "$cwds" | awk -v wt="$wt" '\''$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit !f }'\'' && exit 1
+        fi
       fi
       # Every step announces itself: the tail is detached with all output discarded, so an unlogged step that dies is indistinguishable from one that worked.
       _tlog() { printf "%s [%s]   tail #%s: %s\n" "$(date +%H:%M:%S)" "$$" "$pr" "$*" >>"$log" 2>/dev/null || true; }
@@ -250,7 +253,21 @@ release_pr() {
       else
         rm -f "$sf"
       fi
-    ' _ "$wt" "$pr" "$MUX" "$SWEEP_LOG" "$state_file" >/dev/null 2>&1 &
+      [ "$mode" = explicit ] || exit 0
+      # Re-enumerate and retry: the gpt finder runs with --keep-open, so its tab never closes on its own.
+      attempt=1
+      while [ "$attempt" -le 3 ]; do
+        ids=$("$mux" tabs | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 }")
+        [ -n "$ids" ] || break
+        _tlog "close pass $attempt: $(printf %s "$ids" | tr "\n" " ")"
+        for id in $ids; do "$mux" close "$id" >/dev/null 2>&1 || true; done
+        sleep 2
+        attempt=$((attempt + 1))
+      done
+      left=$("$mux" tabs | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 \"=\" \$2 }" | tr "\n" " ")
+      # A tab that survives three passes is almost certainly mux close skipping the last tab in its workspace or session.
+      if [ -n "$left" ]; then _tlog "LEFTOVER after 3 passes: $left"; else _tlog "all matching tabs closed"; fi
+    ' _ "$wt" "$pr" "$MUX" "$SWEEP_LOG" "$state_file" "$mode" >/dev/null 2>&1 &
   ) 2>/dev/null
   return 0
 }
@@ -486,7 +503,7 @@ sweep() {
 
 case "$cmd" in
   acquire) acquire "$pr" ;;
-  release) release_pr "$pr" ;;
+  release) release_pr "$pr" explicit ;;
   sweep) sweep ;;
   reclaim) sweep immediate; reconcile_artifacts ;;
   settle) settle ;;
