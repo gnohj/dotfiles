@@ -345,10 +345,11 @@ for w in snapshot.get("workspaces", []):
     cwd = wscwd.get(wid, "").rstrip("/")
     host = w.get("host") or ""
     deco, lname = split_label(label)
-    # Another host: its cwd names a path over there, so no git column, and it only stands in for an entry pinned to that host.
+    # Another host: its cwd names a path over there, so no git column; it stands in for an entry pinned there, else for an unpinned entry of its name.
     if host:
         there = re.sub(r"^/(Users|home)/[^/]+", "~", cwd)
         ent = pinned_by_label.get((host, lname), "")
+        if not ent and lname not in pins and (lname in cfg_names or lname in alias_by_name): ent = lname
         if ent: active_names.add(ent)
         entries.append(("ws", "⚡", label, "", "ws:" + wid, True, ent, there, host))
         continue
@@ -373,7 +374,7 @@ for e in sesh_entries:
         # being open stops hiding the other. The path test still covers entries no workspace
         # resolved to, but never a shared path - that collapse is what this change undoes.
         if nm in active_names:
-            if nm in pins: seen_paths.add(p)
+            seen_paths.add(p)
             continue
         if nm in pins:
             seen_names.add(nm); seen_paths.add(p)
@@ -574,7 +575,8 @@ END {
     # 1-based cursor position of the first genuine hit; borrowed ancestors are context, not hits.
     k++
     if (!hit && (tgt[i] in sel)) { pos = k; hit = 1 }
-    if (i in aliasrow) { apos = k; arow = line[i] }
+    # First wins: local workspaces come before other hosts, so an entry open on both jumps to this machine.
+    if ((i in aliasrow) && !apos) { apos = k; arow = line[i] }
   }
   if (apos) pos = apos
   close(out)
