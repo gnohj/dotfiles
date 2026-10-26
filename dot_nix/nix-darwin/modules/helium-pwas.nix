@@ -63,9 +63,14 @@ let
 in
 {
   system.activationScripts.postActivation.text = lib.mkAfter ''
-    /usr/bin/install -d -m 0755 "/Library/Managed Preferences"
-    /usr/bin/install -m 0644 ${heliumPolicy} "/Library/Managed Preferences/net.imput.helium.plist"
-    # Direct plist replacement bypasses cfprefsd's cache, so refresh it before Helium reads policy.
-    /usr/bin/killall cfprefsd 2>/dev/null || true
+    # Rewriting this under a running Helium can drop its PWAs, so only write on change.
+    helium_policy="/Library/Managed Preferences/net.imput.helium.plist"
+    if ! /usr/bin/cmp -s ${heliumPolicy} "$helium_policy"; then
+      /usr/bin/install -d -m 0755 "/Library/Managed Preferences"
+      /usr/bin/install -m 0644 ${heliumPolicy} "$helium_policy"
+      # Direct plist replacement bypasses cfprefsd's cache, so refresh it before Helium reads policy.
+      /usr/bin/killall cfprefsd 2>/dev/null || true
+      echo "Helium policy changed: restart Helium so it reinstalls any PWA it dropped." >&2
+    fi
   '';
 }
