@@ -145,6 +145,36 @@ if [ "$harness" = claude ]; then
   fm_effort=medium
 fi
 
+# Rex labels the primary's window the way rex-fleet-sync labels a second mate's: 🚢 fm · sonnet5.5 med.
+rex_label_window() {
+  local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" name="" ver="" rest="${fm_model##*/}" part effort shown win
+  while [ -n "$rest" ]; do
+    part="${rest%%-*}"
+    case "$rest" in *-*) rest="${rest#*-}" ;; *) rest="" ;; esac
+    case "$part" in
+    [0-9]*) [ "${#part}" -lt 8 ] && ver="${ver:+$ver.}$part" ;;
+    claude | gpt) ;;
+    *) name="$name$part" ;;
+    esac
+  done
+  case "$fm_effort" in
+  minimal) effort=min ;;
+  medium) effort=med ;;
+  high) effort=hi ;;
+  xhigh) effort=xhi ;;
+  off | none | default) effort="" ;;
+  *) effort="$fm_effort" ;;
+  esac
+  shown="$name$ver"
+  [ -z "$effort" ] || shown="${shown:+$shown }$effort"
+  win=$("$rex" --autostart=false window ls -s "$REX_SESSION" --json |
+    jq -r --arg b "$REX_BLOCK" 'first(.windows[] | select(any(.layers[].blocks[]; .block_id == $b)) | .window_id) // empty')
+  [ -n "$win" ] && "$rex" --autostart=false window rename -s "$REX_SESSION" "$win" "🚢 fm${shown:+ · $shown}"
+}
+if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ]; then
+  (rex_label_window) >/dev/null 2>&1 &
+fi
+
 cd "$root"
 case "$harness" in
 claude)
