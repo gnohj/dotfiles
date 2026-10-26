@@ -94,7 +94,7 @@ The Linux counterpart to the macOS flow, and now **nix-first like the Mac**: a s
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-Optionally set `TS_AUTHKEY` (brings Tailscale up unattended) and/or `GITHUB_TOKEN` (raises the GitHub rate limit for the toolchain install). **Export them first** - `VAR=… curl … | bash` scopes the vars to `curl`, not the piped `bash`, so the script would see them unset:
+Optionally set `TS_AUTHKEY` (brings Tailscale up unattended; pre-sign it for Tailnet Lock with `tailscale lock sign tskey-…` on the macbook or dev-box and export the key that prints) and/or `GITHUB_TOKEN` (raises the GitHub rate limit for the toolchain install). **Export them first** - `VAR=… curl … | bash` scopes the vars to `curl`, not the piped `bash`, so the script would see them unset:
 
 ```bash
 export TS_AUTHKEY=tskey-… GITHUB_TOKEN=ghp_…

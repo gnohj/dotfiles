@@ -47,7 +47,7 @@ adduser gnohj && usermod -aG sudo gnohj
 rsync --archive --chown=gnohj:gnohj ~/.ssh /home/gnohj
 ```
 
-Harden `sshd` (`/etc/ssh/sshd_config.d/hardening.conf`): `PasswordAuthentication no`, `PermitRootLogin no`, then `systemctl restart ssh`. Firewall public 22 (cloud firewall or `ufw` allowing 22 only from `100.64.0.0/10`), or rely on Tailscale SSH (step 3) and drop public 22 entirely.
+Harden `sshd` (`/etc/ssh/sshd_config.d/hardening.conf`): `PasswordAuthentication no`, `PermitRootLogin no`, then `systemctl restart ssh`. Firewall public 22 (cloud firewall or `ufw` allowing 22 only from `100.64.0.0/10`), so OpenSSH answers only over the tailnet.
 
 Passwordless sudo (lets the bootstrap `apt`-install + set linger cleanly):
 
@@ -61,10 +61,12 @@ echo "gnohj ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/gnohj
 
 ```
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --ssh
+sudo tailscale up
 ```
 
-Approve the machine at the printed URL. In the admin console (`login.tailscale.com/admin/dns`): enable **MagicDNS** + **HTTPS Certificates**. Install Tailscale on your **laptop + phone**, same account.
+Leave Tailscale SSH (`--ssh`) off: key-based OpenSSH over the tailnet covers the same access without the Tailworm root-escalation surface (disclosed 2026-10-25).
+
+Approve the machine at the printed URL. The tailnet has Tailnet Lock on, so the new node stays locked out until a signing node (macbook or dev-box) runs the `tailscale lock sign nodekey:… tlpub:…` line that `tailscale lock status` prints on the box. For an unattended `TS_AUTHKEY` run, pre-sign the key on a signing node with `tailscale lock sign tskey-…` and export the key it prints instead. In the admin console (`login.tailscale.com/admin/dns`): enable **MagicDNS** + **HTTPS Certificates**. Install Tailscale on your **laptop + phone**, same account.
 
 ## 4. chezmoi (runs the bootstrap)
 

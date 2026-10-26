@@ -110,17 +110,22 @@ if [ "$(id -u)" -eq 0 ]; then
     [ "$ts_ready" = 1 ] || print_warning "tailscaled not responding after 15s — 'up' may fail (check: systemctl status tailscaled)"
     # Do NOT swallow failure: an expired / single-use / invalid key must be LOUD.
     # Silently continuing leaves the box Logged out — defeating the point of TS_AUTHKEY.
-    if ts_out="$(tailscale up --ssh --authkey "$TS_AUTHKEY" 2>&1)"; then
+    if ts_out="$(tailscale up --authkey "$TS_AUTHKEY" 2>&1)"; then
       print_success "tailscale up (authkey)"
     else
       print_error "TS_AUTHKEY was set but 'tailscale up' FAILED — this box is NOT on the tailnet:"
       printf '%s\n' "$ts_out" | sed 's/^/    /'
       print_warning "Usual causes: key expired (default 90d), a single-use key already consumed, or an ephemeral key."
-      print_warning "Fix: mint a fresh REUSABLE key at login.tailscale.com/admin/settings/keys, then on the box:"
-      print_warning "    sudo tailscale up --ssh --authkey tskey-…     (or interactive: sudo tailscale up --ssh)"
+      print_warning "Fix: mint a fresh REUSABLE key at login.tailscale.com/admin/settings/keys, pre-sign it, then on the box:"
+      print_warning "    sudo tailscale up --authkey tskey-…     (or interactive: sudo tailscale up)"
+    fi
+    # Tailnet Lock: an unsigned node joins but can't reach any peer until a signing node signs it.
+    if tailscale lock status 2>/dev/null | grep -qi 'locked out'; then
+      print_warning "Tailnet Lock: this box is LOCKED OUT. Run the 'tailscale lock sign' line from 'tailscale lock status' on the macbook or dev-box."
+      print_warning "Avoid next time: pre-sign the key on a signing node with 'tailscale lock sign tskey-…' and export the key it prints."
     fi
   else
-    print_info "No TS_AUTHKEY — join the tailnet later: sudo tailscale up --ssh  (or post-provision.sh tailscale)"
+    print_info "No TS_AUTHKEY — join the tailnet later: sudo tailscale up  (or post-provision.sh tailscale)"
   fi
 
   # 6. Wait out cloud-init so the toolchain bootstrap doesn't race provisioning.
