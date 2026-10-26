@@ -50,6 +50,13 @@ local colors <const> = {
 		border = hex_to_sketchybar(colorscheme.gnohj_color13 or "4A5F7A"),
 	},
 
+	glass = {
+		bar = hex_to_sketchybar(colorscheme.gnohj_color10 or "021c31", "70"),
+		pill = 0x14ffffff,
+		rim = 0x33ffffff,
+		shadow = 0x59000000,
+	},
+
 	popup = {
 		bg = hex_to_sketchybar(colorscheme.gnohj_color10 or "021c31", "f1"),
 		-- color04 is the same blue the bar icons use, so a popup reads as belonging to its widget.

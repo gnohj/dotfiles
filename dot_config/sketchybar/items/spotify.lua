@@ -119,8 +119,9 @@ local bracket = sbar.add("bracket", constants.items.SPOTIFY .. ".bracket", {
 		height = 24,
 		corner_radius = 12,
 		border_width = 1,
-		color = settings.colors.transparent,
-		border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
+		color = settings.colors.glass.pill,
+		border_color = settings.colors.glass.rim,
+		shadow = { drawing = true, color = settings.colors.glass.shadow, distance = 2, angle = 270 },
 	},
 })
 
@@ -267,7 +268,7 @@ local function updateSpotifyInfo()
 
 		bracket:set({
 			background = {
-				border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
+				border_color = settings.colors.glass.rim,
 			},
 		})
 	end)

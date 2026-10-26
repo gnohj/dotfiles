@@ -45,7 +45,7 @@ local groups <const> = {
 	},
 }
 
-local IDLE = colors.with_alpha(colors.dark_grey, 0.5)
+local IDLE = colors.glass.rim
 local function hex(color)
 	return string.format("0x%08x", color)
 end
@@ -311,8 +311,9 @@ function M.build()
 				height = 24,
 				corner_radius = 12,
 				border_width = 1,
-				color = colors.transparent,
+				color = colors.glass.pill,
 				border_color = IDLE,
+				shadow = { drawing = true, color = colors.glass.shadow, distance = 2, angle = 270 },
 				padding_left = 8,
 				padding_right = 8,
 			},

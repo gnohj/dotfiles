@@ -29,7 +29,12 @@ local function add_pill(name)
 		drawing = false,
 		icon = { font = { size = 14.0 }, padding_left = 10, padding_right = 5 },
 		label = { font = { style = settings.fonts.styles.regular, size = 14.0 }, padding_left = 0, padding_right = 11 },
-		background = { height = 24, corner_radius = 12, border_width = 1 },
+		background = {
+			height = 24,
+			corner_radius = 12,
+			border_width = 1,
+			shadow = { drawing = true, color = settings.colors.glass.shadow, distance = 2, angle = 270 },
+		},
 		padding_left = 3,
 		padding_right = 3,
 	})
@@ -66,8 +71,8 @@ local function paint(item, style, text, active)
 		icon = { string = style.icon, color = active and settings.colors.blue or color },
 		label = { string = text, color = active and settings.colors.cyan or color },
 		background = {
-			color = settings.colors.transparent,
-			border_color = settings.colors.with_alpha(settings.colors.dark_grey, 0.5),
+			color = settings.colors.glass.pill,
+			border_color = settings.colors.glass.rim,
 		},
 	})
 end
