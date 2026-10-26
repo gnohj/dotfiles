@@ -28,8 +28,9 @@ mux - multiplexer operations against whichever of herdr/Rex/tmux is live.
   mux pane-width <pane-id>                 columns the pane currently occupies
   mux session [--label NAME] [<cwd>]       focus a session/workspace, building
                                            one at <cwd> if none exists
-  mux tabs                                 "<id><TAB><label>" per open window/tab
-  mux pane-cwds                            cwd of every open pane, one per line
+  mux tabs [--all-muxes]                  "<id><TAB><label>" per open window/tab
+  mux pane-cwds [--all-muxes]              cwd of every open pane, one per line
+                                           --all-muxes is read-only; errors fail
   mux close  <id>                          close a window/tab by `mux tabs` id
   mux notify [OPTS] <message>              transient message
   mux popup  [OPTS] <script-path>          run a script modally
@@ -408,8 +409,74 @@ cmd_session() {
   esac
 }
 
-# Every open window/tab as "<id><TAB><label>"; empty means the enumeration glitched.
+mux_json_list() {
+  jq -es --arg path "$1" '
+    if length == 1 then .[0] | getpath($path | split(".")) else null end
+    | if type == "array" then . else error("invalid multiplexer listing") end'
+}
+
+cmd_all_muxes() {
+  local query="$1" sessions sockets socket workspaces ws rex sid blocks bid
+  if command -v "$herdr" >/dev/null 2>&1; then
+    local status
+    status="$("$herdr" status server 2>/dev/null || true)"
+    if sessions="$("$herdr" session list 2>/dev/null)"; then
+      sockets="$(printf '%s\n' "$sessions" | awk 'NR > 1 && $2 == "running" { print $NF }' | sort -u)"
+      if [ -z "$sockets" ] && [[ "$status" == *'status: running'* ]]; then return 1; fi
+      while IFS= read -r socket; do
+        [ -n "$socket" ] || continue
+        need_jq
+        if [ "$query" = tabs ]; then
+          workspaces="$(HERDR_SOCKET_PATH="$socket" "$herdr" workspace list 2>/dev/null |
+            mux_json_list result.workspaces | jq -r '.[].workspace_id')" || return 1
+          while IFS= read -r ws; do
+            [ -n "$ws" ] || continue
+            HERDR_SOCKET_PATH="$socket" "$herdr" tab list --workspace "$ws" 2>/dev/null |
+              mux_json_list result.tabs | jq -r '.[] | "\(.tab_id)\t\(.label // "")"' || return 1
+          done <<<"$workspaces"
+        else
+          HERDR_SOCKET_PATH="$socket" "$herdr" pane list 2>/dev/null |
+            mux_json_list result.panes | jq -r '.[] | (.foreground_cwd // .cwd // empty)' || return 1
+        fi
+      done <<<"$sockets"
+    elif [[ "$status" == *'status: running'* ]]; then
+      return 1
+    fi
+  fi
+  if rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
+    need_jq
+    sessions="$("$rex" --autostart=false ls --json 2>/dev/null |
+      mux_json_list sessions | jq -r '.[].session_id')" || return 1
+    while IFS= read -r sid; do
+      [ -n "$sid" ] || continue
+      if [ "$query" = tabs ]; then
+        "$rex" --autostart=false window ls -s "$sid" --json 2>/dev/null |
+          mux_json_list windows | jq -r '.[] | "\(.window_id)\t\(.label // "")"' || return 1
+      else
+        blocks="$("$rex" --autostart=false block ls -s "$sid" --json 2>/dev/null |
+          mux_json_list blocks | jq -r '.[].block_id')" || return 1
+        while IFS= read -r bid; do
+          [ -n "$bid" ] || continue
+          "$rex" --autostart=false block call -s "$sid" -b "$bid" process 2>/dev/null |
+            jq -ers 'if length == 1 and (.[0] | type) == "object" then
+              [.[0].foreground.cwd, .[0].child.cwd] | map(select(. != null))
+              else error("invalid Rex process response") end' | jq -r '.[]' || return 1
+        done <<<"$blocks"
+      fi
+    done <<<"$sessions"
+  fi
+  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
+    if [ "$query" = tabs ]; then
+      tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || return 1
+    else
+      tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || return 1
+    fi
+  fi
+}
+
+# Every open window/tab as "<id><TAB><label>".
 cmd_tabs() {
+  if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes tabs; return; fi
   case "$(cmd_kind)" in
     herdr)
       need_jq
@@ -427,6 +494,7 @@ cmd_tabs() {
 
 # Current cwd of every open pane.
 cmd_pane_cwds() {
+  if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes pane-cwds; return; fi
   case "$(cmd_kind)" in
     herdr)
       need_jq

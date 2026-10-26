@@ -1356,7 +1356,11 @@ treehouse-orphans() {
   command -v jq >/dev/null 2>&1 || { echo "treehouse-orphans: needs jq"; return 1; }
   local return_them=0
   [[ "$1" == "-r" || "$1" == "--return" ]] && return_them=1
-  local panes; panes="$(tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null)"
+  local panes tabs mux="${MUX:-$HOME/.local/bin/mux/mux}"
+  if ! panes="$("$mux" pane-cwds --all-muxes)" || ! tabs="$("$mux" tabs --all-muxes)"; then
+    echo "treehouse-orphans: multiplexer listing failed; keeping all leases" >&2
+    return 1
+  fi
   local found=0 wt holder since procs
   while IFS=$'\t' read -r wt holder since; do
     [[ -n "$wt" ]] || continue
@@ -1364,6 +1368,13 @@ treehouse-orphans() {
     if printf '%s\n' "$panes" | awk -v w="$wt" '$0==w||index($0,w"/")==1{f=1}END{exit f?0:1}'; then
       continue
     fi
+    case "$holder" in
+      review-*)
+        if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${holder#review-}([^0-9]|$)"; then
+          continue
+        fi
+        ;;
+    esac
     found=1
     procs=$(lsof -d cwd -Fn 2>/dev/null | grep -c "^n${wt}" || true)
     printf '🌲 %-26s %s  (leased %s, %s zombie proc)\n' "$holder" "$wt" "${since%%T*}" "${procs:-0}"

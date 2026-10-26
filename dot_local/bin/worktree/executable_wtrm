@@ -133,10 +133,32 @@ worktree_risks() {
   printf '%s' "$risks"
 }
 
+worktree_available() {
+  local wt="$1" panes tabs f pr mux="${MUX:-$HOME/.local/bin/mux/mux}"
+  if ! panes="$("$mux" pane-cwds --all-muxes)" || ! tabs="$("$mux" tabs --all-muxes)"; then
+    echo "  ✗ refusing: multiplexer listing failed" >&2
+    return 1
+  fi
+  if printf '%s\n' "$panes" | awk -v wt="$wt" '$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit !f }'; then
+    echo "  ✗ refusing: an open multiplexer pane uses $wt" >&2
+    return 1
+  fi
+  for f in "${XDG_STATE_HOME:-$HOME/.local/state}"/gh-review-worktrees/*; do
+    [ -f "$f" ] && [ "$(cat "$f")" = "$wt" ] || continue
+    pr="${f##*/}"
+    case "$pr" in '' | *[!0-9]*) continue ;; esac
+    if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)"; then
+      echo "  ✗ refusing: review #$pr still has an open multiplexer tab" >&2
+      return 1
+    fi
+  done
+}
+
 delete_one() {
   local repo="$1" branch="$2" wt_path="$3" bare="$4"
 
   echo "→ $repo:$branch"
+  worktree_available "$wt_path" || return 1
 
   # Guard runs BEFORE the /sb-ticket-finish hook: refusing the delete must not
   # leave a frozen note and a cleaned thread file behind for a worktree that is

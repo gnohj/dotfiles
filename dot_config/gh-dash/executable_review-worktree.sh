@@ -14,7 +14,7 @@
 # which a per-PR release can't reach). Acquiring the same PR twice reuses its slot.
 #
 #   review-worktree.sh acquire <pr-number>   # prints the worktree path
-#   review-worktree.sh release <pr-number>   # return ONE slot by PR, kills its windows
+#   review-worktree.sh release <pr-number>   # return ONE idle slot by PR
 #   review-worktree.sh reclaim               # return EVERY idle slot now, then finish any submitted-but-untorn review (gh-dash R)
 #   review-worktree.sh sweep                 # same, but two-strike deferred (auto; disabled)
 #   review-worktree.sh settle                # free leases GitHub shows finished and nothing runs in (timer)
@@ -87,9 +87,20 @@ _bounded() {
   wait "$pid"
 }
 
-# `mux tabs` / `mux pane-cwds` enumerate the live mux, so release + sweep don't branch.
 MUX="${MUX:-$HOME/.local/bin/mux/mux}"
-mux_kind() { "$MUX" kind; }
+
+review_idle() {
+  local pr="$1" wt="$2" tabs cwds
+  tabs="$("$MUX" tabs --all-muxes)" && cwds="$("$MUX" pane-cwds --all-muxes)" || {
+    _slog "  keep $pr: multiplexer listing failed"
+    return 1
+  }
+  if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" ||
+    { [ -n "$wt" ] && cwd_in_worktree "$cwds" "$wt"; }; then
+    _slog "  keep $pr: review tab or pane still open"
+    return 1
+  fi
+}
 
 # True (0) if some line in $1 is exactly $2 or a subdirectory of it — i.e. a pane
 # still sits in the worktree. Prefix-safe: "/a/b" does not match "/a/bc".
@@ -177,8 +188,9 @@ release_pr() {
   local pr="$1" state_file="$STATE_DIR/$1" wt="" busy="" lavish_dir="$LAVISH_DIR/$1"
   # Read tolerantly: a concurrent sweep may remove this file between the test and the read, aborting under set -e.
   wt="$(cat "$state_file" 2>/dev/null || true)"
+  review_idle "$pr" "$wt" || return 1
 
-  # Order is load-bearing: the caller lives in the window this closes, so survivable work runs first and the fatal steps last.
+  # End idle review resources before returning the worktree.
 
   # 1. Artifact + session, ended before removal or a live session serves a page whose assets are gone. $pr guarded: empty would rm every artifact.
   if [ -n "$pr" ] && [ -d "$lavish_dir" ]; then
@@ -195,12 +207,12 @@ release_pr() {
     fi
   fi
 
-  # 2. The background browser this PR's drivers attached to. Before the tail, which kills the pane this runs in.
+  # Stop the background browser before returning its worktree.
   "$HOME/.local/bin/chrome-headed-bg" stop "review-$pr" >/dev/null 2>&1 || true
 
   # 3. The lease record is the ONLY handle reclaim has, so the tail drops it after the return, never before.
 
-  # 4. The fatal tail, in its own session so the pane treehouse is about to kill cannot take it down.
+  # Detach the return so process cleanup cannot interrupt it.
   _detach() {
     if command -v setsid >/dev/null 2>&1; then
       setsid "$@"
@@ -213,9 +225,14 @@ release_pr() {
   }
   (
     _detach bash -c '
-      # Out of the worktree first, or the reap below matches this tail own cwd and kills it before it closes the tabs.
+      # Return from outside the worktree to survive process cleanup.
       cd / 2>/dev/null || true
       wt="$1"; pr="$2"; mux="$3"; log="$4"; sf="$5"
+      tabs=$("$mux" tabs --all-muxes) && cwds=$("$mux" pane-cwds --all-muxes) || exit 1
+      printf "%s\n" "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" && exit 1
+      if [ -n "$wt" ]; then
+        printf "%s\n" "$cwds" | awk -v wt="$wt" '\''$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit !f }'\'' && exit 1
+      fi
       # Every step announces itself: the tail is detached with all output discarded, so an unlogged step that dies is indistinguishable from one that worked.
       _tlog() { printf "%s [%s]   tail #%s: %s\n" "$(date +%H:%M:%S)" "$$" "$pr" "$*" >>"$log" 2>/dev/null || true; }
       _tlog "started, wt=${wt:-none}"
@@ -230,34 +247,9 @@ release_pr() {
         else
           _tlog "treehouse return FAILED - lease record KEPT so reclaim can retry"
         fi
-        if command -v lsof >/dev/null 2>&1; then
-          killed=0
-          for p in $(lsof -d cwd -Fpn 2>/dev/null | awk -v wt="$wt" "
-            /^p/ { pid = substr(\$0, 2) }
-            /^n/ { if (substr(\$0, 2) == wt) print pid }
-          "); do kill "$p" 2>/dev/null && killed=$((killed + 1)); done
-          _tlog "killed $killed process(es) holding the worktree as cwd"
-        fi
       else
         rm -f "$sf"
       fi
-      # Re-enumerate and retry rather than trusting one pass. Only the gpt finder actually depends on this:
-      # review-open.sh gives it --keep-open, so it never self-closes the way every other review tab does when
-      # its command exits - which is why a silently failed close is invisible everywhere except that one tab.
-      attempt=1
-      while [ "$attempt" -le 3 ]; do
-        ids=$("$mux" tabs \
-          | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 }")
-        [ -n "$ids" ] || break
-        _tlog "close pass $attempt: $(printf %s "$ids" | tr "\n" " ")"
-        for id in $ids; do "$mux" close "$id" >/dev/null 2>&1 || true; done
-        sleep 2
-        attempt=$((attempt + 1))
-      done
-      left=$("$mux" tabs \
-        | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 \"=\" \$2 }" | tr "\n" " ")
-      # A tab that survives three passes is almost certainly mux close skipping the last tab in its workspace, which is a deliberate silent no-op there.
-      if [ -n "$left" ]; then _tlog "LEFTOVER after 3 passes: $left"; else _tlog "all matching tabs closed"; fi
     ' _ "$wt" "$pr" "$MUX" "$SWEEP_LOG" "$state_file" >/dev/null 2>&1 &
   ) 2>/dev/null
   return 0
@@ -305,7 +297,7 @@ settle() {
     _occupied "$wt" && continue
     why="$(_review_done "$wt" "$pr" "$(_mtime "$f")")" || continue
     _slog "  SETTLE $pr: $why, nothing running in $wt"
-    release_pr "$pr"
+    release_pr "$pr" || continue
     freed=$((freed + 1))
   done
   [ "$freed" -eq 0 ] || notify "🧹 Freed $freed finished review slot$([ "$freed" -eq 1 ] || echo s)"
@@ -432,22 +424,14 @@ sweep() {
   # No bail on a missing STATE_DIR: an orphaned lease outlives its record, which is exactly the empty case.
   sleep 0.3 # debounce: let the just-closed window/tab finish unlinking
   local cwds wins f pr wt now age total
-  [ "$(mux_kind)" = none ] && return 0
-  cwds="$("$MUX" pane-cwds || true)"
-  wins="$("$MUX" tabs | cut -f2- || true)"
-
-  # Guard against transient enumeration failure: this sweep was triggered BY a
-  # window/tab close, so the multiplexer IS running and necessarily has at least
-  # one pane and one window. If BOTH queries come back empty, the query glitched
-  # (heavy server load during a session switch, etc.) — releasing on that would
-  # wrongly kill EVERY live review. Bail; the next window-unlinked re-runs us.
-  if [ -z "${cwds//[[:space:]]/}" ] && [ -z "${wins//[[:space:]]/}" ]; then
-    _slog "sweep abort: empty pane+window enumeration (transient glitch); no releases"
+  if ! cwds="$("$MUX" pane-cwds --all-muxes)" ||
+    ! wins="$("$MUX" tabs --all-muxes | cut -f2-)"; then
+    _slog "sweep abort: multiplexer listing failed; no releases"
     return 0
   fi
 
   now="$(date +%s)"
-  total="$(printf '%s\n' "$cwds" | grep -c . 2>/dev/null)"
+  total="$(printf '%s\n' "$cwds" | grep -c . 2>/dev/null || true)"
   _slog "$mode run ($total panes total; $(printf '%s\n' "$cwds" | grep -c treehouse 2>/dev/null) under a treehouse worktree)"
   for f in "$STATE_DIR"/*; do
     [ -e "$f" ] || continue
@@ -474,12 +458,12 @@ sweep() {
       _slog "  keep $pr: pane present in $wt"
     elif [ "$mode" = immediate ]; then
       _slog "  RELEASE $pr (reclaim): no #${pr} window and no pane in $wt (lease age ${age}s)"
-      release_pr "$pr"
+      release_pr "$pr" || continue
       rm -f "$PENDING_DIR/$pr"
       reclaimed=$((reclaimed + 1))
     elif [ -f "$PENDING_DIR/$pr" ] && [ "$((now - $(_mtime "$PENDING_DIR/$pr")))" -ge "$SWEEP_CONFIRM" ]; then
       _slog "  RELEASE $pr: window-less for >=${SWEEP_CONFIRM}s, confirmed (lease age ${age}s)"
-      release_pr "$pr"
+      release_pr "$pr" || continue
       rm -f "$PENDING_DIR/$pr"
     else
       mkdir -p "$PENDING_DIR"
