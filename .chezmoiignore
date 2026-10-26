@@ -105,7 +105,10 @@ Library/
 .local/share/baby-menu/
 .config/kanata/
 .config/ghosttyfetch/
-.config/fastfetch/
+# Linux keeps Omarchy's /etc/fastfetch layout and takes only the logo image.
+.config/fastfetch/config.jsonc
+.config/fastfetch/nix-packages.jsonc
+.config/fastfetch/nix-packages.sh
 .config/spicetify/
 .config/mouseless/
 
