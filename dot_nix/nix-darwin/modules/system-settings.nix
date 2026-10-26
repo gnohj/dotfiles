@@ -111,9 +111,10 @@ in
       SecondClickThreshold = 1;           # Force touch pressure: 0 (light), 1 (medium), 2 (firm)
       ActuationStrength = 1;              # Silent clicking: 0 (enable), 1 (disable)
 
+      TrackpadThreeFingerHorizSwipeGesture = 0;  # Swipe between full-screen apps: 0 off, 1 pages, 2 full-screen apps
+
       # NOTE: The following gesture settings from "More Gestures" tab CANNOT be automated:
       # - Swipe between pages (Off in your config)
-      # - Swipe between full-screen apps (Three Fingers Left/Right in your config)
       # - Notification Center (swipe left from right edge with two fingers - Enabled)
       # - Mission Control (swipe up with three fingers - Enabled)
       # - App Exposé (Off in your config)
