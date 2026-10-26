@@ -762,11 +762,17 @@ btop2() {
       return 1
     fi
     "${HERDR_BIN_PATH:-herdr}" pane run "$pane" "btop -c ${(q)cpu_conf}; exit" >/dev/null 2>&1
+  elif [[ "$TERM_PROGRAM" == rex && -n "$REX_BLOCK" ]]; then
+    if ! "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false split -s "$REX_SESSION" -b "$REX_BLOCK" \
+      --split=right --ratio 50 --focus=false -- btop -c "$cpu_conf" >/dev/null 2>&1; then
+      echo "btop2: could not split the Rex block; run btopm and btopc separately"
+      return 1
+    fi
   elif [[ -n "$TMUX" ]]; then
     tmux split-window -h "btop -c ${(q)cpu_conf}"
     tmux select-pane -L
   else
-    echo "btop2 needs tmux or herdr; run btopm and btopc in separate splits instead"
+    echo "btop2 needs herdr, Rex or tmux; run btopm and btopc in separate splits instead"
     return 1
   fi
   command btop -c "$mem_conf"

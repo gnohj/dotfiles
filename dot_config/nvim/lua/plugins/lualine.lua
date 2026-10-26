@@ -68,8 +68,8 @@ return {
     local lazy_status = require("lazy.status") -- to configure lazy pending updates count
     local icons = require("lazyvim.config").icons
 
-    -- If in tmux or herdr, show minimal statusline with unsaved buffer indicator and lazy updates on the right
-    if vim.env.TMUX or vim.env.HERDR_SOCKET_PATH then
+    -- If in tmux, herdr or Rex, show minimal statusline with unsaved buffer indicator and lazy updates on the right
+    if vim.env.TMUX or vim.env.HERDR_SOCKET_PATH or (vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK) then
       return {
         options = {
           component_separators = "",
