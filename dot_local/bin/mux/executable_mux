@@ -415,8 +415,34 @@ mux_json_list() {
     | if type == "array" then . else error("invalid multiplexer listing") end'
 }
 
+# Every Rex session's tabs or pane cwds; a tab id is "<session>/<window>" because Rex closes a window only within its session.
+rex_list() {
+  local query="$1" rex sessions sid blocks bid
+  rex="$(rex_bin)" || return 1
+  need_jq
+  sessions="$("$rex" --autostart=false ls --json 2>/dev/null |
+    mux_json_list sessions | jq -r '.[].session_id')" || return 1
+  while IFS= read -r sid; do
+    [ -n "$sid" ] || continue
+    if [ "$query" = tabs ]; then
+      "$rex" --autostart=false window ls -s "$sid" --json 2>/dev/null |
+        mux_json_list windows | jq -r --arg sid "$sid" '.[] | "\($sid)/\(.window_id)\t\(.label // "")"' || return 1
+    else
+      blocks="$("$rex" --autostart=false block ls -s "$sid" --json 2>/dev/null |
+        mux_json_list blocks | jq -r '.[].block_id')" || return 1
+      while IFS= read -r bid; do
+        [ -n "$bid" ] || continue
+        "$rex" --autostart=false block call -s "$sid" -b "$bid" process 2>/dev/null |
+          jq -ers 'if length == 1 and (.[0] | type) == "object" then
+            [.[0].foreground.cwd, .[0].child.cwd] | map(select(. != null))
+            else error("invalid Rex process response") end' | jq -r '.[]' || return 1
+      done <<<"$blocks"
+    fi
+  done <<<"$sessions"
+}
+
 cmd_all_muxes() {
-  local query="$1" sessions sockets socket workspaces ws rex sid blocks bid
+  local query="$1" sessions sockets socket workspaces ws rex
   if command -v "$herdr" >/dev/null 2>&1; then
     local status
     status="$("$herdr" status server 2>/dev/null || true)"
@@ -444,26 +470,7 @@ cmd_all_muxes() {
     fi
   fi
   if rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
-    need_jq
-    sessions="$("$rex" --autostart=false ls --json 2>/dev/null |
-      mux_json_list sessions | jq -r '.[].session_id')" || return 1
-    while IFS= read -r sid; do
-      [ -n "$sid" ] || continue
-      if [ "$query" = tabs ]; then
-        "$rex" --autostart=false window ls -s "$sid" --json 2>/dev/null |
-          mux_json_list windows | jq -r '.[] | "\(.window_id)\t\(.label // "")"' || return 1
-      else
-        blocks="$("$rex" --autostart=false block ls -s "$sid" --json 2>/dev/null |
-          mux_json_list blocks | jq -r '.[].block_id')" || return 1
-        while IFS= read -r bid; do
-          [ -n "$bid" ] || continue
-          "$rex" --autostart=false block call -s "$sid" -b "$bid" process 2>/dev/null |
-            jq -ers 'if length == 1 and (.[0] | type) == "object" then
-              [.[0].foreground.cwd, .[0].child.cwd] | map(select(. != null))
-              else error("invalid Rex process response") end' | jq -r '.[]' || return 1
-        done <<<"$blocks"
-      fi
-    done <<<"$sessions"
+    rex_list "$query" || return 1
   fi
   if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
     if [ "$query" = tabs ]; then
@@ -488,6 +495,7 @@ cmd_tabs() {
             jq -r '.result.tabs[]? | "\(.tab_id)\t\(.label // "")"' 2>/dev/null
         done || true
       ;;
+    rex) rex_list tabs || true ;;
     tmux) tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || true ;;
   esac
 }
@@ -501,6 +509,7 @@ cmd_pane_cwds() {
       "$herdr" pane list 2>/dev/null |
         jq -r '.result.panes[]? | (.foreground_cwd // .cwd // empty)' 2>/dev/null || true
       ;;
+    rex) rex_list pane-cwds || true ;;
     tmux) tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true ;;
   esac
 }
@@ -517,6 +526,16 @@ cmd_close() {
       n="$("$herdr" tab list --workspace "$ws" 2>/dev/null | jq -r '(.result.tabs? // []) | length' 2>/dev/null)"
       if [ "${n:-0}" -gt 1 ]; then
         "$herdr" tab close "$id" >/dev/null 2>&1 || true
+      fi
+      ;;
+    rex)
+      need_jq
+      # Same rule as herdr: an emptied Rex session lingers in the sidebar until killed.
+      local rex sid="${id%%/*}" n
+      rex="$(rex_bin)" || return 0
+      n="$("$rex" --autostart=false window ls -s "$sid" --json 2>/dev/null | jq -r '(.windows? // []) | length' 2>/dev/null)"
+      if [ "${n:-0}" -gt 1 ]; then
+        "$rex" --autostart=false window close -s "$sid" "${id#*/}" >/dev/null 2>&1 || true
       fi
       ;;
     tmux)  tmux kill-window -t "$id" 2>/dev/null || true ;;
