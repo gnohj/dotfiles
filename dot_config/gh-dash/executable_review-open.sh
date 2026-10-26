@@ -50,6 +50,9 @@ if [ "$(uname -s)" = Darwin ] && [ "$mode" != hunk ] && [ "${REVIEW_RUN_HERE:-}"
   exec bash "$HOME/.config/gh-dash/review-devbox.sh" "$mode" "$pr" "$repo"
 fi
 
+. "$HOME/.config/gh-dash/review-mux.sh"
+review_mux_adopt "$repo_path"
+
 notify_msg() {
   case "$("$HOME/.local/bin/mux/mux" kind)" in
     herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$1" --sound request >/dev/null 2>&1 || true ;;

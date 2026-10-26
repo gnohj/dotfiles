@@ -55,10 +55,9 @@ case "$repo" in
   *) repo_path="$HOME/Developer/${repo#*/}" ;;
 esac
 . "$HOME/.config/gh-dash/review-mux.sh"
-target="$(review_mux_target "$repo_path")" || { echo "review-devbox: no herdr or Rex review workspace is open" >&2; exit 1; }
-review_mux_env "$target"
+target="$(review_mux_target "$repo_path")" || { echo "review-devbox: no Rex or herdr review workspace is open" >&2; exit 1; }
 ws="$(printf '%s' "$target" | jq -r '.workspace')"
-envs=("${review_env[@]}")
+envs=()
 if [ "$harness" = pi ] && ! grep -q REVIEW_HARNESS "$HOME/.config/gh-dash/review-open.sh"; then
   echo "review-devbox: review-open.sh on $(hostname -s) predates Pi reviews - run chezmoi apply there" >&2
   exit 1
