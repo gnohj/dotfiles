@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Enable the Lavish Library server; Linux/systemd only, macOS starts it from the nix-darwin launchd agent.
+# service sha256: {{ include "dot_config/systemd/user/lavish-library.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/lavish-library.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+systemctl --user enable lavish-library.service
+systemctl --user enable --now lavish-library.timer
+systemctl --user start lavish-library.service
+
+echo "lavish-library.service + timer enabled (every 5 minutes)."

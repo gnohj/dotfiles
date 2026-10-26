@@ -203,6 +203,10 @@ Library/
 # resource-watch recorder - same story: macOS runs the identical script from its launchd agent `resource-watch`.
 .config/systemd/user/resource-watch.service
 
+# Lavish Library server - same story: macOS starts it from its launchd agent `lavish-library`.
+.config/systemd/user/lavish-library.service
+.config/systemd/user/lavish-library.timer
+
 # Infinitary's Linux work service drop-in - the Mac runs that work as a launchd job of its own.
 .config/systemd/user/com.getinfinitary.infinitary.work.service.d/no-ozone-hint.conf
 

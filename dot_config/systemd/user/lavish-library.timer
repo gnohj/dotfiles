@@ -1,0 +1,11 @@
+# Revives a dead server and swaps in pulled code; ensure_server is a no-op while the running server matches the file.
+[Unit]
+Description=Keep the Lavish Library server running on current code
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
