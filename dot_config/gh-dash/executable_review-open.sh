@@ -237,19 +237,22 @@ gh_retry() {
 base_ref() { gh_retry pr view "$pr" --json baseRefName -q .baseRefName; }
 head_ref() { gh_retry pr view "$pr" --json headRefName -q .headRefName; }
 
+ticket=$(gh_retry pr view "$pr" --json headRefName,title -q '.headRefName + " " + .title' 2>/dev/null | grep -oE '[A-Z]+-[0-9]+' | head -n1 || true)
+pr_tag="#$pr${ticket:+ · $ticket}"
+
 # After the checkout, not at lease time - post_create would resolve master's manifests (see install-deps.sh).
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
 
 # --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
 open_hunk() {
   # --sidebar, not a send-keys toggle afterwards: a flag cannot race hunk's startup or its width rules.
-  mux --print-pane "🔀 #$pr" "$1" "hunk diff --sidebar --watch $2"
+  mux --print-pane "🔀 $pr_tag" "$1" "hunk diff --sidebar --watch $2"
 }
 
 # $3 picks the review command: `full` adds the Lavish surface, `diff` stays text-only.
 open_claude_hunk() {
   local cmd="${3:-hunk-review}"
-  mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 #$pr" "$1" \
+  mux "${CLAUDE_ACCOUNT_ENV[@]}" --env HUNK_PANE="$2" "🔍 $pr_tag" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
@@ -262,14 +265,14 @@ tab_model() {
 open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 $pr_tag$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 # Pi expands /review-lavish from the shared commands; the 🤖 label is how the Library finds it.
 open_pi_review() {
   local provider="${REVIEW_PI_MODEL%%/*}" model="${REVIEW_PI_MODEL#*/}"
-  mux --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr$(tab_model "$REVIEW_PI_MODEL" "$REVIEW_PI_THINKING")" "$1" \
+  mux --env REVIEW_LAVISH_PR="$pr" "🤖 $pr_tag$(tab_model "$REVIEW_PI_MODEL" "$REVIEW_PI_THINKING")" "$1" \
     "$GH_KEYRING"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; pi --provider '"$provider"' --model '"$model"' --thinking '"$REVIEW_PI_THINKING"' "/review-lavish '"$pr"'"'
 }
 
@@ -311,7 +314,7 @@ write_finder_meta() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   write_finder_meta "$1" opus claude "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT"
-  mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
+  mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 $pr_tag$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
@@ -325,7 +328,7 @@ open_finder_pi() {
   [ -n "${REVIEW_FINDER_LADDER:-}" ] && ladder_env=(--env REVIEW_FINDER_LADDER="$REVIEW_FINDER_LADDER")
   mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
     --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
-    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" ${ladder_env[@]+"${ladder_env[@]}"} "🔎2 #$pr · ${2:-gpt}" "$1" \
+    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" ${ladder_env[@]+"${ladder_env[@]}"} "🔎2 $pr_tag · ${2:-gpt}" "$1" \
     "$GH_KEYRING"'"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
@@ -337,7 +340,7 @@ finder_label() {
 }
 
 open_fanout_owner() {
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge" "$1" "${GH_KEYRING}${AGENT_FLAGS_WIN}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 $pr_tag merge" "$1" "${GH_KEYRING}${AGENT_FLAGS_WIN}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
 # The brief lives outside the worktree so the agent's own `git status` stays clean.
@@ -345,10 +348,10 @@ open_resolver() {
   local brief="$stamp_dir/${repo//\//_}-$pr-resolve.txt"
   printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nCI owns typecheck, lint and tests for this push, so --no-verify skips the pre-push hook that would run them all locally first. No measured CI run is in flight, so push as soon as the fixes are committed. Run the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too.\n' "$pr" "$2" >"$brief"
   if [ "$harness" = pi ]; then
-    mux "💬 #$pr" "$1" \
+    mux "💬 $pr_tag" "$1" \
       "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'
   else
-    mux "${CLAUDE_ACCOUNT_ENV[@]}" "💬 #$pr" "$1" \
+    mux "${CLAUDE_ACCOUNT_ENV[@]}" "💬 $pr_tag" "$1" \
       "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat '"$brief"')"'
   fi
 }
