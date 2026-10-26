@@ -20,7 +20,7 @@ local function nav(wincmd, dir)
     return
   end
   local rex = resolve_rex()
-  local out = vim.fn.system({ rex, "focus", dir })
+  local out = vim.fn.system({ rex, "--autostart=false", "focus", dir })
   if vim.v.shell_error ~= 0 then
     vim.notify(
       ("rex nav %s failed (exit %d): %s  [bin=%s]"):format(

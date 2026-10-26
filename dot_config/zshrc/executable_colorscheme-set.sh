@@ -105,7 +105,7 @@ generate_rex_theme() {
   mkdir -p "$(dirname "$rex_theme_file")"
   cp -f "$HOME/.config/ghostty/ghostty-theme" "$rex_theme_file"
   # Needs the app running with Remote Control on; otherwise the import is skipped quietly.
-  if "$rex" do -C "$("$rex" client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')" client.theme.import path="$rex_theme_file" >/dev/null 2>&1; then
+  if "$rex" --autostart=false do -C "$("$rex" --autostart=false client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')" client.theme.import path="$rex_theme_file" >/dev/null 2>&1; then
     echo "Rex theme updated from '$rex_theme_file'."
   fi
 }
