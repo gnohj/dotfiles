@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# agent-label <model> [effort] - the short form tab labels show: claude-sonnet-5-5 medium -> sonnet5.5 med.
+set -euo pipefail
+
+rest="${1:-}"
+rest="${rest##*/}"
+name="" ver=""
+while [ -n "$rest" ]; do
+  part="${rest%%-*}"
+  case "$rest" in *-*) rest="${rest#*-}" ;; *) rest="" ;; esac
+  case "$part" in
+  [0-9]*) [ "${#part}" -lt 8 ] && ver="${ver:+$ver.}$part" ;;
+  claude | gpt) ;;
+  *) name="$name$part" ;;
+  esac
+done
+case "${2:-}" in
+minimal) effort=min ;;
+medium) effort=med ;;
+high) effort=hi ;;
+xhigh) effort=xhi ;;
+off | none | default) effort="" ;;
+*) effort="${2:-}" ;;
+esac
+shown="$name$ver"
+[ -z "$effort" ] || shown="${shown:+$shown }$effort"
+printf '%s\n' "$shown"

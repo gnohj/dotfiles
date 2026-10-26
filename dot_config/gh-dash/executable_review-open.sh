@@ -238,18 +238,23 @@ open_claude_hunk() {
     "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; sleep 3; claude --dangerously-skip-permissions '"$REVIEW_SETTINGS"' "/'"$cmd"' '"$pr"' pane=$HUNK_PANE"'
 }
 
+tab_model() {
+  [ -n "${1:-}" ] && printf ' · %s' "$("$HOME/.local/bin/agent-label" "$1" "${2:-}")"
+  return 0
+}
+
 # $2 picks the command: `claude` mode uses /review, `full` uses /review-lavish.
 open_claude_review() {
   local cmd="${2:-review}"
   # The PATH shim backgrounds lavish-axi's own `open <url>` so publishing never steals the desktop.
-  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr" "$1" \
+  mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "/'"$cmd"' '"$pr"'"'
 }
 
 # Pi expands /review-lavish from the shared commands; the 🤖 label is how the Library finds it.
 open_pi_review() {
   local provider="${REVIEW_PI_MODEL%%/*}" model="${REVIEW_PI_MODEL#*/}"
-  mux --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr" "$1" \
+  mux --env REVIEW_LAVISH_PR="$pr" "🤖 #$pr$(tab_model "$REVIEW_PI_MODEL" "$REVIEW_PI_THINKING")" "$1" \
     "$GH_KEYRING"'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; pi --provider '"$provider"' --model '"$model"' --thinking '"$REVIEW_PI_THINKING"' "/review-lavish '"$pr"'"'
 }
 
@@ -291,7 +296,7 @@ write_finder_meta() {
 open_finder_claude() {
   write_finder_brief "$1" opus
   write_finder_meta "$1" opus claude "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT"
-  mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr opus" "$1" \
+  mux "${CLAUDE_ACCOUNT_ENV[@]}" --no-focus "🔎1 #$pr$(tab_model "$REVIEW_CLAUDE_MODEL" "$REVIEW_CLAUDE_EFFORT")" "$1" \
     "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat .review/brief-opus.txt)"'"$(seal_on_exit opus)"
 }
 
@@ -305,14 +310,15 @@ open_finder_pi() {
   [ -n "${REVIEW_FINDER_LADDER:-}" ] && ladder_env=(--env REVIEW_FINDER_LADDER="$REVIEW_FINDER_LADDER")
   mux --keep-open --no-focus --env REVIEW_FINDER_MODEL="$REVIEW_FINDER_MODEL" \
     --env REVIEW_FINDER_THINKING="$REVIEW_FINDER_THINKING" \
-    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" ${ladder_env[@]+"${ladder_env[@]}"} "🔎2 #$pr ${2:-gpt}" "$1" \
+    --env REVIEW_FINDER_RUNG_TIMEOUT="$REVIEW_FINDER_RUNG_TIMEOUT" ${ladder_env[@]+"${ladder_env[@]}"} "🔎2 #$pr · ${2:-gpt}" "$1" \
     "$GH_KEYRING"'"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
-# "pi|openai-codex|gpt-6.1-sol" -> "sol"; a harness-only rung like "codex|-|-" keeps the harness name.
+# "pi|openai-codex|gpt-6.1-sol" -> "sol6.1 xhi"; a harness-only rung like "codex|-|-" keeps the harness name.
 finder_label() {
   local rung="$1" model="${1##*|}"
-  case "$model" in '' | '-') printf '%s' "${rung%%|*}" ;; *) printf '%s' "${model##*-}" ;; esac
+  case "$model" in '' | '-') model="${rung%%|*}" ;; esac
+  "$HOME/.local/bin/agent-label" "$model" "${REVIEW_FINDER_THINKING:-}"
 }
 
 open_fanout_owner() {
