@@ -184,3 +184,6 @@ scripts/open-tmux-attach.sh
 .config/sketchybar/lib/aerospace.lua
 .config/sketchybar/lib/wm.lua
 .config/sketchybar/items/workspace.lua.simple-backup
+
+# rex-fleet-sync moved into chezmoi at .local/bin/mux/rex; sweep the hand-installed dev-box copy.
+.local/bin/rex-fleet-sync

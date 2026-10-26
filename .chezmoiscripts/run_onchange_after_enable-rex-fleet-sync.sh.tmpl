@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Enable the Rex fleet mirror; Linux/systemd only, the Mac has no fm-remote session to mirror.
+# service sha256: {{ include "dot_config/systemd/user/rex-fleet-sync.service" | sha256sum }}
+# timer sha256: {{ include "dot_config/systemd/user/rex-fleet-sync.timer" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+systemctl --user enable --now rex-fleet-sync.timer
+systemctl --user start rex-fleet-sync.service
+
+echo "rex-fleet-sync.timer enabled (every minute)."
