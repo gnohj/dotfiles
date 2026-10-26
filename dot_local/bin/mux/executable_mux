@@ -26,7 +26,8 @@ mux - multiplexer operations against whichever of herdr/Rex/tmux is live.
   mux send-keys <pane-id> <key>...         send key presses to a pane
   mux pane-pids <pane-id>                  pids in the pane's foreground
   mux pane-width <pane-id>                 columns the pane currently occupies
-  mux session [--label NAME] [<cwd>]       focus a session/workspace, building
+  mux session [--label NAME] [--no-focus] [<cwd>]
+                                           focus a session/workspace, building
                                            one at <cwd> if none exists
   mux tabs [--all-muxes]                  "<id><TAB><label>" per open window/tab
   mux pane-cwds [--all-muxes]              cwd of every open pane, one per line
@@ -53,7 +54,7 @@ window options:
 Detection: pane env herdr, Rex (TERM_PROGRAM=rex and REX_BLOCK), then tmux;
 otherwise live servers herdr, Rex, then tmux. MUX_FORCE_KIND overrides this.
 notify options:
-  --title TEXT        herdr toast title (default "notice")
+  --title TEXT        herdr toast / Rex desktop banner title (default "notice")
   --duration MS       tmux status-line duration, tmux only (default 5000)
 popup options:
   --width W  --height H    tmux popup size (default 70% x 30%)
@@ -102,6 +103,11 @@ focused_workspace() {
   command -v jq >/dev/null 2>&1 || return 0
   "$herdr" workspace list 2>/dev/null |
     jq -r 'first(.result.workspaces[]? | select(.focused == true) | .workspace_id) // empty' 2>/dev/null
+}
+
+rex_app_client() {
+  "$1" --autostart=false client ls --json 2>/dev/null | jq -r \
+    '[.clients[]? | select(.info.kind == "app" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty'
 }
 
 # tmux runs the command AS the window process so it closes on exit; herdr spawns a
@@ -195,8 +201,7 @@ cmd_window() {
         '{"columns":200,"rows":50}' >/dev/null 2>&1 || printf 'mux: could not resize Rex block %s\n' "$pane" >&2
       if [ -n "$force_focus" ] && [ -z "$no_focus" ]; then
         window="$(printf '%s' "$out" | jq -r '.window_id // empty')"
-        client="$("$rex" --autostart=false client ls --json | jq -r \
-          '[.clients[]? | select(.info.kind == "app" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')"
+        client="$(rex_app_client "$rex")"
         [ -n "$client" ] || die "Rex window created but no connected app is available to focus it"
         [ -n "$ws" ] && [ -n "$window" ] || die "Rex window created but missing focus target"
         "$rex" --autostart=false -C "$client" do session.select "session_id=$ws" "window_id=$window" >/dev/null ||
@@ -283,6 +288,19 @@ cmd_split() {
       [ -n "$pane" ] || die "herdr pane split failed"
       herdr_pane_run "$pane" "$command; exit"
       ;;
+    rex)
+      need_jq
+      [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] || die "split: not inside a Rex block"
+      local rex ratio=25 n
+      rex="$(rex_bin)" || die "Rex CLI unavailable"
+      # --ratio is the NEW block's share, so 25/34 mirror herdr's 0.75/0.66 for the caller.
+      n="$("$rex" --autostart=false block ls -s "$REX_SESSION" --json 2>/dev/null | jq -r --arg b "$REX_BLOCK" \
+        '(.blocks // []) as $all | (first($all[] | select(.block_id == $b) | .window_id) // "") as $w
+        | [$all[] | select(.window_id == $w)] | length' 2>/dev/null)"
+      case "$n" in ''|*[!0-9]*|0|1) ;; *) ratio=34 ;; esac
+      "$rex" --autostart=false split -s "$REX_SESSION" -b "$REX_BLOCK" --split=right --ratio "$ratio" \
+        -c "$cwd" --shell=none -- "${SHELL:-/bin/sh}" -lc "$command" >/dev/null || die "Rex split failed"
+      ;;
     tmux)
       if [ "$(tmux list-panes 2>/dev/null | wc -l | tr -d ' ')" = 1 ]; then
         tmux split-window -h -l 25% -c "$cwd" "$command"
@@ -291,7 +309,7 @@ cmd_split() {
         tmux select-layout even-horizontal >/dev/null 2>&1
       fi
       ;;
-    none) die "no tmux or herdr session detected" ;;
+    none) die "no herdr, Rex or tmux session detected" ;;
   esac
 }
 
@@ -360,23 +378,21 @@ cmd_pane_width() {
   esac
 }
 
-# Focus the herdr workspace labelled $1, comparing on the emoji-stripped tail.
-herdr_focus_workspace_named() {
-  local want="$1" ws
-  ws="$("$herdr" workspace list 2>/dev/null |
-    jq -r --arg w "$want" '.result.workspaces[]?
+# The herdr workspace labelled $1, comparing on the emoji-stripped tail.
+herdr_workspace_named() {
+  "$herdr" workspace list 2>/dev/null |
+    jq -r --arg w "$1" '.result.workspaces[]?
       | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w)
-      | .workspace_id' 2>/dev/null | head -1)"
-  [ -n "$ws" ] || return 1
-  "$herdr" workspace focus "$ws" >/dev/null 2>&1
+      | .workspace_id' 2>/dev/null | head -1
 }
 
-# "Attach if it exists, else build it". Without <cwd> it only focuses.
+# "Attach if it exists, else build it". Without <cwd> it only focuses; --no-focus builds it in the background.
 cmd_session() {
-  local label=""
+  local label="" no_focus=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --label) label="$2"; shift 2 ;;
+      --no-focus) no_focus=1; shift ;;
       --)      shift; break ;;
       -*)      die "session: unknown option $1" 2 ;;
       *)       break ;;
@@ -389,12 +405,36 @@ cmd_session() {
   case "$(cmd_kind)" in
     herdr)
       need_jq
-      [ -n "$label" ] && herdr_focus_workspace_named "$label" && return 0
+      local ws=""
+      [ -n "$label" ] && ws="$(herdr_workspace_named "$label")"
+      if [ -n "$ws" ]; then
+        [ -n "$no_focus" ] || "$herdr" workspace focus "$ws" >/dev/null 2>&1
+        return 0
+      fi
       [ -n "$cwd" ] || return 1
       # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
       local layout=("$cwd")
       [ -n "$label" ] && layout+=("$label")
-      "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${layout[@]}" >/dev/null 2>&1
+      HERDR_SESH_NO_FOCUS="$no_focus" "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${layout[@]}" >/dev/null 2>&1
+      ;;
+    rex)
+      need_jq
+      local rex sid client
+      rex="$(rex_bin)" || die "Rex CLI unavailable"
+      # herdr-sesh-layout.sh's label, so either mux finds the same session again.
+      [ -n "$label" ] || label="$("$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" --print-label "$cwd")" || return 1
+      sid="$("$rex" --autostart=false ls --json 2>/dev/null | jq -r --arg w "$label" \
+        'first(.sessions[]? | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w) | .session_id) // empty')"
+      [ -n "$sid" ] && [ -n "$no_focus" ] && return 0
+      [ -n "$sid" ] || [ -n "$cwd" ] || return 1
+      client="$(rex_app_client "$rex")"
+      [ -n "$client" ] || die "no connected Rex app"
+      if [ -n "$sid" ]; then
+        "$rex" --autostart=false -C "$client" do session.select "session_id=$sid" >/dev/null
+      else
+        "$rex" --autostart=false -C "$client" do sesh_open --args "$(jq -cn --arg l "$label" --arg d "$cwd" \
+          --arg b "$no_focus" '{label: $l, dir: $d} + (if $b == "" then {} else {background: "1"} end)')" >/dev/null
+      fi
       ;;
     tmux)
       [ -n "$label" ] || label="$(basename "$cwd")"
@@ -402,10 +442,11 @@ cmd_session() {
         [ -n "$cwd" ] || return 1
         tmux new-session -d -s "$label" -c "$cwd" 2>/dev/null || return 1
       fi
+      [ -n "$no_focus" ] && return 0
       tmux switch-client -t "$label" 2>/dev/null ||
         tmux attach-session -t "$label" 2>/dev/null || true
       ;;
-    none) die "no tmux or herdr session detected" ;;
+    none) die "no herdr, Rex or tmux session detected" ;;
   esac
 }
 
@@ -558,6 +599,14 @@ cmd_notify() {
     # herdr has no status line, so --duration is tmux-only.
     herdr) "$herdr" notification show "$title" --body "$msg" >/dev/null 2>&1 || printf '%s\n' "$msg" >&2 ;;
     tmux)  tmux display-message -d "$duration" "$msg" 2>/dev/null || printf '%s\n' "$msg" >&2 ;;
+    # Rex has no toast CLI; the guard stops to-desktop's own `mux notify` fallback looping back here.
+    rex)
+      if [ -z "${MUX_NOTIFY_VIA_DESKTOP:-}" ] && printf '%s\n%s' "${title//$'\n'/ }" "$msg" |
+        MUX_NOTIFY_VIA_DESKTOP=1 "$HOME/.local/bin/to-desktop" notify - >/dev/null 2>&1; then
+        return 0
+      fi
+      printf '%s\n' "$msg" >&2
+      ;;
     *)     printf '%s\n' "$msg" >&2 ;;
   esac
 }

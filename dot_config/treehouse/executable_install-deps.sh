@@ -58,6 +58,9 @@ label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
       # herdr's own toast (its desktop-class notify) over the socket API.
       command -v herdr >/dev/null 2>&1 && herdr notification show "treehouse deps" --body "$msg" --sound done 2>/dev/null || true
       ;;
+    rex)
+      "$HOME/.local/bin/mux/mux" notify --title "treehouse deps" "$msg" 2>/dev/null || true
+      ;;
     *)
       # no multiplexer context — desktop notif only.
       command -v mac-notify >/dev/null 2>&1 && mac-notify -t "treehouse deps" -m "$msg" -T 5 2>/dev/null

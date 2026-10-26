@@ -427,14 +427,14 @@ local function session_glyph(name, dir)
   return "📁"
 end
 
-local function open_session(name, dir, startup)
+local function open_session(name, dir, startup, background)
   local label = session_glyph(name, dir) .. " " .. name
   local list, err = rex.call("session.list")
   fail(err)
   for _, s in ipairs(list.sessions or {}) do
     if s.label == label or s.label == name then
       if s.label ~= label then rex.call("session.set_label", { session_id = s.session_id, label = label }) end
-      rex.client.queue("session.select", { session_id = s.session_id })
+      if not background then rex.client.queue("session.select", { session_id = s.session_id }) end
       return
     end
   end
@@ -445,7 +445,7 @@ local function open_session(name, dir, startup)
   if view ~= nil and view.windows[1] ~= nil then
     rex.call("session.focus_window", { session_id = s.session_id, window_id = view.windows[1].window_id })
   end
-  rex.client.queue("session.select", { session_id = s.session_id })
+  if not background then rex.client.queue("session.select", { session_id = s.session_id }) end
 end
 
 -- prefix+N: session at the focused pane's cwd, labelled by its basename (herdr-new-workspace.sh).
@@ -461,16 +461,16 @@ rex.action{
 }
 rex.bind(P .. "shift+n", "new_session_here")
 
--- Called by rex-herdr when herdr-sesh.sh opens a sesh.toml entry or zoxide dir; an empty startup means the dev layout.
+-- Called by rex-herdr and `mux session`; an empty startup means the dev layout, background="1" builds it unselected.
 rex.action{
   name = "sesh_open",
   title = "Open Sesh Session",
   category = "Sesh",
-  args = { label = "string", dir = "string", startup = "string?" },
+  args = { label = "string", dir = "string", startup = "string?", background = "string?" },
   run = function(ctx, args)
     local startup = args.startup
     if startup == "" then startup = nil end
-    open_session(args.label, (args.dir:gsub("^~", HOME)), startup)
+    open_session(args.label, (args.dir:gsub("^~", HOME)), startup, args.background == "1")
   end,
 }
 

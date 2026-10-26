@@ -8,6 +8,7 @@
 #
 # Usage: herdr-sesh-layout.sh <dir> [label]
 #        herdr-sesh-layout.sh --entry <sesh Name>
+#        herdr-sesh-layout.sh --print-label <dir>   (the derived label, no glyph, for `mux session` under Rex)
 # --entry takes the dir, startup_command and label from the sesh entry of that NAME, which is the only identity two entries sharing one path still differ on.
 # If a workspace already sits at <dir>, it just focuses it (sesh "attach if exists").
 # HERDR_SESH_NO_FOCUS=1 builds it without taking focus, for background callers; the picker leaves it unset.
@@ -26,6 +27,8 @@ command -v sesh >/dev/null 2>&1 && sesh_json=$(sesh list -c -j 2>/dev/null)
 # the label derivation and the attach test off the directory and onto the name, below.
 entry_name=""
 entry_shared=""
+print_label=""
+[ "${1:-}" = --print-label ] && { print_label=1; shift; }
 case "${1:-}" in
   --entry) entry_name="${2:?usage: herdr-sesh-layout.sh --entry <sesh Name>}" ;;
 esac
@@ -106,6 +109,7 @@ elif [ -z "$label" ]; then
   esac
   [ -n "$label" ] || label=$(basename "$dir")
 fi
+[ -z "$print_label" ] || { printf '%s\n' "$label"; exit 0; }
 
 if [ -z "$label_explicit" ]; then
   glyph="📁"
