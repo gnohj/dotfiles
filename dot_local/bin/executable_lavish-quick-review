@@ -52,6 +52,9 @@ sp_arg=""
 model_arg=""
 [ -n "${LAVISH_AGENT_MODEL:-}" ] && model_arg="--model $LAVISH_AGENT_MODEL"
 
-exec "$mux" window --no-focus --env BASH_DEFAULT_TIMEOUT_MS=600000 \
+account_env=()
+case "${REVIEW_ORIGIN_ACCOUNT:-}" in personal | work) account_env=(--env CLAUDE_ACCOUNT="$REVIEW_ORIGIN_ACCOUNT") ;; esac
+
+exec "$mux" window --no-focus --env BASH_DEFAULT_TIMEOUT_MS=600000 ${account_env[@]+"${account_env[@]}"} \
   "⚡ #$pr quick" "$root" \
   'export PATH="$HOME/.local/bin/lavish-open-shim:$PATH"; eval "$($HOME/.local/bin/claude-account env)"; CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$model_arg $sp_arg"' "'"$(shquote "$brief")"'"'

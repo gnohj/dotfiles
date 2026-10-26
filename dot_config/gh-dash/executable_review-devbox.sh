@@ -34,9 +34,14 @@ harness="${REVIEW_HARNESS:--}" pi_model="${REVIEW_PI_MODEL:--}" pi_thinking="${R
 [[ "$pi_model" =~ ^(-|[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+)$ ]] || { echo "review-devbox: invalid REVIEW_PI_MODEL" >&2; exit 2; }
 [[ "$pi_thinking" =~ ^(-|off|minimal|low|medium|high|xhigh)$ ]] || { echo "review-devbox: invalid REVIEW_PI_THINKING" >&2; exit 2; }
 
+if [ -n "$host" ] && [ "$(hostname -s)" != "$host" ] && [ "${REVIEW_CLAUDE_ACCOUNT:-auto}" = auto ] && [ -z "${REVIEW_ORIGIN_ACCOUNT:-}" ]; then
+  . "$HOME/.config/gh-dash/review-mux.sh"
+  REVIEW_ORIGIN_ACCOUNT="$(review_origin_account "$repo" || true)"
+fi
+
 # Whatever the caller pinned for this one review (model, effort, finder, no-browser) rides along as NAME=value args.
 pinned=()
-for name in REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_CLAUDE_ACCOUNT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_LADDER REVIEW_NO_BROWSER; do
+for name in REVIEW_CLAUDE_MODEL REVIEW_CLAUDE_EFFORT REVIEW_CLAUDE_ACCOUNT REVIEW_ORIGIN_ACCOUNT REVIEW_FINDER_MODEL REVIEW_FINDER_THINKING REVIEW_FINDER_LADDER REVIEW_NO_BROWSER; do
   value="${!name:-}"
   [ -z "$value" ] && continue
   [[ "$value" =~ ^[A-Za-z0-9._:/|-]+$ ]] || { echo "review-devbox: invalid $name" >&2; exit 2; }
@@ -67,7 +72,7 @@ fi
 [ "$pi_thinking" != - ] && envs+=(REVIEW_PI_THINKING="$pi_thinking")
 for pair in "$@"; do
   case "${pair%%=*}" in
-    REVIEW_CLAUDE_MODEL | REVIEW_CLAUDE_EFFORT | REVIEW_CLAUDE_ACCOUNT | REVIEW_FINDER_MODEL | REVIEW_FINDER_THINKING | REVIEW_FINDER_LADDER | REVIEW_NO_BROWSER)
+    REVIEW_CLAUDE_MODEL | REVIEW_CLAUDE_EFFORT | REVIEW_CLAUDE_ACCOUNT | REVIEW_ORIGIN_ACCOUNT | REVIEW_FINDER_MODEL | REVIEW_FINDER_THINKING | REVIEW_FINDER_LADDER | REVIEW_NO_BROWSER)
       [[ "${pair#*=}" =~ ^[A-Za-z0-9._:/|-]+$ ]] && envs+=("$pair") ;;
   esac
 done

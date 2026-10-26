@@ -65,6 +65,13 @@ review_mux_adopt() {
   fi
 }
 
+review_origin_account() {
+  local name dir
+  case "$1" in iheartradio/inferno-monorepo) name=inferno ;; *) name="${1#*/}" ;; esac
+  for dir in "$HOME/Developer/$name/review" "$HOME/Developer/$name" "$HOME"; do [ -d "$dir" ] && break; done
+  (cd "$dir" && env -u CLAUDE_ACCOUNT "$HOME/.local/bin/claude-account" resolve 2>/dev/null)
+}
+
 review_mux_env() {
   local kind ws sock
   kind="$(printf '%s' "$1" | jq -r '.kind')"

@@ -140,8 +140,16 @@ resolve_review_claude_account() {
     *) echo "review-open: REVIEW_CLAUDE_ACCOUNT must be auto, personal, or work" >&2; exit 2 ;;
   esac
 
-  REVIEW_CLAUDE_ACCOUNT="$("$HOME/.local/bin/claude-account" resolve 2>/dev/null || printf work)"
-  REVIEW_CLAUDE_ACCOUNT_REASON="path and account settings"
+  case "${REVIEW_ORIGIN_ACCOUNT:-}" in
+    personal | work)
+      REVIEW_CLAUDE_ACCOUNT="$REVIEW_ORIGIN_ACCOUNT"
+      REVIEW_CLAUDE_ACCOUNT_REASON="account of the machine it was started from"
+      ;;
+    *)
+      REVIEW_CLAUDE_ACCOUNT="$("$HOME/.local/bin/claude-account" resolve 2>/dev/null || printf work)"
+      REVIEW_CLAUDE_ACCOUNT_REASON="path and account settings"
+      ;;
+  esac
   [ "$REVIEW_CLAUDE_ACCOUNT" = work ] || return 0
 
   "$HOME/.local/bin/claude-account" usage-refresh work >/dev/null 2>&1 || true
