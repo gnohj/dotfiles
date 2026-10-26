@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review-devbox.sh <mode> <pr-number> <repo-name> - run review-open.sh on the dev box, resolving its herdr socket and workspace there.
+# review-devbox.sh <mode> <pr-number> <repo-name> - resolve the review workspace on the dev box.
 
 set -euo pipefail
 
@@ -54,14 +54,11 @@ case "$repo" in
   iheartradio/inferno-monorepo) repo_path="$HOME/Developer/inferno/review" ;;
   *) repo_path="$HOME/Developer/${repo#*/}" ;;
 esac
-sock="$("$HOME/.local/bin/mux/shared/herdr-socket-path" 2>/dev/null || true)"
-ws=""
-envs=()
-if [ -n "$sock" ]; then
-  ws="$(HERDR_SOCKET_PATH="$sock" herdr pane list 2>/dev/null | jq -r --arg path "$repo_path" '
-    first(.result.panes[]? | select((.foreground_cwd // .cwd // "") == $path) | .workspace_id) // empty')"
-  envs=(HERDR_SOCKET_PATH="$sock" HERDR_WORKSPACE_ID="$ws")
-fi
+. "$HOME/.config/gh-dash/review-mux.sh"
+target="$(review_mux_target "$repo_path")" || { echo "review-devbox: no herdr or Rex review workspace is open" >&2; exit 1; }
+review_mux_env "$target"
+ws="$(printf '%s' "$target" | jq -r '.workspace')"
+envs=("${review_env[@]}")
 if [ "$harness" = pi ] && ! grep -q REVIEW_HARNESS "$HOME/.config/gh-dash/review-open.sh"; then
   echo "review-devbox: review-open.sh on $(hostname -s) predates Pi reviews - run chezmoi apply there" >&2
   exit 1
@@ -75,7 +72,7 @@ for pair in "$@"; do
       [[ "${pair#*=}" =~ ^[A-Za-z0-9._:/|-]+$ ]] && envs+=("$pair") ;;
   esac
 done
-# setsid -f so the review outlives this ssh session; no herdr socket leaves mux detection to review-open.sh.
+# setsid -f lets the review outlive this ssh session.
 env ${envs[@]+"${envs[@]}"} setsid -f bash "$HOME/.config/gh-dash/review-open.sh" "$mode" "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1
 echo "review-devbox: started $mode PR $pr on $(hostname -s) in workspace ${ws:-<active>}$([ "$harness" = - ] || printf ' on %s %s' "$harness" "$pi_model")"
 EOF

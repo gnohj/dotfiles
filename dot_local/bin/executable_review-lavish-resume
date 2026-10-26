@@ -8,7 +8,7 @@ artifact="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-lavish/$pr/review.html
 data="${artifact%/*}/data.js"
 [ -f "$artifact" ] || { echo "review-lavish-resume: no review artifact for PR $pr" >&2; exit 1; }
 
-for command_name in gh herdr jq; do
+for command_name in gh jq; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "review-lavish-resume: $command_name is unavailable" >&2; exit 1; }
 done
 
@@ -22,39 +22,44 @@ case "$repo" in
   *) echo "review-lavish-resume: pass a supported owner/repo" >&2; exit 1 ;;
 esac
 
-workspace_id=$(herdr pane list 2>/dev/null | jq -r --arg path "$repo_path" '[.result.panes[]? | select((.foreground_cwd // .cwd // "") == $path)] | first | .workspace_id // empty')
-[ -n "$workspace_id" ] || { echo "review-lavish-resume: the $repo review workspace is not open" >&2; exit 1; }
+. "$HOME/.config/gh-dash/review-mux.sh"
+target="$(review_mux_target "$repo_path" remote)" || { echo "review-lavish-resume: the $repo review workspace is not open" >&2; exit 1; }
+review_mux_env "$target"
+workspace_id="$(printf '%s' "$target" | jq -r '.workspace')"
 
-existing_tab=$(herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '[.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("🤖 #" + $pr + "([^0-9]|$)")))] | first | .tab_id // empty')
-if [ -n "$existing_tab" ]; then
-  existing_agent=$(herdr agent list 2>/dev/null | jq -r --arg tab "$existing_tab" '[.result.agents[]? | select(.tab_id == $tab and (.agent == "claude" or .agent == "pi"))] | first | [.pane_id, .agent_status] | @tsv')
-  IFS=$'\t' read -r existing_pane existing_status <<<"$existing_agent"
-  [ -n "${existing_pane:-}" ] || { echo "review-lavish-resume: the existing PR $pr tab has no review agent" >&2; exit 1; }
-  case "$existing_status" in
-    idle | done)
-      # An idle owner ended its turn without polling, so its context is the thing that failed; replace it rather than re-prompt it.
-      herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("(🤖|🔎[0-9]*) #" + $pr + "([^0-9]|$)"))) | .tab_id' |
-        while read -r stale_tab; do herdr tab close "$stale_tab" >/dev/null 2>&1 || true; done
-      printf 'closed stale review tabs for %s#%s\n' "$repo" "$pr"
-      ;;
-    working | blocked)
-      echo "review-lavish-resume: the agent for PR $pr is already $existing_status" >&2
-      exit 1
-      ;;
-    *)
-      echo "review-lavish-resume: the agent for PR $pr has unknown state" >&2
-      exit 1
-      ;;
-  esac
+if [ "$(printf '%s' "$target" | jq -r '.kind')" = herdr ] && [ "$(printf '%s' "$target" | jq -r '.remote // false')" = false ]; then
+  export HERDR_SOCKET_PATH="$(printf '%s' "$target" | jq -r '.socket')"
+  existing_tab=$(herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '[.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("🤖 #" + $pr + "([^0-9]|$)")))] | first | .tab_id // empty')
+  if [ -n "$existing_tab" ]; then
+    existing_agent=$(herdr agent list 2>/dev/null | jq -r --arg tab "$existing_tab" '[.result.agents[]? | select(.tab_id == $tab and (.agent == "claude" or .agent == "pi"))] | first | [.pane_id, .agent_status] | @tsv')
+    IFS=$'\t' read -r existing_pane existing_status <<<"$existing_agent"
+    [ -n "${existing_pane:-}" ] || { echo "review-lavish-resume: the existing PR $pr tab has no review agent" >&2; exit 1; }
+    case "$existing_status" in
+      idle | done)
+        # An idle owner ended its turn without polling, so its context is the thing that failed; replace it rather than re-prompt it.
+        herdr tab list 2>/dev/null | jq -r --arg workspace "$workspace_id" --arg pr "$pr" '.result.tabs[]? | select(.workspace_id == $workspace and ((.label // "") | test("(🤖|🔎[0-9]*) #" + $pr + "([^0-9]|$)"))) | .tab_id' |
+          while read -r stale_tab; do herdr tab close "$stale_tab" >/dev/null 2>&1 || true; done
+        printf 'closed stale review tabs for %s#%s\n' "$repo" "$pr"
+        ;;
+      working | blocked)
+        echo "review-lavish-resume: the agent for PR $pr is already $existing_status" >&2
+        exit 1
+        ;;
+      *)
+        echo "review-lavish-resume: the agent for PR $pr has unknown state" >&2
+        exit 1
+        ;;
+    esac
+  fi
+elif review_mux_has_pr "$target" "$pr"; then
+  echo "review-lavish-resume: PR $pr already has a review tab; inspect its agent before restarting" >&2
+  exit 1
 fi
-
-socket=$(herdr status server 2>/dev/null | awk '$1 == "socket:" { print $2; exit }')
-[ -n "$socket" ] || { echo "review-lavish-resume: Herdr server is unavailable" >&2; exit 1; }
 
 launcher="${GH_REVIEW_OPEN:-$HOME/.config/gh-dash/review-open.sh}"
 [ -f "$launcher" ] || { echo "review-lavish-resume: review launcher is unavailable" >&2; exit 1; }
 if [ -x "$launcher" ]; then launcher_command=("$launcher"); else launcher_command=(bash "$launcher"); fi
 
 # -u GH_TOKEN: gh prefers it over the keyring, and a scope-less one 404s every call on a private repo.
-nohup env -u GH_TOKEN -u GITHUB_TOKEN HERDR_SOCKET_PATH="$socket" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1 &
+nohup env -u GH_TOKEN -u GITHUB_TOKEN "${review_env[@]}" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 "${launcher_command[@]}" resume "$pr" "$repo" "$repo_path" </dev/null >/dev/null 2>&1 &
 printf 'review agent restart queued: %s#%s in workspace %s\n' "$repo" "$pr" "$workspace_id"

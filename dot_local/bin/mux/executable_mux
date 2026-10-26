@@ -12,13 +12,13 @@ herdr="${HERDR_BIN_PATH:-herdr}"
 . "$HOME/.local/bin/mux/shared/mux-detect.sh"
 
 die() { printf 'mux: %s\n' "$1" >&2; exit "${2:-1}"; }
-need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for herdr"; }
+need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for herdr or Rex"; }
 
 cmd_help() {
   cat <<'EOF'
-mux — multiplexer operations against whichever of herdr/tmux is live.
+mux - multiplexer operations against whichever of herdr/Rex/tmux is live.
 
-  mux kind                                 herdr | tmux | none
+  mux kind                                 herdr | rex | tmux | none
   mux session-label                        workspace/session name, emoji stripped
   mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
   mux split  <cwd> <cmd>                   run a command beside the current pane
@@ -44,11 +44,13 @@ window options:
   --focus             switch to it even when it lands in another workspace, for
                       a window the user explicitly asked to look at
   --env KEY=VALUE     set an env var in the new window (repeatable)
-  --workspace ID      override the target herdr workspace / tmux session;
+  --workspace ID      override the target herdr workspace / Rex or tmux session;
                       defaults to the one this process was invoked from
-  --popup             prefer a modal popup; herdr has no popup CLI, so it
-                      falls back to a normal focused tab
+  --popup             prefer a modal popup; herdr and Rex
+                      fall back to a normal focused tab
   --popup-size WxH    popup size, tmux only (default 80%x90%)
+Detection: pane env herdr, Rex (TERM_PROGRAM=rex and REX_BLOCK), then tmux;
+otherwise live servers herdr, Rex, then tmux. MUX_FORCE_KIND overrides this.
 notify options:
   --title TEXT        herdr toast title (default "notice")
   --duration MS       tmux status-line duration, tmux only (default 5000)
@@ -69,6 +71,15 @@ cmd_session_label() {
         jq -r '.result.workspace.label // empty' 2>/dev/null |
         sed 's/^[^[:alnum:]]*//'
       ;;
+    rex)
+      need_jq
+      [ -n "${REX_SESSION:-}" ] || return 0
+      local rex
+      rex="$(rex_bin)" || return 1
+      "$rex" --autostart=false session inspect "$REX_SESSION" --json 2>/dev/null |
+        jq -r '.label // empty' 2>/dev/null |
+        sed 's/^[^[:alnum:]]*//'
+      ;;
     tmux) tmux display-message -p '#S' 2>/dev/null || true ;;
   esac
 }
@@ -77,6 +88,7 @@ cmd_session_label() {
 origin_workspace() {
   case "$(cmd_kind)" in
     herdr) printf '%s' "${HERDR_WORKSPACE_ID:-}" ;;
+    rex) printf '%s' "${REX_SESSION:-}" ;;
     tmux)
       [ -n "${TMUX_PANE:-}" ] || return 0
       tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || true
@@ -161,6 +173,37 @@ cmd_window() {
       [ -n "$print_pane" ] && printf '%s\n' "$pane"
       return 0
       ;;
+    rex)
+      need_jq
+      local rex out pane window client size_args=() rargs=(window new)
+      rex="$(rex_bin)" || die "Rex CLI unavailable"
+      [ -n "$ws" ] && rargs+=(-s "$ws")
+      [ -n "$name" ] && rargs+=("$name")
+      [ -n "$cwd" ] && rargs+=(-c "$cwd")
+      [ -n "$keep" ] && rargs+=(--keep-open)
+      [ -n "$no_focus" ] && rargs+=(--focus=false)
+      rargs+=(--shell=none --json -- env)
+      for e in "${envs[@]:-}"; do [ -n "$e" ] && rargs+=("$e"); done
+      rargs+=("${SHELL:-/bin/sh}" -lc "$command")
+      out="$("$rex" --autostart=false "${rargs[@]}")" || die "Rex window new failed"
+      pane="$(printf '%s' "$out" | jq -r '.block_ids[0] // empty')"
+      [ -n "$pane" ] || die "Rex window new returned no block id"
+      [ -n "$ws" ] || ws="$(printf '%s' "$out" | jq -r '.session_id // empty')"
+      [ -n "$ws" ] && size_args+=(-s "$ws")
+      "$rex" --autostart=false block call ${size_args[@]+"${size_args[@]}"} -b "$pane" resize \
+        '{"columns":200,"rows":50}' >/dev/null 2>&1 || printf 'mux: could not resize Rex block %s\n' "$pane" >&2
+      if [ -n "$force_focus" ] && [ -z "$no_focus" ]; then
+        window="$(printf '%s' "$out" | jq -r '.window_id // empty')"
+        client="$("$rex" --autostart=false client ls --json | jq -r \
+          '[.clients[]? | select(.info.kind == "app" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')"
+        [ -n "$client" ] || die "Rex window created but no connected app is available to focus it"
+        [ -n "$ws" ] && [ -n "$window" ] || die "Rex window created but missing focus target"
+        "$rex" --autostart=false -C "$client" do session.select "session_id=$ws" "window_id=$window" >/dev/null ||
+          die "Rex window created but app focus failed"
+      fi
+      [ -n "$print_pane" ] && printf '%s\n' "$pane"
+      return 0
+      ;;
     tmux)
       # Modal popup: only meaningful without pane capture.
       if [ -n "$popup" ] && [ -z "$print_pane" ]; then
@@ -186,7 +229,7 @@ cmd_window() {
       # `new-window -t other-session` leaves the client put, so --focus must move it explicitly.
       [ -n "$force_focus" ] && [ -z "$no_focus" ] && [ -n "$ws" ] && tmux switch-client -t "$ws:" 2>/dev/null
       ;;
-    none) die "no tmux or herdr session detected" ;;
+    none) die "no herdr, Rex or tmux session detected" ;;
   esac
 }
 

@@ -16,15 +16,30 @@ local probed = nil
 
 -- Own pane env first (herdr wins: a herdr pane can sit atop a tmux session).
 function M.kind()
+  if
+    vim.env.MUX_FORCE_KIND == "herdr"
+    or vim.env.MUX_FORCE_KIND == "rex"
+    or vim.env.MUX_FORCE_KIND == "tmux"
+  then
+    return vim.env.MUX_FORCE_KIND
+  end
   if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
     return "herdr"
+  end
+  if
+    vim.env.TERM_PROGRAM == "rex"
+    and vim.env.REX_BLOCK
+    and vim.env.REX_BLOCK ~= ""
+  then
+    return "rex"
   end
   if vim.env.TMUX and vim.env.TMUX ~= "" then
     return "tmux"
   end
   if probed == nil then
     local out = vim.trim(vim.fn.system({ mux_bin(), "kind" }))
-    probed = (vim.v.shell_error == 0 and out ~= "" and out ~= "none") and out or false
+    probed = (vim.v.shell_error == 0 and out ~= "" and out ~= "none") and out
+      or false
   end
   return probed or nil
 end
@@ -32,7 +47,10 @@ end
 -- Fire-and-forget: the herdr path makes several CLI calls, none worth blocking on.
 local function dispatch(args, what)
   if not M.kind() then
-    vim.notify("No tmux or herdr session detected - can't " .. what, vim.log.levels.WARN)
+    vim.notify(
+      "No herdr, Rex or tmux session detected - can't " .. what,
+      vim.log.levels.WARN
+    )
     return
   end
   local cmd = { mux_bin() }
@@ -53,7 +71,10 @@ end
 -- Open `cmd` in a side split, focused; nvim stays the dominant pane.
 function M.agent_split(cmd, opts)
   opts = opts or {}
-  dispatch({ "split", "--", opts.cwd or vim.fn.getcwd(), cmd }, "launch " .. cmd)
+  dispatch(
+    { "split", "--", opts.cwd or vim.fn.getcwd(), cmd },
+    "launch " .. cmd
+  )
 end
 
 -- Emoji-stripped session name. Memoized: the dashboard asks more than once per render.

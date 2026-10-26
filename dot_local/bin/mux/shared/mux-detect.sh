@@ -8,12 +8,12 @@
 # bash, and an in-process answer avoids a subprocess per keypress.
 #
 # Order is load-bearing:
-#   1. Own pane env, herdr ahead of tmux — a herdr pane can sit atop a tmux session.
+#   1. Own pane env: herdr, Rex with TERM_PROGRAM=rex, then tmux.
 #   2. herdr server reachable. The quake and any daemon have no pane env, so the
 #      socket is the only signal there. Probed BEFORE tmux on purpose: that ordering
 #      is what stops a merely-DETACHED tmux server from claiming to be the live mux,
 #      which is exactly the bug the launcher had when it checked tmux panes first.
-#   3. Any tmux server — last resort.
+#   3. Rex server, then any tmux server as the last resort.
 #
 # `herdr status server` and not `herdr api snapshot`: the status probe needs no jq,
 # so detection keeps working in the stripped-PATH chains above, and it is ~2x cheaper.
@@ -29,7 +29,16 @@ herdr_live_socket() {
   "$herdr_bin" session list 2>/dev/null | awk 'NR > 1 && $2 == "running" { print $NF; found = 1; exit } END { exit !found }'
 }
 
-# Prints herdr | tmux | none.
+rex_bin() {
+  local bundle="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+  if [ -n "${REX_BIN_DIR:-}" ] && [ -x "$REX_BIN_DIR/rex" ]; then printf '%s' "$REX_BIN_DIR/rex"
+  elif command -v rex >/dev/null 2>&1; then command -v rex
+  elif [ -x "$bundle" ]; then printf '%s' "$bundle"
+  else return 1
+  fi
+}
+
+# Prints herdr | rex | tmux | none.
 #
 # Deliberately NOT memoized in here. A cache variable set inside this function is
 # invisible to the caller whenever it is invoked as `$(mux_kind)`, because that forks
@@ -37,13 +46,15 @@ herdr_live_socket() {
 # time. Callers that ask repeatedly must resolve ONCE into their own shell variable;
 # see MUX_LIVE in launcher.sh.
 mux_kind() {
-  local kind herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  local kind rex herdr_bin="${HERDR_BIN_PATH:-herdr}"
   # An explicit choice wins: a detached caller inherits whatever pane env it started in, by accident.
   case "${MUX_FORCE_KIND:-}" in
-  herdr | tmux) echo "${MUX_FORCE_KIND}"; return 0 ;;
+  herdr | rex | tmux) echo "${MUX_FORCE_KIND}"; return 0 ;;
   esac
   if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
     kind=herdr
+  elif [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ]; then
+    kind=rex
   elif [ -n "${TMUX:-}" ]; then
     kind=tmux
   elif command -v "$herdr_bin" >/dev/null 2>&1 &&
@@ -51,6 +62,8 @@ mux_kind() {
     kind=herdr
   elif herdr_live_socket >/dev/null; then
     kind=herdr
+  elif rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
+    kind=rex
   elif command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
     kind=tmux
   else

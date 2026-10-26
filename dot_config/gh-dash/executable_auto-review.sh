@@ -70,14 +70,13 @@ trap 'exit 143' TERM
 log "=== run pid=$$ started ==="
 
 case "$MODE_OVERRIDE" in '' | full | fan) ;; *) fail "Unknown review mode: $MODE_OVERRIDE" ;; esac
-for command_name in gh jq herdr; do
+for command_name in gh jq; do
   command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is unavailable"
 done
 [ -x "$FILTER" ] || fail "Review bot filter is unavailable"
 [ -x "$REVIEW_OPEN" ] || fail "Review launcher is unavailable"
 [ -x "$REVIEW_DISPATCH" ] || fail "Review policy resolver is unavailable"
-HERDR_SOCKET="$(herdr status server 2>/dev/null | awk '$1 == "socket:" { print $2; exit }')"
-[ -n "$HERDR_SOCKET" ] || fail "Herdr server is unavailable"
+. "$HOME/.config/gh-dash/review-mux.sh"
 VIEWER="$(gh api user --jq .login 2>/dev/null)"
 [ -n "$VIEWER" ] || fail "GitHub viewer lookup failed"
 
@@ -101,20 +100,6 @@ done
 sort -t $'\t' -k1,1 -k2,2n -o "$CANDIDATES" "$CANDIDATES"
 touch "$REVIEWED"
 [ -x "$REVIEW_WORKTREE" ] && "$REVIEW_WORKTREE" sweep >/dev/null 2>&1 || true
-
-workspace_for_path() {
-  herdr pane list 2>/dev/null | jq -r --arg path "$1" '
-    [.result.panes[]? | select((.foreground_cwd // .cwd // "") == $path)]
-    | first
-    | .workspace_id // empty
-  '
-}
-
-review_open_in_workspace() {
-  herdr tab list 2>/dev/null | jq -e --arg workspace "$1" --arg pr "$2" '
-    any(.result.tabs[]?; .workspace_id == $workspace and ((.label // "") | test("#" + $pr + "([^0-9]|$)")))
-  ' >/dev/null
-}
 
 submitted_review_status() {
   local reviews
@@ -196,13 +181,13 @@ while IFS=$'\t' read -r repo pr title url; do
     *) continue ;;
   esac
 
-  workspace_id="$(workspace_for_path "$repo_path" || true)"
-  if [ -z "$workspace_id" ]; then
+  target="$(review_mux_target "$repo_path" remote || true)"
+  if [ -z "$target" ]; then
     log "Skipped $repo#$pr: review workspace is not open"
     notify "Skipped $repo#$pr because its review workspace is not open"
     continue
   fi
-  if review_open_in_workspace "$workspace_id" "$pr"; then
+  if review_mux_has_pr "$target" "$pr"; then
     log "Skipped $repo#$pr: review tabs are already open"
     continue
   fi
@@ -212,7 +197,8 @@ while IFS=$'\t' read -r repo pr title url; do
   case "$mode" in full | fan) ;; *) fail "Review policy returned an invalid mode for $repo#$pr" ;; esac
   log "Starting $mode review for $repo#$pr ($title)"
   notify "Starting $repo#$pr in the background"
-  HERDR_SOCKET_PATH="$HERDR_SOCKET" HERDR_WORKSPACE_ID="$workspace_id" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 \
+  review_mux_env "$target"
+  env "${review_env[@]}" AUTO_REVIEW=1 REVIEW_NO_BROWSER=1 \
     "$REVIEW_OPEN" "$mode" "$pr" "$repo" "$repo_path" &
   PIDS+=("$!")
   LABELS+=("$repo#$pr")
