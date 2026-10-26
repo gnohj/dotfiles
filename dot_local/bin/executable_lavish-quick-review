@@ -2,7 +2,7 @@
 # An agent that adds findings to an already-published review page; the diff is readable before it runs.
 set -euo pipefail
 
-page=${1:?usage: lavish-quick-review <review.html> <repo> <pr>}
+page=${1:?usage: lavish-quick-review <review.html> <repo> <pr> [review-home]}
 repo=${2:?missing repo}
 pr=${3:?missing pr}
 [ -f "$page" ] || { echo "lavish-quick-review: no page at $page" >&2; exit 1; }
@@ -10,6 +10,10 @@ pr=${3:?missing pr}
 root=$(dirname "$page")
 mux=${MUX:-$HOME/.local/bin/mux/mux}
 [ -x "$mux" ] || { echo "lavish-quick-review: mux is unavailable at $mux" >&2; exit 1; }
+if [ -n "${4:-}" ]; then
+  . "$HOME/.config/gh-dash/review-mux.sh"
+  review_mux_adopt "$4"
+fi
 
 read -r -d '' brief <<BRIEF || true
 Read $repo#$pr and add findings to the review page already published at $page

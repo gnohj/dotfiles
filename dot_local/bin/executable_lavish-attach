@@ -2,7 +2,7 @@
 # Spawn an agent that polls one Lavish artifact; a bare `lavish-axi poll` here would drain queued feedback into nothing.
 set -euo pipefail
 
-raw=${1:?usage: lavish-attach <artifact.html>}
+raw=${1:?usage: lavish-attach <artifact.html> [review-home]}
 path=$(python3 -c 'import sys,pathlib;print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$raw")
 [ -f "$path" ] || { echo "lavish-attach: no artifact at $path" >&2; exit 1; }
 
@@ -20,6 +20,10 @@ done
 
 mux=${MUX:-$HOME/.local/bin/mux/mux}
 [ -x "$mux" ] || { echo "lavish-attach: mux is unavailable at $mux" >&2; exit 1; }
+if [ -n "${2:-}" ]; then
+  . "$HOME/.config/gh-dash/review-mux.sh"
+  review_mux_adopt "$2"
+fi
 
 read -r -d '' brief <<BRIEF || true
 You are the agent for the Lavish artifact at $path
