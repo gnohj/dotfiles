@@ -86,8 +86,9 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
     id=${line#- }; id=${id%% *}
     mh=$(printf '%s' "$line" | sed -n 's/.*home: \([^;)]*\).*/\1/p')
     meta="$HOME_DIR/state/$id.meta"
-    # A remotely placed mate records remote_target and remote_host; only a local one records herdr_pane_id.
+    # A remotely placed mate records remote_target and remote_host; a local one records herdr_pane_id, or rex_* ids on the Rex backend.
     rhost=$(grep -m1 '^remote_host=' "$meta" 2>/dev/null | cut -d= -f2-)
+    rsess=""
     if [ -n "${rhost:-}" ]; then
       # remote_target is "<session>:<pane>" and that session has its own herdr socket, so the session must be named or the pane is not found.
       rsess=$(grep -m1 '^remote_herdr_session=' "$meta" 2>/dev/null | cut -d= -f2-)
@@ -96,6 +97,11 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
       pane=${pane#"$rsess":}
     else
       pane=$(grep -m1 '^herdr_pane_id=' "$meta" 2>/dev/null | cut -d= -f2-)
+      if [ -z "${pane:-}" ] && grep -q '^backend=rex$' "$meta" 2>/dev/null; then
+        rsess=$(grep -m1 '^rex_session_id=' "$meta" 2>/dev/null | cut -d= -f2-)
+        pane=$(grep -m1 '^rex_block_id=' "$meta" 2>/dev/null | cut -d= -f2-)
+        [ -n "${rsess:-}" ] || pane=""
+      fi
     fi
     if [ -z "${pane:-}" ]; then
       kv "$id" "NO ENDPOINT RECORDED  home=${mh:-?}"
@@ -107,6 +113,8 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
     fi
     if [ -n "${rhost:-}" ]; then
       out=$(sshq "$rhost" "herdr --session '$rsess' pane process-info --pane '$pane'"); rc=$?
+    elif [ -n "${rsess:-}" ]; then
+      out=$("$HOME/.local/bin/mux/rex/rex-process-info" "$rsess" "$pane"); rc=$?
     else
       out=$(herdr pane process-info --pane "$pane" 2>/dev/null); rc=$?
     fi

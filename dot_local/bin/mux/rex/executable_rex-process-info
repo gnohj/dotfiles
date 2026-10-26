@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# rex-process-info <session-id> <block-id> - a Rex block's foreground process in `herdr pane process-info` shape.
+set -uo pipefail
+
+. "$HOME/.local/bin/mux/shared/mux-detect.sh"
+
+session="${1:?usage: rex-process-info <session-id> <block-id>}"
+block="${2:?usage: rex-process-info <session-id> <block-id>}"
+rex="$(rex_bin)" || exit 1
+"$rex" --autostart=false block call -s "$session" -b "$block" process 2>/dev/null |
+  jq -ce '{result: {process_info: {foreground_processes: [.foreground // empty
+    | ((.argv0 // .name // "") | sub(".*/"; "") | sub("\\.exe$"; "")) as $n | {pid, cwd, name: $n, argv0: $n}]}}}'

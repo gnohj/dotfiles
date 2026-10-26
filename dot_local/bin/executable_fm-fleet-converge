@@ -25,9 +25,30 @@ sha256_digest() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else 
 
 field() { grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2-; }
 
+# A Rex-backed mate records no herdr pane; "rex|<session>|<block>" stands in for one.
+mate_pane() { # <meta>
+  local p s b
+  p="$(field "$1" herdr_pane_id)"
+  if [ -z "$p" ] && [ "$(field "$1" backend)" = rex ]; then
+    s="$(field "$1" rex_session_id)"; b="$(field "$1" rex_block_id)"
+    [ -n "$s" ] && [ -n "$b" ] && p="rex|$s|$b"
+  fi
+  printf '%s' "$p"
+}
+
+pane_label() { local p; p="$(field "$1" herdr_pane_id)"; printf '%s' "${p:-$(field "$1" rex_block_id)}"; }
+
+process_info() { # <pane>
+  local rest
+  case "$1" in
+    rex\|*) rest="${1#rex|}"; "$HOME/.local/bin/mux/rex/rex-process-info" "${rest%%|*}" "${rest#*|}" ;;
+    *) herdr pane process-info --pane "$1" 2>/dev/null ;;
+  esac
+}
+
 # A secondmate is a standalone clone ~/.local/bin/worktree never touches, so nothing tells it who it is; resolved per call to follow the pin.
 live_pid() { # <pane> -> the claude pid running in it, if any
-  herdr pane process-info --pane "$1" 2>/dev/null | python3 -c '
+  process_info "$1" | python3 -c '
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
@@ -172,7 +193,7 @@ build_pane_pids() {
   [ -n "$panes" ] || return 0
   for p in $panes; do
     printf '%s\t' "$p"
-    herdr pane process-info --pane "$p" 2>/dev/null | tr -d '\n'
+    process_info "$p" | tr -d '\n'
     printf '\n'
   done | python3 -c '
 import json,sys
@@ -238,9 +259,9 @@ if [ "$MODE" = json ]; then
   all_panes=""
   for id in $sm_ids; do
     home="$(home_of "$id")"
-    all_panes="$all_panes $(field "$FM_HOME/state/$id.meta" herdr_pane_id)"
+    all_panes="$all_panes $(mate_pane "$FM_HOME/state/$id.meta")"
     for t in $(ids_in "$home" ship; ids_in "$home" scout); do
-      all_panes="$all_panes $(field "$home/state/$t.meta" herdr_pane_id)"
+      all_panes="$all_panes $(mate_pane "$home/state/$t.meta")"
     done
   done
   pane_pids="$(build_pane_pids "$all_panes")"
@@ -269,6 +290,10 @@ print(" ".join(p["pane_id"] for p in d.get("result",{}).get("panes",[])
           primary_pane="$cand"; break
         fi
       done
+      # A Rex primary has no herdr pane; its block is in its own env, as fm-goto reads it.
+      if [ -z "$primary_pane" ] && proc_env "$lockpid" | grep -qx 'TERM_PROGRAM=rex'; then
+        primary_pane="$(proc_env "$lockpid" | sed -n 's/^REX_BLOCK=//p' | head -1)"
+      fi
     fi
     # The home's registered projects, from the registry firstmate keeps in data/projects.md.
     projects="$(awk '/^- /{sub(/^- /,""); sub(/ .*$/,""); printf "%s%s", sep, $0; sep=", "}' \
@@ -313,19 +338,19 @@ EOF_ID
     for id in $sm_ids; do
       meta="$FM_HOME/state/$id.meta"; home="$(home_of "$id")"
       [ "$first" = 1 ] || printf ','; first=0
-      ident="$(mate_identity "$(field "$meta" herdr_pane_id)" "$(field "$meta" harness)")"
+      ident="$(mate_identity "$(mate_pane "$meta")" "$(field "$meta" harness)")"
       printf '{"id":"%s","home":"%s","harness":"%s","model":"%s","effort":"%s","projects":"%s","worktree":"%s","pane":"%s","account":"%s","config_dir":"%s","live":"%s","crew":[' \
         "$id" "$home" "$(field "$meta" harness)" "$(field "$meta" model)" "$(field "$meta" effort)" \
-        "$(field "$meta" projects)" "$(field "$meta" worktree)" "$(field "$meta" herdr_pane_id)" \
+        "$(field "$meta" projects)" "$(field "$meta" worktree)" "$(pane_label "$meta")" \
         "$(printf '%s' "$ident" | cut -f1)" "$(printf '%s' "$ident" | cut -f2)" "$(printf '%s' "$ident" | cut -f3)"
       cfirst=1
       for t in $(ids_in "$home" ship; ids_in "$home" scout); do
         cm="$home/state/$t.meta"
         [ "$cfirst" = 1 ] || printf ','; cfirst=0
-        cident="$(mate_identity "$(field "$cm" herdr_pane_id)" "$(field "$cm" harness)")"
+        cident="$(mate_identity "$(mate_pane "$cm")" "$(field "$cm" harness)")"
         printf '{"id":"%s","kind":"%s","harness":"%s","model":"%s","effort":"%s","mode":"%s","pane":"%s","worktree":"%s","pr":"%s","account":"%s","config_dir":"%s","live":"%s"}' \
           "$t" "$(field "$cm" kind)" "$(field "$cm" harness)" "$(field "$cm" model)" \
-          "$(field "$cm" effort)" "$(field "$cm" mode)" "$(field "$cm" herdr_pane_id)" \
+          "$(field "$cm" effort)" "$(field "$cm" mode)" "$(pane_label "$cm")" \
           "$(field "$cm" worktree)" "$(field "$cm" pr)" "$(printf '%s' "$cident" | cut -f1)" "$(printf '%s' "$cident" | cut -f2)" "$(printf '%s' "$cident" | cut -f3)"
       done
       printf ']}'
@@ -616,8 +641,8 @@ if [ "$MODE" = crew-account ]; then
     for t in $(ids_in "$home" ship; ids_in "$home" scout); do
       cm="$home/state/$t.meta"
       [ "$(field "$cm" harness)" = claude ] || { echo "  $t: $(field "$cm" harness) - no claude credential to compare"; continue; }
-      pane="$(field "$cm" herdr_pane_id)"
-      [ -n "$pane" ] || { echo "  $t: records no herdr pane; skipped"; continue; }
+      pane="$(mate_pane "$cm")"
+      [ -n "$pane" ] || { echo "  $t: records no herdr pane or Rex block; skipped"; continue; }
       pid="$(live_pid "$pane")"
       [ -n "$pid" ] || { echo "  $t: no live agent; skipped"; continue; }
       tok="$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"
