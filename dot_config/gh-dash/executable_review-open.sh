@@ -57,6 +57,8 @@ notify_msg() {
   case "$("$HOME/.local/bin/mux/mux" kind)" in
     herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$1" --sound request >/dev/null 2>&1 || true ;;
     tmux) tmux display-message -d 6000 "$1" 2>/dev/null || true ;;
+    # Rex has no toast and a detached dev-box run has no viewer, so banner the workstation.
+    *) printf '%s\n%s' "gh-dash review" "$1" | "$HOME/.local/bin/to-desktop" notify - >/dev/null 2>&1 || true ;;
   esac
 }
 
@@ -219,8 +221,21 @@ else
   echo "review-open: dispatch ${REVIEW_DISPATCH_TIER:-?} -> claude $REVIEW_CLAUDE_MODEL/$REVIEW_CLAUDE_EFFORT, gpt $REVIEW_FINDER_MODEL/$REVIEW_FINDER_THINKING, timeout ${REVIEW_FINDER_RUNG_TIMEOUT}s"
 fi
 
-base_ref() { gh pr view "$pr" --json baseRefName -q .baseRefName; }
-head_ref() { gh pr view "$pr" --json headRefName -q .headRefName; }
+gh_retry() {
+  local err out delay
+  err="$(mktemp)"
+  for delay in 30 60 90 120 0; do
+    if out="$(gh "$@" 2>"$err")"; then rm -f "$err"; printf '%s\n' "$out"; return 0; fi
+    grep -q 'secondary rate limit' "$err" && [ "$delay" -gt 0 ] || break
+    echo "review-open: GitHub secondary rate limit, retrying in ${delay}s" >&2
+    sleep "$delay"
+  done
+  cat "$err" >&2; rm -f "$err"
+  return 1
+}
+
+base_ref() { gh_retry pr view "$pr" --json baseRefName -q .baseRefName; }
+head_ref() { gh_retry pr view "$pr" --json headRefName -q .headRefName; }
 
 # After the checkout, not at lease time - post_create would resolve master's manifests (see install-deps.sh).
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
