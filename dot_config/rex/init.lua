@@ -406,11 +406,34 @@ local function dev_windows(dir, startup)
   }
 end
 
-local function open_session(label, dir, startup)
+-- Session glyphs from herdr-sesh-layout.sh: pinned names first, then 🖥️ home, 🌳 linked worktree, 🌿 repo, 📁 anything else.
+local NAME_GLYPHS = { jira = "🔷", github = "🐙", browser = "🌐", fm = "🚢", hermes = "🤖", tasks = "🖊️" }
+
+local function session_glyph(name, dir)
+  if NAME_GLYPHS[name] ~= nil then return NAME_GLYPHS[name] end
+  if name:match("^sm%-") then return "🚢" end
+  if dir == HOME then return "🖥️" end
+  local d = dir
+  while d ~= "" do
+    local f = io.open(d .. "/.git")
+    if f ~= nil then
+      local line = f:read("*l")
+      f:close()
+      if line ~= nil and line:match("/worktrees/") then return "🌳" end
+      return "🌿"
+    end
+    d = d:match("^(.*)/[^/]*$") or ""
+  end
+  return "📁"
+end
+
+local function open_session(name, dir, startup)
+  local label = session_glyph(name, dir) .. " " .. name
   local list, err = rex.call("session.list")
   fail(err)
   for _, s in ipairs(list.sessions or {}) do
-    if s.label == label then
+    if s.label == label or s.label == name then
+      if s.label ~= label then rex.call("session.set_label", { session_id = s.session_id, label = label }) end
       rex.client.queue("session.select", { session_id = s.session_id })
       return
     end
