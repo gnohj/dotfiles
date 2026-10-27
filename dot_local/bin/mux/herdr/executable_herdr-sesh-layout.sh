@@ -126,7 +126,7 @@ if [ -z "$label_explicit" ]; then
     browser) glyph="🌐" ;;
     fm) glyph="🚢" ;;
     hermes) glyph="🤖" ;;
-    tasks) glyph="🖊️" ;;
+    tasks) glyph="📝" ;;
   esac
   label="$glyph $label"
 fi

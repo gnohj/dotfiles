@@ -10,7 +10,7 @@
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
-#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡), one agent's pane, or a zoxide dir (📁). ⚙️ config is left alone (it lives in sesh.toml); the list reloads in place.
+#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡), one agent's pane, or a zoxide dir (📁). 🔧 config is left alone (it lives in sesh.toml); the list reloads in place.
 #   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare-layout container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
 #   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
 #   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
@@ -334,7 +334,7 @@ if REX:
             if m: cur[m.group(1)] = m.group(2)
 
 # Collect every entry uniformly: (kind, icon, name, path, target, active, entry, shown path, host).
-#   ws  ⚡ open herdr workspaces      cfg ⚙️ sesh config dirs      zox 📁 zoxide dirs
+#   ws  ⚡ open herdr workspaces      cfg 🔧 sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
 for w in snapshot.get("workspaces", []):
@@ -361,7 +361,7 @@ for w in snapshot.get("workspaces", []):
     ent = resolve_entry(lname, cwd)
     if ent in pins: ent = ""
     if ent: active_names.add(ent)
-    entries.append(("ws", "🖥️" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, "", ""))
+    entries.append(("ws", "💻" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, "", ""))
 
 seen_names, seen_paths = set(), set()
 for e in sesh_entries:
@@ -378,18 +378,18 @@ for e in sesh_entries:
             continue
         if nm in pins:
             seen_names.add(nm); seen_paths.add(p)
-            entries.append(("cfg", "⚙️", pin_labels[nm], "", "cfg:" + nm, False, nm, short(p), pins[nm]))
+            entries.append(("cfg", "🔧", pin_labels[nm], "", "cfg:" + nm, False, nm, short(p), pins[nm]))
             continue
         if len(names_by_path.get(p, [nm])) == 1 and (p in active_paths or real(p) in active_paths): continue
         seen_names.add(nm); seen_paths.add(p)
-        kind, icon, name, ent = "cfg", "⚙️", nm, nm                             # nice config name
+        kind, icon, name, ent = "cfg", "🔧", nm, nm                             # nice config name
     else:
         if p in seen_paths or p in active_paths or real(p) in active_paths: continue
         seen_paths.add(p)
         nms = names_by_path.get(p, [])
-        # A zoxide row on a curated path still reads ⚙️, but can only carry an entry target when that path names exactly one.
+        # A zoxide row on a curated path still reads 🔧, but can only carry an entry target when that path names exactly one.
         if p in cfg_paths and len(nms) == 1:
-            kind, icon, name, ent = "cfg", "⚙️", nms[0], nms[0]
+            kind, icon, name, ent = "cfg", "🔧", nms[0], nms[0]
         else:
             kind, icon, name, ent = "zox", "📁", (os.path.basename(p) or p), ""  # dir basename, not full path
     # The target IS the identity: a path repeats across twins, so config rows key on Name and only zoxide rows stay path-keyed.
@@ -816,7 +816,7 @@ while true; do
   fi
   [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
-  # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/⚙️ grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
+  # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/🔧 grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
     --with-shell '/bin/bash -c' \
     "${FRAME[@]}" --ansi --layout=reverse --list-border --no-sort \
