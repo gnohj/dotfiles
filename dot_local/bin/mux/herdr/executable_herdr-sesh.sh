@@ -747,12 +747,6 @@ esac
   source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
 color_string="list-border:6,input-border:6,header-bg:-1,header-border:6,bg+:${gnohj_color13:-},fg+:${gnohj_color02:-},hl+:${gnohj_color04:-},fg:${gnohj_color02:-},info:${gnohj_color09:-},prompt:${gnohj_color04:-},pointer:${gnohj_color04:-},marker:${gnohj_color04:-},header:${gnohj_color09:-}"
-FRAME=(--no-border)
-# A Rex floating layer has a transparent background and no frame, where herdr's popup drew both.
-if [ "$CACHE_NAME" = sesh-rows-rex ] && [ -n "${gnohj_color10:-}" ]; then
-  color_string+=",bg:${gnohj_color10},list-bg:${gnohj_color10},input-bg:${gnohj_color10},header-bg:${gnohj_color10},border:6"
-  FRAME=(--border=rounded)
-fi
 
 command -v fzf     >/dev/null 2>&1 || { echo "fzf required";     sleep 1; exit 0; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0; }
@@ -821,6 +815,9 @@ while true; do
   else
     PROMPT='⚡ '
   fi
+  # An empty --header still draws its border, so the box only comes with text.
+  HEADER_ARGS=()
+  [ -z "$HEADER" ] || HEADER_ARGS=(--header-border --header "$HEADER")
   START_POS=1
   [ "$CACHED" = 1 ] || [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
   # A second start: bind replaces the first; the refresh hangs off load since --sync holds the first paint for start actions.
@@ -834,9 +831,9 @@ while true; do
   # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/🔧 grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
     --with-shell '/bin/bash -c' \
-    "${FRAME[@]}" --ansi --layout=reverse --list-border --no-sort \
+    --no-border --ansi --layout=reverse --list-border --no-sort \
     --prompt "$PROMPT" --gutter=' ' --color "$color_string" \
-    --input-border --header-border --header "$HEADER" \
+    --input-border ${HEADER_ARGS[@]+"${HEADER_ARGS[@]}"} \
     --delimiter='\t' --with-nth=2 --nth=1 \
     --disabled \
     --expect=ctrl-w,ctrl-g \
@@ -878,7 +875,7 @@ while true; do
     WT=$(worktree-list | fzf \
       --no-border --ansi --layout=reverse --list-border --tiebreak=begin \
       --prompt '🌳 ' --gutter=' ' --color "$color_string" \
-      --input-border --header-border \
+      --input-border \
       --delimiter='\t' --with-nth=1 \
       --bind 'tab:down,btab:up' \
       --bind 'ctrl-j:down,ctrl-k:up' \

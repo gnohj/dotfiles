@@ -31,7 +31,7 @@ color_string="list-border:6,input-border:6,preview-border:4,header-bg:-1,header-
 fzf_common=(
   --no-border --ansi --layout=reverse --list-border --no-sort
   --prompt '⚡ ' --gutter=' ' --color "$color_string"
-  --input-border --header-border
+  --input-border
   --bind 'tab:down,btab:up'
   --bind 'ctrl-b:abort'
 )
