@@ -199,7 +199,8 @@ cmd_window() {
       [ -n "$ws" ] && size_args+=(-s "$ws")
       "$rex" --autostart=false block call ${size_args[@]+"${size_args[@]}"} -b "$pane" resize \
         '{"columns":200,"rows":50}' >/dev/null 2>&1 || printf 'mux: could not resize Rex block %s\n' "$pane" >&2
-      if [ -n "$force_focus" ] && [ -z "$no_focus" ]; then
+      # Server focus repaints the app but not its selected tab, so ctrl+N/ctrl+tab would no-op.
+      if [ -z "$no_focus" ] && { [ -n "$force_focus" ] || [ "$ws" = "${REX_SESSION:-}" ]; }; then
         window="$(printf '%s' "$out" | jq -r '.window_id // empty')"
         client="$(rex_app_client "$rex")"
         [ -n "$client" ] || die "Rex window created but no connected app is available to focus it"
