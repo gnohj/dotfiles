@@ -163,6 +163,7 @@ in
       "Workspace.tintsPanesWithProgramBackground" = true;
       "Workspace.paneDensity" = "comfortable";
       "Workspace.showsPaneHeaders" = true;
+      "Workspace.balancesSplitsOnCreation" = true;
       "Workspace.notificationPosition" = "top-right";
       "Workspace.showsIdleProgramsInActivity" = true;
       "Workspace.showsProgramStatusInTabs" = true;
