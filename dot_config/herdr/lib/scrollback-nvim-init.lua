@@ -171,4 +171,15 @@ function HerdrScrollbackView(opts)
   for _, key in ipairs({ "<Esc>", "q", "<C-q>" }) do
     vim.keymap.set("n", key, "<cmd>qa!<cr>", { buffer = buf, nowait = true })
   end
+
+  if opts.close_on_yank then
+    vim.api.nvim_create_autocmd("TextYankPost", {
+      buffer = buf,
+      callback = function()
+        vim.schedule(function()
+          vim.cmd("qa!")
+        end)
+      end,
+    })
+  end
 end

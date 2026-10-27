@@ -27,4 +27,4 @@ if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent
     perl -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~])/$1 eq "m" ? $& : ""/ge; s/\e\][^\a\e]*(?:\a|\e\\)//g; s/\r//g' >"$file"
 fi
 
-nvim -u "$init" "$file" -c 'lua HerdrScrollbackView()'
+nvim -u "$init" "$file" -c 'lua HerdrScrollbackView({ close_on_yank = true })'
