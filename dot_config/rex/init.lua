@@ -384,7 +384,7 @@ rex.action{
 }
 rex.bind("ctrl+enter", "last_session")
 
--- Session layout from herdr-sesh-layout.sh: a startup_command gets one tab with Rex's default name, otherwise 🖋️ nvim + 🤖 and 🔨 tabs of three even shells.
+-- Session layout from herdr-sesh-layout.sh: a startup_command or rex_layout = "single" gets one tab with Rex's default name, otherwise 🖋️ nvim + 🤖 and 🔨 tabs of three even shells.
 local function shell(dir, input)
   local options = { cwd = dir }
   if input ~= nil then options.initial_input = input .. "\n" end
@@ -395,8 +395,8 @@ local function three_shells(dir)
   return rex.layout.horizontal(1 / 3, shell(dir), rex.layout.horizontal(0.5, shell(dir), shell(dir)))
 end
 
-local function dev_windows(dir, startup)
-  if startup ~= nil then
+local function dev_windows(dir, startup, single)
+  if startup ~= nil or single then
     return { { layout = shell(dir, startup) } }
   end
   return {
@@ -407,7 +407,7 @@ local function dev_windows(dir, startup)
 end
 
 -- Session glyphs from herdr-sesh-layout.sh: pinned names first, then 🖥️ home, 🌳 linked worktree, 🌿 repo, 📁 anything else.
-local NAME_GLYPHS = { jira = "🔷", github = "🐙", browser = "🌐", fm = "🚢", hermes = "🤖", tasks = "🖊️" }
+local NAME_GLYPHS = { jira = "🔷", github = "🐙", browser = "🌐", fm = "🚢", hermes = "🤖", tasks = "🖊️", home = HOME:match("^/Users/") and "🍎" or "🐧" }
 
 local function session_glyph(name, dir)
   if NAME_GLYPHS[name] ~= nil then return NAME_GLYPHS[name] end
@@ -427,7 +427,7 @@ local function session_glyph(name, dir)
   return "📁"
 end
 
-local function open_session(name, dir, startup, background)
+local function open_session(name, dir, startup, background, single)
   local label = session_glyph(name, dir) .. " " .. name
   local list, err = rex.call("session.list")
   fail(err)
@@ -438,7 +438,7 @@ local function open_session(name, dir, startup, background)
       return
     end
   end
-  local s, cerr = rex.call("session.create", { label = label, initial_windows = dev_windows(dir, startup) })
+  local s, cerr = rex.call("session.create", { label = label, initial_windows = dev_windows(dir, startup, single) })
   fail(cerr)
   rex.call("session.attach", { session_id = s.session_id })
   local view = rex.call("session.view", { session_id = s.session_id })
@@ -461,16 +461,16 @@ rex.action{
 }
 rex.bind(P .. "shift+n", "new_session_here")
 
--- Called by rex-herdr and `mux session`; an empty startup means the dev layout, background="1" builds it unselected.
+-- Called by rex-herdr and `mux session`; an empty startup means the dev layout, background="1" builds it unselected, single="1" one plain tab.
 rex.action{
   name = "sesh_open",
   title = "Open Sesh Session",
   category = "Sesh",
-  args = { label = "string", dir = "string", startup = "string?", background = "string?" },
+  args = { label = "string", dir = "string", startup = "string?", background = "string?", single = "string?" },
   run = function(ctx, args)
     local startup = args.startup
     if startup == "" then startup = nil end
-    open_session(args.label, (args.dir:gsub("^~", HOME)), startup, args.background == "1")
+    open_session(args.label, (args.dir:gsub("^~", HOME)), startup, args.background == "1", args.single == "1")
   end,
 }
 
@@ -522,7 +522,7 @@ for _, e in ipairs(sesh_entries) do
       run = function(ctx, args)
         leave_session(ctx)
         if e.rex_host == nil and ctx.server == nil then
-          open_session(e.name, dir, e.startup_command)
+          open_session(e.name, dir, e.startup_command, false, e.rex_layout == "single")
           return
         end
         -- Lua here only reaches the focused session's server, so a pinned entry or a press from another host goes through rex-herdr.

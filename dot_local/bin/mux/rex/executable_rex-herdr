@@ -87,9 +87,10 @@ case "${1:-} ${2:-}" in
     # A rex_host entry opens on that host as rex_label (else its name), its dir sent as ~/... so the host's own sesh_open resolves it.
     host=$(entry_key "$3" rex_host)
     label=$(entry_key "$3" rex_label)
+    single=$(entry_key "$3" rex_layout)
     [ -z "$host" ] || server=(-S "$host")
-    args=$(entries | jq -sc --arg n "$3" --arg home "$HOME" --arg pinned "$host" --arg label "$label" \
-      'first(add[] | select(.Name == $n) | {label: (if $label != "" then $label else .Name end), dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand})')
+    args=$(entries | jq -sc --arg n "$3" --arg home "$HOME" --arg pinned "$host" --arg label "$label" --arg single "$single" \
+      'first(add[] | select(.Name == $n) | {label: (if $label != "" then $label else .Name end), dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand} + (if $single == "single" then {single: "1"} else {} end))')
     [ -n "$args" ] || die "No sesh.toml entry named $3."
     app_do sesh_open --args "$args"
     ;;
