@@ -156,7 +156,7 @@ app_rules = [
 
 # Entered from skhd (lalt+shift+`); every key drops back to default.
 [binding_modes.service]
-"Escape" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/rift-cli execute config reload; /opt/homebrew/bin/sketchybar --trigger hide_message; /opt/homebrew/bin/sketchybar --reload"] }
-"B" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/sketchybar --bar height=0; /opt/homebrew/bin/sketchybar --trigger hide_message"] }
-"Shift + B" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/sketchybar --bar height=36; /opt/homebrew/bin/sketchybar --trigger hide_message"] }
-"F" = { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/rift-cli execute binding-mode default; /opt/homebrew/bin/rift-cli execute window toggle-float"] }
+"Escape" = [{ binding_mode = "default" }, "reload_config", { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/sketchybar --trigger hide_message; /opt/homebrew/bin/sketchybar --reload"] }]
+"B" = [{ binding_mode = "default" }, { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/sketchybar --bar height=0; /opt/homebrew/bin/sketchybar --trigger hide_message"] }]
+"Shift + B" = [{ binding_mode = "default" }, { exec = ["/bin/bash", "-c", "/opt/homebrew/bin/sketchybar --bar height=36; /opt/homebrew/bin/sketchybar --trigger hide_message"] }]
+"F" = [{ binding_mode = "default" }, "toggle_window_floating"]
