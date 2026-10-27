@@ -201,10 +201,16 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
-# `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
+# `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then Tailscale/brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
   local repo name slug fails=0 summary=0
   if [[ -z "${_UPDATE_SUMMARY_DIR:-}" ]]; then local _UPDATE_SUMMARY_DIR; _update_summary_begin && summary=1; fi
+  # brew upgrade skips auto_updates casks; runs before the VPS kickoff because the pkg restarts Tailscale under that ssh.
+  if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1 && brew list --cask tailscale-app >/dev/null 2>&1; then
+    print -P "%F{cyan}==> brew upgrade: tailscale-app%f"
+    _without_tap_deprecations brew upgrade --cask --greedy tailscale-app ||
+      { print -P "%F{red}   tailscale-app upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
   # UPDATE_NO_VPS=1 skips it; the VPS pulls chezmoi from GitHub, so it only sees what has been pushed.
   if [[ "$OSTYPE" == darwin* && -z "${UPDATE_NO_VPS:-}" && -x "$HOME/.local/bin/update-vps" ]]; then
     "$HOME/.local/bin/update-vps" --background
@@ -258,6 +264,17 @@ update() {
     print -P "%F{cyan}==> mise upgrade%f"
     MISE_GITHUB_TOKEN=$(gh auth token 2>/dev/null) mise upgrade ||
       { print -P "%F{red}   mise upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
+  # Arch upgrades Tailscale only with the whole system (sudo), so flag a pending release for `up` instead.
+  if [[ "$OSTYPE" == linux* ]] && command -v pacman >/dev/null 2>&1 && command -v vercmp >/dev/null 2>&1; then
+    local ts_have ts_new
+    ts_have=$(pacman -Q tailscale 2>/dev/null | awk '{ print $2 }')
+    ts_new=$(curl -fsS --max-time 10 "https://archlinux.org/packages/extra/$(uname -m)/tailscale/json/" 2>/dev/null |
+      jq -r '"\(.pkgver)-\(.pkgrel)"' 2>/dev/null)
+    if [[ -n "$ts_have" && "$ts_new" == [0-9]* ]] && (( $(vercmp "$ts_have" "$ts_new") < 0 )); then
+      print -P "%F{yellow}   tailscale $ts_have -> $ts_new pending - run up for the system upgrade%f"
+      fails=$((fails + 1))
+    fi
   fi
   if [[ "$OSTYPE" == darwin* ]] && command -v mas >/dev/null 2>&1; then
     print -P "%F{cyan}==> mas upgrade%f"

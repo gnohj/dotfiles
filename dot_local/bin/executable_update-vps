@@ -68,7 +68,11 @@ notify() {
 finish() {
   local rc="$1"
   find "$log_dir" -name '*.log' -mtime +14 -delete 2>/dev/null
-  if [ "$rc" -eq 0 ]; then
+  local ts
+  ts=$(grep -o 'tailscale [^ ]* -> [^ ]* pending' "$log" | tail -1)
+  if [ "$rc" -eq 0 ] && [ -n "$ts" ]; then
+    notify "VPS updated, Tailscale behind" "$ts - run up on $host"
+  elif [ "$rc" -eq 0 ]; then
     notify "VPS updated" "update on $host finished"
   else
     notify "VPS update failed (exit $rc)" "see $log"
