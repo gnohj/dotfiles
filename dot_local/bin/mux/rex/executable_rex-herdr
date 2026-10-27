@@ -11,11 +11,15 @@ die() {
   exit 1
 }
 
-app_do() {
-  local client out
+app_try() {
+  local client
   client=$(remote client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
   [ -n "$client" ] || die "No Rex desktop app is connected."
-  out=$(remote do -C "$client" "$@" 2>&1) || die "$out"
+  out=$(remote do -C "$client" "$@" 2>&1)
+}
+
+app_do() {
+  app_try "$@" || die "$out"
 }
 
 # Key actions run on the Mac's server, so it alone keeps the session history; a Dev Box picker reaches it as the Mac host.
@@ -58,8 +62,11 @@ entry_key() {
   awk -v n="$1" -v k="$2" -F'"' 'FNR == 1 || /^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ ("^" k " *= *$") && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" "$rex_toml" 2>/dev/null
 }
 
+# A cached picker row can name a session closed since; exit 3 quietly so herdr-sesh.sh re-resolves it from fresh rows.
 select_session() {
-  app_do session.select session_id="session:$sid"
+  app_try session.select session_id="session:$sid" && return
+  case "$out" in *SessionNotFound*) exit 3 ;; esac
+  die "$out"
 }
 
 case "${1:-} ${2:-}" in

@@ -773,6 +773,21 @@ SESH_ALIASES=$(awk -F'\t' '{printf "%s ", $1}' "${XDG_CACHE_HOME:-$HOME/.cache}/
 [ "${SESH_REX:-}" != 1 ] || SESH_ALIASES+=$(awk -F'"' '$1 ~ /^alias *= *$/ {printf "%s ", $2}' "$HOME/.config/sesh/rex.toml" 2>/dev/null)
 export SESH_ALIASES
 
+focus_target() {
+  case "$1" in
+    ws:*) "$herdr" workspace focus "${1#ws:}" ;;
+    *)
+      # Focus the workspace first (ids are "<wid>:<...>"); focusing an inner target alone is not guaranteed to carry the view across workspaces.
+      local inner="${1#*:}"
+      "$herdr" workspace focus "${inner%%:*}" >/dev/null 2>&1
+      case "$1" in
+        tab:*) "$herdr" tab focus "$inner" ;;
+        *) "$herdr" agent focus "$inner" ;;
+      esac
+      ;;
+  esac
+}
+
 # Looped so ctrl-g can re-enter with a different view, and so the picker comes back after lazygit exits. esc no longer returns here from a sub-menu: it closes the popup from wherever you are.
 # GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
 GIT_ONLY=0
@@ -885,15 +900,18 @@ while true; do
   TARGET="${SELECTED##*$'\t'}"
   rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE"   # every branch below execs or exits, and exec loses the EXIT trap
   case "$TARGET" in
-    ws:*)          exec "$herdr" workspace focus "${TARGET#ws:}" ;;
-    agent:* | tab:*)
-      # Focus the workspace first (ids are "<wid>:<...>"); focusing an inner target alone is not guaranteed to carry the view across workspaces.
-      inner="${TARGET#*:}"
-      "$herdr" workspace focus "${inner%%:*}" >/dev/null 2>&1
+    ws:* | agent:* | tab:*)
+      focus_target "$TARGET" && exit 0
+      # The row came from the cache and names a session closed since: retry its name from fresh rows, else reopen fresh.
+      build_list >"$ROWS_FILE" && save_cache "$ROWS_FILE"
+      TARGET=$(awk -F'\t' -v n="${SELECTED%%$'\t'*}" '$1 == n {print $NF; exit}' "$ROWS_FILE")
+      rm -f "$ROWS_FILE"
       case "$TARGET" in
-        tab:*) exec "$herdr" tab focus "$inner" ;;
-        *) exec "$herdr" agent focus "$inner" ;;
+        ws:* | agent:* | tab:*) focus_target "$TARGET" && exit 0 ;;
+        cfg:*) exec "${LAYOUT[@]}" --entry "${TARGET#cfg:}" ;;
+        zox:*) exec "${LAYOUT[@]}" "${TARGET#zox:}" ;;
       esac
+      continue
       ;;
     cfg:*)         exec "${LAYOUT[@]}" --entry "${TARGET#cfg:}" ;;
     zox:*)         exec "${LAYOUT[@]}" "${TARGET#zox:}" ;;
