@@ -12,11 +12,6 @@ local function scratch_layout(node, source, hint)
   return split(node.split.ratio, scratch_layout(node.split.before, source, hint), scratch_layout(node.split.after, source, hint))
 end
 
-local function layout_rect(node, block_id)
-  if node.block_id ~= nil then return node.block_id == block_id and node.rect or nil end
-  return layout_rect(node.split.before, block_id) or layout_rect(node.split.after, block_id)
-end
-
 local function block_at(node, rect)
   if node.block_id ~= nil then
     for i = 1, 4 do
@@ -25,12 +20,6 @@ local function block_at(node, rect)
     return node.block_id
   end
   return block_at(node.split.before, rect) or block_at(node.split.after, rect)
-end
-
-local function tiled_layout(window)
-  for _, layer in ipairs(window.layers or {}) do
-    if layer.kind == "tiled" then return layer.layout end
-  end
 end
 
 function M.setup()
@@ -80,15 +69,15 @@ function M.setup()
     category = "Tools",
     run = function(ctx, args)
       local window = c.tab_of_block(c.windows(), ctx.block_id)
-      local layout = window and tiled_layout(window)
-      local rect = layout and layout_rect(layout, ctx.block_id)
+      local layout = window and c.tiled_layout(window)
+      local rect = layout and c.layout_rect(layout, ctx.block_id)
       if rect == nil then return end
       local hint = { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-pluck" "$0" "$1"', ctx.block_id, window.window_id }
       local created, err = rex.session.new_window{ layout = scratch_layout(layout, ctx.block_id, hint) }
       c.fail(err)
       for _, w in ipairs(c.windows().windows) do
         if w.window_id == created.window_id then
-          local twin = block_at(tiled_layout(w), rect)
+          local twin = block_at(c.tiled_layout(w), rect)
           c.fail(select(2, rex.session.swap_blocks{ block_id = ctx.block_id, other_block_id = twin }))
           c.fail(select(2, rex.session.focus_block{ block_id = twin }))
         end

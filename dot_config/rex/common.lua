@@ -61,6 +61,37 @@ function M.tab_of_block(view, block_id)
   end
 end
 
+function M.tiled_layout(window)
+  for _, layer in ipairs(window.layers or {}) do
+    if layer.kind == "tiled" then return layer.layout end
+  end
+end
+
+function M.layout_rect(node, block_id)
+  if node.block_id ~= nil then return node.block_id == block_id and node.rect or nil end
+  return M.layout_rect(node.split.before, block_id) or M.layout_rect(node.split.after, block_id)
+end
+
+-- Rex window width in px and its display scale (rift), then the sidebar width in points; Mac only.
+local WINDOW_PX = [[PATH=/opt/homebrew/bin:$PATH; { rift-cli query workspaces; rift-cli query displays; } 2>/dev/null | jq -rs '(.[0] | [.[].windows[]? | select(.bundle_id == "com.superlogical.rex")] | (map(select(.is_focused)) + .)[0].frame) as $w | (.[1] | map(select($w.origin.x >= .frame.origin.x and $w.origin.x < .frame.origin.x + .frame.size.width and $w.origin.y >= .frame.origin.y and $w.origin.y < .frame.origin.y + .frame.size.height))[0].backing_scale // 2) as $s | "\($w.size.width * $s) \($s)"' 2>/dev/null; defaults read com.superlogical.rex Workspace.sidebarWidth 2>/dev/null]]
+
+-- Sidebar width as a share of the pane area's; 0 when hidden or unknown.
+local function sidebar_share(window, block_id)
+  local layout = window and M.tiled_layout(window)
+  local rect = layout and M.layout_rect(layout, block_id)
+  local size = rect and rex.block.call(M.TERM, "size", { block_id = block_id })
+  if size == nil or size.cell_width_px == nil then return 0 end
+  local r = rex.exec{ "/bin/sh", "-c", WINDOW_PX }
+  local window_px, scale, sidebar_pt = (r and r.stdout or ""):match("^(%S+) (%S+)%s+(%S*)")
+  window_px, scale, sidebar_pt = tonumber(window_px), tonumber(scale), tonumber(sidebar_pt)
+  if window_px == nil then return 0 end
+  -- A pane's measure counts padding too, so it only decides whether the sidebar shows.
+  local panes_px = size.columns * size.cell_width_px / rect[3]
+  if (window_px - panes_px) / panes_px < 0.05 then return 0 end
+  local sidebar_px = sidebar_pt and sidebar_pt * scale or window_px - panes_px
+  return sidebar_px / (window_px - sidebar_px)
+end
+
 -- herdr-style toggle popup over an opaque theme backdrop (Rex leaves default bg see-through), {l,t,r,b} bounds, rex-fit sizes the pty to the box.
 local WAIT_FOR_SIZE = 'for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(stty size 2>/dev/null)" != "24 80" ] && break; sleep 0.03; done'
 -- Popups run on the session's host ($HOME is that shell's); the resize waits off the critical path; mise python starts rex-fit ~30ms faster.
@@ -94,7 +125,9 @@ function M.popup(ctx, side, top, command, cwd)
       if open then return end
     end
   end
-  local box = { side, top, 1 - side, 1 - top }
+  -- Centred on the whole window, as far as the box fits beside the sidebar.
+  local left = math.max(0.01, side - sidebar_share(M.tab_of_block(view, ctx.block_id), ctx.block_id) / 2)
+  local box = { left, top, left + 1 - 2 * side, 1 - top }
   local backdrop, berr = rex.session.new_layer{
     bounds = box,
     focus = false,
@@ -102,7 +135,7 @@ function M.popup(ctx, side, top, command, cwd)
   }
   M.fail(berr)
   local argv = { "/bin/sh", "-c", RUN_THEN_CLOSE_BACKDROP, "sh", backdrop.layer_id, backdrop.block_ids[1],
-                 tostring((box[3] - side) / box[3]), tostring((box[4] - top) / box[4]) }
+                 tostring((box[3] - box[1]) / box[3]), tostring((box[4] - top) / box[4]) }
   for _, a in ipairs(command) do table.insert(argv, a) end
   M.fail(select(2, rex.session.new_layer{
     bounds = box,
