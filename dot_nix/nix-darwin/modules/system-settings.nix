@@ -178,6 +178,7 @@ in
       "Workspace.terminalFontName" = "JetBrainsMono Nerd Font Mono";
       "Workspace.terminalFontPointSize" = 15.0;
       "Workspace.terminalFontSmoothing" = false;
+      "Workspace.terminalSmoothScrolling" = true;
       "Workspace.terminalCellHeightPercent" = 0.0;
       "Workspace.terminalCopyOnSelect" = true;
       "Workspace.terminalImproveTextContrast" = true;
