@@ -32,7 +32,7 @@ rex.bind("ctrl+0", "close_other_tabs")
 rex.bind(P .. "0", "close_other_tabs")
 
 -- Panes (herdr: split_vertical, split_horizontal + prefix+= alias, close_pane, zoom).
-rex.bind(P .. "v", "pane.split", { direction = "right" })
+rex.bind(P .. "v", "pane.split", { direction = "auto" })
 rex.bind(P .. "-", "pane.split", { direction = "down" })
 rex.bind(P .. "=", "pane.split", { direction = "down" })
 rex.bind(P .. "x", "close_pane")
