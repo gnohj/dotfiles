@@ -193,3 +193,9 @@ scripts/open-tmux-attach.sh
 
 # Rift 0.7.1 global workspace mode switches to the owning display natively.
 .local/libexec/rift-workspace
+
+# rex-fit retired: Rex 1541 sizes floating layers to their bounds.
+.local/bin/mux/rex/rex-fit
+
+# rex-popup-lock.lua retired: Rex 1541 popups are opaque framed panes.
+.local/bin/mux/rex/rex-popup-lock.lua

@@ -69,12 +69,6 @@ select_session() {
   die "$out"
 }
 
-# Release the popup's focus lock, or it pulls focus back from whatever this call selects.
-case "${1:-} ${2:-}" in
-  "api snapshot" | "workspace list") ;;
-  *) case "${REX_POPUP_LOCK:-}" in "" | *[!0-9]*) ;; *) kill "$REX_POPUP_LOCK" 2>/dev/null ;; esac ;;
-esac
-
 case "${1:-} ${2:-}" in
   "api snapshot")
     exec "$rex" --autostart=false do "$here/rex-snapshot.lua"
