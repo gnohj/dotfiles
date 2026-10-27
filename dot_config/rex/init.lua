@@ -651,6 +651,16 @@ rex.action{
   end,
 }
 
+-- The Mac app updates itself through Install Update; this upgrades the dev-box package beside it.
+rex.action{
+  name = "update_devbox_rex",
+  title = "Update Rex on Dev Box",
+  category = "Rex",
+  run = function(ctx, args)
+    popup(ctx, 0.2, 0.25, { "/bin/sh", "-c", '"$HOME/.local/bin/rex-update"; printf "\\nPress enter to close"; read _' })
+  end,
+}
+
 -- UI: herdr toggle_sidebar on prefix+E, settings, help, reload_config. prefix+V and prefix+a are Rex-only.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")
 rex.bind(P .. "shift+v", "client.tab_style.toggle")

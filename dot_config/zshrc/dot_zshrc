@@ -276,6 +276,11 @@ update() {
       fails=$((fails + 1))
     fi
   fi
+  # Passwordless through the one sudoers rule run_after_rex-upgrade-sudo.sh installs; the Mac reaches this through update-vps.
+  if [[ "$OSTYPE" == linux* && -f /etc/pacman.d/rex.conf && -x "$HOME/.local/bin/rex-update" ]]; then
+    print -P "%F{cyan}==> rex upgrade%f"
+    "$HOME/.local/bin/rex-update" || { print -P "%F{red}   rex upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
   if [[ "$OSTYPE" == darwin* ]] && command -v mas >/dev/null 2>&1; then
     print -P "%F{cyan}==> mas upgrade%f"
     mas upgrade || { print -P "%F{red}   mas upgrade failed - continuing%f"; fails=$((fails + 1)); }

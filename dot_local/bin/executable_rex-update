@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# rex-update - upgrade the dev-box's Rex package and restart its server only when no session would die; on the Mac it runs on the dev-box.
+set -uo pipefail
+
+if [ "$(uname)" = Darwin ]; then
+  host="${UPDATE_VPS_HOST:-dev-box}"
+  case "$host" in '' | -*) echo "rex-update: invalid host: $host" >&2; exit 2 ;; esac
+  exec ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" '"$HOME/.local/bin/rex-update"'
+fi
+
+upgrade=/usr/local/sbin/rex-upgrade
+if ! sudo -n "$upgrade"; then
+  echo "rex-update: $upgrade failed or needs a password - run chezmoi apply in a terminal on this box to install it" >&2
+  exit 1
+fi
+
+status=$(rex --autostart=false server status 2>/dev/null) || exit 0
+installed=$(rex --autostart=false version | awk 'NR == 1 { print $2 }')
+running=$(awk '$1 == "version:" { print $2 }' <<<"$status")
+sessions=$(awk '$1 == "sessions:" { print $2 }' <<<"$status")
+[ "$running" = "$installed" ] && exit 0
+if [ "$sessions" = 0 ]; then
+  systemctl --user restart rex-server.service && echo "rex-update: server restarted on $installed"
+else
+  echo "rex-update: server still runs $running with $sessions session(s) open; restarting kills them: systemctl --user restart rex-server"
+fi
