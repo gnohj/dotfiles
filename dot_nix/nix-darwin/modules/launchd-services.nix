@@ -389,6 +389,25 @@ in
       };
     };
 
+    # Numbers Rex tabs by position; --autostart=false never relaunches a closed Rex, KeepAlive retries.
+    rex-tab-numbers = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/rex-tab-numbers
+            exec "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" --autostart=false do --all ${homeDir}/.local/bin/mux/rex/rex-tab-numbers.lua
+          ''
+        ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        ThrottleInterval = 30;
+        StandardOutPath = "${homeDir}/.logs/rex-tab-numbers/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/rex-tab-numbers/launchagent.err.log";
+      };
+    };
+
     # Builds yesterday's resource report (Mac + dev-box) into the Lavish Library; RunAtLoad catches up days missed while the Mac was off.
     resource-report = {
       serviceConfig = {

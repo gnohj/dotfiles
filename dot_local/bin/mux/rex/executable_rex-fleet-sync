@@ -17,6 +17,8 @@ MATE_GLYPH = "\U0001f6a2 "
 SEP = " · "
 AGENT_APPS = {"claude": "claude-code"}
 APP_RE = re.compile(r"[A-Za-z0-9_.+-]{1,32}")
+# rex-tab-numbers prefixes every label with its position; compare without it or each tick renames it away.
+TAB_NUMBER_RE = re.compile(r"^\d+\. ?")
 
 
 def run(*args):
@@ -121,7 +123,7 @@ def sync_mate(label, wanted, sid, live_sessions, known):
             continue
         wid = known.get(pane)
         if wid in current:
-            if current[wid] != window_label:
+            if TAB_NUMBER_RE.sub("", current[wid]) != window_label:
                 run("rex", "window", "rename", "-s", sid, wid, window_label)
         else:
             wid = rex_json("window", "new", window_label, "-s", sid, "--focus=false", command=follow(pane))["window_id"]

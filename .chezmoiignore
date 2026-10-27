@@ -184,6 +184,9 @@ Library/
 .config/systemd/user/rex-fleet-sync.timer
 .local/bin/mux/rex/rex-fleet-sync
 
+# Rex tab numberer unit - Linux only; macOS runs the same script from its launchd agent `rex-tab-numbers`.
+.config/systemd/user/rex-tab-numbers.service
+
 # Autopush timer — same story: macOS schedules the identical script through the
 # nix-darwin launchd agent `github-auto-push` instead.
 .config/systemd/user/github-auto-push.service

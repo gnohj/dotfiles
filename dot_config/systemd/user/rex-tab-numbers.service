@@ -1,0 +1,14 @@
+# Linux counterpart of the macOS launchd agent `rex-tab-numbers`; numbers the dev-box server's tabs by position.
+[Unit]
+Description=Prefix Rex tabs with their position
+After=rex-server.service
+
+[Service]
+Type=simple
+# --autostart=false: a server started outside rex-server.service would hold the socket; wait for the real one instead.
+ExecStart=/usr/bin/rex --autostart=false do --all %h/.local/bin/mux/rex/rex-tab-numbers.lua
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
