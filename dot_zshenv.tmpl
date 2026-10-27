@@ -16,28 +16,16 @@ if [[ "${HERDR_ENV:-}" == 1 ]]; then
   export PI_IMAGE_PROTOCOL=none
 fi
 
-# ~/.local/bin must be on PATH for EVERY zsh, not just interactive ones. .zshenv
-# is sourced by all invocations (login, non-login, interactive or not); .zshrc is
-# interactive-only. Non-interactive login shells (`zsh -l -c`) - which herdr uses
-# to launch pane commands, and which tmux/skhd launchers use - never read .zshrc,
-# so anything living only in ~/.local/bin (mux/herdr/yazi-herdr.sh, claude-account, worktree
-# helpers, ...) was unresolvable from those chains. Setting it here fixes it
-# locally and over `herdr --remote` (each host resolves its own ~/.local/bin).
-# typeset -U keeps PATH duplicate-free; .zshrc re-prepends it to preserve the
-# original front-precedence for interactive shells without adding a second entry.
+# PATH lives here, not .zshrc, so herdr/tmux/skhd `zsh -l -c` chains resolve ~/.local/bin; -U lets .zshrc re-prepend without duplicates.
 typeset -U path PATH
 # nix-profile (home-manager pkgs: lazygit, yazi) - needed by the non-interactive herdr server, same reason as .local/bin below
 export PATH="$HOME/.nix-profile/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-# Per-backend helpers nest under mux/ (can't be top-level `herdr`/`tmux` - those are the binaries).
-# Still needs to be on PATH: herdr's config.toml and the tmux binds invoke them by bare name. Needs a
-# full herdr server restart, not just reload-config, for the daemon to inherit this.
+# mux/ helper dirs (not top-level `herdr`/`tmux`, those are binaries) for bare-name calls from herdr/tmux binds; herdr needs a server restart.
 export PATH="$HOME/.local/bin/mux/herdr:$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared:$PATH"
 # Same deal for the mux/ and worktree/ folders, so bare `mux …` / `worktree …` plus worktree/'s worktree-list and wtsync resolve from these non-interactive chains too.
 export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
-# mise owns the herdr binary on both boxes, and mise only activates in .zshrc (interactive),
-# so the bare-name `herdr` these same chains call would be unresolvable. APPENDED, not
-# prepended: nix/system keep front precedence, mise-only tools just become reachable.
+# mise only activates in .zshrc, so its shims are APPENDED for these chains' bare `herdr`, keeping nix/system precedence.
 export PATH="$PATH:$HOME/.local/share/mise/shims"
 # nix-darwin's /etc/zshenv resets PATH in Rex panes, dropping the rex CLI dir Rex prepended; ahead of mux/ and its rex/ folder.
 [[ -n "${REX_BIN_DIR:-}" && -d "$REX_BIN_DIR" ]] && (( ! ${path[(Ie)$REX_BIN_DIR]} )) && path=("$REX_BIN_DIR" $path)
@@ -52,11 +40,7 @@ if [[ -n "${HERDR_BIN_PATH:-}" && ! -x "$HERDR_BIN_PATH" ]]; then
   fi
 fi
 
-# vim-herdr-navigation: forward ctrl+h/j/k/l to these TUIs (matched on the lower-cased
-# foreground process) instead of moving herdr's pane focus — so ctrl+j/k navigate
-# inside the herdr-sesh.sh fzf picker like the tmux sesh popup. Set here (not .zshrc)
-# so the herdr SERVER inherits it: navigate.sh reads this env at keypress time, and
-# the server's env comes from this login chain. Needs a herdr server restart to apply.
+# ctrl+h/j/k/l pass through to fzf (herdr-sesh picker) instead of moving herdr focus; here so the herdr server inherits it (restart to apply).
 export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
 
 # Here, not .zshrc: the herdr server's `zsh -l -c` chain never reads .zshrc, so $EDITOR was unset and its scrollback fell back to plain vi.
@@ -92,18 +76,7 @@ export TASKS_CAPTURE_SKIP="Groceries"
 export TASKS_EVENT_CALENDARS="gnohj,Calendar,hongsautoinc@gmail.com,jdms8911"
 export TASKS_EVENT_DAYS=14
 
-# mise: directory trees mise trusts without a per-repo `mise trust` prompt (each
-# path also trusts everything beneath it, so a parent dir acts as a wildcard).
-# Set HERE, not in mise's config.toml, on purpose: mise honors trusted_config_paths
-# ONLY from the GLOBAL config, yet that same config.toml is ALSO loaded as a
-# NON-global config whenever a shell is cd'd inside the chezmoi source tree - which
-# makes mise warn "trusted_config_paths in non-global config ... is ignored" on
-# every command. The env var carries no such restriction and applies from every
-# shell. Colon-separated (Unix). ~/Developer + ~/.treehouse: work repos and pooled
-# PR-review worktrees; ~/.local/share/chezmoi: the dotfiles source itself, so mise
-# loads its own config there cleanly instead of warning/erroring.
-# ~/.no-mistakes: the pipeline's per-run repo copies, created per run id so nothing narrower can scope them.
-# ~/.config/infinitary/work: Infinitary's clones and crew worktrees on a Linux work computer.
+# Trees mise trusts without prompting (repos, review worktrees, chezmoi, no-mistakes runs, Infinitary); an env var because config.toml warns inside chezmoi.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi:$HOME/.no-mistakes:$HOME/.config/infinitary/work"
 
 # Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: herdr's panes skip it.
@@ -111,16 +84,7 @@ export BROWSER="desktop-open"
 # Read before BROWSER by cli/go-gh, so gh-dash and gh CLI reach the wrapper without touching xdg-open.
 export GH_BROWSER="desktop-open"
 
-# GIT_OPTIONAL_LOCKS=0: stop background git tooling from fighting over index.lock.
-# Without it, every `git status`/`git diff` may refresh + REWRITE the index, each
-# write grabbing <gitdir>/index.lock. In the web bare+worktree monorepo (huge tree,
-# no fsmonitor) that write is slow, so the lock is held long enough that overlapping
-# readers — starship prompt (per pane), gitsigns (per buffer), lazygit autoFetch,
-# and any concurrent agent — collide with "Unable to create '.../index.lock'".
-# Setting it to 0 makes git SKIP the lock for operations where it's optional (all
-# read-only status/diff refreshes); mandatory writes (commit/add/checkout) still
-# lock normally. Set in .zshenv (not .zshrc) so non-interactive tool subprocesses
-# inherit it too. Portable: plain env var, identical behavior on macOS + Linux.
+# Read-only status/diff refreshes skip index.lock, so prompts, gitsigns, lazygit and agents stop colliding in the web monorepo.
 export GIT_OPTIONAL_LOCKS=0
 
 # Fakes a Wayland session so herdr-pluck picks wl-copy, which ~/.local/bin shims to `to-desktop clip`; only interactive and herdr shells get it, since Infinitary's ssh setup skips its own Xvfb when it sees this.

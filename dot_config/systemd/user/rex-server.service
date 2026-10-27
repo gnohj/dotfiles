@@ -1,4 +1,4 @@
-# Linux-only, Linger boot-resident; Tailscale Serve fronts it as https :7297 since the Mac app's ATS refuses http://.
+# Linux-only, Linger boot-resident; Tailscale Serve fronts it as https :7297 on the box's own tailnet name.
 [Unit]
 Description=Rex personal server
 Documentation=https://www.superlogical.com/rex/docs/linux/remote-access
