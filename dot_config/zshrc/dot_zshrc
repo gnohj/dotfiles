@@ -1676,12 +1676,12 @@ if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; th
             local cols=${1#* }
             print -n '\e_Ga=d\e\\\e[H\e[2J\e[3J'
             # Rex reports no pixel size, so kitten icat refuses and fastfetch falls back to the ASCII logo.
-            # Height 0 lets the terminal keep the aspect instead of stretching to 30x18.
+            # Fixed 30x15 is square on Rex's 8x16 cell; height 0 queries it and eats typed-ahead startup commands.
             local logo=() wide=75 narrow=38
-            [[ $TERM_PROGRAM == rex ]] && logo=(--logo-type kitty-direct --logo-height 0)
+            [[ $TERM_PROGRAM == rex ]] && logo=(--logo-type kitty-direct --logo-width 30 --logo-height 15)
             # Omarchy's config has 54-column boxes and no image, so Linux passes the gundam and needs more width.
             if [[ $OSTYPE == linux* ]]; then
-                logo=(--logo-type kitty-direct --logo "$HOME/.config/fastfetch/images/gundamg.png" --logo-height 0 --logo-width 30 --logo-padding-top 8 --logo-padding-right 3)
+                logo=(--logo-type kitty-direct --logo "$HOME/.config/fastfetch/images/gundamg.png" --logo-height 15 --logo-width 30 --logo-padding-top 8 --logo-padding-right 3)
                 wide=90 narrow=56
             fi
             if (( cols >= wide )); then
