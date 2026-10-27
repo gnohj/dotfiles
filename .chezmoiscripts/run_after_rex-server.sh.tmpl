@@ -17,8 +17,6 @@ if ! command -v rex >/dev/null 2>&1; then
     echo "!! Rex install failed - see https://www.superlogical.com/rex/docs/linux/installation"
     exit 0
   fi
-  # install.sh writes its token-bearing repo file root-only, which breaks every non-root pacman read, Omarchy migrations included.
-  [ ! -f /etc/pacman.d/rex.conf ] || sudo chmod 644 /etc/pacman.d/rex.conf
 fi
 
 unit=rex-server.service

@@ -8,8 +8,6 @@ After=default.target
 Type=simple
 # A server autostarted by the rex CLI outside this unit holds the socket; skip instead of failing into a restart loop.
 ExecCondition=/usr/bin/python3 -c "import socket,sys; sys.exit(1 if socket.socket(socket.AF_UNIX).connect_ex(sys.argv[1]) == 0 else 0)" %t/rex/server.sock
-# Rex learns the machine owner from tailscaled at startup; starting before it is Running 403s every tailnet caller.
-ExecStartPre=-/usr/bin/timeout 60 /bin/sh -c 'until tailscale status >/dev/null 2>&1; do sleep 1; done'
 # `rex server tailscale on` and its rename are runtime-only; without these flags a restart drops both.
 ExecStart=/usr/bin/rex server run --extra-listen tailnet-serve://%t/rex/serve.sock --tailscale --tailscale-hostname %H-rex
 # on-failure, NOT always: every Rex session dies with this process, and a deliberate `rex server stop` must stick.
