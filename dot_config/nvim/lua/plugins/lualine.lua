@@ -63,53 +63,11 @@ end
 return {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
-  enabled = true,
+  enabled = false,
   opts = function(_, opts)
     local lazy_status = require("lazy.status") -- to configure lazy pending updates count
     local icons = require("lazyvim.config").icons
 
-    -- If in tmux, herdr or Rex, show minimal statusline with unsaved buffer indicator and lazy updates on the right
-    if vim.env.TMUX or vim.env.HERDR_SOCKET_PATH or (vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK) then
-      return {
-        options = {
-          component_separators = "",
-          section_separators = "",
-          theme = "auto",
-        },
-        sections = {
-          lualine_a = {},
-          lualine_b = {},
-          lualine_c = {},
-          lualine_x = {
-            {
-              codediff_hunk_count,
-              color = { fg = colors["gnohj_color04"], gui = "bold" },
-            },
-            {
-              current_buffer_unsaved_dot,
-              color = { fg = colors["gnohj_color11"] },
-            },
-            {
-              lazy_status.updates,
-              cond = lazy_status.has_updates,
-              color = { fg = colors["gnohj_color06"] },
-            },
-          },
-          lualine_y = {},
-          lualine_z = {},
-        },
-        inactive_sections = {
-          lualine_a = {},
-          lualine_b = {},
-          lualine_c = {},
-          lualine_x = {},
-          lualine_y = {},
-          lualine_z = {},
-        },
-      }
-    end
-
-    -- Full lualine configuration when not in tmux
     table.remove(opts.sections.lualine_c, 1)
     table.remove(opts.sections.lualine_c, 2)
     table.remove(opts.sections.lualine_c, 3)
