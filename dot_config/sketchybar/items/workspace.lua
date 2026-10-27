@@ -220,7 +220,7 @@ local function updateWindows()
 			chips[used]:set({
 				drawing = isShowingSpaces,
 				icon = { background = { image = { string = "app." .. (window["bundle-id"] or windowName) } } },
-				label = { string = windowName },
+				label = { string = (windowName:gsub(" Beta$", "")) },
 				click_script = Rift.focus_command(window),
 			})
 			frontApps[windowName] = chips[used]
