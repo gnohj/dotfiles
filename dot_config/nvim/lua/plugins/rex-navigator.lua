@@ -4,71 +4,28 @@ local function in_bare_rex()
     and vim.env.TMUX == nil
 end
 
-local function resolve_rex()
-  local dir = vim.env.REX_BIN_DIR
-  if dir ~= nil and dir ~= "" and vim.fn.executable(dir .. "/rex") == 1 then
-    return dir .. "/rex"
-  end
-  local found = vim.fn.exepath("rex")
-  return found ~= "" and found or "rex"
-end
-
-local function nav(wincmd, dir)
-  local prev = vim.api.nvim_get_current_win()
-  vim.cmd("wincmd " .. wincmd)
-  if vim.api.nvim_get_current_win() ~= prev then
-    return
-  end
-  local rex = resolve_rex()
-  local out = vim.fn.system({ rex, "--autostart=false", "focus", dir })
-  if vim.v.shell_error ~= 0 then
-    vim.notify(
-      ("rex nav %s failed (exit %d): %s  [bin=%s]"):format(
-        dir,
-        vim.v.shell_error,
-        (out or ""):gsub("%s+$", ""),
-        rex
-      ),
-      vim.log.levels.WARN
-    )
+local function ss(fn)
+  return function()
+    require("smart-splits")[fn]()
   end
 end
 
 return {
   {
-    name = "rex-navigator",
-    dir = vim.fn.stdpath("config"),
-    virtual = true,
+    "smart-splits-nvim/smart-splits.nvim",
+    version = "^3.0.0",
     cond = in_bare_rex,
+    dependencies = { { "rawnly/smart-splits-backend-rex", opts = {} } },
+    opts = { mux = { backend = "smart-splits-backend-rex" } },
     keys = {
-      {
-        "<c-h>",
-        function()
-          nav("h", "left")
-        end,
-        desc = "Navigate left (vim/rex)",
-      },
-      {
-        "<c-j>",
-        function()
-          nav("j", "down")
-        end,
-        desc = "Navigate down (vim/rex)",
-      },
-      {
-        "<c-k>",
-        function()
-          nav("k", "up")
-        end,
-        desc = "Navigate up (vim/rex)",
-      },
-      {
-        "<c-l>",
-        function()
-          nav("l", "right")
-        end,
-        desc = "Navigate right (vim/rex)",
-      },
+      { "<c-h>", ss("move_cursor_left"), desc = "Navigate left (vim/rex)" },
+      { "<c-j>", ss("move_cursor_down"), desc = "Navigate down (vim/rex)" },
+      { "<c-k>", ss("move_cursor_up"), desc = "Navigate up (vim/rex)" },
+      { "<c-l>", ss("move_cursor_right"), desc = "Navigate right (vim/rex)" },
+      { "<c-left>", ss("resize_left"), desc = "Resize left (vim/rex)" },
+      { "<c-down>", ss("resize_down"), desc = "Resize down (vim/rex)" },
+      { "<c-up>", ss("resize_up"), desc = "Resize up (vim/rex)" },
+      { "<c-right>", ss("resize_right"), desc = "Resize right (vim/rex)" },
     },
   },
 }
