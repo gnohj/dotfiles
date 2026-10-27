@@ -166,18 +166,6 @@ def follow_new_window(wid):
         return
     uuid, ws = home
     index = ws["index"]
-    # Each display has its own A-Z and macOS can open the window on the wrong one.
-    if window_ids(ws) == {wid}:
-        sibling = next(
-            (u for u, wss in layouts.items() if u != uuid and any(o["index"] == index and window_ids(o) for o in wss)),
-            None,
-        )
-        if sibling is not None:
-            rift_run("display", "focus", "--uuid", sibling)
-            rift_run("workspace", "switch", str(index))
-            rift_run("display", "move-window", "--uuid", sibling, "--window-id", str(wid[1]))
-            print(f"rift-focus-keeper: moved {wid[0]}:{wid[1]} to {ws.get('name')} on {sibling}", flush=True)
-            return
     if not ws.get("is_active") or not next(d for d in displays if d["uuid"] == uuid).get("is_active_context"):
         rift_run("display", "focus", "--uuid", uuid)
         rift_run("workspace", "switch", str(index))

@@ -187,3 +187,6 @@ scripts/open-tmux-attach.sh
 
 # rex-fleet-sync moved into chezmoi at .local/bin/mux/rex; sweep the hand-installed dev-box copy.
 .local/bin/rex-fleet-sync
+
+# Rift 0.7.1 global workspace mode switches to the owning display natively.
+.local/libexec/rift-workspace

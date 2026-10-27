@@ -1,4 +1,4 @@
-# Rift: keys live in skhdrc ([keys] must exist but stays empty); display pinning waits on acsandmann/rift#545.
+# Rift: keys live in skhdrc ([keys] must exist but stays empty).
 
 [settings]
 # Rift resizes windows only at the midpoint and end of an animation, so BSP tile changes show a size jump.
@@ -58,6 +58,8 @@ enabled = false
 enabled = false
 
 [virtual_workspaces]
+# One A-Z across displays; switching to a workspace focuses the display that owns it.
+mode = "global"
 enabled = true
 # One workspace per letter so index = letter - 'A'; skhdrc relies on that.
 default_workspace_count = 26
@@ -73,6 +75,33 @@ workspace_names = [
 workspace_rules = [
   { workspace = "A", layout = "scrolling" },
   { workspace = "T", layout = "scrolling" },
+  # The HP Z27n (above the MacBook) holds E Q W Z; any other monitor above takes them, else the built-in.
+  { workspace = "E", display = ["HP Z27n", "top"] },
+  { workspace = "Q", display = ["HP Z27n", "top"] },
+  { workspace = "W", display = ["HP Z27n", "top"] },
+  { workspace = "Z", display = ["HP Z27n", "top"] },
+  { workspace = "A", display = "builtin" },
+  { workspace = "B", display = "builtin" },
+  { workspace = "C", display = "builtin" },
+  { workspace = "D", display = "builtin" },
+  { workspace = "F", display = "builtin" },
+  { workspace = "G", display = "builtin" },
+  { workspace = "H", display = "builtin" },
+  { workspace = "I", display = "builtin" },
+  { workspace = "J", display = "builtin" },
+  { workspace = "K", display = "builtin" },
+  { workspace = "L", display = "builtin" },
+  { workspace = "M", display = "builtin" },
+  { workspace = "N", display = "builtin" },
+  { workspace = "O", display = "builtin" },
+  { workspace = "P", display = "builtin" },
+  { workspace = "R", display = "builtin" },
+  { workspace = "S", display = "builtin" },
+  { workspace = "T", display = "builtin" },
+  { workspace = "U", display = "builtin" },
+  { workspace = "V", display = "builtin" },
+  { workspace = "X", display = "builtin" },
+  { workspace = "Y", display = "builtin" },
 ]
 
 # Matching is case-insensitive and more matcher fields win, so the title rules beat their plain app rules.
