@@ -8,6 +8,7 @@ require("tools").setup()
 local panes = require("panes")
 panes.setup()
 local sesh_aliases = require("sesh").setup()
+local has_paste = require("paste").setup()
 
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
@@ -93,3 +94,6 @@ rex.bind(P .. "shift+/", "client.palette.toggle")
 rex.bind(P .. "shift+r", "client.config.reload")
 rex.bind(P .. "[", "client.find.open")
 rex.bind(P .. "u", "client.prompt.previous")
+
+-- cmd+shift+v: copied files or a copied image sent to the pane's host and pasted as paths (herdr --remote did images natively).
+if has_paste then rex.bind("cmd+shift+v", "file_paste") end
