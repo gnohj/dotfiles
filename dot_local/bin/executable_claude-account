@@ -196,6 +196,35 @@ sha256_digest() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi
 }
 
+store_trusted() { # <store>
+  [ -f "$1" ] && [ "$(jq -r --arg p "$PWD" '(.hasCompletedOnboarding == true) and (.projects[$p].hasTrustDialogAccepted == true)' "$1" 2>/dev/null)" = "true" ]
+}
+
+# Claude Code's own `<store>.lock` (proper-lockfile, stale after 10s): writing outside it lets a live session drop the seed.
+lock_store() { # <store>
+  local lock="$1.lock" i=0 age
+  while [ "$i" -lt 50 ]; do
+    mkdir "$lock" 2>/dev/null && return 0
+    age="$(file_mtime "$lock")"
+    case "$age" in '' | *[!0-9]*) age="$(now_epoch)" ;; esac
+    if [ "$(($(now_epoch) - age))" -gt 10 ]; then rmdir "$lock" 2>/dev/null || true; else sleep 0.1; fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
+# The temp file sits beside the store so mv is an atomic rename; a cross-device copy shows Claude a truncated file it repairs from cache.
+seed_trust() { # <store>
+  local cj="$1" tmp
+  lock_store "$cj" || return 1
+  tmp="$(mktemp "$cj.seed.XXXXXX")" || { rmdir "$cj.lock" 2>/dev/null; return 1; }
+  if { [ -f "$cj" ] && cat "$cj" || printf '{}'; } | jq --arg p "$PWD" '.hasCompletedOnboarding = true | .projects[$p].hasTrustDialogAccepted = true' >"$tmp" 2>/dev/null; then
+    chmod 600 "$tmp" && mv -f "$tmp" "$cj"
+  fi
+  rm -f "$tmp"
+  rmdir "$cj.lock" 2>/dev/null || true
+}
+
 token_lifetime_days() {
   local v=""
   [ -r "$TOKEN_LIFETIME_FILE" ] && v="$(tr -d '[:space:]' <"$TOKEN_LIFETIME_FILE" 2>/dev/null || true)"
@@ -611,10 +640,13 @@ seed-config)
   *) echo "claude-account: unknown seed-config option: $2" >&2; exit 2 ;;
   esac
   _cj="${_d:-$HOME}/.claude.json"
-  if [ -f "$_cj" ] && [ "$(jq -r --arg p "$PWD" '(.hasCompletedOnboarding == true) and (.projects[$p].hasTrustDialogAccepted == true)' "$_cj" 2>/dev/null)" = "true" ]; then exit 0; fi
-  [ -f "$_cj" ] || { mkdir -p "$(dirname "$_cj")"; printf '{}' >"$_cj"; }
-  _tmp="$(mktemp)"
-  jq --arg p "$PWD" '.hasCompletedOnboarding = true | .projects[$p].hasTrustDialogAccepted = true' "$_cj" >"$_tmp" 2>/dev/null && mv "$_tmp" "$_cj" || rm -f "$_tmp"
+  store_trusted "$_cj" && exit 0
+  mkdir -p "$(dirname "$_cj")"
+  for _try in 1 2 3; do
+    seed_trust "$_cj" || true
+    store_trusted "$_cj" && exit 0
+  done
+  echo "claude-account: could not record folder trust for $PWD in $_cj" >&2
   ;;
 usage) usage_read "${2:-}" ;;
 usage-refresh)
