@@ -173,7 +173,6 @@ rex.bind(P .. "p", "previous_tab")
 rex.bind("ctrl+tab", "next_tab")
 rex.bind("ctrl+shift+tab", "previous_tab")
 rex.bind("ctrl+[Backquote]", "previous_tab")
-rex.bind(P .. "shift+x", "client.tab.close")
 rex.bind(P .. "shift+5", "client.tab.rename")
 
 rex.action{
@@ -233,19 +232,29 @@ rex.bind(P .. "0", "close_other_tabs")
 rex.bind(P .. "v", "pane.split", { direction = "right" })
 rex.bind(P .. "-", "pane.split", { direction = "down" })
 rex.bind(P .. "=", "pane.split", { direction = "down" })
--- prefix+x: Rex disables pane.close on a tab's last pane, so close the tab instead (herdr close_pane).
+-- Defined with the session history below.
+local close_session
+
+-- prefix+x: Rex disables pane.close on a tab's last pane, so close the tab instead (herdr close_pane), or the session from its very last pane.
 rex.action{
   name = "close_pane",
   title = "Close Pane or Last-Pane Tab",
   category = "herdr",
   run = function(ctx, args)
-    local w = tab_of_block(windows(), ctx.block_id)
+    local view = windows()
+    local w = tab_of_block(view, ctx.block_id)
     if w == nil then return end
     local panes = 0
     for _, layer in ipairs(w.layers or {}) do
       if layer.kind == "tiled" then panes = panes + #(layer.blocks or {}) end
     end
-    rex.client.queue(panes > 1 and "pane.close" or "client.tab.close")
+    if panes > 1 then
+      rex.client.queue("pane.close")
+    elseif #view.windows > 1 then
+      rex.client.queue("client.tab.close")
+    else
+      close_session(ctx)
+    end
   end,
 }
 rex.bind(P .. "x", "close_pane")
@@ -350,39 +359,100 @@ rex.action{
 rex.bind(P .. "w", "switch_session", { action = "session.next" })
 rex.bind(P .. "shift+w", "switch_session", { action = "session.previous" })
 rex.bind(P .. "shift+4", "session.rename")
-rex.bind(P .. "shift+d", "session.close")
 rex.bind(P .. "g", "switch_session", { action = "session.switch" })
 
--- ctrl+enter: bounce to the session last left by keyboard (herdr hack-herdr-last-workspace.sh); a cancelled picker falls back to the one before.
+-- The session last left by keyboard that still exists other than `here`; bare refs can only be checked from this host.
+local function previous_session(here, on_this_host)
+  local live = nil
+  if on_this_host then
+    live = {}
+    for _, s in ipairs((rex.call("session.list") or {}).sessions or {}) do live[(s.session_id:gsub("^session:", ""))] = true end
+  end
+  for _, ref in ipairs(left_sessions()) do
+    if ref ~= here and (live == nil or ref:find("~", 1, true) or live[ref]) then return ref end
+  end
+end
+
+local function go_to_session(ctx, target)
+  if ctx.server == nil and not target:find("~", 1, true) then
+    rex.client.queue("session.select", { session_id = "session:" .. target })
+    return
+  end
+  fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
+                                { detach = true, env = { REX_BIN_DIR = REX_BIN } })))
+end
+
+-- ctrl+enter: bounce to the session last left by keyboard (herdr hack-herdr-last-workspace.sh).
 rex.action{
   name = "last_session",
   title = "Last Session Toggle",
   category = "herdr",
   run = function(ctx, args)
-    local here, live = session_ref(ctx), nil
-    if ctx.server == nil then
-      live = {}
-      for _, s in ipairs((rex.call("session.list") or {}).sessions or {}) do live[(s.session_id:gsub("^session:", ""))] = true end
-    end
-    local target
-    for _, ref in ipairs(left_sessions()) do
-      if ref ~= here and (live == nil or ref:find("~", 1, true) or live[ref]) then
-        target = ref
-        break
-      end
-    end
+    local target = previous_session(session_ref(ctx), ctx.server == nil)
     leave_session(ctx)
     if target == nil then
       rex.client.queue("session.previous")
-    elseif ctx.server == nil and not target:find("~", 1, true) then
-      rex.client.queue("session.select", { session_id = "session:" .. target })
     else
-      fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
-                                    { detach = true, env = { REX_BIN_DIR = REX_BIN } })))
+      go_to_session(ctx, target)
     end
   end,
 }
 rex.bind("ctrl+enter", "last_session")
+
+-- Closing a session returns to the one last left, on either host, instead of the neighbour Rex picks; the closed one leaves the history.
+local function return_from(ctx, here)
+  local target, kept = previous_session(here, ctx.server == nil), {}
+  for _, ref in ipairs(left_sessions()) do
+    if ref ~= here then table.insert(kept, ref) end
+  end
+  write_state("left-sessions", table.concat(kept, "\n"))
+  if target ~= nil then go_to_session(ctx, target) end
+end
+
+function close_session(ctx)
+  local here = session_ref(ctx)
+  fail(select(2, rex.call("session.destroy", { session_id = ctx.session_id })))
+  return_from(ctx, here)
+end
+
+-- Called by rex-herdr before the picker deletes the session it runs in; the CLI names no host, so the ref is found by id.
+rex.action{
+  name = "return_from_session",
+  title = "Return From a Closing Session",
+  category = "herdr",
+  args = { session_id = "string" },
+  run = function(ctx, args)
+    local id = (args.session_id:gsub("^session:", ""))
+    local here = id
+    for _, ref in ipairs(left_sessions()) do
+      if ref == id or ref:sub(-#id - 1) == "~" .. id then here = ref end
+    end
+    return_from(ctx, here)
+  end,
+}
+
+rex.action{
+  name = "close_session",
+  title = "Close Session and Return to the Last",
+  category = "herdr",
+  run = function(ctx, args) close_session(ctx) end,
+}
+rex.bind(P .. "shift+d", "close_session")
+
+-- prefix+X: closing the only tab closes the session, so it takes the same way back.
+rex.action{
+  name = "close_tab",
+  title = "Close Tab or Last-Tab Session",
+  category = "herdr",
+  run = function(ctx, args)
+    if #windows().windows > 1 then
+      rex.client.queue("client.tab.close")
+      return
+    end
+    close_session(ctx)
+  end,
+}
+rex.bind(P .. "shift+x", "close_tab")
 
 -- Session layout from herdr-sesh-layout.sh: a startup_command or rex_layout = "single" gets one tab with Rex's default name, otherwise 🖋️ nvim + 🤖 and 🔨 tabs of three even shells.
 local function shell(dir, input)

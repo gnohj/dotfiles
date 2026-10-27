@@ -18,6 +18,14 @@ app_do() {
   out=$(remote do -C "$client" "$@" 2>&1) || die "$out"
 }
 
+# Key actions run on the Mac's server, so it alone keeps the session history; a Dev Box picker reaches it as the Mac host.
+home_do() {
+  local home=() client
+  [ "$(uname)" = Darwin ] || home=(-S Mac)
+  client=$("$rex" --autostart=false ${home[@]+"${home[@]}"} client ls --json 2>/dev/null | jq -r '[.clients[] | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
+  [ -z "$client" ] || "$rex" --autostart=false ${home[@]+"${home[@]}"} do -C "$client" "$@" >/dev/null 2>&1
+}
+
 # Splits a session id into $sid and the -S flags for its host: "<host>~<id>" lives on that `rex hosts` entry, a bare id here.
 on_host() {
   sid="$1"
@@ -67,6 +75,8 @@ case "${1:-} ${2:-}" in
     ;;
   "workspace close")
     on_host "$3"
+    # The picker's own session: go back to the last one first, else Rex lands on a neighbour once it is gone.
+    [ "${#server[@]}" != 0 ] || [ "session:$sid" != "${REX_SESSION:-}" ] || home_do return_from_session session_id="$sid"
     remote kill "session:$sid" >/dev/null 2>&1
     ;;
   "tab focus")
