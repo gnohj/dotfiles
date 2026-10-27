@@ -189,9 +189,10 @@ cmd_window() {
       [ -n "$cwd" ] && rargs+=(-c "$cwd")
       [ -n "$keep" ] && rargs+=(--keep-open)
       [ -n "$no_focus" ] && rargs+=(--focus=false)
-      rargs+=(--shell=none --json -- env)
+      # -i so .zshrc exports THEME_TRANSPARENT and the API tokens, as herdr panes get.
+      rargs+=(--shell=none --json -- env SKIP_FETCH=1)
       for e in "${envs[@]:-}"; do [ -n "$e" ] && rargs+=("$e"); done
-      rargs+=("${SHELL:-/bin/sh}" -lc "$command")
+      rargs+=("${SHELL:-/bin/sh}" -lic "$command")
       out="$("$rex" --autostart=false "${rargs[@]}")" || die "Rex window new failed"
       pane="$(printf '%s' "$out" | jq -r '.block_ids[0] // empty')"
       [ -n "$pane" ] || die "Rex window new returned no block id"
@@ -300,7 +301,7 @@ cmd_split() {
         | [$all[] | select(.window_id == $w)] | length' 2>/dev/null)"
       case "$n" in ''|*[!0-9]*|0|1) ;; *) ratio=34 ;; esac
       "$rex" --autostart=false split -s "$REX_SESSION" -b "$REX_BLOCK" --split=right --ratio "$ratio" \
-        -c "$cwd" --shell=none -- "${SHELL:-/bin/sh}" -lc "$command" >/dev/null || die "Rex split failed"
+        -c "$cwd" --shell=none -- env SKIP_FETCH=1 "${SHELL:-/bin/sh}" -lic "$command" >/dev/null || die "Rex split failed"
       ;;
     tmux)
       if [ "$(tmux list-panes 2>/dev/null | wc -l | tr -d ' ')" = 1 ]; then
