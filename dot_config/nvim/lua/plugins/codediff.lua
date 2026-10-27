@@ -1,16 +1,15 @@
--- Open a codediff command in a new multiplexer window (tmux or herdr) with zen
--- disabled. The window's nvim self-quits on close via the TabClosed autocmd.
+-- Codediff in its own mux window; that nvim quits via the TabClosed autocmd.
 local function open_in_window(cmd, window_name, file)
   local shell_cmd
   if file then
     shell_cmd = string.format(
-      [[nvim --cmd "let g:zen_disabled=1" "%s" -c "%s"]],
+      [[nvim --cmd "let g:quit_after_diff=1" "%s" -c "%s"]],
       file,
       cmd
     )
   else
     shell_cmd =
-      string.format([[nvim --cmd "let g:zen_disabled=1" -c "%s"]], cmd)
+      string.format([[nvim --cmd "let g:quit_after_diff=1" -c "%s"]], cmd)
   end
   require("config.mux").new_window(shell_cmd, { name = window_name })
 end
@@ -269,10 +268,10 @@ return {
       end,
     })
 
-    -- Quit nvim when codediff tab closes (if in zen-disabled tmux window)
+    -- Quit nvim when codediff tab closes (if in a dedicated diff window)
     vim.api.nvim_create_autocmd("TabClosed", {
       callback = function()
-        if vim.g.zen_disabled then
+        if vim.g.quit_after_diff then
           local ok, lifecycle = pcall(require, "codediff.ui.lifecycle")
           if ok then
             -- Small delay to let the tab fully close

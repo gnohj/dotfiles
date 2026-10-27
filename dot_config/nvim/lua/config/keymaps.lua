@@ -80,12 +80,6 @@ keymap(
 
 keymap("n", "<leader><space>", "<cmd>e #<cr>", { desc = "[P]Alternate buffer" })
 
--- Toggle zen mode manually (overrides auto zen)
--- DISABLED: Testing zen.nvim (sand4rt) instead
--- keymap("n", "<leader>uz", function()
---   require("config.auto-zen").toggle_manual()
--- end, { desc = "[P]Toggle Zen Mode (manual)" })
-
 local function insertFullPath()
   local full_path = vim.fn.expand("%:p")
   local display_path
@@ -159,7 +153,8 @@ pcall(vim.keymap.del, "n", "<leader>gg")
 pcall(vim.keymap.del, "n", "<leader>gG")
 local function lazygit_open()
   local cfg = vim.fn.expand("~/.config/lazygit/config.yml")
-  local origin = vim.fn.system("git remote get-url origin 2>/dev/null"):gsub("%s+$", "")
+  local origin =
+    vim.fn.system("git remote get-url origin 2>/dev/null"):gsub("%s+$", "")
   if origin:find("inferno-monorepo") then
     cfg = cfg .. "," .. vim.fn.expand("~/.config/lazygit/inferno.yml")
   end
@@ -168,7 +163,8 @@ end
 keymap("n", "<leader>gg", lazygit_open, { desc = "Lazygit" })
 
 keymap("n", "<leader>gi", function()
-  local cmd = "gh-dash --config " .. vim.fn.expand("~/.config/gh-dash/issues.yml")
+  local cmd = "gh-dash --config "
+    .. vim.fn.expand("~/.config/gh-dash/issues.yml")
   require("config.mux").new_window(cmd, { name = "🐙" })
 end, { desc = "gh-dash Issues (window)" })
 
@@ -321,46 +317,66 @@ keymap("n", "<leader>gx", function()
   end
   -- Fallback: open the repo's open-PRs list (sorted by recently-updated).
   local function open_pr_list()
-    vim.fn.jobstart(
-      { "gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner" },
-      {
-        cwd = cwd,
-        stdout_buffered = true,
-        on_stdout = function(_, data)
-          local repo = (data and data[1] or ""):gsub("%s+$", "")
-          vim.schedule(function()
-            if repo == "" then
-              vim.notify(
-                "No PR for branch and could not resolve repo",
-                vim.log.levels.WARN
-              )
-              return
-            end
-            local url = "https://github.com/"
-              .. repo
-              .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
-            vim.ui.open(url)
+    vim.fn.jobstart({
+      "gh",
+      "repo",
+      "view",
+      "--json",
+      "nameWithOwner",
+      "-q",
+      ".nameWithOwner",
+    }, {
+      cwd = cwd,
+      stdout_buffered = true,
+      on_stdout = function(_, data)
+        local repo = (data and data[1] or ""):gsub("%s+$", "")
+        vim.schedule(function()
+          if repo == "" then
             vim.notify(
-              "No PR for branch — opened repo PRs list",
-              vim.log.levels.INFO
+              "No PR for branch and could not resolve repo",
+              vim.log.levels.WARN
             )
-          end)
-        end,
-      }
-    )
+            return
+          end
+          local url = "https://github.com/"
+            .. repo
+            .. "/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen"
+          vim.ui.open(url)
+          vim.notify(
+            "No PR for branch — opened repo PRs list",
+            vim.log.levels.INFO
+          )
+        end)
+      end,
+    })
   end
 
   -- Detached HEAD (e.g. a review worktree) has no current branch. Recover the
   -- branch from the remote ref pointing at HEAD (remote-agnostic) and open
   -- that branch's PR before falling back to the repo PRs list.
   local function try_detached_then_list()
-    local sym = vim.fn.systemlist({ "git", "-C", cwd, "symbolic-ref", "-q", "--short", "HEAD" })
+    local sym = vim.fn.systemlist({
+      "git",
+      "-C",
+      cwd,
+      "symbolic-ref",
+      "-q",
+      "--short",
+      "HEAD",
+    })
     if #sym > 0 and sym[1] ~= "" then
       open_pr_list()
       return
     end
     local refs = vim.fn.systemlist({
-      "git", "-C", cwd, "branch", "--points-at", "HEAD", "-r", "--format=%(refname:short)",
+      "git",
+      "-C",
+      cwd,
+      "branch",
+      "--points-at",
+      "HEAD",
+      "-r",
+      "--format=%(refname:short)",
     })
     local branch
     for _, r in ipairs(refs) do
@@ -469,7 +485,12 @@ keymap("n", "<M-k>", function()
   local file = vim.fn.expand("%:p")
   local dest = vault .. "/Notes-Publish"
   vim.fn.mkdir(dest, "p")
-  vim.cmd(("silent !mv %s %s"):format(vim.fn.shellescape(file), vim.fn.shellescape(dest .. "/")))
+  vim.cmd(
+    ("silent !mv %s %s"):format(
+      vim.fn.shellescape(file),
+      vim.fn.shellescape(dest .. "/")
+    )
+  )
   vim.cmd("bd")
 end, { desc = "[P]Obsidian: Move file to Notes-Publish" })
 keymap(
@@ -585,10 +606,19 @@ local function vault_frontmatter_search(field, prompt, pattern_fn, multiline)
     -- notes can carry vault tags (`;project-note-tagged`) and should appear
     -- in tag/hub/date/url searches.
     local results = vim.fn.systemlist(
-      "rg --no-ignore-vcs " .. flag .. " '" .. pattern .. "' " .. vim.fn.shellescape(vault) .. " 2>/dev/null"
+      "rg --no-ignore-vcs "
+        .. flag
+        .. " '"
+        .. pattern
+        .. "' "
+        .. vim.fn.shellescape(vault)
+        .. " 2>/dev/null"
     )
     if #results == 0 then
-      vim.notify("No notes found for " .. field .. ": " .. query, vim.log.levels.INFO)
+      vim.notify(
+        "No notes found for " .. field .. ": " .. query,
+        vim.log.levels.INFO
+      )
       return
     end
     local items = {}
@@ -961,6 +991,21 @@ end, { desc = "[P]Fold all headings level 4 or above" })
 -- owned by nvim (mouse=a), so tmux passes the event through and we replicate
 -- the behavior here. clipboard=unnamedplus means a plain `y` lands on the
 -- macOS clipboard. mousemodel=extend (options.lua) frees the right button.
-keymap({ "n", "v" }, "<RightMouse>", "<LeftMouse>", { desc = "[P]Right-drag: position cursor" })
-keymap({ "n", "v" }, "<RightDrag>", "<LeftDrag>", { desc = "[P]Right-drag: extend selection" })
-keymap("v", "<RightRelease>", "y", { desc = "[P]Right-drag: copy selection to clipboard" })
+keymap(
+  { "n", "v" },
+  "<RightMouse>",
+  "<LeftMouse>",
+  { desc = "[P]Right-drag: position cursor" }
+)
+keymap(
+  { "n", "v" },
+  "<RightDrag>",
+  "<LeftDrag>",
+  { desc = "[P]Right-drag: extend selection" }
+)
+keymap(
+  "v",
+  "<RightRelease>",
+  "y",
+  { desc = "[P]Right-drag: copy selection to clipboard" }
+)

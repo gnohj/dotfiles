@@ -3,8 +3,8 @@
 set -euo pipefail
 
 open_codediff() {
-  # zen_disabled makes the TabClosed autocmd run `qa`, so <esc> out of codediff returns to lazygit.
-  exec nvim --cmd 'let g:zen_disabled=1' -c "$1"
+  # quit_after_diff makes the TabClosed autocmd run `qa`, so <esc> out of codediff returns to lazygit.
+  exec nvim --cmd 'let g:quit_after_diff=1' -c "$1"
 }
 
 # Local refs only: `gh pr view` costs a round trip per keypress and only matters for a retargeted PR.

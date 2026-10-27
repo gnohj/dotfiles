@@ -437,11 +437,6 @@ return {
           return { custom_path, diagnostics_source, gitsigns_stats }
         end,
         enable = function(buf, win, _)
-          -- DISABLED: Testing zen.nvim (sand4rt) instead of snacks zen
-          -- local auto_zen = require("config.auto-zen")
-          -- local is_zen_win = auto_zen.is_zen_window(win)
-          local is_zen_win = false
-
           if vim.bo[buf].ft == "codediff-explorer" then
             return false
           end
@@ -457,8 +452,8 @@ return {
           if
             not vim.api.nvim_buf_is_valid(buf)
             or not vim.api.nvim_win_is_valid(win)
-            or (vim.fn.win_gettype(win) ~= "" and not is_zen_win)
-            or (vim.wo[win].winbar ~= "" and not is_zen_win)
+            or vim.fn.win_gettype(win) ~= ""
+            or vim.wo[win].winbar ~= ""
             or vim.bo[buf].ft == "help"
           then
             return false

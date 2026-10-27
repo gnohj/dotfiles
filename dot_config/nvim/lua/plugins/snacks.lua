@@ -38,7 +38,8 @@ end
 -- keeps its AI items (you're there to run agents) plus Inbox/Notes navigation.
 local function is_personal_vault()
   local v = vault_context()
-  return v ~= nil and v == vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
+  return v ~= nil
+    and v == vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
 end
 
 -- Smart multiplexer split for AI agent CLIs (claude, pi, ...). Dispatches to
@@ -59,7 +60,10 @@ end
 local CACHE_VERSION = 2
 local function render_figlet(name, font)
   local cache_dir = vim.fn.stdpath("cache") .. "/dashboard_figlet"
-  local key = ("v" .. CACHE_VERSION .. "_" .. font .. "_" .. name):gsub("[^%w%-]", "_")
+  local key = ("v" .. CACHE_VERSION .. "_" .. font .. "_" .. name):gsub(
+    "[^%w%-]",
+    "_"
+  )
   local cache_file = cache_dir .. "/" .. key .. ".txt"
 
   if vim.fn.filereadable(cache_file) == 1 then
@@ -1022,9 +1026,6 @@ return {
         },
       },
     },
-    -- DISABLED: Testing zen.nvim (sand4rt) instead
-    -- zen = require("config.auto-zen").get_zen_config(),
-    zen = { enabled = false },
     scratch = {
       ft = "markdown",
       cmd = "Scratch",
