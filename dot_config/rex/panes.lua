@@ -97,6 +97,52 @@ local function nearest(rects, from, dir)
   return best
 end
 
+local function parent_split(node, block_id)
+  if node.split == nil then return nil end
+  for _, side in ipairs({ "before", "after" }) do
+    if node.split[side].block_id == block_id then return node.split, side == "before" end
+  end
+  local s, before = parent_split(node.split.before, block_id)
+  if s ~= nil then return s, before end
+  return parent_split(node.split.after, block_id)
+end
+
+local function centre_dist(a, b)
+  return math.abs(a[1] + a[3] / 2 - b[1] - b[3] / 2) + math.abs(a[2] + a[4] / 2 - b[2] - b[4] / 2)
+end
+
+-- Re-place the pane on one side of its sibling, so a stacked pair goes side by side and back, keeping its share.
+local function move_beside(ctx, dir)
+  local w = c.tab_of_block(c.windows(), ctx.block_id)
+  local layout = w and c.tiled_layout(w)
+  if layout == nil then return end
+  local split, was_before = parent_split(layout, ctx.block_id)
+  if split == nil then return end
+  local sibling = was_before and split.after or split.before
+  local self_rect = was_before and split.before.rect or split.after.rect
+  local anchor, ratio = sibling.block_id, nil
+  if anchor == nil then
+    local best
+    for _, p in ipairs(leaf_rects(sibling, {})) do
+      local d = centre_dist(p.rect, self_rect)
+      if best == nil or d < best then anchor, best = p.id, d end
+    end
+  end
+  local side = (dir == "left" or dir == "up") and "before" or "after"
+  if sibling.block_id ~= nil then
+    local share = was_before and split.ratio or 1 - split.ratio
+    ratio = side == "before" and share or 1 - share
+  end
+  c.fail(select(2, rex.session.move_block{
+    session_id = ctx.session_id,
+    block_id = ctx.block_id,
+    anchor_block_id = anchor,
+    direction = (dir == "left" or dir == "right") and "horizontal" or "vertical",
+    side = side,
+    ratio = ratio,
+  }))
+end
+
 -- An open popup that focus has left, so ctrl+h/j/k/l from elsewhere returns to it.
 local function left_popup(window, from)
   for _, layer in ipairs(window.layers or {}) do
@@ -150,6 +196,17 @@ function M.setup()
       end
     end,
   }
+
+  -- One titled action per side, so the move mode's key menu labels each key.
+  for dir, title in pairs({ left = "Move Pane to Left", down = "Move Pane Below",
+                            up = "Move Pane Above", right = "Move Pane to Right" }) do
+    rex.action{
+      name = "move_" .. dir,
+      title = title,
+      category = "Panes",
+      run = function(ctx) move_beside(ctx, dir) end,
+    }
+  end
 
   -- Previous pane in the current tab (herdr hack-herdr-last-pane.sh), tracked per tab on press.
   rex.action{

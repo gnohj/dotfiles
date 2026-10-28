@@ -52,17 +52,25 @@ end
 
 rex.bind("ctrl+b", "last_pane")
 
--- prefix+r: resize mode (herdr resize_mode), h/j/k/l and arrows, shift for bigger steps.
+-- prefix+r: resize mode (herdr resize_mode), h/j/k/l and arrows.
 rex.mode("resize", { exclusive = true })
 rex.bind(P .. "r", "client.mode.enter", { name = "resize" })
 for _, pair in ipairs({ { "h", "left" }, { "j", "down" }, { "k", "up" }, { "l", "right" },
                         { "left", "left" }, { "down", "down" }, { "up", "up" }, { "right", "right" } }) do
   rex.bind("resize/" .. pair[1], "pane.resize", { direction = pair[2] })
-  rex.bind("resize/shift+" .. pair[1], "pane.resize", { direction = pair[2], amount = 15 })
 end
 rex.bind("resize/=", "pane.balance")
 rex.bind("resize/enter", "client.mode.exit")
 rex.bind("resize/q", "client.mode.exit")
+
+-- prefix+m: move mode, h/j/k/l put the pane on that side of its sibling (stacked <-> side by side).
+rex.mode("move", { exclusive = true })
+rex.bind(P .. "m", "client.mode.enter", { name = "move" })
+for key, dir in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
+  rex.bind("move/" .. key, "move_" .. dir)
+end
+rex.bind("move/enter", "client.mode.exit")
+rex.bind("move/q", "client.mode.exit")
 
 -- Sessions = herdr workspaces (next/previous_workspace, rename on prefix+$, close_workspace).
 rex.bind(P .. "w", "switch_session", { action = "session.next" })
