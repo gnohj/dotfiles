@@ -486,6 +486,62 @@ autoload -Uz add-zsh-hook
 add-zsh-hook precmd _prompt_blank_precmd
 add-zsh-hook preexec _prompt_blank_preexec
 
+# Rex tab status (OSC 7501): spinner while a command runs, then a done/error mark if it took 10s+.
+if [[ $TERM_PROGRAM == rex && -z $TMUX && -z $HERDR_SOCKET_PATH ]]; then
+    zmodload zsh/datetime
+    typeset -ga _rex_status_skip=(
+        claude cs cr codex pi pir opencode ocr
+        nvim vim vi v lazygit lg yazi y tig hunk
+        btop btopm btopc btop2 htop top less more man
+        ssh mosh tmux herdr rex sesh fzf atuin watch
+    )
+    _rex_status_start= _rex_status_line= _rex_status_app=
+    _rex_status_b64() {
+        setopt localoptions nomultibyte
+        local s=$1 abc='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' out= i n c1 c2 c3
+        for (( i = 1; i <= $#s; i += 3 )); do
+            c1=$s[i] c2=$s[i+1] c3=$s[i+2]
+            n=$(( (#c1 & 255) << 16 | ($#c2 ? #c2 & 255 : 0) << 8 | ($#c3 ? #c3 & 255 : 0) ))
+            out+=${abc:$(( n >> 18 )):1}${abc:$(( (n >> 12) & 63 )):1}
+            [[ -n $c2 ]] && out+=${abc:$(( (n >> 6) & 63 )):1}
+            [[ -n $c3 ]] && out+=${abc:$(( n & 63 )):1}
+        done
+        REPLY=$out
+    }
+    _rex_status() {
+        local msg=${${2//[[:cntrl:]]/ }[1,200]} REPLY=
+        [[ -n $msg ]] && _rex_status_b64 $msg
+        printf '\e]7501;state=%s%s%s\e\\' $1 "${3:+:app=$3}" "${REPLY:+:msg=$REPLY}"
+    }
+    _rex_status_preexec() {
+        local -a words=(${(z)1})
+        while [[ $words[1] == *=* || $words[1] == (sudo|command|noglob|nocorrect|time|exec) ]]; do
+            shift words
+        done
+        local cmd=$words[1]
+        [[ -n $aliases[$cmd] ]] && cmd=${${(z)aliases[$cmd]}[1]}
+        cmd=${cmd:t}
+        [[ -z $cmd || ${_rex_status_skip[(Ie)$cmd]} -gt 0 ]] && return
+        [[ $cmd =~ '^[A-Za-z0-9_.+-]{1,32}$' ]] || cmd=
+        _rex_status_start=$EPOCHREALTIME _rex_status_line=$1 _rex_status_app=$cmd
+        _rex_status working "$1" $cmd
+    }
+    _rex_status_precmd() {
+        local rc=$?
+        [[ -n $_rex_status_start ]] || return 0
+        if (( rc == 130 || EPOCHREALTIME - _rex_status_start < 10 )); then
+            _rex_status clear
+        elif (( rc )); then
+            _rex_status error "$_rex_status_line (exit $rc)" $_rex_status_app
+        else
+            _rex_status done "$_rex_status_line" $_rex_status_app
+        fi
+        _rex_status_start=
+    }
+    precmd_functions=(_rex_status_precmd $precmd_functions)
+    add-zsh-hook preexec _rex_status_preexec
+fi
+
 
 #-------------------------------------------------------------------------------
 #--                 Zinit - Plugins
