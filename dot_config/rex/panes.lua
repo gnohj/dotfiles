@@ -174,26 +174,14 @@ function M.navigate(dir)
 end
 
 function M.setup()
-  -- Rex disables pane.close on a tab's last pane, so close the tab instead (herdr close_pane), or the session from its very last pane.
+  -- block.close takes a tab with its last pane (herdr close_pane); an emptied session lingers, so close it and return to the last.
   rex.action{
     name = "close_pane",
     title = "Close Pane or Last-Pane Tab",
     category = "Panes",
     run = function(ctx, args)
-      local view = c.windows()
-      local w = c.tab_of_block(view, ctx.block_id)
-      if w == nil then return end
-      local panes = 0
-      for _, layer in ipairs(w.layers or {}) do
-        if layer.kind == "tiled" then panes = panes + #(layer.blocks or {}) end
-      end
-      if panes > 1 then
-        rex.client.queue("pane.close")
-      elseif #view.windows > 1 then
-        rex.client.queue("client.tab.close")
-      else
-        sessions.close_session(ctx)
-      end
+      c.fail(select(2, rex.call("block.close", { session_id = ctx.session_id, block_id = ctx.block_id })))
+      if #c.windows().windows == 0 then sessions.close_session(ctx) end
     end,
   }
 
