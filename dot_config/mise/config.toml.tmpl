@@ -8,7 +8,8 @@
 
 [tools]
 # Note: Node 22 is also installed for Neovim Copilot (see ~/.config/nvim/lua/plugins/copilot.lua)
-node = { version = 'lts', postinstall = 'corepack enable' }
+node = 'lts'
+pnpm = 'latest'         # Node 25+ dropped corepack; pnpm still honours each repo's packageManager pin
 lua = '5.4'             # hold: `mise up --bump` moved this to 5.5 and its luarocks bootstrap hung the Mac ~20min (2026-08-15)
 python = 'latest'
 go = 'latest'
@@ -56,11 +57,9 @@ herdr = "latest"                                   # agent multiplexer; on `late
 
 # Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/gitmux/sesh/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
 # mise here owns only what nix deliberately doesn't (AI agents are shared, above):
-#   - pnpm (Mac gets it via corepack)
 # NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64`.
 # Applying the trim without home-manager active would drop nvim/rg/etc. off the box.
 # starship is NOT here: zinit installs it (gh-r binary + prompt init) on BOTH OSes.
-pnpm = "latest"
 # Pinned to web's @pulumi/pulumi SDK (packages/infra), whose automation API shells out to this CLI, so a local run can't write stack state CI reads back; Linux-only - the Mac has its own pulumi.
 pulumi = "3.207.0"
 "npm:hunkdiff" = { version = "latest", allow_builds = ["hunkdiff"] }   # hunk: gh-dash PR review viewer (native binary; Mac gets it via brew)
