@@ -55,9 +55,24 @@ REMOTE
 mux=herdr
 [ "${TERM_PROGRAM:-}" = rex ] && mux=rex
 
-run() {
+ssh_host() {
   # ClearAllForwardings: the host's LocalForward/RemoteForward would collide with an open interactive session.
-  ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" bash -s -- "$mux" <<<"$remote"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 -o ClearAllForwardings=yes "$host" "$@"
+}
+
+# The tailscale-app upgrade that `update` runs just before this leaves MagicDNS unresolvable for a minute or more.
+wait_for_host() {
+  local _
+  for _ in $(seq 1 36); do
+    ssh_host true 2>/dev/null && return 0
+    sleep 5
+  done
+  return 1
+}
+
+run() {
+  wait_for_host
+  ssh_host bash -s -- "$mux" <<<"$remote"
 }
 
 notify() {
