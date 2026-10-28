@@ -74,7 +74,7 @@ export type TokenRow = {
 };
 
 export type SubscriptionBasis =
-  "recorded" | "confirmed" | "projected" | "missing";
+  "recorded" | "confirmed" | "projected" | "expired" | "missing";
 
 export type SubscriptionRow = {
   service: string;
@@ -83,6 +83,7 @@ export type SubscriptionRow = {
   renewsAt: string | null;
   basis: SubscriptionBasis;
   confirmedAt?: string;
+  expiredAt?: string;
   remedyCommand?: string;
 };
 

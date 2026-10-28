@@ -85,6 +85,17 @@ export function codexSubscription(
   const startMs = Date.parse(claims?.chatgpt_subscription_active_start ?? "");
   if (!claims || Number.isNaN(startMs)) return undefined;
   const untilMs = Date.parse(claims.chatgpt_subscription_active_until ?? "");
+  if (claims.chatgpt_plan_type === "free") {
+    return {
+      service: "ChatGPT",
+      plan: claims.chatgpt_plan_type,
+      renewsAt: null,
+      basis: "expired",
+      expiredAt: Number.isNaN(untilMs)
+        ? undefined
+        : new Date(untilMs).toISOString(),
+    };
+  }
   const confirmed = !Number.isNaN(untilMs) && untilMs > nowMs;
   return {
     service: "ChatGPT",

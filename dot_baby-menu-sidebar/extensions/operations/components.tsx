@@ -496,12 +496,18 @@ function SubscriptionLine({
   row: SubscriptionRow;
   nowMs: number;
 }) {
-  const days = row.renewsAt ? daysUntil(row.renewsAt, nowMs) : null;
+  const expired = row.basis === "expired";
+  const dateIso = expired ? row.expiredAt : row.renewsAt;
+  const days = dateIso ? daysUntil(dateIso, nowMs) : null;
   const detail = [
     row.monthlyUsd !== undefined ? `$${row.monthlyUsd}/mo` : undefined,
-    row.renewsAt
-      ? `renews ${shortDate(row.renewsAt)}`
-      : "renewal day not recorded",
+    expired
+      ? row.expiredAt
+        ? `ended ${shortDate(row.expiredAt)}`
+        : "no paid plan"
+      : row.renewsAt
+        ? `renews ${shortDate(row.renewsAt)}`
+        : "renewal day not recorded",
     row.renewsAt && row.basis === "projected" && row.confirmedAt
       ? `last confirmed ${shortDate(row.confirmedAt)}`
       : undefined,
@@ -522,14 +528,22 @@ function SubscriptionLine({
       <div className="text-right">
         <div
           className={`font-mono text-md ${
-            days === null
+            days === null || expired
               ? "text-ink-soft"
               : days <= 3
                 ? "text-signal-warn"
                 : "text-signal-live"
           }`}
         >
-          {days === null ? "unknown" : days === 0 ? "today" : `${days}d`}
+          {days === null
+            ? expired
+              ? "lapsed"
+              : "unknown"
+            : expired
+              ? `${-days}d ago`
+              : days === 0
+                ? "today"
+                : `${days}d`}
         </div>
         <div className="text-xxs uppercase tracking-caps text-ink-label">
           {row.basis}
