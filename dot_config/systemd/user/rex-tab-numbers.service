@@ -5,8 +5,7 @@ After=rex-server.service
 
 [Service]
 Type=simple
-# --autostart=false: a server started outside rex-server.service would hold the socket; wait for the real one instead.
-ExecStart=/usr/bin/rex --autostart=false do --all %h/.local/bin/mux/rex/rex-tab-numbers.lua
+ExecStart=/usr/bin/rex do --all %h/.local/bin/mux/rex/rex-tab-numbers.lua
 Restart=always
 RestartSec=10
 
