@@ -95,7 +95,7 @@ end
 -- Toggle popup in one floating layer that Rex frames and closes on exit; bounds are {x,y,w,h}.
 M.POPUP_LABEL = "popup"
 -- A new layer is 80x24 until Rex sizes it; wait, or the first frame is drawn too narrow.
-local RUN_SIZED = [[for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(stty size 2>/dev/null)" != "24 80" ] && break; sleep 0.03; done; exec "$@"]]
+local RUN_SIZED = [["$HOME/.local/bin/mux/rex/rex-wait-size"; exec "$@"]]
 
 -- Only popups toggle closed; a pane floated with pane.float is left alone.
 function M.is_popup(layer)
@@ -103,7 +103,7 @@ function M.is_popup(layer)
   return b and b.label == M.POPUP_LABEL
 end
 
-function M.popup(ctx, side, top, command, cwd)
+function M.popup(ctx, side, top, command, cwd, self_sized)
   local view = M.windows()
   for _, w in ipairs(view.windows) do
     if w.window_id == view.active_window_id then
@@ -119,7 +119,7 @@ function M.popup(ctx, side, top, command, cwd)
   end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
   local left = math.max(0.01, side - sidebar_share(M.tab_of_block(view, ctx.block_id), ctx.block_id) / 2)
-  local argv = { "/bin/sh", "-c", RUN_SIZED, "sh" }
+  local argv = self_sized and {} or { "/bin/sh", "-c", RUN_SIZED, "sh" }
   for _, a in ipairs(command) do table.insert(argv, a) end
   M.fail(select(2, rex.session.new_layer{
     bounds = { left, top, 1 - 2 * side, 1 - 2 * top },
