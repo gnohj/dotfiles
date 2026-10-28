@@ -62,8 +62,12 @@ entry_key() {
   awk -v n="$1" -v k="$2" -F'"' 'FNR == 1 || /^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ ("^" k " *= *$") && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" "$rex_toml" 2>/dev/null
 }
 
-# A cached picker row can name a session closed since; exit 3 quietly so herdr-sesh.sh re-resolves it from fresh rows.
+# A cached picker row can name a closed session; the server says so in 30ms (the app's select stalls 5s), so exit 3 and herdr-sesh.sh re-resolves it.
 select_session() {
+  local live
+  if live=$(remote api call session.list '{}' 2>/dev/null); then
+    jq -e --arg s "session:$sid" 'any(.sessions[]?; .session_id == $s)' <<<"$live" >/dev/null || exit 3
+  fi
   app_try session.select session_id="session:$sid" && return
   case "$out" in *SessionNotFound*) exit 3 ;; esac
   die "$out"
