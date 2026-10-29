@@ -34,4 +34,9 @@ Host {{ .devbox_host }} {{ .devbox_host }}-* tailscale
   RemoteForward 9222 127.0.0.1:9222
   LocalForward 8085 127.0.0.1:8085
   User gnohj
+{{- else }}
+
+# Bare tailnet peers dial through tailscale: the wifi's attlocal.net DNS also answers "macbook" with stale LAN addresses ssh times out on.
+Match host *,!*.* exec "tailscale ip -4 %h >/dev/null 2>&1"
+  ProxyCommand tailscale nc %h %p
 {{- end }}
