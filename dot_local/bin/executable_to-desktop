@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # to-desktop <verb> [args] — land an effect on the machine you are sitting at.
-# usage: to-desktop open <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title|-> <message> | to-desktop browser-debug | to-desktop active-tab | to-desktop media <path>
+# usage: to-desktop open [--background] <url> | to-desktop clip <text|-> | to-desktop paste | to-desktop paste-image | to-desktop notify <title|-> <message> | to-desktop browser-debug | to-desktop active-tab | to-desktop media <path>
 #
 # One file is sender, receiver, and (as --forced) the restricted ssh entry point, because chezmoi
 # deploys it to every machine. Machine routing only - which multiplexer is live is `mux`'s question.
@@ -68,12 +68,42 @@ at_desktop() {
 # herdr relays OSC 52 as a protocol-level clipboard write, so this reaches the workstation even over --remote.
 osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"; }
 
-# TO_DESKTOP_BACKGROUND=1 opens without foregrounding the browser, for an unattended caller (a gh-dash review). Unset, opening still raises it.
+front_app() { osascript -e "tell application \"System Events\" to $1 of first process whose frontmost is true" 2>/dev/null; }
+
+# Chrome activates itself even under `open -g` and Rift follows it to its workspace, so blacklist the browser for the open and hand focus back.
+open_background() {
+  local browser prior original lock="${TMPDIR:-/tmp}/to-desktop-background.lock" i
+  browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js' 2>/dev/null)
+  prior=$(front_app "unix id")
+  if [ -z "$browser" ] || [ -z "$prior" ] || [ "$(front_app "bundle identifier")" = "$browser" ] || ! rift-cli execute config get >/dev/null 2>&1; then
+    open -g "$1"
+    return
+  fi
+  # Serialized so a batch of finished reviews never restores another open's temporary entry as the original.
+  for i in $(seq 100); do
+    mkdir "$lock" 2>/dev/null && break
+    [ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$lock" 2>/dev/null
+    sleep 0.1
+  done
+  original=$(rift-cli execute config get 2>/dev/null | jq -c '.settings.auto_focus_blacklist // []')
+  rift-cli execute config set settings.auto_focus_blacklist "$(jq -cn --argjson o "$original" --arg b "$browser" '$o + [$b] | unique')" >/dev/null 2>&1
+  open -g "$1"
+  for i in $(seq 20); do
+    sleep 0.1
+    [ "$(front_app "unix id")" != "$prior" ] || continue
+    osascript -e "tell application \"System Events\" to set frontmost of first process whose unix id is $prior to true" >/dev/null 2>&1
+    break
+  done
+  sleep 0.3
+  rift-cli execute config set settings.auto_focus_blacklist "$original" >/dev/null 2>&1
+  rmdir "$lock" 2>/dev/null
+}
+
+# TO_DESKTOP_BACKGROUND=1 (or `open --background`, which survives the ssh relay) opens without raising the browser, for unattended callers.
 do_open() {
-  local bg=()
-  [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ] && bg=(-g)
   case "$(uname -s)" in
-    Darwin) open ${bg[@]+"${bg[@]}"} "$1" ;;
+    Darwin)
+      if [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ]; then open_background "$1"; else open "$1"; fi ;;
     # BROWSER unset: it names desktop-open, which calls back here, so xdg-open honoring it would ping-pong.
     *) (env -u BROWSER xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
   esac
@@ -183,7 +213,9 @@ ship() {
   case "${TERM:-}" in xterm-kitty) ;; *) return 1 ;; esac
   # Refused, not escaped: a quote or backslash would let a hostile url rewrite the JSON.
   case "$2" in *[\"\\]* | *[[:space:]]* | *[[:cntrl:]]*) return 1 ;; esac
-  printf '\033P@kitty-cmd{"cmd":"launch","version":[0,26,0],"no_response":true,"payload":{"args":["open","%s"],"type":"background"}}\033\\' "$2" >/dev/tty 2>/dev/null || return 1
+  local bg=""
+  [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ] && bg='"-g",'
+  printf '\033P@kitty-cmd{"cmd":"launch","version":[0,26,0],"no_response":true,"payload":{"args":["open",%s"%s"],"type":"background"}}\033\\' "$bg" "$2" >/dev/tty 2>/dev/null || return 1
 }
 
 verb="${1:-}"; [ -n "$verb" ] || die "missing verb (open | clip | paste | paste-image | notify | browser-debug | active-tab)" 2
@@ -209,13 +241,16 @@ fi
 
 case "$verb" in
   open)
+    [ "${1:-}" = --background ] && { TO_DESKTOP_BACKGROUND=1; shift; }
+    bg_arg=()
+    [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ] && bg_arg=(--background)
     url="${1:?to-desktop open: missing <url>}"
     valid_url "$url" || die "refusing non-http(s) url: $url" 2
     if at_desktop; then
       do_open "$url"
     elif box_local_url "$url"; then
       die "refusing box-local url: $url would open the workstation's loopback, not this box's server - forward the port first (LocalForward in the Mac's 'Host dev-box' block)"
-    elif ! relay open "$url" && ! ship open "$url"; then
+    elif ! relay open ${bg_arg[@]+"${bg_arg[@]}"} "$url" && ! ship open "$url"; then
       # Nobody attached: park it on the workstation's clipboard, since a browser here would be headless.
       osc_clip "$url"
       mux notify --title "🔗 to-desktop" "URL copied to your desktop - paste to open" 2>/dev/null ||
