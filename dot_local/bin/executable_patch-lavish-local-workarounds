@@ -239,6 +239,12 @@ rules = {
     "cli.mjs": server_rules,
     "chrome-client.js": (
         ('let annotation = true;', 'let annotation = false;', 'let annotation = false;', False),
+        (
+            'frame.addEventListener("load", () => {\n  if (artifactSpokeToken',
+            'frame.addEventListener("load", () => {\n  /* local: land focus in the artifact so its own Tab handler runs before anything is clicked */\n  if (!document.activeElement || document.activeElement === document.body || document.activeElement === frame) frame.focus();\n  if (artifactSpokeToken',
+            '/* local: land focus in the artifact',
+            False,
+        ),
     ),
 }
 
