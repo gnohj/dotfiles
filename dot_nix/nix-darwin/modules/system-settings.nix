@@ -151,7 +151,7 @@ in
     # Rex UI prefs live here, not init.lua; app-owned state and darkThemeID (a per-import theme UUID) are left out on purpose
     CustomUserPreferences."com.superlogical.rex" = {
       "Workspace.interfaceStyle" = "blendTheme";
-      "Workspace.usesPaneGlass" = true;
+      "Workspace.usesPaneGlass" = false;
       "Workspace.appearance" = "system";
       "Workspace.lightThemeID" = "merino-light";
       "Workspace.appIcon" = "default";
