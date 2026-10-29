@@ -986,8 +986,41 @@ local function fill_standalone_detail()
   end
 end
 
+-- Every detail centres the provider chip in its winbar, beside a dashboard or alone in a split.
+local function provider_title(name)
+  local renderer = require("atlas." .. name .. ".ui.detail.renderer")
+  local render = renderer.render
+  renderer.render = function(...)
+    local result = { render(...) }
+    local state = require("atlas." .. name .. ".ui.detail.state")
+    local win, provider = state.win, state.provider
+    if
+      win
+      and vim.api.nvim_win_is_valid(win)
+      and type(provider) == "table"
+      and provider.name
+    then
+      local right = (vim.wo[win].winbar:gsub("^%%=", ""))
+      local chip = string.format(
+        "%%#%s#  %s  %s  %%*",
+        provider.hl_group or "Title",
+        provider.icon or "",
+        provider.name
+      )
+      local width = vim.api.nvim_eval_statusline(right, { winid = win }).width
+      vim.wo[win].winbar = string.rep(" ", width)
+        .. "%="
+        .. chip
+        .. "%="
+        .. right
+    end
+    return unpack(result)
+  end
+end
+
 local function extend_standalone_detail()
   for _, name in ipairs({ "issues", "pulls" }) do
+    provider_title(name)
     local window = require("atlas." .. name .. ".ui.detail.window")
     local open = window.open
     window.open = function(...)
