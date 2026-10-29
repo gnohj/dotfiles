@@ -151,6 +151,29 @@ local function jump_counterpart()
   }
 end
 
+local function rex_split_or_panel(open_selected, panel)
+  return {
+    key = "p",
+    desc = "Open in a Rex split, else toggle the detail panel",
+    callback = function()
+      local split = require("config.mux").kind() == "rex"
+        and require("config.atlas.jira-links").use_split()
+      if not (split and open_selected()) then
+        require(panel).toggle_detail()
+      end
+    end,
+  }
+end
+
+local function split_selected_issue()
+  local node = require("atlas.issues.ui.dashboard.navigation").current_item()
+  local key = type(node) == "table" and node.issue and node.issue.key
+  if key then
+    require("config.atlas.herdr-jump").open_jira(key)
+  end
+  return key ~= nil
+end
+
 local function open_links()
   return {
     key = "o",
@@ -879,6 +902,7 @@ local function extend_issues_dashboard()
         cycle_issue_view(1)
       end,
     },
+    rex_split_or_panel(split_selected_issue, "atlas.issues.ui.dashboard"),
   }
   keymaps.register = function(buf, ...)
     register(buf, ...)

@@ -6,9 +6,18 @@ local function open(label, target)
   if not require("config.atlas.jira-links").use_split() then
     return require("config.atlas.jira-links").open_here(target)
   end
-  local script = vim.fn.expand("~/.local/bin/mux/herdr/herdr-atlas-open.sh")
+  local rex = require("config.mux").kind() == "rex"
+  local script = vim.fn.expand(
+    rex and "~/.local/bin/mux/rex/rex-atlas-open.sh"
+      or "~/.local/bin/mux/herdr/herdr-atlas-open.sh"
+  )
   vim.system(
-    { script, vim.env.HERDR_PANE_ID, label, target },
+    {
+      script,
+      rex and vim.env.REX_BLOCK or vim.env.HERDR_PANE_ID,
+      label,
+      target,
+    },
     { text = true },
     function(res)
       if res.code ~= 0 then

@@ -235,11 +235,16 @@ local function resolve(url)
   return provider and target, provider
 end
 
--- A herdr split beside the dashboard; outside herdr, or inside that split already, the panel itself.
+-- A herdr or Rex split beside the dashboard; elsewhere, or inside that split already, the panel itself.
 local function use_split()
-  return vim.env.HERDR_ENV
-    and vim.env.HERDR_PANE_ID
-    and not vim.env.ATLAS_COMPANION
+  if vim.env.ATLAS_COMPANION then
+    return false
+  end
+  local kind = require("config.mux").kind()
+  if kind == "herdr" then
+    return vim.env.HERDR_PANE_ID ~= nil
+  end
+  return kind == "rex" and vim.env.REX_BLOCK ~= nil
 end
 
 function M.open_here(target)
