@@ -6,6 +6,8 @@ local atlas_actions = {
   Reporter = "reporter",
 }
 
+local board_id
+
 local function client()
   return require("atlas.providers.jira.client")
 end
@@ -119,6 +121,52 @@ local function edit_user(key, field, done)
   end)
 end
 
+local function move_sprint(key, choice, done)
+  local endpoint = choice.id
+      and string.format("/rest/agile/1.0/sprint/%s/issue", choice.id)
+    or "/rest/agile/1.0/backlog/issue"
+  client().request("POST", endpoint, { issues = { key } }, function(_, err)
+    vim.schedule(function()
+      if err then
+        return notify_error(err)
+      end
+      vim.notify(string.format("%s moved to %s", key, choice.name))
+      done({ issue_key = key })
+    end)
+  end)
+end
+
+local function edit_sprint(key, current, done)
+  local open = {}
+  for _, sprint in ipairs(type(current) == "table" and current or {}) do
+    if sprint.state ~= "closed" then
+      open[sprint.id] = true
+    end
+  end
+  local endpoint = string.format(
+    "/rest/agile/1.0/board/%s/sprint?state=active,future&maxResults=100",
+    board_id
+  )
+  client().request("GET", endpoint, nil, function(result, err)
+    vim.schedule(function()
+      if err or type(result) ~= "table" then
+        return notify_error(err)
+      end
+      local items =
+        vim.list_extend({ { name = "Backlog" } }, result.values or {})
+      pick(items, "Sprint", function(item)
+        local here = item.id and open[item.id]
+          or (not item.id and not next(open))
+        return (here and "✓ " or "  ")
+          .. item.name
+          .. (item.state == "active" and " (active)" or "")
+      end, function(choice)
+        move_sprint(key, choice, done)
+      end)
+    end)
+  end)
+end
+
 local function edit_scalar(key, field, schema, current, done)
   local default = type(current) == "table" and (current.key or "")
     or tostring(current or "")
@@ -161,10 +209,7 @@ local function edit_field(ctx, field, done)
       local schema = meta.schema or {}
       local current = issue.fields and issue.fields[field.id]
       if schema.custom and schema.custom:match("gh%-sprint$") then
-        return vim.notify(
-          "Move sprints from the Jira board (gB)",
-          vim.log.levels.WARN
-        )
+        edit_sprint(key, current, done)
       elseif schema.type == "array" and schema.items == "string" then
         edit_labels(key, field, current, done)
       elseif schema.type == "array" and meta.allowedValues then
@@ -248,10 +293,11 @@ local function detail_target(fields)
   return field_at_cursor(fields, line, col)
 end
 
-function M.edit(ctx, done, jira_fields)
+function M.edit(ctx, done, jira_fields, board)
   if not (ctx and ctx.issue) then
     return
   end
+  board_id = board
   local fields = editable_fields(jira_fields)
   local target = detail_target(fields)
   if target then

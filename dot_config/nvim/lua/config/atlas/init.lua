@@ -276,7 +276,7 @@ local function edit_issue(ctx, done)
   local fields = vim.tbl_map(function(f)
     return { id = f[1], name = f[2], section = type(f[3]) == "string" }
   end, jira_fields)
-  require("config.atlas.jira-edit").edit(ctx, done, fields)
+  require("config.atlas.jira-edit").edit(ctx, done, fields, jira_board_id)
 end
 
 local show_mine = true
