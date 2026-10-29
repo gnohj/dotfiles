@@ -76,7 +76,7 @@ open_background() {
   browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js' 2>/dev/null)
   prior=$(front_app "unix id")
   if [ -z "$browser" ] || [ -z "$prior" ] || [ "$(front_app "bundle identifier")" = "$browser" ] || ! rift-cli execute config get >/dev/null 2>&1; then
-    open -g "$1"
+    open_in_named_window "$1" || open -g "$1"
     return
   fi
   # Serialized so a batch of finished reviews never restores another open's temporary entry as the original.
@@ -87,7 +87,7 @@ open_background() {
   done
   original=$(rift-cli execute config get 2>/dev/null | jq -c '.settings.auto_focus_blacklist // []')
   rift-cli execute config set settings.auto_focus_blacklist "$(jq -cn --argjson o "$original" --arg b "$browser" '$o + [$b] | unique')" >/dev/null 2>&1
-  open -g "$1"
+  open_in_named_window "$1" || open -g "$1"
   for i in $(seq 20); do
     sleep 0.1
     [ "$(front_app "unix id")" != "$prior" ] || continue
@@ -99,11 +99,32 @@ open_background() {
   rmdir "$lock" 2>/dev/null
 }
 
+LINK_WINDOW=review
+
+# JXA, not AppleScript: the browser is only known at runtime, and AppleScript resolves `given name` at compile time.
+open_in_named_window() {
+  osascript -l JavaScript - "$1" "$LINK_WINDOW" "${TO_DESKTOP_BACKGROUND:-}" >/dev/null 2>&1 <<'JS'
+ObjC.import("AppKit");
+function run([url, name, background]) {
+  const bundle = $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(url))).bundleIdentifier.js;
+  const app = Application(bundle);
+  if (!app.running()) throw new Error("browser not running");
+  const win = app.windows().find((w) => w.givenName() === name);
+  if (!win) throw new Error("no window named " + name);
+  win.tabs.push(app.Tab({ url }));
+  if (background !== "1") {
+    win.index = 1;
+    app.activate();
+  }
+}
+JS
+}
+
 # TO_DESKTOP_BACKGROUND=1 (or `open --background`, which survives the ssh relay) opens without raising the browser, for unattended callers.
 do_open() {
   case "$(uname -s)" in
     Darwin)
-      if [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ]; then open_background "$1"; else open "$1"; fi ;;
+      if [ "${TO_DESKTOP_BACKGROUND:-}" = 1 ]; then open_background "$1"; else open_in_named_window "$1" || open "$1"; fi ;;
     # BROWSER unset: it names desktop-open, which calls back here, so xdg-open honoring it would ping-pong.
     *) (env -u BROWSER xdg-open "$1" >/dev/null 2>&1 &) || die "no URL opener (xdg-open)" ;;
   esac
