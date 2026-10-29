@@ -488,14 +488,12 @@ autoload -Uz add-zsh-hook
 add-zsh-hook precmd _prompt_blank_precmd
 add-zsh-hook preexec _prompt_blank_preexec
 
-# Rex tab status (OSC 7501): spinner while a command runs, then a done/error mark if it took 10s+.
+# Rex tab status (OSC 7501): spinner while a tracked batch command runs, then a done/error mark if it took 10s+.
 if [[ $TERM_PROGRAM == rex && -z $TMUX && -z $HERDR_SOCKET_PATH ]]; then
     zmodload zsh/datetime
-    typeset -ga _rex_status_skip=(
-        claude cs cr codex pi pir opencode ocr
-        nvim vim vi v lazygit lg yazi y tig hunk
-        btop btopm btopc btop2 htop top less more man
-        ssh mosh tmux herdr rex sesh fzf atuin watch
+    typeset -ga _rex_status_track=(
+        up update brew mise nix darwin-rebuild chezmoi
+        pnpm npm npx yarn bun make cargo go docker rsync curl wget
     )
     _rex_status_start= _rex_status_line= _rex_status_app=
     _rex_status_b64() {
@@ -521,10 +519,9 @@ if [[ $TERM_PROGRAM == rex && -z $TMUX && -z $HERDR_SOCKET_PATH ]]; then
             shift words
         done
         local cmd=$words[1]
-        [[ -n $aliases[$cmd] ]] && cmd=${${(z)aliases[$cmd]}[1]}
+        [[ -n $aliases[$cmd] ]] && cmd=${${(Az)aliases[$cmd]}[1]}
         cmd=${cmd:t}
-        [[ -z $cmd || ${_rex_status_skip[(Ie)$cmd]} -gt 0 ]] && return
-        [[ $cmd =~ '^[A-Za-z0-9_.+-]{1,32}$' ]] || cmd=
+        (( ${_rex_status_track[(Ie)$cmd]} )) || return
         _rex_status_start=$EPOCHREALTIME _rex_status_line=$1 _rex_status_app=$cmd
         _rex_status working "$1" $cmd
     }
