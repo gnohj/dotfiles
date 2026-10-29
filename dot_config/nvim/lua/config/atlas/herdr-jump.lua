@@ -113,6 +113,8 @@ local function dev_panel_prs(issue_id, on_done)
   )
 end
 
+M.dev_panel_prs = dev_panel_prs
+
 local function search_prs(key, on_done)
   local args = { "gh", "search", "prs", key, "--owner", "iheartradio" }
   vim.list_extend(args, { "--json", "url,state,title", "--limit", "10" })

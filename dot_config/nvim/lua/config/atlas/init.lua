@@ -480,8 +480,8 @@ local function extend_issue_details()
   require("config.atlas.jira-board").setup(jira_board_id)
   local detail_ui = require("atlas.issues.providers.jira.ui.detail")
   local chips = detail_ui.chips
-  detail_ui.chips = function(...)
-    local list = chips(...)
+  detail_ui.chips = function(issue, ...)
+    local list = chips(issue, ...)
     local previous = links.previous_label()
     if previous then
       table.insert(
@@ -489,6 +489,10 @@ local function extend_issue_details()
         1,
         { label = "← " .. previous .. " (q)", hl = "AtlasChipActive" }
       )
+    end
+    local pr_chip = require("config.atlas.jira-prs").chip(issue)
+    if pr_chip then
+      table.insert(list, pr_chip)
     end
     return list
   end
