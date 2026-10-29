@@ -2,42 +2,42 @@ local M = {}
 
 local KEY_PATTERN = "%u[%u%d]+%-%d+"
 
-local function open(label, target)
-  if not require("config.atlas.jira-links").use_split() then
-    return require("config.atlas.jira-links").open_here(target)
+local function open(label, target, counterpart)
+  local links = require("config.atlas.jira-links")
+  local split = counterpart and links.use_counterpart_split()
+    or links.use_split()
+  if not split then
+    return links.open_here(target)
   end
   local rex = require("config.mux").kind() == "rex"
   local script = vim.fn.expand(
     rex and "~/.local/bin/mux/rex/rex-atlas-open.sh"
       or "~/.local/bin/mux/herdr/herdr-atlas-open.sh"
   )
-  vim.system(
-    {
-      script,
-      rex and vim.env.REX_BLOCK or vim.env.HERDR_PANE_ID,
-      label,
-      target,
-    },
-    { text = true },
-    function(res)
-      if res.code ~= 0 then
-        vim.schedule(function()
-          vim.notify(vim.trim(res.stdout .. res.stderr), vim.log.levels.ERROR)
-        end)
-      end
+  vim.system({
+    script,
+    rex and vim.env.REX_BLOCK or vim.env.HERDR_PANE_ID,
+    label,
+    target,
+  }, { text = true }, function(res)
+    if res.code ~= 0 then
+      vim.schedule(function()
+        vim.notify(vim.trim(res.stdout .. res.stderr), vim.log.levels.ERROR)
+      end)
     end
-  )
+  end)
 end
 
-function M.open_jira(key)
-  open("🔷 " .. key, key)
+function M.open_jira(key, counterpart)
+  open("🔷 " .. key, key, counterpart)
 end
 
-function M.open_pr_url(url)
+function M.open_pr_url(url, counterpart)
   local number = url:match("/pull/(%d+)")
   open(
     "🐙 PR-" .. number,
-    url:match("^(https://github%.com/[^/]+/[^/]+/pull/%d+)") or url
+    url:match("^(https://github%.com/[^/]+/[^/]+/pull/%d+)") or url,
+    counterpart
   )
 end
 
@@ -60,7 +60,7 @@ function M.pr_to_jira()
   if not key then
     return vim.notify("No Jira key on this PR", vim.log.levels.WARN)
   end
-  M.open_jira(key)
+  M.open_jira(key, true)
 end
 
 local function dev_panel_prs(issue_id, on_done)
@@ -131,7 +131,7 @@ local function search_prs(key, on_done)
 end
 
 local function open_pr(pr)
-  M.open_pr_url(pr.url)
+  M.open_pr_url(pr.url, true)
 end
 
 local function choose(key, prs)

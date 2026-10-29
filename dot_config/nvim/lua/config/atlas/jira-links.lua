@@ -247,6 +247,14 @@ local function use_split()
   return kind == "rex" and vim.env.REX_BLOCK ~= nil
 end
 
+-- X inside a Rex split still splits, so the ticket and its PR sit side by side.
+local function use_counterpart_split()
+  if not vim.env.ATLAS_COMPANION then
+    return use_split()
+  end
+  return require("config.mux").kind() == "rex" and vim.env.REX_BLOCK ~= nil
+end
+
 function M.open_here(target)
   if not target:match("^https?://") then
     target = require("atlas.config").options.providers.jira.base_url
@@ -299,5 +307,6 @@ function M.follow(url)
 end
 
 M.use_split = use_split
+M.use_counterpart_split = use_counterpart_split
 
 return M
