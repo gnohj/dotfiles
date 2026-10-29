@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import termios
@@ -101,6 +102,7 @@ def render(lines, hits, typed):
 def pick(lines, hits, labels):
     typed = ""
     longest = max((len(label) for label in labels.values()), default=1)
+    signal.signal(signal.SIGWINCH, lambda *_: render(lines, hits, typed))
     while True:
         render(lines, hits, typed)
         key = os.read(0, 1).decode(errors="ignore")
@@ -154,11 +156,21 @@ def open_token(token, cwd):
     rex(*target, "do", "-s", SESSION, "open_file_tab", f"path={path}", *([f"line={line}"] if line else []))
 
 
+def await_size(source):
+    # A twin block starts at 80x24 and the app resizes it only once it is shown in a split.
+    size = terminal(source, "size")
+    want = (size.get("columns"), size.get("rows"))
+    deadline = time.monotonic() + 2
+    while tuple(os.get_terminal_size()) != want and time.monotonic() < deadline:
+        time.sleep(0.02)
+    return want[1] or os.get_terminal_size().lines
+
+
 def overlay(source):
     title = CONTROL.sub("", terminal(source, "title").get("title") or "")
     if title:
         sys.stdout.write(f"\x1b]2;{title}\x07")
-    lines = screen(source, os.get_terminal_size().lines)
+    lines = screen(source, await_size(source))
     hits, labels = tokens(lines)
     if not hits:
         return None, False
