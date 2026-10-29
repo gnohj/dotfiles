@@ -50,7 +50,7 @@ if command -v jev-route >/dev/null 2>&1; then
   semantic=$(printf '%s' "$semantic_result" | jq -r 'if .action == "auto" then (.handler // "") else "" end' 2>/dev/null) || semantic=""
 fi
 
-# Size picks the band; riskPaths floors it at the hardest, lowRiskPaths drops one but only if EVERY counted file matches.
+# Size picks the band; riskPaths floors it at the hardest, lowRiskPaths drops one (to the cheapest if Jev says routine) only if EVERY counted file matches.
 profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --arg author "$author" --argjson counted "$counted" --arg semantic "$semantic" '
   ([$counted[].path // ""]) as $paths
   | (.riskPaths // []) as $risky
@@ -64,11 +64,12 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
      ) | .key] | first) as $idx
   | (if $hitRisk or $semantic == "critical" then ($count - 1)
      elif $semantic == "deep" and ($idx != null) then ([$idx, ([1, ($count - 1)] | min)] | max)
+     elif $allCheap and $semantic == "routine" then 0
      elif $allCheap and ($idx != null) then ([$idx - 1, 0] | max)
      else $idx end) as $pick
   | (if $pick == null then {use: .default} else .rules[$pick] end) as $r
   | ($r.use // $r) as $u
-  | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap then "tests" else "" end) as $why
+  | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap and $semantic == "routine" then "tests+jev-routine" elif $allCheap then "tests" else "" end) as $why
   | (.singleAgent // {}) as $one
   | ([($one.titles // [])[] | select(. as $re | $title | test($re; "i"))] + [($one.authors // [])[] | select(. as $re | $author | test($re; "i"))] | length > 0) as $mechanical
   | (if $mechanical then "full" else ($u.mode // "full") end) as $mode
