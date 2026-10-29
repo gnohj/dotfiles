@@ -117,6 +117,7 @@ Library/
 .local/libexec/tasks-reminders.swift
 .local/libexec/tasks-reminders.Info.plist
 .local/libexec/cpu-temp.swift
+.local/libexec/work-sso-time.swift
 .local/libexec/rift-layout
 .local/bin/rift-focus-keeper
 .chezmoiscripts/build-libexec-helpers.sh

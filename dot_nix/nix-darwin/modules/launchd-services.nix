@@ -63,6 +63,17 @@ in
       };
     };
 
+    # Lavish Library's work sign-in times; launched directly so its Full Disk Access applies.
+    work-sso-time = {
+      serviceConfig = {
+        ProgramArguments = [ "${homeDir}/.local/libexec/work-sso-time" ];
+        StartInterval = 300;
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/work-sso-time.out.log";
+        StandardErrorPath = "${homeDir}/.logs/work-sso-time.err.log";
+      };
+    };
+
     # Notifies when Firstmate has work in flight but its supervision loop has no fresh beacon
     fm-loop-alarm = {
       serviceConfig = {

@@ -13,6 +13,8 @@ OUT_BIN="$HOME/.local/bin"
 DEFAULT_TOOLS="yazi"
 BREW_BIN="/opt/homebrew/bin"
 BREW_TOOLS="rift"
+LIBEXEC_DIR="$HOME/.local/libexec"
+LIBEXEC_TOOLS="work-sso-time"
 
 say() { printf 'tcc-sign: %s\n' "$*" >&2; }
 
@@ -92,10 +94,10 @@ sign_tool() {
   fi
 }
 
-sign_brew_tool() {
-  local tool=$1 real sig id
-  real=$(readlink -f "$BREW_BIN/$tool" 2>/dev/null)
-  [ -n "$real" ] && [ -f "$real" ] || { say "$tool: not in $BREW_BIN, skipping"; return 1; }
+sign_in_place() {
+  local dir=$1 tool=$2 real sig id
+  real=$(readlink -f "$dir/$tool" 2>/dev/null)
+  [ -n "$real" ] && [ -f "$real" ] || { say "$tool: not in $dir, skipping"; return 1; }
   sig=$(codesign -dvv "$real" 2>&1)
   grep -qx "Authority=$IDENTITY" <<<"$sig" && return 0
   id=$(sed -n 's/^Identifier=//p' <<<"$sig")
@@ -110,10 +112,13 @@ sign_brew_tool() {
 
 ensure_identity || exit 1
 rc=0
-for tool in ${*:-$DEFAULT_TOOLS $BREW_TOOLS}; do
-  case " $BREW_TOOLS " in
-  *" $tool "*) sign_brew_tool "$tool" || rc=1 ;;
-  *) sign_tool "$tool" || rc=1 ;;
-  esac
+for tool in ${*:-$DEFAULT_TOOLS $BREW_TOOLS $LIBEXEC_TOOLS}; do
+  if [[ " $BREW_TOOLS " == *" $tool "* ]]; then
+    sign_in_place "$BREW_BIN" "$tool" || rc=1
+  elif [[ " $LIBEXEC_TOOLS " == *" $tool "* ]]; then
+    sign_in_place "$LIBEXEC_DIR" "$tool" || rc=1
+  else
+    sign_tool "$tool" || rc=1
+  fi
 done
 exit $rc
