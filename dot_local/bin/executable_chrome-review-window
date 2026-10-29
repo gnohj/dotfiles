@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
-# chrome-review-window [workspace] - raise the Chrome window named "review", creating it (and moving it to [workspace]) when none exists.
+# chrome-review-window [workspace] - raise the Chrome window named "review" (creating it when none exists) and keep it on [workspace].
 set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 name=review
 workspace="${1:-}"
 
-created=$(osascript -l JavaScript - "$name" <<'JS'
+osascript -l JavaScript - "$name" >/dev/null <<'JS'
 function run([name]) {
   const chrome = Application("com.google.Chrome");
   let win = chrome.running() ? chrome.windows().find((w) => w.givenName() === name) : undefined;
-  const created = !win;
-  if (created) {
+  if (!win) {
     chrome.Window().make();
     win = chrome.windows[0];
     win.givenName = name;
   }
   win.index = 1;
   chrome.activate();
-  return created;
 }
 JS
-)
 
-# Rift's app rule sends every new Chrome window to Q, so only a freshly made one needs moving.
-if [ "$created" = true ] && [ -n "$workspace" ]; then
+# Rift's app rule sends every Chrome window to Q, including this one after a Chrome restart.
+if [ -n "$workspace" ]; then
+  index=$(rift-cli query workspaces 2>/dev/null | jq -r --arg ws "$workspace" '.[] | select(.name == $ws) | .index') || index=""
+  [ -n "$index" ] || exit 0
   sleep 0.3
-  rift-cli execute workspace move-window "$workspace" --follow >/dev/null 2>&1 || true
+  rift-cli execute workspace move-window "$index" --follow >/dev/null 2>&1 || true
 fi
