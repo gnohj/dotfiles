@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-sign nix CLIs with a stable local cert so macOS privacy grants survive darwin-rebuild.
+# Re-sign nix and source-built brew CLIs with a stable local cert so macOS privacy grants survive rebuilds.
 set -uo pipefail
 
 [ "$(uname)" = Darwin ] || exit 0
@@ -11,6 +11,8 @@ IDENTITY="tcc-sign-local"
 SYSTEM_BIN="/run/current-system/sw/bin"
 OUT_BIN="$HOME/.local/bin"
 DEFAULT_TOOLS="yazi"
+BREW_BIN="/opt/homebrew/bin"
+BREW_TOOLS="rift"
 
 say() { printf 'tcc-sign: %s\n' "$*" >&2; }
 
@@ -90,9 +92,28 @@ sign_tool() {
   fi
 }
 
+sign_brew_tool() {
+  local tool=$1 real sig id
+  real=$(readlink -f "$BREW_BIN/$tool" 2>/dev/null)
+  [ -n "$real" ] && [ -f "$real" ] || { say "$tool: not in $BREW_BIN, skipping"; return 1; }
+  sig=$(codesign -dvv "$real" 2>&1)
+  grep -qx "Authority=$IDENTITY" <<<"$sig" && return 0
+  id=$(sed -n 's/^Identifier=//p' <<<"$sig")
+
+  # Sign a copy and swap it in, so a running instance keeps its original inode.
+  cp -f "$real" "$real.tcc-sign" && chmod 755 "$real.tcc-sign" &&
+    codesign -f -s "$IDENTITY" --keychain "$KEYCHAIN" -i "${id:-$tool}" "$real.tcc-sign" 2>/dev/null &&
+    chmod 555 "$real.tcc-sign" && mv -f "$real.tcc-sign" "$real" ||
+    { say "$tool: signing failed"; rm -f "$real.tcc-sign"; return 1; }
+  say "$tool: signed $real"
+}
+
 ensure_identity || exit 1
 rc=0
-for tool in ${*:-$DEFAULT_TOOLS}; do
-  sign_tool "$tool" || rc=1
+for tool in ${*:-$DEFAULT_TOOLS $BREW_TOOLS}; do
+  case " $BREW_TOOLS " in
+  *" $tool "*) sign_brew_tool "$tool" || rc=1 ;;
+  *) sign_tool "$tool" || rc=1 ;;
+  esac
 done
 exit $rc
