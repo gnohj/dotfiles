@@ -74,6 +74,17 @@ in
       };
     };
 
+    # Starts a closed browser after wake once its work sign-in renewal is due, so the work-sso extension can run it.
+    work-sso-wake = {
+      serviceConfig = {
+        ProgramArguments = [ "${homeDir}/.local/bin/work-sso-host" "--wake" ];
+        StartInterval = 60;
+        RunAtLoad = true;
+        StandardOutPath = "${homeDir}/.logs/work-sso-wake.out.log";
+        StandardErrorPath = "${homeDir}/.logs/work-sso-wake.err.log";
+      };
+    };
+
     # Notifies when Firstmate has work in flight but its supervision loop has no fresh beacon
     fm-loop-alarm = {
       serviceConfig = {
