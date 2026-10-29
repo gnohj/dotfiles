@@ -36,7 +36,7 @@ herdr = "latest"                                   # agent multiplexer; on `late
 # owned by the gnohj/agents monorepo, so run it there by hand if you want the hook.
 "npm:gh-axi" = "latest"
 "npm:chrome-devtools-axi" = "latest"
-"npm:lavish-axi" = "latest"
+"npm:lavish-axi" = { version = "latest", postinstall = "~/.local/bin/patch-lavish-local-workarounds" }   # per-tool so it patches the version just installed, not whatever `mise where` resolves mid-upgrade
 "npm:tasks-axi" = "latest"
 "npm:quota-axi" = "latest"
 "npm:jevctl" = "latest"
@@ -66,9 +66,6 @@ pulumi = "3.207.0"
 uv = "latest"                                       # Lavish Library's push_send.py runs under `uv run --script`; the Mac has a TCC-granted standalone uv in ~/.local/bin
 gh = "latest"                                       # GitHub CLI: only mise supplies it here, since nix-darwin's gh is Mac-only and the VPS has no other source
 {{- end }}
-
-[hooks]
-postinstall = "~/.local/bin/patch-lavish-local-workarounds"
 
 [settings]
 # aube (mise's default npm installer) wraps every npm bin in a `node` shim that can't exec a native-binary CLI (claude-code, codex); the npm backend makes a direct symlink instead.

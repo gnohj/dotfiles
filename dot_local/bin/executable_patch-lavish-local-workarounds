@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root=$(mise where npm:lavish-axi 2>/dev/null) || exit 0
+root=${MISE_TOOL_INSTALL_PATH:-}
+[ -n "$root" ] || root=$(mise where npm:lavish-axi 2>/dev/null) || exit 0
 package="$root/lib/node_modules/lavish-axi"
 files=(
   "$root/bin/lavish-axi"
