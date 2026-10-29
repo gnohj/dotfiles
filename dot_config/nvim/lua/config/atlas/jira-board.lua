@@ -116,7 +116,9 @@ local function stacked(groups, opts, provider)
         tail_width = tail_width + vim.fn.strdisplaywidth(segment.text) + 1
       end
       local kind = issue.icon and issue.icon.icon ~= "" and issue.icon
-      local lead = kind and (kind.icon .. " ") or ""
+      local icon = kind and (kind.icon .. " ") or ""
+      local key = issue.key and issue.key ~= "" and issue.key or ""
+      local lead = icon .. (key ~= "" and (key .. " ") or "")
       local card =
         provider.card(issue, width - tail_width - vim.fn.strdisplaywidth(lead))
       local text = pad .. lead .. card.text
@@ -128,6 +130,14 @@ local function stacked(groups, opts, provider)
           start_col = MARGIN,
           end_col = MARGIN + #kind.icon,
           hl_group = kind.hl_group,
+        })
+      end
+      if key ~= "" then
+        table.insert(spans, {
+          line = #lines - 1,
+          start_col = MARGIN + #icon,
+          end_col = MARGIN + #icon + #key,
+          hl_group = require("atlas.issues.ui.presentation").issue_hl(key),
         })
       end
       for _, span in ipairs(card.spans) do
