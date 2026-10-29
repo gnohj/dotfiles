@@ -237,8 +237,8 @@ gh_retry() {
 base_ref() { gh_retry pr view "$pr" --json baseRefName -q .baseRefName; }
 head_ref() { gh_retry pr view "$pr" --json headRefName -q .headRefName; }
 
-ticket=$(gh_retry pr view "$pr" --json headRefName,title -q '.headRefName + " " + .title' 2>/dev/null | grep -oE '[A-Z]+-[0-9]+' | head -n1 || true)
-ticket_tag="${ticket:+ · $ticket}"
+ticket=$(gh_retry pr view "$pr" --json headRefName,title -q '.headRefName + " " + .title' 2>/dev/null | grep -oE 'IHRWEB-[0-9]+' | head -n1 || true)
+ticket_tag=" · ${ticket:-unticketed}"
 
 # After the checkout, not at lease time - post_create would resolve master's manifests (see install-deps.sh).
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
