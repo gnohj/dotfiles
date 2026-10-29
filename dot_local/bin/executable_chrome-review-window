@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# chrome-review-window [workspace] - raise the Chrome window named "review", creating it (and moving it to [workspace]) when none exists.
+set -euo pipefail
+
+name=review
+workspace="${1:-}"
+
+created=$(osascript -l JavaScript - "$name" <<'JS'
+function run([name]) {
+  const chrome = Application("com.google.Chrome");
+  let win = chrome.running() ? chrome.windows().find((w) => w.givenName() === name) : undefined;
+  const created = !win;
+  if (created) {
+    chrome.Window().make();
+    win = chrome.windows[0];
+    win.givenName = name;
+  }
+  win.index = 1;
+  chrome.activate();
+  return created;
+}
+JS
+)
+
+# Rift's app rule sends every new Chrome window to Q, so only a freshly made one needs moving.
+if [ "$created" = true ] && [ -n "$workspace" ]; then
+  sleep 0.3
+  rift-cli execute workspace move-window "$workspace" --follow >/dev/null 2>&1 || true
+fi
