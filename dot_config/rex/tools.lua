@@ -47,7 +47,7 @@ function M.setup()
       }
       c.fail(err)
       if ctx.client_id ~= nil then
-        rex.exec.start({ "/bin/sh", "-c", 'for d in 0.2 0.4; do sleep "$d"; "$0" -C "$1" do session.select session_id="$2" window_id="$3"; done', c.REX_CLI, ctx.client_id, ctx.session_id, created.window_id }, { detach = true })
+        rex.client.queue("session.select", { session_id = ctx.session_id, window_id = created.window_id })
       end
     end,
   }

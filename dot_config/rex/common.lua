@@ -5,8 +5,6 @@ M.TERM = "com.superlogical.terminal"
 M.SHELL = M.TERM .. ".shell"
 M.HOME = os.getenv("HOME")
 M.STATE_DIR = M.HOME .. "/.local/state/rex-herdr-keys"
-M.REX_BIN = os.getenv("REX_BIN_DIR") or "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS"
-M.REX_CLI = M.REX_BIN .. "/rex"
 
 function M.fail(err)
   if err ~= nil then error(err, 0) end
