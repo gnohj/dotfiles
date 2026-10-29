@@ -7,7 +7,8 @@ After=default.target
 [Service]
 Type=simple
 # `rex server tailscale on` and its rename are runtime-only; without these flags a restart drops both.
-ExecStart=/usr/bin/rex server run --extra-listen tailnet-serve://%t/rex/serve.sock --tailscale --tailscale-hostname %H-rex
+# --restore=false: every session here is script-made, and a restored tab is a bare shell its script mistakes for live.
+ExecStart=/usr/bin/rex server run --extra-listen tailnet-serve://%t/rex/serve.sock --tailscale --tailscale-hostname %H-rex --restore=false
 # on-failure, NOT always: every Rex session dies with this process, and a deliberate `rex server stop` must stick.
 Restart=on-failure
 RestartSec=5
