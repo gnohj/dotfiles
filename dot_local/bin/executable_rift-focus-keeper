@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""rift-focus-keeper - refocuses the nearest tile after a close, and follows a new window to its rule's workspace."""
+"""rift-focus-keeper - refocuses the nearest tile after a close, and places and follows a new window to its rule's workspace."""
 
 import fcntl
 import json
@@ -24,7 +24,11 @@ BROWSER_CLAIM_WINDOW = 6.0
 # Login items launch after Rift; following each would throw the desktop around.
 LAUNCH_GRACE = 20.0
 HISTORY_LIMIT = 50
+# Chromium can title a new window after Rift reports it, so title rules stay live this long.
+PLACE_WINDOW = 3.0
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
+RULE_RE = re.compile(r'\{ app_id = "([^"]+)",(?: title_regex = "([^"]*)",)? workspace = "([A-Z])" \}')
+CONFIG = os.path.expanduser("~/.config/rift/config.toml")
 
 VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
 history = defaultdict(list)
@@ -33,6 +37,7 @@ centers = {}
 focused_before = set()
 known_windows = set()
 known_pids = set()
+placing = {}
 started = time.monotonic()
 armed = None
 claimed = None
@@ -172,6 +177,47 @@ def follow_new_window(wid):
         print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
 
 
+def rule_workspace(bundle, title):
+    # Rift can leave a new window on the spawning display's active workspace instead of its rule's.
+    try:
+        with open(CONFIG) as f:
+            rules = [(app.lower(), regex, ws) for app, regex, ws in RULE_RE.findall(f.read())]
+    except OSError:
+        return None
+    rules = [rule for rule in rules if rule[0] == bundle.lower()]
+    matches = [(bool(regex), -i, ws) for i, (_, regex, ws) in enumerate(rules) if not regex or re.search(regex, title, re.I)]
+    return max(matches)[2] if matches else None
+
+
+def place_window(wid):
+    try:
+        workspaces = rift_json("query", "workspaces")
+    except (subprocess.SubprocessError, ValueError):
+        return
+    home = next(((ws, w) for ws in workspaces for w in ws.get("windows", []) if (w["id"]["pid"], w["id"]["idx"]) == wid), None)
+    if home is None or not home[1].get("title"):
+        return
+    ws, window = home
+    target = rule_workspace(window.get("bundle_id") or "", window["title"])
+    index = next((w["index"] for w in workspaces if w.get("name") == target), None)
+    if index is None or target == ws.get("name"):
+        return
+    rift_run("workspace", "move-window", str(index), str(wid[1]))
+    print(f"rift-focus-keeper: placed {wid[0]}:{wid[1]} on {target}", flush=True)
+
+
+def track_new_window(wid, now):
+    known_windows.add(wid)
+    placing[wid] = now + PLACE_WINDOW
+    place_window(wid)
+
+
+def on_title_changed(event, now):
+    wid = (event["window_id"]["pid"], event["window_id"]["idx"])
+    if wid in placing and now <= placing[wid]:
+        place_window(wid)
+
+
 def all_window_ids():
     ids = set()
     for display in rift_json("query", "displays"):
@@ -198,7 +244,10 @@ def adopt_new_windows(now):
         apps = rift_json("query", "applications")
     except (subprocess.SubprocessError, ValueError, KeyError):
         return
-    known_windows.update(fresh)
+    for wid in [w for w, deadline in placing.items() if now > deadline]:
+        del placing[wid]
+    for wid in fresh:
+        track_new_window(wid, now)
     frontmost = {app["pid"] for app in apps if app.get("is_frontmost")}
     for wid in fresh:
         launched = wid[0] not in known_pids and now - started > LAUNCH_GRACE
@@ -226,7 +275,8 @@ def on_focused_window_changed(event, now):
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
     if wid not in focused_before:
         focused_before.add(wid)
-        known_windows.add(wid)
+        if wid not in known_windows:
+            track_new_window(wid, now)
         follow_new_window(wid)
         claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW)
     elif claimed is not None and now > claimed[2]:
@@ -330,6 +380,8 @@ def main():
                 refresh_centers()
             elif kind == "focused_window_changed":
                 on_focused_window_changed(event, now)
+            elif kind == "window_title_changed":
+                on_title_changed(event, now)
         if parent == 1 or os.getppid() == parent:
             status = proc.poll() or 1
     finally:
