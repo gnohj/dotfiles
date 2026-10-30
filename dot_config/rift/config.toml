@@ -75,13 +75,12 @@ workspace_names = [
 workspace_rules = [
   { workspace = "A", layout = "scrolling" },
   { workspace = "T", layout = "scrolling" },
-  # The HP Z27n (above the MacBook) holds E Q W Z; any other monitor above takes them, else the built-in.
+  # The HP Z27n (above the MacBook) holds B E W Z; any other monitor above takes them, else the built-in.
+  { workspace = "B", display = ["HP Z27n", "top"] },
   { workspace = "E", display = ["HP Z27n", "top"] },
-  { workspace = "Q", display = ["HP Z27n", "top"] },
   { workspace = "W", display = ["HP Z27n", "top"] },
   { workspace = "Z", display = ["HP Z27n", "top"] },
   { workspace = "A", display = "builtin" },
-  { workspace = "B", display = "builtin" },
   { workspace = "C", display = "builtin" },
   { workspace = "D", display = "builtin" },
   { workspace = "F", display = "builtin" },
@@ -95,6 +94,7 @@ workspace_rules = [
   { workspace = "N", display = "builtin" },
   { workspace = "O", display = "builtin" },
   { workspace = "P", display = "builtin" },
+  { workspace = "Q", display = "builtin" },
   { workspace = "R", display = "builtin" },
   { workspace = "S", display = "builtin" },
   { workspace = "T", display = "builtin" },
