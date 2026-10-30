@@ -58,7 +58,7 @@ rex.mode("resize", { exclusive = true })
 rex.bind(P .. "r", "client.mode.enter", { name = "resize" })
 for _, pair in ipairs({ { "h", "left" }, { "j", "down" }, { "k", "up" }, { "l", "right" },
                         { "left", "left" }, { "down", "down" }, { "up", "up" }, { "right", "right" } }) do
-  rex.bind("resize/" .. pair[1], "pane.resize", { direction = pair[2] })
+  rex.bind("resize/" .. pair[1], "resize_" .. pair[2])
 end
 rex.bind("resize/=", "pane.balance")
 rex.bind("resize/enter", "client.mode.exit")

@@ -113,24 +113,44 @@ end
 
 local FLOAT_STEP = 0.02
 
--- A floated pane slides its layer one step that way, kept inside the window.
-local function nudge_float(ctx, w, dir)
+local FLOAT_MIN = 0.1
+
+local function float_layer(w, block_id)
   for _, layer in ipairs(w.layers or {}) do
     if layer.kind ~= "tiled" then
       for _, b in ipairs(layer.blocks or {}) do
-        if b.block_id == ctx.block_id then
-          local x, y, width, height = layer.bounds[1], layer.bounds[2], layer.bounds[3], layer.bounds[4]
-          local dx = dir == "left" and -FLOAT_STEP or dir == "right" and FLOAT_STEP or 0
-          local dy = dir == "up" and -FLOAT_STEP or dir == "down" and FLOAT_STEP or 0
-          x = math.max(0, math.min(1 - width, x + dx))
-          y = math.max(0, math.min(1 - height, y + dy))
-          c.fail(select(2, rex.session.resize_layer{ session_id = ctx.session_id, layer_id = layer.layer_id, bounds = { x, y, width, height } }))
-          return true
-        end
+        if b.block_id == block_id then return layer end
       end
     end
   end
-  return false
+end
+
+-- A floated pane slides its layer one step that way, kept inside the window.
+local function nudge_float(ctx, w, dir)
+  local layer = float_layer(w, ctx.block_id)
+  if layer == nil then return false end
+  local x, y, width, height = layer.bounds[1], layer.bounds[2], layer.bounds[3], layer.bounds[4]
+  local dx = dir == "left" and -FLOAT_STEP or dir == "right" and FLOAT_STEP or 0
+  local dy = dir == "up" and -FLOAT_STEP or dir == "down" and FLOAT_STEP or 0
+  x = math.max(0, math.min(1 - width, x + dx))
+  y = math.max(0, math.min(1 - height, y + dy))
+  c.fail(select(2, rex.session.resize_layer{ session_id = ctx.session_id, layer_id = layer.layer_id, bounds = { x, y, width, height } }))
+  return true
+end
+
+-- A floated pane grows right/down and shrinks left/up one step, kept inside the window.
+local function resize_float(ctx, w, dir)
+  local layer = float_layer(w, ctx.block_id)
+  if layer == nil then return false end
+  local x, y, width, height = layer.bounds[1], layer.bounds[2], layer.bounds[3], layer.bounds[4]
+  local dw = dir == "left" and -FLOAT_STEP or dir == "right" and FLOAT_STEP or 0
+  local dh = dir == "up" and -FLOAT_STEP or dir == "down" and FLOAT_STEP or 0
+  width = math.max(FLOAT_MIN, math.min(1, width + dw))
+  height = math.max(FLOAT_MIN, math.min(1, height + dh))
+  x = math.max(0, math.min(1 - width, x))
+  y = math.max(0, math.min(1 - height, y))
+  c.fail(select(2, rex.session.resize_layer{ session_id = ctx.session_id, layer_id = layer.layer_id, bounds = { x, y, width, height } }))
+  return true
 end
 
 -- Re-place the pane on one side of its sibling, so a stacked pair goes side by side and back, keeping its share.
@@ -218,6 +238,22 @@ function M.setup()
       category = "Panes",
       repeats = true,
       run = function(ctx) move_beside(ctx, dir) end,
+    }
+  end
+
+  -- pane.resize only moves split borders, so a floated pane resizes its layer instead.
+  for dir, title in pairs({ left = "Resize Pane Left", down = "Resize Pane Down",
+                            up = "Resize Pane Up", right = "Resize Pane Right" }) do
+    rex.action{
+      name = "resize_" .. dir,
+      title = title,
+      category = "Panes",
+      repeats = true,
+      run = function(ctx)
+        local w = c.tab_of_block(c.windows(), ctx.block_id)
+        if w ~= nil and resize_float(ctx, w, dir) then return end
+        rex.client.queue("pane.resize", { direction = dir })
+      end,
     }
   end
 
