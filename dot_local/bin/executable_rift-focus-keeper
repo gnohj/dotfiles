@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """rift-focus-keeper - refocuses the nearest tile after a close, and places and follows a new window to its rule's workspace."""
 
+import ctypes
+import ctypes.util
 import fcntl
 import json
 import os
@@ -26,6 +28,10 @@ LAUNCH_GRACE = 20.0
 HISTORY_LIMIT = 50
 # Chromium can title a new window after Rift reports it, so title rules stay live this long.
 PLACE_WINDOW = 3.0
+# A web app's focus bounces repeat, so it is reclaimed once they have been quiet this long.
+SETTLE = 0.8
+# A focus change this soon after a key or click is the user's, never a bounce.
+INPUT_WINDOW = 0.4
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
 RULE_RE = re.compile(r'\{ app_id = "([^"]+)",(?: title_regex = "([^"]*)",)? workspace = "([A-Z])" \}')
 CONFIG = os.path.expanduser("~/.config/rift/config.toml")
@@ -41,6 +47,9 @@ placing = {}
 started = time.monotonic()
 armed = None
 claimed = None
+last_focused = None
+current_focus = None
+pending = None
 
 
 def log(message):
@@ -99,6 +108,7 @@ def nearest(closed, candidates):
 
 def seed():
     # Without a baseline the first close after startup would go unnoticed.
+    global last_focused
     try:
         space = next(d["space"] for d in rift_json("query", "displays") if d.get("is_active_space"))
         workspaces = rift_json("query", "workspaces")
@@ -116,6 +126,7 @@ def seed():
         for w in ws.get("windows", []):
             if w.get("is_focused"):
                 history[key].append((settled, (w["id"]["pid"], w["id"]["idx"])))
+                last_focused = (w["id"]["pid"], w["id"]["idx"])
 
 
 def on_windows_changed(event, now):
@@ -256,36 +267,81 @@ def adopt_new_windows(now):
         focused_before.add(wid)
         follow_new_window(wid)
         rift_run("window", "focus", "--window-id", json.dumps({"pid": wid[0], "idx": wid[1]}))
-        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW)
+        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, last_focused)
     known_pids.update(app["pid"] for app in apps)
 
 
-def is_parent_browser(web_app, other):
+def app_bundles():
     try:
-        bundles = {app["pid"]: app.get("bundle_id") or "" for app in rift_json("query", "applications")}
+        return {app["pid"]: app.get("bundle_id") or "" for app in rift_json("query", "applications")}
     except (subprocess.SubprocessError, ValueError, KeyError):
-        return False
-    browser = bundles.get(other[0])
-    return bool(browser) and bundles.get(web_app[0], "").startswith(browser + ".app.")
+        return {}
+
+
+def is_browser_reclaim(claim, other, web_bundle):
+    # A web app loses focus to its browser, or back to the window it was launched from, a few seconds in.
+    browser = app_bundles().get(other[0])
+    if browser and web_bundle.startswith(browser + ".app."):
+        return True
+    return other == claim[3] and ".app." in web_bundle
+
+
+def seconds_since_input():
+    try:
+        since = ctypes.CDLL(ctypes.util.find_library("CoreGraphics")).CGEventSourceSecondsSinceLastEventType
+    except (OSError, TypeError, AttributeError):
+        return float("inf")
+    since.restype = ctypes.c_double
+    since.argtypes = [ctypes.c_int32, ctypes.c_uint32]
+    return since(1, 0xFFFFFFFF)
+
+
+def reclaim(key, wid, now):
+    # Focus by id leaves a hidden workspace hidden, so switch to it first.
+    follow_new_window(wid)
+    focus(key, wid, now)
+
+
+def on_tick(now):
+    # Once the bounces have settled and the web app holds focus, leaving it is the user's choice.
+    global pending, claimed
+    if pending is None or now < pending[2]:
+        return
+    key, wid, deadline = pending
+    pending = None
+    claimed = None
+    if current_focus != wid and seconds_since_input() > now - (deadline - SETTLE):
+        reclaim(key, wid, now)
 
 
 def on_focused_window_changed(event, now):
-    global armed, claimed
+    global armed, claimed, last_focused, current_focus, pending
     key = workspace_key(event)
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
+    current_focus = wid
     if wid not in focused_before:
         focused_before.add(wid)
         if wid not in known_windows:
             track_new_window(wid, now)
         follow_new_window(wid)
-        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW)
-    elif claimed is not None and now > claimed[2]:
+        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, last_focused)
+    elif claimed is not None and wid != claimed[0] and seconds_since_input() < INPUT_WINDOW:
+        pending = None
         claimed = None
-    elif claimed is not None and wid != claimed[0] and (now <= claimed[1] or is_parent_browser(claimed[0], wid)):
-        # Focus by id leaves a hidden workspace hidden, so switch to it first.
-        follow_new_window(claimed[0])
-        focus(key, claimed[0], now)
-        return
+    elif claimed is not None and now > claimed[2]:
+        if wid != claimed[3]:
+            pending = None
+        claimed = None
+    elif claimed is not None and wid != claimed[0]:
+        web_bundle = app_bundles().get(claimed[0][0], "")
+        if ".app." in web_bundle and (now <= claimed[1] or is_browser_reclaim(claimed, wid, web_bundle)):
+            pending = (key, claimed[0], now + SETTLE)
+            return
+        pending = None
+        if now <= claimed[1]:
+            reclaim(key, claimed[0], now)
+            return
+    last_focused = wid
     log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
     hist = history[key]
     hist.append((now, wid))
@@ -336,10 +392,11 @@ def alive(pid):
 def events(proc, parent, server):
     pending = b""
     while parent == 1 or os.getppid() == parent:
-        if not select.select([proc.stdout], [], [], 0.5)[0]:
+        if not select.select([proc.stdout], [], [], 0.2)[0]:
             # The subscription never closes when Rift restarts, so watch the server pid.
             if proc.poll() is not None or (server is not None and not alive(server)):
                 return
+            yield {"type": "tick"}
             continue
         chunk = os.read(proc.stdout.fileno(), 65536)
         if not chunk:
@@ -382,6 +439,8 @@ def main():
                 on_focused_window_changed(event, now)
             elif kind == "window_title_changed":
                 on_title_changed(event, now)
+            elif kind == "tick":
+                on_tick(now)
         if parent == 1 or os.getppid() == parent:
             status = proc.poll() or 1
     finally:
