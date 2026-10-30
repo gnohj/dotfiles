@@ -36,13 +36,13 @@ local function covers(box, r)
   return contains(box, r[1] + r[3] / 2, r[2] + r[4] / 2)
 end
 
--- Visible panes as {id, rect}, or nil when nothing floats; a tiled pane under a float is hidden.
+-- Visible panes as {id, rect}, or nil when nothing floats; a tiled pane under a float is hidden, a minimized float is skipped.
 local function pane_rects(window, from)
   local tiled, floats, boxes = {}, {}, {}
   for _, layer in ipairs(window.layers or {}) do
     if layer.kind == "tiled" then
       leaf_rects(layer.layout, tiled)
-    elseif not c.is_popup(layer) then
+    elseif not c.is_popup(layer) and layer.state ~= "minimized" then
       leaf_rects(layer.layout, floats)
       table.insert(boxes, layer.bounds)
     end
@@ -111,9 +111,32 @@ local function centre_dist(a, b)
   return math.abs(a[1] + a[3] / 2 - b[1] - b[3] / 2) + math.abs(a[2] + a[4] / 2 - b[2] - b[4] / 2)
 end
 
+local FLOAT_STEP = 0.02
+
+-- A floated pane slides its layer one step that way, kept inside the window.
+local function nudge_float(ctx, w, dir)
+  for _, layer in ipairs(w.layers or {}) do
+    if layer.kind ~= "tiled" then
+      for _, b in ipairs(layer.blocks or {}) do
+        if b.block_id == ctx.block_id then
+          local x, y, width, height = layer.bounds[1], layer.bounds[2], layer.bounds[3], layer.bounds[4]
+          local dx = dir == "left" and -FLOAT_STEP or dir == "right" and FLOAT_STEP or 0
+          local dy = dir == "up" and -FLOAT_STEP or dir == "down" and FLOAT_STEP or 0
+          x = math.max(0, math.min(1 - width, x + dx))
+          y = math.max(0, math.min(1 - height, y + dy))
+          c.fail(select(2, rex.session.resize_layer{ session_id = ctx.session_id, layer_id = layer.layer_id, bounds = { x, y, width, height } }))
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 -- Re-place the pane on one side of its sibling, so a stacked pair goes side by side and back, keeping its share.
 local function move_beside(ctx, dir)
   local w = c.tab_of_block(c.windows(), ctx.block_id)
+  if w ~= nil and nudge_float(ctx, w, dir) then return end
   local layout = w and c.tiled_layout(w)
   if layout == nil then return end
   local split, was_before = parent_split(layout, ctx.block_id)
@@ -193,9 +216,38 @@ function M.setup()
       name = "move_" .. dir,
       title = title,
       category = "Panes",
+      repeats = true,
       run = function(ctx) move_beside(ctx, dir) end,
     }
   end
+
+  -- From a floated pane, minimize its layer; from a tiled one, restore the tab's only float or pick among several.
+  rex.action{
+    name = "float_minimize",
+    title = "Minimize or Pick Floating Pane",
+    category = "Panes",
+    run = function(ctx)
+      local window = c.tab_of_block(c.windows(), ctx.block_id)
+      if window == nil then return end
+      local floats = {}
+      for _, layer in ipairs(window.layers or {}) do
+        if layer.kind ~= "tiled" and not c.is_popup(layer) then
+          for _, b in ipairs(layer.blocks or {}) do
+            if b.block_id == ctx.block_id and layer.state ~= "minimized" then
+              c.fail(select(2, rex.session.set_layer_state{ session_id = ctx.session_id, layer_id = layer.layer_id, state = "minimized" }))
+              return
+            end
+          end
+          table.insert(floats, layer.layer_id)
+        end
+      end
+      if #floats == 1 then
+        c.fail(select(2, rex.session.set_layer_state{ session_id = ctx.session_id, layer_id = floats[1], state = "normal", focus = true }))
+      elseif #floats > 1 then
+        c.popup(ctx, 0.3, 0.3, { c.HOME .. "/.local/bin/mux/rex/rex-float-picker", window.window_id })
+      end
+    end,
+  }
 
   -- Previous pane in the current tab (herdr hack-herdr-last-pane.sh), tracked per tab on press.
   rex.action{
