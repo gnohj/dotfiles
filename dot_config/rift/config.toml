@@ -26,13 +26,13 @@ run_on_start = [
 hot_reload = true
 
 [settings.layout]
-# BSP everywhere except A and T, which default to niri-style scrolling columns (see workspace_rules).
+# BSP everywhere except A (stack) and T (niri-style scrolling columns); see workspace_rules.
 mode = "bsp"
 window_insertion_point = "next_to_selection"
 
 [settings.layout.stack]
 stack_offset = 30.0
-default_orientation = "vertical"
+default_orientation = "horizontal"
 
 [settings.layout.gaps.outer]
 top = 52
@@ -73,7 +73,7 @@ workspace_names = [
   "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 ]
 workspace_rules = [
-  { workspace = "A", layout = "scrolling" },
+  { workspace = "A", layout = "stack" },
   { workspace = "T", layout = "scrolling" },
   # The HP Z27n (above the MacBook) holds A E Q W Z; any other monitor above takes them, else the built-in.
   { workspace = "A", display = ["HP Z27n", "top"] },
