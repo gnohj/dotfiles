@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""usage:
+  billing-watch           check every source; on a change, notify and publish a page to the Lavish Library
+  billing-watch --status  print the stored baseline
+
+Watches for Anthropic moving `claude -p` / Agent SDK usage off the subscription,
+which would change what pi-claude-code costs. The first run only records a baseline.
+"""
+import datetime as dt
+import html
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.request
+
+sys.dont_write_bytecode = True
+
+HOME = os.path.expanduser("~")
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "billing-watch")
+STATE = os.path.join(STATE_DIR, "state.json")
+REPORTS = os.path.join(STATE_DIR, "reports")
+LIBRARY = os.path.join(HOME, "Developer", "agents", "shared", "skills", "lavish-library", "library.py")
+LIBRARY_PROJECT = "Claude Billing Watch"
+NOTIFY = os.path.join(HOME, ".local", "bin", "mac-notify")
+FAILURES_BEFORE_ALERT = 3
+
+ARTICLE_URL = "https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan"
+README_URL = "https://raw.githubusercontent.com/earendil-works/pi-claude-code/main/README.md"
+README_PAGE = "https://github.com/earendil-works/pi-claude-code#readme"
+CHANGELOG_URL = "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md"
+CHANGELOG_PAGE = "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md"
+
+SCOPE = re.compile(r"(`claude -p`|`-p`|--print|\bheadless\b|non-interactive|agent sdk|third[- ]party)", re.I)
+MONEY = re.compile(r"(billing|billed|\bcredits?\b|subscription|api rates?|pay[- ]as[- ]you[- ]go|draws? from|extra usage|usage limits?)", re.I)
+
+
+def fetch(url):
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 billing-watch"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8", "replace")
+
+
+def strip_tags(text):
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", text))).strip()
+
+
+def block_text(node):
+    if isinstance(node, dict):
+        if isinstance(node.get("text"), str):
+            yield strip_tags(node["text"])
+        for key, value in node.items():
+            if key != "text":
+                yield from block_text(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from block_text(value)
+
+
+def article_lines():
+    page = fetch(ARTICLE_URL)
+    match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+    if not match:
+        raise ValueError("no __NEXT_DATA__ on the article page")
+    article = json.loads(match.group(1))["props"]["pageProps"]["articleContent"]
+    lines = [line for line in block_text(article["blocks"]) if line]
+    if not lines:
+        raise ValueError("article body extracted empty")
+    return lines
+
+
+def readme_lines():
+    text = fetch(README_URL)
+    lines = text.splitlines()
+    picked, in_section = [], False
+    for line in lines:
+        if line.startswith("## "):
+            in_section = line.strip().lower() == "## usage and billing"
+        if line.startswith(">") or in_section:
+            picked.append(line)
+    return [line for line in (picked or lines) if line.strip()]
+
+
+def changelog_sections():
+    sections, current = [], None
+    for line in fetch(CHANGELOG_URL).splitlines():
+        if line.startswith("## "):
+            current = (line[3:].strip(), [])
+            sections.append(current)
+        elif current and line.startswith("- "):
+            current[1].append(line[2:].strip())
+    if not sections:
+        raise ValueError("no version headings in CHANGELOG.md")
+    return sections
+
+
+def diff(old, new):
+    old_set, new_set = set(old), set(new)
+    return [line for line in old if line not in new_set], [line for line in new if line not in old_set]
+
+
+def check_text(state, key, reader, changes):
+    lines = reader()
+    if key in state and state[key] != lines:
+        removed, added = diff(state[key], lines)
+        changes.append({"source": key, "removed": removed, "added": added})
+    state[key] = lines
+
+
+def check_changelog(state, changes):
+    sections = changelog_sections()
+    seen = state.get("changelog")
+    if seen:
+        hits = []
+        for version, bullets in sections[:50]:
+            if version == seen:
+                break
+            hits += [f"{version}: {bullet}" for bullet in bullets if SCOPE.search(bullet) and MONEY.search(bullet)]
+        if hits:
+            changes.append({"source": "changelog", "removed": [], "added": hits})
+    state["changelog"] = sections[0][0]
+
+
+SOURCES = {
+    "article": ("Anthropic support article", ARTICLE_URL),
+    "readme": ("pi-claude-code README (warning + billing section)", README_PAGE),
+    "changelog": ("Claude Code CHANGELOG (billing lines for -p / Agent SDK)", CHANGELOG_PAGE),
+}
+
+
+def render(changes, name):
+    esc = html.escape
+    cards = []
+    for change in changes:
+        title, url = SOURCES[change["source"]]
+        removed = "".join(f'<li class="border-l-4 border-error pl-3"><span class="badge badge-error badge-sm mr-1">removed</span><span class="line-through opacity-70">{esc(line)}</span></li>' for line in change["removed"])
+        added = "".join(f'<li class="border-l-4 border-success pl-3"><span class="badge badge-success badge-sm mr-1">added</span>{esc(line)}</li>' for line in change["added"])
+        cards.append(f'''<section class="card bg-base-100 border border-base-300 mb-4"><div class="card-body p-4 sm:p-6">
+<h2 class="card-title text-base break-words">{esc(title)}</h2>
+<a class="link text-sm break-all" href="{esc(url)}">{esc(url)}</a>
+<ul class="mt-2 space-y-3 break-words">{removed}{added}</ul>
+</div></section>''')
+    stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return f'''<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude billing watch</title>
+<script src="lavish-library.js" data-artifact="{name}" onerror="window.__LAVISH_LIBRARY__=null"></script>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+</head>
+<body class="bg-base-200 text-base-content min-h-screen">
+<main class="max-w-3xl mx-auto px-4 py-6">
+<div class="flex items-start justify-between gap-2 mb-4">
+<div><h1 class="text-2xl font-bold">Claude billing watch</h1>
+<p class="text-sm opacity-70">A billing source pi-claude-code depends on changed. Checked {stamp}.</p></div>
+<button class="btn btn-sm shrink-0" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+</div>
+{"".join(cards)}
+</main></body></html>
+'''
+
+
+def library_python():
+    for candidate in (os.path.join(HOME, ".local/share/mise/installs/python/latest/bin/python3"), shutil.which("python3")):
+        if candidate and os.access(candidate, os.X_OK):
+            return candidate
+    return sys.executable
+
+
+def notify(title, message, execute=None):
+    if not os.access(NOTIFY, os.X_OK):
+        print(f"{title}: {message}", file=sys.stderr)
+        return
+    command = [NOTIFY, "-t", title, "-m", message, "-T", "30", "-s", "Funk"]
+    if execute:
+        command += ["-e", execute]
+    subprocess.run(command, check=False)
+
+
+def publish(changes):
+    os.makedirs(REPORTS, exist_ok=True)
+    name = dt.datetime.now().strftime("%Y-%m-%d-%H%M") + ".html"
+    path = os.path.join(REPORTS, name)
+    with open(path, "w") as f:
+        f.write(render(changes, name))
+    if os.path.exists(LIBRARY):
+        subprocess.run([library_python(), LIBRARY, "observe", path, "--project", LIBRARY_PROJECT], check=False)
+    return path
+
+
+def load_state():
+    try:
+        with open(STATE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, indent=2)
+    os.replace(tmp, STATE)
+
+
+def check():
+    state = load_state()
+    first_run = not state
+    failures = state.setdefault("failures", {})
+    changes = []
+    checks = {
+        "article": lambda: check_text(state, "article", article_lines, changes),
+        "readme": lambda: check_text(state, "readme", readme_lines, changes),
+        "changelog": lambda: check_changelog(state, changes),
+    }
+    for key, run in checks.items():
+        try:
+            run()
+            failures[key] = 0
+        except Exception as error:
+            failures[key] = failures.get(key, 0) + 1
+            print(f"billing-watch: {key}: {error}", file=sys.stderr)
+            if failures[key] == FAILURES_BEFORE_ALERT:
+                notify("Billing watch is blind", f"{SOURCES[key][0]} failed {FAILURES_BEFORE_ALERT} runs in a row: {error}")
+    save_state(state)
+    if changes:
+        path = publish(changes)
+        names = ", ".join(SOURCES[c["source"]][0].split(" (")[0] for c in changes)
+        notify("Claude billing source changed", names, f"open {path}")
+        print(path)
+    else:
+        print("billing-watch: baseline recorded" if first_run else "billing-watch: no change")
+
+
+def status():
+    state = load_state()
+    print(json.dumps(state, indent=2) if state else "billing-watch: no baseline yet")
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--status"]:
+        status()
+    elif sys.argv[1:]:
+        print(__doc__.strip(), file=sys.stderr)
+        sys.exit(2)
+    else:
+        check()

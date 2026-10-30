@@ -455,6 +455,31 @@ in
       };
     };
 
+    # Watches whether `claude -p` still bills to the subscription (pi-claude-code depends on it); notifies and publishes to the Lavish Library on change.
+    billing-watch = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/billing-watch
+            exec /usr/bin/python3 ${homeDir}/.local/bin/billing-watch
+          ''
+        ];
+        StartCalendarInterval = [{
+          Hour = 9;
+          Minute = 13;
+        }];
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/bin:${daemonPath}:/usr/sbin:/sbin";
+          LANG = "en_US.UTF-8";
+        };
+        StandardOutPath = "${homeDir}/.logs/billing-watch/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/billing-watch/launchagent.err.log";
+      };
+    };
+
     # Claude cost totals out of band so the ccstatusline `mocost` widget stays cat-only; runs the script rather than ccusage directly so ccusage keeps a live parent and never trips the orphan monitor as a ppid-1 CPU hog.
     claude-cost-refresh = {
       serviceConfig = {

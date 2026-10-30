@@ -32,6 +32,7 @@ AI_LABELS = {
 AI_COMMAND_RE = re.compile(r"(^|/)(claude|pi|ollama|llm)(\s|$)")
 KNOWN_NAMES = {
     "org.nixos.agentsview": "AgentsView",
+    "org.nixos.billing-watch": "Claude billing watch",
     "org.nixos.claude-cost-refresh": "Claude cost refresh",
     "org.nixos.github-auto-push": "GitHub auto push",
     "org.nixos.gh-auto-review": "Automatic PR reviews",
