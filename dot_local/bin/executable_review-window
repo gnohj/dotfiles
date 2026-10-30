@@ -10,7 +10,7 @@ profile="${2:-}"
 
 # The same browser to-desktop opens review links in, so both always agree on which window is "review".
 browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js')
-# Helium's work profile, which Rift's " - work" title rule keeps on B.
+# Helium's work profile, which Rift's " - work" title rule keeps on Q.
 [ "$browser" = net.imput.helium ] && profile="${profile:-Profile 1}"
 
 # AppleScript cannot pick a Chromium profile, so a profile window comes from the launch flag and is named once it appears.
