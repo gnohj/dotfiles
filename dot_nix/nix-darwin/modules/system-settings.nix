@@ -161,7 +161,7 @@ in
       "Workspace.showsActivePaneBorder" = true;
       "Workspace.usesStandardInactiveWindowPaneStyles" = true;
       "Workspace.tintsPanesWithProgramBackground" = true;
-      "Workspace.paneDensity" = "comfortable";
+      "Workspace.paneDensity" = "compact";
       "Workspace.showsPaneHeaders" = true;
       "Workspace.balancesSplitsOnCreation" = true;
       "Workspace.notificationPosition" = "top-right";
