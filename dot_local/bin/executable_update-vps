@@ -47,6 +47,8 @@ done
 rc=$(cat "$rc_file")
 rm -f "$rc_file"
 cat "$out"
+# Outside Rex here, so the restart cannot cut off the update.
+[ -x "$HOME/.local/bin/rex-restart-idle" ] && command -v rex >/dev/null 2>&1 && "$HOME/.local/bin/rex-restart-idle"
 find "$dir" -name '*.log' -mtime +14 -delete 2>/dev/null
 exit "$rc"
 REMOTE

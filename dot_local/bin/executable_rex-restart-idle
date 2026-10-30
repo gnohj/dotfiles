@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# rex-restart-idle [--check] - restart the Rex server onto the installed build when no agent runs; --check only reports.
+set -uo pipefail
+
+agent_re='^(claude|codex|pi|opencode)$'
+
+r() { rex --autostart=false "$@" </dev/null; }
+
+agents() {
+  local s label b name
+  r ls --json | jq -r '.sessions[] | "\(.session_id)\t\(.label)"' | while IFS=$'\t' read -r s label; do
+    r block ls -s "$s" --json | jq -r '.blocks[].block_id' | while read -r b; do
+      name=$(r block call -s "$s" -b "$b" process 2>/dev/null |
+        jq -r '.foreground // empty | (.argv0 // .name // "") | sub(".*/"; "") | sub("\\.exe$"; "")')
+      [[ $name =~ $agent_re ]] && printf '%s (%s)\n' "$label" "$name"
+    done
+  done | sort -u
+}
+
+status=$(r server status 2>/dev/null) || exit 1
+if [ "$(uname)" = Darwin ]; then
+  # Rex.app moves its staged server into Versions/Current only when it restarts it.
+  installed=$("/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" --autostart=false version | awk 'NR == 1 { print $2 }')
+else
+  installed=$(r version | awk 'NR == 1 { print $2 }')
+fi
+running=$(awk '$1 == "version:" { print $2 }' <<<"$status")
+[ "$running" = "$installed" ] && exit 1
+
+busy=$(agents)
+if [ -n "$busy" ]; then
+  printf 'rex-restart-idle: server runs %s, %s is installed; not restarting while agents run in:\n%s\n' "$running" "$installed" "$busy"
+  exit 1
+fi
+if [ "${1:-}" = --check ]; then
+  echo "rex-restart-idle: server runs $running, $installed is installed and no agent is running"
+  exit 0
+fi
+
+if [ "$(uname)" = Darwin ]; then
+  # Only the app swaps the staged build in; a launchd kickstart reruns the old one.
+  app=$(r client ls --json | jq -r '[.clients[] | select(.info.kind == "app")][0].client_id // empty')
+  [ -n "$app" ] || { echo "rex-restart-idle: no Rex app is connected to restart the server" >&2; exit 2; }
+  echo "rex-restart-idle: restarting the server, $running -> $installed"
+  r do -C "$app" client.server.restart >/dev/null || exit 2
+else
+  echo "rex-restart-idle: restarting the server, $running -> $installed"
+  systemctl --user restart rex-server.service || exit 2
+fi

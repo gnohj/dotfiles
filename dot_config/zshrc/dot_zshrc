@@ -201,6 +201,11 @@ up() {
   print -P "%F{green}==> up: done%f"
 }
 
+_rex_restart_at_prompt() {
+  add-zsh-hook -d precmd _rex_restart_at_prompt
+  "$HOME/.local/bin/rex-restart-idle"
+}
+
 # `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then Tailscale/brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
   local repo name slug fails=0 summary=0
@@ -286,6 +291,21 @@ update() {
   if [[ "$OSTYPE" == darwin* ]] && command -v mas >/dev/null 2>&1; then
     print -P "%F{cyan}==> mas upgrade%f"
     mas upgrade || { print -P "%F{red}   mas upgrade failed - continuing%f"; fails=$((fails + 1)); }
+  fi
+  # The restart ends every program on the server, so inside Rex it waits for the next prompt.
+  if [ -x "$HOME/.local/bin/rex-restart-idle" ] && command -v rex >/dev/null 2>&1; then
+    print -P "%F{cyan}==> rex: server restart%f"
+    if [[ -z "${REX_BLOCK:-}" ]]; then
+      "$HOME/.local/bin/rex-restart-idle"
+      (( $? == 2 )) && { print -P "%F{red}   rex server restart failed - continuing%f"; fails=$((fails + 1)); }
+    elif "$HOME/.local/bin/rex-restart-idle" --check; then
+      if [[ -o interactive && -o shinstdin ]]; then
+        autoload -Uz add-zsh-hook && add-zsh-hook precmd _rex_restart_at_prompt
+        print -P "%F{yellow}   restarting at the next prompt, which ends this shell too%f"
+      else
+        print -P "%F{yellow}   left to update-vps, which restarts it once this update returns%f"
+      fi
+    fi
   fi
   # Report-only and silent when healthy; adopting the unit destroys live panes, so it stays manual.
   if [ -x "$HOME/.local/bin/herdr-server-health" ]; then
