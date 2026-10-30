@@ -202,3 +202,7 @@ scripts/open-tmux-attach.sh
 
 # chrome-review-window renamed review-window: it now follows the default browser.
 .local/bin/chrome-review-window
+
+# work-sso-time only existed to read Chrome's TCC-protected history; SSO is Helium-only now.
+.local/libexec/work-sso-time
+.local/libexec/work-sso-time.swift
