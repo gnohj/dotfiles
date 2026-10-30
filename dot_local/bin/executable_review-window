@@ -1,23 +1,39 @@
 #!/usr/bin/env bash
-# review-window [workspace] - raise the default browser's window named "review" (creating it when none exists) and keep it on [workspace].
+# review-window [workspace] [profile-dir] - raise the default browser's window named "review" (creating it in [profile-dir] when none exists) and keep it on [workspace].
 set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 name=review
 workspace="${1:-}"
+profile="${2:-}"
 
 # The same browser to-desktop opens review links in, so both always agree on which window is "review".
 browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js')
+# Helium's work profile, which Rift's " - work" title rule keeps on B.
+[ "$browser" = net.imput.helium ] && profile="${profile:-Profile 1}"
 
-osascript -l JavaScript - "$browser" "$name" >/dev/null <<'JS'
-function run([bundle, name]) {
+# AppleScript cannot pick a Chromium profile, so a profile window comes from the launch flag and is named once it appears.
+osascript -l JavaScript - "$browser" "$name" "$profile" >/dev/null <<'JS'
+function run([bundle, name, profile]) {
   const app = Application(bundle);
-  let win = app.running() ? app.windows().find((w) => w.givenName() === name) : undefined;
-  if (!win) {
+  if (app.running() && app.windows().some((w) => w.givenName() === name)) return;
+  if (!profile) {
     app.Window().make();
-    win = app.windows[0];
-    win.givenName = name;
+    app.windows[0].givenName = name;
+    return;
+  }
+  const before = app.running() ? app.windows.id() : [];
+  const shell = Application.currentApplication();
+  shell.includeStandardAdditions = true;
+  shell.doShellScript(`open -nb ${bundle} --args --profile-directory='${profile.replace(/'/g, "'\\''")}'`);
+  for (let i = 0; i < 50; i++) {
+    const win = app.windows().find((w) => !before.includes(w.id()));
+    if (win) {
+      win.givenName = name;
+      return;
+    }
+    delay(0.1);
   }
 }
 JS

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 BUNDLE_ID="${TEAMS_PWA_BUNDLE_ID:-net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm}"
+PROFILE="${TEAMS_PROFILE:-Profile 1}"
 LOG="$HOME/.logs/msteams-open.log"
 
 url="${1:-}"
@@ -25,7 +26,8 @@ mkdir -p "$(dirname "$LOG")"
 printf '[%s] %s -> %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$url" "$target" >>"$LOG"
 
 # A running PWA only focuses on relaunch and drops the URL, so steer its open window to the target instead.
-steered=$(osascript - "$target" <<'SCPT' 2>>"$LOG" || true
+steer() {
+  osascript - "$target" <<'SCPT' 2>>"$LOG" || true
 on run argv
 	if application "Helium" is not running then return "no"
 	tell application "Helium"
@@ -39,9 +41,14 @@ on run argv
 	return "no"
 end run
 SCPT
-)
+}
 
-if [ "$steered" = "yes" ]; then
-  exec open -b "$BUNDLE_ID"
+# Teams is installed in every Helium profile, and its app shim reopens the last one used, so launch it in work.
+if [ "$(steer)" != "yes" ]; then
+  open -nb net.imput.helium --args --profile-directory="$PROFILE" --app-id="${BUNDLE_ID##*.}"
+  for _ in $(seq 40); do
+    sleep 0.25
+    [ "$(steer)" = "yes" ] && break
+  done
 fi
-exec open -b "$BUNDLE_ID" "$target"
+exec open -b "$BUNDLE_ID"
