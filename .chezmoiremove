@@ -199,3 +199,6 @@ scripts/open-tmux-attach.sh
 
 # rex-popup-lock.lua retired: Rex 1541 popups are opaque framed panes.
 .local/bin/mux/rex/rex-popup-lock.lua
+
+# chrome-review-window renamed review-window: it now follows the default browser.
+.local/bin/chrome-review-window
