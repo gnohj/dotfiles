@@ -6,25 +6,31 @@ set -eu
 [ -f /etc/pacman.d/rex.conf ] || exit 0
 
 target=/usr/local/sbin/rex-upgrade
-rule="$(id -un) ALL=(root) NOPASSWD: $target \"\""
+rule="$(id -un) ALL=(root) NOPASSWD: $target"
 
 dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 
-# Runs as root with no password, so it takes no arguments and trusts nothing from the caller's environment.
+# Passwordless root: accepts only one version-shaped argument and trusts nothing from the caller's environment.
 cat >"$dir/rex-upgrade" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 export PATH=/usr/bin
+if [ "$#" != 1 ] || ! [[ "$1" =~ ^[0-9]+(\.[0-9]+)*(_g[0-9a-f]+)?-[0-9]+$ ]]; then
+  echo "usage: rex-upgrade PKGVER-PKGREL" >&2
+  exit 2
+fi
+arch="$(uname -m)"
+server="$(sed -n 's/^Server *= *//p' /etc/pacman.d/rex.conf | head -n 1)"
 conf="$(mktemp)"
 trap 'rm -f "$conf"' EXIT
-# Syncs only the rex repo, so core/extra stay as `up` left them and this never sets up an Arch partial upgrade.
-printf '[options]\nArchitecture = auto\nInclude = /etc/pacman.d/rex.conf\n' >"$conf"
-OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman --config "$conf" -Sy --needed --noconfirm rex
+printf '[options]\nArchitecture = auto\nRemoteFileSigLevel = Required\n' >"$conf"
+# The repo db lists only the newest build; -U by URL still reaches older ones.
+OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman --config "$conf" -U --needed --noconfirm "${server//\$arch/$arch}/rex-$1-$arch.pkg.tar.zst"
 EOF
 printf '%s\n' "$rule" >"$dir/sudoers"
 
-if cmp -s "$dir/rex-upgrade" "$target" && sudo -n -l 2>/dev/null | grep -qF "NOPASSWD: $target \"\""; then
+if cmp -s "$dir/rex-upgrade" "$target" && sudo -n -l 2>/dev/null | sed 's/^[[:space:]]*//' | grep -qxF "(root) NOPASSWD: $target"; then
   exit 0
 fi
 if [ ! -t 0 ] && ! sudo -n true 2>/dev/null; then

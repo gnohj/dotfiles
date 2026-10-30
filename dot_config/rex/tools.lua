@@ -105,7 +105,7 @@ function M.setup()
     end,
   }
 
-  -- The Mac app updates itself through Install Update; this upgrades the dev-box package beside it.
+  -- Moves the dev-box package to the Mac app's build, restarting its server when no agent runs.
   rex.action{
     name = "update_devbox_rex",
     title = "Update Rex on Dev Box",
