@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# helium-personal - focus a Helium window on the personal profile, opening one when none exists.
+# helium-personal [workspace] - focus a Helium window on the personal profile (opening one when none exists) and keep it on [workspace].
 set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+workspace="${1:-}"
 
 # Rift titles carry Chromium's " - <profile>" suffix, which AppleScript window names lack.
 window=$(rift-cli query workspaces 2>/dev/null | jq -c '
@@ -12,6 +14,14 @@ if [ -z "$window" ]; then
   exec open -na Helium --args --profile-directory=Default
 fi
 
+index=$(jq -r .ws <<<"$window")
+if [ -n "$workspace" ]; then
+  target=$(rift-cli query workspaces 2>/dev/null | jq -r --arg ws "$workspace" '.[] | select(.name == $ws) | .index') || target=""
+  if [ -n "$target" ] && [ "$target" != "$index" ]; then
+    rift-cli execute workspace move-window "$target" "$(jq -r .id.idx <<<"$window")" >/dev/null 2>&1 && index=$target
+  fi
+fi
+
 # Focus by id leaves a hidden workspace hidden, so switch to it first.
-rift-cli execute workspace switch "$(jq -r .ws <<<"$window")" >/dev/null 2>&1 || true
+rift-cli execute workspace switch "$index" >/dev/null 2>&1 || true
 rift-cli execute window focus --window-id "$(jq -c .id <<<"$window")" >/dev/null 2>&1 || open -a Helium
