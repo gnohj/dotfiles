@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# helium-personal - focus a Helium window on the personal profile, opening one when none exists.
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+
+# Rift titles carry Chromium's " - <profile>" suffix, which AppleScript window names lack.
+window=$(rift-cli query workspaces 2>/dev/null | jq -c '
+  [.[] as $ws | $ws.windows[] | select(.bundle_id == "net.imput.helium" and (.title | test(" - personal$"; "i"))) | {id, ws: $ws.index}] | first // empty') || window=""
+
+if [ -z "$window" ]; then
+  exec open -na Helium --args --profile-directory=Default
+fi
+
+# Focus by id leaves a hidden workspace hidden, so switch to it first.
+rift-cli execute workspace switch "$(jq -r .ws <<<"$window")" >/dev/null 2>&1 || true
+rift-cli execute window focus --window-id "$(jq -c .id <<<"$window")" >/dev/null 2>&1 || open -a Helium
