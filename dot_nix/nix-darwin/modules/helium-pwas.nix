@@ -33,12 +33,6 @@ let
         custom_name = "Reddit";
       }
       {
-        url = "https://app.slack.com/client";
-        default_launch_container = "window";
-        install_as_shortcut = true;
-        custom_name = "Slack";
-      }
-      {
         url = "https://www.twitch.tv/";
         default_launch_container = "window";
         custom_name = "Twitch";
