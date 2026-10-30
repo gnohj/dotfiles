@@ -1004,6 +1004,8 @@ alias fixbluetooth='sudo killall -HUP bluetoothd && echo "Bluetooth daemon resta
 alias n="nvim"
 alias vi="nvim"
 alias vim="nvim"
+alias nj="nvim -c 'Atlas issues jira'"
+alias ng="nvim -c 'Atlas pulls github'"
 # EDITOR/VISUAL moved to ~/.zshenv so the non-interactive herdr server inherits them.
 
 # Claude Code - reduce bash output to save tokens
