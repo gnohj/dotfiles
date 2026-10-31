@@ -1293,10 +1293,10 @@ pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
 # Named providers pin provider-qualified models; luna always runs at xhigh on openai-codex.
 pio() { pi --provider openai-codex --model openai-codex/gpt-6.1-sol:high $(_pi_sp) "$@"; }
 pig() { pi --provider openai-codex --model openai-codex/gpt-6-luna:xhigh $(_pi_sp) "$@"; }
-pic() { pi --provider github-copilot --model github-copilot/gpt-6.1-sol:high $(_pi_sp) "$@"; }
+pic() { pi --provider claude-code --model claude-code/claude-opus-5-5:high $(_pi_sp) "$@"; }
 pior() { pi -r --provider openai-codex --model openai-codex/gpt-6.1-sol:high $(_pi_sp) "$@"; }
 pigr() { pi -r --provider openai-codex --model openai-codex/gpt-6-luna:xhigh $(_pi_sp) "$@"; }
-picr() { pi -r --provider github-copilot --model github-copilot/gpt-6.1-sol:high $(_pi_sp) "$@"; }
+picr() { pi -r --provider claude-code --model claude-code/claude-opus-5-5:high $(_pi_sp) "$@"; }
 
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://platform.example.com | grep APP_TOKEN | cut -d= -f2 | xargs)
