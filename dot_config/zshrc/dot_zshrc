@@ -692,7 +692,8 @@ _compinit_deferred() {
   fi
   # compinit sources the .zwc when it is newer, which loads faster than the plain dump.
   if [[ -s "$ZSH_COMPDUMP" && ( ! -s "$ZSH_COMPDUMP.zwc" || "$ZSH_COMPDUMP" -nt "$ZSH_COMPDUMP.zwc" ) ]]; then
-    zcompile "$ZSH_COMPDUMP"
+    # Temp + rename: concurrent shells writing one .zwc fail with "can't write zwc file".
+    zcompile "$ZSH_COMPDUMP.$$.zwc" "$ZSH_COMPDUMP" && command mv -f -- "$ZSH_COMPDUMP.$$.zwc" "$ZSH_COMPDUMP.zwc"
   fi
   zinit cdreplay -q
   # Resolve AWS completions beside the active CLI, not a stale /usr/local install.
