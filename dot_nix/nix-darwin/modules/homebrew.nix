@@ -93,6 +93,7 @@
       "opensuperwhisper"
 
       # Browsers
+      "finicky"
       "firefox"
       "google-chrome"
       "google-chrome@beta"

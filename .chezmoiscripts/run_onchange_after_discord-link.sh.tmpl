@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# discord-link.applescript hash: {{ include "dot_config/finicky/discord-link.applescript" | sha256sum }}
+set -euo pipefail
+
+echo "
+🔧 Run OnChange [After] Discord Link handler........"
+
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo "🚧 Skipping Discord Link handler (not macOS)"
+  exit 0
+fi
+
+app="$HOME/Applications/Discord Link.app"
+plist="$app/Contents/Info.plist"
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+osacompile -o "$tmp/Discord Link.app" "$HOME/.config/finicky/discord-link.applescript"
+mkdir -p "$HOME/Applications"
+rm -rf "$app"
+mv "$tmp/Discord Link.app" "$app"
+/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.gnohj.discord-link" "$plist"
+/usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$plist"
+codesign --force --sign - "$app" 2>/dev/null || echo "!! could not sign $app"
+
+lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+[ -x "$lsregister" ] && "$lsregister" -f "$app" 2>/dev/null || true
+
+echo "✅ built $app"

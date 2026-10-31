@@ -77,6 +77,9 @@ tasks
 # macOS LaunchAgents/Daemons
 Library/
 
+# Finicky is a macOS default-browser router
+.config/finicky
+
 # Rex picker entries that open on the Dev Box from the Mac
 .config/sesh/rex.toml
 
