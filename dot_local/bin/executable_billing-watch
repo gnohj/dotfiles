@@ -5,6 +5,9 @@
 
 Watches for Anthropic moving `claude -p` / Agent SDK usage off the subscription,
 which would change what pi-claude-code costs. The first run only records a baseline.
+
+Also tracks the pi-claude-code bugs that block using Pi as a firstmate harness, and
+says when every blocker is fixed and a trial is due.
 """
 import datetime as dt
 import html
@@ -32,6 +35,16 @@ README_URL = "https://raw.githubusercontent.com/earendil-works/pi-claude-code/ma
 README_PAGE = "https://github.com/earendil-works/pi-claude-code#readme"
 CHANGELOG_URL = "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md"
 CHANGELOG_PAGE = "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md"
+REPO_API = "https://api.github.com/repos/earendil-works/pi-claude-code/issues/"
+REPO_PAGE = "https://github.com/earendil-works/pi-claude-code"
+
+BLOCKERS = [
+    ("Warm-process turn fails instantly after a text-only reply", [16]),
+    ("Lost upstream stream is not retried", [8, 4]),
+    ("Fable 5.1 400s on cache_control after a tool result", [10, 11]),
+    ("thinking.type disabled rejected by Opus 5.5", [2, 13]),
+    ("Undeclared tool name kills the turn", [14]),
+]
 
 SCOPE = re.compile(r"(`claude -p`|`-p`|--print|\bheadless\b|non-interactive|agent sdk|third[- ]party)", re.I)
 MONEY = re.compile(r"(billing|billed|\bcredits?\b|subscription|api rates?|pay[- ]as[- ]you[- ]go|draws? from|extra usage|usage limits?)", re.I)
@@ -123,14 +136,59 @@ def check_changelog(state, changes):
     state["changelog"] = sections[0][0]
 
 
+def ref_status(number):
+    request = urllib.request.Request(REPO_API + str(number), headers={"User-Agent": "billing-watch", "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        item = json.load(response)
+    if "pull_request" in item:
+        return "merged" if item["pull_request"].get("merged_at") else item["state"]
+    return item["state"] if item["state"] == "open" else item.get("state_reason") or "closed"
+
+
+def blocker_fixed(refs, statuses):
+    return any(statuses.get(str(ref)) in ("merged", "completed") for ref in refs)
+
+
+def check_harness(state, changes):
+    statuses = {str(ref): ref_status(ref) for _, refs in BLOCKERS for ref in refs}
+    seen = state.get("harness")
+    was_ready = state.get("harness_ready", False)
+    ready = all(blocker_fixed(refs, statuses) for _, refs in BLOCKERS)
+    if seen is not None and seen != statuses:
+        moved = [f"#{ref}: {seen.get(ref, 'unknown')} -> {now}" for ref, now in statuses.items() if seen.get(ref) != now]
+        changes.append({"source": "harness", "removed": [], "added": moved, "ready": ready and not was_ready})
+    state["harness"] = statuses
+    state["harness_ready"] = ready
+
+
+def readiness_card(statuses):
+    esc = html.escape
+    rows, ready = [], True
+    for title, refs in BLOCKERS:
+        fixed = blocker_fixed(refs, statuses)
+        ready = ready and fixed
+        links = " ".join(f'<a class="link" href="{REPO_PAGE}/issues/{ref}">#{ref}</a> <span class="badge badge-ghost badge-sm">{esc(statuses.get(str(ref), "?"))}</span>' for ref in refs)
+        badge = '<span class="badge badge-success badge-sm">fixed</span>' if fixed else '<span class="badge badge-warning badge-sm">blocking</span>'
+        rows.append(f'<li class="flex flex-col gap-1"><div>{badge} {esc(title)}</div><div class="text-sm">{links}</div></li>')
+    verdict = ("Ready to trial: move one low-stakes crew-dispatch rule to harness pi with claude-code/claude-opus-5-5, re-pin the extension, and keep stuck-crewmate recovery on."
+               if ready else "Not ready: keep firstmate crews on harness claude.")
+    tone = "alert-success" if ready else "alert-warning"
+    return f'''<section class="card bg-base-100 border border-base-300 mb-4"><div class="card-body p-4 sm:p-6">
+<h2 class="card-title text-base">Pi as a firstmate harness</h2>
+<div role="alert" class="alert {tone} text-sm">{esc(verdict)}</div>
+<ul class="mt-2 space-y-3 break-words">{"".join(rows)}</ul>
+</div></section>'''
+
+
 SOURCES = {
     "article": ("Anthropic support article", ARTICLE_URL),
     "readme": ("pi-claude-code README (warning + billing section)", README_PAGE),
     "changelog": ("Claude Code CHANGELOG (billing lines for -p / Agent SDK)", CHANGELOG_PAGE),
+    "harness": ("pi-claude-code harness blockers (issue and PR state)", REPO_PAGE),
 }
 
 
-def render(changes, name):
+def render(changes, name, statuses=None):
     esc = html.escape
     cards = []
     for change in changes:
@@ -142,6 +200,8 @@ def render(changes, name):
 <a class="link text-sm break-all" href="{esc(url)}">{esc(url)}</a>
 <ul class="mt-2 space-y-3 break-words">{removed}{added}</ul>
 </div></section>''')
+    if statuses:
+        cards.insert(0, readiness_card(statuses))
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     return f'''<!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -154,7 +214,7 @@ def render(changes, name):
 <main class="max-w-3xl mx-auto px-4 py-6">
 <div class="flex items-start justify-between gap-2 mb-4">
 <div><h1 class="text-2xl font-bold">Claude billing watch</h1>
-<p class="text-sm opacity-70">A billing source pi-claude-code depends on changed. Checked {stamp}.</p></div>
+<p class="text-sm opacity-70">A billing source or harness blocker for pi-claude-code changed. Checked {stamp}.</p></div>
 <button class="btn btn-sm shrink-0" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
 </div>
 {"".join(cards)}
@@ -179,12 +239,12 @@ def notify(title, message, execute=None):
     subprocess.run(command, check=False)
 
 
-def publish(changes):
+def publish(changes, statuses=None):
     os.makedirs(REPORTS, exist_ok=True)
     name = dt.datetime.now().strftime("%Y-%m-%d-%H%M") + ".html"
     path = os.path.join(REPORTS, name)
     with open(path, "w") as f:
-        f.write(render(changes, name))
+        f.write(render(changes, name, statuses))
     if os.path.exists(LIBRARY):
         subprocess.run([library_python(), LIBRARY, "observe", path, "--project", LIBRARY_PROJECT], check=False)
     return path
@@ -215,6 +275,7 @@ def check():
         "article": lambda: check_text(state, "article", article_lines, changes),
         "readme": lambda: check_text(state, "readme", readme_lines, changes),
         "changelog": lambda: check_changelog(state, changes),
+        "harness": lambda: check_harness(state, changes),
     }
     for key, run in checks.items():
         try:
@@ -227,9 +288,12 @@ def check():
                 notify("Billing watch is blind", f"{SOURCES[key][0]} failed {FAILURES_BEFORE_ALERT} runs in a row: {error}")
     save_state(state)
     if changes:
-        path = publish(changes)
+        path = publish(changes, state.get("harness"))
         names = ", ".join(SOURCES[c["source"]][0].split(" (")[0] for c in changes)
-        notify("Claude billing source changed", names, f"open {path}")
+        if any(c.get("ready") for c in changes):
+            notify("pi-claude-code ready to trial", "Every firstmate harness blocker is fixed", f"open {path}")
+        else:
+            notify("Claude billing source changed", names, f"open {path}")
         print(path)
     else:
         print("billing-watch: baseline recorded" if first_run else "billing-watch: no change")

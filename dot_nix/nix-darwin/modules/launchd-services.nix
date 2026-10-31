@@ -444,7 +444,7 @@ in
       };
     };
 
-    # Watches whether `claude -p` still bills to the subscription (pi-claude-code depends on it); notifies and publishes to the Lavish Library on change.
+    # Watches whether `claude -p` still bills to the subscription (pi-claude-code depends on it) and the pi-claude-code harness blockers; notifies and publishes to the Lavish Library on change.
     billing-watch = {
       serviceConfig = {
         ProgramArguments = [
