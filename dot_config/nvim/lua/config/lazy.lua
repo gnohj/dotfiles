@@ -76,6 +76,7 @@ require("lazy").setup({
   checker = {
     enabled = true, -- check for plugin updates periodically
     notify = false, -- notify on update
+    concurrency = 4, -- unlimited spawns ~95 git at once, freezing the UI ~300ms
   }, -- automatically check for plugin updates
   performance = {
     rtp = {
