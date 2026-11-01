@@ -116,19 +116,235 @@ local function render_figlet(name, font)
   return figlet
 end
 
-local function get_header()
-  local rainbow_colors = {
-    colors["gnohj_color04"],
-    colors["gnohj_color02"],
-    colors["gnohj_color03"],
-    colors["gnohj_color05"],
-    colors["gnohj_color06"],
-  }
+local rainbow_colors = {
+  colors["gnohj_color04"],
+  colors["gnohj_color02"],
+  colors["gnohj_color03"],
+  colors["gnohj_color05"],
+  colors["gnohj_color06"],
+}
+
+local FADE_SECONDS = 0.8
+local FADE_STEPS = 32
+local FADE_SWEEP = 0.55
+local fade_ns = vim.api.nvim_create_namespace("gnohj_header_fade")
+local fade = { state = "pending" }
+
+local function mix_hex(from, to, amount)
+  local out = "#"
+  for i = 2, 6, 2 do
+    local a = tonumber(from:sub(i, i + 1), 16)
+    local b = tonumber(to:sub(i, i + 1), 16)
+    out = out .. string.format("%02x", math.floor(a + (b - a) * amount + 0.5))
+  end
+  return out
+end
+
+local function paint_base_groups()
+  local bg = colors["gnohj_color10"]
+  local hidden = bg and fade.state ~= "done"
   for i, color in ipairs(rainbow_colors) do
-    if color then
-      vim.api.nvim_set_hl(0, "SnacksDashboardRainbow" .. i, { fg = color })
+    vim.api.nvim_set_hl(
+      0,
+      "SnacksDashboardRainbow" .. i,
+      { fg = hidden and bg or color }
+    )
+  end
+end
+
+local function define_fade_groups()
+  local bg = colors["gnohj_color10"]
+  for i, color in ipairs(rainbow_colors) do
+    for level = 0, FADE_STEPS do
+      vim.api.nvim_set_hl(0, ("GnohjHeaderFade%d_%d"):format(i, level), {
+        fg = mix_hex(bg, color, level / FADE_STEPS),
+      })
     end
   end
+end
+
+local function fade_visible()
+  local win, buf = fade.win, fade.buf
+  return win
+    and vim.api.nvim_win_is_valid(win)
+    and vim.api.nvim_buf_is_valid(buf)
+    and vim.api.nvim_win_get_buf(win) == buf
+    and vim.api.nvim_win_get_tabpage(win)
+      == vim.api.nvim_get_current_tabpage()
+end
+
+local function finish_fade()
+  if fade.timer then
+    fade.timer:stop()
+    fade.timer:close()
+    fade.timer = nil
+  end
+  fade.state = "done"
+  paint_base_groups()
+  if fade.buf and vim.api.nvim_buf_is_valid(fade.buf) then
+    vim.api.nvim_buf_clear_namespace(fade.buf, fade_ns, 0, -1)
+  end
+end
+
+local function capture_header(first_row, count)
+  local lines =
+    vim.api.nvim_buf_get_lines(fade.buf, first_row, first_row + count, false)
+  local rows, left, right, color_idx = {}, math.huge, 0, 0
+  for r, line in ipairs(lines) do
+    if line:find("[\128-\255]") then
+      return nil
+    end
+    local s = line:find("%S")
+    if s then
+      local e = #line - line:reverse():find("%S") + 1
+      local cells = {}
+      for j = s, e do
+        if line:sub(j, j) ~= " " then
+          cells[j] = color_idx + 1
+          color_idx = (color_idx + 1) % #rainbow_colors
+        end
+      end
+      rows[#rows + 1] = {
+        row = first_row + r - 1,
+        line_index = r,
+        s = s,
+        e = e,
+        text = line,
+        cells = cells,
+      }
+      left, right = math.min(left, s), math.max(right, e)
+    end
+  end
+  if #rows == 0 then
+    return nil
+  end
+  return {
+    rows = rows,
+    left = left,
+    width = math.max(1, right - left),
+    height = math.max(1, count - 1),
+  }
+end
+
+local function cell_level(t, header, line_index, col)
+  local dist = (
+    (header.left + header.width - col) / header.width
+    + (line_index - 1) / header.height
+  ) / 2
+  local p = math.min(1, math.max(0, (t - FADE_SWEEP * dist) / (1 - FADE_SWEEP)))
+  p = p * p * (3 - 2 * p)
+  return math.floor(p * FADE_STEPS + 0.5)
+end
+
+local function paint_frame(t)
+  local header = fade.header
+  for id, r in ipairs(header.rows) do
+    local chunks, text, group = {}, r.text, nil
+    for j = r.s, r.e do
+      local ch, hl = " ", nil
+      local idx = r.cells[j]
+      local level = idx and cell_level(t, header, r.line_index, j) or 0
+      if level > 0 then
+        ch, hl = text:sub(j, j), ("GnohjHeaderFade%d_%d"):format(idx, level)
+      end
+      local last = chunks[#chunks]
+      if last and hl == group then
+        last[1] = last[1] .. ch
+      else
+        chunks[#chunks + 1] = { ch, hl }
+        group = hl
+      end
+    end
+    vim.api.nvim_buf_set_extmark(fade.buf, fade_ns, r.row, r.s - 1, {
+      id = id,
+      virt_text = chunks,
+      virt_text_pos = "overlay",
+      priority = 300,
+    })
+  end
+  vim.api.nvim__redraw({ win = fade.win, valid = true, flush = true })
+end
+
+local function tick()
+  if fade.state ~= "running" then
+    return
+  end
+  if not fade_visible() or not fade.header then
+    finish_fade()
+    return
+  end
+  local t = math.min(1, (vim.uv.hrtime() - fade.start) / 1e9 / FADE_SECONDS)
+  if t >= 1 then
+    finish_fade()
+    return
+  end
+  paint_frame(t)
+end
+
+local function run_fade()
+  if fade.state ~= "waiting" then
+    return
+  end
+  if not colors["gnohj_color10"] or not fade_visible() or not fade.header then
+    finish_fade()
+    return
+  end
+  define_fade_groups()
+  fade.state = "running"
+  fade.start = vim.uv.hrtime()
+  fade.timer = assert(vim.uv.new_timer())
+  fade.timer:start(0, 16, vim.schedule_wrap(tick))
+end
+
+local function on_header_render(dashboard, pos, count)
+  if fade.state == "done" then
+    return
+  end
+  fade.buf, fade.win = dashboard.buf, dashboard.win
+  dashboard.on("UpdatePost", function()
+    if fade.state == "done" or not vim.api.nvim_buf_is_valid(fade.buf) then
+      return true
+    end
+    vim.api.nvim_buf_clear_namespace(fade.buf, fade_ns, 0, -1)
+    fade.header = capture_header(pos[1] - 1, count)
+    if fade.header and fade.state ~= "running" then
+      paint_frame(0)
+    end
+    if fade.state == "pending" then
+      fade.state = "waiting"
+      if vim.g.did_very_lazy or not package.loaded["lazy"] then
+        run_fade()
+      else
+        vim.api.nvim_create_autocmd(
+          "User",
+          { pattern = "VeryLazy", once = true, callback = run_fade }
+        )
+      end
+    elseif fade.state == "running" then
+      tick()
+    end
+    return true
+  end)
+end
+
+local function start_header_fade()
+  paint_base_groups()
+  if fade.hooked then
+    return
+  end
+  fade.hooked = true
+  vim.api.nvim_create_autocmd("ColorScheme", {
+    callback = function()
+      paint_base_groups()
+      if fade.state == "running" then
+        define_fade_groups()
+      end
+    end,
+  })
+end
+
+local function get_header()
+  start_header_fade()
   local blue = colors["gnohj_color04"]
   if blue then
     vim.api.nvim_set_hl(0, "SnacksDashboardRecentFile", { fg = blue })
@@ -197,6 +413,10 @@ local function get_header()
     end
   end
   section.text = result
+  local count = select(2, figlet:gsub("\n", "")) + 1
+  section.render = function(dashboard, pos)
+    on_header_render(dashboard, pos, count)
+  end
   return section
 end
 
