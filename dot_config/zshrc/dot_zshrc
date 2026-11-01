@@ -1777,14 +1777,17 @@ if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; th
                 size=$(stty size)
                 [[ $size == $drawn ]] && break
             done
+            _fetch_size=$drawn
         }
         # Tiling shrinks the window after (or while) the fetch draws, so redraw it on every resize until the first command runs.
         TRAPWINCH() {
+            [[ $(stty size) == "$_fetch_size" ]] && return
             _fetch_render
             zle && zle reset-prompt
         }
         _fetch_stop_redraw() {
             unfunction TRAPWINCH _fetch_render _fetch_draw _fetch_stop_redraw
+            unset _fetch_size
             add-zsh-hook -d preexec _fetch_stop_redraw
         }
         add-zsh-hook preexec _fetch_stop_redraw
