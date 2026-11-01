@@ -8,7 +8,8 @@ set -eu
 command -v systemctl >/dev/null 2>&1 || exit 0
 
 systemctl --user daemon-reload
-systemctl --user enable rex-tab-numbers.service
+# reenable drops the old default.target.wants link that caused a boot ordering cycle.
+systemctl --user reenable rex-tab-numbers.service
 # restart, not --now: rex do holds the loaded script, so an edit only takes effect on restart.
 systemctl --user restart rex-tab-numbers.service
 

@@ -2,6 +2,7 @@
 [Unit]
 Description=Prefix Rex tabs with their position
 After=rex-server.service
+PartOf=rex-server.service
 
 [Service]
 Type=simple
@@ -10,4 +11,5 @@ Restart=always
 RestartSec=10
 
 [Install]
-WantedBy=default.target
+# Not default.target: rex-server is After=default.target, so that ordering cycle drops rex-server at boot.
+WantedBy=rex-server.service
