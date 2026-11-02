@@ -14,7 +14,14 @@ export default {
       browser: discordApp,
     },
     {
-      match: ["*.atlassian.net/*", "github.com/iheartradio/*", "*.ts.net/*"],
+      match: [
+        "*.atlassian.net/*",
+        "github.com/iheartradio/*",
+        "*.ts.net/*",
+        "*.safelinks.protection.outlook.com/*",
+        "iheartmedia.sharepoint.com/*",
+        "*teams.microsoft.com/*",
+      ],
       browser: { name: "Helium", profile: "Work" },
     },
   ],
