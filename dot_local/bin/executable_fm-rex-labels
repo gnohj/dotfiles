@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-# fm-rex-labels - label each firstmate worker's Rex tab as "<glyph> #<pr> · <model>/<effort> · <task>"; run by fm-rex-labels.timer.
+# fm-rex-labels - label firstmate worker tabs "<glyph> #<pr> · <model>/<effort> · <task>" and second mates "🚢 <name> · <model>/<effort>".
 import glob
 import json
 import os
 import re
+import shlex
 import subprocess
 
 KIND_MARK = {"scout": "\U0001f52d", "ship": "⛵"}
+SECONDMATE_MARK = "\U0001f6a2"
+CACHE_DIR = os.path.expanduser("~/.cache/fm-rex-labels")
 EFFORT_SHORT = {"minimal": "min", "low": "low", "medium": "med", "high": "hi", "xhigh": "xhi", "max": "max"}
 VENDOR_WORDS = {"claude", "gpt"}
 PR_RE = re.compile(r"/pull/([0-9]+)")
@@ -26,16 +29,20 @@ def short_model(model):
     return name + ".".join(p for p in parts if p[0].isdigit() and len(p) < 8)
 
 
+def model_effort(meta):
+    effort = meta.get("effort", "").strip().lower()
+    model = short_model(meta["model"]) if meta.get("model") else ""
+    if model and effort not in ("", "off", "none", "default"):
+        model += "/" + EFFORT_SHORT.get(effort, effort)
+    return model
+
+
 def label_for(task, meta):
     glyph = KIND_MARK.get(meta.get("kind", ""))
     if glyph is None:
         return None
     pr = PR_RE.search(meta.get("pr", ""))
-    effort = meta.get("effort", "").strip().lower()
-    model = short_model(meta["model"]) if meta.get("model") else ""
-    if model and effort not in ("", "off", "none", "default"):
-        model += "/" + EFFORT_SHORT.get(effort, effort)
-    return glyph + " " + " · ".join(filter(None, ("#" + pr.group(1) if pr else "", model, task)))
+    return glyph + " " + " · ".join(filter(None, ("#" + pr.group(1) if pr else "", model_effort(meta), task)))
 
 
 def read_meta(path):
@@ -60,6 +67,39 @@ def relabel(task, meta, windows):
         pass
 
 
+REMOTE_RENAME = r'''set -eu
+w=$(rex --autostart=false -S "$1" block inspect -s "$2" "$3" --json | jq -r .block.window_id)
+rex --autostart=false -S "$1" window rename -s "$2" "$w" "$4"
+'''
+
+
+def relabel_secondmate(task, meta):
+    """Second mates run on a remote Rex; only this host knows their model, so rename over ssh once per change."""
+    host, server, session = meta.get("remote_host"), meta.get("remote_rex_server"), meta.get("remote_rex_session_id")
+    target = meta.get("remote_target", "")
+    if not (host and server and session and ":" in target):
+        return
+    want = " · ".join(filter(None, (SECONDMATE_MARK + " " + task, model_effort(meta))))
+    stamp = target + "\t" + want
+    cache = os.path.join(CACHE_DIR, task)
+    try:
+        with open(cache) as f:
+            if f.read() == stamp:
+                return
+    except OSError:
+        pass
+    block = "block:" + target.split(":", 1)[1]
+    try:
+        subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, "bash", "-s", "--",
+                        shlex.quote(server), shlex.quote(session), shlex.quote(block), shlex.quote(want)],
+                       input=REMOTE_RENAME, capture_output=True, text=True, check=True, timeout=20)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(cache, "w") as f:
+            f.write(stamp)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        pass
+
+
 def main():
     windows = {}
     for path in sorted(glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta"))):
@@ -67,8 +107,11 @@ def main():
             meta = read_meta(path)
         except OSError:
             continue
-        if meta.get("backend") == "rex":
-            relabel(os.path.basename(path)[:-len(".meta")], meta, windows)
+        task = os.path.basename(path)[:-len(".meta")]
+        if meta.get("kind") == "secondmate" and meta.get("remote_backend") == "rex":
+            relabel_secondmate(task, meta)
+        elif meta.get("backend") == "rex":
+            relabel(task, meta, windows)
 
 
 if __name__ == "__main__":
