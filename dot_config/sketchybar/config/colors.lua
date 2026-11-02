@@ -51,7 +51,7 @@ local colors <const> = {
 	},
 
 	glass = {
-		bar = hex_to_sketchybar(colorscheme.gnohj_color10 or "021c31", "70"),
+		bar = 0x00000000,
 		pill = 0x14ffffff,
 		rim = 0x33ffffff,
 		shadow = 0x59000000,
