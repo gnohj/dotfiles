@@ -185,6 +185,10 @@ Library/
 # Rex personal server - Linux only; on macOS the Rex app runs its own server.
 .config/systemd/user/rex-server.service
 
+# Rex worker-label units - Linux only; on the Mac the script runs from a shell or launchd by hand.
+.config/systemd/user/fm-rex-labels.service
+.config/systemd/user/fm-rex-labels.timer
+
 # Rex tab numberer unit - Linux only; macOS runs the same script from its launchd agent `rex-tab-numbers`.
 .config/systemd/user/rex-tab-numbers.service
 

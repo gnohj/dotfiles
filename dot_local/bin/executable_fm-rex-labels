@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+# fm-rex-labels - label each firstmate worker's Rex tab as "<glyph> #<pr> · <model>/<effort> · <task>"; run by fm-rex-labels.timer.
+import glob
+import json
+import os
+import re
+import subprocess
+
+KIND_MARK = {"scout": "\U0001f52d", "ship": "⛵"}
+EFFORT_SHORT = {"minimal": "min", "low": "low", "medium": "med", "high": "hi", "xhigh": "xhi", "max": "max"}
+VENDOR_WORDS = {"claude", "gpt"}
+PR_RE = re.compile(r"/pull/([0-9]+)")
+TAB_NUMBER_RE = re.compile(r"^\d+\. ?")
+
+
+def rex(server, *args):
+    cmd = ["rex", "--autostart=false", "-S", server, *args]
+    return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+
+
+def short_model(model):
+    """claude-opus-5-5 -> opus5.5, gpt-6-luna -> luna6; a dated snapshot suffix is dropped."""
+    parts = [p for p in model.rsplit("/", 1)[-1].split("-") if p]
+    words = [p for p in parts if not p[0].isdigit()]
+    name = "".join(w for w in words if w.lower() not in VENDOR_WORDS) or "".join(words)
+    return name + ".".join(p for p in parts if p[0].isdigit() and len(p) < 8)
+
+
+def label_for(task, meta):
+    glyph = KIND_MARK.get(meta.get("kind", ""))
+    if glyph is None:
+        return None
+    pr = PR_RE.search(meta.get("pr", ""))
+    effort = meta.get("effort", "").strip().lower()
+    model = short_model(meta["model"]) if meta.get("model") else ""
+    if model and effort not in ("", "off", "none", "default"):
+        model += "/" + EFFORT_SHORT.get(effort, effort)
+    return glyph + " " + " · ".join(filter(None, ("#" + pr.group(1) if pr else "", model, task)))
+
+
+def read_meta(path):
+    with open(path) as f:
+        return dict(line.rstrip("\n").split("=", 1) for line in f if "=" in line)
+
+
+def relabel(task, meta, windows):
+    server, session, block = meta.get("rex_server"), meta.get("rex_session_id"), meta.get("rex_block_id")
+    want = label_for(task, meta)
+    if not (server and session and block and want):
+        return
+    try:
+        window = json.loads(rex(server, "block", "inspect", "-s", session, block, "--json"))["block"]["window_id"]
+        if (server, session) not in windows:
+            listing = json.loads(rex(server, "window", "ls", "-s", session, "--json"))["windows"]
+            windows[(server, session)] = {w["window_id"]: w["label"] for w in listing}
+        current = windows[(server, session)].get(window)
+        if current is not None and TAB_NUMBER_RE.sub("", current) != want:
+            rex(server, "window", "rename", "-s", session, window, want)
+    except (subprocess.CalledProcessError, ValueError, KeyError, OSError):
+        pass
+
+
+def main():
+    windows = {}
+    for path in sorted(glob.glob(os.path.expanduser("~/.local/share/firstmate*/state/*.meta"))):
+        try:
+            meta = read_meta(path)
+        except OSError:
+            continue
+        if meta.get("backend") == "rex":
+            relabel(os.path.basename(path)[:-len(".meta")], meta, windows)
+
+
+if __name__ == "__main__":
+    main()

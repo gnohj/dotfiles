@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh firstmate worker tab labels in Rex every 30 seconds
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
