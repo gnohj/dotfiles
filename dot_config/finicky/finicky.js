@@ -3,6 +3,11 @@ const discordApp = {
   appType: "bundleId",
 };
 
+const teamsApp = {
+  name: "com.gnohj.teams-link",
+  appType: "bundleId",
+};
+
 export default {
   defaultBrowser: { name: "Helium", profile: "personal" },
   options: {
@@ -12,6 +17,10 @@ export default {
     {
       match: ["discord.com/channels/*", "discord.gg/*"],
       browser: discordApp,
+    },
+    {
+      match: ["teams.microsoft.com/*"],
+      browser: teamsApp,
     },
     {
       match: [

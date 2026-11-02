@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# pwa-link.applescript hash: {{ include "dot_config/finicky/pwa-link.applescript" | sha256sum }}
+set -euo pipefail
+
+echo "
+🔧 Run OnChange [After] PWA Link handlers........"
+
+if [ "$(uname -s)" != "Darwin" ]; then
+  echo "🚧 Skipping PWA Link handlers (not macOS)"
+  exit 0
+fi
+
+lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+# Each handler loads finicky-routed links into the already open Helium PWA window instead of a new one.
+build_link_app() {
+  local name="$1" bundle_id="$2" pwa_bundle="$3" url_prefix="$4"
+  local app="$HOME/Applications/$name.app"
+  local plist="$app/Contents/Info.plist"
+  local tmp
+  tmp="$(mktemp -d)"
+  osacompile -o "$tmp/$name.app" "$HOME/.config/finicky/pwa-link.applescript"
+  mkdir -p "$HOME/Applications"
+  rm -rf "$app"
+  mv "$tmp/$name.app" "$app"
+  rm -rf "$tmp"
+  /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $bundle_id" "$plist"
+  /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$plist"
+  /usr/libexec/PlistBuddy -c "Add :PWABundleIdentifier string $pwa_bundle" "$plist"
+  /usr/libexec/PlistBuddy -c "Add :PWAURLPrefix string $url_prefix" "$plist"
+  codesign --force --sign - "$app" 2>/dev/null || echo "!! could not sign $app"
+  [ -x "$lsregister" ] && "$lsregister" -f "$app" 2>/dev/null || true
+  echo "✅ built $app"
+}
+
+build_link_app "Discord Link" com.gnohj.discord-link net.imput.helium.app.pliiebkcmokkgndfalahlmimanmbjlab "https://discord.com/"
+build_link_app "Teams Link" com.gnohj.teams-link net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm "https://teams.microsoft.com/"
