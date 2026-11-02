@@ -55,6 +55,9 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
+# Only Rex.app or rex-server.service start Rex; a shell-started server uses XDG state and loses Tailscale.
+export REX_AUTOSTART=false
+
 # Here, not .zshrc: worktree pickers and hooks run `zoxide add` outside .zshrc and would ignore the excludes.
 export _ZO_DATA_DIR="$ZDOTDIR"
 export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*:$HOME/.local/share/chezmoi:$HOME/.local/share/chezmoi/*:$HOME/.treehouse/chezmoi-*"
