@@ -89,7 +89,12 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
     # A remotely placed mate records remote_target and remote_host; a local one records herdr_pane_id, or rex_* ids on the Rex backend.
     rhost=$(grep -m1 '^remote_host=' "$meta" 2>/dev/null | cut -d= -f2-)
     rsess=""
-    if [ -n "${rhost:-}" ]; then
+    rbackend=$(grep -m1 '^remote_backend=' "$meta" 2>/dev/null | cut -d= -f2-)
+    if [ -n "${rhost:-}" ] && [ "$rbackend" = rex ]; then
+      rsess=$(grep -m1 '^remote_rex_session_id=' "$meta" 2>/dev/null | cut -d= -f2-)
+      pane=$(grep -m1 '^remote_target=' "$meta" 2>/dev/null | cut -d= -f2-)
+      pane=${pane:+block:${pane#*:}}
+    elif [ -n "${rhost:-}" ]; then
       # remote_target is "<session>:<pane>" and that session has its own herdr socket, so the session must be named or the pane is not found.
       rsess=$(grep -m1 '^remote_herdr_session=' "$meta" 2>/dev/null | cut -d= -f2-)
       pane=$(grep -m1 '^remote_target=' "$meta" 2>/dev/null | cut -d= -f2-)
@@ -111,7 +116,9 @@ if [ -f "$HOME_DIR/data/secondmates.md" ]; then
       kv "$id" "INVALID REMOTE ENDPOINT  home=${mh:-?}"
       continue
     fi
-    if [ -n "${rhost:-}" ]; then
+    if [ -n "${rhost:-}" ] && [ "$rbackend" = rex ]; then
+      out=$(sshq "$rhost" "~/.local/bin/mux/rex/rex-process-info '$rsess' '$pane'"); rc=$?
+    elif [ -n "${rhost:-}" ]; then
       out=$(sshq "$rhost" "herdr --session '$rsess' pane process-info --pane '$pane'"); rc=$?
     elif [ -n "${rsess:-}" ]; then
       out=$("$HOME/.local/bin/mux/rex/rex-process-info" "$rsess" "$pane"); rc=$?
