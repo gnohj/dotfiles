@@ -498,8 +498,15 @@ local function get_unstaged_changes(dashboard)
           end
           local selected =
             dashboard:find(vim.api.nvim_win_get_cursor(dashboard.win))
+          local centered_row = dashboard.opts.row
+          dashboard.opts.row = dashboard.row
           state.redraw = true
           dashboard:update()
+          dashboard.opts.row = centered_row
+          if #dashboard.lines > dashboard._size.height then
+            state.redraw = true
+            dashboard:update()
+          end
           if selected and selected.key then
             for _, item in ipairs(dashboard.items) do
               if item.key == selected.key and item._ then
