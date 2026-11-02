@@ -10,6 +10,8 @@ profile="${2:-}"
 
 # The same browser to-desktop opens review links in, so both always agree on which window is "review".
 browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js')
+# Finicky only routes links and owns no windows, so the browser behind it is Helium.
+[ "$browser" = se.johnste.finicky ] && browser=net.imput.helium
 # Helium's work profile, which Rift's " - work" title rule keeps on Q.
 [ "$browser" = net.imput.helium ] && profile="${profile:-Profile 1}"
 

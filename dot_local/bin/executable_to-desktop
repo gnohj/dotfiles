@@ -70,10 +70,18 @@ osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"
 
 front_app() { osascript -e "tell application \"System Events\" to $1 of first process whose frontmost is true" 2>/dev/null; }
 
+# Finicky only routes links and owns no windows, so the browser behind it is Helium.
+default_browser() {
+  local bundle
+  bundle=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js' 2>/dev/null)
+  [ "$bundle" = se.johnste.finicky ] && bundle=net.imput.helium
+  printf '%s' "$bundle"
+}
+
 # Chrome activates itself even under `open -g` and Rift follows it to its workspace, so blacklist the browser for the open and hand focus back.
 open_background() {
   local browser prior original lock="${TMPDIR:-/tmp}/to-desktop-background.lock" i
-  browser=$(osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString("https://example.com"))).bundleIdentifier.js' 2>/dev/null)
+  browser=$(default_browser)
   prior=$(front_app "unix id")
   if [ -z "$browser" ] || [ -z "$prior" ] || [ "$(front_app "bundle identifier")" = "$browser" ] || ! rift-cli execute config get >/dev/null 2>&1; then
     open_in_named_window "$1" || open -g "$1"
@@ -103,10 +111,8 @@ LINK_WINDOW=review
 
 # JXA, not AppleScript: the browser is only known at runtime, and AppleScript resolves `given name` at compile time.
 open_in_named_window() {
-  osascript -l JavaScript - "$1" "$LINK_WINDOW" "${TO_DESKTOP_BACKGROUND:-}" >/dev/null 2>&1 <<'JS'
-ObjC.import("AppKit");
-function run([url, name, background]) {
-  const bundle = $.NSBundle.bundleWithURL($.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(url))).bundleIdentifier.js;
+  osascript -l JavaScript - "$1" "$LINK_WINDOW" "${TO_DESKTOP_BACKGROUND:-}" "$(default_browser)" >/dev/null 2>&1 <<'JS'
+function run([url, name, background, bundle]) {
   const app = Application(bundle);
   if (!app.running()) throw new Error("browser not running");
   const win = app.windows().find((w) => w.givenName() === name);
