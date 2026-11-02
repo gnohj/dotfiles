@@ -419,6 +419,27 @@ in
       };
     };
 
+    # Labels firstmate worker tabs with glyph, PR and model/effort; macOS twin of the Linux fm-rex-labels.timer.
+    fm-rex-labels = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/fm-rex-labels
+            exec /usr/bin/python3 ${homeDir}/.local/bin/fm-rex-labels
+          ''
+        ];
+        StartInterval = 30;
+        RunAtLoad = true;
+        EnvironmentVariables = {
+          PATH = "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS:${daemonPath}";
+        };
+        StandardOutPath = "${homeDir}/.logs/fm-rex-labels/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/fm-rex-labels/launchagent.err.log";
+      };
+    };
+
     # Builds yesterday's resource report (Mac + dev-box) into the Lavish Library; RunAtLoad catches up days missed while the Mac was off.
     resource-report = {
       serviceConfig = {
