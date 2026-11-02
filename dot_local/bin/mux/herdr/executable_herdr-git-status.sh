@@ -77,7 +77,7 @@ sys.path.insert(0, os.environ.get("SCRIPTS_DIR", os.path.expanduser("~/.local/bi
 try:
     import herdr_gitmux as hg              # shared with herdr-sesh.sh — see its docstring
     from herdr_label import row_indent, is_pin, wants_branch  # shared with thread-status + sysinfo, so the writers cannot drift
-    from herdr_fleet import task_metas, task_badge, model_label, agent_model_effort  # shared with rex-fleet-sync
+    from herdr_fleet import task_metas, task_badge, model_label, agent_model_effort
 except Exception:
     sys.exit(0)                            # mid-apply window; the next pass picks it up
 

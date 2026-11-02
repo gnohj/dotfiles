@@ -185,11 +185,6 @@ Library/
 # Rex personal server - Linux only; on macOS the Rex app runs its own server.
 .config/systemd/user/rex-server.service
 
-# Rex fleet mirror - Linux only; it mirrors the dev-box fm-remote herdr session.
-.config/systemd/user/rex-fleet-sync.service
-.config/systemd/user/rex-fleet-sync.timer
-.local/bin/mux/rex/rex-fleet-sync
-
 # Rex tab numberer unit - Linux only; macOS runs the same script from its launchd agent `rex-tab-numbers`.
 .config/systemd/user/rex-tab-numbers.service
 

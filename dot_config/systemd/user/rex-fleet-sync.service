@@ -1,9 +1,0 @@
-# Linux-only: mirrors the dev-box second mates into Rex sessions; the Mac has no fm-remote herdr session to mirror.
-[Unit]
-Description=Mirror fleet workers into the Rex sidebar
-After=rex-server.service
-
-[Service]
-Type=oneshot
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/.local/bin/mux/rex/rex-fleet-sync

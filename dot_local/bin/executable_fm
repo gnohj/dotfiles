@@ -145,7 +145,7 @@ if [ "$harness" = claude ]; then
   fm_effort=medium
 fi
 
-# Rex labels the primary's window the way rex-fleet-sync labels a second mate's: 🚢 fm · sonnet5.5 med.
+# Rex labels the primary's window with the second mates' 🚢 glyph: 🚢 fm · sonnet5.5 med.
 rex_label_window() {
   local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" shown win
   shown="$("$HOME/.local/bin/agent-label" "$fm_model" "$fm_effort")"
