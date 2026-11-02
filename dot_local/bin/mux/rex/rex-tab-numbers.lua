@@ -63,14 +63,14 @@ local function renumber(sid)
   local changed = false
   for i, w in ipairs(windows) do
     local follows = live[w.window_id] == w.label or w.label:match(DEFAULT) ~= nil
+    local base = follows and live_title(sid, w.focused_block_id):lower() or strip(w.label)
     local want
     if #windows == 1 then
-      want = follows and "" or strip(w.label)
+      want = truncate(base)
     else
-      local base = follows and live_title(sid, w.focused_block_id) or strip(w.label)
       want = truncate(base == "" and tostring(i) or (i .. ". " .. base))
     end
-    local record = (follows and #windows > 1) and want or nil
+    local record = (follows and want ~= "") and want or nil
     if live[w.window_id] ~= record then
       live[w.window_id] = record
       changed = true
