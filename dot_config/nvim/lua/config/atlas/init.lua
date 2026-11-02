@@ -1117,7 +1117,7 @@ function M.opts()
       repo_config = { paths = review_paths },
       github = {
         views = {
-          { name = "My PRs", search = "is:open author:@me" },
+          { name = "My PRs", search = "is:open author:@me", layout = "grouped" },
           {
             name = "Needs Review",
             search = "is:open review-requested:@me",
