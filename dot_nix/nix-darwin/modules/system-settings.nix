@@ -160,7 +160,7 @@ in
       "Workspace.inactivePaneFadeMode" = "both";
       "Workspace.showsActivePaneBorder" = true;
       "Workspace.usesStandardInactiveWindowPaneStyles" = true;
-      "Workspace.tintsPanesWithProgramBackground" = true;
+      "Workspace.tintsPanesWithProgramBackground" = false;
       "Workspace.paneDensity" = "compact";
       "Workspace.showsPaneHeaders" = true;
       "Workspace.showsKeySequenceHints" = true;
