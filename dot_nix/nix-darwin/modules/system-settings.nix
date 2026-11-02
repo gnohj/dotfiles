@@ -181,6 +181,8 @@ in
       "Workspace.terminalFontSmoothing" = false;
       "Workspace.terminalSmoothScrolling" = true;
       "Workspace.terminalCellHeightPercent" = 0.0;
+      "Workspace.terminalPaddingY" = 10.0;
+      "Workspace.terminalPaddingColor" = "extend";
       "Workspace.terminalCopyOnSelect" = true;
       "Workspace.terminalImproveTextContrast" = true;
       "Workspace.terminalSelectionForeground" = "theme";
