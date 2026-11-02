@@ -315,7 +315,12 @@ def on_tick(now):
     key, wid, deadline = pending
     pending = None
     claimed = None
-    if current_focus != wid and seconds_since_input() > now - (deadline - SETTLE):
+    if seconds_since_input() <= now - (deadline - SETTLE):
+        return
+    # Rift can snap back to the old workspace while the web app keeps focus on its hidden one.
+    if current_focus == wid:
+        follow_new_window(wid)
+    else:
         reclaim(key, wid, now)
 
 
@@ -337,6 +342,8 @@ def on_focused_window_changed(event, now):
     elif claimed is None and ".app." in app_bundles().get(wid[0], "") and follow_new_window(wid):
         # A relaunched web app activates its window on a hidden workspace, then bounces back like a new one.
         claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, last_focused)
+    elif claimed is not None and wid == claimed[0]:
+        pending = (key, wid, now + SETTLE)
     elif claimed is not None and wid != claimed[0] and seconds_since_input() < INPUT_WINDOW:
         pending = None
         claimed = None
