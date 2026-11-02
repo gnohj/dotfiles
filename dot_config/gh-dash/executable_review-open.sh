@@ -332,7 +332,7 @@ open_finder_pi() {
     "$GH_KEYRING"'"$HOME/.config/gh-dash/review-finder-pi.sh" gpt'"$(seal_on_exit gpt)"
 }
 
-# "pi|openai-codex|gpt-6.1-sol" -> "sol6.1 xhi"; a harness-only rung like "codex|-|-" keeps the harness name.
+# "pi|openai-codex|gpt-6.1-sol" -> "sol6.1/xhi"; a harness-only rung like "codex|-|-" keeps the harness name.
 finder_label() {
   local rung="$1" model="${1##*|}"
   case "$model" in '' | '-') model="${rung%%|*}" ;; esac

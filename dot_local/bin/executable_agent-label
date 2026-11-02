@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agent-label <model> [effort] - the short form tab labels show: claude-sonnet-5-5 medium -> sonnet5.5 med.
+# agent-label <model> [effort] - the short form tab labels show: claude-sonnet-5-5 medium -> sonnet5.5/med.
 set -euo pipefail
 
 rest="${1:-}"
@@ -23,5 +23,5 @@ off | none | default) effort="" ;;
 *) effort="${2:-}" ;;
 esac
 shown="$name$ver"
-[ -z "$effort" ] || shown="${shown:+$shown }$effort"
+[ -z "$effort" ] || shown="${shown:+$shown/}$effort"
 printf '%s\n' "$shown"
