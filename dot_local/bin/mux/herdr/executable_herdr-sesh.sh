@@ -363,8 +363,7 @@ ROW_W = HOST_W + ICON_W + NAME_W + 24
 divider_at = next((i for i, en in enumerate(ordered) if not en[5]), -1) if ordered and ordered[0][5] else -1
 for n, (kind, icon, label, path0, target, active, ent, shown, host) in enumerate(ordered):
     if n == divider_at:
-        rule = "── not open "
-        rows.append(TAB + dim + rule + "─" * max(ROW_W - dwidth(rule), 0) + RESET + TAB + TAB + "sep:")
+        rows.append(TAB + dim + "─" * ROW_W + RESET + TAB + TAB + "sep:")
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     # Name lookup first, so twins show their own chip instead of whichever the shared path last wrote.
