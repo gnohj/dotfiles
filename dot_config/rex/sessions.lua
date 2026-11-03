@@ -88,6 +88,18 @@ function M.setup()
     end,
   }
 
+  -- herdr-next-priority-agent.sh across hosts: rex-attention.lua scans the Mac and every `rex hosts` entry.
+  rex.action{
+    name = "next_attention",
+    title = "Next Agent Needing Attention",
+    category = "Sessions",
+    run = function(ctx, args)
+      M.leave_session(ctx)
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false do "$HOME/.local/bin/mux/rex/rex-attention.lua" host="$0" block="$1"',
+                                        type(ctx.server) == "string" and ctx.server or "", ctx.block_id or "" }, { detach = true, env = c.REX_ENV })))
+    end,
+  }
+
   -- Called by rex-herdr before the picker deletes the session it runs in; the CLI names no host, so the ref is found by id.
   rex.action{
     name = "return_from_session",
