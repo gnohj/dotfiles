@@ -728,6 +728,13 @@ while true; do
   [ -z "$HEADER" ] || HEADER_ARGS=(--header-border --header "$HEADER")
   START_POS=1
   [ "$CACHED" = 1 ] || [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
+  # Cached rows have no focus file yet, so locate the current session's row up front.
+  HERE_ID="${HERDR_WORKSPACE_ID:-}"
+  [ -n "$HERE_ID" ] || { HERE_ID="${REX_SESSION:-}"; HERE_ID="${HERE_ID#session:}"; }
+  if [ "$CACHED" = 1 ] && [ -n "$HERE_ID" ]; then
+    START_POS=$(awk -F'\t' -v a="ws:$HERE_ID" -v b="~$HERE_ID" '$NF == a || substr($NF, length($NF) - length(b) + 1) == b {print NR; exit}' "$ROWS_FILE")
+    START_POS="${START_POS:-1}"
+  fi
   # A second start: bind replaces the first; the refresh hangs off load since --sync holds the first paint for start actions.
   START_ACTION="pos($START_POS)"
   LOAD_ACTION="ignore"
