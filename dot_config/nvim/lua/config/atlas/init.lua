@@ -1109,7 +1109,7 @@ function M.opts()
         },
         project_config = {
           story_points_field = "customfield_10022",
-          IHRWEB = jira_project_config(),
+          IHRWEB = { fields = jira_project_config() },
         },
       },
     },
