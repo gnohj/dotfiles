@@ -13,8 +13,9 @@
 #   claude     A        Claude /review
 #   fan        F        sealed Opus/gpt finders + Lavish merge owner
 #   resolve    -        agent runs /resolve-pr-comments on your own PR (the Library's flag button)
+#   fixci      -        agent fixes the failing CI checks on your own PR (the Library's wrench button)
 #
-# REVIEW_HARNESS=pi runs full/resume/resolve on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
+# REVIEW_HARNESS=pi runs full/resume/resolve/fixci on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
 #
 # Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
 # That detachment is the whole point: the first `mux window` call runs
@@ -97,7 +98,7 @@ REVIEW_PI_MODEL=${REVIEW_PI_MODEL:-github-copilot/gpt-6.1-sol} REVIEW_PI_THINKIN
 case "$harness" in
   claude) ;;
   pi)
-    case "$mode" in full | resume | resolve) ;; *) echo "review-open: the pi harness runs full reviews and resolves only, not $mode" >&2; exit 2 ;; esac
+    case "$mode" in full | resume | resolve | fixci) ;; *) echo "review-open: the pi harness runs full reviews, resolves and CI fixes only, not $mode" >&2; exit 2 ;; esac
     [[ "$REVIEW_PI_MODEL" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._:-]+$ ]] || { echo "review-open: invalid REVIEW_PI_MODEL" >&2; exit 2; }
     case "$REVIEW_PI_THINKING" in off | minimal | low | medium | high | xhigh) ;; *) echo "review-open: invalid REVIEW_PI_THINKING" >&2; exit 2 ;; esac
     ;;
@@ -189,7 +190,7 @@ require_claude() {
 
 CLAUDE_ACCOUNT_ENV=()
 case "$harness:$mode" in
-  claude:full | claude:resume | claude:diff | claude:claude | claude:fan | claude:resolve)
+  claude:full | claude:resume | claude:diff | claude:claude | claude:fan | claude:resolve | claude:fixci)
     resolve_review_claude_account
     CLAUDE_ACCOUNT_ENV=(--env CLAUDE_ACCOUNT="$REVIEW_CLAUDE_ACCOUNT")
     echo "review-open: Claude account $REVIEW_CLAUDE_ACCOUNT ($REVIEW_CLAUDE_ACCOUNT_REASON)"
@@ -356,6 +357,18 @@ open_resolver() {
   fi
 }
 
+open_ci_fixer() {
+  local brief="$stamp_dir/${repo//\//_}-$pr-fixci.txt"
+  printf 'CI is failing on PR #%s in %s. Pressing the wrench in the Lavish Library is the go-ahead to fix it.\nFind every failing check with: gh pr checks %s --repo %s, then read the failed logs with: gh run view <run-id> --repo %s --log-failed\nFor each failure decide whether the PR caused it. If it did, reproduce it locally with the same command CI ran, fix the code, and rerun that command until it passes. If it is flaky or infrastructure unrelated to the diff, rerun only the failed jobs with: gh run rerun <run-id> --repo %s --failed\nThis worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nRun the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too. Do not post comments on the PR. After pushing, watch the new run with: gh pr checks %s --repo %s --watch, and repeat until every check passes or you have a failure you cannot fix, which you then explain here.\n' "$pr" "$repo" "$pr" "$repo" "$repo" "$repo" "$2" "$pr" "$repo" >"$brief"
+  if [ "$harness" = pi ]; then
+    mux "🔧 #$pr$ticket_tag" "$1" \
+      "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'
+  else
+    mux "${CLAUDE_ACCOUNT_ENV[@]}" "🔧 #$pr$ticket_tag" "$1" \
+      "$GH_KEYRING$AGENT_FLAGS_WIN"'eval "$($HOME/.local/bin/claude-account env)"; "$HOME/.local/bin/claude" --dangerously-skip-permissions '"$REVIEW_SETTINGS"' --model '"$REVIEW_CLAUDE_MODEL"' --effort '"$REVIEW_CLAUDE_EFFORT"' "$(cat '"$brief"')"'
+  fi
+}
+
 background_review() {
   local desktop_open=1 cdp=""
   # Queued reviews still route through tailnet so the url stays https; they just never open it.
@@ -459,6 +472,15 @@ case "$mode" in
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
     open_resolver "$WT" "$HEAD"
+    ;;
+  fixci)
+    window_opts=(--no-focus)
+    WT="$("$wt_script" acquire "$pr")"
+    HEAD="$(head_ref)"
+    git -C "$WT" fetch origin "$HEAD" 2>/dev/null
+    git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
+    install_deps "$WT"
+    open_ci_fixer "$WT" "$HEAD"
     ;;
   *)
     echo "review-open: unknown mode: $mode" >&2
