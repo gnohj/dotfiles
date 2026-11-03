@@ -1,6 +1,5 @@
 -- Rex state shaped like `herdr api snapshot` for herdr-sesh.sh, ids nested as <session>:<window|block>; other `rex hosts` lead theirs with <host>~.
 local TERM = "com.superlogical.terminal"
-local AGENTS = { claude = true, pi = true, codex = true, hermes = true, droid = true }
 
 local function bare(id) return (id or ""):gsub("^%a+:", "") end
 
@@ -14,16 +13,8 @@ local function each_block(layout, out)
   return out
 end
 
-local function status(api, session_id, block_id)
-  local ps = api.block.call(TERM, "program_status", { session_id = session_id, block_id = block_id })
-  for _, r in ipairs((ps and ps.records) or {}) do
-    if r.id == nil or r.id == "" then return r.state end
-  end
-  return nil
-end
-
 local here = os.getenv("REX_SESSION")
-local snap = { workspaces = {}, tabs = {}, panes = {}, agents = {} }
+local snap = { workspaces = {}, tabs = {}, panes = {} }
 
 local function collect(api, host)
   local list = api.call("session.list")
@@ -42,19 +33,11 @@ local function collect(api, host)
             local ids = { session_id = s.session_id, block_id = bid }
             local proc = api.block.call(TERM, "process", ids) or {}
             local fg = proc.foreground or proc.child or {}
-            local name = ((fg.name or ""):gsub("%.exe$", ""))
             local pid = sid .. ":" .. bare(bid)
             table.insert(snap.panes, {
               pane_id = pid, workspace_id = sid, tab_id = tid, cwd = fg.cwd, foreground_cwd = fg.cwd,
               focused = s.session_id == here and w.window_id == view.active_window_id and i == 1,
             })
-            if AGENTS[name] then
-              local title = api.block.call(TERM, "title", ids) or {}
-              table.insert(snap.agents, {
-                pane_id = pid, tab_id = tid, agent = name, cwd = fg.cwd,
-                agent_status = status(api, s.session_id, bid) or "idle", title = title.title,
-              })
-            end
           end
         end
       end

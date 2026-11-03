@@ -4,13 +4,11 @@
 # command (zoom overlay like ctrl+g/prefix+y) → server-side, so it works local AND
 # over --remote.
 #
-# Agents hang under their workspace as "state · activity · harness", claude/<account> when the harness is claude.
-#
 # The cursor starts on the row you are currently in (see focus_row), not on row 1.
 #
 #   enter   → focus an open workspace, else open the dir with the sesh dev layout
 #             (herdr-sesh-layout.sh: pen nvim + fish shells; attaches if already open)
-#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡), one agent's pane, or a zoxide dir (📁). 🔧 config is left alone (it lives in sesh.toml); the list reloads in place.
+#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡) or a zoxide dir (📁). 🔧 config is left alone (it lives in sesh.toml); the list reloads in place.
 #   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare-layout container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in herdr, ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
 #   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
 #   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
@@ -62,9 +60,6 @@ build_list() {
   wait
   SRC="$src" \
   FG="${gnohj_color02:-}" DIM="${gnohj_color09:-}" ACCENT="${gnohj_color04:-}" \
-  WORKING="${gnohj_color04:-}" BLOCKED="${gnohj_color11:-}" \
-  DONE="${gnohj_color11:-}" IDLING="${gnohj_color05:-}" \
-  WORKACCT="${gnohj_color04:-}" PERSONALACCT="${gnohj_color01:-}" \
   WARM_NEEDED_FILE="$src/warm" HOME="$HOME" python3 -c '
 import os, json, re
 from functools import lru_cache
@@ -172,97 +167,6 @@ for pn in snapshot.get("panes", []):
     if w and c and w not in wscwd: wscwd[w] = c
     if pn.get("focused"):
         focus = (pn.get("pane_id") or "", pn.get("tab_id") or "", w or "")
-
-# All width N/Na so columns hold; working is steady (fzf is static, a spinner would sit frozen) and blocked is ! since ❯ is the column separator.
-AGENT_GLYPH = {"working": "➤", "blocked": "!", "done": "✔", "idle": "✓"}
-# The four herdr state colours ([theme.custom] green/yellow/red/teal, mirrored by the $si_* sidebar slots) - keep in sync or the picker and sidebar disagree.
-AGENT_COLOR = {
-    "working": tc(os.environ.get("WORKING")), "blocked": tc(os.environ.get("BLOCKED")),
-    "done":    tc(os.environ.get("DONE")),    "idle":    tc(os.environ.get("IDLING")),
-}
-work_col, personal_col = tc(os.environ.get("WORKACCT")), tc(os.environ.get("PERSONALACCT"))
-agents_by_tab = {}
-for ag in snapshot.get("agents", []):
-    t = ag.get("tab_id")
-    if t: agents_by_tab.setdefault(t, []).append(ag)
-for lst in agents_by_tab.values():
-    lst.sort(key=lambda a: a.get("pane_id") or "")
-
-# Only tabs that actually hold an agent - a plain shell tab would just pad the picker.
-tabs_by_ws = {}
-for tb in snapshot.get("tabs", []):
-    if agents_by_tab.get(tb.get("tab_id")):
-        tabs_by_ws.setdefault(tb.get("workspace_id"), []).append(tb)
-for lst in tabs_by_ws.values():
-    lst.sort(key=lambda t: (t.get("number") or 0, t.get("tab_id") or ""))
-
-# Connectors live INSIDE the name column so the ❯ separator holds its screen column at any depth.
-def tree_row(prefix, text, tcol, right, rcol, target, name=None, tail="", tailcol="", path=""):
-    lab = dclip(prefix + text, NAME_W)
-    nm = "%s%s%s%s%s%s" % (dim, prefix, tcol, lab[len(prefix):], RESET,
-                           " " * max(NAME_W - dwidth(lab), 0))
-    # `tail` rides inside the state cell rather than claiming a column of its own.
-    r = dclip(right, PATH_W)
-    t = dclip(tail, max(PATH_W - dwidth(r) - 3, 0)) if (tail and r) else ""
-    cell = "%s%s%s" % (rcol, r, RESET)
-    if t: cell += "%s · %s%s%s" % (dim, tailcol or dim, t, RESET)
-    cell += " " * max(PATH_W - dwidth(r) - (dwidth(t) + 3 if t else 0), 0)
-    body = "%s %s  %s  %s" % (" " * (HOST_W + ICON_W), nm, sep, cell)
-    return (name or text) + TAB + body + TAB + path + TAB + target
-
-# Account = which config root owns the session.
-CLAUDE_ROOTS = [(os.path.join(home, ".claude-work"), "work"), (os.path.join(home, ".claude"), "personal")]
-
-def claude_account(sess, cwd):
-    kind, val = sess.get("kind"), sess.get("value") or ""
-    if not val: return ""
-    if kind == "path":
-        return next((a for root, a in CLAUDE_ROOTS if val.startswith(root + os.sep)), "")
-    if kind != "id": return ""
-    slug = cwd.replace("/", "-").replace(".", "-").replace("_", "-")   # the projects/ dir name claude derives from a cwd
-    for root, acct in CLAUDE_ROOTS:
-        if os.path.exists(os.path.join(root, "projects", slug, val + ".jsonl")): return acct
-    import glob   # only reached when the session has since changed directory
-    for root, acct in CLAUDE_ROOTS:
-        # escape: an id carrying a glob metachar would otherwise match a stranger session and mislabel the row.
-        if glob.glob(os.path.join(root, "projects", "*", glob.escape(val) + ".jsonl")): return acct
-    return ""
-
-# Colored blue (work) / purple (personal), the account convention.
-def agent_identity(ag):
-    harness = (ag.get("agent") or "").strip()
-    if harness != "claude": return harness, dim
-    acct = claude_account(ag.get("agent_session") or {}, (ag.get("cwd") or ag.get("foreground_cwd") or "").rstrip("/"))
-    if not acct: return harness, dim
-    return "%s/%s" % (harness, acct), (work_col if acct == "work" else personal_col)
-
-def agent_rows(wid, pad=0):
-    out = []
-    # Clears the parent'"'"'s alias chip so the tree hangs off its name, not the chip.
-    sp = " " * pad
-    # Children inherit the workspace cwd, so a git action fires on the same repo from any row of the tree.
-    wpath = "" if "~" in wid else (wscwd.get(wid) or "").rstrip("/")
-    tabs = tabs_by_ws.get(wid, [])
-    for ti, tb in enumerate(tabs):
-        tlast = ti == len(tabs) - 1
-        kids = agents_by_tab.get(tb.get("tab_id"), [])
-        label = (tb.get("label") or ("t%s" % (tb.get("number") or "?"))).strip()
-        out.append(tree_row(sp + "%s " % ("└─" if tlast else "├─"), label, fg, "", dim,
-                            "tab:" + (tb.get("tab_id") or ""), path=wpath))
-        stem = sp + ("   " if tlast else "│  ")
-        for ai, ag in enumerate(kids):
-            st = ag.get("agent_status") or "unknown"
-            col = AGENT_COLOR.get(st) or dim
-            title = (ag.get("title") or ag.get("terminal_title_stripped") or ag.get("pane_id") or "?").strip()
-            act = ((ag.get("tokens") or {}).get("act") or "").strip()
-            state = ("%s · %s" % (st, act)) if act else st
-            branch = "└─" if ai == len(kids) - 1 else "├─"
-            ident, icol = agent_identity(ag)
-            out.append(tree_row("%s%s " % (stem, branch),
-                                "%s %s" % (AGENT_GLYPH.get(st, "✧"), title), col,
-                                state, col, "agent:" + (ag.get("pane_id") or ""), name=title,
-                                tail=ident, tailcol=icol, path=wpath))
-    return out
 
 def split_label(s):  # "🌿 chezmoi" -> ("🌿", "chezmoi"); "chezmoi" -> ("", "chezmoi")
     i = 0
@@ -454,7 +358,13 @@ if os.environ.get("SESH_GIT_ONLY") == "1":
             with open(cpath, "w") as fh: fh.write("" if dirty else str(len(ordered)))
         except Exception: pass
 
-for kind, icon, label, path0, target, active, ent, shown, host in ordered:
+# A divider row between open sessions and the rest; its empty match field keeps it out of every query.
+ROW_W = HOST_W + ICON_W + NAME_W + 24
+divider_at = next((i for i, en in enumerate(ordered) if not en[5]), 0) if ordered and ordered[0][5] else -1
+for n, (kind, icon, label, path0, target, active, ent, shown, host) in enumerate(ordered):
+    if n == divider_at:
+        rule = "── not open "
+        rows.append(TAB + dim + rule + "─" * max(ROW_W - dwidth(rule), 0) + RESET + TAB + TAB + "sep:")
     scol, sw = sym.get(path0, ("", 0, False))[:2]
     deco, name = split_label(label)
     # Name lookup first, so twins show their own chip instead of whichever the shared path last wrote.
@@ -474,21 +384,18 @@ for kind, icon, label, path0, target, active, ent, shown, host in ordered:
     # Field 1 (plain name) is what --view matches against, so queries never hit the path column. Field 3 is the raw path ctrl-f/ctrl-p act on; the target stays LAST so fzf {-1} and the awk $NF still find it.
     # The alias rides in field 1 too, so typing it narrows THIS row rather than surfacing a second one.
     rows.append((name + " " + al if al else name) + TAB + ("%s%s %s  %s  %s" % (host_cell(host), ic, nm, sep, pth)) + TAB + path0 + TAB + target)
-    if kind == "ws":
-        rows.extend(agent_rows(target[3:], cw))
 
 # Guarded: joining an empty list still prints a newline, which fzf counts as one blank row.
 if rows:
     print("\n".join(rows))
 
-# Cursor row: focused pane'"'"'s agent row, else its tab, else its workspace - a popup overlays a pane, so the walk above still sees it (as in herdr-scrollback.sh); HERDR_* env is the fallback.
+# Cursor row: the focused workspace - a popup overlays a pane, so the walk above still sees it; HERDR_WORKSPACE_ID is the fallback.
 fpath = os.environ.get("FOCUS_FILE")
 if fpath:
-    pane, tab, ws = (a or os.environ.get(b, "") for a, b in
-                     zip(focus, ("HERDR_PANE_ID", "HERDR_TAB_ID", "HERDR_WORKSPACE_ID")))
+    ws = focus[2] or os.environ.get("HERDR_WORKSPACE_ID", "")
     at = {}
     for n, r in enumerate(rows, 1): at.setdefault(r.rsplit(TAB, 1)[-1], n)
-    want = [k + ":" + v for k, v in (("agent", pane), ("tab", tab), ("ws", ws)) if v]
+    want = ["ws:" + ws] if ws else []
     with open(fpath, "w") as fh:
         fh.write("%d\n" % next((at[t] for t in want if t in at), 1))
 '
@@ -914,6 +821,7 @@ while true; do
       ;;
     cfg:*)         exec "${LAYOUT[@]}" --entry "${TARGET#cfg:}" ;;
     zox:*)         exec "${LAYOUT[@]}" "${TARGET#zox:}" ;;
+    sep:*)         continue ;;
     *)             exit 0 ;;
   esac
 done
