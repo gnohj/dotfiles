@@ -45,7 +45,7 @@ local function go_to_session(ctx, target)
     return
   end
   c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
-                                  { detach = true })))
+                                  { detach = true, env = c.REX_ENV })))
 end
 
 -- Closing a session returns to the one last left, on either host, instead of the neighbour Rex picks; the closed one leaves the history.
@@ -83,8 +83,8 @@ function M.setup()
     category = "Sessions",
     run = function(ctx, args)
       M.leave_session(ctx)
-      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec rex --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1"',
-                                        ctx.client_id or "", ctx.session_id or "" }, { detach = true })))
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1"',
+                                        ctx.client_id or "", ctx.session_id or "" }, { detach = true, env = c.REX_ENV })))
     end,
   }
 
