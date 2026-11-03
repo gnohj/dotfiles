@@ -360,7 +360,7 @@ if os.environ.get("SESH_GIT_ONLY") == "1":
 
 # A divider row between open sessions and the rest; its empty match field keeps it out of every query.
 ROW_W = HOST_W + ICON_W + NAME_W + 24
-divider_at = next((i for i, en in enumerate(ordered) if not en[5]), 0) if ordered and ordered[0][5] else -1
+divider_at = next((i for i, en in enumerate(ordered) if not en[5]), -1) if ordered and ordered[0][5] else -1
 for n, (kind, icon, label, path0, target, active, ent, shown, host) in enumerate(ordered):
     if n == divider_at:
         rule = "── not open "
