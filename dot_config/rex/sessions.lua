@@ -45,7 +45,7 @@ local function go_to_session(ctx, target)
     return
   end
   c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
-                                  { detach = true, env = { REX_BIN_DIR = c.REX_BIN } })))
+                                  { detach = true })))
 end
 
 -- Closing a session returns to the one last left, on either host, instead of the neighbour Rex picks; the closed one leaves the history.
@@ -76,19 +76,15 @@ function M.setup()
     end,
   }
 
-  -- herdr hack-herdr-last-workspace.sh.
+  -- herdr hack-herdr-last-workspace.sh; Rex sends no event for a mouse switch, so rex-last-session.lua ranks sessions by when the app last showed them.
   rex.action{
     name = "last_session",
     title = "Last Session Toggle",
     category = "Sessions",
     run = function(ctx, args)
-      local target = previous_session(session_ref(ctx), ctx.server == nil)
       M.leave_session(ctx)
-      if target == nil then
-        rex.client.queue("session.previous")
-      else
-        go_to_session(ctx, target)
-      end
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec rex --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1"',
+                                        ctx.client_id or "", ctx.session_id or "" }, { detach = true })))
     end,
   }
 

@@ -102,7 +102,7 @@ local function entry_action(e, dir, action)
       end
       -- Lua here only reaches the focused session's server, so a pinned entry or a press from another host goes through rex-herdr.
       c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" layout --entry "$0"', e.name },
-                                      { detach = true, env = { REX_BIN_DIR = c.REX_BIN } })))
+                                      { detach = true })))
     end,
   }
 end
