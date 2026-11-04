@@ -12,7 +12,7 @@ list() {
   local floats layer state block name cwd title tilde="~" mark
   floats=$("$rex" api call session.view "{\"session_id\":\"$REX_SESSION\"}" | jq -r --arg w "$1" '
     .windows[] | select(.window_id == $w) | .layers[]
-    | select(.kind != "tiled" and .blocks[0].label != "popup")
+    | select(.kind != "tiled" and (.blocks[0].label | IN("popup", "lazygit", "sesh") | not))
     | [.layer_id, (.state // "normal"), .blocks[0].block_id] | @tsv')
   while IFS=$'\t' read -r layer state block; do
     [ -n "$layer" ] || continue

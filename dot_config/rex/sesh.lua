@@ -141,7 +141,7 @@ function M.setup()
     category = "Sesh",
     run = function(ctx, args)
       sessions.leave_session(ctx)
-      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' }, nil, true)
+      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' }, { self_sized = true, label = "sesh" })
     end,
   }
 

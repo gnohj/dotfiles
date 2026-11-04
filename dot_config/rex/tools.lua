@@ -55,7 +55,7 @@ function M.setup()
     title = "Lazygit (floating)",
     category = "Tools",
     run = function(ctx, args)
-      c.popup(ctx, 0.05, 0.05, { "lazygit" }, c.block_cwd(ctx.block_id))
+      c.popup(ctx, 0.05, 0.05, { "lazygit" }, { cwd = c.block_cwd(ctx.block_id), label = "lazygit" })
     end,
   }
 

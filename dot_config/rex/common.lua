@@ -107,13 +107,14 @@ end
 
 -- Toggle popup in one floating layer that Rex frames and closes on exit; bounds are {x,y,w,h}.
 M.POPUP_LABEL = "popup"
+M.POPUP_LABELS = { [M.POPUP_LABEL] = true, lazygit = true, sesh = true }
 -- A new layer is 80x24 until Rex sizes it; wait, or the first frame is drawn too narrow.
 local RUN_SIZED = [["$HOME/.local/bin/mux/rex/rex-wait-size"; exec "$@"]]
 
 -- Only popups toggle closed; a pane floated with pane.float is left alone.
 function M.is_popup(layer)
   local b = layer.kind ~= "tiled" and layer.blocks and layer.blocks[1]
-  return b and b.label == M.POPUP_LABEL
+  return b and M.POPUP_LABELS[b.label] == true
 end
 
 local function close_popups(view)
@@ -137,7 +138,8 @@ local function sized(command)
   return argv
 end
 
-function M.popup(ctx, side, top, command, cwd, self_sized)
+function M.popup(ctx, side, top, command, opts)
+  opts = opts or {}
   local view = M.windows()
   if close_popups(view) then return end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
@@ -145,7 +147,7 @@ function M.popup(ctx, side, top, command, cwd, self_sized)
   M.fail(select(2, rex.session.new_layer{
     bounds = { left, top, 1 - 2 * side, 1 - 2 * top },
     focus = true,
-    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = self_sized and command or sized(command), cwd = cwd } },
+    layout = rex.layout.block{ flavor = M.SHELL, label = opts.label or M.POPUP_LABEL, options = { command = opts.self_sized and command or sized(command), cwd = opts.cwd } },
   }))
 end
 
