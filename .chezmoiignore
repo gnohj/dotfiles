@@ -103,6 +103,9 @@ Library/
 .local/bin/macos-upgrade-check
 .local/bin/media-control-bridge
 .local/bin/msteams-open
+.local/bin/open-pr
+.local/bin/open-jira
+.local/bin/focus-work-browser
 .local/bin/pwa-icons
 # pbcopy shim wraps the real /usr/bin/pbcopy, which only macOS has.
 .local/bin/pbcopy

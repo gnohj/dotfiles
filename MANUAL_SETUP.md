@@ -491,6 +491,15 @@ git config --global core.excludesfile
 - Set Settings → General → pop to root to the shortest option so `⌘ + Space` always opens the search prompt
 - Bind `⌘ + .` in Tinycast itself, not skhd: a skhd keystroke replay lands on AI chat from a fresh palette
 
+**Open a PR or Jira ticket by number** (custom commands live in Tinycast's own store, not in a file chezmoi can manage):
+
+- Custom command **PR #** (alias `pr`): command `~/.local/bin/open-pr "$1"`, one argument named `PR #`.
+  It opens the iheartradio PR from web or inferno-monorepo: the repo that has that number, else the open one, else the most recently updated.
+  Prefix `web` or `inferno` (`web1698`) to force a repo.
+- Custom command **JIRA #** (alias `jira`): command `~/.local/bin/open-jira "$1"`, one argument named `JIRA #`.
+  A bare number becomes `IHRWEB-<n>`; a full key opens as typed.
+- An exact alias match ranks first, and both commands focus the Helium Work window the link lands in (`focus-work-browser`).
+
 ---
 
 ### Configure Homerow

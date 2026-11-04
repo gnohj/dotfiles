@@ -1,0 +1,29 @@
+#!/bin/zsh -f
+# Open an iheartradio PR by number (web or inferno: the repo that has it, else the open one, else the newest) and focus it.
+emulate -L zsh
+setopt pipefail
+path=(/run/current-system/sw/bin /opt/homebrew/bin /usr/local/bin $path)
+
+repos=(iheartradio/web iheartradio/inferno-monorepo)
+input=${1//[[:space:]#]/}
+
+fail() { osascript -e "display notification \"$1\" with title \"open-pr\"" 2>/dev/null; print -u2 "open-pr: $1"; exit 1; }
+
+case $input in
+  web[0-9]*) repos=(iheartradio/web); input=${input#web} ;;
+  inferno[0-9]*) repos=(iheartradio/inferno-monorepo); input=${input#inferno} ;;
+esac
+[[ $input == <-> ]] || fail "not a PR number"
+
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf $tmp' EXIT
+for repo in $repos; do
+  { env -u GH_TOKEN gh api "repos/$repo/pulls/$input" --jq '[(if .state == "open" then 1 else 0 end), .updated_at, .html_url] | @tsv' >"$tmp/${repo:t}" || rm -f "$tmp/${repo:t}" } 2>/dev/null &
+done
+wait
+
+found=($tmp/*(N))
+(( $#found )) && url=$(sort -r $found | head -1 | cut -f3)
+[[ -n ${url:-} ]] || fail "PR $input not found in ${(j:, :)${(@)repos##*/}}"
+open "$url"
+~/.local/bin/focus-work-browser "#$input"

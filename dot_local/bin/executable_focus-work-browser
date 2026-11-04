@@ -1,0 +1,24 @@
+#!/bin/zsh -f
+# Focus the Helium Work window showing [match] (any Work window once it does not appear), switching Rift to its workspace.
+emulate -L zsh
+path=(/run/current-system/sw/bin /opt/homebrew/bin /usr/local/bin $path)
+
+match=${1:-}
+query='[.[] as $ws | $ws.windows[] | select(.bundle_id == "net.imput.helium" and (.title | endswith(" - Work"))) | {id, ws: $ws.index, title}]'
+
+window=""
+for i in {1..30}; do
+  windows=$(rift-cli query workspaces 2>/dev/null | jq -c "$query") || windows='[]'
+  window=$(jq -c --arg m "$match" 'map(select($m != "" and (.title | contains($m)))) | first // empty' <<<"$windows")
+  [[ -z $window && $i -ge 10 ]] && window=$(jq -c 'first // empty' <<<"$windows")
+  [[ -n $window ]] && break
+  sleep 0.1
+done
+
+if [[ -z $window ]]; then
+  osascript -e 'tell application id "net.imput.helium" to activate' >/dev/null 2>&1
+  exit 0
+fi
+rift-cli execute workspace switch "$(jq -r .ws <<<"$window")" >/dev/null 2>&1
+rift-cli execute window focus --window-id "$(jq -c .id <<<"$window")" >/dev/null 2>&1 ||
+  osascript -e 'tell application id "net.imput.helium" to activate' >/dev/null 2>&1
