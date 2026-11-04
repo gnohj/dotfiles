@@ -7,9 +7,10 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from urllib.parse import parse_qs, quote, urlencode, urlsplit
+from urllib.parse import quote
 
-ACT = "https://fm-todo.invalid"
+from fm_todo_action import ACT, act, parse
+
 LIBRARY = os.path.expanduser("~/.local/state/lavish-library")
 PORT = os.environ.get("LAVISH_LIBRARY_PORT", "4390")
 
@@ -32,10 +33,6 @@ def library(method, route, body=None, headers=None):
         raise SystemExit(message or f"Library answered {error.code} for {route}")
     except urllib.error.URLError as error:
         raise SystemExit(f"Lavish Library is not reachable on port {PORT}: {error.reason}")
-
-
-def act(path, **query):
-    return f"{ACT}/{path}?{urlencode(query, quote_via=quote)}"
 
 
 def menu(path, q):
@@ -120,16 +117,15 @@ def main(argv):
         raise SystemExit("usage: fm-todo-open [--menu] URL")
     if not url.startswith(ACT + "/"):
         return open_url(url)
-    parts = urlsplit(url)
-    query = {k: v[0] for k, v in parse_qs(parts.query, keep_blank_values=True).items()}
-    path = parts.path.strip("/")
-    if as_menu:
-        return menu(path, query)
     try:
-        run(path, query)
+        path, query = parse(url)
+        return menu(path, query) if as_menu else run(path, query)
     except SystemExit as error:
         notify(str(error))
         raise
+    except Exception as error:
+        notify(f"{type(error).__name__}: {error}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

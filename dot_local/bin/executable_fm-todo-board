@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 import os
 import re
 import sys
-from urllib.parse import quote, urlencode
+
+from fm_todo_action import act
 
 LIBRARY = os.path.expanduser(os.environ.get("FM_TODO_LIBRARY", "~/.local/state/lavish-library"))
-ACT = "https://fm-todo.invalid"
 JIRA = "https://jira.example.com/browse/"
 TICKET = r"[A-Z][A-Z]+-[0-9][0-9]+"
 JIRA_KEY = r"IHR[A-Z]*-[0-9]+"
@@ -27,10 +27,6 @@ def load(name, default):
             return json.load(f)
     except (OSError, ValueError):
         return default
-
-
-def act(path, **query):
-    return f"{ACT}/{path}?{urlencode(query, quote_via=quote)}"
 
 
 def chat(title, ref=""):
@@ -159,7 +155,7 @@ class Board:
             name = f"{task['tab']}. {task['slug']}" if task.get("tab") else task["slug"]
         else:
             label = (lead + " " + REF.sub("", head)).strip(" /()-·")
-            name = label or (self.jira.get(key) or {}).get("summary") or key or head
+            name = label or defuse((self.jira.get(key) or {}).get("summary") or "") or key or head
         refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
         right = " ".join(x for x in (chat(name, refs), action) if x)
         if task.get("me"):
