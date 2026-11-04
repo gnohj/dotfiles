@@ -580,6 +580,91 @@ local function get_unstaged_changes(dashboard)
   }
 end
 
+local DASHBOARD_WIDTH = 60
+
+local function header_width(header)
+  if type(header.text) == "string" then
+    return vim.fn.strdisplaywidth(header.text)
+  end
+  local line = {}
+  for _, chunk in ipairs(header.text) do
+    if chunk[1] == "\n" then
+      break
+    end
+    table.insert(line, chunk[1])
+  end
+  return vim.fn.strdisplaywidth(table.concat(line))
+end
+
+local function dashboard_tiers(header, changes)
+  local function keys(gap)
+    return { section = "keys", gap = gap, padding = 1 }
+  end
+  local function recent()
+    return {
+      icon = " ",
+      title = "Recent Files",
+      section = "recent_files",
+      limit = 3,
+      cwd = true,
+      indent = 3,
+      padding = 1,
+    }
+  end
+  local function startup()
+    return { section = "startup", padding = 1 }
+  end
+  local function tier(...)
+    local list = {}
+    for i = 1, select("#", ...) do
+      local section = select(i, ...)
+      if section then
+        table.insert(list, section)
+      end
+    end
+    return list
+  end
+  return {
+    tier(header, startup(), keys(1), recent(), changes),
+    tier(header, startup(), keys(0), recent(), changes),
+    tier(startup(), keys(0), recent(), changes),
+    tier(keys(0), recent(), changes),
+    tier(keys(0), recent()),
+    tier(keys(0)),
+  }
+end
+
+local function dashboard_height(dashboard, items)
+  local height = 0
+  for _, item in ipairs(items) do
+    if not item.hidden then
+      height = height + #dashboard:format(item)
+    end
+  end
+  return height
+end
+
+-- Drops the header, gaps and extra sections until the dashboard fits the pane.
+local function adaptive_sections(dashboard)
+  local size = dashboard._size
+  dashboard.opts.width = math.max(20, math.min(DASHBOARD_WIDTH, size.width - 2))
+  local header = get_header()
+  if header_width(header) > size.width then
+    header = nil
+  end
+  local changes = get_unstaged_changes(dashboard)
+  local tiers = dashboard_tiers(header, changes)
+  for i, candidate in ipairs(tiers) do
+    if i == #tiers then
+      return candidate
+    end
+    local probe = dashboard:resolve(vim.deepcopy(candidate))
+    if dashboard_height(dashboard, probe) <= size.height then
+      return candidate
+    end
+  end
+end
+
 return {
   "folke/snacks.nvim",
   lazy = false,
@@ -1051,7 +1136,7 @@ return {
       },
     },
     dashboard = {
-      width = 60,
+      width = DASHBOARD_WIDTH,
       formats = {
         file = function(item, ctx)
           local fname = vim.fn.fnamemodify(item.file, ":t")
@@ -1062,21 +1147,7 @@ return {
           return { { fname, hl = "SnacksDashboardRecentFile" } }
         end,
       },
-      sections = {
-        get_header,
-        { section = "startup", padding = 1 },
-        { section = "keys", gap = 1, padding = 1 },
-        {
-          icon = " ",
-          title = "Recent Files",
-          section = "recent_files",
-          limit = 3,
-          cwd = true,
-          indent = 3,
-          padding = 1,
-        },
-        get_unstaged_changes,
-      },
+      sections = { adaptive_sections },
       preset = {
         keys = {
           {
