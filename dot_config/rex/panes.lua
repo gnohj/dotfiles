@@ -36,7 +36,7 @@ local function covers(box, r)
   return contains(box, r[1] + r[3] / 2, r[2] + r[4] / 2)
 end
 
--- Visible panes as {id, rect}, or nil when nothing floats; a tiled pane under a float is hidden, a minimized float is skipped.
+-- Visible panes as {id, rect}; a tiled pane under a float is hidden, a minimized float is skipped.
 local function pane_rects(window, from)
   local tiled, floats, boxes = {}, {}, {}
   for _, layer in ipairs(window.layers or {}) do
@@ -47,7 +47,7 @@ local function pane_rects(window, from)
       table.insert(boxes, layer.bounds)
     end
   end
-  if #boxes == 0 then return nil end
+  if #boxes == 0 then return tiled, tiled, floats end
   local rects = {}
   for _, p in ipairs(tiled) do
     local hidden = false
