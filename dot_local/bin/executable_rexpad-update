@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Rebase the local rexpad patches (branch gnohj-wrap) onto upstream and rebuild ~/.local/bin/rexpad; silent when current.
+set -uo pipefail
+
+repo=$HOME/Developer/rexpad
+branch=gnohj-wrap
+bin=$HOME/.local/bin/rexpad
+stamp=${XDG_STATE_HOME:-$HOME/.local/state}/rexpad/built-rev
+
+[ -d "$repo/.git" ] || exit 0
+fail() { printf '\033[31m   rexpad-update: %s\033[0m\n' "$1" >&2; exit 1; }
+cd "$repo" || fail "cannot enter $repo"
+
+git fetch --quiet origin || fail "fetch failed"
+[ "$(git rev-parse --abbrev-ref HEAD)" = "$branch" ] || fail "$repo is not on $branch; left untouched"
+[ -z "$(git status --porcelain)" ] || fail "$repo has uncommitted changes; left untouched"
+
+if git merge-base --is-ancestor origin/main HEAD && [ "$(cat "$stamp" 2>/dev/null)" = "$(git rev-parse HEAD)" ] && [ -x "$bin" ]; then
+  exit 0
+fi
+
+printf '\033[36m==> rexpad: rebase local patches onto upstream and rebuild\033[0m\n'
+if ! git merge-base --is-ancestor origin/main HEAD; then
+  git rebase --quiet origin/main >/dev/null 2>&1 || { git rebase --abort; fail "rebase onto origin/main conflicts; binary left as is"; }
+fi
+command -v go >/dev/null 2>&1 || fail "go not found; binary left as is"
+go test ./... >/dev/null 2>&1 || fail "tests fail on $(git rev-parse --short HEAD); binary left as is"
+go build -o "$bin.new" . && mv -f "$bin.new" "$bin" || fail "build failed; binary left as is"
+mkdir -p "$(dirname "$stamp")"
+git rev-parse HEAD >"$stamp"
+printf '   rebuilt on upstream %s; reopen the Todo pane with: fm-todo hide && fm-todo show\n' "$(git rev-parse --short origin/main)"

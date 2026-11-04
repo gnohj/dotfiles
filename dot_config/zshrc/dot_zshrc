@@ -104,14 +104,20 @@ fi
 # owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
 typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail)
 
+_update_summary_repos() {
+  print -l "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
+  [[ -d "$HOME/Developer/rexpad/.git" ]] && print "$HOME/Developer/rexpad"
+  return 0
+}
+
 # Callers declare a local _UPDATE_SUMMARY_DIR only when it is empty, so a nested update leaves the summary to up.
 _update_summary_begin() {
   command -v update-summary >/dev/null 2>&1 || return 1
   _UPDATE_SUMMARY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/update-summary.XXXXXX") || return 1
-  update-summary snapshot "$_UPDATE_SUMMARY_DIR/before" "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
+  update-summary snapshot "$_UPDATE_SUMMARY_DIR/before" ${(f)"$(_update_summary_repos)"}
 }
 _update_summary_end() {
-  update-summary snapshot "$_UPDATE_SUMMARY_DIR/after" "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
+  update-summary snapshot "$_UPDATE_SUMMARY_DIR/after" ${(f)"$(_update_summary_repos)"}
   update-summary report "$_UPDATE_SUMMARY_DIR"
   rm -rf "$_UPDATE_SUMMARY_DIR"
 }
@@ -248,6 +254,7 @@ update() {
   else
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
+  [ -x "$HOME/.local/bin/rexpad-update" ] && { "$HOME/.local/bin/rexpad-update" || fails=$((fails + 1)); }
   # After the pulls, so the divergence check sees the fresh monorepo copy; silent when nothing is wrong.
   if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
     "$HOME/.local/bin/claude-settings-relink" ||
