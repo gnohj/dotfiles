@@ -265,11 +265,21 @@ local function paint_frame(t)
   vim.api.nvim__redraw({ win = fade.win, valid = true, flush = true })
 end
 
+local function header_intact()
+  for _, r in ipairs(fade.header.rows) do
+    local line = vim.api.nvim_buf_get_lines(fade.buf, r.row, r.row + 1, false)[1]
+    if line ~= r.text then
+      return false
+    end
+  end
+  return true
+end
+
 local function tick()
   if fade.state ~= "running" then
     return
   end
-  if not fade_visible() or not fade.header then
+  if not fade_visible() or not fade.header or not header_intact() then
     finish_fade()
     return
   end
@@ -285,7 +295,12 @@ local function run_fade()
   if fade.state ~= "waiting" then
     return
   end
-  if not colors["gnohj_color10"] or not fade_visible() or not fade.header then
+  if
+    not colors["gnohj_color10"]
+    or not fade_visible()
+    or not fade.header
+    or not header_intact()
+  then
     finish_fade()
     return
   end
