@@ -44,7 +44,7 @@ def link(label, url, title=""):
 
 class Board:
     def __init__(self, tasks_env, lavish_env):
-        self.tasks, self.mates = {}, {}
+        self.tasks, self.mates, self.claimed = {}, {}, set()
         for row in filter(None, tasks_env.split("\n")):
             f = row.split("\t")
             if f[0].startswith("mate:"):
@@ -145,6 +145,7 @@ class Board:
         pr = re.search(r"PR #?(\d+)", head)
         pr_name = f"{repo}#{pr[1]}" if pr and repo else (self.pr_for(key) if key else "")
         task = self.tasks.get(key) or self.tasks.get(pr_name) or {}
+        self.claimed.add(key)
         meta, action = [], ""
         if key:
             meta += self.jira_meta(key)
@@ -272,7 +273,7 @@ def tickets_group(b):
     rows = []
     for t in b.tickets:
         key = t.get("key", "")
-        if not key or key in b.tasks:
+        if not key or key in b.tasks or key in b.claimed:
             continue
         summary = defuse(" ".join(str(t.get("summary") or key).split()))
         comps = []
@@ -339,7 +340,7 @@ def reviews_group(b):
 
 
 def render(raw, b):
-    out = []
+    out, groups = [], board(raw, b)
     reviews = reviews_group(b)
     if reviews:
         out.append(f"# Needs review · {len(reviews)} {{yellow}} {{folded}}")
@@ -349,7 +350,7 @@ def render(raw, b):
     if tickets:
         out.append(f"# Tickets · {len(tickets)} {{blue}}")
         out += tickets
-    for lv, owners in enumerate(board(raw, b)):
+    for lv, owners in enumerate(groups):
         if not owners:
             continue
         count = sum(len(entries) for entries in owners.values())
