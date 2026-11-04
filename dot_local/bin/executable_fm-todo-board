@@ -337,7 +337,7 @@ def render(raw, b):
     out = []
     reviews = reviews_group(b)
     if reviews:
-        out.append(f"# Needs review · {len(reviews)} {{yellow}}")
+        out.append(f"# Needs review · {len(reviews)} {{yellow}} {{folded}}")
         out += reviews
         out.append("")
     tickets = tickets_group(b)
