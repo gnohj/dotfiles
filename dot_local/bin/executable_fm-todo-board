@@ -85,12 +85,17 @@ class Board:
         color = STATUS_COLORS.get(name.lower(), "")
         parts.append(link(f"{{{{●:{color}.}}}} {name}", act("jira/status", key=key, cur=name), f"menu:Move {key} to"))
         who = (t.get("assignee") or {}).get("name")
-        if who and who not in self.me:
-            parts.append(link(who.split()[0], act("jira/assign", key=key, cur=who), f"menu:Assign {key}"))
+        if not who:
+            parts.append(link("{{+ assignee}}", act("jira/assign", key=key, cur=""), f"menu:Assign {key}"))
+        else:
+            label = "me" if who in self.me else who.split()[0]
+            parts.append(link(label, act("jira/assign", key=key, cur=who), f"menu:Assign {key}"))
         versions = [v.get("name", "") for v in t.get("fix_versions") or [] if isinstance(v, dict)]
         if versions:
             label = re.sub(r"\s*\(.*\)$", "", versions[0])
             parts.append(link(label, act("jira/version", key=key, cur=versions[0]), f"menu:Fix version for {key}"))
+        else:
+            parts.append(link("{{+ version}}", act("jira/version", key=key, cur=""), f"menu:Fix version for {key}"))
         return parts
 
     def pr_bits(self, name):
