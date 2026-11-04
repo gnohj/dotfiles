@@ -109,6 +109,7 @@ to_checklist() {
       sub(/^[0-9]+\.[ \t]*/, "", s)
       gsub(/merge words? for/, "ready to merge", s)
       gsub(/(then )?merge words?$/, "ready to merge", s)
+      gsub(/ready to merge/, "ready to merge ✅", s)
       gsub(/^[ \t]+|[ \t]+$/, "", s)
       return s
     }
@@ -171,8 +172,8 @@ to_checklist() {
         refs[++j] = task_mark(tk) linkify(head, rp, "")
         id[j] = tk != "" ? slug[tk] : ""
         refs[j] = pr_last(refs[j])
-        if (tk != "" && crew_me[tk] != "") refs[j] = refs[j] " · `" crew_me[tk] "`"
         refs[j] = refs[j] lavish_link(head)
+        if (tk != "" && crew_me[tk] != "") refs[j] = refs[j] " · `" crew_me[tk] "`"
         steps[j] = tail != "" ? "\n- " tail : ""
       }
       if (owner != "" && project != "fleet" && project != "fm") item[lv, n[lv]] = mate_label(owner)
@@ -237,6 +238,7 @@ to_checklist() {
     BEGIN {
       TICKET = "[A-Z][A-Z]+-[0-9][0-9]+"
       REF = TICKET "|PR #?[0-9]+"
+      REMOVE = "https://fm-todo.invalid/remove"
       k = split(ENVIRON["LAVISH"], rows, "\n")
       for (i = 1; i <= k; i++) if (split(rows[i], kv, "\t") == 2) {
         if (kv[1] ~ /^title:/) titles[substr(kv[1], 7)] = kv[2]
@@ -283,12 +285,21 @@ to_checklist() {
         for (p = 1; p <= np; p++) {
           me = mate_me[substr(pname[p], length("🚢 ") + 1)]
           print "- " box[lv] " " pname[p] (me != "" ? " · `" me "`" : "")
-          emit_blocks(pnote[p])
+          emit_blocks(pnote[p], substr(pname[p], length("🚢 ") + 1))
         }
       }
     }
     function tabnum(s) { return match(s, /^[0-9]+\. /) ? substr(s, 1, RLENGTH - 2) + 0 : 9999 }
-    function emit_blocks(s,   lines, k, i, ln, cur, nb, bidx, bkey, bbody, seen, b) {
+    function urlenc(s) {
+      gsub(/%/, "%25", s); gsub(/ /, "%20", s); gsub(/\(/, "%28", s); gsub(/\)/, "%29", s)
+      gsub(/&/, "%26", s); gsub(/#/, "%23", s); gsub(/\?/, "%3F", s); gsub(/\t/, "%09", s)
+      return s
+    }
+    function remove_link(mate, s) {
+      gsub(/\[`?|`?\]\([^)]*\)/, "", s); gsub(/`/, "", s)
+      return " · [`×`](" REMOVE "?mate=" urlenc(mate) "&item=" urlenc(s) ")"
+    }
+    function emit_blocks(s, mate,   has_sub, lines, k, i, ln, cur, nb, bidx, bkey, bbody, seen, b) {
       k = split(substr(s, 2), lines, "\n"); nb = 0; cur = 0
       for (i = 1; i <= k; i++) {
         ln = lines[i]
@@ -307,9 +318,10 @@ to_checklist() {
         ln = bbody[i]; bbody[i] = bbody[i - 1]; bbody[i - 1] = ln
       }
       for (b = 1; b <= nb; b++) {
-        print "  " title_link(bkey[b])
+        has_sub = bbody[b] ~ /\n- [^`[]/
+        print "  " title_link(bkey[b]) (has_sub ? "" : remove_link(mate, bkey[b]))
         k = split(substr(bbody[b], 2), lines, "\n")
-        for (i = 1; i <= k; i++) print "  " title_link(lines[i])
+        for (i = 1; i <= k; i++) print "  " title_link(lines[i]) (lines[i] ~ /^- [^`[]/ ? remove_link(mate, bkey[b] " · " substr(lines[i], 3)) : "")
       }
     }'
 }
@@ -364,8 +376,7 @@ show() {
   if viewer_open; then cat "$VIEWER_FILE"; return; fi
   if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
-  local opener=$HOME/.local/bin/open-work-url
-  [ -x "$opener" ] || opener=""
+  local opener=$HOME/.local/bin/fm-todo-open
   id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top | awk 'END { print $NF }')
   rex block move -s "$sid" "$id" right "$anchor" --ratio "$RATIO" >/dev/null 2>&1 || true
   mkdir -p "$STATE_DIR"
@@ -382,8 +393,17 @@ hide() {
   rm -f "$VIEWER_FILE"
 }
 
+remove() {
+  local mate=$1 item=$2 sid block
+  read -r sid block <<<"$(fm_pane)"
+  [ -n "$block" ] || { echo "fm-todo: no firstmate Rex pane found" >&2; exit 1; }
+  rex send -s "$sid" -b "$block" "Captain: drop this from the status board, it needs nothing more from me: $mate · $item"
+  rex send -s "$sid" -b "$block" $'\r'
+}
+
 cmd=${1:-show}
 shift || true
+[ "$cmd" = remove ] && { remove "${1:?usage: fm-todo remove MATE ITEM}" "${2:?}"; exit; }
 block=""
 while [ $# -gt 0 ]; do
   case "$1" in

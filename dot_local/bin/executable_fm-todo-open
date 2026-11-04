@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Todo pane opener: a × link asks firstmate to drop that item, any other link opens as a work URL.
+set -euo pipefail
+url=${1:?usage: fm-todo-open URL}
+
+urldecode() { local s=${1//+/ }; printf '%b' "${s//%/\\x}" | tr -d '[:cntrl:]'; }
+
+case $url in
+  https://fm-todo.invalid/remove\?*)
+    query=${url#*\?}
+    mate=$(urldecode "$(sed -n 's/.*mate=\([^&]*\).*/\1/p' <<<"$query")")
+    item=$(urldecode "$(sed -n 's/.*item=\([^&]*\).*/\1/p' <<<"$query")")
+    exec "$HOME/.local/bin/fm-todo" remove "$mate" "$item"
+    ;;
+esac
+
+if [ -x "$HOME/.local/bin/open-work-url" ]; then exec "$HOME/.local/bin/open-work-url" "$url"; fi
+if [ "$(uname)" = Darwin ]; then exec open "$url"; fi
+exec xdg-open "$url"
