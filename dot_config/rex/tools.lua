@@ -63,6 +63,18 @@ function M.setup()
     end,
   }
 
+  -- Todo pane chat: a small popup to send firstmate context about one board item; Enter sends, the popup closes.
+  rex.action{
+    name = "fm_chat",
+    title = "Firstmate Chat About an Item",
+    category = "Tools",
+    args = { title = "string", ref = "string?" },
+    run = function(ctx, args)
+      local run = '"$HOME/.local/bin/fm-todo-chat" "$1" "$2"; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
+      c.popup(ctx, 0.2, 0.32, { "/bin/sh", "-c", run, ctx.block_id, args.title, args.ref or "" }, { label = "fm-chat" })
+    end,
+  }
+
   -- The lazygit popup calls this when lazygit quits on its own (esc, q); skipped once focus has left the popup.
   rex.action{
     name = "popup_return",

@@ -5,6 +5,9 @@ set -euo pipefail
 LIST=firstmate
 STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/rexpad
 VIEWER_FILE=$STATE_DIR/$LIST.viewer
+RAW_FILE=$STATE_DIR/$LIST.status
+TASKS_FILE=$STATE_DIR/$LIST.tasks
+ANCHOR_FILE=$STATE_DIR/$LIST.anchor
 REXPAD=rexpad
 RATIO=20
 
@@ -77,7 +80,6 @@ task_kinds() {
   }'
 }
 
-# Lines like "🟡 3. **web** - text" or "3. 🟡 **web** - text"; indented lines become sub-lines, "> " lines details.
 fm_mate_row() {
   local v="" sid
   v=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/fm/primary-model-effort" 2>/dev/null) || true
@@ -89,259 +91,9 @@ fm_mate_row() {
   return 0
 }
 
+# Lines like "🟡 3. **web** - text"; "> " lines become details. fm-todo-board does the layout.
 to_checklist() {
-  LAVISH=$(lavish_index) TASKS=$(task_kinds; fm_mate_row) awk '
-    function level(s) {
-      if (index(s, "🔴")) return 1
-      if (index(s, "🟡")) return 2
-      if (index(s, "♻")) return 3
-      if (index(s, "🟢")) return 4
-      if (index(s, "✅")) return 5
-      return 0
-    }
-    function clean(s) {
-      gsub(/🔴|🟡|♻️|♻|🟢|✅/, "", s)
-      gsub(/\*\*/, "", s)
-      gsub(/`/, "", s)
-      gsub(/ ?\(https?:\/\/[^)]*\)/, "", s)
-      gsub(/ https?:\/\/[^ ]+/, "", s)
-      sub(/^[ \t]*/, "", s)
-      sub(/^[0-9]+\.[ \t]*/, "", s)
-      gsub(/merge words? for/, "ready to merge", s)
-      gsub(/(then )?merge words?$/, "ready to merge", s)
-      gsub(/ready to merge/, "ready to merge ✅", s)
-      gsub(/^[ \t]+|[ \t]+$/, "", s)
-      return s
-    }
-    function repo_of(name) {
-      if (name == "inferno") return "iheartradio/inferno-monorepo"
-      if (name == "web") return "iheartradio/web"
-      if (name == "chezmoi" || name == "dotfiles") return "gnohj/dotfiles"
-      return ""
-    }
-    function linkify(c, repo, after,   out, rest, tok, pr) {
-      out = ""; rest = c
-      while (match(rest, REF)) {
-        tok = substr(rest, RSTART, RLENGTH)
-        out = out substr(rest, 1, RSTART - 1)
-        if (tok ~ /^PR/) {
-          pr = tok; gsub(/[^0-9]/, "", pr)
-          out = out (repo != "" ? "[" tok "](https://github.com/" repo "/pull/" pr ")" : tok)
-        } else out = out "[" tok "](https://jira.example.com/browse/" tok ")"
-        rest = substr(rest, RSTART + RLENGTH)
-      }
-      return out after rest
-    }
-    function add_item(lv, t,   r, at, meta, rp2, project, action, rest, k, i, c, hint, carry, chunk, rp, head, tail, j, refs, steps, tk, id, body, owner) {
-      n[lv]++
-      project = t; sub(/ .*/, "", project)
-      proj[lv, n[lv]] = project
-      if (!match(t, REF)) {
-        item[lv, n[lv]] = mate_label(project)
-        note[lv, n[lv]] = "\n" (index(t, " - ") ? substr(t, index(t, " - ") + 3) : t)
-        return
-      }
-      action = substr(t, 1, RSTART - 1); rest = substr(t, RSTART)
-      action = substr(action, length(project) + 1)
-      if (action ~ /\([ \t]*$/) sub(/\)[ \t]*$/, "", rest)
-      gsub(/^[ \t:,-]+|[ \t:,(-]+$/, "", action)
-      item[lv, n[lv]] = mate_label(project)
-      k = split(shield(rest), chunk, /, and |, |; | and /)
-      carry = ""
-      for (i = k; i >= 1; i--) {
-        chunk[i] = unshield(chunk[i])
-        c = chunk[i]; hint[i] = ""
-        if (match(c, / ?\((inferno|web|chezmoi|dotfiles)\)/)) {
-          carry = substr(c, RSTART, RLENGTH); gsub(/[ ()]/, "", carry)
-          chunk[i] = substr(c, 1, RSTART - 1) substr(c, RSTART + RLENGTH)
-        }
-        hint[i] = carry
-      }
-      j = 0
-      for (i = 1; i <= k; i++) {
-        c = chunk[i]; gsub(/^[ \t]+|[ \t]+$/, "", c)
-        if (c == "") continue
-        rp = repo_of(hint[i] != "" ? hint[i] : project)
-        if (c !~ REF) { steps[j] = steps[j] "\n- " c; continue }
-        head = ""; tail = c
-        while (match(tail, REF)) { head = head substr(tail, 1, RSTART + RLENGTH - 1); tail = substr(tail, RSTART + RLENGTH) }
-        if (gsub(/\(/, "(", head) > gsub(/\)/, ")", head) && (rp2 = index(tail, ")"))) { head = head substr(tail, 1, rp2); tail = substr(tail, rp2 + 1) }
-        gsub(/^[ \t:,-]+|[ \t]+$/, "", tail)
-        tk = task_key(head, rp)
-        if (owner == "" && home[tk] != "") owner = home[tk]
-        refs[++j] = task_mark(tk) linkify(head, rp, "")
-        id[j] = tk != "" ? slug[tk] : ""
-        refs[j] = pr_last(refs[j])
-        refs[j] = refs[j] lavish_link(head)
-        if (tk != "" && crew_me[tk] != "") refs[j] = refs[j] " · `" crew_me[tk] "`"
-        steps[j] = tail != "" ? "\n- " tail : ""
-      }
-      if (owner != "" && project != "fleet" && project != "fm") item[lv, n[lv]] = mate_label(owner)
-      for (i = 1; i <= j; i++) {
-        body = steps[i] != "" ? steps[i] : action != "" ? "\n- " action : ""
-        if (id[i] != "") {
-          r = refs[i]; meta = ""
-          if ((at = index(r, " · ")) && substr(r, 1, at - 1) ~ REF) { meta = substr(r, at + length(" · ")); r = substr(r, 1, at - 1) }
-          refs[i] = r " · " id[i]
-          body = (meta != "" ? "\n- " meta : "") body
-        }
-        note[lv, n[lv]] = note[lv, n[lv]] "\n" refs[i] body
-      }
-    }
-    function shield(s,   out, i, ch, depth) {
-      out = ""; depth = 0
-      for (i = 1; i <= length(s); i++) {
-        ch = substr(s, i, 1)
-        if (ch == "(") depth++
-        else if (ch == ")" && depth) depth--
-        else if (depth && ch == ",") ch = "\001"
-        else if (depth && ch == ";") ch = "\002"
-        else if (depth && ch == " ") ch = "\003"
-        out = out ch
-      }
-      return out
-    }
-    function unshield(s) { gsub(/\001/, ",", s); gsub(/\002/, ";", s); gsub(/\003/, " ", s); return s }
-    function pr_last(s,   tok, num, url) {
-      if (match(s, /\[PR #?[0-9]+\]\([^)]*\)/)) {
-        tok = substr(s, RSTART, RLENGTH); url = tok
-        sub(/^[^(]*\(/, "", url); sub(/\)$/, "", url)
-      } else if (match(s, /PR #?[0-9]+/)) tok = substr(s, RSTART, RLENGTH)
-      else return s
-      num = tok; sub(/\].*/, "", num); gsub(/[^0-9]/, "", num)
-      s = substr(s, 1, RSTART - 1) substr(s, RSTART + RLENGTH)
-      gsub(/( \/ )+/, " / ", s); gsub(/^ \/ | \/ $/, "", s); gsub(/ \/ $/, "", s)
-      return s " · " (url != "" ? "[`#" num "`](" url ")" : "`#" num "`")
-    }
-    function lavish_link(c) {
-      if (!match(c, TICKET)) return ""
-      c = substr(c, RSTART, RLENGTH)
-      return (c in lav) ? " · [`Lavish`](" lav[c] ")" : ""
-    }
-    function title_link(s,   t, at, best, bt) {
-      if (index(s, "](")) return s
-      best = 0
-      for (t in titles) if ((at = index(tolower(s), t)) && length(t) > length(bt)) { best = at; bt = t }
-      if (!best) return s
-      return substr(s, 1, best - 1) "[" substr(s, best, length(bt)) "](" titles[bt] ")" substr(s, best + length(bt))
-    }
-    function task_key(c, repo,   k, pr) {
-      if (match(c, TICKET) && (substr(c, RSTART, RLENGTH) in task)) return substr(c, RSTART, RLENGTH)
-      if (repo != "" && match(c, /PR #?[0-9]+/)) { pr = substr(c, RSTART, RLENGTH); gsub(/[^0-9]/, "", pr); if ((repo "#" pr) in task) return repo "#" pr }
-      return ""
-    }
-    function task_mark(k) { return (tab[k] != "" ? tab[k] ". " : "") (task[k] == "ship" ? "⛵ " : task[k] == "scout" ? "🔭 " : "") }
-    function mate_label(x) {
-      if (x != "fm" && x !~ /^sm-/) x = (("sm-" x) in mates) ? "sm-" x : "fm"
-      return "🚢 " x
-    }
-    BEGIN {
-      TICKET = "[A-Z][A-Z]+-[0-9][0-9]+"
-      REF = TICKET "|PR #?[0-9]+"
-      REMOVE = "https://fm-todo.invalid/remove"
-      k = split(ENVIRON["LAVISH"], rows, "\n")
-      for (i = 1; i <= k; i++) if (split(rows[i], kv, "\t") == 2) {
-        if (kv[1] ~ /^title:/) titles[substr(kv[1], 7)] = kv[2]
-        else lav[kv[1]] = kv[2]
-      }
-      k = split(ENVIRON["TASKS"], rows, "\n")
-      for (i = 1; i <= k; i++) {
-        c = split(rows[i], kv, "\t")
-        if (kv[1] ~ /^mate:/) { mates[substr(kv[1], 6)] = 1; mate_me[substr(kv[1], 6)] = kv[2]; continue }
-        if (c < 4) continue
-        task[kv[1]] = kv[2]; slug[kv[1]] = kv[3]; home[kv[1]] = kv[4]; tab[kv[1]] = kv[5]; crew_me[kv[1]] = kv[6]
-        if (kv[4] ~ /^sm-/) mates[kv[4]] = 1
-      }
-    }
-    {
-      line = $0
-      if (line ~ /^[ \t]*$/) next
-      if (line ~ /^[ \t]*>/) {
-        if (cur) { sub(/^[ \t]*>[ \t]*/, "", line); note[cur, n[cur]] = note[cur, n[cur]] "\n> " linkify(clean(line), repo_of(proj[cur, n[cur]]), "") }
-        next
-      }
-      lv = level(line)
-      if (lv && match(line, /[0-9]+\./)) {
-        add_item(lv, clean(line))
-        cur = lv
-        next
-      }
-      if (cur && line ~ /^[ \t]/) note[cur, n[cur]] = note[cur, n[cur]] "\n" linkify(clean(line), repo_of(proj[cur, n[cur]]), "")
-    }
-    END {
-      split("Blocked|Needs your call|In progress|Waiting on others|Done", title, "|")
-      split("[ ]|[ ]|[~]|[ ]|[x]", box, "|")
-      split("red|yellow|cyan|green|green", ring, "|")
-      for (lv = 1; lv <= 5; lv++) {
-        if (!n[lv]) continue
-        np = 0
-        for (i = 1; i <= n[lv]; i++) if (item[lv, i] == "🚢 fm" && !((lv, item[lv, i]) in pidx)) { pidx[lv, item[lv, i]] = ++np; pname[np] = item[lv, i]; pnote[np] = "" }
-        for (i = 1; i <= n[lv]; i++) {
-          if (!((lv, item[lv, i]) in pidx)) { pidx[lv, item[lv, i]] = ++np; pname[np] = item[lv, i]; pnote[np] = "" }
-          p = pidx[lv, item[lv, i]]
-          pnote[p] = pnote[p] note[lv, i]
-        }
-        print "# " title[lv] " {" ring[lv] "}"
-        for (p = 1; p <= np; p++) {
-          me = mate_me[substr(pname[p], length("🚢 ") + 1)]
-          print "- " box[lv] " " pname[p] (me != "" ? " · `" me "`" : "")
-          emit_blocks(pnote[p], substr(pname[p], length("🚢 ") + 1))
-        }
-      }
-    }
-    function tabnum(s) { return match(s, /^[0-9]+\. /) ? substr(s, 1, RLENGTH - 2) + 0 : 9999 }
-    function urlenc(s) {
-      gsub(/%/, "%25", s); gsub(/ /, "%20", s); gsub(/\(/, "%28", s); gsub(/\)/, "%29", s)
-      gsub(/&/, "%26", s); gsub(/#/, "%23", s); gsub(/\?/, "%3F", s); gsub(/\t/, "%09", s)
-      return s
-    }
-    function remove_link(mate, s) {
-      gsub(/\[`?|`?\]\([^)]*\)/, "", s); gsub(/`/, "", s)
-      return " · [`×`](" REMOVE "?mate=" urlenc(mate) "&item=" urlenc(s) ")"
-    }
-    function emit_blocks(s, mate,   has_sub, lines, k, i, ln, cur, nb, bidx, bkey, bbody, seen, b) {
-      k = split(substr(s, 2), lines, "\n"); nb = 0; cur = 0
-      for (i = 1; i <= k; i++) {
-        ln = lines[i]
-        if (ln == "") continue
-        if (ln !~ /^(- |> )/ || !cur) {
-          if (!(ln in bidx)) { bidx[ln] = ++nb; bkey[nb] = ln; bbody[nb] = "" }
-          cur = bidx[ln]
-          continue
-        }
-        if ((cur, ln) in seen || (ln ~ /`/ && index(bbody[cur], substr(ln, 3)))) continue
-        seen[cur, ln] = 1
-        bbody[cur] = bbody[cur] "\n" ln
-      }
-      for (b = 2; b <= nb; b++) for (i = b; i > 1 && tabnum(bkey[i]) < tabnum(bkey[i - 1]); i--) {
-        ln = bkey[i]; bkey[i] = bkey[i - 1]; bkey[i - 1] = ln
-        ln = bbody[i]; bbody[i] = bbody[i - 1]; bbody[i - 1] = ln
-      }
-      for (b = 1; b <= nb; b++) {
-        has_sub = bbody[b] ~ /\n- [^`[]/
-        print "  " title_link(bkey[b]) (has_sub ? "" : remove_link(mate, bkey[b]))
-        k = split(substr(bbody[b], 2), lines, "\n")
-        for (i = 1; i <= k; i++) print "  " title_link(lines[i]) (lines[i] ~ /^- [^`[]/ ? remove_link(mate, bkey[b] " · " substr(lines[i], 3)) : "")
-      }
-    }'
-}
-
-# Counts firstmate's raw lines, not the merged pane items.
-summary() {
-  awk '
-    !/^[ \t]*$/ && !/^[ \t]/ && !/^>/ && /[0-9]+\./ {
-      if (index($0, "🔴")) c[1]++
-      else if (index($0, "🟡")) c[2]++
-      else if (index($0, "♻")) c[3]++
-      else if (index($0, "🟢")) c[4]++
-      else if (index($0, "✅")) c[5]++
-    }
-    END {
-      split("🔴|🟡|♻️|🟢|✅", mark, "|")
-      out = ""
-      for (i = 1; i <= 5; i++) if (c[i]) out = out (out == "" ? "" : " · ") mark[i] " " c[i]
-      print out
-    }'
+  LAVISH=$(lavish_index) TASKS=${TASKS:-$(task_kinds; fm_mate_row)} "$HOME/.local/bin/fm-todo-board"
 }
 
 viewer_open() {
@@ -353,11 +105,23 @@ viewer_open() {
 status() {
   local raw list
   raw=$(cat)
-  list=$(printf '%s\n' "$raw" | to_checklist)
+  mkdir -p "$STATE_DIR"
+  TASKS=$(task_kinds; fm_mate_row)
+  printf '%s\n' "$TASKS" >"$TASKS_FILE"
+  list=$(printf '%s\n' "$raw" | TASKS=$TASKS to_checklist)
   [ -n "$list" ] || { echo "fm-todo: no status lines on stdin" >&2; exit 2; }
+  printf '%s\n' "$raw" >"$RAW_FILE"
   viewer_open || exit 3
   printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
-  printf '%s\n' "$raw" | summary
+}
+
+# Redraws from firstmate's last block, its saved tasks and the Library's current files; no SSH, so launchd can run it.
+refresh() {
+  viewer_open || return 0
+  local list tasks
+  tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
+  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS=$tasks to_checklist)
+  [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
 }
 
 fm_pane() {
@@ -371,6 +135,19 @@ fm_pane() {
   echo "$sid $(rex session inspect "$sid" --json | jq -r '.windows[0].layers[0].blocks[0].block_id')"
 }
 
+# Rex sometimes rebalances a fresh split to 50/50 after it opens, so hold the ratio for its first seconds.
+hold_ratio() {
+  local sid=$1 anchor=$2 id=$3 want ratio t
+  want=$(awk -v r="$RATIO" 'BEGIN { printf "%.2f", 1 - r / 100 }')
+  for t in 0.3 0.7 1 1; do
+    sleep "$t"
+    ratio=$(rex session inspect "$sid" --json 2>/dev/null | jq -r --arg id "$id" '[.. | objects | select(.split?) | .split | select(.after.block_id == $id) | .ratio][0] // empty')
+    [ -n "$ratio" ] || return 0
+    awk -v a="$ratio" -v b="$want" 'BEGIN { exit (a - b < 0.02 && b - a < 0.02) }' || continue
+    rex api call session.resize_pane "$(jq -cn --arg s "$sid" --arg b "$anchor" --arg a "$id" --argjson r "$want" '{session_id: $s, before_block_id: $b, after_block_id: $a, direction: "horizontal", ratio: $r}')" >/dev/null 2>&1 || true
+  done
+}
+
 show() {
   local sid=${1%% *} anchor=${1#* } id
   if viewer_open; then cat "$VIEWER_FILE"; return; fi
@@ -378,9 +155,10 @@ show() {
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
   local opener=$HOME/.local/bin/fm-todo-open
   id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top | awk 'END { print $NF }')
-  rex block move -s "$sid" "$id" right "$anchor" --ratio "$RATIO" >/dev/null 2>&1 || true
   mkdir -p "$STATE_DIR"
   echo "$sid $id" >"$VIEWER_FILE"
+  echo "$sid $anchor" >"$ANCHOR_FILE"
+  hold_ratio "$sid" "$anchor" "$id" </dev/null >/dev/null 2>&1 &
   echo "$sid $id"
 }
 
@@ -393,17 +171,20 @@ hide() {
   rm -f "$VIEWER_FILE"
 }
 
-remove() {
-  local mate=$1 item=$2 sid block
-  read -r sid block <<<"$(fm_pane)"
+send() {
+  local text=$1 sid block
+  read -r sid block 2>/dev/null <"$ANCHOR_FILE" || true
+  if [ -z "${block:-}" ] || ! rex block inspect -s "$sid" "$block" >/dev/null 2>&1; then
+    read -r sid block <<<"$(REX_BLOCK= fm_pane)"
+  fi
   [ -n "$block" ] || { echo "fm-todo: no firstmate Rex pane found" >&2; exit 1; }
-  rex send -s "$sid" -b "$block" "Captain: drop this from the status board, it needs nothing more from me: $mate · $item"
+  rex send -s "$sid" -b "$block" "$text"
   rex send -s "$sid" -b "$block" $'\r'
 }
 
 cmd=${1:-show}
 shift || true
-[ "$cmd" = remove ] && { remove "${1:?usage: fm-todo remove MATE ITEM}" "${2:?}"; exit; }
+[ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
 block=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -416,6 +197,7 @@ case "$cmd" in
   show) show "$block" ;;
   hide) hide ;;
   status) status ;;
+  refresh) refresh ;;
   print) "$REXPAD" --list "$LIST" get ;;
-  *) echo "usage: fm-todo [show|hide|print] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
+  *) echo "usage: fm-todo [show|hide|print|refresh|send TEXT] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
 esac

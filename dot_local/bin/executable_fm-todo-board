@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""Turn firstmate's status block (stdin) plus the Lavish Library's PR and ticket files into a rexpad board."""
+import json
+import os
+import re
+import sys
+from urllib.parse import quote, urlencode
+
+LIBRARY = os.path.expanduser(os.environ.get("FM_TODO_LIBRARY", "~/.local/state/lavish-library"))
+ACT = "https://fm-todo.invalid"
+JIRA = "https://jira.example.com/browse/"
+TICKET = r"[A-Z][A-Z]+-[0-9][0-9]+"
+JIRA_KEY = r"IHR[A-Z]*-[0-9]+"
+REF = re.compile(rf"{TICKET}|PR #?[0-9]+")
+LEVELS = [("🔴", "Blocked", "red", "red"), ("🟡", "Needs your call", "yellow", "yellow"),
+          ("♻", "In progress", "cyan", "cyan"), ("🟢", "Waiting on others", "green", ""), ("✅", "Done", "green", "green")]
+REPOS = {"inferno": "iheartradio/inferno-monorepo", "web": "iheartradio/web", "chezmoi": "gnohj/dotfiles", "dotfiles": "gnohj/dotfiles"}
+STATUS_COLORS = {"in dev": "yellow", "in dev review": "blue", "ac review": "blue", "product review": "blue",
+                 "te review": "cyan", "ready to merge": "green", "blocked": "red", "completed": "green"}
+COMPONENT_COLORS = {"inferno": "magenta"}
+
+
+def load(name, default):
+    try:
+        with open(os.path.join(LIBRARY, name)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def act(path, **query):
+    return f"{ACT}/{path}?{urlencode(query, quote_via=quote)}"
+
+
+def chat(title, ref=""):
+    return link("{{💬:blue}}", act("chat", title=title, ref=ref))
+
+
+def link(label, url, title=""):
+    label = label.replace("]", ")").replace("[", "(")
+    return f'[{label}]({url} "{title}")' if title else f"[{label}]({url})"
+
+
+class Board:
+    def __init__(self, tasks_env, lavish_env):
+        self.tasks, self.mates = {}, {}
+        for row in filter(None, tasks_env.split("\n")):
+            f = row.split("\t")
+            if f[0].startswith("mate:"):
+                self.mates[f[0][5:]] = f[1] if len(f) > 1 else ""
+            elif len(f) >= 4:
+                self.tasks.setdefault(f[0], {"kind": f[1], "slug": f[2], "home": f[3],
+                                             "tab": f[4] if len(f) > 4 else "", "me": f[5] if len(f) > 5 else ""})
+                if f[3].startswith("sm-"):
+                    self.mates.setdefault(f[3], "")
+        self.lavish, self.lavish_titles = {}, {}
+        for row in filter(None, lavish_env.split("\n")):
+            k, _, url = row.partition("\t")
+            (self.lavish_titles if k.startswith("title:") else self.lavish)[k.removeprefix("title:")] = url
+        self.my_prs = {f"{r['repo']}#{r['number']}": r for r in load("my-prs.json", []) if isinstance(r, dict)}
+        self.status = load("pr-status.json", {}).get("items", {})
+        self.tickets = [t for t in load("my-tickets.json", []) if isinstance(t, dict)]
+        self.required = {repo: (v or {}).get("count") or 1 for repo, v in load("required-approvals.json", {}).items()}
+        self.me = {(t.get("assignee") or {}).get("name") for t in self.tickets} - {None}
+        self.jira = {t["key"]: t for t in self.tickets if t.get("key")}
+        for pr in self.my_prs.values():
+            for t in pr.get("jira") or []:
+                if isinstance(t, dict) and t.get("key"):
+                    self.jira.setdefault(t["key"], t)
+
+    def pr_for(self, key):
+        for name, pr in self.my_prs.items():
+            if any(isinstance(t, dict) and t.get("key") == key for t in pr.get("jira") or []):
+                return name
+        return ""
+
+    def jira_meta(self, key):
+        t = self.jira.get(key)
+        parts = [link(key.split("-")[-1], JIRA + key)]
+        if not t:
+            return parts
+        name = t.get("name") or ""
+        color = STATUS_COLORS.get(name.lower(), "")
+        parts.append(link(f"{{{{●:{color}.}}}} {name}", act("jira/status", key=key, cur=name), f"menu:Move {key} to"))
+        who = (t.get("assignee") or {}).get("name")
+        if who and who not in self.me:
+            parts.append(link(who.split()[0], act("jira/assign", key=key, cur=who), f"menu:Assign {key}"))
+        versions = [v.get("name", "") for v in t.get("fix_versions") or [] if isinstance(v, dict)]
+        if versions:
+            label = re.sub(r"\s*\(.*\)$", "", versions[0])
+            parts.append(link(label, act("jira/version", key=key, cur=versions[0]), f"menu:Fix version for {key}"))
+        return parts
+
+    def pr_bits(self, name):
+        repo, _, number = name.partition("#")
+        st, mine = self.status.get(name, {}), self.my_prs.get(name, {})
+        parts = [link(f"#{number}", f"https://github.com/{repo}/pull/{number}")]
+        ci = (st.get("checks") or {}).get("state", "none")
+        if ci == "passing":
+            parts.append("{{CI ✓:green.}}")
+        elif ci == "failing":
+            parts.append("{{CI ✗:red.}}")
+        elif ci == "running":
+            parts.append("{{CI running:yellow.}}")
+        approvals, needed = st.get("approvals") or 0, self.required.get(repo, 1)
+        if st:
+            marks = "✓" * min(approvals, 3) if approvals else f"0/{needed}"
+            parts.append(f"{{{{Approvals {marks}:{'green' if approvals >= needed else 'yellow'}.}}}}")
+        draft = st.get("is_draft") or mine.get("draft")
+        threads = mine.get("threads_awaiting") or 0
+        action = ""
+        if st.get("state", "open") != "open" or draft:
+            pass
+        elif ci == "failing":
+            action = link("{{Fix CI:red}}", act("fixci", repo=repo, number=number), f"Fix failing CI on #{number}?")
+        elif threads:
+            action = link("{{Resolve:yellow}}", act("resolve", repo=repo, number=number),
+                          f"Resolve {threads} open thread{'s' if threads > 1 else ''} on #{number}?")
+        elif approvals >= needed and ci in ("passing", "none"):
+            action = link("{{▶:green}}", act("merge", repo=repo, number=number, sha=st.get("head", "")),
+                          f"Merge #{number} into {st.get('base') or 'its base'}?")
+        return parts, action
+
+    def linkify(self, text, repo):
+        text = defuse(text)
+        text = re.sub(r"https://github\.com/([^/\s]+/[^/\s]+)/pull/(\d+)", lambda m: link(f"#{m[2]}", m[0]), text)
+        text = re.sub(rf"(?<![\[/\w-])({JIRA_KEY})(?![\w-]*\])", lambda m: link(m[1], JIRA + m[1]), text)
+        if repo:
+            text = re.sub(r"(?<!\[)PR #?(\d+)", lambda m: link(f"PR #{m[1]}", f"https://github.com/{repo}/pull/{m[1]}"), text)
+        return text
+
+    def lavish_link(self, key):
+        return link("Lavish", self.lavish[key]) if key in self.lavish else ""
+
+    def block(self, head, tail, repo, level, lead=""):
+        m = re.search(TICKET, head)
+        key = m[0] if m else ""
+        pr = re.search(r"PR #?(\d+)", head)
+        pr_name = f"{repo}#{pr[1]}" if pr and repo else (self.pr_for(key) if key else "")
+        task = self.tasks.get(key) or self.tasks.get(pr_name) or {}
+        meta, action = [], ""
+        if key:
+            meta += self.jira_meta(key)
+        if pr_name:
+            bits, action = self.pr_bits(pr_name)
+            meta[1:1] = bits[:1]
+            meta += bits[1:]
+        if key and self.lavish_link(key):
+            meta.insert(min(2, len(meta)), self.lavish_link(key))
+        if task:
+            name = f"{task['tab']}. {task['slug']}" if task.get("tab") else task["slug"]
+        else:
+            label = (lead + " " + REF.sub("", head)).strip(" /()-·")
+            name = label or (self.jira.get(key) or {}).get("summary") or key or head
+        refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
+        right = " ".join(x for x in (chat(name, refs), action) if x)
+        if task.get("me"):
+            name += f" · `{task['me']}`"
+        lines = [f"* {name}\t{right}"]
+        if meta:
+            lines.append(": " + " · ".join(meta))
+        if task and lead:
+            tail = f"{re.sub(r'\s+(for|on|of|to)$', '', lead)} {tail}".strip()
+        tail = re.sub(r"(then )?merge words?( for)?", "ready to merge", tail).strip()
+        tail = re.sub(r"^answers?$", "needs your answers", tail)
+        if tail:
+            color = LEVELS[level][3]
+            lines.append(f"| {{{{→ {tail}:{color}.}}}}" if color else f"| → {tail}")
+        return task.get("home", ""), task.get("tab", ""), lines
+
+
+def defuse(text):
+    """Passed-through text never carries a pane action link: only the board's own links can act."""
+    text = re.sub(r"\[([^\]]*)\]\(\s*<?https?://fm-todo\.invalid[^)]*\)", r"\1", text)
+    return re.sub(r"https?://fm-todo\.invalid\S*", "", text)
+
+
+def clean(s):
+    s = re.sub(r"🔴|🟡|♻️|♻|🟢|✅|\*\*|`", "", s)
+    s = re.sub(r" ?\(https?://[^)]*\)| https?://\S+", "", s)
+    return defuse(re.sub(r"^\s*[0-9]+\.\s*", "", s)).strip()
+
+
+def level_of(line):
+    return next((i for i, lv in enumerate(LEVELS) if lv[0] in line), -1)
+
+
+def split_refs(rest):
+    """Split "A / PR 1, B and C" into (head, tail) chunks, keeping parentheses together."""
+    chunks, depth, cur = [], 0, ""
+    i = 0
+    while i < len(rest):
+        ch = rest[i]
+        depth += ch == "("
+        depth -= ch == ")" and depth > 0
+        sep = next((s for s in (", and ", ", ", "; ", " and ") if not depth and rest.startswith(s, i)), None)
+        if sep and REF.search(rest[i + len(sep):]):
+            chunks.append(cur)
+            cur, i = "", i + len(sep)
+            continue
+        cur += ch
+        i += 1
+    chunks.append(cur)
+    out = []
+    for c in filter(None, (c.strip() for c in chunks)):
+        last = None
+        for last in REF.finditer(c):
+            pass
+        if not last:
+            out[-1:] = [(out[-1][0], (out[-1][1] + " " + c).strip())] if out else [("", c)]
+            continue
+        head, tail = c[:last.end()], c[last.end():]
+        if head.count("(") > head.count(")") and ")" in tail:
+            cut = tail.index(")") + 1
+            head, tail = head + tail[:cut], tail[cut:]
+        out.append((head.strip(), tail.strip(" :,-")))
+    return out
+
+
+def board(raw, b):
+    groups = [dict() for _ in LEVELS]
+    last = None
+    for line in raw.split("\n"):
+        if not line.strip():
+            continue
+        if line.lstrip().startswith(">"):
+            if last is not None:
+                last.append("> " + b.linkify(line.lstrip()[1:].strip(), last_repo))
+            continue
+        lv = level_of(line)
+        if lv < 0 or not re.search(r"[0-9]+\.", line):
+            if last is not None and line[:1] in " \t":
+                last.append("| " + b.linkify(clean(line), last_repo))
+            continue
+        text = clean(line)
+        project = text.split(" ", 1)[0]
+        body = text.split(" - ", 1)[1] if " - " in text else text[len(project):].strip()
+        repo = REPOS.get(project, "")
+        last_repo = repo
+        m = REF.search(body)
+        mate = "sm-" + project if "sm-" + project in b.mates else "fm"
+        if not m:
+            blocks = [(mate, "", [f"* {body}\t{chat(body, project)}"])]
+        else:
+            lead = body[:m.start()].strip(" :,-(")
+            blocks = []
+            for head, tail in split_refs(body[m.start():]):
+                hint = re.search(r" ?\((inferno|web|chezmoi|dotfiles)\)", head)
+                r = REPOS.get(hint[1], repo) if hint else repo
+                home, tab, lines = b.block(head, tail, r, lv, lead)
+                blocks.append((home or mate, tab, lines))
+        for owner, tab, lines in blocks:
+            entries = groups[lv].setdefault(owner, [])
+            same = next((e for e in entries if e[1][0].split("\t")[0] == lines[0].split("\t")[0]), None)
+            if same:
+                same[1].extend(ln for ln in lines[1:] if not ln.startswith(": "))
+                lines[:] = same[1]
+            else:
+                entries.append((int(tab) if tab.isdigit() else 9999, lines))
+        last = blocks[-1][2]
+    return groups
+
+
+def tickets_group(b):
+    rows = []
+    for t in b.tickets:
+        key = t.get("key", "")
+        if not key or key in b.tasks:
+            continue
+        summary = " ".join(str(t.get("summary") or key).split())
+        comps = []
+        m = re.match(r"^\[([^\]]+)\]\s*", summary)
+        if m:
+            comps, summary = [c.strip() for c in m[1].split(",")], summary[m.end():]
+        start = link("{{▶:green}}", act("start", key=key), f"Start {key}? Firstmate dispatches a crewmate.")
+        meta = b.jira_meta(key)
+        if comps:
+            more = f" +{len(comps) - 1}" if len(comps) > 1 else ""
+            meta.append(f"{{{{{comps[0]}{more}:{COMPONENT_COLORS.get(comps[0], 'blue')}.}}}}")
+        rows.append(f"- [ ] {summary}\t{chat(summary, key)} {start}\n  : " + " · ".join(meta))
+    return rows
+
+
+def render(raw, b):
+    out = []
+    tickets = tickets_group(b)
+    if tickets:
+        out.append(f"# Tickets · {len(tickets)} {{blue}}")
+        out += tickets
+    for lv, owners in enumerate(board(raw, b)):
+        if not owners:
+            continue
+        count = sum(len(entries) for entries in owners.values())
+        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}")
+        box = "[x]" if lv == len(LEVELS) - 1 else "[ ]"
+        for owner in sorted(owners, key=lambda o: (o != "fm", o)):
+            me = b.mates.get(owner, "")
+            out.append(f"- {box} {owner}" + (f" · `{me}`" if me else ""))
+            for _, lines in sorted(owners[owner], key=lambda x: x[0]):
+                out += ["  " + ln for ln in lines]
+    return "\n".join(out).strip() + "\n"
+
+
+if __name__ == "__main__":
+    raw = sys.stdin.read() if not sys.stdin.isatty() else ""
+    sys.stdout.write(render(raw, Board(os.environ.get("TASKS", ""), os.environ.get("LAVISH", ""))))

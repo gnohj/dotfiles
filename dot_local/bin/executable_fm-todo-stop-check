@@ -25,8 +25,13 @@ turn=$(jq -cs '
       text: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text] | last // "")
     }' < <(tail -n 2000 "$transcript") 2>/dev/null) || exit 0
 
+glyph='(🔴|🟡|♻(️)?|🟢|✅)'
+if jq -r .text <<<"$turn" | grep -qE "^[[:space:]]*$glyph[[:space:]]*[0-9]+([[:space:]]*·[[:space:]]*$glyph[[:space:]]*[0-9]+)*[[:space:]]*$"; then
+  jq -n '{decision: "block", reason: "The Todo pane is open, so the reply must end with no status at all. Remove the count line (like 🟡 4 · ✅ 1) and resend the reply without it. fm-todo status no longer prints a summary, and the old rule to close with one is retired."}'
+  exit 0
+fi
 [ "$(jq -r .called <<<"$turn")" = true ] && exit 0
 lines=$(jq -r .text <<<"$turn" | grep -cE '^[[:space:]]*([0-9]+\.[[:space:]]*(🔴|🟡|♻|🟢|✅)|(🔴|🟡|♻|🟢|✅)[^0-9]*[0-9]+\.)')
 [ "${lines:-0}" -ge 1 ] || exit 0
 
-jq -n '{decision: "block", reason: "The Todo pane is open, but this reply closed with the full status block and never ran fm-todo status. Pipe the block, lines unchanged, into fm-todo status, then reply with only the summary line it prints. Do not repeat the block."}'
+jq -n '{decision: "block", reason: "The Todo pane is open, but this reply closed with the full status block and never ran fm-todo status. Pipe the block, lines unchanged, into fm-todo status, then end the reply with no status at all. Do not repeat the block."}'

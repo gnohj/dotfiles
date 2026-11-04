@@ -1,19 +1,134 @@
-#!/usr/bin/env bash
-# Todo pane opener: a × link asks firstmate to drop that item, any other link opens as a work URL.
-set -euo pipefail
-url=${1:?usage: fm-todo-open URL}
+#!/usr/bin/env python3
+"""Todo pane opener: fm-todo.invalid links act through the Lavish Library's own routes, other links open as work URLs."""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
-urldecode() { local s=${1//+/ }; printf '%b' "${s//%/\\x}" | tr -d '[:cntrl:]'; }
+ACT = "https://fm-todo.invalid"
+LIBRARY = os.path.expanduser("~/.local/state/lavish-library")
+PORT = os.environ.get("LAVISH_LIBRARY_PORT", "4390")
 
-case $url in
-  https://fm-todo.invalid/remove\?*)
-    query=${url#*\?}
-    mate=$(urldecode "$(sed -n 's/.*mate=\([^&]*\).*/\1/p' <<<"$query")")
-    item=$(urldecode "$(sed -n 's/.*item=\([^&]*\).*/\1/p' <<<"$query")")
-    exec "$HOME/.local/bin/fm-todo" remove "$mate" "$item"
-    ;;
-esac
 
-if [ -x "$HOME/.local/bin/open-work-url" ]; then exec "$HOME/.local/bin/open-work-url" "$url"; fi
-if [ "$(uname)" = Darwin ]; then exec open "$url"; fi
-exec xdg-open "$url"
+def library(method, route, body=None, headers=None):
+    with open(os.path.join(LIBRARY, "session-token")) as f:
+        token = f.read().strip()
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{PORT}{route}", method=method, data=json.dumps(body).encode() if body is not None else None,
+        headers={"Host": f"localhost:{PORT}", "Origin": f"http://localhost:{PORT}", "Authorization": f"Bearer {token}",
+                 "Content-Type": "application/json", **(headers or {})})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read() or b"{}")
+    except urllib.error.HTTPError as error:
+        try:
+            message = json.loads(error.read() or b"{}").get("error")
+        except ValueError:
+            message = None
+        raise SystemExit(message or f"Library answered {error.code} for {route}")
+    except urllib.error.URLError as error:
+        raise SystemExit(f"Lavish Library is not reachable on port {PORT}: {error.reason}")
+
+
+def act(path, **query):
+    return f"{ACT}/{path}?{urlencode(query, quote_via=quote)}"
+
+
+def menu(path, q):
+    key, cur = q.get("key", ""), q.get("cur", "")
+    rows = []
+    if path == "jira/status":
+        for t in library("GET", f"/api/jira/transitions?key={quote(key)}").get("transitions", []):
+            name = t.get("to") or t.get("name")
+            rows.append((name, act("jira/transition", key=key, id=t["id"]), name == cur))
+    elif path == "jira/assign":
+        result = library("GET", f"/api/jira/assignable?key={quote(key)}&query=")
+        me = result.get("me") or {}
+        users = ([me] if me else []) + [u for u in result.get("users", []) if u.get("account_id") != me.get("account_id")]
+        for u in users:
+            label = u["name"] + (" (you)" if u is me else "")
+            rows.append((label, act("jira/assign-to", key=key, account=u["account_id"]), u["name"] == cur))
+        rows.append(("Unassigned", act("jira/assign-to", key=key, account=""), cur == ""))
+    elif path == "jira/version":
+        for v in library("GET", f"/api/jira/versions?key={quote(key)}").get("versions", []):
+            rows.append((v["name"], act("jira/set-version", key=key, id=v["id"]), v["name"] == cur))
+        rows.append(("No version", act("jira/set-version", key=key, id=""), cur == ""))
+    else:
+        raise SystemExit(f"no menu for {path}")
+    for label, url, current in rows:
+        print(f"{label}\t{url}" + ("\t*" if current else ""))
+
+
+def chat(q):
+    args = json.dumps({"title": q.get("title", ""), "ref": q.get("ref", "")})
+    session, block = os.environ.get("REX_SESSION", ""), os.environ.get("REX_BLOCK", "")
+    where = ["-s", session, "-b", block] if session and block else []
+    result = subprocess.run(["rex", "--autostart=false", "do", *where, "fm_chat", "--args", args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(result.stderr.strip() or "could not open the chat popup")
+
+
+def run(path, q):
+    if path == "chat":
+        return chat(q)
+    if path == "start":
+        library("POST", "/api/start-ticket", {"key": q["key"]})
+    elif path == "merge":
+        target = f"{q['repo']}#{q['number']}"
+        nonce = library("POST", "/api/confirm", {"action": "pr-merge", "target": target})["confirmation"]
+        library("POST", "/api/pr-merge", {"repo": q["repo"], "number": q["number"], "sha": q.get("sha", "")},
+                {"X-Lavish-Confirmation": nonce})
+    elif path in ("fixci", "resolve"):
+        library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": path})
+    elif path == "jira/transition":
+        library("POST", "/api/jira/transition", {"key": q["key"], "id": q["id"]})
+    elif path == "jira/assign-to":
+        library("POST", "/api/jira/assign", {"key": q["key"], "account_id": q.get("account", "")})
+    elif path == "jira/set-version":
+        library("POST", "/api/jira/fix-version", {"key": q["key"], "id": q.get("id", "")})
+    else:
+        raise SystemExit(f"unknown action {path}")
+    subprocess.Popen([os.path.expanduser("~/.local/bin/fm-todo"), "refresh"], stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def notify(message):
+    print(message, file=sys.stderr)
+    if sys.platform == "darwin":
+        subprocess.run(["osascript", "-e", f"display notification {json.dumps(message)} with title \"Todo pane\""], check=False)
+    elif shutil.which("notify-send"):
+        subprocess.run(["notify-send", "Todo pane", message], check=False)
+
+
+def open_url(url):
+    opener = os.path.expanduser("~/.local/bin/open-work-url")
+    if os.access(opener, os.X_OK):
+        os.execv(opener, [opener, url])
+    os.execvp("open" if sys.platform == "darwin" else "xdg-open", ["open" if sys.platform == "darwin" else "xdg-open", url])
+
+
+def main(argv):
+    as_menu = argv[:1] == ["--menu"]
+    url = argv[1] if as_menu else (argv[0] if argv else "")
+    if not url:
+        raise SystemExit("usage: fm-todo-open [--menu] URL")
+    if not url.startswith(ACT + "/"):
+        return open_url(url)
+    parts = urlsplit(url)
+    query = {k: v[0] for k, v in parse_qs(parts.query, keep_blank_values=True).items()}
+    path = parts.path.strip("/")
+    if as_menu:
+        return menu(path, query)
+    try:
+        run(path, query)
+    except SystemExit as error:
+        notify(str(error))
+        raise
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
