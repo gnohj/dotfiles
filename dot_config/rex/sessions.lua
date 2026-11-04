@@ -82,9 +82,10 @@ function M.setup()
     title = "Last Session Toggle",
     category = "Sessions",
     run = function(ctx, args)
+      local prev = previous_session(session_ref(ctx), ctx.server == nil) or ""
       M.leave_session(ctx)
-      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1"',
-                                        ctx.client_id or "", ctx.session_id or "" }, { detach = true, env = c.REX_ENV })))
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1" prev="$2"',
+                                        ctx.client_id or "", ctx.session_id or "", prev }, { detach = true, env = c.REX_ENV })))
     end,
   }
 

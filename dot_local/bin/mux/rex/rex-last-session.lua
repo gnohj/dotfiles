@@ -64,20 +64,26 @@ local function shown_at(api, others, session_id)
   return t
 end
 
-local best, best_t, here = nil, 0, nil
+-- The session last left by keyboard (sessions.lua ref) wins: size requests also come from new panes in the background, and Linux hosts record none.
+local prev_ref = rex.args.prev or ""
+local best, best_t, here, prev = nil, 0, nil, nil
 for _, host in ipairs(hosts) do
   local others, first = app_client(host.api)
+  local prefix = host.label ~= "" and (host.label:gsub("[^%w]", "-") .. "~") or ""
   if first ~= nil then
     for _, s in ipairs((host.api.call("session.list") or {}).sessions or {}) do
       if s.session_id == rex.args.session then
         here = { api = host.api, client = first }
       else
         local t = shown_at(host.api, others, s.session_id)
-        if t > best_t then best, best_t = { api = host.api, client = first, session_id = s.session_id }, t end
+        local cand = { api = host.api, client = first, session_id = s.session_id, t = t }
+        if prefix .. (s.session_id:gsub("^session:", "")) == prev_ref then prev = cand end
+        if t > best_t then best, best_t = cand, t end
       end
     end
   end
 end
+if prev ~= nil then best = prev end
 
 if best ~= nil then
   local _, err = best.api.call("client.perform", { client_id = best.client, action = "session.select", args = { session_id = best.session_id } })
