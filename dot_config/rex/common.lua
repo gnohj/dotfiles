@@ -6,9 +6,9 @@ M.SHELL = M.TERM .. ".shell"
 M.HOME = os.getenv("HOME")
 M.STATE_DIR = M.HOME .. "/.local/state/rex-herdr-keys"
 
--- The server's own env has neither REX_BIN_DIR nor rex on PATH, so spawned helpers are handed the app's CLI dir.
+-- The server's own env has neither REX_BIN_DIR nor rex on PATH, so spawned helpers are handed the CLI dir.
 local function rex_bin_dir()
-  local dirs = { "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS", "/usr/bin" }
+  local dirs = { M.HOME .. "/.local/bin", "/usr/bin" }
   if os.getenv("REX_BIN_DIR") ~= nil then table.insert(dirs, 1, os.getenv("REX_BIN_DIR")) end
   for _, dir in ipairs(dirs) do
     local f = io.open(dir .. "/rex")

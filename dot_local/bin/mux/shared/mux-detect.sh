@@ -30,10 +30,9 @@ herdr_live_socket() {
 }
 
 rex_bin() {
-  local bundle="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
   if [ -n "${REX_BIN_DIR:-}" ] && [ -x "$REX_BIN_DIR/rex" ]; then printf '%s' "$REX_BIN_DIR/rex"
   elif command -v rex >/dev/null 2>&1; then command -v rex
-  elif [ -x "$bundle" ]; then printf '%s' "$bundle"
+  elif [ -x "$HOME/.local/bin/rex" ]; then printf '%s' "$HOME/.local/bin/rex"
   else return 1
   fi
 }
