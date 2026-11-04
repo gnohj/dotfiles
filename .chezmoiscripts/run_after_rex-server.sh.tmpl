@@ -19,13 +19,14 @@ if ! command -v rex >/dev/null 2>&1; then
   fi
 fi
 
-unit=rex-server.service
-if [ "$(systemctl --user show -p LoadState --value "$unit")" != loaded ] || [ "$(systemctl --user show -p NeedDaemonReload --value "$unit")" = yes ]; then
-  systemctl --user daemon-reload
-fi
+unit=rex.service
+systemctl --user daemon-reload
+rm -f "$HOME/.config/systemd/user/default.target.wants/rex-server.service"
 systemctl --user is-enabled --quiet "$unit" || systemctl --user enable "$unit"
-# Start only when stopped: restarting would kill every live Rex session, so a changed unit is adopted at the next boot.
-systemctl --user is-active --quiet "$unit" || systemctl --user start "$unit" || true
+# Start only when neither runs: a restart kills every session, and the retired rex-server.service holds the socket until boot.
+if ! systemctl --user is-active --quiet rex-server.service && ! systemctl --user is-active --quiet "$unit"; then
+  systemctl --user start "$unit" || true
+fi
 
 # Serve config lives in tailscaled's state, so this runs once per box; a Unix-socket target needs root even for the operator.
 serve_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rex/serve.sock"

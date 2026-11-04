@@ -1,7 +1,7 @@
 # Linux-only: macOS has no systemd; labels fleet worker tabs with kind, PR, model and effort.
 [Unit]
 Description=Label firstmate worker tabs in Rex
-After=rex-server.service
+After=rex.service
 
 [Service]
 Type=oneshot

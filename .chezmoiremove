@@ -209,3 +209,6 @@ scripts/open-tmux-attach.sh
 # work-sso-time only existed to read Chrome's TCC-protected history; SSO is Helium-only now.
 .local/libexec/work-sso-time
 .local/libexec/work-sso-time.swift
+
+# rex-server.service replaced 2026-11-04 by a drop-in over the packaged rex.service (Linux preview.13).
+.config/systemd/user/rex-server.service

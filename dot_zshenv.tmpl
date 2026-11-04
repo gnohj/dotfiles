@@ -29,7 +29,7 @@ export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 export PATH="$PATH:$HOME/.local/share/mise/shims"
 # nix-darwin's /etc/zshenv resets PATH in Rex panes, dropping the rex CLI dir Rex prepended; ahead of mux/ and its rex/ folder.
 [[ -n "${REX_BIN_DIR:-}" && -d "$REX_BIN_DIR" ]] && (( ! ${path[(Ie)$REX_BIN_DIR]} )) && path=("$REX_BIN_DIR" $path)
-# Linux runs Rex from rex-server.service, so a rex call while it is down must fail, not start a stray server; mirrors environment.d.
+# Linux runs Rex from rex.service, so a rex call while it is down must fail, not start a stray server; mirrors environment.d.
 [[ "$OSTYPE" == linux* ]] && export REX_AUTOSTART=0
 
 # A long-lived herdr server hands new panes a HERDR_BIN_PATH that mise deleted on upgrade; repoint it once here.
@@ -55,7 +55,7 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
-# Only Rex.app or rex-server.service start Rex; a shell-started server uses XDG state and loses Tailscale.
+# Only Rex.app or rex.service start Rex; a shell-started server uses XDG state and loses Tailscale.
 export REX_AUTOSTART=false
 
 # Here, not .zshrc: worktree pickers and hooks run `zoxide add` outside .zshrc and would ignore the excludes.

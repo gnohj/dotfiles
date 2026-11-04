@@ -45,5 +45,5 @@ if [ "$(uname)" = Darwin ]; then
   r do -C "$app" client.server.restart >/dev/null || exit 2
 else
   echo "rex-restart-idle: restarting the server, $running -> $installed"
-  systemctl --user restart rex-server.service || exit 2
+  systemctl --user stop rex-server.service 2>/dev/null; systemctl --user restart rex.service || exit 2
 fi

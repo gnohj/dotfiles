@@ -1,8 +1,8 @@
 # Linux counterpart of the macOS launchd agent `rex-tab-numbers`; numbers the dev-box server's tabs by position.
 [Unit]
 Description=Prefix Rex tabs with their position
-After=rex-server.service
-PartOf=rex-server.service
+After=rex.service
+PartOf=rex.service
 
 [Service]
 Type=simple
@@ -11,5 +11,5 @@ Restart=always
 RestartSec=10
 
 [Install]
-# Not default.target: rex-server is After=default.target, so that ordering cycle drops rex-server at boot.
-WantedBy=rex-server.service
+# Wanted by the server, not default.target, so it starts and stops with it.
+WantedBy=rex.service

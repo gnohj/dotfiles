@@ -188,7 +188,7 @@ Library/
 .config/systemd/user/herdr-server.service
 
 # Rex personal server - Linux only; on macOS the Rex app runs its own server.
-.config/systemd/user/rex-server.service
+.config/systemd/user/rex.service.d
 
 # Rex worker-label units - Linux only; macOS runs the same script from its launchd agent `fm-rex-labels`.
 .config/systemd/user/fm-rex-labels.service
