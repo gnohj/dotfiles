@@ -1027,7 +1027,7 @@ function nvim {
     local marker session args=("$@")
     marker=$(mktemp "${TMPDIR:-/tmp}/neorex-restart.XXXXXX") || return
     rm -f "$marker"
-    while NEOREX_RESTART_FILE=$marker neorex "${args[@]}"; [[ -e $marker ]]; do
+    while ARGV0=nvim NEOREX_RESTART_FILE=$marker neorex "${args[@]}"; [[ -e $marker ]]; do
       session=$(<"$marker")
       rm -f "$marker"
       [[ -n $session ]] && args=(-S "$session")

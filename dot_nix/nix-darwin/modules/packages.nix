@@ -6,10 +6,15 @@ let
     pname = "neorex";
     version = "0-unstable-${inputs.neorex.shortRev}";
     src = inputs.neorex;
+    # Split-pane helper leads the tty's foreground group, else Rex sees only the root login.
+    patches = [ ./neorex-pane-foreground.patch ];
     nativeBuildInputs = [ pkgs.zig_0_17.hook ];
     postInstall = ''
-      mkdir -p $out/share/neorex
+      mkdir -p $out/share/neorex $out/libexec/neorex
       cp -r runtime $out/share/neorex/
+      # Rex picks the nvim icon by binary name; splits re-exec the resolved path
+      mv $out/bin/neorex $out/libexec/neorex/nvim
+      ln -s ../libexec/neorex/nvim $out/bin/neorex
     '';
   };
 
