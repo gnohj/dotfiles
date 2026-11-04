@@ -77,7 +77,7 @@ task_kinds() {
   }'
 }
 
-# Lines like "🟡 3. **web** - text" or "3. 🟡 **web** - text"; indented lines below become sub-lines.
+# Lines like "🟡 3. **web** - text" or "3. 🟡 **web** - text"; indented lines become sub-lines, "> " lines details.
 fm_mate_row() {
   local v="" sid
   v=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/fm/primary-model-effort" 2>/dev/null) || true
@@ -255,6 +255,7 @@ to_checklist() {
         cur = lv
         next
       }
+      if (cur && line ~ /^[ \t]+>/) { sub(/^[ \t]+>[ \t]*/, "", line); note[cur, n[cur]] = note[cur, n[cur]] "\n> " linkify(clean(line), repo_of(proj[cur, n[cur]]), ""); next }
       if (cur && line ~ /^[ \t]/) note[cur, n[cur]] = note[cur, n[cur]] "\n" linkify(clean(line), repo_of(proj[cur, n[cur]]), "")
     }
     END {
@@ -284,7 +285,7 @@ to_checklist() {
       for (i = 1; i <= k; i++) {
         ln = lines[i]
         if (ln == "") continue
-        if (ln !~ /^- / || !cur) {
+        if (ln !~ /^(- |> )/ || !cur) {
           if (!(ln in bidx)) { bidx[ln] = ++nb; bkey[nb] = ln; bbody[nb] = "" }
           cur = bidx[ln]
           continue
