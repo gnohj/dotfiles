@@ -14,6 +14,12 @@
     # Pinned nixpkgs whose sesh still builds; go-mockery 3.8.0 can't read go 1.27 export data, drop once nixpkgs bumps it.
     nixpkgs-sesh.url = "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30";
 
+    # Rex-native Neovim frontend, built from source (not in nixpkgs); bump with `nix flake update neorex`.
+    neorex = {
+      url = "github:alexrlocke/neorex";
+      flake = false;
+    };
+
     darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -1007,6 +1007,21 @@ alias vi="nvim"
 alias vim="nvim"
 alias nj="nvim -c 'Atlas issues jira'"
 alias ng="nvim -c 'Atlas pulls github'"
+# neorex in a bare Rex pane, plain nvim everywhere else; `function` form survives a re-source over an alias.
+unalias nvim 2>/dev/null
+function nvim {
+  local arg
+  for arg in "$@"; do
+    case $arg in
+      -|--headless|--embed|--version|-v|--help|-h|-l|-e|-E|-es|-Es|--api-info|--server|--remote*) command nvim "$@"; return ;;
+    esac
+  done
+  if [[ $TERM_PROGRAM == rex && -n $REX_SESSION && -z $HERDR_SOCKET_PATH && -z $TMUX && -z $SSH_CONNECTION && -t 0 && -t 1 ]] && (( $+commands[neorex] )); then
+    neorex "$@"
+  else
+    command nvim "$@"
+  fi
+}
 # EDITOR/VISUAL moved to ~/.zshenv so the non-interactive herdr server inherits them.
 
 # Claude Code - reduce bash output to save tokens
