@@ -23,7 +23,7 @@ task_list_script() {
 for f in "$HOME"/.local/share/firstmate*/state/*.meta; do
   [ -f "$f" ] || continue
   kind=$(sed -n 's/^kind=//p' "$f")
-  case $kind in ship|scout) ;; *) continue ;; esac
+  case $kind in ship|scout|secondmate) ;; *) continue ;; esac
   home=$(basename "$(dirname "$(dirname "$f")")")
   home=${home#firstmate}; home=${home#-}
   case $home in sm-*) ;; *) home=fm ;; esac
@@ -32,7 +32,7 @@ for f in "$HOME"/.local/share/firstmate*/state/*.meta; do
   if [ -n "$srv" ] && [ -n "$ses" ] && [ -n "$win" ] && command -v rex >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
     tab=$(rex --autostart=false --timeout 2s -S "$srv" window ls -s "$ses" --json 2>/dev/null | jq -r --arg w "$win" '.windows[]? | select(.window_id == $w) | .label' | sed -n 's/^\([0-9][0-9]*\)\..*/\1/p')
   fi
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab" "$(sed -n 's/^model=//p' "$f")" "$(sed -n 's/^effort=//p' "$f")"
 done
 SH
 }
@@ -44,21 +44,53 @@ task_kinds() {
     for h in $(cat "$HOME"/.local/share/firstmate*/state/*.meta 2>/dev/null | sed -n 's/^remote_host=//p' | sort -u); do
       task_list_script | ssh -o ConnectTimeout=2 -o BatchMode=yes "$h" sh -s 2>/dev/null || true
     done
-  } | awk -F'\t' '{
+  } | awk -F'\t' '
+  function model_effort(model, effort,   n, p, i, name, all, ver) {
+    sub(/.*\//, "", model)
+    n = split(model, p, "-")
+    for (i = 1; i <= n; i++) {
+      if (p[i] == "") continue
+      if (p[i] ~ /^[0-9]/) { if (length(p[i]) < 8) ver = ver (ver == "" ? "" : ".") p[i]; continue }
+      all = all p[i]
+      if (tolower(p[i]) != "claude" && tolower(p[i]) != "gpt") name = name p[i]
+    }
+    model = (name != "" ? name : all) ver
+    effort = tolower(effort)
+    if (model == "" || effort == "" || effort == "off" || effort == "none" || effort == "default") return model
+    if (effort == "minimal") effort = "min"
+    else if (effort == "medium") effort = "med"
+    else if (effort == "high") effort = "hi"
+    else if (effort == "xhigh") effort = "xhi"
+    return model "/" effort
+  }
+  $2 == "secondmate" { print "mate:" $1 "\t" model_effort($6, $7); next }
+  {
+    me = model_effort($6, $7)
     slug = $1; tail = "\t" $2 "\t"
     if (match(toupper($1), /[A-Z][A-Z]+-[0-9][0-9]+/)) {
       key = substr(toupper($1), RSTART, RLENGTH)
       slug = substr($1, 1, RSTART - 1) "-" substr($1, RSTART + RLENGTH)
       gsub(/-+/, "-", slug); gsub(/^-|-$/, "", slug)
-      print key tail slug "\t" $4 "\t" $5
+      print key tail slug "\t" $4 "\t" $5 "\t" me
     }
-    if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 }
+    if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 "\t" me }
   }'
 }
 
 # Lines like "🟡 3. **web** - text" or "3. 🟡 **web** - text"; indented lines below become sub-lines.
+fm_mate_row() {
+  local v="" sid
+  v=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/fm/primary-model-effort" 2>/dev/null) || true
+  if [ -z "$v" ] && command -v rex >/dev/null 2>&1; then
+    sid=$(rex --autostart=false ls --json 2>/dev/null | jq -r '.sessions[] | select(.label | test("(^| )fm$")) | .session_id' | head -1)
+    [ -n "$sid" ] && v=$(rex --autostart=false window ls -s "$sid" --json 2>/dev/null | jq -r '.windows[].label' | sed -n 's/^.*🚢 fm · //p' | head -1)
+  fi
+  [ -n "$v" ] && printf 'mate:fm\t%s\n' "$v"
+  return 0
+}
+
 to_checklist() {
-  LAVISH=$(lavish_index) TASKS=$(task_kinds) awk '
+  LAVISH=$(lavish_index) TASKS=$(task_kinds; fm_mate_row) awk '
     function level(s) {
       if (index(s, "🔴")) return 1
       if (index(s, "🟡")) return 2
@@ -134,8 +166,11 @@ to_checklist() {
         gsub(/^[ \t:,-]+|[ \t]+$/, "", tail)
         tk = task_key(head, rp)
         if (owner == "" && home[tk] != "") owner = home[tk]
-        refs[++j] = task_mark(tk) linkify(head, rp, lavish_link(head))
+        refs[++j] = task_mark(tk) linkify(head, rp, "")
         id[j] = tk != "" ? slug[tk] : ""
+        refs[j] = pr_last(refs[j])
+        if (tk != "" && crew_me[tk] != "") refs[j] = refs[j] " · `" crew_me[tk] "`"
+        refs[j] = refs[j] lavish_link(head)
         steps[j] = tail != "" ? "\n- " tail : ""
       }
       if (owner != "" && project != "fleet" && project != "fm") item[lv, n[lv]] = mate_label(owner)
@@ -145,10 +180,21 @@ to_checklist() {
         note[lv, n[lv]] = note[lv, n[lv]] "\n" refs[i] body
       }
     }
+    function pr_last(s,   tok, num, url) {
+      if (match(s, /\[PR #?[0-9]+\]\([^)]*\)/)) {
+        tok = substr(s, RSTART, RLENGTH); url = tok
+        sub(/^[^(]*\(/, "", url); sub(/\)$/, "", url)
+      } else if (match(s, /PR #?[0-9]+/)) tok = substr(s, RSTART, RLENGTH)
+      else return s
+      num = tok; sub(/\].*/, "", num); gsub(/[^0-9]/, "", num)
+      s = substr(s, 1, RSTART - 1) substr(s, RSTART + RLENGTH)
+      gsub(/( \/ )+/, " / ", s); gsub(/^ \/ | \/ $/, "", s); gsub(/ \/ $/, "", s)
+      return s " · " (url != "" ? "[`#" num "`](" url ")" : "`#" num "`")
+    }
     function lavish_link(c) {
       if (!match(c, TICKET)) return ""
       c = substr(c, RSTART, RLENGTH)
-      return (c in lav) ? " / [Lavish](" lav[c] ")" : ""
+      return (c in lav) ? " · [`Lavish`](" lav[c] ")" : ""
     }
     function title_link(s,   t, at, best, bt) {
       if (index(s, "](")) return s
@@ -176,8 +222,11 @@ to_checklist() {
         else lav[kv[1]] = kv[2]
       }
       k = split(ENVIRON["TASKS"], rows, "\n")
-      for (i = 1; i <= k; i++) if (split(rows[i], kv, "\t") >= 4) {
-        task[kv[1]] = kv[2]; slug[kv[1]] = kv[3]; home[kv[1]] = kv[4]; tab[kv[1]] = kv[5]
+      for (i = 1; i <= k; i++) {
+        c = split(rows[i], kv, "\t")
+        if (kv[1] ~ /^mate:/) { mates[substr(kv[1], 6)] = 1; mate_me[substr(kv[1], 6)] = kv[2]; continue }
+        if (c < 4) continue
+        task[kv[1]] = kv[2]; slug[kv[1]] = kv[3]; home[kv[1]] = kv[4]; tab[kv[1]] = kv[5]; crew_me[kv[1]] = kv[6]
         if (kv[4] ~ /^sm-/) mates[kv[4]] = 1
       }
     }
@@ -195,6 +244,7 @@ to_checklist() {
     END {
       split("Blocked|Needs your call|In progress|Waiting on others|Done", title, "|")
       split("[ ]|[ ]|[~]|[ ]|[x]", box, "|")
+      split("red|yellow|cyan|green|green", ring, "|")
       for (lv = 1; lv <= 5; lv++) {
         if (!n[lv]) continue
         np = 0
@@ -204,9 +254,10 @@ to_checklist() {
           p = pidx[lv, item[lv, i]]
           pnote[p] = pnote[p] note[lv, i]
         }
-        print "# " title[lv]
+        print "# " title[lv] " {" ring[lv] "}"
         for (p = 1; p <= np; p++) {
-          print "- " box[lv] " " pname[p]
+          me = mate_me[substr(pname[p], length("🚢 ") + 1)]
+          print "- " box[lv] " " pname[p] (me != "" ? " · `" me "`" : "")
           emit_blocks(pnote[p])
         }
       }
