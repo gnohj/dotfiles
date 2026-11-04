@@ -344,10 +344,13 @@ open_fanout_owner() {
   mux "${POLL_TIMEOUT_ENV[@]}" "${CLAUDE_ACCOUNT_ENV[@]}" "🤖 #$pr merge$ticket_tag" "$1" "${GH_KEYRING}${AGENT_FLAGS_WIN}$HOME/.config/gh-dash/review-fanout.sh \"$1\" \"$pr\""
 }
 
+# Phrases match agent-mode-glyphs and the Pi footer, so the 🧠🐴 marks light up on these tabs.
+AGENT_MODE_LINES='Apply the i-have-adhd output rules to this session: read ~/Developer/i-have-adhd/skills/i-have-adhd/SKILL.md and follow it.\nApply the ponytail ruleset to this task at intensity full: read ~/Developer/ponytail/skills/ponytail/SKILL.md and follow it.\n'
+
 # The brief lives outside the worktree so the agent's own `git status` stays clean.
 open_resolver() {
   local brief="$stamp_dir/${repo//\//_}-$pr-resolve.txt"
-  printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nCI owns typecheck, lint and tests for this push, so --no-verify skips the pre-push hook that would run them all locally first. No measured CI run is in flight, so push as soon as the fixes are committed. Run the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too.\n' "$pr" "$2" >"$brief"
+  printf '/resolve-pr-comments %s\nPressing the flag in the Lavish Library is the go-ahead to post replies and resolve threads. This worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nCI owns typecheck, lint and tests for this push, so --no-verify skips the pre-push hook that would run them all locally first. No measured CI run is in flight, so push as soon as the fixes are committed. Run the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too.\n'"$AGENT_MODE_LINES" "$pr" "$2" >"$brief"
   if [ "$harness" = pi ]; then
     mux "💬 #$pr$ticket_tag" "$1" \
       "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'
@@ -359,7 +362,7 @@ open_resolver() {
 
 open_ci_fixer() {
   local brief="$stamp_dir/${repo//\//_}-$pr-fixci.txt"
-  printf 'CI is failing on PR #%s in %s. Pressing the wrench in the Lavish Library is the go-ahead to fix it.\nFind every failing check with: gh pr checks %s --repo %s, then read the failed logs with: gh run view <run-id> --repo %s --log-failed\nFor each failure decide whether the PR caused it. If it did, reproduce it locally with the same command CI ran, fix the code, and rerun that command until it passes. If it is flaky or infrastructure unrelated to the diff, rerun only the failed jobs with: gh run rerun <run-id> --repo %s --failed\nThis worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nRun the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too. Do not post comments on the PR. After pushing, watch the new run with: gh pr checks %s --repo %s --watch, and repeat until every check passes or you have a failure you cannot fix, which you then explain here.\n' "$pr" "$repo" "$pr" "$repo" "$repo" "$repo" "$2" "$pr" "$repo" >"$brief"
+  printf 'CI is failing on PR #%s in %s. Pressing the wrench in the Lavish Library is the go-ahead to fix it.\nFind every failing check with: gh pr checks %s --repo %s, then read the failed logs with: gh run view <run-id> --repo %s --log-failed\nFor each failure decide whether the PR caused it. If it did, reproduce it locally with the same command CI ran, fix the code, and rerun that command until it passes. If it is flaky or infrastructure unrelated to the diff, rerun only the failed jobs with: gh run rerun <run-id> --repo %s --failed\nThis worktree is detached at the PR head, so commit fixes here and push with: git push --no-verify origin HEAD:refs/heads/%s\nRun the repo formatter (pnpm prettier --write) on every file you changed before committing, since the CI lint fails on formatting too. Do not post comments on the PR. After pushing, watch the new run with: gh pr checks %s --repo %s --watch, and repeat until every check passes or you have a failure you cannot fix, which you then explain here.\n'"$AGENT_MODE_LINES" "$pr" "$repo" "$pr" "$repo" "$repo" "$repo" "$2" "$pr" "$repo" >"$brief"
   if [ "$harness" = pi ]; then
     mux "🔧 #$pr$ticket_tag" "$1" \
       "$GH_KEYRING"'pi --provider '"${REVIEW_PI_MODEL%%/*}"' --model '"${REVIEW_PI_MODEL#*/}"' --thinking '"$REVIEW_PI_THINKING"' "$(cat '"$brief"')"'

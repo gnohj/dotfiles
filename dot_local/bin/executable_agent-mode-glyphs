@@ -11,6 +11,7 @@ ADHD_ON = (
 )
 PONY_ON = (b'"content":"<command-message>ponytail</command-message>',)
 PONY_BRIEF = b"Apply the ponytail ruleset to this task at intensity"
+ADHD_BRIEF = b"Apply the i-have-adhd output rules to this session"
 CONTENT = b'"content":"'
 USER_LINE = b'"type":"user"'
 SESSION_START_HOOK = b'"hookEvent":"SessionStart"'
@@ -57,7 +58,7 @@ def main():
 
     with handle, mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as data:
         normal_off = last_structural_phrase(data, b"normal mode")
-        adhd = last_of(data, ADHD_ON) > max(
+        adhd = max(last_of(data, ADHD_ON), last_in_user_line(data, ADHD_BRIEF)) > max(
             normal_off, last_structural_phrase(data, b"stop adhd mode")
         )
         pony = max(last_of(data, PONY_ON), last_in_user_line(data, PONY_BRIEF)) > max(
