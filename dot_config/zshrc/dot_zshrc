@@ -1024,7 +1024,15 @@ function nvim {
     esac
   done
   if [[ $TERM_PROGRAM == rex && -n $REX_SESSION && -z $HERDR_SOCKET_PATH && -z $TMUX && -z $SSH_CONNECTION && -t 0 && -t 1 ]] && (( $+commands[neorex] )); then
-    neorex "$@"
+    local marker session args=("$@")
+    marker=$(mktemp "${TMPDIR:-/tmp}/neorex-restart.XXXXXX") || return
+    rm -f "$marker"
+    while NEOREX_RESTART_FILE=$marker neorex "${args[@]}"; [[ -e $marker ]]; do
+      session=$(<"$marker")
+      rm -f "$marker"
+      [[ -n $session ]] && args=(-S "$session")
+    done
+    rm -f "$marker.vim"
   else
     command nvim "$@"
   fi
