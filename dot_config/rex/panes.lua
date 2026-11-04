@@ -8,7 +8,7 @@ local PASS_THROUGH = { "vim", "tmux", "herdr", "ssh" }
 
 local function owns_ctrl_hjkl(block_id)
   local fg = c.foreground(block_id)
-  if fg == nil then return false end
+  if fg == nil or (fg.path or ""):find("/neorex/", 1, true) then return false end
   local name = fg.name or ""
   for _, prog in ipairs(PASS_THROUGH) do
     if name:find(prog, 1, true) then return true end
