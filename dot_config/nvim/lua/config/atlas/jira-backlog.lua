@@ -1,7 +1,7 @@
 local M = {}
 
 local options = {}
-local sprint_rank, rank_loading = nil, false
+local sprint_rank, board_sprints, rank_loading = nil, {}, false
 
 local function load_sprint_rank()
   if sprint_rank or rank_loading then
@@ -20,9 +20,8 @@ local function load_sprint_rank()
       vim.schedule(function()
         rank_loading = false
         sprint_rank = {}
-        for index, sprint in
-          ipairs(type(result) == "table" and result.values or {})
-        do
+        board_sprints = type(result) == "table" and result.values or {}
+        for index, sprint in ipairs(board_sprints) do
           sprint_rank[sprint.id] = index
         end
         pcall(require("atlas.issues.ui.dashboard").render)
@@ -53,20 +52,21 @@ end
 local function group_by_sprint(issues)
   local groups, by_id = {}, {}
   local backlog = { name = "Backlog", rank = math.huge, issues = {} }
+  local function group_for(sprint)
+    if not by_id[sprint.id] then
+      local name = sprint.state == "active" and (sprint.name .. " (active)")
+        or sprint.name
+      by_id[sprint.id] = { name = name, rank = rank_of(sprint), issues = {} }
+      table.insert(groups, by_id[sprint.id])
+    end
+    return by_id[sprint.id]
+  end
+  for _, sprint in ipairs(board_sprints) do
+    group_for(sprint)
+  end
   for _, issue in ipairs(issues) do
     local sprint = open_sprint(issue)
-    local group = backlog
-    if sprint then
-      group = by_id[sprint.id]
-      if not group then
-        local name = sprint.state == "active" and (sprint.name .. " (active)")
-          or sprint.name
-        group = { name = name, rank = rank_of(sprint), issues = {} }
-        by_id[sprint.id] = group
-        table.insert(groups, group)
-      end
-    end
-    table.insert(group.issues, issue)
+    table.insert(sprint and group_for(sprint).issues or backlog.issues, issue)
   end
   table.sort(groups, function(a, b)
     return a.rank < b.rank
@@ -148,6 +148,7 @@ function M.render(opts, issues)
   local row_opts = vim.tbl_extend("force", opts, { loading = false })
   row_opts.groups = nil
   local lines, spans, line_map = {}, {}, {}
+  local header_shown = false
   for index, group in ipairs(group_by_sprint(issues)) do
     if index > 1 then
       table.insert(lines, "")
@@ -170,13 +171,17 @@ function M.render(opts, issues)
       end_col = #title + #count,
       hl_group = "Comment",
     })
-    local rows, row_map, row_spans =
-      rows_layout.render(row_opts, group.issues, row_spec)
-    rows, row_map, row_spans = tighten(rows, row_map, row_spans, index == 1)
-    local base = #lines
-    utils.append_block(lines, spans, { lines = rows, highlights = row_spans })
-    for lnum, node in pairs(row_map) do
-      line_map[base + lnum] = node
+    if #group.issues > 0 then
+      local rows, row_map, row_spans =
+        rows_layout.render(row_opts, group.issues, row_spec)
+      rows, row_map, row_spans =
+        tighten(rows, row_map, row_spans, not header_shown)
+      header_shown = true
+      local base = #lines
+      utils.append_block(lines, spans, { lines = rows, highlights = row_spans })
+      for lnum, node in pairs(row_map) do
+        line_map[base + lnum] = node
+      end
     end
   end
   if #lines == 0 then
