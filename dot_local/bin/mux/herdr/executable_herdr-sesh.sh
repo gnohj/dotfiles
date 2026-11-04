@@ -241,6 +241,13 @@ if REX:
 #   ws  ⚡ open herdr workspaces      cfg 🔧 sesh config dirs      zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
+crew_tabs = {}
+for t in snapshot.get("tabs", []):
+    m = re.match(r"^(?:(\d+)\. ?)?([\u26f5\U0001f52d])\ufe0f? *(.*)$", t.get("label") or "")
+    if m: crew_tabs.setdefault(t.get("workspace_id"), []).append((m.group(2), m.group(3), m.group(1) or "", t.get("tab_id")))
+def add_crew(wid, host):
+    for glyph, name, num, tid in crew_tabs.get(wid, []):
+        entries.append(("tab", glyph, "%s %s" % (glyph, name), "", "tab:" + tid, True, "", ("tab " + num) if num else "", host))
 for w in snapshot.get("workspaces", []):
     wid = w.get("workspace_id")
     # This picker builds its own git column from the cwd, so strip any " · <symbols>"
@@ -256,6 +263,7 @@ for w in snapshot.get("workspaces", []):
         if not ent and lname not in pins and (lname in cfg_names or lname in alias_by_name): ent = lname
         if ent: active_names.add(ent)
         entries.append(("ws", "⚡", label, "", "ws:" + wid, True, ent, there, host))
+        add_crew(wid, host)
         continue
     # No second row here, so re-expand the ticket tail - but only if the label is still the derived short form.
     if cwd:
@@ -266,6 +274,7 @@ for w in snapshot.get("workspaces", []):
     if ent in pins: ent = ""
     if ent: active_names.add(ent)
     entries.append(("ws", "💻" if cwd == home.rstrip("/") else "⚡", label, cwd, "ws:" + wid, True, ent, "", ""))
+    add_crew(wid, "")
 
 seen_names, seen_paths = set(), set()
 for e in sesh_entries:
