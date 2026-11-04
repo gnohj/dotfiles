@@ -15,15 +15,16 @@ dir=$(mktemp -d -t rex-scrollview-XXXXXX)
 trap 'rm -rf "$dir"' EXIT
 
 app=$(terminal program_status | jq -r '.records[0].effective_app // empty')
-IFS=$'\t' read -r name cwd < <(terminal process | jq -r '[.foreground.name // "", .foreground.cwd // ""] | @tsv')
+IFS=$'\t' read -r name cwd pid < <(terminal process | jq -r '[.foreground.name // "", .foreground.cwd // "", .foreground.pid // ""] | @tsv')
+kind="" value=""
 case "$app:$name" in
-  claude-code:* | *:claude*) agent=claude ;;
+  claude-code:* | *:claude*) agent=claude kind=pid value=$pid ;;
   pi:* | *:pi) agent=pi ;;
   *) agent="" ;;
 esac
 
 # Agents redraw a full screen and keep no scrollback, so their history comes from the session transcript.
-if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "" "" "$cwd" >"$dir/raw" 2>/dev/null; then
+if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "$kind" "$value" "$cwd" >"$dir/raw" 2>/dev/null; then
   "$rex" capture -s "$REX_SESSION" -b "$block" --format vt --unwrap --trim >"$dir/raw" 2>/dev/null
 fi
 

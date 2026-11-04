@@ -221,6 +221,8 @@ def main():
         sys.exit("usage: herdr-agent-transcript.py <claude|pi> <session-kind> <session-value> <cwd>")
     agent, kind, value, cwd = sys.argv[1:]
     if agent == "claude":
+        if kind == "pid":
+            value = stores.claude_session_for_pid(value) or ""
         if value and not re.fullmatch(r"[0-9A-Za-z-]+", value):
             sys.exit(f"herdr-agent-transcript: invalid session id {value!r}")
         path, renderer = (stores.claude_transcript(value, cwd) if value else stores.claude_newest_session(cwd)), render_claude

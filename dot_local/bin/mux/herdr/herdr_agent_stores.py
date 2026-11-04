@@ -71,6 +71,19 @@ def claude_transcript(session_id, cwd):
     return None
 
 
+def claude_session_for_pid(pid):
+    """Session id a running claude process records in <root>/sessions/<pid>.json, so panes sharing a cwd each get their own."""
+    for root in CLAUDE_ROOTS:
+        try:
+            with open(os.path.join(root, "sessions", f"{int(pid)}.json")) as f:
+                session = json.load(f).get("sessionId")
+        except (OSError, ValueError):
+            continue
+        if session:
+            return session
+    return None
+
+
 def claude_newest_session(cwd):
     """Newest claude transcript for `cwd` across both roots, for a pane that reported no session id."""
     best, best_mtime = None, -1.0
