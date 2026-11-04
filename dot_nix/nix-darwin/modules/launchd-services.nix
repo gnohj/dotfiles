@@ -570,7 +570,7 @@ in
       };
     };
 
-    # Redraws the firstmate Todo pane when the Lavish Library rewrites its PR, ticket or CI files; a no-op with no pane open.
+    # Redraws the firstmate Todo pane when the Lavish Library rewrites its PR, ticket, CI or review-queue files; a no-op with no pane open.
     fm-todo-refresh = {
       serviceConfig = {
         ProgramArguments = [
@@ -585,6 +585,7 @@ in
           "${homeDir}/.local/state/lavish-library/my-prs.json"
           "${homeDir}/.local/state/lavish-library/my-tickets.json"
           "${homeDir}/.local/state/lavish-library/pr-status.json"
+          "${homeDir}/.local/state/lavish-library/catalog.json"
         ];
         ThrottleInterval = 10;
         EnvironmentVariables = {
