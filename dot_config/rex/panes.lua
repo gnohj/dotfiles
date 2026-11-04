@@ -223,7 +223,13 @@ function M.setup()
     title = "Close Pane or Last-Pane Tab",
     category = "Panes",
     run = function(ctx, args)
+      local window = c.tab_of_block(c.windows(), ctx.block_id)
+      local was_popup = false
+      for _, layer in ipairs(window and window.layers or {}) do
+        if c.is_popup(layer) and layer.blocks[1].block_id == ctx.block_id then was_popup = true end
+      end
       c.fail(select(2, rex.call("block.close", { session_id = ctx.session_id, block_id = ctx.block_id })))
+      if was_popup then c.restore_popup_source(window) end
       local windows = c.windows().windows
       if type(windows) ~= "table" or #windows == 0 then sessions.close_session(ctx) end
     end,

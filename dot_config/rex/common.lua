@@ -138,10 +138,26 @@ local function sized(command)
   return argv
 end
 
+local function popup_key(window)
+  local id = window.window_id:gsub("[^%w]", "_")
+  return "popup-source-" .. id
+end
+
+-- Closing a popup leaves focus on whichever pane Rex picks, so the pane it opened from is remembered per tab.
+function M.restore_popup_source(window)
+  local source = window ~= nil and M.read_state(popup_key(window))
+  if source then rex.session.focus_block{ block_id = source } end
+end
+
 function M.popup(ctx, side, top, command, opts)
   opts = opts or {}
   local view = M.windows()
-  if close_popups(view) then return end
+  local window = M.tab_of_block(view, ctx.block_id)
+  if close_popups(view) then
+    M.restore_popup_source(window)
+    return
+  end
+  if window ~= nil then M.write_state(popup_key(window), ctx.block_id) end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
   local left = math.max(0.01, side - sidebar_share(M.tab_of_block(view, ctx.block_id), ctx.block_id) / 2)
   M.fail(select(2, rex.session.new_layer{

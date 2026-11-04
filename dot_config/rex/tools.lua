@@ -58,7 +58,21 @@ function M.setup()
       local cwd = c.block_cwd(ctx.block_id)
       local repo = rex.exec{ "git", "-C", cwd, "rev-parse", "--git-dir" }
       if repo == nil or not repo.ok then return end
-      c.popup(ctx, 0.05, 0.05, { "lazygit" }, { cwd = cwd, label = "lazygit" })
+      local run = 'lazygit; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
+      c.popup(ctx, 0.05, 0.05, { "/bin/sh", "-c", run, ctx.block_id }, { cwd = cwd, label = "lazygit" })
+    end,
+  }
+
+  -- The lazygit popup calls this when lazygit quits on its own (esc, q); skipped once focus has left the popup.
+  rex.action{
+    name = "popup_return",
+    title = "Return From Popup",
+    category = "Tools",
+    args = { source = "string" },
+    run = function(ctx, args)
+      local window = c.tab_of_block(c.windows(), args.source)
+      if window == nil or window.focused_block_id ~= ctx.block_id then return end
+      c.fail(select(2, rex.session.focus_block{ block_id = args.source }))
     end,
   }
 
