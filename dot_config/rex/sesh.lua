@@ -141,7 +141,9 @@ function M.setup()
     category = "Sesh",
     run = function(ctx, args)
       sessions.leave_session(ctx)
-      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"' }, { self_sized = true, label = "sesh" })
+      -- rex-herdr marks REX_POPUP_MOVED when it switches focus; otherwise focus returns to the pane the picker opened from.
+      local run = 'm=$(mktemp); REX_POPUP_MOVED="$m" "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"; [ -s "$m" ] || "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1; rm -f "$m"'
+      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", run, ctx.block_id }, { self_sized = true, label = "sesh" })
     end,
   }
 

@@ -20,6 +20,12 @@ app_try() {
 
 app_do() {
   app_try "$@" || die "$out"
+  moved
+}
+
+# Tells the sesh popup focus went elsewhere, so it skips returning to the pane it opened from.
+moved() {
+  [ -z "${REX_POPUP_MOVED:-}" ] || echo 1 >"$REX_POPUP_MOVED"
 }
 
 # Key actions run on the Mac's server, so it alone keeps the session history; a Dev Box picker reaches it as the Mac host.
@@ -68,7 +74,7 @@ select_session() {
   if live=$(remote api call session.list '{}' 2>/dev/null); then
     jq -e --arg s "session:$sid" 'any(.sessions[]?; .session_id == $s)' <<<"$live" >/dev/null || exit 3
   fi
-  app_try session.select session_id="session:$sid" && return
+  app_try session.select session_id="session:$sid" && { moved; return; }
   case "$out" in *SessionNotFound*) exit 3 ;; esac
   die "$out"
 }
