@@ -208,6 +208,9 @@ local function edit_field(ctx, field, done)
       end
       local schema = meta.schema or {}
       local current = issue.fields and issue.fields[field.id]
+      if current == vim.NIL then
+        current = nil
+      end
       if schema.custom and schema.custom:match("gh%-sprint$") then
         edit_sprint(key, current, done)
       elseif schema.type == "array" and schema.items == "string" then
