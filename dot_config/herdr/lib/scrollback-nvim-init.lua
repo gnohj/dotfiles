@@ -107,6 +107,44 @@ local function move_to_prompt(rows, direction)
   end
 end
 
+local function rendered_prompt_rows(raw_lines, raw_rows, buf)
+  local rendered = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local rows, from = {}, 1
+  for _, raw_row in ipairs(raw_rows) do
+    local text = strip_ansi(raw_lines[raw_row]):gsub("%s+$", "")
+    for row = from, #rendered do
+      local segment = rendered[row]:gsub("%s+$", "")
+      if segment ~= "" and vim.startswith(text, segment) then
+        table.insert(rows, row)
+        from = row + 1
+        break
+      end
+    end
+  end
+  return rows
+end
+
+local SCROLLBACK_MAX = 100000
+
+local function render_terminal(file_buf, lines)
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_win_set_buf(0, buf)
+  vim.api.nvim_buf_delete(file_buf, { force = true })
+  vim.bo[buf].scrollback = SCROLLBACK_MAX
+  local channel = vim.api.nvim_open_term(buf, { force_crlf = true, on_input = function() end })
+  local text = table.concat(lines, "\n")
+  for offset = 1, #text, 65536 do
+    vim.api.nvim_chan_send(channel, text:sub(offset, offset + 65535))
+  end
+  -- The terminal flushes on a timer, so rows read back too early are missing.
+  local expected = math.min(#lines, SCROLLBACK_MAX)
+  vim.wait(2000, function()
+    return vim.api.nvim_buf_line_count(buf) >= expected
+  end, 10)
+  vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { buffer = buf, silent = true })
+  return buf
+end
+
 -- Called via -c after the buffer loads (VimEnter is unreliable under `nvim -u ... file`).
 function HerdrScrollbackView(opts)
   opts = opts or {}
@@ -115,7 +153,10 @@ function HerdrScrollbackView(opts)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local prompt_rows = find_prompt_rows(lines)
   local ok_baleia, baleia = pcall(require, "baleia")
-  if ok_baleia then
+  if opts.terminal then
+    buf = render_terminal(buf, lines)
+    prompt_rows = rendered_prompt_rows(lines, prompt_rows, buf)
+  elseif ok_baleia then
     -- The view opens at the bottom, so colour the tail first.
     local tail = math.max(0, #lines - 2000)
     baleia.setup({ async = false }).buf_set_lines(buf, tail, -1, false, vim.list_slice(lines, tail + 1))
@@ -130,11 +171,17 @@ function HerdrScrollbackView(opts)
   end
 
   -- Throwaway view: don't write back to the temp file, no modified nag.
-  vim.bo[buf].buftype = "nofile"
-  vim.bo[buf].modified = false
+  if not opts.terminal then
+    vim.bo[buf].buftype = "nofile"
+    vim.bo[buf].modified = false
+  end
 
   local viewport_rows = tonumber(vim.env.HERDR_SCROLLBACK_VIEWPORT_ROWS)
-  if viewport_rows then
+  if opts.terminal then
+    vim.o.cmdheight = 0
+    vim.api.nvim_win_set_cursor(0, { math.max(1, vim.fn.prevnonblank("$")), 0 })
+    vim.cmd("normal! zb")
+  elseif viewport_rows then
     vim.o.cmdheight = 0
     vim.wo.wrap = false
     vim.wo.scrolloff = 0
@@ -170,6 +217,18 @@ function HerdrScrollbackView(opts)
   -- <C-q> included: the user's :wqa mapping lives in the full config this instance skips.
   for _, key in ipairs({ "<Esc>", "q", "<C-q>" }) do
     vim.keymap.set("n", key, "<cmd>qa!<cr>", { buffer = buf, nowait = true })
+  end
+
+  if opts.copy_key then
+    vim.keymap.set("x", opts.copy_key, function()
+      vim.cmd('normal! "+y')
+      if opts.copied_file then
+        vim.fn.writefile({}, opts.copied_file)
+      end
+      vim.schedule(function()
+        vim.cmd("qa!")
+      end)
+    end, { buffer = buf, nowait = true, desc = "Copy selection and close" })
   end
 
   if opts.close_on_yank then

@@ -81,6 +81,7 @@ end
 
 function M.layout_rect(node, block_id)
   if node.block_id ~= nil then return node.block_id == block_id and node.rect or nil end
+  if node.split == nil then return nil end
   return M.layout_rect(node.split.before, block_id) or M.layout_rect(node.split.after, block_id)
 end
 
@@ -115,29 +116,65 @@ function M.is_popup(layer)
   return b and b.label == M.POPUP_LABEL
 end
 
-function M.popup(ctx, side, top, command, cwd, self_sized)
-  local view = M.windows()
+local function close_popups(view)
+  local open = false
   for _, w in ipairs(view.windows) do
     if w.window_id == view.active_window_id then
-      local open = false
       for _, layer in ipairs(w.layers or {}) do
         if M.is_popup(layer) then
           open = true
           rex.session.close_layer{ layer_id = layer.layer_id }
         end
       end
-      if open then return end
     end
   end
+  return open
+end
+
+local function sized(command)
+  local argv = { "/bin/sh", "-c", RUN_SIZED, "sh" }
+  for _, a in ipairs(command) do table.insert(argv, a) end
+  return argv
+end
+
+function M.popup(ctx, side, top, command, cwd, self_sized)
+  local view = M.windows()
+  if close_popups(view) then return end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
   local left = math.max(0.01, side - sidebar_share(M.tab_of_block(view, ctx.block_id), ctx.block_id) / 2)
-  local argv = self_sized and {} or { "/bin/sh", "-c", RUN_SIZED, "sh" }
-  for _, a in ipairs(command) do table.insert(argv, a) end
   M.fail(select(2, rex.session.new_layer{
     bounds = { left, top, 1 - 2 * side, 1 - 2 * top },
     focus = true,
-    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = argv, cwd = cwd } },
+    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = self_sized and command or sized(command), cwd = cwd } },
   }))
+end
+
+function M.pane_bounds(view, block_id)
+  local window = M.tab_of_block(view, block_id)
+  if window == nil then return nil end
+  if window.zoomed_block_id == block_id then return window, { 0, 0, 1, 1 }, true end
+  for _, layer in ipairs(window.layers or {}) do
+    local rect = layer.layout ~= nil and M.layout_rect(layer.layout, block_id)
+    if rect then
+      local x, y = math.max(0, rect[1]), math.max(0, rect[2])
+      return window, { x, y, math.min(rect[3], 1 - x), math.min(rect[4], 1 - y) }, false
+    end
+  end
+end
+
+function M.pane_popup(ctx, command)
+  local view = M.windows()
+  if close_popups(view) then return nil end
+  local window, bounds, zoomed = M.pane_bounds(view, ctx.block_id)
+  if window == nil then error("Pane not found in the session layout", 0) end
+  local created, err = rex.session.new_layer{
+    window_id = window.window_id,
+    bounds = bounds,
+    focus = true,
+    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = sized(command(zoomed)) } },
+  }
+  M.fail(err)
+  return created.block_ids[1], zoomed
 end
 
 return M

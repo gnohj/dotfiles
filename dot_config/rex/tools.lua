@@ -22,6 +22,32 @@ local function block_at(node, rect)
   return block_at(node.split.before, rect) or block_at(node.split.after, rect)
 end
 
+-- Toggle-closing kills rex-scrollback before it can restore, so the action remembers each popup's pane.
+local scrollback_sources = {}
+
+-- Opening a float unzooms the tab, and closing it leaves focus on some other pane.
+local function return_to_pane(source, zoomed, copied)
+  c.fail(select(2, rex.session.focus_block{ block_id = source }))
+  if zoomed then c.fail(select(2, rex.session.zoom_block{ block_id = source, zoom = true })) end
+  if not copied then return end
+  local window, bounds = c.pane_bounds(c.windows(), source)
+  local size = rex.block.call(c.TERM, "size", { block_id = source })
+  if bounds == nil or size == nil or size.columns == nil then return end
+  local message = "Copied to clipboard"
+  local width = math.min(0.9, (#message + 8) / size.columns * bounds[3])
+  local height = math.min(0.12, 1.6 / size.rows * bounds[4])
+  rex.session.new_layer{
+    window_id = window.window_id,
+    bounds = { (1 - width) / 2, 1 - height, width, height },
+    focus = false,
+    layout = rex.layout.block{
+      flavor = c.SHELL,
+      label = message,
+      options = { shell = "none", command = { "sleep", "1.2" }, size = { columns = #message + 8, rows = 1 }, exit = { on_completion = true, quick_exit_threshold_ms = 0 } },
+    },
+  }
+end
+
 function M.setup()
   -- herdr lazygit popup, 90%, on the pane's repo.
   rex.action{
@@ -52,13 +78,36 @@ function M.setup()
     end,
   }
 
-  -- herdr scrollback-viewer: the pane's scrollback (or its agent transcript) in nvim.
+  -- herdr scrollback-viewer: the pane's scrollback (or its agent transcript) in nvim, over the pane.
   rex.action{
     name = "scrollback_view",
     title = "Scrollback in Nvim",
     category = "Tools",
     run = function(ctx, args)
-      c.popup(ctx, 0.05, 0.05, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-scrollback" "$0"', ctx.block_id })
+      local closing = scrollback_sources[ctx.block_id]
+      local overlay, zoomed = c.pane_popup(ctx, function(zoomed)
+        return { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-scrollback" "$0" "$1"', ctx.block_id, zoomed and "zoomed" or "" }
+      end)
+      if overlay ~= nil then
+        scrollback_sources[overlay] = { source = ctx.block_id, zoomed = zoomed }
+      elseif closing ~= nil then
+        scrollback_sources[ctx.block_id] = nil
+        return_to_pane(closing.source, closing.zoomed, false)
+      end
+    end,
+  }
+
+  -- rex-scrollback calls this on exit; skipped once focus has left the popup.
+  rex.action{
+    name = "scrollback_return",
+    title = "Return From Scrollback",
+    category = "Tools",
+    args = { source = "string", zoomed = "boolean?", copied = "boolean?" },
+    run = function(ctx, args)
+      scrollback_sources[ctx.block_id] = nil
+      local window = c.tab_of_block(c.windows(), args.source)
+      if window == nil or window.focused_block_id ~= ctx.block_id then return end
+      return_to_pane(args.source, args.zoomed, args.copied)
     end,
   }
 

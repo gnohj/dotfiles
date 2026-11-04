@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# rex-scrollback BLOCK - herdr's prefix+e viewer for a Rex block: a claude/pi transcript, else the block's own scrollback, in nvim.
+# rex-scrollback BLOCK [zoomed] - herdr's prefix+e viewer for a Rex block: a claude/pi transcript, else the block's own scrollback, in nvim.
 set -uo pipefail
 
 rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
-block=${1:?usage: rex-scrollback BLOCK}
-init="$HOME/.config/herdr/lib/scrollback-nvim-init.lua"
+block=${1:?usage: rex-scrollback BLOCK [zoomed]}
+zoomed=${2:-}
+init="${REX_SCROLLBACK_INIT:-$HOME/.config/herdr/lib/scrollback-nvim-init.lua}"
 
 terminal() {
   "$rex" api call -s "$REX_SESSION" "com.superlogical.terminal.$1" "{\"block_id\":\"$block\",\"args\":{}}" 2>/dev/null
 }
 
-file=$(mktemp -t rex-scrollview-XXXXXX)
-trap 'rm -f "$file"' EXIT
+dir=$(mktemp -d -t rex-scrollview-XXXXXX)
+trap 'rm -rf "$dir"' EXIT
 
 app=$(terminal program_status | jq -r '.records[0].effective_app // empty')
 IFS=$'\t' read -r name cwd < <(terminal process | jq -r '[.foreground.name // "", .foreground.cwd // ""] | @tsv')
@@ -22,9 +23,14 @@ case "$app:$name" in
 esac
 
 # Agents redraw a full screen and keep no scrollback, so their history comes from the session transcript.
-if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "" "" "$cwd" >"$file" 2>/dev/null; then
-  "$rex" capture -s "$REX_SESSION" -b "$block" --format vt --unwrap --trim 2>/dev/null |
-    perl -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~])/$1 eq "m" ? $& : ""/ge; s/\e\][^\a\e]*(?:\a|\e\\)//g; s/\r//g' >"$file"
+if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/herdr/herdr-agent-transcript.py" "$agent" "" "" "$cwd" >"$dir/raw" 2>/dev/null; then
+  "$rex" capture -s "$REX_SESSION" -b "$block" --format vt --unwrap --trim >"$dir/raw" 2>/dev/null
 fi
 
-nvim -u "$init" "$file" -c 'lua HerdrScrollbackView({ close_on_yank = true })'
+# Replayed into a terminal, so only text and SGR survive; cursor-forward becomes spaces.
+perl -0777 -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~])/$1 eq "m" ? $& : ""/ge; s/\e[\]P_^X].*?(?:\a|\e\\)//gs; s/\r//g; s/\e(?!\[[0-9;:]*m)//g; s/[\x00-\x08\x0b-\x1a\x1c-\x1f\x7f]//g' "$dir/raw" >"$dir/view"
+
+REX_SCROLLBACK_COPIED="$dir/copied" nvim -u "$init" "$dir/view" -c 'lua HerdrScrollbackView({ terminal = true, copy_key = "<CR>", copied_file = vim.env.REX_SCROLLBACK_COPIED })'
+
+"$rex" do -s "$REX_SESSION" -b "$REX_BLOCK" scrollback_return source="$block" zoomed="$([ -n "$zoomed" ] && echo true || echo false)" copied="$([ -e "$dir/copied" ] && echo true || echo false)" >/dev/null 2>&1
+exit 0
