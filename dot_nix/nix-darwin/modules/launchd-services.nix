@@ -570,6 +570,31 @@ in
       };
     };
 
+    # Redraws the firstmate Todo pane when the Lavish Library rewrites its PR, ticket or CI files; a no-op with no pane open.
+    fm-todo-refresh = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/fm-todo-refresh
+            exec ${homeDir}/.local/bin/fm-todo refresh
+          ''
+        ];
+        WatchPaths = [
+          "${homeDir}/.local/state/lavish-library/my-prs.json"
+          "${homeDir}/.local/state/lavish-library/my-tickets.json"
+          "${homeDir}/.local/state/lavish-library/pr-status.json"
+        ];
+        ThrottleInterval = 10;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/bin:${daemonPath}";
+        };
+        StandardOutPath = "${homeDir}/.logs/fm-todo-refresh/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/fm-todo-refresh/launchagent.err.log";
+      };
+    };
+
     # Screenshot Mirror - copies each new capture to the dev-box so remote crewmates can open a pasted Mac path.
     screenshot-mirror = {
       serviceConfig = {
