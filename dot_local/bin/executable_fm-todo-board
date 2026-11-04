@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Turn firstmate's status block (stdin) plus the Lavish Library's PR and ticket files into a rexpad board."""
 import json
+from datetime import datetime, timezone
 import os
 import re
 import sys
@@ -33,7 +34,7 @@ def act(path, **query):
 
 
 def chat(title, ref=""):
-    return link("{{💬:blue}}", act("chat", title=title, ref=ref))
+    return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
 
 
 def link(label, url, title=""):
@@ -60,6 +61,7 @@ class Board:
         self.my_prs = {f"{r['repo']}#{r['number']}": r for r in load("my-prs.json", []) if isinstance(r, dict)}
         self.status = load("pr-status.json", {}).get("items", {})
         self.tickets = [t for t in load("my-tickets.json", []) if isinstance(t, dict)]
+        self.queue = [q for q in load("catalog.json", {}).get("queue", []) if isinstance(q, dict)]
         self.required = {repo: (v or {}).get("count") or 1 for repo, v in load("required-approvals.json", {}).items()}
         self.me = {(t.get("assignee") or {}).get("name") for t in self.tickets} - {None}
         self.jira = {t["key"]: t for t in self.tickets if t.get("key")}
@@ -267,7 +269,7 @@ def tickets_group(b):
         key = t.get("key", "")
         if not key or key in b.tasks:
             continue
-        summary = " ".join(str(t.get("summary") or key).split())
+        summary = defuse(" ".join(str(t.get("summary") or key).split()))
         comps = []
         m = re.match(r"^\[([^\]]+)\]\s*", summary)
         if m:
@@ -281,8 +283,63 @@ def tickets_group(b):
     return rows
 
 
+LEVEL_COLORS = {"easy": "green", "medium": "yellow", "hard": "red"}
+
+
+def since(iso):
+    try:
+        then = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return ""
+    minutes = max(0, round((datetime.now(timezone.utc) - then).total_seconds() / 60))
+    if minutes < 60:
+        return f"{minutes}min"
+    hours = minutes / 60
+    unit = lambda n, suffix: f"{round(n * 2) / 2 if n < 10 else round(n):g}{suffix}"
+    return unit(hours, "hr") if hours < 24 else unit(hours / 24, "day")
+
+
+def reviews_group(b):
+    rows = []
+    for q in sorted(b.queue, key=lambda q: q.get("requested_at") or ""):
+        repo, number = q.get("repo", ""), q.get("number")
+        if not repo or not number:
+            continue
+        title = defuse(" ".join(str(q.get("title") or "").split()))
+        m = re.match(r"^\[([^\]]+)\]\s*", title)
+        tag = m[1] if m else ""
+        if m:
+            title = title[m.end():]
+        meta = [link(tag.split("-")[-1], JIRA + tag) if re.fullmatch(JIRA_KEY, tag) else (tag or "unticketed"),
+                link(f"#{number}", f"https://github.com/{repo}/pull/{number}")]
+        if q.get("author"):
+            meta.append(defuse(str(q["author"])))
+        if ago := since(q.get("requested_at")):
+            meta.append(f"{{{{{ago}:yellow.}}}}")
+        level = (q.get("size") or {}).get("level")
+        if level:
+            meta.append(f"{{{{●:{LEVEL_COLORS.get(level, '')}.}}}} {level}")
+        scopes = q.get("repo_scopes") or []
+        label = (scopes[0] + (f" +{len(scopes) - 1}" if len(scopes) > 1 else "")) if scopes else q.get("repo_label", "")
+        if label:
+            meta.append(f"{{{{{label}:{COMPONENT_COLORS.get(label.split('.')[0], 'blue')}.}}}}")
+        right = chat(title, f"{repo}#{number}")
+        lines = [": " + " · ".join(meta)]
+        if q.get("running"):
+            lines.append(f"| {{{{→ reviewing on {q.get('running_host') or 'this Mac'}:cyan.}}}}")
+        else:
+            right += " " + link("{{▶:yellow}}", act("review", repo=repo, number=number), f"[z] Review #{number} on the dev box?")
+        rows.append(f"- [ ] {title}\t{right}\n" + "\n".join("  " + ln for ln in lines))
+    return rows
+
+
 def render(raw, b):
     out = []
+    reviews = reviews_group(b)
+    if reviews:
+        out.append(f"# Needs review · {len(reviews)} {{yellow}}")
+        out += reviews
+        out.append("")
     tickets = tickets_group(b)
     if tickets:
         out.append(f"# Tickets · {len(tickets)} {{blue}}")

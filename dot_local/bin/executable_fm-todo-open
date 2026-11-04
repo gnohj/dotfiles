@@ -82,6 +82,8 @@ def run(path, q):
         nonce = library("POST", "/api/confirm", {"action": "pr-merge", "target": target})["confirmation"]
         library("POST", "/api/pr-merge", {"repo": q["repo"], "number": q["number"], "sha": q.get("sha", "")},
                 {"X-Lavish-Confirmation": nonce})
+    elif path == "review":
+        library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": "full"})
     elif path in ("fixci", "resolve"):
         library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": path})
     elif path == "jira/transition":
