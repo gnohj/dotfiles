@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Show firstmate's closing status block as a rexpad list in a Todo pane beside the firstmate Rex pane.
+set -euo pipefail
+
+LIST=firstmate
+STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/rexpad
+VIEWER_FILE=$STATE_DIR/$LIST.viewer
+REXPAD=rexpad
+
+# Lines like "🟡 3. **web** - text" or "3. 🟡 **web** - text"; indented lines below become notes.
+to_checklist() {
+  awk '
+    function level(s) {
+      if (index(s, "🔴")) return 1
+      if (index(s, "🟡")) return 2
+      if (index(s, "♻")) return 3
+      if (index(s, "🟢")) return 4
+      if (index(s, "✅")) return 5
+      return 0
+    }
+    function clean(s) {
+      gsub(/🔴|🟡|♻️|♻|🟢|✅/, "", s)
+      gsub(/\*\*/, "", s)
+      gsub(/`/, "", s)
+      gsub(/ ?\(https?:\/\/[^)]*\)/, "", s)
+      gsub(/ https?:\/\/[^ ]+/, "", s)
+      sub(/^[ \t]*/, "", s)
+      sub(/^[0-9]+\.[ \t]*/, "", s)
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      return s
+    }
+    {
+      line = $0
+      if (line ~ /^[ \t]*$/) next
+      lv = level(line)
+      if (lv && match(line, /[0-9]+\./)) {
+        num = substr(line, RSTART, RLENGTH)
+        n[lv]++
+        item[lv, n[lv]] = num " " clean(line)
+        cur = lv
+        next
+      }
+      if (cur && line ~ /^[ \t]/) note[cur, n[cur]] = note[cur, n[cur]] " " clean(line)
+    }
+    END {
+      split("Blocked|Needs your call|In progress|Waiting on others|Done", title, "|")
+      split("[ ]|[ ]|[~]|[ ]|[x]", box, "|")
+      for (lv = 1; lv <= 5; lv++) {
+        if (!n[lv]) continue
+        print "# " title[lv]
+        for (i = 1; i <= n[lv]; i++) {
+          print "- " box[lv] " " item[lv, i]
+          if (note[lv, i] != "") print "  " substr(note[lv, i], 2)
+        }
+      }
+    }'
+}
+
+summary() {
+  awk '
+    /^# / { g = substr($0, 3); next }
+    /^- \[/ { c[g]++ }
+    END {
+      split("Blocked:🔴|Needs your call:🟡|In progress:♻️|Waiting on others:🟢|Done:✅", order, "|")
+      out = ""
+      for (i = 1; i <= 5; i++) {
+        split(order[i], kv, ":")
+        if (c[kv[1]]) out = out (out == "" ? "" : " · ") kv[2] " " c[kv[1]]
+      }
+      print out " - see Todo"
+    }'
+}
+
+viewer_open() {
+  local sid id
+  read -r sid id 2>/dev/null <"$VIEWER_FILE" || return 1
+  [ -n "$id" ] && rex block inspect -s "$sid" "$id" >/dev/null 2>&1
+}
+
+status() {
+  local list
+  list=$(to_checklist)
+  [ -n "$list" ] || { echo "fm-todo: no status lines on stdin" >&2; exit 2; }
+  viewer_open || exit 3
+  printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
+  printf '%s\n' "$list" | summary
+}
+
+fm_pane() {
+  local sid
+  sid=$(rex ls --json | jq -r '.sessions[] | select(.label | test("(^| )fm$")) | .session_id' | head -1)
+  [ -n "$sid" ] || return 0
+  if [ "${REX_SESSION:-}" = "$sid" ] && [ -n "${REX_BLOCK:-}" ]; then
+    echo "$sid $REX_BLOCK"
+    return
+  fi
+  echo "$sid $(rex session inspect "$sid" --json | jq -r '.windows[0].layers[0].blocks[0].block_id')"
+}
+
+show() {
+  local sid=${1%% *} anchor=${1#* } id
+  if viewer_open; then cat "$VIEWER_FILE"; return; fi
+  if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
+  [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
+  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio 40 --shell=none --label Todo -- "$(command -v "$REXPAD")" --list "$LIST" view --transparent | awk 'END { print $NF }')
+  rex block move -s "$sid" "$id" right "$anchor" --ratio 40 >/dev/null 2>&1 || true
+  mkdir -p "$STATE_DIR"
+  echo "$sid $id" >"$VIEWER_FILE"
+  echo "$sid $id"
+}
+
+hide() {
+  local sid id
+  if viewer_open; then
+    read -r sid id <"$VIEWER_FILE"
+    rex block close -s "$sid" "$id" >/dev/null 2>&1 || true
+  fi
+  rm -f "$VIEWER_FILE"
+}
+
+cmd=${1:-show}
+shift || true
+block=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -b) block="$2 $3"; shift 3 ;;
+    *) echo "fm-todo: unknown argument $1" >&2; exit 2 ;;
+  esac
+done
+
+case "$cmd" in
+  show) show "$block" ;;
+  hide) hide ;;
+  status) status ;;
+  print) "$REXPAD" --list "$LIST" get ;;
+  *) echo "usage: fm-todo [show|hide|print] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
+esac
