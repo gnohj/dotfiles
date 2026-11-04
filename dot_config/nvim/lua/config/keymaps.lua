@@ -15,6 +15,20 @@ end, { desc = "Go to Definition" })
 
 keymap("n", "<C-q>", "<cmd>wqa<cr>", { desc = "[P]Save and quit all" })
 
+-- Cells are about twice as tall as wide, so compare columns against double the rows.
+local function split_longer_side()
+  local wide = vim.fn.winwidth(0) >= 2 * vim.fn.winheight(0)
+  vim.cmd(wide and "vsplit" or "split")
+end
+for _, lhs in ipairs({ "<C-w>v", "<C-w><C-v>" }) do
+  keymap(
+    "n",
+    lhs,
+    split_longer_side,
+    { desc = "[P]Split along the longer side" }
+  )
+end
+
 -- An `nvim -c 'Atlas ...'` relaunch rebuilds its own tabs, and a restored session would bury them under blanks.
 local function restart()
   local atlas = vim.iter(vim.v.argv):any(function(arg)
