@@ -786,6 +786,9 @@ export YSU_IGNORED_ALIASES=("vi" "vim")
 # Wrap yazi to preserve cwd when opening files in nvim
 alias y='YAZI_START_DIR="$PWD" yazi'
 
+# Open the rexpad list named after the current directory
+alias rpad='rexpad --list "cwd-$(basename "$PWD")" show --ratio 20'
+
 # Run the Omarchy-style launcher inline in the current terminal (draws via fzf).
 # `launcher` and `ql` share ALL launcher logic (launcher.sh); only the backend
 # differs:
