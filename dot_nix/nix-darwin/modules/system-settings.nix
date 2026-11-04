@@ -177,7 +177,7 @@ in
       "Workspace.tabIconCount" = 3;
       "Workspace.tabIconTintMode" = "off";
       "Workspace.terminalFontName" = "JetBrainsMono Nerd Font Mono";
-      "Workspace.terminalFontPointSize" = 15.0;
+      "Workspace.terminalFontPointSize" = 14.5;
       "Workspace.terminalFontSmoothing" = false;
       "Workspace.terminalSmoothScrolling" = true;
       "Workspace.terminalCellHeightPercent" = 0.0;
