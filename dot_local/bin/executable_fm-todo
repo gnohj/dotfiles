@@ -131,7 +131,7 @@ to_checklist() {
       }
       return out after rest
     }
-    function add_item(lv, t,   rp2, project, action, rest, k, i, c, hint, carry, chunk, rp, head, tail, j, refs, steps, tk, id, body, owner) {
+    function add_item(lv, t,   r, at, meta, rp2, project, action, rest, k, i, c, hint, carry, chunk, rp, head, tail, j, refs, steps, tk, id, body, owner) {
       n[lv]++
       project = t; sub(/ .*/, "", project)
       proj[lv, n[lv]] = project
@@ -178,7 +178,12 @@ to_checklist() {
       if (owner != "" && project != "fleet" && project != "fm") item[lv, n[lv]] = mate_label(owner)
       for (i = 1; i <= j; i++) {
         body = steps[i] != "" ? steps[i] : action != "" ? "\n- " action : ""
-        if (id[i] != "") { gsub(/\n- /, "\n- - ", body); body = "\n- " id[i] body }
+        if (id[i] != "") {
+          r = refs[i]; meta = ""
+          if ((at = index(r, " · ")) && substr(r, 1, at - 1) ~ REF) { meta = substr(r, at + length(" · ")); r = substr(r, 1, at - 1) }
+          refs[i] = r " · " id[i]
+          body = (meta != "" ? "\n- " meta : "") body
+        }
         note[lv, n[lv]] = note[lv, n[lv]] "\n" refs[i] body
       }
     }
@@ -249,13 +254,16 @@ to_checklist() {
     {
       line = $0
       if (line ~ /^[ \t]*$/) next
+      if (line ~ /^[ \t]*>/) {
+        if (cur) { sub(/^[ \t]*>[ \t]*/, "", line); note[cur, n[cur]] = note[cur, n[cur]] "\n> " linkify(clean(line), repo_of(proj[cur, n[cur]]), "") }
+        next
+      }
       lv = level(line)
       if (lv && match(line, /[0-9]+\./)) {
         add_item(lv, clean(line))
         cur = lv
         next
       }
-      if (cur && line ~ /^[ \t]+>/) { sub(/^[ \t]+>[ \t]*/, "", line); note[cur, n[cur]] = note[cur, n[cur]] "\n> " linkify(clean(line), repo_of(proj[cur, n[cur]]), ""); next }
       if (cur && line ~ /^[ \t]/) note[cur, n[cur]] = note[cur, n[cur]] "\n" linkify(clean(line), repo_of(proj[cur, n[cur]]), "")
     }
     END {
@@ -290,7 +298,7 @@ to_checklist() {
           cur = bidx[ln]
           continue
         }
-        if ((cur, ln) in seen) continue
+        if ((cur, ln) in seen || (ln ~ /`/ && index(bbody[cur], substr(ln, 3)))) continue
         seen[cur, ln] = 1
         bbody[cur] = bbody[cur] "\n" ln
       }
@@ -309,7 +317,7 @@ to_checklist() {
 # Counts firstmate's raw lines, not the merged pane items.
 summary() {
   awk '
-    !/^[ \t]*$/ && !/^[ \t]/ && /[0-9]+\./ {
+    !/^[ \t]*$/ && !/^[ \t]/ && !/^>/ && /[0-9]+\./ {
       if (index($0, "🔴")) c[1]++
       else if (index($0, "🟡")) c[2]++
       else if (index($0, "♻")) c[3]++
