@@ -419,7 +419,7 @@ in
       };
     };
 
-    # Labels firstmate worker tabs with glyph, PR and model/effort; macOS twin of the Linux fm-rex-labels.timer.
+    # Labels firstmate worker tabs with glyph and model/effort; macOS twin of the Linux fm-rex-labels.timer.
     fm-rex-labels = {
       serviceConfig = {
         ProgramArguments = [

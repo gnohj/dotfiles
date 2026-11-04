@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# fm-rex-labels - label firstmate worker tabs "<glyph> #<pr> · <model>/<effort> · <task>" and second mates "🚢 <name> · <model>/<effort>".
+# fm-rex-labels - label firstmate worker tabs "<glyph> <model>/<effort> · <task>" and second mates "🚢 <name> · <model>/<effort>".
 import glob
 import json
 import os
@@ -12,7 +12,6 @@ SECONDMATE_MARK = "\U0001f6a2"
 CACHE_DIR = os.path.expanduser("~/.cache/fm-rex-labels")
 EFFORT_SHORT = {"minimal": "min", "low": "low", "medium": "med", "high": "hi", "xhigh": "xhi", "max": "max"}
 VENDOR_WORDS = {"claude", "gpt"}
-PR_RE = re.compile(r"/pull/([0-9]+)")
 TAB_NUMBER_RE = re.compile(r"^\d+\. ?")
 
 
@@ -41,8 +40,7 @@ def label_for(task, meta):
     glyph = KIND_MARK.get(meta.get("kind", ""))
     if glyph is None:
         return None
-    pr = PR_RE.search(meta.get("pr", ""))
-    return glyph + " " + " · ".join(filter(None, ("#" + pr.group(1) if pr else "", model_effort(meta), task)))
+    return glyph + " " + " · ".join(filter(None, (model_effort(meta), task)))
 
 
 def read_meta(path):
