@@ -145,13 +145,14 @@ if [ "$harness" = claude ]; then
   fm_effort=medium
 fi
 
-# Rex labels the primary's window with the second mates' 🚢 glyph: 🚢 fm · sonnet5.5/med.
+# fm-todo shows the primary's model/effort, so the Rex label is just 🚢 fm.
+fm_state="${XDG_STATE_HOME:-$HOME/.local/state}/fm"
+mkdir -p "$fm_state" && "$HOME/.local/bin/agent-label" "$fm_model" "$fm_effort" >"$fm_state/primary-model-effort" 2>/dev/null || true
 rex_label_window() {
-  local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" shown win
-  shown="$("$HOME/.local/bin/agent-label" "$fm_model" "$fm_effort")"
+  local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" win
   win=$("$rex" --autostart=false window ls -s "$REX_SESSION" --json |
     jq -r --arg b "$REX_BLOCK" 'first(.windows[] | select(any(.layers[].blocks[]; .block_id == $b)) | .window_id) // empty')
-  [ -n "$win" ] && "$rex" --autostart=false window rename -s "$REX_SESSION" "$win" "🚢 fm${shown:+ · $shown}"
+  [ -n "$win" ] && "$rex" --autostart=false window rename -s "$REX_SESSION" "$win" "🚢 fm"
 }
 if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ]; then
   (rex_label_window) >/dev/null 2>&1 &
