@@ -1,0 +1,13 @@
+#!/bin/zsh -f
+# Open a work URL (Finicky routes it to Helium Work), then focus the Work window showing its Jira key or PR number.
+emulate -L zsh
+url=${1:?usage: open-work-url URL}
+
+case $url in
+  */browse/*) match=${${url##*/browse/}%%[?#/]*} ;;
+  */pull/*) match="#${${url##*/pull/}%%[?#/]*}" ;;
+  *) match="" ;;
+esac
+
+open "$url"
+~/.local/bin/focus-work-browser "$match"
