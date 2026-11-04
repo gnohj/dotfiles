@@ -298,7 +298,8 @@ function M.setup()
     category = "Panes",
     run = function(ctx, args)
       local view = c.windows()
-      local key = "last-pane-" .. view.active_window_id:gsub("[^%w]", "_")
+      local tab = c.tab_of_block(view, ctx.block_id)
+      local key = "last-pane-" .. (tab and tab.window_id or view.active_window_id):gsub("[^%w]", "_")
       local target = c.read_state(key)
       c.write_state(key, ctx.block_id)
       if target ~= nil and target ~= ctx.block_id then

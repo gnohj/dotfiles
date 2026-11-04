@@ -116,10 +116,10 @@ function M.is_popup(layer)
   return b and M.POPUP_LABELS[b.label] == true
 end
 
-local function close_popups(view)
-  local open = false
+local function close_popups(view, window)
+  local open, tab = false, window and window.window_id or view.active_window_id
   for _, w in ipairs(view.windows) do
-    if w.window_id == view.active_window_id then
+    if w.window_id == tab then
       for _, layer in ipairs(w.layers or {}) do
         if M.is_popup(layer) then
           open = true
@@ -152,14 +152,15 @@ function M.popup(ctx, side, top, command, opts)
   opts = opts or {}
   local view = M.windows()
   local window = M.tab_of_block(view, ctx.block_id)
-  if close_popups(view) then
+  if close_popups(view, window) then
     M.restore_popup_source(window)
     return
   end
   if window ~= nil then M.write_state(popup_key(window), ctx.block_id) end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
-  local left = math.max(0.01, side - sidebar_share(M.tab_of_block(view, ctx.block_id), ctx.block_id) / 2)
+  local left = math.max(0.01, side - sidebar_share(window, ctx.block_id) / 2)
   M.fail(select(2, rex.session.new_layer{
+    window_id = window and window.window_id,
     bounds = { left, top, 1 - 2 * side, 1 - 2 * top },
     focus = true,
     layout = rex.layout.block{ flavor = M.SHELL, label = opts.label or M.POPUP_LABEL, options = { command = opts.self_sized and command or sized(command), cwd = opts.cwd } },
@@ -181,7 +182,7 @@ end
 
 function M.pane_popup(ctx, command)
   local view = M.windows()
-  if close_popups(view) then return nil end
+  if close_popups(view, M.tab_of_block(view, ctx.block_id)) then return nil end
   local window, bounds, zoomed = M.pane_bounds(view, ctx.block_id)
   if window == nil then error("Pane not found in the session layout", 0) end
   local created, err = rex.session.new_layer{
