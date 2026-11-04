@@ -168,7 +168,7 @@ class Board:
         if meta:
             lines.append(": " + " · ".join(meta))
         if task and lead:
-            tail = f"{re.sub(r'\s+(for|on|of|to)$', '', lead)} {tail}".strip()
+            tail = (re.sub(r"\s+(for|on|of|to)$", "", lead) + " " + tail).strip()
         tail = re.sub(r"(then )?merge words?( for)?", "ready to merge", tail).strip()
         tail = re.sub(r"^answers?$", "needs your answers", tail)
         if tail:
