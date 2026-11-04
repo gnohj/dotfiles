@@ -55,7 +55,10 @@ function M.setup()
     title = "Lazygit (floating)",
     category = "Tools",
     run = function(ctx, args)
-      c.popup(ctx, 0.05, 0.05, { "lazygit" }, { cwd = c.block_cwd(ctx.block_id), label = "lazygit" })
+      local cwd = c.block_cwd(ctx.block_id)
+      local repo = rex.exec{ "git", "-C", cwd, "rev-parse", "--git-dir" }
+      if repo == nil or not repo.ok then return end
+      c.popup(ctx, 0.05, 0.05, { "lazygit" }, { cwd = cwd, label = "lazygit" })
     end,
   }
 
