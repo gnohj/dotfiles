@@ -86,7 +86,7 @@ function M.layout_rect(node, block_id)
 end
 
 -- Rex window width in px and its display scale (rift), then the sidebar width in points; Mac only.
-local WINDOW_PX = [[PATH=/opt/homebrew/bin:$PATH; { rift-cli query workspaces; rift-cli query displays; } 2>/dev/null | jq -rs '(.[0] | [.[].windows[]? | select(.bundle_id == "com.superlogical.rex")] | (map(select(.is_focused)) + .)[0].frame) as $w | (.[1] | map(select($w.origin.x >= .frame.origin.x and $w.origin.x < .frame.origin.x + .frame.size.width and $w.origin.y >= .frame.origin.y and $w.origin.y < .frame.origin.y + .frame.size.height))[0].backing_scale // 2) as $s | "\($w.size.width * $s) \($s)"' 2>/dev/null; defaults read com.superlogical.rex Workspace.sidebarWidth 2>/dev/null]]
+local WINDOW_PX = [[PATH=/opt/homebrew/bin:$PATH; { rift-cli query workspaces; rift-cli query displays; } 2>/dev/null | jq -rs '(.[0] | [.[].windows[]? | select(.bundle_id == "com.superlogical.rex")] | (map(select(.is_focused)) + .)[0].frame) as $w | (.[1] | map(select($w.origin.x >= .frame.origin.x and $w.origin.x < .frame.origin.x + .frame.size.width and $w.origin.y >= .frame.origin.y and $w.origin.y < .frame.origin.y + .frame.size.height))[0].backing_scale // 2) as $s | "\($w.size.width * $s)"' 2>/dev/null]]
 
 -- Sidebar width as a share of the pane area's; 0 when hidden or unknown.
 local function sidebar_share(window, block_id)
@@ -95,13 +95,12 @@ local function sidebar_share(window, block_id)
   local size = rect and rex.block.call(M.TERM, "size", { block_id = block_id })
   if size == nil or size.cell_width_px == nil then return 0 end
   local r = rex.exec{ "/bin/sh", "-c", WINDOW_PX }
-  local window_px, scale, sidebar_pt = (r and r.stdout or ""):match("^(%S+) (%S+)%s+(%S*)")
-  window_px, scale, sidebar_pt = tonumber(window_px), tonumber(scale), tonumber(sidebar_pt)
+  local window_px = tonumber((r and r.stdout or ""):match("^(%S+)"))
   if window_px == nil then return 0 end
-  -- A pane's measure counts padding too, so it only decides whether the sidebar shows.
+  -- Workspace.sidebarWidth belongs to another window, so the sidebar is the width the panes leave.
   local panes_px = size.columns * size.cell_width_px / rect[3]
   if (window_px - panes_px) / panes_px < 0.05 then return 0 end
-  local sidebar_px = sidebar_pt and sidebar_pt * scale or window_px - panes_px
+  local sidebar_px = window_px - panes_px
   return sidebar_px / (window_px - sidebar_px)
 end
 
