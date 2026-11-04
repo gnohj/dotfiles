@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Claude Code Stop hook: when firstmate's Todo pane is open, refuse a reply that closes with the full status block instead of fm-todo status.
+set -uo pipefail
+
+input=$(cat)
+[ -z "${FM_TASK_ID:-}" ] || exit 0
+[ "${CLAUDE_CODE_ENTRYPOINT:-}" = cli ] || exit 0
+[ "$(jq -r '.stop_hook_active // false' <<<"$input")" = true ] && exit 0
+command -v rex >/dev/null 2>&1 || exit 0
+
+viewer=${XDG_STATE_HOME:-$HOME/.local/state}/rexpad/firstmate.viewer
+read -r sid bid 2>/dev/null <"$viewer" || exit 0
+[ "${REX_SESSION:-}" = "$sid" ] || exit 0
+rex block inspect -s "$sid" "$bid" >/dev/null 2>&1 || exit 0
+
+transcript=$(jq -r '.transcript_path // empty' <<<"$input")
+[ -f "$transcript" ] || exit 0
+
+turn=$(jq -cs '
+  def prompt: .type == "user" and ((.message.content | type) == "string" or ([.message.content[]?.type] | index("tool_result") | not));
+  (to_entries | map(select(.value | prompt)) | last.key // -1) as $start
+  | .[$start + 1:]
+  | {
+      called: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .input.command? // "" | select(test("fm-todo status"))] | length > 0),
+      text: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text] | last // "")
+    }' < <(tail -n 2000 "$transcript") 2>/dev/null) || exit 0
+
+[ "$(jq -r .called <<<"$turn")" = true ] && exit 0
+lines=$(jq -r .text <<<"$turn" | grep -cE '^[[:space:]]*([0-9]+\.[[:space:]]*(🔴|🟡|♻|🟢|✅)|(🔴|🟡|♻|🟢|✅)[^0-9]*[0-9]+\.)')
+[ "${lines:-0}" -ge 1 ] || exit 0
+
+jq -n '{decision: "block", reason: "The Todo pane is open, but this reply closed with the full status block and never ran fm-todo status. Pipe the block, lines unchanged, into fm-todo status, then reply with only the summary line it prints. Do not repeat the block."}'
