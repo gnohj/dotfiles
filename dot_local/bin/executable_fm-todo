@@ -358,7 +358,7 @@ show() {
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
   local opener=$HOME/.local/bin/open-work-url
   [ -x "$opener" ] || opener=""
-  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --transparent --top | awk 'END { print $NF }')
+  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top | awk 'END { print $NF }')
   rex block move -s "$sid" "$id" right "$anchor" --ratio "$RATIO" >/dev/null 2>&1 || true
   mkdir -p "$STATE_DIR"
   echo "$sid $id" >"$VIEWER_FILE"
