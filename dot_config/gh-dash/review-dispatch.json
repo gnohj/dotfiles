@@ -86,7 +86,7 @@
     "(^|/)docs?/"
   ],
   "singleAgent": {
-    "why": "Mechanical PRs a second agent cannot add to: bots, backports, dependency, translation, timing and publish chores.",
+    "why": "Mechanical PRs a second agent or a bigger model cannot add to, so they run alone on the cheapest band: bots, backports, dependency, translation, timing and publish chores.",
     "authors": [
       "^app/(renovate|dependabot|github-actions)$",
       "\\[bot\\]$",

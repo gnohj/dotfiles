@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rules run narrowest-first; GPT effort scales with the band: medium on small diffs, xhigh on everything larger.
+# Rules run narrowest-first; mechanical PRs take the cheapest band unless a risk path or Jev critical lifts them.
 
 case "$(uname -s)" in
   Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
@@ -62,7 +62,10 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
   | ([.rules | to_entries[] | select(
        ((.value.when.maxLines // 1e18) >= $lines) and ((.value.when.maxFiles // 1e18) >= $files)
      ) | .key] | first) as $idx
+  | (.singleAgent // {}) as $one
+  | ([($one.titles // [])[] | select(. as $re | $title | test($re; "i"))] + [($one.authors // [])[] | select(. as $re | $author | test($re; "i"))] | length > 0) as $mechanical
   | (if $hitRisk or $semantic == "critical" then ($count - 1)
+     elif $mechanical then 0
      elif $semantic == "deep" and ($idx != null) then ([$idx, ([1, ($count - 1)] | min)] | max)
      elif $allCheap and $semantic == "routine" then 0
      elif $allCheap and ($idx != null) then ([$idx - 1, 0] | max)
@@ -70,8 +73,6 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
   | (if $pick == null then {use: .default} else .rules[$pick] end) as $r
   | ($r.use // $r) as $u
   | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap and $semantic == "routine" then "tests+jev-routine" elif $allCheap then "tests" else "" end) as $why
-  | (.singleAgent // {}) as $one
-  | ([($one.titles // [])[] | select(. as $re | $title | test($re; "i"))] + [($one.authors // [])[] | select(. as $re | $author | test($re; "i"))] | length > 0) as $mechanical
   | (if $mechanical then "full" else ($u.mode // "full") end) as $mode
   | (if $mechanical then ($why + (if $why == "" then "" else "+" end) + "mechanical") else $why end) as $why
   | [ $mode, $u.claude.model, $u.claude.effort, $u.gpt.model, $u.gpt.effort, ($u.rungTimeout | tostring), $why ] | @tsv
