@@ -21,10 +21,9 @@ fi
 
 unit=rex.service
 systemctl --user daemon-reload
-rm -f "$HOME/.config/systemd/user/default.target.wants/rex-server.service"
 systemctl --user is-enabled --quiet "$unit" || systemctl --user enable "$unit"
-# Start only when neither runs: a restart kills every session, and the retired rex-server.service holds the socket until boot.
-if ! systemctl --user is-active --quiet rex-server.service && ! systemctl --user is-active --quiet "$unit"; then
+# Start only when stopped: a restart kills every session.
+if ! systemctl --user is-active --quiet "$unit"; then
   systemctl --user start "$unit" || true
 fi
 
