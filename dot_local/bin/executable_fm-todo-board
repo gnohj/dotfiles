@@ -33,6 +33,10 @@ def chat(title, ref=""):
     return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
 
 
+def pr_link(repo, number):
+    return link(f"{{{{#{number}:magenta.}}}}", f"https://github.com/{repo}/pull/{number}")
+
+
 def link(label, url, title=""):
     label = label.replace("]", ")").replace("[", "(")
     return f'[{label}]({url} "{title}")' if title else f"[{label}]({url})"
@@ -97,7 +101,7 @@ class Board:
     def pr_bits(self, name):
         repo, _, number = name.partition("#")
         st, mine = self.status.get(name, {}), self.my_prs.get(name, {})
-        parts = [link(f"#{number}", f"https://github.com/{repo}/pull/{number}")]
+        parts = [pr_link(repo, number)]
         ci = (st.get("checks") or {}).get("state", "none")
         if ci == "passing":
             parts.append("{{CI ✓:green.}}")
@@ -152,15 +156,20 @@ class Board:
         if key and self.lavish_link(key):
             meta.insert(min(2, len(meta)), self.lavish_link(key))
         if task:
-            name = f"{task['tab']}. {task['slug']}" if task.get("tab") else task["slug"]
+            name = task["slug"]
         else:
             label = (lead + " " + REF.sub("", head)).strip(" /()-·")
             name = label or defuse((self.jira.get(key) or {}).get("summary") or "") or key or head
         refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
         right = " ".join(x for x in (chat(name, refs), action) if x)
+        title = name
+        if key:
+            meta.pop(0)
+            number = link(key.split("-")[-1], JIRA + key)
+            title = number if name == key else f"{number} · {name}"
         if task.get("me"):
-            name += f" · `{task['me']}`"
-        lines = [f"* {name}\t{right}"]
+            title += f" · `{task['me']}`"
+        lines = [f"* {title}\t{right}"]
         if meta:
             lines.append(": " + " · ".join(meta))
         if task and lead:
@@ -313,7 +322,7 @@ def reviews_group(b):
         if m:
             title = title[m.end():]
         meta = [link(tag.split("-")[-1], JIRA + tag) if re.fullmatch(JIRA_KEY, tag) else (tag or "unticketed"),
-                link(f"#{number}", f"https://github.com/{repo}/pull/{number}")]
+                pr_link(repo, number)]
         if q.get("author"):
             meta.append(defuse(str(q["author"])))
         if ago := since(q.get("requested_at")):
