@@ -701,6 +701,15 @@ PENDING=$((PENDING + 1))
 echo "[$PENDING] Spotify: open https://open.spotify.com in Google Chrome (gnohj profile) > Install"
 echo ""
 
+# Helium PWAs - a force-install policy put every app in both profiles and opened two windows, so install by hand
+if [ "$OS" = "Darwin" ]; then
+  PENDING=$((PENDING + 1))
+  echo "[$PENDING] Helium PWAs: open each URL in its profile > Install"
+  echo "    personal: discord.com/app, x.com, youtube.com, reddit.com, twitch.tv"
+  echo "    Work:     teams.microsoft.com/v2/, outlook.office.com/mail/, app.zoom.us/wc, Slack"
+  echo ""
+fi
+
 # Tinycast - settings live in a .tinycast backup, always remind
 PENDING=$((PENDING + 1))
 echo "[$PENDING] Tinycast: Settings > Backup > import your .tinycast file, then enable Extensions and Custom Commands (DND toggle)"

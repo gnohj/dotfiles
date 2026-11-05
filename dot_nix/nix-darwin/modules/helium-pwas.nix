@@ -9,52 +9,8 @@ let
         allowed_origins = [ "*" ];
       }
     ];
-    WebAppInstallForceList = [
-      {
-        url = "https://discord.com/app";
-        default_launch_container = "window";
-        install_as_shortcut = true;
-        custom_name = "Discord";
-      }
-      {
-        url = "https://teams.microsoft.com/v2/";
-        default_launch_container = "window";
-        install_as_shortcut = true;
-        custom_name = "Microsoft Teams";
-      }
-      {
-        url = "https://outlook.office.com/mail/";
-        default_launch_container = "window";
-        custom_name = "Outlook";
-      }
-      {
-        url = "https://www.reddit.com/";
-        default_launch_container = "window";
-        custom_name = "Reddit";
-      }
-      {
-        url = "https://www.twitch.tv/";
-        default_launch_container = "window";
-        custom_name = "Twitch";
-      }
-      {
-        url = "https://x.com/?utm_source=homescreen&utm_medium=shortcut";
-        default_launch_container = "window";
-        custom_name = "X";
-      }
-      {
-        url = "https://www.youtube.com/?feature=ytca";
-        default_launch_container = "window";
-        custom_name = "YouTube";
-      }
-      {
-        url = "https://app.zoom.us/wc";
-        default_launch_container = "window";
-        custom_name = "Zoom";
-      }
-    ];
   };
-  # A macOS update can wipe Managed Preferences, and Helium then uninstalls its policy PWAs.
+  # A macOS update can wipe Managed Preferences, so restore the policy whenever it drifts.
   installHeliumPolicy = pkgs.writeShellScript "install-helium-policy" ''
     helium_policy="/Library/Managed Preferences/net.imput.helium.plist"
     if ! /usr/bin/cmp -s ${heliumPolicy} "$helium_policy"; then
@@ -62,12 +18,12 @@ let
       /usr/bin/install -m 0644 ${heliumPolicy} "$helium_policy"
       # Direct plist replacement bypasses cfprefsd's cache, so refresh it before Helium reads policy.
       /usr/bin/killall cfprefsd 2>/dev/null || true
-      echo "$(/bin/date '+%F %T') Helium policy restored: restart Helium if it is running so it reinstalls dropped PWAs." >&2
+      echo "$(/bin/date '+%F %T') Helium policy restored: restart Helium if it is running." >&2
     fi
   '';
 in
 {
-  # Rewriting this under a running Helium can drop its PWAs, so the script only writes on change.
+  # The script only writes on change, so a running Helium never sees a needless policy reload.
   system.activationScripts.postActivation.text = lib.mkAfter ''
     ${installHeliumPolicy}
   '';
