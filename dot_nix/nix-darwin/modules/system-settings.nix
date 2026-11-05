@@ -187,6 +187,7 @@ in
       "Workspace.terminalImproveTextContrast" = true;
       "Workspace.terminalSelectionForeground" = "theme";
       "Workspace.terminalUseThemePalette" = false;
+      "Workspace.experiments.usesNewQuickSwitcher" = true;
       # remoteControl must stay on: colorscheme-set.sh imports the theme through the app client
       "rex.client.label" = "macbook";
       "rex.client.remoteControl" = true;
