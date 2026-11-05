@@ -22,6 +22,7 @@ turn=$(jq -cs '
   | .[$start + 1:]
   | {
       called: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .input.command? // "" | select(test("fm-todo status"))] | length > 0),
+      acted: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | select((.name | test("^mcp__atlassian__(addCommentToJiraIssue|editJiraIssue|transitionJiraIssue|createJiraIssue|createIssueLink)$")) or ((.input.command? // "") | test("fm-send\\.sh|fm-pr-merge\\.sh|fm-merge-local\\.sh|gh(-axi)? pr merge")))] | length > 0),
       text: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text] | last // "")
     }' < <(tail -n 2000 "$transcript") 2>/dev/null) || exit 0
 
@@ -31,6 +32,10 @@ if jq -r .text <<<"$turn" | grep -qE "^[[:space:]]*$glyph[[:space:]]*[0-9]+([[:s
   exit 0
 fi
 [ "$(jq -r .called <<<"$turn")" = true ] && exit 0
+if [ "$(jq -r .acted <<<"$turn")" = true ]; then
+  jq -n '{decision: "block", reason: "This turn steered a second mate or wrote to Jira, GitHub or a merge, but never ran fm-todo status. Update the affected board lines now (an item the captain just answered is in progress, a finished one is done) and pipe the whole block into fm-todo status, then end the reply with no status at all. Do not say the board is unchanged without checking."}'
+  exit 0
+fi
 lines=$(jq -r .text <<<"$turn" | grep -cE '^[[:space:]]*([0-9]+\.[[:space:]]*(🔴|🟡|♻|🟢|✅)|(🔴|🟡|♻|🟢|✅)[^0-9]*[0-9]+\.)')
 [ "${lines:-0}" -ge 1 ] || exit 0
 
