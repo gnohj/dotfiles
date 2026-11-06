@@ -245,9 +245,12 @@ ticket_tag=" · ${ticket:-unticketed}"
 install_deps() { "$HOME/.config/treehouse/install-deps.sh" "$1" || true; }
 
 # --watch here, not the global preference, so ad-hoc `hunk diff` holds no watcher.
+# $3 "agent" tells the fm-notes Hunk extension that S sends the reviewer's notes to the agent pane beside it.
 open_hunk() {
+  local envs=()
+  [ "${3:-}" = agent ] && envs=(--env "FM_HUNK_PR=$repo#$pr" --env "FM_HUNK_TICKET=${ticket:-}" --env FM_NOTES_TO=tab)
   # --sidebar, not a send-keys toggle afterwards: a flag cannot race hunk's startup or its width rules.
-  mux --print-pane "🔀 #$pr$ticket_tag" "$1" "hunk diff --sidebar --watch $2"
+  mux ${envs[@]+"${envs[@]}"} --print-pane "🔀 #$pr$ticket_tag" "$1" "hunk diff --sidebar --watch $2"
 }
 
 # $3 picks the review command: `full` adds the Lavish surface, `diff` stays text-only.
@@ -456,7 +459,7 @@ case "$mode" in
     git -C "$WT" checkout --detach "origin/$HEAD" 2>/dev/null
     install_deps "$WT"
     MERGE_BASE="$(git -C "$WT" merge-base "origin/$BASE" "origin/$HEAD")"
-    PANE="$(open_hunk "$WT" "$MERGE_BASE")"
+    PANE="$(open_hunk "$WT" "$MERGE_BASE" "$([ "$mode" = diff ] && echo agent)")"
     [ "$mode" = diff ] && open_claude_hunk "$WT" "$PANE"
     ;;
   claude)
