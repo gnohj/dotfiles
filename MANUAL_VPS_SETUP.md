@@ -101,7 +101,7 @@ touch ~/.zsh_gnohj_env.local && chmod 600 ~/.zsh_gnohj_env.local
 
 **`JIRA_EMAIL` and `JIRA_API_TOKEN` go together.** atlas.nvim and the Lavish Library authenticate with the pair, so a token without the email is useless, and a stale `JIRA_API_TOKEN` in `~/.zsh_gnohj_env.secrets` answers 401 until this file overrides it. After changing either, run `python3 library.py save-jira-env` in `~/Developer/agents/shared/skills/lavish-library` so the Library's server, which never sees this shell, picks them up.
 
-**`TYPESAFE_API_KEY` fails silently.** It is Jev's key, and gh-dash's `review-dispatch.sh` treats a failing `jev-route` as "no opinion", so reviews still launch but never get Jev's `deep`/`critical` model bump.
+**`TYPESAFE_API_KEY` fails silently.** It is Jev's key, and gh-dash's `review-dispatch.sh` treats a failing `jev-route` as "no opinion", so reviews still launch on size bands alone and never get Jev's rule match from the PR description.
 
 **`TURBO_TOKEN` is easy to miss and expensive to omit.** Without it turbo has no remote cache, so every task is a cold miss - the web repo's `pre-push` hook (typecheck + lint + test via turbo) then takes minutes instead of seconds. It is a single unnamespaced secret shared by both repos, unlike `FASTLY_API_TOKEN` / `INFERNO_FASTLY_API_TOKEN`, so one line covers web and inferno. Only the token belongs here: `web/turbo.json` already sets `remoteCache.teamSlug` and `inferno/.envrc` already sets `TURBO_TEAM`.
 

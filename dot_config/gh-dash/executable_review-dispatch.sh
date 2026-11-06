@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rules run narrowest-first; mechanical PRs take the cheapest band unless a risk path or Jev critical lifts them.
+# Size picks a band, Jev matches the PR to a rule, risk paths and mechanical PRs override both.
 
 case "$(uname -s)" in
   Darwin) export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH" ;;
@@ -30,7 +30,7 @@ command -v jq >/dev/null 2>&1 || fallback
 
 gh_args=(pr view "$pr")
 [ -n "$repo" ] && gh_args+=(--repo "$repo")
-stats=$(gh "${gh_args[@]}" --json files,title,author 2>/dev/null) || fallback
+stats=$(gh "${gh_args[@]}" --json files,title,author,body 2>/dev/null) || fallback
 [ -n "$stats" ] || fallback
 
 # Generated files excluded, matching the size the Library shows, so badge and band cannot disagree.
@@ -43,15 +43,29 @@ author=$(printf '%s' "$stats" | jq -r '.author.login // ""')
 case "$lines$files" in '' | *[!0-9]*) fallback ;; esac
 
 semantic=""
-if command -v jev-route >/dev/null 2>&1; then
-  semantic_state=$(jq -cn --arg title "$title" --argjson lines "$lines" --argjson files "$files" --argjson changed "$counted" \
-    '{title: $title, changedLines: $lines, changedFiles: $files, paths: [$changed[].path // ""]}')
-  semantic_result=$(printf '%s' "$semantic_state" | jev-route review - 2>/dev/null) || semantic_result=""
-  semantic=$(printf '%s' "$semantic_result" | jq -r 'if .action == "auto" then (.handler // "") else "" end' 2>/dev/null) || semantic=""
+semantic_result=""
+semantic_confidence=0
+handlers=$(jq -c '[.rules[]? | select((.name // "") != "" and (.match // "") != "") | {key: .name, value: .match}] | from_entries' "$CONFIG" 2>/dev/null) || handlers='{}'
+if command -v jev-route >/dev/null 2>&1 && [ "$handlers" != '{}' ]; then
+  handlers_file=$(mktemp "${TMPDIR:-/tmp}/review-dispatch.XXXXXX") || handlers_file=""
+  if [ -n "$handlers_file" ]; then
+    printf '%s\n' "$handlers" >"$handlers_file"
+    semantic_state=$(printf '%s' "$stats" | jq -r --argjson lines "$lines" --argjson files "$files" --argjson changed "$counted" '
+      ((.body // "") | gsub("<!--[\\s\\S]*?-->"; "") | gsub("\n{3,}"; "\n\n") | .[0:6000]) as $body
+      | ([$changed[].path // ""] | .[0:150]) as $paths
+      | "Title: \(.title // "")\nSize: \($lines) changed lines across \($files) files, generated files excluded\nPaths:\n"
+        + ($paths | map("- " + .) | join("\n"))
+        + (if ($changed | length) > 150 then "\n- ...and \(($changed | length) - 150) more" else "" end)
+        + "\nDescription:\n" + (if ($body | test("\\S")) then $body else "(none)" end)')
+    semantic_result=$(printf '%s' "$semantic_state" | jev-route review --redact --handlers "@$handlers_file" - 2>/dev/null) || semantic_result=""
+    rm -f "$handlers_file"
+    semantic=$(printf '%s' "$semantic_result" | jq -r 'if .action == "auto" then (.handler // "") else "" end' 2>/dev/null) || semantic=""
+    semantic_confidence=$(printf '%s' "$semantic_result" | jq -r '.confidence // 0 | tonumber' 2>/dev/null) || semantic_confidence=0
+  fi
 fi
 
-# Size picks the band; riskPaths floors it at the hardest, lowRiskPaths drops one (to the cheapest if Jev says routine) only if EVERY counted file matches.
-profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --arg author "$author" --argjson counted "$counted" --arg semantic "$semantic" '
+# Risk paths win; Jev raises at 0.6, lowers at 0.8 and by one band at most unless every file is low-risk.
+profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$title" --arg author "$author" --argjson counted "$counted" --arg semantic "$semantic" --argjson confidence "${semantic_confidence:-0}" '
   ([$counted[].path // ""]) as $paths
   | (.riskPaths // []) as $risky
   | (.lowRiskPaths // []) as $cheap
@@ -62,25 +76,40 @@ profile=$(jq -r --argjson lines "$lines" --argjson files "$files" --arg title "$
   | ([.rules | to_entries[] | select(
        ((.value.when.maxLines // 1e18) >= $lines) and ((.value.when.maxFiles // 1e18) >= $files)
      ) | .key] | first) as $idx
+  | ([.rules | to_entries[] | select($semantic != "" and (.value.name // "") == $semantic) | .key] | first) as $named
+  | (if $named != null and $idx != null and $named < $idx and $confidence < 0.8 then null else $named end) as $jev
   | (.singleAgent // {}) as $one
   | ([($one.titles // [])[] | select(. as $re | $title | test($re; "i"))] + [($one.authors // [])[] | select(. as $re | $author | test($re; "i"))] | length > 0) as $mechanical
-  | (if $hitRisk or $semantic == "critical" then ($count - 1)
+  | (if $hitRisk then ($count - 1)
      elif $mechanical then 0
-     elif $semantic == "deep" and ($idx != null) then ([$idx, ([1, ($count - 1)] | min)] | max)
-     elif $allCheap and $semantic == "routine" then 0
+     elif $jev != null and $allCheap then $jev
+     elif $jev != null then ([$jev, ((($idx // ($count - 1)) - 1) | if . < 0 then 0 else . end)] | max)
      elif $allCheap and ($idx != null) then ([$idx - 1, 0] | max)
      else $idx end) as $pick
   | (if $pick == null then {use: .default} else .rules[$pick] end) as $r
   | ($r.use // $r) as $u
-  | (if $hitRisk then "risk" elif $semantic == "critical" then "jev-critical" elif $semantic == "deep" then "jev-deep" elif $allCheap and $semantic == "routine" then "tests+jev-routine" elif $allCheap then "tests" else "" end) as $why
+  | ([if $hitRisk then "risk" else empty end, if $allCheap then "tests" else empty end, if $jev != null then "jev-" + $semantic else empty end] | join("+")) as $why
   | (if $mechanical then "full" else ($u.mode // "full") end) as $mode
   | (if $mechanical then ($why + (if $why == "" then "" else "+" end) + "mechanical") else $why end) as $why
-  | [ $mode, $u.claude.model, $u.claude.effort, $u.gpt.model, $u.gpt.effort, ($u.rungTimeout | tostring), $why ] | @tsv
+  | [ $mode, $u.claude.model, $u.claude.effort, $u.gpt.model, $u.gpt.effort, ($u.rungTimeout | tostring), ($idx // "-" | tostring), ($pick // "-" | tostring), (if $why == "" then "-" else $why end) ] | @tsv
 ' "$CONFIG" 2>/dev/null) || fallback
 [ -n "$profile" ] || fallback
 
-IFS=$'\t' read -r review_mode cmodel ceffort gmodel geffort timeout band_why <<<"$profile"
+IFS=$'\t' read -r review_mode cmodel ceffort gmodel geffort timeout size_band picked_band band_why <<<"$profile"
+[ "$band_why" = - ] && band_why=""
 case "$review_mode" in full | fan) ;; *) fallback ;; esac
+
+if [ "$output" = profile ]; then
+  log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/review-dispatch"
+  mkdir -p "$log_dir" 2>/dev/null &&
+    jq -cn --arg repo "$repo" --arg pr "$pr" --arg title "$title" --argjson lines "$lines" --argjson files "$files" \
+      --arg size "$size_band" --arg picked "$picked_band" --arg why "$band_why" --arg model "$cmodel" --arg effort "$ceffort" \
+      --arg jev "$semantic_result" \
+      '{ts: (now | floor), repo: $repo, pr: $pr, title: $title, lines: $lines, files: $files, sizeBand: $size, pickedBand: $picked, why: $why, model: $model, effort: $effort,
+        jev: ($jev | try (fromjson | {handler, action, confidence, probabilities}) catch null)}' \
+      >>"$log_dir/decisions.jsonl" 2>/dev/null || true
+fi
+
 if [ "$output" = mode ]; then
   printf '%s\n' "$review_mode"
   exit 0

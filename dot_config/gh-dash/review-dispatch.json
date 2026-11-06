@@ -1,6 +1,8 @@
 {
   "rules": [
     {
+      "name": "light",
+      "match": "Copy, styles, docs, tests, config values, renames, or another small mechanical change whose effect is visible in the diff itself, with no new runtime logic.",
       "when": {
         "maxLines": 60,
         "maxFiles": 3
@@ -20,6 +22,8 @@
       "why": "A handful of lines across a few files has no architecture to reason about - the whole diff fits in one read, and depth buys nothing but spend. The cheaper class on both sides finds the same typo, and quota exhaustion is the real failure mode of this flow, not a missed nit. GPT runs at medium here to match Sonnet; effort scales up with the band."
     },
     {
+      "name": "standard",
+      "match": "An ordinary feature or bug fix: new or changed runtime logic in one area, readable without tracing state across many modules.",
       "when": {
         "maxLines": 800,
         "maxFiles": 25
@@ -39,6 +43,8 @@
       "why": "The ordinary PR, on one Claude agent since the Codex subscription went. The gpt block only applies to an explicit two-agent (F) review."
     },
     {
+      "name": "deep",
+      "match": "Cross-module state or data flow, async or concurrency, caching, performance, auth, payments, migrations, infrastructure, or a breaking API or contract change.",
       "when": {},
       "use": {
         "mode": "full",

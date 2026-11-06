@@ -34,7 +34,10 @@ ROUTE_CATALOGS = {
         "critical": "Authentication, authorization, permissions, cryptography, secrets, payments, migrations, deployment infrastructure, destructive behavior, or a breaking public contract.",
     },
 }
-ROUTE_CONFIDENCE = {"harness": 0.75, "tool": 0.75, "review": 0.8}
+ROUTE_CONFIDENCE = {"harness": 0.75, "tool": 0.75, "review": 0.6}
+ROUTE_INSTRUCTIONS = {
+    "review": "Which review profile does this pull request need? Judge the risk and reasoning depth of the change from its description and paths, not its size alone.",
+}
 SECRET_PATTERNS = [
     re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"),
     re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,})"),
@@ -47,7 +50,11 @@ def fail(message: str, code: int = 2) -> None:
     raise SystemExit(code)
 
 
-def request_text(parts: list[str]) -> str:
+def redact(value: str) -> str:
+    return "\n".join(line for line in value.splitlines() if not any(pattern.search(line) for pattern in SECRET_PATTERNS))
+
+
+def request_text(parts: list[str], scrub: bool) -> str:
     if not parts or parts == ["-"]:
         value = sys.stdin.read()
     elif len(parts) == 1 and parts[0].startswith("@"):
@@ -58,6 +65,8 @@ def request_text(parts: list[str]) -> str:
             fail(f"cannot read {path}: {error}")
     else:
         value = " ".join(parts)
+    if scrub:
+        value = redact(value)
     value = value.strip()
     if not value:
         fail("request is empty")
@@ -161,8 +170,19 @@ def catalog_file(value: object):
         raise
 
 
-def route(mode: str, request: str, dry_run: bool) -> int:
-    handle, path = catalog_file(ROUTE_CATALOGS[mode])
+def load_handlers(reference: str) -> dict[str, str]:
+    path = Path(reference[1:] if reference.startswith("@") else reference).expanduser()
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"cannot read handlers {path}: {error}")
+    if not isinstance(value, dict) or not value or not all(isinstance(key, str) and isinstance(text, str) and key and text for key, text in value.items()):
+        fail(f"handlers {path} must be a non-empty object of name to description")
+    return value
+
+
+def route(mode: str, request: str, dry_run: bool, handlers: Optional[dict[str, str]]) -> int:
+    handle, path = catalog_file(handlers or ROUTE_CATALOGS[mode])
     handle.close()
     try:
         arguments = [
@@ -179,6 +199,8 @@ def route(mode: str, request: str, dry_run: bool) -> int:
             "--json",
             "--no-color",
         ]
+        if mode in ROUTE_INSTRUCTIONS:
+            arguments += ["--instructions", ROUTE_INSTRUCTIONS[mode]]
         if dry_run:
             arguments.append("--dry-run")
         return invoke(arguments, request)
@@ -220,11 +242,16 @@ def main() -> int:
     parser.add_argument("mode", choices=["harness", "tool", "skill", "review"])
     parser.add_argument("request", nargs="*")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--handlers", help="@file of {name: description} replacing the built-in catalog")
+    parser.add_argument("--redact", action="store_true", help="drop secret-looking lines instead of refusing")
     arguments = parser.parse_args()
-    request = request_text(arguments.request)
+    if arguments.handlers and arguments.mode == "skill":
+        fail("--handlers applies to route modes only")
+    request = request_text(arguments.request, arguments.redact)
     if arguments.mode == "skill":
         return find_skill(request, arguments.dry_run)
-    return route(arguments.mode, request, arguments.dry_run)
+    handlers = load_handlers(arguments.handlers) if arguments.handlers else None
+    return route(arguments.mode, request, arguments.dry_run, handlers)
 
 
 if __name__ == "__main__":
