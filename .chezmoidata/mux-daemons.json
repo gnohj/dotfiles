@@ -36,15 +36,6 @@
         "note": "self-exports a full PATH, so the minimal supervisor env still resolves herdr/gitmux/jq",
         "pathDesc": "herdr-git-status poller"
       },
-      "herdr-jira-status": {
-        "desc": "Jira status poller for thread files (ticket-band, via the sb-agent-refresh skill)",
-        "script": "herdr-jira-status.sh",
-        "args": "",
-        "interp": "",
-        "needsPath": true,
-        "macos": { "standalone": true },
-        "note": "drives Codex luna 6 xhigh every 2h through codex-headless (`codex exec` running the sb-agent-refresh skill), falling back to Claude Sonnet when Codex refuses (auth, quota, 5xx) because jira_status lives behind MCP; needs `codex mcp login atlassian` and `unblocked` once per host"
-      },
       "herdr-pane-summary": {
         "desc": "herdr pane-summary (label agent panes from their AI session title)",
         "script": "herdr-pane-summary.py",

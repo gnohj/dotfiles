@@ -212,3 +212,5 @@ scripts/open-tmux-attach.sh
 
 # rex-server.service replaced 2026-11-04 by a drop-in over the packaged rex.service (Linux preview.13).
 .config/systemd/user/rex-server.service
+# herdr-jira-status retired: it burned the Codex quota refreshing jira_status, which nothing in the Rex setup reads.
+.local/bin/mux/herdr/herdr-jira-status.sh

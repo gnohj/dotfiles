@@ -345,8 +345,6 @@ in
       };
     };
 
-    # Jira status refresh belongs to herdr-jira-status; a launchd job here gets the personal claude config, which has no Atlassian MCP.
-
     # Usage Sampler — records CPU/mem/swap/pressure every 5 min to
     # ~/.local/state/usage/YYYY-MM.csv, building the historical trend behind the
     # "can I downgrade the MacBook once dev work lives on the dev-box" decision.

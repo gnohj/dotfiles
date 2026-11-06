@@ -71,7 +71,7 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 # Pre-create log directories so launchd services don't fail silently on first fire.
-mkdir -p "$HOME/.logs/"{skhd,borders,sketchybar,github-auto-push,sb-audit,sb-agent-refresh,cleanup,kanata,watchdog}
+mkdir -p "$HOME/.logs/"{skhd,borders,sketchybar,github-auto-push,sb-audit,cleanup,kanata,watchdog}
 print_success "Log directories ready at ~/.logs/"
 
 # --- PHASE 2: SSH KEY AND SECRETS SETUP FROM BITWARDEN ---

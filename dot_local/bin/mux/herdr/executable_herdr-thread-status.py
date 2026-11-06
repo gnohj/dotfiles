@@ -8,8 +8,7 @@ owns the workspace, is the WRITER of record for `pr_url` / `ci_status` / `pr_las
 those fields; nothing here renders in the sidebar any more, since a crewmate's PR number now rides
 row 2 from its firstmate meta (herdr-git-status.sh).
 
-Jira is never touched: `jira_status` needs credentials this daemon does not have, so its writer
-is the `sb-agent-refresh` skill, supervised by herdr-jira-status.service.
+Jira is never touched, and nothing writes `jira_status` any more since herdr-jira-status was retired.
 
 Slow on purpose. The `gh` call per workspace is a network round-trip and counts against the
 API rate limit, so the default interval is minutes, not the seconds $git runs at. The call
