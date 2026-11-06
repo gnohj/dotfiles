@@ -485,8 +485,11 @@ def with_age(line, at):
     return f"{head} · `{{ago:{at}}}`{tab}{rest}" if at else line
 
 
+LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
 def stamp_items(groups, now):
-    """When each entry's firstmate content last changed, kept across posts so a re-post of the same block keeps its age."""
+    """When each entry last changed - firstmate's text, or its CI, approvals, Jira fields and action chips - kept across redraws."""
     path = os.environ.get("FM_TODO_STAMPS", "")
     try:
         with open(path) as f:
@@ -498,7 +501,8 @@ def stamp_items(groups, now):
         for owner, entries in owners.items():
             for _, lines in entries:
                 ident = f"{lv}\t{owner}\t{lines[0].split(chr(9))[0]}"
-                body = [ln for ln in lines[1:] if not ln.startswith(": ") and "{{answered" not in ln]
+                chips = lines[0].partition("\t")[2]
+                body = [LINK.sub(r"\1", ln) for ln in [chips, *lines[1:]] if "{{answered" not in ln]
                 fp = hashlib.sha1("\n".join(body).encode()).hexdigest()[:12]
                 prev = old.get(ident) or {}
                 at = prev["at"] if prev.get("fp") == fp and prev.get("at") else now
@@ -515,16 +519,17 @@ def stamp_items(groups, now):
 
 
 def owner_rows(owners, b, done=False, model=True, ages=None):
-    """One checklist row per mate (fm first), its entries nested beneath in tab order."""
-    out = []
-    for owner in sorted(owners, key=lambda o: (o != "fm", o)):
+    """One checklist row per mate, newest first (fm, then tab order, on ties), its entries nested beneath the same way."""
+    out, ages = [], ages or {}
+    newest = {o: max((ages.get(id(lines), 0) for _, lines in owners[o]), default=0) for o in owners}
+    for owner in sorted(owners, key=lambda o: (-newest[o], o != "fm", o)):
         me, state = b.mates.get(owner, ""), b.states.get(owner, "")
         box = "[x]" if done else "[~]" if state == "working" else "[ ]"
         flag = STATE_FLAGS.get(state, "")
         out.append(f"- {box} **{owner}**" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
-        for _, lines in sorted(owners[owner], key=lambda x: x[0]):
+        for _, lines in sorted(owners[owner], key=lambda x: (-ages.get(id(x[1]), 0), x[0])):
             rows = [with_model(ln, me) if model else ln for ln in lines]
-            rows[0] = with_age(rows[0], (ages or {}).get(id(lines)))
+            rows[0] = with_age(rows[0], ages.get(id(lines)))
             out += ["  " + ln for ln in rows]
     return out
 
