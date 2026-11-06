@@ -69,9 +69,18 @@ def chat(q):
         raise SystemExit(result.stderr.strip() or "could not open the chat popup")
 
 
+def diff(q):
+    result = subprocess.run([os.path.expanduser("~/.local/bin/fm-todo"), "diff", q["repo"], q["number"], q.get("key", "")],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(result.stderr.strip() or "could not open the PR diff")
+
+
 def run(path, q):
     if path == "chat":
         return chat(q)
+    if path == "diff":
+        return diff(q)
     if path == "start":
         library("POST", "/api/start-ticket", {"key": q["key"]})
     elif path == "merge":
@@ -83,6 +92,8 @@ def run(path, q):
         library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": "full"})
     elif path in ("fixci", "resolve"):
         library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": path})
+    elif path == "review-diff":
+        library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": "diff"})
     elif path == "jira/transition":
         library("POST", "/api/jira/transition", {"key": q["key"], "id": q["id"]})
     elif path == "jira/assign-to":

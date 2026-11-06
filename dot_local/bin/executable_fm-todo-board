@@ -31,6 +31,10 @@ def chat(title, ref=""):
     return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
 
 
+def diff_chip(repo, number, key=""):
+    return link("{{⎇:blue}}", act("diff", repo=repo, number=number, key=key), f"[v] Open PR #{number} in Hunk")
+
+
 def pill(text):
     return f"{{{{{text}:magenta}}}}"
 
@@ -66,12 +70,14 @@ def link(label, url, title=""):
 
 class Board:
     def __init__(self, tasks_env, lavish_env):
-        self.tasks, self.mates, self.claimed, self.claimed_prs = {}, {}, set(), set()
+        self.tasks, self.mates, self.states, self.claimed, self.claimed_prs = {}, {}, {}, set(), set()
         self.ready = []
         for row in filter(None, tasks_env.split("\n")):
             f = row.split("\t")
             if f[0].startswith("mate:"):
                 self.mates[f[0][5:]] = f[1] if len(f) > 1 else ""
+            elif f[0].startswith("state:"):
+                self.states[f[0][6:]] = f[1] if len(f) > 1 else ""
             elif len(f) >= 4:
                 self.tasks.setdefault(f[0], {"kind": f[1], "slug": f[2], "home": f[3],
                                              "tab": f[4] if len(f) > 4 else "", "me": f[5] if len(f) > 5 else ""})
@@ -96,6 +102,12 @@ class Board:
             for t in pr.get("jira") or []:
                 if isinstance(t, dict) and t.get("key"):
                     self.jira.setdefault(t["key"], t)
+
+    def owner_of(self, key="", pr="", label=""):
+        """The mate a thing belongs to: its task's home, else the mate whose domain its repo or project is, else fm."""
+        task = self.tasks.get(pr) or self.tasks.get(key) or {}
+        mate = "sm-" + label.lower()
+        return task.get("home") or (mate if mate in self.mates else "fm")
 
     def pr_for(self, key):
         for name, pr in self.my_prs.items():
@@ -189,7 +201,8 @@ class Board:
             label = (lead + " " + REF.sub("", head)).strip(" /()-·")
             name = label or defuse((self.jira.get(key) or {}).get("summary") or "") or key or head
         refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
-        right = " ".join(x for x in (chat(name, refs), action) if x)
+        diff = diff_chip(*pr_name.partition("#")[::2], key) if pr_name else ""
+        right = " ".join(x for x in (chat(name, refs), diff, action) if x)
         title = name
         if key:
             meta.pop(0)
@@ -303,7 +316,7 @@ def board(raw, b):
 
 
 def tickets_group(b):
-    rows = []
+    items = []
     for t in b.tickets:
         key = t.get("key", "")
         if not key or key in b.tasks or key in b.claimed:
@@ -319,8 +332,8 @@ def tickets_group(b):
             more = f" +{len(comps) - 1}" if len(comps) > 1 else ""
             meta.append(f"{{{{{comps[0]}{more}:{COMPONENT_COLORS.get(comps[0], 'blue')}.}}}}")
         head = f"{ticket_link(key)} {summary}"
-        rows.append(f"- [ ] {head}\t{chat(summary, key)} {start}\n  : " + join_meta(meta))
-    return rows
+        items.append((b.owner_of(key, label=comps[0] if comps else ""), [f"* {head}\t{chat(summary, key)} {start}", ": " + join_meta(meta)]))
+    return items
 
 
 LEVEL_COLORS = {"easy": "green", "medium": "yellow", "hard": "red"}
@@ -340,7 +353,7 @@ def since(iso):
 
 
 def reviews_group(b):
-    rows = []
+    items = []
     for q in sorted(b.queue, key=lambda q: q.get("requested_at") or ""):
         repo, number = q.get("repo", ""), q.get("number")
         if not repo or not number or f"{repo}#{number}" in b.claimed_prs:
@@ -370,9 +383,10 @@ def reviews_group(b):
         if q.get("running"):
             lines.append(f"| {{{{→ reviewing on {q.get('running_host') or 'this Mac'}:cyan.}}}}")
         else:
+            right += " " + link("{{⎇:blue}}", act("review-diff", repo=repo, number=number), f"[v] Open #{number} in Hunk with an agent beside it on the dev box?")
             right += " " + link("{{▶:yellow}}", act("review", repo=repo, number=number), f"[z] Review #{number} on the dev box?")
-        rows.append(f"- [ ] {head}\t{right}\n" + "\n".join("  " + ln for ln in lines))
-    return rows
+        items.append((b.owner_of(tag if ticketed else "", f"{repo}#{number}", repo_label(repo)), [f"* {head}\t{right}", *lines]))
+    return items
 
 
 def take_ready(groups, b):
@@ -380,7 +394,10 @@ def take_ready(groups, b):
         for owner in list(owners):
             keep = []
             for tab, lines in owners[owner]:
-                (b.ready if "/merge?" in lines[0].split("\t", 1)[-1] else keep).append((tab, lines))
+                if "/merge?" in lines[0].split("\t", 1)[-1]:
+                    b.ready.append((owner, tab, lines))
+                else:
+                    keep.append((tab, lines))
             if keep:
                 owners[owner] = keep
             else:
@@ -401,31 +418,55 @@ def ready_tail(line):
     return "" if re.fullmatch(r"\| \{\{→\s*:[a-z]+\.\}\}|\| →\s*", left) else left
 
 
+STATE_FLAGS = {"blocked": "{{blocked:red.}}", "error": "{{error:red.}}"}
+
+
+def owner_rows(owners, b, done=False, model=True):
+    """One checklist row per mate (fm first), its entries nested beneath in tab order."""
+    out = []
+    for owner in sorted(owners, key=lambda o: (o != "fm", o)):
+        me, state = b.mates.get(owner, ""), b.states.get(owner, "")
+        box = "[x]" if done else "[~]" if state == "working" else "[ ]"
+        flag = STATE_FLAGS.get(state, "")
+        out.append(f"- {box} {owner}" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
+        for _, lines in sorted(owners[owner], key=lambda x: x[0]):
+            out += ["  " + (with_model(ln, me) if model else ln) for ln in lines]
+    return out
+
+
+def section(title, tag, items, b, done=False, model=True):
+    """A tab heading over its (owner, lines) items grouped by mate, keeping the items' own order within a mate."""
+    owners = {}
+    for i, (owner, lines) in enumerate(items):
+        owners.setdefault(owner, []).append((i, lines))
+    return ["", f"# {title} · {len(items)} {tag}", *owner_rows(owners, b, done, model)] if items else []
+
+
 def board_tab(raw, b):
     out, groups = [], board(raw, b)
     take_ready(groups, b)
+    posted = f" {{at:{os.environ['FM_TODO_POSTED']}}}" if os.environ.get("FM_TODO_POSTED", "").isdigit() else ""
     for lv, owners in enumerate(groups):
         if not owners:
             continue
         count = sum(len(entries) for entries in owners.values())
         fold = " {folded}" if lv == len(LEVELS) - 1 else ""
-        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}{fold}")
-        box = "[x]" if lv == len(LEVELS) - 1 else "[ ]"
-        for owner in sorted(owners, key=lambda o: (o != "fm", o)):
-            me = b.mates.get(owner, "")
-            out.append(f"- {box} {owner}" + (f" · `{me}`" if me else ""))
-            for _, lines in sorted(owners[owner], key=lambda x: x[0]):
-                out += ["  " + with_model(ln, me) for ln in lines]
+        out.append(f"\n# {LEVELS[lv][1]} · {count}{posted} {{{LEVELS[lv][2]}}}{fold}")
+        posted = ""
+        out += owner_rows(owners, b, done=lv == len(LEVELS) - 1)
     return out
 
 
 def reviews_tab(b):
-    rows = reviews_group(b)
-    return [f"# Requested of you · {len(rows)} {{yellow}}", *rows] if rows else []
+    return section("Requested of you", "{yellow}", reviews_group(b), b, model=False)
+
+
+def repo_label(repo):
+    return next((k for k, v in REPOS.items() if v == repo), repo.split("/")[-1])
 
 
 def repo_chip(repo):
-    label = next((k for k, v in REPOS.items() if v == repo), repo.split("/")[-1])
+    label = repo_label(repo)
     return f"{{{{{label}:{COMPONENT_COLORS.get(label, 'blue')}.}}}}"
 
 
@@ -438,11 +479,14 @@ def pr_keys(pr):
 
 
 def prs_tab(b):
-    buckets = {"ready": [], "attention": [], "moving": [], "draft": []}
-    for _, lines in sorted(b.ready, key=lambda x: x[0]):
-        head = lines[0][2:]
-        rest = [ready_tail(ln) for ln in lines[1:]]
-        buckets["ready"].append("\n".join(["- [ ] " + head, *("  " + ln for ln in rest if ln)]))
+    buckets = {k: [] for k in ("attention", "ready", "moving", "draft", "merged")}
+
+    def put(bucket, owner, task, lines, tab=None):
+        tab = tab if tab is not None else int(task["tab"]) if task.get("tab", "").isdigit() else 9999
+        buckets[bucket].append((tab, owner, lines))
+
+    for owner, tab, lines in b.ready:
+        put("ready", owner, {}, [lines[0], *filter(None, map(ready_tail, lines[1:]))], tab)
     for name, pr in b.my_prs.items():
         keys = pr_keys(pr)
         if name in b.claimed_prs or any(k in b.claimed for k in keys):
@@ -453,8 +497,11 @@ def prs_tab(b):
         st = b.status.get(name, {})
         bits, action = b.pr_bits(name)
         title, key = pr_title(pr), (keys[0] if keys else "")
+        task = b.tasks.get(name) or b.tasks.get(key) or {}
         head = f"{ticket_link(key)} {title}" if key else title
-        right = " ".join(x for x in (chat(title, " · ".join(x for x in (key, f"PR #{number}") if x)), action) if x)
+        if task.get("me"):
+            head += f" · `{task['me']}`"
+        right = " ".join(x for x in (chat(title, " · ".join(x for x in (key, f"PR #{number}") if x)), diff_chip(repo, number, key), action) if x)
         meta = bits[:1] + (b.jira_meta(key)[1:] if key else []) + bits[1:] + [repo_chip(repo)]
         ci = (st.get("checks") or {}).get("state", "none")
         if st.get("is_draft") or pr.get("draft"):
@@ -465,9 +512,8 @@ def prs_tab(b):
             bucket = "ready"
         else:
             bucket = "moving"
-        buckets[bucket].append(f"- [ ] {head}\t{right}\n  : " + join_meta(meta))
+        put(bucket, b.owner_of(key, name, repo_label(repo)), task, [f"* {head}\t{right}", ": " + join_meta(meta)])
     today = datetime.now().astimezone().date()
-    merged = []
     for pr in b.merged:
         name = f"{pr.get('repo')}#{pr.get('number')}"
         try:
@@ -481,19 +527,19 @@ def prs_tab(b):
         b.claimed.update(keys)
         key = keys[0] if keys else ""
         head = f"{ticket_link(key)} {pr_title(pr)}" if key else pr_title(pr)
-        merged.append(f"- [x] {head}\n  : " + join_meta([pr_link(pr['repo'], pr['number']), repo_chip(pr['repo'])]))
+        task = b.tasks.get(name) or b.tasks.get(key) or {}
+        put("merged", b.owner_of(key, name, repo_label(pr["repo"])), task,
+            [f"* {head}", ": " + join_meta([pr_link(pr['repo'], pr['number']), repo_chip(pr['repo'])])])
     out = []
-    for title, rows, tag in (("Needs attention", buckets["attention"], "{red}"), ("Ready to merge", buckets["ready"], "{green}"),
-                             ("Still moving", buckets["moving"], "{yellow}"), ("Drafts", buckets["draft"], "{folded}"),
-                             ("Merged today", merged, "{green}")):
-        if rows:
-            out += ["", f"# {title} · {len(rows)} {tag}", *rows]
+    for title, bucket, tag in (("Needs attention", "attention", "{red}"), ("Ready to merge", "ready", "{green}"),
+                               ("Still moving", "moving", "{yellow}"), ("Drafts", "draft", "{folded}"), ("Merged today", "merged", "{green}")):
+        items = [(owner, lines) for _, owner, lines in sorted(buckets[bucket], key=lambda x: x[0])]
+        out += section(title, tag, items, b, done=bucket == "merged")
     return out
 
 
 def tickets_tab(b):
-    rows = tickets_group(b)
-    return [f"# Assigned, not started · {len(rows)} {{blue}}", *rows] if rows else []
+    return section("Assigned, not started", "{blue}", tickets_group(b), b, model=False)
 
 
 OUTPUT_SKIP = {"System Resource Report", "Claude Billing Watch"}
@@ -535,7 +581,7 @@ def outputs_tab(b):
         if ago := since(a.get("updated")):
             meta.append(ago)
         meta.append("{{Live:green.}}" if is_live else "Ended" if a.get("status") == "ended" else "")
-        row = f"- [ ] {head}{right}\n  : " + join_meta(meta)
+        row = (b.owner_of(key, f"{repo}#{pr[1]}" if pr and repo else "", project), [f"* {head}{right}", ": " + join_meta(meta)])
         if is_live:
             live.append(row)
         elif when.astimezone().date() == today:
@@ -545,10 +591,9 @@ def outputs_tab(b):
         elif len(older) < OUTPUT_OLDER:
             older.append(row)
     out = []
-    for title, rows, tag in (("Live", live, "{green}"), ("Today", day, "{cyan}"), ("This week", week, "{folded}"),
-                             ("Older", older, "{folded}")):
-        if rows:
-            out += ["", f"# {title} · {len(rows)} {tag}", *rows]
+    for title, items, tag in (("Live", live, "{green}"), ("Today", day, "{cyan}"), ("This week", week, "{folded}"),
+                              ("Older", older, "{folded}")):
+        out += section(title, tag, items, b, model=False)
     return out
 
 

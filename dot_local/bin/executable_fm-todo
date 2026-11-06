@@ -11,6 +11,7 @@ ANCHOR_FILE=$STATE_DIR/$LIST.anchor
 REXPAD=rexpad
 RATIO=20
 TABS_DIR=$STATE_DIR/$LIST.tabs
+HUNK_DIR=$STATE_DIR/hunk
 TAB_NAMES="prs tickets reviews outputs"
 TABS="Board=$LIST,PRs=$LIST.prs,Tickets=$LIST.tickets,Reviews=$LIST.reviews,Outputs=$LIST.outputs"
 
@@ -94,9 +95,41 @@ fm_mate_row() {
   return 0
 }
 
+# The Rex host label for an ssh host, matched by hostname against the stored endpoints.
+rex_host_label() {
+  local hostname
+  hostname=$(ssh -G "$1" 2>/dev/null | awk '/^hostname /{print $2}')
+  [ -n "$hostname" ] || return 1
+  rex --autostart=false hosts --json 2>/dev/null | jq -r --arg h "${hostname%%.*}" '.hosts[].host | select(.endpoints[] | test("^https?://" + $h + "[.:/]")) | .label' | head -1 | grep .
+}
+
+mate_states() {
+  local sid block f name host target label state
+  read -r sid block <<<"$(REX_BLOCK= fm_pane)"
+  if [ -n "${block:-}" ]; then
+    state=$(rex --autostart=false --timeout 3s block call -s "$sid" -b "$block" program_status 2>/dev/null | jq -r '.records[0].state // empty')
+    printf 'state:fm\t%s\n' "$state"
+  fi
+  for f in "$HOME"/.local/share/firstmate/state/sm-*.meta; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f" .meta)
+    host=$(sed -n 's/^remote_host=//p' "$f")
+    target=$(sed -n 's/^remote_target=//p' "$f")
+    [ -n "$host" ] && [ -n "$target" ] || continue
+    label=$(rex_host_label "$host") || continue
+    state=$(rex --autostart=false --timeout 3s -S "$label" block call -s "${target%%:*}" -b "${target#*:}" program_status 2>/dev/null | jq -r '.records[0].state // empty')
+    printf 'state:%s\t%s\n' "$name" "$state"
+  done
+  return 0
+}
+
 # Lines like "🟡 3. **web** - text"; "> " lines become details. fm-todo-board does the layout.
 to_checklist() {
   LAVISH=$(lavish_index) TASKS=${TASKS:-$(task_kinds; fm_mate_row)} "$HOME/.local/bin/fm-todo-board" --tabs-dir "$TABS_DIR"
+}
+
+file_mtime() {
+  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || date +%s
 }
 set_tabs() {
   local t
@@ -118,7 +151,7 @@ status() {
   mkdir -p "$STATE_DIR"
   TASKS=$(task_kinds; fm_mate_row)
   printf '%s\n' "$TASKS" >"$TASKS_FILE"
-  list=$(printf '%s\n' "$raw" | TASKS=$TASKS to_checklist)
+  list=$(printf '%s\n' "$raw" | TASKS="$TASKS"$'\n'"$(mate_states)" FM_TODO_POSTED=$(date +%s) to_checklist)
   [ -n "$list" ] || { echo "fm-todo: no status lines on stdin" >&2; exit 2; }
   printf '%s\n' "$raw" >"$RAW_FILE"
   viewer_open || exit 3
@@ -128,10 +161,11 @@ status() {
 
 # Redraws from firstmate's last block, its saved tasks and the Library's current files; no SSH, so launchd can run it.
 refresh() {
+  hunk_refresh
   viewer_open || return 0
   local list tasks
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
-  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS=$tasks to_checklist)
+  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states)" FM_TODO_POSTED=$(file_mtime "$RAW_FILE") to_checklist)
   [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
   set_tabs
 }
@@ -194,9 +228,60 @@ send() {
   rex send -s "$sid" -b "$block" $'\r'
 }
 
+pr_diff() {
+  local repo=$1 number=$2 key=${3:-} sid label existing
+  case "$number" in '' | *[!0-9]*) echo "fm-todo: PR must be numeric" >&2; exit 2 ;; esac
+  [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "fm-todo: invalid repository" >&2; exit 2; }
+  read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
+  [ -n "$sid" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
+  label="🔍 #$number${key:+ · $key}"
+  existing=$(rex window ls -s "$sid" --json | jq -r --arg l "$label" '.windows[] | select((.label | sub("^[0-9]+\\. ?"; "")) == $l) | .window_id' | head -1)
+  if [ -n "$existing" ]; then
+    rex window focus -s "$sid" "$existing" >/dev/null
+  else
+    rex window new -s "$sid" "$label" --keep-open -- "$HOME/.local/bin/fm-todo" hunk-pr "$repo" "$number" "$key" >/dev/null
+  fi
+}
+
+# The keyring gh login, never the scope-less GH_TOKEN from the environment.
+gh_keyring() {
+  GH_TOKEN=$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token 2>/dev/null) gh "$@"
+}
+
+# The Hunk review itself: the PR diff as a watched patch file, registered so hunk_refresh can rewrite it when the head moves.
+hunk_pr() {
+  local repo=$1 number=$2 key=${3:-} dir patch record head
+  mkdir -p "$HUNK_DIR"
+  dir=$(mktemp -d "${TMPDIR:-/tmp}/fm-hunk-$number.XXXXXX")
+  patch="$dir/${repo##*/}-pr-$number.diff"
+  record="$HUNK_DIR/$number.json"
+  gh_keyring pr diff "$number" --repo "$repo" >"$patch" || { echo "fm-todo: could not fetch PR #$number from $repo" >&2; rm -rf "$dir"; return 1; }
+  head=$(gh_keyring pr view "$number" --repo "$repo" --json headRefOid -q .headRefOid 2>/dev/null || true)
+  jq -cn --arg repo "$repo" --arg number "$number" --arg head "$head" --arg patch "$patch" '{repo: $repo, number: $number, head: $head, patch: $patch}' >"$record"
+  trap 'rm -f "$record"; rm -rf "$dir"' EXIT HUP INT TERM
+  FM_HUNK_PR="$repo#$number" FM_HUNK_TICKET="$key" hunk patch "$patch" --watch
+}
+
+# Re-fetches the patch of every open Hunk tab whose PR head moved, read from the Library's pr-status.json.
+hunk_refresh() {
+  local record repo number head patch new
+  for record in "$HUNK_DIR"/*.json; do
+    [ -f "$record" ] || continue
+    IFS=$'\t' read -r repo number head patch < <(jq -r '[.repo, .number, .head, .patch] | @tsv' "$record" 2>/dev/null) || continue
+    [ -f "$patch" ] || { rm -f "$record"; continue; }
+    new=$(jq -r --arg k "$repo#$number" '.items[$k].head // empty' "$LIBRARY/pr-status.json" 2>/dev/null)
+    [ -n "$new" ] && [ "$new" != "$head" ] || continue
+    gh_keyring pr diff "$number" --repo "$repo" >"$patch.new" 2>/dev/null && mv "$patch.new" "$patch" || { rm -f "$patch.new"; continue; }
+    jq -c --arg head "$new" '.head = $head' "$record" >"$record.new" && mv "$record.new" "$record"
+  done
+  return 0
+}
+
 cmd=${1:-show}
 shift || true
 [ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
+[ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
+[ "$cmd" = hunk-pr ] && { hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
 block=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -211,5 +296,5 @@ case "$cmd" in
   status) status ;;
   refresh) refresh ;;
   print) "$REXPAD" --list "$LIST" get ;;
-  *) echo "usage: fm-todo [show|hide|print|refresh|send TEXT] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
+  *) echo "usage: fm-todo [show|hide|print|refresh|send TEXT|diff REPO NUMBER [TICKET]] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
 esac
