@@ -27,6 +27,24 @@ def load(name, default):
         return default
 
 
+HANDOFF_WINDOW = 4 * 3600
+
+
+def load_handoffs():
+    out = {}
+    try:
+        for name in os.listdir(os.path.join(LIBRARY, "fix-briefs")):
+            age = datetime.now().timestamp() - os.path.getmtime(os.path.join(LIBRARY, "fix-briefs", name))
+            if name.endswith(".md") and age < HANDOFF_WINDOW:
+                out[name[:-3]] = "sent"
+    except OSError:
+        pass
+    for row in load("firstmate-outbox.json", []):
+        if isinstance(row, dict) and row.get("key"):
+            out[re.sub(r"[^A-Za-z0-9._-]", "_", row["key"])] = "queued"
+    return out
+
+
 def chat(title, ref=""):
     return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
 
@@ -97,6 +115,7 @@ class Board:
         self.merged = [r for r in load("my-merged-prs.json", []) if isinstance(r, dict)]
         self.required = {repo: (v or {}).get("count") or 1 for repo, v in load("required-approvals.json", {}).items()}
         self.me = {(t.get("assignee") or {}).get("name") for t in self.tickets} - {None}
+        self.handoffs = load_handoffs()
         self.jira = {t["key"]: t for t in self.tickets if t.get("key")}
         for pr in self.my_prs.values():
             for t in pr.get("jira") or []:
@@ -153,9 +172,12 @@ class Board:
             parts.append(f"{{{{Approvals {marks}:{'green' if approvals >= needed else 'yellow'}.}}}}")
         draft = st.get("is_draft") or mine.get("draft")
         threads = mine.get("threads_awaiting") or 0
+        handoff = self.handoffs.get(re.sub(r"[^A-Za-z0-9._-]", "_", name), "")
         action = ""
         if st.get("state", "open") != "open" or draft:
             pass
+        elif handoff and (ci == "failing" or threads):
+            action = f"{{{{{'Queued for fm' if handoff == 'queued' else 'CI fix sent' if ci == 'failing' else 'Resolve sent'}:yellow.}}}}"
         elif ci == "failing":
             action = link("{{Fix CI:red}}", act("fixci", repo=repo, number=number), f"Fix failing CI on #{number}?")
         elif threads:
