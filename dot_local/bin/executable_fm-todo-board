@@ -428,7 +428,7 @@ def owner_rows(owners, b, done=False, model=True):
         me, state = b.mates.get(owner, ""), b.states.get(owner, "")
         box = "[x]" if done else "[~]" if state == "working" else "[ ]"
         flag = STATE_FLAGS.get(state, "")
-        out.append(f"- {box} {owner}" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
+        out.append(f"- {box} **{owner}**" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
         for _, lines in sorted(owners[owner], key=lambda x: x[0]):
             out += ["  " + (with_model(ln, me) if model else ln) for ln in lines]
     return out
