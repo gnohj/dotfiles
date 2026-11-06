@@ -77,6 +77,27 @@ return {
 
   init = function()
     vim.api.nvim_create_autocmd("User", {
+      pattern = "MiniFilesWindowUpdate",
+      callback = function()
+        local state = _G.neorex and require("mini.files").get_explorer_state()
+        if not state then return end
+        local wins = vim.tbl_filter(function(w) return vim.api.nvim_win_is_valid(w.win_id) end, state.windows)
+        local height = math.max(10, math.floor((vim.o.lines - vim.o.cmdheight) * 0.6))
+        local total = 0
+        for _, w in ipairs(wins) do
+          total = total + vim.api.nvim_win_get_width(w.win_id) + 2
+        end
+        local col = math.max(0, math.floor((vim.o.columns - total) / 2))
+        local row = math.max(0, math.floor((vim.o.lines - vim.o.cmdheight - height - 2) / 2))
+        for _, w in ipairs(wins) do
+          local config = vim.api.nvim_win_get_config(w.win_id)
+          config.row, config.col, config.height = row, col, height
+          vim.api.nvim_win_set_config(w.win_id, config)
+          col = col + config.width + 2
+        end
+      end,
+    })
+    vim.api.nvim_create_autocmd("User", {
       pattern = "MiniFilesBufferCreate",
       callback = function(args)
         local buf = args.data.buf_id
