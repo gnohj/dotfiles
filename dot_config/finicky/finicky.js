@@ -4,7 +4,12 @@ const discordApp = {
 };
 
 const teamsApp = {
-  name: "com.gnohj.teams-link",
+  name: "com.gnohj.msteams-handler",
+  appType: "bundleId",
+};
+
+const outlookApp = {
+  name: "com.gnohj.outlook-link",
   appType: "bundleId",
 };
 
@@ -19,8 +24,16 @@ export default {
       browser: discordApp,
     },
     {
-      match: ["teams.microsoft.com/*"],
+      match: ["teams.microsoft.com/*", "teams.cloud.microsoft/*"],
       browser: teamsApp,
+    },
+    {
+      match: [
+        "outlook.office.com/*",
+        "outlook.office365.com/*",
+        "outlook.cloud.microsoft/*",
+      ],
+      browser: outlookApp,
     },
     {
       match: [

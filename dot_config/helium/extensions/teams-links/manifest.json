@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Teams links to PWA",
-  "version": "1.0",
-  "description": "Hands teams.microsoft.com/l/ links opened in a browser tab to the msteams: handler, which opens them in the Teams PWA.",
+  "name": "Teams and Outlook links to PWA",
+  "version": "1.1",
+  "description": "Hands Teams meeting and chat links to the msteams: handler and Outlook links to the Outlook Link app, so both open in their PWA instead of a browser tab.",
   "permissions": ["webNavigation", "tabs"],
-  "host_permissions": ["https://teams.microsoft.com/*"],
+  "host_permissions": [
+    "https://teams.microsoft.com/*",
+    "https://teams.cloud.microsoft/*",
+    "https://outlook.office.com/*",
+    "https://outlook.office365.com/*",
+    "https://outlook.cloud.microsoft/*"
+  ],
   "background": { "service_worker": "background.js" }
 }

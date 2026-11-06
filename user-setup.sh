@@ -706,7 +706,7 @@ if [ "$OS" = "Darwin" ]; then
   PENDING=$((PENDING + 1))
   echo "[$PENDING] Helium PWAs: open each URL in its profile > Install"
   echo "    personal: discord.com/app, x.com, youtube.com, reddit.com, twitch.tv"
-  echo "    Work:     teams.microsoft.com/v2/, outlook.office.com/mail/, app.zoom.us/wc, Slack"
+  echo "    Work:     teams.cloud.microsoft, outlook.cloud.microsoft/mail/, app.zoom.us/wc, Slack"
   echo ""
 fi
 

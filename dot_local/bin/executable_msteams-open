@@ -1,54 +1,31 @@
 #!/usr/bin/env bash
-# Rewrite an msteams: deep link into the Teams PWA's in-scope /v2/ fragment form and open it there.
+# Map an msteams: or https Teams link onto the PWA's teams.cloud.microsoft origin and let Teams Link load it.
 set -euo pipefail
 
-BUNDLE_ID="${TEAMS_PWA_BUNDLE_ID:-net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm}"
-PROFILE="${TEAMS_PROFILE:-Profile 1}"
 LOG="$HOME/.logs/msteams-open.log"
 
 url="${1:-}"
 [ -n "$url" ] || exit 0
 
-# Both spellings in the wild: `msteams:/l/meetup-join/…` and `msteams://teams.microsoft.com/l/…`.
+# Seen in the wild: msteams:/l/…, msteams://teams.microsoft.com/l/…, and https links on either Teams host.
 path="$url"
 path="${path#msteams-enterprise:}"
 path="${path#msteams:}"
+path="${path#https:}"
+path="${path#http:}"
 path="${path#//teams.microsoft.com}"
+path="${path#//teams.cloud.microsoft}"
 case "$path" in /*) ;; *) path="/$path" ;; esac
 
-# The path rides in the FRAGMENT: a bare /l/... URL is outside the app's /v2/ scope and gets dropped.
+# A bare /l/ path hits the "open in app" launcher until the web app is running, so it rides in the /v2/ fragment.
+origin="https://teams.cloud.microsoft"
 case "$path" in
-  /l/meetup-join/*) target="https://teams.microsoft.com/v2/?meetingjoin=true#$path" ;;
-  *)                target="https://teams.microsoft.com/v2/#$path" ;;
+  /v2/* | /v2) target="$origin$path" ;;
+  /l/meetup-join/*) target="$origin/v2/?meetingjoin=true#$path" ;;
+  *) target="$origin/v2/#$path" ;;
 esac
 
 mkdir -p "$(dirname "$LOG")"
 printf '[%s] %s -> %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$url" "$target" >>"$LOG"
 
-# A running PWA only focuses on relaunch and drops the URL, so steer its open window to the target instead.
-steer() {
-  osascript - "$target" <<'SCPT' 2>>"$LOG" || true
-on run argv
-	if application "Helium" is not running then return "no"
-	tell application "Helium"
-		repeat with w in windows
-			if URL of active tab of w starts with "https://teams.microsoft.com/v2/" then
-				set URL of active tab of w to item 1 of argv
-				return "yes"
-			end if
-		end repeat
-	end tell
-	return "no"
-end run
-SCPT
-}
-
-# Teams is installed in every Helium profile, and its app shim reopens the last one used, so launch it in work.
-if [ "$(steer)" != "yes" ]; then
-  open -nb net.imput.helium --args --profile-directory="$PROFILE" --app-id="${BUNDLE_ID##*.}"
-  for _ in $(seq 40); do
-    sleep 0.25
-    [ "$(steer)" = "yes" ] && break
-  done
-fi
-exec open -b "$BUNDLE_ID"
+exec open -b com.gnohj.teams-link "$target"

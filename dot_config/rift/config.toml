@@ -132,7 +132,7 @@ app_rules = [
   { app_id = "com.apple.MobileSMS", workspace = "M" },
   { app_id = "net.whatsapp.WhatsApp", workspace = "M" },
   { app_id = "ru.starmel.OpenSuperWhisper", floating = true, workspace = "O" },
-  { app_id = "net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm", workspace = "E" },
+  { app_name = "microsoft teams", workspace = "E" },
   { app_id = "com.mitchellh.ghostty", workspace = "T" },
   { app_id = "net.kovidgoyal.kitty", workspace = "T" },
   { app_id = "com.apple.Terminal", workspace = "N" },

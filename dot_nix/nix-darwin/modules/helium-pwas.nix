@@ -2,10 +2,14 @@
 
 let
   heliumPolicy = (pkgs.formats.plist { }).generate "net.imput.helium.plist" {
-    # The teams-links extension hands /l/ links to msteams:, so skip the "Open msteams-handler?" prompt.
+    # The teams-links extension hands links to msteams: and outlook-pwa:, so skip the "Open …?" prompt.
     AutoLaunchProtocolsFromOrigins = [
       {
         protocol = "msteams";
+        allowed_origins = [ "*" ];
+      }
+      {
+        protocol = "outlook-pwa";
         allowed_origins = [ "*" ];
       }
     ];

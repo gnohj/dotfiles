@@ -14,7 +14,7 @@ lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchS
 
 # Each handler loads finicky-routed links into the already open Helium PWA window instead of a new one.
 build_link_app() {
-  local name="$1" bundle_id="$2" pwa_bundle="$3" url_prefix="$4"
+  local name="$1" bundle_id="$2" url_prefix="$3" scheme="${4:-}"
   local app="$HOME/Applications/$name.app"
   local plist="$app/Contents/Info.plist"
   local tmp
@@ -26,12 +26,21 @@ build_link_app() {
   rm -rf "$tmp"
   /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $bundle_id" "$plist"
   /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$plist"
-  /usr/libexec/PlistBuddy -c "Add :PWABundleIdentifier string $pwa_bundle" "$plist"
   /usr/libexec/PlistBuddy -c "Add :PWAURLPrefix string $url_prefix" "$plist"
+  if [ -n "$scheme" ]; then
+    /usr/libexec/PlistBuddy -c "Add :PWAScheme string $scheme" "$plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string $name" "$plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $scheme" "$plist"
+  fi
   codesign --force --sign - "$app" 2>/dev/null || echo "!! could not sign $app"
   [ -x "$lsregister" ] && "$lsregister" -f "$app" 2>/dev/null || true
   echo "✅ built $app"
 }
 
-build_link_app "Discord Link" com.gnohj.discord-link net.imput.helium.app.pliiebkcmokkgndfalahlmimanmbjlab "https://discord.com/"
-build_link_app "Teams Link" com.gnohj.teams-link net.imput.helium.app.nfecgfopkdiicnnmccikafaofaoffegm "https://teams.microsoft.com/"
+build_link_app "Discord Link" com.gnohj.discord-link "https://discord.com/"
+build_link_app "Teams Link" com.gnohj.teams-link "https://teams.cloud.microsoft/"
+# The teams-links extension hands Outlook links from browser tabs over as outlook-pwa:<url>.
+build_link_app "Outlook Link" com.gnohj.outlook-link "https://outlook.cloud.microsoft/" outlook-pwa
