@@ -76,26 +76,77 @@ return {
   end,
 
   init = function()
+    local last_bounds
+
+    local function resize_rex_layer(bounds)
+      local key = table.concat(bounds, ",")
+      if key == last_bounds or not vim.env.REX_SESSION then return end
+      last_bounds = key
+      local session = vim.env.REX_SESSION
+      vim.system({ "rex", "api", "call", "-s", session, "session.view" }, { text = true }, function(view)
+        local ok, data = pcall(vim.json.decode, view.stdout or "")
+        if view.code ~= 0 or not ok then return end
+        local layer_id
+        for _, win in ipairs(data.windows or {}) do
+          for _, layer in ipairs(win.layers or {}) do
+            local block = layer.kind == "floating" and layer.blocks and layer.blocks[1]
+            if block and block.label == "neorex" then layer_id = layer.layer_id end
+          end
+        end
+        if not layer_id then return end
+        local args = vim.json.encode({ layer_id = layer_id, bounds = bounds })
+        vim.system({ "rex", "api", "call", "-s", session, "session.resize_layer", args })
+      end)
+    end
+
+    local function center_in_neorex()
+      local state = require("mini.files").get_explorer_state()
+      if not state then return end
+      local wins = vim.tbl_filter(function(w) return vim.api.nvim_win_is_valid(w.win_id) end, state.windows)
+      if #wins == 0 then return end
+      local lines, columns = vim.o.lines - vim.o.cmdheight, vim.o.columns
+      local height = math.max(10, math.floor(lines * 0.6))
+      local total = 0
+      for _, w in ipairs(wins) do
+        total = total + vim.api.nvim_win_get_width(w.win_id) + 2
+      end
+      local col = math.max(0, math.floor((columns - total) / 2))
+      local row = math.max(0, math.floor((lines - height - 2) / 2))
+      local left = col
+      for _, w in ipairs(wins) do
+        local config = vim.api.nvim_win_get_config(w.win_id)
+        config.row, config.col, config.height = row, col, height
+        vim.api.nvim_win_set_config(w.win_id, config)
+        col = col + config.width + 2
+      end
+      local width = math.min((total + 3) / columns, 1)
+      local tall = math.min((height + 4) / vim.o.lines, 1)
+      return {
+        math.max(0, math.min((left - 1) / columns, 1 - width)),
+        math.max(0, math.min((row - 1) / vim.o.lines, 1 - tall)),
+        width,
+        tall,
+      }
+    end
+
+    local pending = false
     vim.api.nvim_create_autocmd("User", {
       pattern = "MiniFilesWindowUpdate",
       callback = function()
-        local state = _G.neorex and require("mini.files").get_explorer_state()
-        if not state then return end
-        local wins = vim.tbl_filter(function(w) return vim.api.nvim_win_is_valid(w.win_id) end, state.windows)
-        local height = math.max(10, math.floor((vim.o.lines - vim.o.cmdheight) * 0.6))
-        local total = 0
-        for _, w in ipairs(wins) do
-          total = total + vim.api.nvim_win_get_width(w.win_id) + 2
-        end
-        local col = math.max(0, math.floor((vim.o.columns - total) / 2))
-        local row = math.max(0, math.floor((vim.o.lines - vim.o.cmdheight - height - 2) / 2))
-        for _, w in ipairs(wins) do
-          local config = vim.api.nvim_win_get_config(w.win_id)
-          config.row, config.col, config.height = row, col, height
-          vim.api.nvim_win_set_config(w.win_id, config)
-          col = col + config.width + 2
-        end
+        if not _G.neorex then return end
+        center_in_neorex()
+        if pending then return end
+        pending = true
+        vim.schedule(function()
+          pending = false
+          local bounds = center_in_neorex()
+          if bounds then resize_rex_layer(bounds) end
+        end)
       end,
+    })
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "MiniFilesExplorerClose",
+      callback = function() last_bounds = nil end,
     })
     vim.api.nvim_create_autocmd("User", {
       pattern = "MiniFilesBufferCreate",
