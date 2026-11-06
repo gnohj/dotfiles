@@ -545,8 +545,7 @@ def section(title, tag, items, b, done=False, model=True):
 def board_tab(raw, b):
     out, groups = [], board(raw, b)
     take_ready(groups, b)
-    posted = os.environ.get("FM_TODO_POSTED", "")
-    ages = stamp_items(groups, int(posted) if posted.isdigit() else int(datetime.now().timestamp()))
+    ages = stamp_items(groups, int(datetime.now().timestamp()))
     for lv, owners in enumerate(groups):
         if not owners:
             continue

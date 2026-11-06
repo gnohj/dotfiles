@@ -128,9 +128,6 @@ to_checklist() {
   LAVISH=$(lavish_index) TASKS=${TASKS:-$(task_kinds; fm_mate_row)} FM_TODO_STAMPS="$STATE_DIR/$LIST.stamps.json" "$HOME/.local/bin/fm-todo-board" --tabs-dir "$TABS_DIR"
 }
 
-file_mtime() {
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || date +%s
-}
 set_tabs() {
   local t
   for t in $TAB_NAMES; do
@@ -151,7 +148,7 @@ status() {
   mkdir -p "$STATE_DIR"
   TASKS=$(task_kinds; fm_mate_row)
   printf '%s\n' "$TASKS" >"$TASKS_FILE"
-  list=$(printf '%s\n' "$raw" | TASKS="$TASKS"$'\n'"$(mate_states)" FM_TODO_POSTED=$(date +%s) to_checklist)
+  list=$(printf '%s\n' "$raw" | TASKS="$TASKS"$'\n'"$(mate_states)" to_checklist)
   [ -n "$list" ] || { echo "fm-todo: no status lines on stdin" >&2; exit 2; }
   printf '%s\n' "$raw" >"$RAW_FILE"
   viewer_open || exit 3
@@ -165,7 +162,7 @@ refresh() {
   viewer_open || return 0
   local list tasks
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
-  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states)" FM_TODO_POSTED=$(file_mtime "$RAW_FILE") to_checklist)
+  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states)" to_checklist)
   [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
   set_tabs
 }
