@@ -156,6 +156,7 @@ rex_label_window() {
 }
 if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ]; then
   (rex_label_window) >/dev/null 2>&1 &
+  ("$HOME/.local/bin/fm-todo" show -b "$REX_SESSION" "$REX_BLOCK" && "$HOME/.local/bin/fm-todo" refresh) </dev/null >/dev/null 2>&1 &
 fi
 
 cd "$root"
