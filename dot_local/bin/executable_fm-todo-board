@@ -16,8 +16,6 @@ REF = re.compile(rf"{TICKET}|PR #?[0-9]+")
 LEVELS = [("🔴", "Blocked", "red", "red"), ("🟡", "Needs your call", "yellow", "yellow"),
           ("♻", "In progress", "cyan", "cyan"), ("🟢", "Waiting on others", "green", ""), ("✅", "Done", "green", "green")]
 REPOS = {"inferno": "iheartradio/inferno-monorepo", "web": "iheartradio/web", "chezmoi": "gnohj/dotfiles", "dotfiles": "gnohj/dotfiles"}
-STATUS_COLORS = {"in dev": "yellow", "in dev review": "blue", "ac review": "blue", "product review": "blue",
-                 "te review": "cyan", "ready to merge": "green", "blocked": "red", "completed": "green"}
 COMPONENT_COLORS = {"inferno": "magenta"}
 
 
@@ -33,8 +31,32 @@ def chat(title, ref=""):
     return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
 
 
+def pill(text):
+    return f"{{{{{text}:magenta}}}}"
+
+
+def tint(text):
+    return f"{{{{{text}:magenta.}}}}"
+
+
+PILL = re.compile(r"\{\{[^{}]*:[a-z]+\}\}")
+
+
+def join_meta(parts):
+    out, prev = "", ""
+    for part in (x for x in parts if x):
+        if out:
+            out += " " if PILL.search(part) or PILL.search(prev) else " · "
+        out, prev = out + part, part
+    return out
+
+
+def ticket_link(key):
+    return link(pill(key), JIRA + key)
+
+
 def pr_link(repo, number):
-    return link(f"{{{{#{number}:magenta.}}}}", f"https://github.com/{repo}/pull/{number}")
+    return link(pill(f"#{number}"), f"https://github.com/{repo}/pull/{number}")
 
 
 def link(label, url, title=""):
@@ -44,7 +66,8 @@ def link(label, url, title=""):
 
 class Board:
     def __init__(self, tasks_env, lavish_env):
-        self.tasks, self.mates, self.claimed = {}, {}, set()
+        self.tasks, self.mates, self.claimed, self.claimed_prs = {}, {}, set(), set()
+        self.ready = []
         for row in filter(None, tasks_env.split("\n")):
             f = row.split("\t")
             if f[0].startswith("mate:"):
@@ -61,7 +84,11 @@ class Board:
         self.my_prs = {f"{r['repo']}#{r['number']}": r for r in load("my-prs.json", []) if isinstance(r, dict)}
         self.status = load("pr-status.json", {}).get("items", {})
         self.tickets = [t for t in load("my-tickets.json", []) if isinstance(t, dict)]
-        self.queue = [q for q in load("catalog.json", {}).get("queue", []) if isinstance(q, dict)]
+        catalog = load("catalog.json", {})
+        self.queue = [q for q in catalog.get("queue", []) if isinstance(q, dict)]
+        self.artifacts = [a for a in catalog.get("artifacts", []) if isinstance(a, dict)]
+        self.hidden = set(load("hidden.json", []))
+        self.merged = [r for r in load("my-merged-prs.json", []) if isinstance(r, dict)]
         self.required = {repo: (v or {}).get("count") or 1 for repo, v in load("required-approvals.json", {}).items()}
         self.me = {(t.get("assignee") or {}).get("name") for t in self.tickets} - {None}
         self.jira = {t["key"]: t for t in self.tickets if t.get("key")}
@@ -78,24 +105,23 @@ class Board:
 
     def jira_meta(self, key):
         t = self.jira.get(key)
-        parts = [link(key.split("-")[-1], JIRA + key)]
+        parts = [ticket_link(key)]
         if not t:
             return parts
         name = t.get("name") or ""
-        color = STATUS_COLORS.get(name.lower(), "")
-        parts.append(link(f"{{{{●:{color}.}}}} {name}", act("jira/status", key=key, cur=name), f"menu:Move {key} to"))
+        parts.append(link(tint(name), act("jira/status", key=key, cur=name), f"menu:Move {key} to"))
         who = (t.get("assignee") or {}).get("name")
         if not who:
-            parts.append(link("{{+ assignee}}", act("jira/assign", key=key, cur=""), f"menu:Assign {key}"))
+            parts.append(link("+ assignee", act("jira/assign", key=key, cur=""), f"menu:Assign {key}"))
         else:
             label = "me" if who in self.me else who.split()[0]
-            parts.append(link(label, act("jira/assign", key=key, cur=who), f"menu:Assign {key}"))
+            parts.append(link(tint(label), act("jira/assign", key=key, cur=who), f"menu:Assign {key}"))
         versions = [v.get("name", "") for v in t.get("fix_versions") or [] if isinstance(v, dict)]
         if versions:
             label = re.sub(r"\s*\(.*\)$", "", versions[0])
-            parts.append(link(label, act("jira/version", key=key, cur=versions[0]), f"menu:Fix version for {key}"))
+            parts.append(link(tint(label), act("jira/version", key=key, cur=versions[0]), f"menu:Fix version for {key}"))
         else:
-            parts.append(link("{{+ version}}", act("jira/version", key=key, cur=""), f"menu:Fix version for {key}"))
+            parts.append(link("+ version", act("jira/version", key=key, cur=""), f"menu:Fix version for {key}"))
         return parts
 
     def pr_bits(self, name):
@@ -137,7 +163,7 @@ class Board:
         return text
 
     def lavish_link(self, key):
-        return link("Lavish", self.lavish[key]) if key in self.lavish else ""
+        return link(tint("Lavish"), self.lavish[key]) if key in self.lavish else ""
 
     def block(self, head, tail, repo, level, lead=""):
         m = re.search(TICKET, head)
@@ -146,6 +172,8 @@ class Board:
         pr_name = f"{repo}#{pr[1]}" if pr and repo else (self.pr_for(key) if key else "")
         task = self.tasks.get(key) or self.tasks.get(pr_name) or {}
         self.claimed.add(key)
+        if pr_name:
+            self.claimed_prs.add(pr_name)
         meta, action = [], ""
         if key:
             meta += self.jira_meta(key)
@@ -165,13 +193,13 @@ class Board:
         title = name
         if key:
             meta.pop(0)
-            number = link(key.split("-")[-1], JIRA + key)
-            title = number if name == key else f"{number} · {name}"
+            number = ticket_link(key)
+            title = number if name == key else f"{number} {name}"
         if task.get("me"):
             title += f" · `{task['me']}`"
         lines = [f"* {title}\t{right}"]
         if meta:
-            lines.append(": " + " · ".join(meta))
+            lines.append(": " + join_meta(meta))
         if task and lead:
             tail = (re.sub(r"\s+(for|on|of|to)$", "", lead) + " " + tail).strip()
         tail = re.sub(r"(then )?merge words?( for)?", "ready to merge", tail).strip()
@@ -286,11 +314,12 @@ def tickets_group(b):
         if m:
             comps, summary = [c.strip() for c in m[1].split(",")], summary[m.end():]
         start = link("{{▶:green}}", act("start", key=key), f"Start {key}? Firstmate dispatches a crewmate.")
-        meta = b.jira_meta(key)
+        meta = b.jira_meta(key)[1:]
         if comps:
             more = f" +{len(comps) - 1}" if len(comps) > 1 else ""
             meta.append(f"{{{{{comps[0]}{more}:{COMPONENT_COLORS.get(comps[0], 'blue')}.}}}}")
-        rows.append(f"- [ ] {summary}\t{chat(summary, key)} {start}\n  : " + " · ".join(meta))
+        head = f"{ticket_link(key)} {summary}"
+        rows.append(f"- [ ] {head}\t{chat(summary, key)} {start}\n  : " + join_meta(meta))
     return rows
 
 
@@ -314,15 +343,17 @@ def reviews_group(b):
     rows = []
     for q in sorted(b.queue, key=lambda q: q.get("requested_at") or ""):
         repo, number = q.get("repo", ""), q.get("number")
-        if not repo or not number:
+        if not repo or not number or f"{repo}#{number}" in b.claimed_prs:
             continue
+        b.claimed_prs.add(f"{repo}#{number}")
         title = defuse(" ".join(str(q.get("title") or "").split()))
         m = re.match(r"^\[([^\]]+)\]\s*", title)
         tag = m[1] if m else ""
         if m:
             title = title[m.end():]
-        meta = [link(tag.split("-")[-1], JIRA + tag) if re.fullmatch(JIRA_KEY, tag) else (tag or "unticketed"),
-                pr_link(repo, number)]
+        ticketed = re.fullmatch(JIRA_KEY, tag)
+        head = f"{ticket_link(tag)} {title}" if ticketed else title
+        meta = [pr_link(repo, number)] if ticketed else [tag or "unticketed", pr_link(repo, number)]
         if q.get("author"):
             meta.append(defuse(str(q["author"])))
         if ago := since(q.get("requested_at")):
@@ -335,40 +366,208 @@ def reviews_group(b):
         if label:
             meta.append(f"{{{{{label}:{COMPONENT_COLORS.get(label.split('.')[0], 'blue')}.}}}}")
         right = chat(title, f"{repo}#{number}")
-        lines = [": " + " · ".join(meta)]
+        lines = [": " + join_meta(meta)]
         if q.get("running"):
             lines.append(f"| {{{{→ reviewing on {q.get('running_host') or 'this Mac'}:cyan.}}}}")
         else:
             right += " " + link("{{▶:yellow}}", act("review", repo=repo, number=number), f"[z] Review #{number} on the dev box?")
-        rows.append(f"- [ ] {title}\t{right}\n" + "\n".join("  " + ln for ln in lines))
+        rows.append(f"- [ ] {head}\t{right}\n" + "\n".join("  " + ln for ln in lines))
     return rows
 
 
-def render(raw, b):
+def take_ready(groups, b):
+    for owners in groups:
+        for owner in list(owners):
+            keep = []
+            for tab, lines in owners[owner]:
+                (b.ready if "/merge?" in lines[0].split("\t", 1)[-1] else keep).append((tab, lines))
+            if keep:
+                owners[owner] = keep
+            else:
+                del owners[owner]
+
+
+def with_model(line, me):
+    head, tab, rest = line.partition("\t")
+    if not me or not line.startswith("* ") or "`" in head:
+        return line
+    return f"{head} · `{me}`{tab}{rest}"
+
+
+def ready_tail(line):
+    if not line.startswith("| "):
+        return line
+    left = re.sub(r"\s*(and )?(then )?ready to merge\s*", " ", line).replace("→  ", "→ ").replace(" :", ":")
+    return "" if re.fullmatch(r"\| \{\{→\s*:[a-z]+\.\}\}|\| →\s*", left) else left
+
+
+def board_tab(raw, b):
     out, groups = [], board(raw, b)
-    reviews = reviews_group(b)
-    if reviews:
-        out.append(f"# Needs review · {len(reviews)} {{yellow}} {{folded}}")
-        out += reviews
-        out.append("")
-    tickets = tickets_group(b)
-    if tickets:
-        out.append(f"# Tickets · {len(tickets)} {{blue}}")
-        out += tickets
+    take_ready(groups, b)
     for lv, owners in enumerate(groups):
         if not owners:
             continue
         count = sum(len(entries) for entries in owners.values())
-        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}")
+        fold = " {folded}" if lv == len(LEVELS) - 1 else ""
+        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}{fold}")
         box = "[x]" if lv == len(LEVELS) - 1 else "[ ]"
         for owner in sorted(owners, key=lambda o: (o != "fm", o)):
             me = b.mates.get(owner, "")
             out.append(f"- {box} {owner}" + (f" · `{me}`" if me else ""))
             for _, lines in sorted(owners[owner], key=lambda x: x[0]):
-                out += ["  " + ln for ln in lines]
-    return "\n".join(out).strip() + "\n"
+                out += ["  " + with_model(ln, me) for ln in lines]
+    return out
 
+
+def reviews_tab(b):
+    rows = reviews_group(b)
+    return [f"# Requested of you · {len(rows)} {{yellow}}", *rows] if rows else []
+
+
+def repo_chip(repo):
+    label = next((k for k, v in REPOS.items() if v == repo), repo.split("/")[-1])
+    return f"{{{{{label}:{COMPONENT_COLORS.get(label, 'blue')}.}}}}"
+
+
+def pr_title(pr):
+    return re.sub(rf"^\s*(\[[^\]]*\]\s*)?#?{pr.get('number')}\b\s*", "", defuse(" ".join(str(pr.get("title") or "").split())))
+
+
+def pr_keys(pr):
+    return [t["key"] for t in pr.get("jira") or [] if isinstance(t, dict) and t.get("key")]
+
+
+def prs_tab(b):
+    buckets = {"ready": [], "attention": [], "moving": [], "draft": []}
+    for _, lines in sorted(b.ready, key=lambda x: x[0]):
+        head = lines[0][2:]
+        rest = [ready_tail(ln) for ln in lines[1:]]
+        buckets["ready"].append("\n".join(["- [ ] " + head, *("  " + ln for ln in rest if ln)]))
+    for name, pr in b.my_prs.items():
+        keys = pr_keys(pr)
+        if name in b.claimed_prs or any(k in b.claimed for k in keys):
+            continue
+        b.claimed_prs.add(name)
+        b.claimed.update(keys)
+        repo, number = name.partition("#")[::2]
+        st = b.status.get(name, {})
+        bits, action = b.pr_bits(name)
+        title, key = pr_title(pr), (keys[0] if keys else "")
+        head = f"{ticket_link(key)} {title}" if key else title
+        right = " ".join(x for x in (chat(title, " · ".join(x for x in (key, f"PR #{number}") if x)), action) if x)
+        meta = bits[:1] + (b.jira_meta(key)[1:] if key else []) + bits[1:] + [repo_chip(repo)]
+        ci = (st.get("checks") or {}).get("state", "none")
+        if st.get("is_draft") or pr.get("draft"):
+            bucket = "draft"
+        elif ci == "failing" or pr.get("threads_awaiting"):
+            bucket = "attention"
+        elif "/merge?" in action:
+            bucket = "ready"
+        else:
+            bucket = "moving"
+        buckets[bucket].append(f"- [ ] {head}\t{right}\n  : " + join_meta(meta))
+    today = datetime.now().astimezone().date()
+    merged = []
+    for pr in b.merged:
+        name = f"{pr.get('repo')}#{pr.get('number')}"
+        try:
+            when = datetime.fromisoformat(str(pr.get("merged_at")).replace("Z", "+00:00")).astimezone().date()
+        except ValueError:
+            continue
+        keys = pr_keys(pr)
+        if when != today or name in b.claimed_prs or any(k in b.claimed for k in keys):
+            continue
+        b.claimed_prs.add(name)
+        b.claimed.update(keys)
+        key = keys[0] if keys else ""
+        head = f"{ticket_link(key)} {pr_title(pr)}" if key else pr_title(pr)
+        merged.append(f"- [x] {head}\n  : " + join_meta([pr_link(pr['repo'], pr['number']), repo_chip(pr['repo'])]))
+    out = []
+    for title, rows, tag in (("Needs attention", buckets["attention"], "{red}"), ("Ready to merge", buckets["ready"], "{green}"),
+                             ("Still moving", buckets["moving"], "{yellow}"), ("Drafts", buckets["draft"], "{folded}"),
+                             ("Merged today", merged, "{green}")):
+        if rows:
+            out += ["", f"# {title} · {len(rows)} {tag}", *rows]
+    return out
+
+
+def tickets_tab(b):
+    rows = tickets_group(b)
+    return [f"# Assigned, not started · {len(rows)} {{blue}}", *rows] if rows else []
+
+
+OUTPUT_SKIP = {"System Resource Report", "Claude Billing Watch"}
+OUTPUT_OLDER = 40
+
+
+def outputs_tab(b):
+    now = datetime.now(timezone.utc)
+    today = now.astimezone().date()
+    live, day, week, older = [], [], [], []
+    for a in sorted(b.artifacts, key=lambda a: str(a.get("updated") or ""), reverse=True):
+        url = a.get("https_url") or ""
+        project = (a.get("project") or {}).get("name") or ""
+        if not url.startswith("https://") or not a.get("exists") or a.get("path") in b.hidden or project in OUTPUT_SKIP:
+            continue
+        try:
+            when = datetime.fromisoformat(str(a.get("updated")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        title = defuse(" ".join(str(a.get("title") or "").split())) or "Untitled"
+        m = re.match(rf"^\[?({TICKET})\]?\s*[-:·]?\s*", title)
+        key = m[1] if m else ""
+        if m:
+            title = title[m.end():]
+        pr = re.search(r"\s*#(\d+)$", title)
+        repo = a.get("pr_repo") or {"Inferno": REPOS["inferno"], "Web": REPOS["web"]}.get(project, "")
+        if pr:
+            title = title[:pr.start()]
+        head = (ticket_link(key) + " " if key else "") + link(title, url)
+        is_live = a.get("status") == "open" and (now - when).total_seconds() < 86400
+        right = ""
+        if not is_live and a.get("lifecycle") == "reopenable" and str(a.get("action_url") or "").startswith("https://"):
+            right = "\t" + link("{{▶:green}}", a["action_url"])
+        meta = []
+        if pr and repo:
+            meta.append(pr_link(repo, pr[1]))
+        if project:
+            meta.append(f"{{{{{project}:{COMPONENT_COLORS.get(project.lower(), 'blue')}.}}}}")
+        if ago := since(a.get("updated")):
+            meta.append(ago)
+        meta.append("{{Live:green.}}" if is_live else "Ended" if a.get("status") == "ended" else "")
+        row = f"- [ ] {head}{right}\n  : " + join_meta(meta)
+        if is_live:
+            live.append(row)
+        elif when.astimezone().date() == today:
+            day.append(row)
+        elif (now - when).days < 7:
+            week.append(row)
+        elif len(older) < OUTPUT_OLDER:
+            older.append(row)
+    out = []
+    for title, rows, tag in (("Live", live, "{green}"), ("Today", day, "{cyan}"), ("This week", week, "{folded}"),
+                             ("Older", older, "{folded}")):
+        if rows:
+            out += ["", f"# {title} · {len(rows)} {tag}", *rows]
+    return out
+
+
+def render_tabs(raw, b):
+    """Board claims first, so each later tab skips what an earlier one shows: nothing appears twice."""
+    tabs = {"board": board_tab(raw, b)}
+    tabs["prs"] = prs_tab(b)
+    tabs["tickets"] = tickets_tab(b)
+    tabs["reviews"] = reviews_tab(b)
+    tabs["outputs"] = outputs_tab(b)
+    return {name: "\n".join(lines).strip() + "\n" if lines else "" for name, lines in tabs.items()}
 
 if __name__ == "__main__":
     raw = sys.stdin.read() if not sys.stdin.isatty() else ""
-    sys.stdout.write(render(raw, Board(os.environ.get("TASKS", ""), os.environ.get("LAVISH", ""))))
+    tabs = render_tabs(raw, Board(os.environ.get("TASKS", ""), os.environ.get("LAVISH", "")))
+    if sys.argv[1:2] == ["--tabs-dir"]:
+        os.makedirs(sys.argv[2], exist_ok=True)
+        for name, text in tabs.items():
+            if name != "board":
+                with open(os.path.join(sys.argv[2], name + ".md"), "w") as f:
+                    f.write(text)
+    sys.stdout.write(tabs["board"])

@@ -10,6 +10,9 @@ TASKS_FILE=$STATE_DIR/$LIST.tasks
 ANCHOR_FILE=$STATE_DIR/$LIST.anchor
 REXPAD=rexpad
 RATIO=20
+TABS_DIR=$STATE_DIR/$LIST.tabs
+TAB_NAMES="prs tickets reviews outputs"
+TABS="Board=$LIST,PRs=$LIST.prs,Tickets=$LIST.tickets,Reviews=$LIST.reviews,Outputs=$LIST.outputs"
 
 LIBRARY=$HOME/.local/state/lavish-library
 
@@ -93,7 +96,14 @@ fm_mate_row() {
 
 # Lines like "🟡 3. **web** - text"; "> " lines become details. fm-todo-board does the layout.
 to_checklist() {
-  LAVISH=$(lavish_index) TASKS=${TASKS:-$(task_kinds; fm_mate_row)} "$HOME/.local/bin/fm-todo-board"
+  LAVISH=$(lavish_index) TASKS=${TASKS:-$(task_kinds; fm_mate_row)} "$HOME/.local/bin/fm-todo-board" --tabs-dir "$TABS_DIR"
+}
+set_tabs() {
+  local t
+  for t in $TAB_NAMES; do
+    [ -f "$TABS_DIR/$t.md" ] && "$REXPAD" --list "$LIST.$t" set <"$TABS_DIR/$t.md" >/dev/null
+  done
+  return 0
 }
 
 viewer_open() {
@@ -113,6 +123,7 @@ status() {
   printf '%s\n' "$raw" >"$RAW_FILE"
   viewer_open || exit 3
   printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
+  set_tabs
 }
 
 # Redraws from firstmate's last block, its saved tasks and the Library's current files; no SSH, so launchd can run it.
@@ -122,6 +133,7 @@ refresh() {
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
   list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS=$tasks to_checklist)
   [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
+  set_tabs
 }
 
 fm_pane() {
@@ -154,7 +166,7 @@ show() {
   if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
   local opener=$HOME/.local/bin/fm-todo-open
-  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top | awk 'END { print $NF }')
+  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top --tabs "$TABS" | awk 'END { print $NF }')
   mkdir -p "$STATE_DIR"
   echo "$sid $id" >"$VIEWER_FILE"
   echo "$sid $anchor" >"$ANCHOR_FILE"
