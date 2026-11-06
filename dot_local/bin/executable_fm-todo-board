@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Turn firstmate's status block (stdin) plus the Lavish Library's PR and ticket files into a rexpad board."""
+import hashlib
 import json
 from datetime import datetime, timezone
 import os
@@ -306,7 +307,7 @@ def ask_lines(lines, item, b):
     shown = [call]
     if done:
         picked = f"({sent['letter']}) " if sent.get("letter") else ""
-        shown.append(f"| {{{{answered {picked}· {fm_todo_ask.ago(sent.get('at', 0))}:green.}}}}")
+        shown.append(f"| {{{{answered {picked}· {{ago:{int(sent.get('at', 0))}}}:green.}}}}")
     else:
         title = re.sub(r"^\S+\s+-\s+", "", item["head"])
         if item["options"]:
@@ -479,7 +480,41 @@ def ready_tail(line):
 STATE_FLAGS = {"blocked": "{{blocked:red.}}", "error": "{{error:red.}}"}
 
 
-def owner_rows(owners, b, done=False, model=True):
+def with_age(line, at):
+    head, tab, rest = line.partition("\t")
+    return f"{head} · `{{ago:{at}}}`{tab}{rest}" if at else line
+
+
+def stamp_items(groups, now):
+    """When each entry's firstmate content last changed, kept across posts so a re-post of the same block keeps its age."""
+    path = os.environ.get("FM_TODO_STAMPS", "")
+    try:
+        with open(path) as f:
+            old = json.load(f)
+    except (OSError, ValueError):
+        old = {}
+    new, ages = {}, {}
+    for lv, owners in enumerate(groups):
+        for owner, entries in owners.items():
+            for _, lines in entries:
+                ident = f"{lv}\t{owner}\t{lines[0].split(chr(9))[0]}"
+                body = [ln for ln in lines[1:] if not ln.startswith(": ") and "{{answered" not in ln]
+                fp = hashlib.sha1("\n".join(body).encode()).hexdigest()[:12]
+                prev = old.get(ident) or {}
+                at = prev["at"] if prev.get("fp") == fp and prev.get("at") else now
+                new[ident] = {"fp": fp, "at": at}
+                ages[id(lines)] = at
+    if path:
+        try:
+            with open(path + ".tmp", "w") as f:
+                json.dump(new, f)
+            os.replace(path + ".tmp", path)
+        except OSError:
+            pass
+    return ages
+
+
+def owner_rows(owners, b, done=False, model=True, ages=None):
     """One checklist row per mate (fm first), its entries nested beneath in tab order."""
     out = []
     for owner in sorted(owners, key=lambda o: (o != "fm", o)):
@@ -488,7 +523,9 @@ def owner_rows(owners, b, done=False, model=True):
         flag = STATE_FLAGS.get(state, "")
         out.append(f"- {box} **{owner}**" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
         for _, lines in sorted(owners[owner], key=lambda x: x[0]):
-            out += ["  " + (with_model(ln, me) if model else ln) for ln in lines]
+            rows = [with_model(ln, me) if model else ln for ln in lines]
+            rows[0] = with_age(rows[0], (ages or {}).get(id(lines)))
+            out += ["  " + ln for ln in rows]
     return out
 
 
@@ -503,15 +540,15 @@ def section(title, tag, items, b, done=False, model=True):
 def board_tab(raw, b):
     out, groups = [], board(raw, b)
     take_ready(groups, b)
-    posted = f" {{at:{os.environ['FM_TODO_POSTED']}}}" if os.environ.get("FM_TODO_POSTED", "").isdigit() else ""
+    posted = os.environ.get("FM_TODO_POSTED", "")
+    ages = stamp_items(groups, int(posted) if posted.isdigit() else int(datetime.now().timestamp()))
     for lv, owners in enumerate(groups):
         if not owners:
             continue
         count = sum(len(entries) for entries in owners.values())
         fold = " {folded}" if lv == len(LEVELS) - 1 else ""
-        out.append(f"\n# {LEVELS[lv][1]} · {count}{posted} {{{LEVELS[lv][2]}}}{fold}")
-        posted = ""
-        out += owner_rows(owners, b, done=lv == len(LEVELS) - 1)
+        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}{fold}")
+        out += owner_rows(owners, b, done=lv == len(LEVELS) - 1, ages=ages)
     return out
 
 

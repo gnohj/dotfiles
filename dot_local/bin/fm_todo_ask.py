@@ -144,11 +144,6 @@ def answer(qid, fp, letter, note=""):
     record(item, letter, note)
 
 
-def ago(at):
-    minutes = max(0, int(time.time() - at) // 60)
-    return "now" if minutes < 1 else f"{minutes}m" if minutes < 60 else f"{minutes // 60}h"
-
-
 def menu_rows(qid, fp, chat_url):
     from fm_todo_action import act
     item = live(qid, fp)
