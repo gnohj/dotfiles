@@ -22,7 +22,7 @@ turn=$(jq -cs '
   | .[$start + 1:]
   | {
       called: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .input.command? // "" | select(test("fm-todo status"))] | length > 0),
-      acted: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | select((.name | test("^mcp__atlassian__(addCommentToJiraIssue|editJiraIssue|transitionJiraIssue|createJiraIssue|createIssueLink)$")) or ((.input.command? // "") | test("fm-send\\.sh|fm-pr-merge\\.sh|fm-merge-local\\.sh|gh(-axi)? pr merge")))] | length > 0),
+      acted: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | select((.name | test("^mcp__atlassian__(addCommentToJiraIssue|editJiraIssue|transitionJiraIssue|createJiraIssue|createIssueLink)$")) or ((.input.command? // "") | test("fm-send\\.sh|fm-captain-hold\\.sh answer|fm-pr-merge\\.sh|fm-merge-local\\.sh|gh(-axi)? pr merge")))] | length > 0),
       text: ([.[] | select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text] | last // "")
     }' < <(tail -n 2000 "$transcript") 2>/dev/null) || exit 0
 

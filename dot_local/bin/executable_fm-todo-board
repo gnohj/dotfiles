@@ -6,6 +6,7 @@ import os
 import re
 import sys
 
+import fm_todo_ask
 from fm_todo_action import act
 
 LIBRARY = os.path.expanduser(os.environ.get("FM_TODO_LIBRARY", "~/.local/state/lavish-library"))
@@ -45,8 +46,8 @@ def load_handoffs():
     return out
 
 
-def chat(title, ref=""):
-    return link("{{💬:blue}}", act("chat", title=title, ref=ref), "[c]")
+def chat(title, ref="", qid=""):
+    return link("{{💬:blue}}", act("chat", title=title, ref=ref, **({"qid": qid} if qid else {})), "[c]")
 
 
 def diff_chip(repo, number, key=""):
@@ -90,6 +91,7 @@ class Board:
     def __init__(self, tasks_env, lavish_env):
         self.tasks, self.mates, self.states, self.claimed, self.claimed_prs = {}, {}, {}, set(), set()
         self.ready = []
+        self.cur_qid, self.answers = "", fm_todo_ask.answers()
         for row in filter(None, tasks_env.split("\n")):
             f = row.split("\t")
             if f[0].startswith("mate:"):
@@ -224,7 +226,7 @@ class Board:
             name = label or defuse((self.jira.get(key) or {}).get("summary") or "") or key or head
         refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
         diff = diff_chip(*pr_name.partition("#")[::2], key) if pr_name else ""
-        right = " ".join(x for x in (chat(name, refs), diff, action) if x)
+        right = " ".join(x for x in (chat(name, refs, self.cur_qid), diff, action) if x)
         title = name
         if key:
             meta.pop(0)
@@ -293,21 +295,47 @@ def split_refs(rest):
     return out
 
 
+def ask_lines(lines, item, b):
+    sent = b.answers.get(item["qid"]) or {}
+    done = sent.get("fp") == item["fp"]
+    head, _, right = lines[0].partition("\t")
+    label = next((o["label"] for o in item["options"] if o["letter"] == item["recommend"]), "")
+    call = f"| **Your call:** {defuse(item['question'])}" + (f" · recommends **({item['recommend']}) {defuse(label)}**" if label else "")
+    if sent and not done:
+        call += f" · you answered {'(' + sent['letter'] + ')' if sent.get('letter') else ''} before it changed".replace("  ", " ")
+    shown = [call]
+    if done:
+        picked = f"({sent['letter']}) " if sent.get("letter") else ""
+        shown.append(f"| {{{{answered {picked}· {fm_todo_ask.ago(sent.get('at', 0))}:green.}}}}")
+    else:
+        title = re.sub(r"^\S+\s+-\s+", "", item["head"])
+        if item["options"]:
+            chip = link("{{Your call:yellow}}", act("ask", qid=item["qid"], fp=item["fp"], title=title, ref=item["ref"]), "[a] menu:Your call")
+            lines[0] = f"{head}\t{chip} {right}".rstrip()
+    at = 2 if len(lines) > 1 and lines[1].startswith(": ") else 1
+    lines[at:at] = shown
+
+
 def board(raw, b):
     groups = [dict() for _ in LEVELS]
     last = None
+    calls, asks = fm_todo_ask.parse(raw), []
     for line in raw.split("\n"):
         if not line.strip():
             continue
         if line.lstrip().startswith(">"):
-            if last is not None:
-                last.append("> " + b.linkify(line.lstrip()[1:].strip(), last_repo))
+            detail = line.lstrip()[1:].strip()
+            if last is not None and not fm_todo_ask.QUESTION.match(detail):
+                last.append("> " + b.linkify(detail, last_repo))
             continue
         lv = level_of(line)
         if lv < 0 or not re.search(r"[0-9]+\.", line):
             if last is not None and line[:1] in " \t":
                 last.append("| " + b.linkify(clean(line), last_repo))
             continue
+        number = re.search(r"([0-9]+)\.", line)
+        item = calls.get(int(number[1])) if number else None
+        b.cur_qid = item["qid"] if item else ""
         text = clean(line)
         project = text.split(" ", 1)[0]
         body = text.split(" - ", 1)[1] if " - " in text else text[len(project):].strip()
@@ -316,7 +344,7 @@ def board(raw, b):
         m = REF.search(body)
         mate = "sm-" + project if "sm-" + project in b.mates else "fm"
         if not m:
-            blocks = [(mate, "", [f"* {body}\t{chat(body, project)}"])]
+            blocks = [(mate, "", [f"* {body}\t{chat(body, project, b.cur_qid)}"])]
         else:
             lead = body[:m.start()].strip(" :,-(")
             blocks = []
@@ -325,15 +353,23 @@ def board(raw, b):
                 r = REPOS.get(hint[1], repo) if hint else repo
                 home, tab, lines = b.block(head, tail, r, lv, lead)
                 blocks.append((home or mate, tab, lines))
+        target = None
         for owner, tab, lines in blocks:
             entries = groups[lv].setdefault(owner, [])
             same = next((e for e in entries if e[1][0].split("\t")[0] == lines[0].split("\t")[0]), None)
             if same:
                 same[1].extend(ln for ln in lines[1:] if not ln.startswith(": "))
                 lines[:] = same[1]
+                target = same[1]
             else:
                 entries.append((int(tab) if tab.isdigit() else 9999, lines))
-        last = blocks[-1][2]
+                target = lines
+        last = target if target is not None else blocks[-1][2]
+        if item and item["question"] and target is not None:
+            asks.append((target, item))
+    b.cur_qid = ""
+    for lines, item in asks:
+        ask_lines(lines, item, b)
     return groups
 
 

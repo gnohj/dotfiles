@@ -1,49 +1,6 @@
 #!/usr/bin/env bash
-# Todo pane chat popup: type context about one board item; Enter sends it to firstmate, an empty line cancels.
+# Todo pane chat popup: the item's context and any call as an fzf card; pick a choice, type your own words, or both.
 set -uo pipefail
 
-title=${1:?usage: fm-todo-chat TITLE [REF]}
-ref=${2:-}
-
-printf '\n  \033[1m%s\033[0m\n' "$title"
-[ -n "$ref" ] && printf '  \033[2m%s\033[0m\n' "$ref"
-rexpad --list firstmate get 2>/dev/null | python3 -c '
-import re, sys
-title = sys.argv[1]
-lines = sys.stdin.read().split("\n")
-def plain(s):
-    s = re.sub(r" \{#\d+\}$", "", s)
-    s = re.sub(r"\t.*$", "", s)
-    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)
-    s = re.sub(r"\{\{([^{}]*?)(:[a-z]*[!.]?)?\}\}", r"\1", s)
-    return s.replace("`", "").strip()
-def head(l):
-    m = re.match(r"^\s*(\* |- \[.\] )(.*)$", l)
-    return plain(m[2]) if m else None
-start = next((i for i, l in enumerate(lines) if head(l) is not None and (head(l) == title or head(l).startswith(title + " · "))), None)
-if start is None:
-    sys.exit()
-for l in lines[start + 1:]:
-    t = l.strip()
-    if not l.startswith("  ") or t.startswith("* "):
-        break
-    if t.startswith("> "):
-        print("  \033[2m│ " + plain(t[2:]) + "\033[0m")
-    else:
-        print("  \033[2m" + plain(t[2:] if t[:2] in (": ", "| ") else t) + "\033[0m")
-' "$title"
-printf '\n  \033[2mEnter sends to firstmate · empty Enter or Ctrl+C cancels\033[0m\n\n'
-
-IFS= read -e -r -p "  › " msg || exit 0
-msg=$(printf '%s' "$msg" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-[ -n "$msg" ] || exit 0
-
-about=$title
-[ -n "$ref" ] && about="$title ($ref)"
-if "$HOME/.local/bin/fm-todo" send "Captain, about $about: $msg"; then
-  printf '\n  \033[32mSent to firstmate.\033[0m\n'
-  sleep 0.7
-else
-  printf '\n  \033[31mCould not reach the firstmate pane. Press any key.\033[0m\n'
-  read -r -n1 -s
-fi
+title=${1:?usage: fm-todo-chat TITLE [REF] [QID]}
+exec python3 "$HOME/.local/bin/fm_todo_ask.py" card "$title" "${2:-}" "${3:-}"

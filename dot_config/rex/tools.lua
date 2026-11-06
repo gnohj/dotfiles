@@ -68,10 +68,10 @@ function M.setup()
     name = "fm_chat",
     title = "Firstmate Chat About an Item",
     category = "Tools",
-    args = { title = "string", ref = "string?" },
+    args = { title = "string", ref = "string?", qid = "string?" },
     run = function(ctx, args)
-      local run = '"$HOME/.local/bin/fm-todo-chat" "$1" "$2"; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
-      c.popup(ctx, 0.2, 0.32, { "/bin/sh", "-c", run, ctx.block_id, args.title, args.ref or "" }, { label = "fm-chat" })
+      local run = '"$HOME/.local/bin/fm-todo-chat" "$1" "$2" "$3"; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
+      c.popup(ctx, 0.16, 0.18, { "/bin/sh", "-c", run, ctx.block_id, args.title, args.ref or "", args.qid or "" }, { label = "fm-chat" })
     end,
   }
 

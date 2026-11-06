@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import quote
 
+import fm_todo_ask
 from fm_todo_action import ACT, act, parse
 
 LIBRARY = os.path.expanduser("~/.local/state/lavish-library")
@@ -36,6 +37,11 @@ def library(method, route, body=None, headers=None):
 
 
 def menu(path, q):
+    if path == "ask":
+        chat_url = act("chat", title=q.get("title", ""), ref=q.get("ref", ""), qid=q["qid"])
+        for label, url, star, tag in fm_todo_ask.menu_rows(q["qid"], q["fp"], chat_url):
+            print("\t".join((label, url, star, tag)))
+        return
     key, cur = q.get("key", ""), q.get("cur", "")
     rows = []
     if path == "jira/status":
@@ -61,7 +67,7 @@ def menu(path, q):
 
 
 def chat(q):
-    args = json.dumps({"title": q.get("title", ""), "ref": q.get("ref", "")})
+    args = json.dumps({"title": q.get("title", ""), "ref": q.get("ref", ""), "qid": q.get("qid", "")})
     session, block = os.environ.get("REX_SESSION", ""), os.environ.get("REX_BLOCK", "")
     where = ["-s", session, "-b", block] if session and block else []
     result = subprocess.run(["rex", "--autostart=false", "do", *where, "fm_chat", "--args", args], capture_output=True, text=True)
@@ -81,6 +87,8 @@ def run(path, q):
         return chat(q)
     if path == "diff":
         return diff(q)
+    if path == "answer":
+        return fm_todo_ask.answer(q["qid"], q["fp"], q.get("letter", ""))
     if path == "start":
         library("POST", "/api/start-ticket", {"key": q["key"]})
     elif path == "merge":
