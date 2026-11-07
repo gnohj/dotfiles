@@ -39,7 +39,7 @@ for f in "$HOME"/.local/share/firstmate*/state/*.meta; do
   if [ -n "$srv" ] && [ -n "$ses" ] && [ -n "$win" ] && command -v rex >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
     tab=$(rex --autostart=false --timeout 2s -S "$srv" window ls -s "$ses" --json 2>/dev/null | jq -r --arg w "$win" '.windows[]? | select(.window_id == $w) | .label' | sed -n 's/^\([0-9][0-9]*\)\..*/\1/p')
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab" "$(sed -n 's/^model=//p' "$f")" "$(sed -n 's/^effort=//p' "$f")"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab" "$(sed -n 's/^model=//p' "$f")" "$(sed -n 's/^effort=//p' "$f")" "$srv" "$ses" "$(sed -n 's/^rex_block_id=//p' "$f")"
 done
 SH
 }
@@ -49,7 +49,7 @@ task_kinds() {
   {
     task_list_script | sh -s
     for h in $(cat "$HOME"/.local/share/firstmate*/state/*.meta 2>/dev/null | sed -n 's/^remote_host=//p' | sort -u); do
-      task_list_script | ssh -o ConnectTimeout=2 -o BatchMode=yes "$h" sh -s 2>/dev/null || true
+      task_list_script | ssh -o ConnectTimeout=2 -o BatchMode=yes "$h" sh -s 2>/dev/null | awk -v h="$h" '{ print $0 "\t" h }' || true
     done
   } | awk -F'\t' '
   function model_effort(model, effort,   n, p, i, name, all, ver) {
@@ -73,14 +73,15 @@ task_kinds() {
   $2 == "secondmate" { print "mate:" $1 "\t" model_effort($6, $7); next }
   {
     me = model_effort($6, $7)
+    pane = "\t" $8 "\t" $9 "\t" $10 "\t" $11
     slug = $1; tail = "\t" $2 "\t"
     if (match(toupper($1), /[A-Z][A-Z]+-[0-9][0-9]+/)) {
       key = substr(toupper($1), RSTART, RLENGTH)
       slug = substr($1, 1, RSTART - 1) "-" substr($1, RSTART + RLENGTH)
       gsub(/-+/, "-", slug); gsub(/^-|-$/, "", slug)
-      print key tail slug "\t" $4 "\t" $5 "\t" me
+      print key tail slug "\t" $4 "\t" $5 "\t" me pane
     }
-    if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 "\t" me }
+    if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 "\t" me pane }
   }'
 }
 
@@ -103,13 +104,14 @@ rex_host_label() {
   rex --autostart=false hosts --json 2>/dev/null | jq -r --arg h "${hostname%%.*}" '.hosts[].host | select(.endpoints[] | test("^https?://" + $h + "[.:/]")) | .label' | head -1 | grep .
 }
 
+pane_state() {
+  rex --autostart=false --timeout 3s ${1:+-S "$1"} block call -s "$2" -b "$3" program_status 2>/dev/null | jq -r '(first(.records[]? | select(.id == null)) // .records[0] // {}) | [.state // "", .kind // ""] | @tsv'
+}
+
 mate_states() {
-  local sid block f name host target label state
+  local sid block f name host target label
   read -r sid block <<<"$(REX_BLOCK= fm_pane)"
-  if [ -n "${block:-}" ]; then
-    state=$(rex --autostart=false --timeout 3s block call -s "$sid" -b "$block" program_status 2>/dev/null | jq -r '.records[0].state // empty')
-    printf 'state:fm\t%s\n' "$state"
-  fi
+  [ -n "${block:-}" ] && printf 'state:fm\t%s\n' "$(pane_state "" "$sid" "$block")"
   for f in "$HOME"/.local/share/firstmate/state/sm-*.meta; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .meta)
@@ -117,8 +119,24 @@ mate_states() {
     target=$(sed -n 's/^remote_target=//p' "$f")
     [ -n "$host" ] && [ -n "$target" ] || continue
     label=$(rex_host_label "$host") || continue
-    state=$(rex --autostart=false --timeout 3s -S "$label" block call -s "${target%%:*}" -b "${target#*:}" program_status 2>/dev/null | jq -r '.records[0].state // empty')
-    printf 'state:%s\t%s\n' "$name" "$state"
+    printf 'state:%s\t%s\n' "$name" "$(pane_state "$label" "${target%%:*}" "${target#*:}")"
+  done
+  crew_states "$1"
+  return 0
+}
+
+# Task rows carry srv ses block host in columns 7-10.
+crew_states() {
+  local host label srv ses block
+  for host in $(printf '%s\n' "$1" | awk -F'\t' '$9 != "" { print ($10 == "" ? "-" : $10) }' | sort -u); do
+    label=""
+    if [ "$host" != - ]; then label=$(rex_host_label "$host") || continue; fi
+    printf '%s\n' "$1" | awk -F'\t' -v h="$host" '$9 != "" && ($10 == "" ? "-" : $10) == h && !seen[$9]++ { print $7 "\t" $8 "\t" $9 }' | {
+      while IFS=$'\t' read -r srv ses block; do
+        printf 'state:%s\t%s\n' "$block" "$(pane_state "${label:-$srv}" "$ses" "$block")" &
+      done
+      wait
+    }
   done
   return 0
 }
@@ -148,7 +166,7 @@ status() {
   mkdir -p "$STATE_DIR"
   TASKS=$(task_kinds; fm_mate_row)
   printf '%s\n' "$TASKS" >"$TASKS_FILE"
-  list=$(printf '%s\n' "$raw" | TASKS="$TASKS"$'\n'"$(mate_states)" to_checklist)
+  list=$(printf '%s\n' "$raw" | TASKS="$TASKS"$'\n'"$(mate_states "$TASKS")" to_checklist)
   [ -n "$list" ] || { echo "fm-todo: no status lines on stdin" >&2; exit 2; }
   printf '%s\n' "$raw" >"$RAW_FILE"
   viewer_open || exit 3
@@ -162,7 +180,7 @@ refresh() {
   viewer_open || return 0
   local list tasks
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
-  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states)" to_checklist)
+  list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states "$tasks")" to_checklist)
   [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
   set_tabs
 }

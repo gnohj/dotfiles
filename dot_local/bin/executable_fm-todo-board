@@ -90,7 +90,7 @@ def link(label, url, title=""):
 
 class Board:
     def __init__(self, tasks_env, lavish_env):
-        self.tasks, self.mates, self.states, self.claimed, self.claimed_prs = {}, {}, {}, set(), set()
+        self.tasks, self.mates, self.states, self.kinds, self.claimed, self.claimed_prs = {}, {}, {}, {}, set(), set()
         self.ready = []
         self.cur_qid, self.answers = "", fm_todo_ask.answers()
         for row in filter(None, tasks_env.split("\n")):
@@ -99,9 +99,11 @@ class Board:
                 self.mates[f[0][5:]] = f[1] if len(f) > 1 else ""
             elif f[0].startswith("state:"):
                 self.states[f[0][6:]] = f[1] if len(f) > 1 else ""
+                self.kinds[f[0][6:]] = f[2] if len(f) > 2 else ""
             elif len(f) >= 4:
                 self.tasks.setdefault(f[0], {"kind": f[1], "slug": f[2], "home": f[3],
-                                             "tab": f[4] if len(f) > 4 else "", "me": f[5] if len(f) > 5 else ""})
+                                             "tab": f[4] if len(f) > 4 else "", "me": f[5] if len(f) > 5 else "",
+                                             "block": f[8] if len(f) > 8 else ""})
                 if f[3].startswith("sm-"):
                     self.mates.setdefault(f[3], "")
         self.lavish, self.lavish_titles = {}, {}
@@ -235,6 +237,8 @@ class Board:
             title = number if name == key else f"{number} {name}"
         if task.get("me"):
             title += f" · `{task['me']}`"
+        if flag := state_flag(self, task.get("block", "")):
+            title += f" {flag}"
         lines = [f"* {title}\t{right}"]
         if meta:
             lines.append(": " + join_meta(meta))
@@ -477,7 +481,30 @@ def ready_tail(line):
     return "" if re.fullmatch(r"\| \{\{→\s*:[a-z]+\.\}\}|\| →\s*", left) else left
 
 
-STATE_FLAGS = {"blocked": "{{blocked:red.}}", "error": "{{error:red.}}"}
+def state_flag(b, pane):
+    state = b.states.get(pane, "") if pane else ""
+    if state == "blocked":
+        kind = re.sub(r"[^a-z ]", "", (b.kinds.get(pane) or "").lower()).strip()[:24]
+        return f"{{{{needs {kind or 'you'}:red.}}}}"
+    return "{{error:red.}}" if state == "error" else ""
+
+
+def stuck_panes(groups, b):
+    """Blocked panes firstmate never mentioned still land under Needs your call."""
+    shown = {t.get("block") for k, t in b.tasks.items() if k in b.claimed or k in b.claimed_prs}
+    for key, task in b.tasks.items():
+        pane = task.get("block", "")
+        if b.states.get(pane) != "blocked" or pane in shown:
+            continue
+        shown.add(pane)
+        repo, _, number = key.partition("#")
+        tail = f"waiting in tab {task['tab']}" if task.get("tab") else "waiting on a prompt"
+        home, tab, lines = b.block(f"PR #{number}" if number else key, tail, repo if number else "", 1)
+        groups[1].setdefault(home or "fm", []).append((int(tab) if tab.isdigit() else 9999, lines))
+    listed = {o for owners in groups for o in owners}
+    for mate in b.mates:
+        if mate != "fm" and mate not in listed and b.states.get(mate) == "blocked":
+            groups[1][mate] = [(0, [f"* {mate} is waiting on a prompt\t{chat(f'{mate} is waiting', mate)}"])]
 
 
 def with_age(line, at):
@@ -525,7 +552,7 @@ def owner_rows(owners, b, done=False, model=True, ages=None):
     for owner in sorted(owners, key=lambda o: (-newest[o], o != "fm", o)):
         me, state = b.mates.get(owner, ""), b.states.get(owner, "")
         box = "[x]" if done else "[~]" if state == "working" else "[ ]"
-        flag = STATE_FLAGS.get(state, "")
+        flag = state_flag(b, owner)
         out.append(f"- {box} **{owner}**" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
         for _, lines in sorted(owners[owner], key=lambda x: (-ages.get(id(x[1]), 0), x[0])):
             rows = [with_model(ln, me) if model else ln for ln in lines]
@@ -544,6 +571,7 @@ def section(title, tag, items, b, done=False, model=True):
 
 def board_tab(raw, b):
     out, groups = [], board(raw, b)
+    stuck_panes(groups, b)
     take_ready(groups, b)
     ages = stamp_items(groups, int(datetime.now().timestamp()))
     for lv, owners in enumerate(groups):
@@ -600,6 +628,8 @@ def prs_tab(b):
         head = f"{ticket_link(key)} {title}" if key else title
         if task.get("me"):
             head += f" · `{task['me']}`"
+        if flag := state_flag(b, task.get("block", "")):
+            head += f" {flag}"
         right = " ".join(x for x in (chat(title, " · ".join(x for x in (key, f"PR #{number}") if x)), diff_chip(repo, number, key), action) if x)
         meta = bits[:1] + (b.jira_meta(key)[1:] if key else []) + bits[1:] + [repo_chip(repo)]
         ci = (st.get("checks") or {}).get("state", "none")
