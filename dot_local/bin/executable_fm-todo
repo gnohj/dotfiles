@@ -178,13 +178,15 @@ fm_pane() {
   echo "$sid $(rex session inspect "$sid" --json | jq -r '.windows[0].layers[0].blocks[0].block_id')"
 }
 
-# Rex sometimes rebalances a fresh split to 50/50 after it opens, so hold the ratio for its first seconds.
+# Rex sometimes rebalances a fresh split to 50/50 after it opens, so hold the ratio and keep focus on the anchor for its first seconds.
 hold_ratio() {
-  local sid=$1 anchor=$2 id=$3 want ratio t
+  local sid=$1 anchor=$2 id=$3 want ratio t view
   want=$(awk -v r="$RATIO" 'BEGIN { printf "%.2f", 1 - r / 100 }')
   for t in 0.3 0.7 1 1; do
     sleep "$t"
-    ratio=$(rex session inspect "$sid" --json 2>/dev/null | jq -r --arg id "$id" '[.. | objects | select(.split?) | .split | select(.after.block_id == $id) | .ratio][0] // empty')
+    view=$(rex session inspect "$sid" --json 2>/dev/null) || return 0
+    [ "$(jq -r --arg id "$id" 'first(.windows[] | select(any(.layers[].blocks[]; .block_id == $id)) | .focused_block_id) // empty' <<<"$view")" = "$id" ] && { rex focus -s "$sid" "$anchor" >/dev/null 2>&1 || true; }
+    ratio=$(jq -r --arg id "$id" '[.. | objects | select(.split?) | .split | select(.after.block_id == $id) | .ratio][0] // empty' <<<"$view")
     [ -n "$ratio" ] || return 0
     awk -v a="$ratio" -v b="$want" 'BEGIN { exit (a - b < 0.02 && b - a < 0.02) }' || continue
     rex api call session.resize_pane "$(jq -cn --arg s "$sid" --arg b "$anchor" --arg a "$id" --argjson r "$want" '{session_id: $s, before_block_id: $b, after_block_id: $a, direction: "horizontal", ratio: $r}')" >/dev/null 2>&1 || true
