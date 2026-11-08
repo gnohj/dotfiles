@@ -95,7 +95,7 @@ local function sidebar_share(window, block_id)
   local size = rect and rex.block.call(M.TERM, "size", { block_id = block_id })
   if size == nil or size.cell_width_px == nil then return 0 end
   local r = rex.exec{ "/bin/sh", "-c", WINDOW_PX }
-  local window_px = tonumber((r and r.stdout or ""):match("^(%S+)"))
+  local window_px = tonumber(((r and r.stdout or ""):match("^(%S+)")) or "")
   if window_px == nil then return 0 end
   -- Workspace.sidebarWidth belongs to another window, so the sidebar is the width the panes leave.
   local panes_px = size.columns * size.cell_width_px / rect[3]
