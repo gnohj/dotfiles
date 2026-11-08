@@ -294,8 +294,35 @@ hunk_refresh() {
   return 0
 }
 
+note_file() {
+  printf '%s/notes/%s.progress' "$HUNK_DIR" "$(printf '%s' "$1" | tr '/#' '__')"
+}
+
+# Firstmate records each hop of a Hunk note batch; the fm-notes Hunk extension shows it.
+note_stage() {
+  local pr=$1 stage=$2 mate=${3:-} f
+  f=$(note_file "$pr")
+  mkdir -p "${f%/*}"
+  jq -cn --arg s "$stage" --arg m "$mate" --argjson at "$(date +%s)" '{stage: $s, mate: $m, at: $at}' >"$f.new" && mv "$f.new" "$f"
+}
+
+# Prints mate, recorded stage and the crewmate pane's Rex state for a PR, tab separated.
+note_progress() {
+  local pr=$1 row home srv ses block host label="" stage="" state=""
+  row=$(awk -F'\t' -v k="$pr" '$1 == k { print; exit }' "$TASKS_FILE" 2>/dev/null)
+  IFS=$'\t' read -r _ _ _ home _ _ srv ses block host <<<"$row" || true
+  stage=$(jq -r '.stage // empty' "$(note_file "$pr")" 2>/dev/null || true)
+  if [ -n "${block:-}" ]; then
+    [ -n "${host:-}" ] && { label=$(rex_host_label "$host") || label=""; }
+    state=$(pane_state "${label:-$srv}" "$ses" "$block" | cut -f1)
+  fi
+  printf '%s\t%s\t%s\n' "${home:-}" "$stage" "$state"
+}
+
 cmd=${1:-show}
 shift || true
+[ "$cmd" = note-stage ] && { note_stage "${1:?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${2?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${3:-}"; exit; }
+[ "$cmd" = note-progress ] && { note_progress "${1:?usage: fm-todo note-progress OWNER/REPO#N}"; exit; }
 [ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
 [ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
 [ "$cmd" = hunk-pr ] && { hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
