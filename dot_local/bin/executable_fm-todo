@@ -246,17 +246,23 @@ send() {
 }
 
 pr_diff() {
-  local repo=$1 number=$2 key=${3:-} sid label existing
+  local repo=$1 number=$2 key=${3:-} sid label window client
   case "$number" in '' | *[!0-9]*) echo "fm-todo: PR must be numeric" >&2; exit 2 ;; esac
   [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "fm-todo: invalid repository" >&2; exit 2; }
   read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
   [ -n "$sid" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
   label="🔍 #$number${key:+ · $key}"
-  existing=$(rex window ls -s "$sid" --json | jq -r --arg l "$label" '.windows[] | select((.label | sub("^[0-9]+\\. ?"; "")) == $l) | .window_id' | head -1)
-  if [ -n "$existing" ]; then
-    rex window focus -s "$sid" "$existing" >/dev/null
+  window=$(rex window ls -s "$sid" --json | jq -r --arg l "$label" '.windows[] | select((.label | sub("^[0-9]+\\. ?"; "")) == $l) | .window_id' | head -1)
+  if [ -z "$window" ]; then
+    window=$(rex window new -s "$sid" "$label" --json -- "$HOME/.local/bin/fm-todo" hunk-pr "$repo" "$number" "$key" | jq -r '.window_id // empty')
+  fi
+  [ -n "$window" ] || { echo "fm-todo: could not open the diff tab" >&2; exit 1; }
+  # Server-side focus never moves the app's selected tab, so ask the app to show it.
+  client=$(rex client ls --json 2>/dev/null | jq -r '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
+  if [ -n "$client" ]; then
+    rex -C "$client" do session.select "session_id=$sid" "window_id=$window" >/dev/null
   else
-    rex window new -s "$sid" "$label" --keep-open -- "$HOME/.local/bin/fm-todo" hunk-pr "$repo" "$number" "$key" >/dev/null
+    rex window focus -s "$sid" "$window" >/dev/null
   fi
 }
 
@@ -272,10 +278,10 @@ hunk_pr() {
   dir=$(mktemp -d "${TMPDIR:-/tmp}/fm-hunk-$number.XXXXXX")
   patch="$dir/${repo##*/}-pr-$number.diff"
   record="$HUNK_DIR/$number.json"
-  gh_keyring pr diff "$number" --repo "$repo" >"$patch" || { echo "fm-todo: could not fetch PR #$number from $repo" >&2; rm -rf "$dir"; return 1; }
+  gh_keyring pr diff "$number" --repo "$repo" >"$patch" || { echo "fm-todo: could not fetch PR #$number from $repo" >&2; rm -rf "$dir"; read -rsn1 -p "Press any key to close" || true; return 1; }
   head=$(gh_keyring pr view "$number" --repo "$repo" --json headRefOid -q .headRefOid 2>/dev/null || true)
   jq -cn --arg repo "$repo" --arg number "$number" --arg head "$head" --arg patch "$patch" '{repo: $repo, number: $number, head: $head, patch: $patch}' >"$record"
-  trap 'rm -f "$record"; rm -rf "$dir"' EXIT HUP INT TERM
+  trap "rm -f $(printf %q "$record"); rm -rf $(printf %q "$dir")" EXIT HUP INT TERM
   FM_HUNK_PR="$repo#$number" FM_HUNK_TICKET="$key" hunk patch "$patch" --watch
 }
 
