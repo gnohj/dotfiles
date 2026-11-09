@@ -1,6 +1,9 @@
 return {
   "nvim-mini/mini.diff",
   event = "VeryLazy",
+  init = function()
+    require("config.pr_base").setup()
+  end,
   opts = {
     view = {
       style = "sign",
