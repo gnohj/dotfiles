@@ -53,6 +53,36 @@ if [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]; then
   unset CLAUDE_ACCOUNT
   case "${CLAUDE_CONFIG_DIR:-}" in "$HOME/.claude-work" | "$HOME/.claude") unset CLAUDE_CONFIG_DIR ;; esac
 fi
+
+_resume_target() {
+  local prev="" arg
+  for arg in "$@"; do
+    case "$arg" in --resume=*) printf '%s' "${arg#--resume=}"; return ;; esac
+    case "$prev" in -r | --resume) printf '%s' "$arg"; return ;; esac
+    prev="$arg"
+  done
+}
+
+_account_owning_session() {
+  local id="$1" acct dir found=""
+  for acct in personal work; do
+    dir="$(CLAUDE_ACCOUNT="$acct" claude-account dir)"
+    [ -n "$(find "${dir:-$HOME/.claude}/projects" -mindepth 2 -maxdepth 2 -name "$id.jsonl" -print -quit 2>/dev/null)" ] || continue
+    [ -z "$found" ] || return 0
+    found="$acct"
+  done
+  printf '%s' "$found"
+}
+
+# Resuming a conversation from the other account's store would report "No conversation found".
+if [ -z "${CLAUDE_ACCOUNT:-}${CLAUDE_CODE_OAUTH_TOKEN:-}${CLAUDE_CONFIG_DIR:-}${FM_TASK_ID:-}" ] && [ -z "$(claude-account store-pin "$PWD")" ]; then
+  _resume_arg="$(_resume_target "$@")"
+  if [[ "$_resume_arg" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    _owner="$(_account_owning_session "$_resume_arg")"
+    [ -z "$_owner" ] || export CLAUDE_ACCOUNT="$_owner"
+  fi
+fi
+
 case "${CLAUDE_ACCOUNT:-}" in
 "" | work | personal) ;;
 *) echo "claude: unknown account choice" >&2; exit 1 ;;
