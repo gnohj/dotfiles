@@ -10,6 +10,7 @@ const TICKET = process.env.FM_HUNK_TICKET ?? "";
 const TO = process.env.FM_NOTES_TO ?? "";
 const FM_TODO =
   process.env.FM_NOTES_SEND ?? join(homedir(), ".local", "bin", "fm-todo");
+const FM_TODO_BIN = join(homedir(), ".local", "bin", "fm-todo");
 const NOTES_DIR = join(homedir(), ".local", "state", "rexpad", "hunk", "notes");
 const NOTES_FILE = join(NOTES_DIR, `${PR.replace(/[/#]/g, "_")}.json`);
 
@@ -58,9 +59,10 @@ function run(
   cmd: string,
   args: string[],
   input?: string,
+  timeout = 8000,
 ): Promise<{ err: string; out: string }> {
   return new Promise((resolve) => {
-    const child = execFile(cmd, args, { timeout: 8000 }, (err, stdout) =>
+    const child = execFile(cmd, args, { timeout }, (err, stdout) =>
       resolve({ err: err ? err.message : "", out: stdout ?? "" }),
     );
     if (input !== undefined) child.stdin?.end(input);
@@ -356,6 +358,28 @@ export default function (hunk: HunkExtensionAPI) {
   });
   setInterval(() => void poll(tick++), 3000).unref?.();
   void poll(tick++);
+
+  hunk.registerCommand(
+    { id: "open", title: "Open file at the PR commit in nvim", key: "o" },
+    async (ctx) => {
+      const file = ctx.selection.file;
+      if (!file) {
+        ctx.notify("no file selected", "info");
+        return;
+      }
+      const at = ctx.selection.currentLine ?? { side: "new", line: 1 };
+      const path =
+        at.side === "old" ? (file.previousPath ?? file.path) : file.path;
+      const repo = PR.split("#")[0];
+      const { err } = await run(
+        FM_TODO_BIN,
+        ["pr-open", repo, number, at.side, String(at.line), path, TICKET],
+        undefined,
+        60000,
+      );
+      if (err) ctx.notify(`nvim not opened: ${err}`, "error");
+    },
+  );
 
   hunk.registerCommand(
     { id: "send", title: `Send saved notes to ${who}`, key: "S" },

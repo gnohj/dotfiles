@@ -177,6 +177,7 @@ status() {
 # Redraws from firstmate's last block, its saved tasks and the Library's current files; no SSH, so launchd can run it.
 refresh() {
   hunk_refresh
+  pr_lease_sweep
   viewer_open || return 0
   local list tasks
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
@@ -252,18 +253,149 @@ pr_diff() {
   read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
   [ -n "$sid" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
   label="🔍 #$number${key:+ · $key}"
-  window=$(rex window ls -s "$sid" --json | jq -r --arg l "$label" '.windows[] | select((.label | sub("^[0-9]+\\. ?"; "")) == $l) | .window_id' | head -1)
+  window=$(window_by_label "$sid" "$label")
   if [ -z "$window" ]; then
     window=$(rex window new -s "$sid" "$label" --json -- "$HOME/.local/bin/fm-todo" hunk-pr "$repo" "$number" "$key" | jq -r '.window_id // empty')
   fi
   [ -n "$window" ] || { echo "fm-todo: could not open the diff tab" >&2; exit 1; }
-  # Server-side focus never moves the app's selected tab, so ask the app to show it.
+  show_window "$sid" "$window"
+}
+
+# Server-side focus never moves the app's selected tab, so ask the app to show it.
+show_window() {
+  local sid=$1 window=$2 client
   client=$(rex client ls --json 2>/dev/null | jq -r '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
   if [ -n "$client" ]; then
     rex -C "$client" do session.select "session_id=$sid" "window_id=$window" >/dev/null
   else
     rex window focus -s "$sid" "$window" >/dev/null
   fi
+}
+
+window_by_label() {
+  rex window ls -s "$1" --json | jq -r --arg l "$2" '.windows[] | select((.label | sub("^[0-9]+\\. ?"; "")) == $l) | .window_id' | head -1
+}
+
+origin_is() {
+  local url
+  url=$(git -C "$1" remote get-url origin 2>/dev/null) || return 1
+  url=${url%.git}
+  case "$url" in */"$2" | *:"$2") return 0 ;; esac
+  return 1
+}
+
+repo_clone() {
+  local dir
+  for dir in "$HOME"/Developer/*/; do
+    origin_is "$dir" "$1" && { printf '%s\n' "${dir%/}"; return 0; }
+  done
+  return 1
+}
+
+# A gh-dash review lease at SHA already has the PR's own dependencies installed.
+review_lease() {
+  local repo=$1 number=$2 sha=$3 wt
+  wt=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees/$number" 2>/dev/null) || return 1
+  [ -d "$wt" ] && [ "$(git -C "$wt" rev-parse HEAD 2>/dev/null)" = "$sha" ] && origin_is "$wt" "$repo" || return 1
+  printf '%s\n' "$wt"
+}
+
+PR_OPEN_DIR=$STATE_DIR/pr-open
+
+pr_leases() {
+  local f
+  for f in "$HOME"/.treehouse/*/treehouse-state.json; do
+    [ -f "$f" ] && jq -r '.worktrees[]? | select(.leased and ((.lease_holder // "") | startswith("fm-open-"))) | "\(.lease_holder)\t\(.path)"' "$f" 2>/dev/null
+  done
+  return 0
+}
+
+pr_lease() {
+  local clone=$1 holder=$2 sha=$3 wt pool=$1
+  wt=$(pr_leases | awk -F'\t' -v h="$holder" '$1 == h { print $2; exit }')
+  if [ -z "$wt" ] || [ ! -d "$wt" ]; then
+    [ -d "$clone/review" ] && pool=$clone/review
+    wt=$(cd "$pool" && TREEHOUSE_LEASE_HOLDER=$holder treehouse get --lease --lease-holder "$holder" 2>/dev/null) && [ -n "$wt" ] || return 1
+  fi
+  if [ "$(git -C "$wt" rev-parse HEAD)" != "$sha" ]; then
+    git -C "$wt" checkout -q --detach "$sha" || return 1
+    "$HOME/.config/treehouse/install-deps.sh" "$wt" >/dev/null 2>&1 || true
+  fi
+  touch "$wt"
+  printf '%s\n' "$wt"
+}
+
+pr_nvim_sock() {
+  printf '%s/.nvim-%s-%s-%s.sock\n' "$PR_OPEN_DIR" "$1" "$2" "$(printf '%s' "$3" | cksum | cut -d' ' -f1)"
+}
+
+# lsof can't see unix sockets on macOS, but each pr_open nvim carries its socket in argv.
+pr_nvim_live() {
+  case "$(ps -eo args=)" in *"serverstart('$PR_OPEN_DIR/.nvim-$1-$2-"*) return 0 ;; esac
+  return 1
+}
+
+# Returns a lease once its Hunk and nvim tabs are closed, or after 3 idle days if Hunk crashed.
+pr_lease_sweep() {
+  local holder wt rest number repo sock
+  pr_leases | while IFS=$'\t' read -r holder wt; do
+    rest=${holder#fm-open-}
+    rest=${rest%-*}
+    number=${rest##*-}
+    repo=${rest%-*}
+    pr_nvim_live "$repo" "$number" && continue
+    [ -n "$(find "$wt" -maxdepth 0 -mmin -2 2>/dev/null)" ] && continue
+    if [ -f "$HUNK_DIR/$number.json" ] && [ "$(jq -r '.repo // empty' "$HUNK_DIR/$number.json" | sed 's|.*/||')" = "$repo" ] && [ -z "$(find "$wt" -maxdepth 0 -mtime +3 2>/dev/null)" ]; then
+      continue
+    fi
+    # Detached from / since a return can hang and --force reaps processes by cwd.
+    (cd / && treehouse return "$wt" --force --if-lease-holder "$holder") </dev/null >/dev/null 2>&1 &
+  done
+  for sock in "$PR_OPEN_DIR"/.nvim-*.sock; do
+    [ -S "$sock" ] || continue
+    case "$(ps -eo args=)" in *"serverstart('$sock')"*) ;; *) rm -f "$sock" ;; esac
+  done
+  return 0
+}
+
+pr_open() {
+  local repo=$1 number=$2 side=$3 line=$4 path=$5 key=${6:-} clone head base merge_base sha wt file sock sid label window nvim_cmd diff_base vim_file
+  [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ && "$number" =~ ^[0-9]+$ && "$line" =~ ^[0-9]+$ && "$side" =~ ^(old|new)$ ]] || { echo "fm-todo: invalid pr-open arguments" >&2; exit 2; }
+  case "/$path/" in */../* | //*) echo "fm-todo: path escapes the repo: $path" >&2; exit 2 ;; esac
+  clone=$(repo_clone "$repo") || { echo "fm-todo: no clone of $repo under ~/Developer" >&2; exit 1; }
+  IFS=$'\t' read -r head base < <(jq -r '[.head // "", .base // ""] | @tsv' "$HUNK_DIR/$number.json" 2>/dev/null) || true
+  [ -n "${head:-}" ] && [ -n "${base:-}" ] || IFS=$'\t' read -r head base < <(gh_keyring pr view "$number" --repo "$repo" --json headRefOid,baseRefOid -q '[.headRefOid, .baseRefOid] | @tsv')
+  [ -n "${head:-}" ] && [ -n "${base:-}" ] || { echo "fm-todo: no commits for PR #$number" >&2; exit 1; }
+  for sha in "$head" "$base"; do
+    git -C "$clone" cat-file -e "$sha^{commit}" 2>/dev/null || git -C "$clone" fetch -q origin "$sha" "refs/pull/$number/head" || { echo "fm-todo: could not fetch $sha" >&2; exit 1; }
+  done
+  merge_base=$(git -C "$clone" merge-base "$base" "$head") || { echo "fm-todo: no merge base for PR #$number" >&2; exit 1; }
+  if [ "$side" = old ]; then sha=$base; else sha=$head; fi
+  if [ "$side" = old ] || ! wt=$(review_lease "$repo" "$number" "$sha"); then
+    wt=$(pr_lease "$clone" "fm-open-${repo##*/}-$number-$([ "$side" = old ] && echo base || echo head)" "$sha") || { echo "fm-todo: no treehouse worktree for ${sha:0:7}" >&2; exit 1; }
+  fi
+  file=$wt/$path
+  [ -f "$file" ] || { echo "fm-todo: $path is not in ${sha:0:7}" >&2; exit 1; }
+  sid=${REX_SESSION:-}
+  [ -n "$sid" ] || read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
+  label="📝 #$number${key:+ · $key}"
+  mkdir -p "$PR_OPEN_DIR"
+  sock=$(pr_nvim_sock "${repo##*/}" "$number" "$sid")
+  window=$(window_by_label "$sid" "$label")
+  diff_base="PrDiffBase $merge_base $wt"
+  [ "$side" = old ] && diff_base=""
+  if [ -n "$window" ] && [ -S "$sock" ] && nvim --server "$sock" --remote-expr 1 >/dev/null 2>&1; then
+    # PR file names are untrusted, so double their quotes for the Vimscript string.
+    vim_file=${file//\'/\'\'}
+    nvim --server "$sock" --remote-expr "execute(['tabedit +$line ' .. fnameescape('$vim_file'), '$diff_base'])" >/dev/null
+  else
+    rm -f "$sock"
+    # -i loads .zshrc (THEME_TRANSPARENT, neorex wrapper); neorex owns --listen, hence serverstart.
+    nvim_cmd=$(printf '%q ' nvim --cmd "call serverstart('$sock')" -R "+$line" ${diff_base:+-c "$diff_base"} "$file")
+    window=$(rex window new -s "$sid" "$label" -c "$wt" --shell=none --json -- env SKIP_FETCH=1 "${SHELL:-/bin/zsh}" -lic "$nvim_cmd" | jq -r '.window_id // empty')
+  fi
+  [ -n "$window" ] || { echo "fm-todo: could not open the nvim tab" >&2; exit 1; }
+  show_window "$sid" "$window"
 }
 
 # The keyring gh login, never the scope-less GH_TOKEN from the environment.
@@ -273,14 +405,14 @@ gh_keyring() {
 
 # The Hunk review itself: the PR diff as a watched patch file, registered so hunk_refresh can rewrite it when the head moves.
 hunk_pr() {
-  local repo=$1 number=$2 key=${3:-} dir patch record head
+  local repo=$1 number=$2 key=${3:-} dir patch record head base
   mkdir -p "$HUNK_DIR"
   dir=$(mktemp -d "${TMPDIR:-/tmp}/fm-hunk-$number.XXXXXX")
   patch="$dir/${repo##*/}-pr-$number.diff"
   record="$HUNK_DIR/$number.json"
   gh_keyring pr diff "$number" --repo "$repo" >"$patch" || { echo "fm-todo: could not fetch PR #$number from $repo" >&2; rm -rf "$dir"; read -rsn1 -p "Press any key to close" || true; return 1; }
-  head=$(gh_keyring pr view "$number" --repo "$repo" --json headRefOid -q .headRefOid 2>/dev/null || true)
-  jq -cn --arg repo "$repo" --arg number "$number" --arg head "$head" --arg patch "$patch" '{repo: $repo, number: $number, head: $head, patch: $patch}' >"$record"
+  IFS=$'\t' read -r head base < <(gh_keyring pr view "$number" --repo "$repo" --json headRefOid,baseRefOid -q '[.headRefOid, .baseRefOid] | @tsv' 2>/dev/null) || true
+  jq -cn --arg repo "$repo" --arg number "$number" --arg head "${head:-}" --arg base "${base:-}" --arg patch "$patch" '{repo: $repo, number: $number, head: $head, base: $base, patch: $patch}' >"$record"
   trap "rm -f $(printf %q "$record"); rm -rf $(printf %q "$dir")" EXIT HUP INT TERM
   FM_HUNK_PR="$repo#$number" FM_HUNK_TICKET="$key" hunk patch "$patch" --watch
 }
@@ -331,7 +463,8 @@ shift || true
 [ "$cmd" = note-progress ] && { note_progress "${1:?usage: fm-todo note-progress OWNER/REPO#N}"; exit; }
 [ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
 [ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
-[ "$cmd" = hunk-pr ] && { hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
+[ "$cmd" = pr-open ] && { pr_open "${1:?usage: fm-todo pr-open REPO NUMBER old|new LINE PATH [TICKET]}" "${2:?}" "${3:?}" "${4:?}" "${5:?}" "${6:-}"; exit; }
+[ "$cmd" = hunk-pr ] &&{ hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
 block=""
 while [ $# -gt 0 ]; do
   case "$1" in

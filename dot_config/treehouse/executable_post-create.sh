@@ -97,8 +97,8 @@ fi
 
 # 2 - install-deps.sh (shared with review-open.sh); review leases defer so it sees the PR's manifests.
 case "${TREEHOUSE_LEASE_HOLDER:-}" in
-  review-*)
-    echo "review lease (${TREEHOUSE_LEASE_HOLDER}) — deferring pnpm install to review-open.sh"
+  review-* | fm-open-*)
+    echo "review lease (${TREEHOUSE_LEASE_HOLDER}) - deferring pnpm install to review-open.sh / fm-todo pr-open"
     ;;
   *)
     "$HOME/.config/treehouse/install-deps.sh" "$WT" || true
