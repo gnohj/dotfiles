@@ -35,7 +35,7 @@ INPUT_WINDOW = 0.4
 # kCGEventLeftMouseDown, RightMouseDown, KeyDown, OtherMouseDown.
 INPUT_EVENTS = (1, 3, 10, 25)
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
-RULE_RE = re.compile(r'\{ app_id = "([^"]+)",(?: title_regex = "([^"]*)",)? workspace = "([A-Z])" \}')
+RULE_RE = re.compile(r'\{ app_id = "([^"]+)",(?: title_regex = "([^"]*)",)? (?:workspace = "([A-Z])"|floating = false) \}')
 CONFIG = os.path.expanduser("~/.config/rift/config.toml")
 
 VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
@@ -201,7 +201,7 @@ def rule_workspace(bundle, title):
         return None
     rules = [rule for rule in rules if rule[0] == bundle.lower()]
     matches = [(bool(regex), -i, ws) for i, (_, regex, ws) in enumerate(rules) if not regex or re.search(regex, title, re.I)]
-    return max(matches)[2] if matches else None
+    return (max(matches)[2] or None) if matches else None
 
 
 def place_window(wid):
