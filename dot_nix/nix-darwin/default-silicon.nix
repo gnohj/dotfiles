@@ -13,6 +13,7 @@
     ./modules/launchd-services.nix
     ./modules/local-dev-auth.nix
     ./modules/wifi-ssid-sudoers.nix
+    ./modules/afk-sudoers.nix
   ];
 
   # Nix package manager settings

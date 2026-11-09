@@ -500,6 +500,11 @@ git config --global core.excludesfile
   A bare number becomes `IHRWEB-<n>`; a full key opens as typed.
 - An exact alias match ranks first, and both commands focus the Helium Work window the link lands in (`focus-work-browser`).
 
+**AFK mode** (needs the `afk-sudoers.nix` rebuild first, since Tinycast has no terminal for a sudo prompt):
+
+- Custom command **AFK on** (alias `afk`): command `~/.local/bin/afk on`.
+- Custom command **AFK off** (alias `back`): command `~/.local/bin/afk off`.
+
 ---
 
 ### Configure Homerow

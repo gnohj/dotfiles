@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# afk on|off|status [--dry-run] - keep the Mac working lid-closed on minimal power, with a low-battery guard.
+set -uo pipefail
+
+[ "$(uname)" = Darwin ] || { echo "afk: macOS only" >&2; exit 1; }
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/afk"
+APPS="$STATE/quit-apps"
+POWER="$STATE/powermode"
+WATCH_PID="$STATE/watch.pid"
+LOG="$STATE/watch.log"
+GUARD_PCT="${AFK_GUARD_PCT:-20}"
+KEEP="com.superlogical.rex io.tailscale.ipn.macsys com.apple.finder net.imput.helium"
+HELIUM="net.imput.helium"
+HELIUM_WORK="Profile 1"
+HELIUM_PERSONAL="Default"
+WORK_SUFFIX=" - Helium - Work"
+DRY=0
+
+say() { printf 'afk: %s\n' "$*" >&2; }
+run() { if [ "$DRY" = 1 ]; then say "would run: $*"; else "$@"; fi; }
+pmset_root() {
+  if [ "$DRY" = 1 ]; then say "would run: sudo pmset $*"; return; fi
+  sudo -n /usr/bin/pmset "$@" 2>/dev/null || sudo /usr/bin/pmset "$@"
+}
+notify() { [ -x "$HOME/.local/bin/mac-notify" ] && "$HOME/.local/bin/mac-notify" -t "afk" -m "$1" >/dev/null 2>&1 || true; }
+
+gui_apps() {
+  osascript -e 'tell application "System Events" to get bundle identifier of every process whose background only is false' 2>/dev/null |
+    tr ',' '\n' | sed 's/^ *//; /^$/d; /^missing value$/d'
+}
+
+kept() { [[ " $KEEP " == *" $1 "* ]]; }
+
+battery() { pmset -g batt | sed -n 's/.*[^0-9]\([0-9]\{1,3\}\)%.*/\1/p' | head -1; }
+
+on_battery() { pmset -g batt | grep -q "Battery Power"; }
+
+current_powermode() { pmset -g | awk '$1 == "powermode" { print $2; exit }'; }
+
+watch_running() { [ -f "$WATCH_PID" ] && kill -0 "$(cat "$WATCH_PID")" 2>/dev/null; }
+
+work_only_helium() {
+  if ! osascript -e "application id \"$HELIUM\" is running" 2>/dev/null | grep -q true; then
+    run open -nb "$HELIUM" --args --profile-directory="$HELIUM_WORK"
+    return
+  fi
+  local titles
+  titles=$(osascript -e 'tell application "System Events" to tell process "Helium" to get name of every window' 2>/dev/null)
+  say "Helium windows: $titles"
+  run osascript -e "tell application \"System Events\" to tell process \"Helium\"
+    repeat with w in (every window whose name does not end with \"$WORK_SUFFIX\")
+      click (first button of w whose subrole is \"AXCloseButton\")
+    end repeat
+  end tell"
+  [[ "$titles" == *"$WORK_SUFFIX"* ]] || open_helium_profile "$HELIUM_WORK"
+}
+
+# Chromium hands a second launch to the running instance, which opens the profile beside the others.
+open_helium_profile() {
+  local bin
+  bin="$(mdfind "kMDItemCFBundleIdentifier == '$HELIUM'" | head -1)/Contents/MacOS/Helium"
+  [ -x "$bin" ] || { say "Helium not found"; return 1; }
+  if [ "$DRY" = 1 ]; then say "would run: $bin --profile-directory=$1"; return; fi
+  nohup "$bin" --profile-directory="$1" </dev/null >/dev/null 2>&1 &
+}
+
+watch_loop() {
+  echo $$ >"$WATCH_PID"
+  while :; do
+    if on_battery && [ "$(battery)" -le "$GUARD_PCT" ] 2>/dev/null; then
+      echo "$(date '+%F %T') battery $(battery)% <= $GUARD_PCT%, turning afk off" >>"$LOG"
+      "$0" off --guard
+      exit 0
+    fi
+    sleep 60
+  done
+}
+
+afk_on() {
+  mkdir -p "$STATE"
+  if [ -f "$POWER" ] && [ "$DRY" = 0 ]; then
+    say "already on (run: afk off)"
+    return 1
+  fi
+  [ "$DRY" = 1 ] || current_powermode >"$POWER"
+  pmset_root -a disablesleep 1
+  pmset_root -a powermode 1
+
+  local id quit=""
+  for id in $(gui_apps); do
+    kept "$id" && continue
+    quit="$quit$id"$'\n'
+    run osascript -e "tell application id \"$id\" to quit"
+  done
+  [ "$DRY" = 1 ] || printf '%s' "$quit" >"$APPS"
+  say "quit: $(printf '%s' "$quit" | tr '\n' ' ')"
+
+  work_only_helium
+
+  if [ "$DRY" = 1 ]; then
+    say "would start the battery guard (off at $GUARD_PCT%)"
+  elif ! watch_running; then
+    nohup "$0" _watch </dev/null >>"$LOG" 2>&1 &
+  fi
+  lock_screen
+  run pmset displaysleepnow
+}
+
+# The screen-lock delay is an hour, so turning the display off alone would not lock it.
+lock_screen() {
+  run /usr/bin/python3 -c 'import ctypes; ctypes.CDLL("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login").SACLockScreenImmediate()'
+}
+
+afk_off() {
+  local guard=${1:-}
+  if [ ! -f "$POWER" ] && [ ! -f "$APPS" ]; then
+    say "not on"
+    return 0
+  fi
+  pmset_root -a disablesleep 0
+  pmset_root -a powermode "$(cat "$POWER" 2>/dev/null || echo 0)"
+  if [ "$guard" != "--guard" ] && watch_running; then
+    run kill "$(cat "$WATCH_PID")"
+  fi
+  [ "$DRY" = 1 ] || rm -f "$WATCH_PID" "$POWER"
+
+  if [ "$guard" = "--guard" ]; then
+    notify "Battery at $(battery)%: sleep allowed again"
+    return 0
+  fi
+  local id
+  [ -f "$APPS" ] && while IFS= read -r id; do
+    [ -n "$id" ] && run open -gb "$id"
+  done <"$APPS"
+  open_helium_profile "$HELIUM_PERSONAL"
+  [ "$DRY" = 1 ] || rm -f "$APPS"
+}
+
+afk_status() {
+  local sleep_off
+  sleep_off=$(pmset -g | awk '$1 == "SleepDisabled" { print $2 }')
+  printf 'afk: %s | SleepDisabled=%s powermode=%s battery=%s%% guard=%s\n' \
+    "$([ -f "$POWER" ] && echo on || echo off)" "$sleep_off" "$(current_powermode)" "$(battery)" \
+    "$(watch_running && echo "running (off at $GUARD_PCT%)" || echo stopped)"
+}
+
+cmd=${1:-status}
+shift || true
+for arg in "$@"; do [ "$arg" = "--dry-run" ] && DRY=1; done
+case $cmd in
+  on) afk_on ;;
+  off) afk_off "${1:-}" ;;
+  status) afk_status ;;
+  _watch) watch_loop ;;
+  *) echo "usage: afk on|off|status [--dry-run]" >&2; exit 2 ;;
+esac
