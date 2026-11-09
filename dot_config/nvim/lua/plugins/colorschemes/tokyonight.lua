@@ -239,6 +239,7 @@ return {
 
         -- Cursor and selection
         hl.MiniFilesCursorLine = { bg = colors["gnohj_color16"] } -- Current line highlight
+        hl.MiniFilesCursorLineFocused = { bg = colors["gnohj_color03"], fg = colors["gnohj_color10"], bold = true }
 
         -- Yazi.nvim
         hl.YaziFloatBorder = { fg = colors["gnohj_color03"] }

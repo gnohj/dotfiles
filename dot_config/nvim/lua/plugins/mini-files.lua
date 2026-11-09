@@ -129,10 +129,31 @@ return {
       }
     end
 
+    local focus_ns = vim.api.nvim_create_namespace("minifiles_focused_line")
+    local function mark_focused_line(buf, win)
+      if not vim.api.nvim_buf_is_valid(buf) then return end
+      vim.api.nvim_buf_clear_namespace(buf, focus_ns, 0, -1)
+      if win ~= vim.api.nvim_get_current_win() or not vim.api.nvim_win_is_valid(win) then return end
+      local row = vim.api.nvim_win_get_cursor(win)[1] - 1
+      vim.api.nvim_buf_set_extmark(buf, focus_ns, row, 0, {
+        end_row = row + 1,
+        hl_group = "MiniFilesCursorLineFocused",
+        priority = 250,
+      })
+    end
+
     local pending = false
     vim.api.nvim_create_autocmd("User", {
       pattern = "MiniFilesWindowUpdate",
-      callback = function()
+      callback = function(args)
+        local win = args.data.win_id
+        local group = win == vim.api.nvim_get_current_win() and "MiniFilesCursorLineFocused" or "MiniFilesCursorLine"
+        local entries = vim.tbl_filter(function(entry)
+          return entry ~= "" and not entry:match("^CursorLine:")
+        end, vim.split(vim.wo[win].winhighlight, ","))
+        table.insert(entries, "CursorLine:" .. group)
+        vim.wo[win].winhighlight = table.concat(entries, ",")
+        mark_focused_line(args.data.buf_id, win)
         if not _G.neorex then return end
         center_in_neorex()
         if pending then return end
@@ -154,6 +175,10 @@ return {
         local buf = args.data.buf_id
         vim.keymap.set("n", "J", "<Nop>", { buffer = buf })
         vim.keymap.set("n", "K", "<Nop>", { buffer = buf })
+        vim.api.nvim_create_autocmd("CursorMoved", {
+          buffer = buf,
+          callback = function() mark_focused_line(buf, vim.api.nvim_get_current_win()) end,
+        })
       end,
     })
   end,
