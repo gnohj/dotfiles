@@ -25,7 +25,7 @@ return {
     opts.windows = vim.tbl_deep_extend("force", opts.windows or {}, {
       preview = true,
       width_focus = 30,
-      width_preview = 80,
+      width_preview = 60,
     })
 
     if vim.g.mini_files_show_c == nil then vim.g.mini_files_show_c = true end
