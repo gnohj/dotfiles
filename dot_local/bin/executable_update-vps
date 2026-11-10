@@ -17,9 +17,10 @@ id="$(date +%s)-$$"
 dir="$HOME/.logs/update-vps"
 mkdir -p "$dir"
 out="$dir/$id.log"
+result="$dir/$id.result"
 rc_file="${XDG_RUNTIME_DIR:-/tmp}/update-vps-$id.rc"
 # The pane closes itself on success and stays open on failure so the output is there to read.
-printf -v run '{ %s; } 2>&1 | tee %q; rc=${pipestatus[1]}; print $rc > %q' "$steps" "$out" "$rc_file"
+printf -v run '{ UPDATE_RESULT_FILE=%q %s; } 2>&1 | tee %q; rc=${pipestatus[1]}; print $rc > %q' "$result" "$steps" "$out" "$rc_file"
 cmd="$run; [ \$rc = 0 ] && exit"
 session=$(herdr session list 2>/dev/null | awk '$2 == "running" { print $1; exit }')
 # A Rex session outlives its last block, so success kills it; SKIP_FETCH keeps the greeting from clearing a failure's output.
@@ -37,7 +38,9 @@ elif [ -n "$session" ]; then
   echo "update-vps: running in herdr session $session, workspace '🔄 update' ($pane)"
 else
   echo "update-vps: no running herdr session, running inline"
-  exec zsh -ic "$steps"
+  zsh -ic "$run"
+  shown=1
+  [ -s "$rc_file" ] || echo 1 >"$rc_file"
 fi
 for _ in $(seq 1 1800); do
   [ -s "$rc_file" ] && break
@@ -46,9 +49,18 @@ done
 [ -s "$rc_file" ] || { echo "update-vps: gave up waiting after 30 minutes, the pane is still open"; exit 124; }
 rc=$(cat "$rc_file")
 rm -f "$rc_file"
-cat "$out"
+[ -n "${shown:-}" ] || cat "$out"
 # Outside Rex here, so the restart cannot cut off the update.
-[ -x "$HOME/.local/bin/rex-restart-idle" ] && command -v rex >/dev/null 2>&1 && "$HOME/.local/bin/rex-restart-idle"
+if [ -x "$HOME/.local/bin/rex-restart-idle" ] && command -v rex >/dev/null 2>&1; then
+  "$HOME/.local/bin/rex-restart-idle"
+  if [ $? = 2 ]; then
+    rc=1
+    grep -qx "$(printf 'failed\trex server restart')" "$result" 2>/dev/null || printf 'failed\trex server restart\n' >>"$result"
+  fi
+fi
+# update's own record of the outcome; the Mac builds its notification from these lines, never from the prose above.
+[ -f "$result" ] && awk '{ print "update-vps-result\t" $0 }' "$result"
+rm -f "$result"
 find "$dir" -name '*.log' -mtime +14 -delete 2>/dev/null
 exit "$rc"
 REMOTE
@@ -82,17 +94,23 @@ notify() {
   "$HOME/.local/bin/mac-notify" -t "$1" -m "$2" -g update-vps >/dev/null 2>&1 || true
 }
 
+result_lines() {
+  awk -F'\t' -v kind="$1" '$1 == "update-vps-result" && $2 == kind { printf "%s%s", sep, $3; sep = "; " }' "$log"
+}
+
 finish() {
-  local rc="$1"
+  local rc="$1" failed notices
   find "$log_dir" -name '*.log' -mtime +14 -delete 2>/dev/null
-  local ts
-  ts=$(grep -o 'tailscale [^ ]* -> [^ ]* pending' "$log" | tail -1)
-  if [ "$rc" -eq 0 ] && [ -n "$ts" ]; then
-    notify "VPS updated, Tailscale behind" "$ts - run up on $host"
-  elif [ "$rc" -eq 0 ]; then
-    notify "VPS updated" "update on $host finished"
-  else
+  failed=$(result_lines failed)
+  notices=$(result_lines notice)
+  if [ -n "$failed" ]; then
+    notify "VPS update failed: $failed" "${notices:+also: $notices - }see $log"
+  elif [ "$rc" -ne 0 ]; then
     notify "VPS update failed (exit $rc)" "see $log"
+  elif [ -n "$notices" ]; then
+    notify "VPS updated, with notices" "$notices"
+  else
+    notify "VPS updated" "update on $host finished"
   fi
   return "$rc"
 }

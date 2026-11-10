@@ -206,6 +206,7 @@ up() {
   MISE_GITHUB_TOKEN=$ghtok mise install || true
 
   update
+  local update_rc=$?
 
   # the sketchybar package badge caches a pre-rebuild nix count; drop it so the widget recomputes.
   rm -f "$HOME/.cache/sketchybar/nix-preview.count"
@@ -216,7 +217,12 @@ up() {
   [ -x "$tpm" ] && "$tpm" all || true
 
   (( summary )) && _update_summary_end
-  print -P "%F{green}==> up: done%f"
+  if (( update_rc )); then
+    print -P "%F{yellow}==> up: done, update had failed steps (listed above)%f"
+  else
+    print -P "%F{green}==> up: done%f"
+  fi
+  return $update_rc
 }
 
 _rex_restart_at_prompt() {
@@ -226,13 +232,15 @@ _rex_restart_at_prompt() {
 
 # `update` - pull the config repos onto this machine (chezmoi, agents, firstmate distro, vision, i-have-adhd, ponytail), then Tailscale/brew/mise/mas upgrade, and fire the same on the VPS from the Mac. Idempotent + fail-safe: missing tools/checkouts and pull failures are reported and skipped, never aborting the rest.
 update() {
-  local repo name slug fails=0 summary=0
+  local repo name slug summary=0
+  # The one record of the outcome: the exit code, the closing lines and update-vps's notification all derive from it.
+  local -a failed notices
   if [[ -z "${_UPDATE_SUMMARY_DIR:-}" ]]; then local _UPDATE_SUMMARY_DIR; _update_summary_begin && summary=1; fi
   # brew upgrade skips auto_updates casks; runs before the VPS kickoff because the pkg restarts Tailscale under that ssh.
   if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1 && brew list --cask tailscale-app >/dev/null 2>&1; then
     print -P "%F{cyan}==> brew upgrade: tailscale-app%f"
     _without_tap_deprecations brew upgrade --cask --greedy tailscale-app ||
-      { print -P "%F{red}   tailscale-app upgrade failed - continuing%f"; fails=$((fails + 1)); }
+      { print -P "%F{red}   tailscale-app upgrade failed - continuing%f"; failed+=("tailscale-app upgrade"); }
   fi
   # UPDATE_NO_VPS=1 skips it; the VPS pulls chezmoi from GitHub, so it only sees what has been pushed.
   if [[ "$OSTYPE" == darwin* && -z "${UPDATE_NO_VPS:-}" && -x "$HOME/.local/bin/update-vps" ]]; then
@@ -240,7 +248,7 @@ update() {
   fi
   if command -v chezmoi >/dev/null 2>&1; then
     print -P "%F{cyan}==> chezmoi update%f"
-    chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; fails=$((fails + 1)); }
+    chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; failed+=("chezmoi update"); }
   else
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
@@ -252,92 +260,116 @@ update() {
         print -P "%F{cyan}==> cloning $name%f"
         if command -v gh >/dev/null 2>&1; then
           gh repo clone "$slug" "$repo" ||
-            { print -P "%F{red}   $name clone failed (private repo needs gh auth)%f"; fails=$((fails + 1)); }
+            { print -P "%F{red}   $name clone failed (private repo needs gh auth)%f"; failed+=("$name clone"); }
         else
           git clone "git@github.com:$slug.git" "$repo" ||
-            { print -P "%F{red}   $name clone failed%f"; fails=$((fails + 1)); }
+            { print -P "%F{red}   $name clone failed%f"; failed+=("$name clone"); }
         fi
         continue
       fi
       print -P "%F{cyan}==> git pull: $name%f"
       _update_ff "$repo" ||
-        { print -P "%F{red}   $name pull failed - left untouched (dirty/diverged?)%f"; fails=$((fails + 1)); }
+        { print -P "%F{red}   $name pull failed - left untouched (dirty/diverged?)%f"; failed+=("$name pull"); }
     done
   else
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
-  [ -x "$HOME/.local/bin/rexpad-update" ] && { "$HOME/.local/bin/rexpad-update" || fails=$((fails + 1)); }
+  [ -x "$HOME/.local/bin/rexpad-update" ] && { "$HOME/.local/bin/rexpad-update" || failed+=("rexpad rebuild"); }
   # After the pulls, so the divergence check sees the fresh monorepo copy; silent when nothing is wrong.
   if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
     "$HOME/.local/bin/claude-settings-relink" ||
-      { print -P "%F{yellow}   claude settings need a manual merge (see above)%f"; fails=$((fails + 1)); }
+      { print -P "%F{yellow}   claude settings need a manual merge (see above)%f"; failed+=("claude settings relink"); }
   fi
   # A fresh `agents` clone wires nothing up; must follow the relink, which rescues a clobbered settings.json before setup_symlinks.py would move it aside.
   if [ ! -e "$HOME/.claude/settings.json" ] && [ -f "$HOME/Developer/agents/setup_symlinks.py" ] &&
      command -v python3 >/dev/null 2>&1; then
     print -P "%F{cyan}==> wiring agent symlinks (first run on this machine)%f"
     python3 "$HOME/Developer/agents/setup_symlinks.py" ||
-      { print -P "%F{red}   agent symlink setup failed%f"; fails=$((fails + 1)); }
+      { print -P "%F{red}   agent symlink setup failed%f"; failed+=("agent symlink setup"); }
   fi
   if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1; then
     print -P "%F{cyan}==> brew upgrade%f"
-    _without_tap_deprecations brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; fails=$((fails + 1)); }
+    _without_tap_deprecations brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; failed+=("brew upgrade"); }
     # Source-built brew binaries (rift) come out ad-hoc signed, which orphans their Accessibility grant.
-    [ -x "$HOME/.local/bin/tcc-sign" ] && { "$HOME/.local/bin/tcc-sign" || fails=$((fails + 1)); }
+    [ -x "$HOME/.local/bin/tcc-sign" ] && { "$HOME/.local/bin/tcc-sign" || failed+=("tcc-sign"); }
   fi
   # After chezmoi update, so a freshly pulled pin is what mise upgrades to; the token dodges GitHub's anonymous rate limit.
   if command -v mise >/dev/null 2>&1; then
     print -P "%F{cyan}==> mise upgrade%f"
     MISE_GITHUB_TOKEN=$(gh auth token 2>/dev/null) mise upgrade ||
-      { print -P "%F{red}   mise upgrade failed - continuing%f"; fails=$((fails + 1)); }
+      { print -P "%F{red}   mise upgrade failed - continuing%f"; failed+=("mise upgrade"); }
   fi
-  # Arch upgrades Tailscale only with the whole system (sudo), so flag a pending release for `up` instead.
+  # `up` can only install what this box's own repos carry, and a stable mirror trails upstream, so both are asked.
   if [[ "$OSTYPE" == linux* ]] && command -v pacman >/dev/null 2>&1 && command -v vercmp >/dev/null 2>&1; then
-    local ts_have ts_new
+    local ts_have ts_repo ts_upstream ts_pending
     ts_have=$(pacman -Q tailscale 2>/dev/null | awk '{ print $2 }')
-    ts_new=$(curl -fsS --max-time 10 "https://archlinux.org/packages/extra/$(uname -m)/tailscale/json/" 2>/dev/null |
+    # checkupdates reads the repos fresh without root; exit 2 means nothing pending, anything else falls back to the last synced db.
+    ts_pending=$(checkupdates 2>/dev/null)
+    if (( $? == 0 || $? == 2 )); then
+      ts_repo=$(awk '$1 == "tailscale" { print $4 }' <<<"$ts_pending")
+    else
+      ts_repo=$(pacman -Si tailscale 2>/dev/null | awk '$1 == "Version" { print $3 }')
+    fi
+    ts_upstream=$(curl -fsS --max-time 10 "https://archlinux.org/packages/extra/$(uname -m)/tailscale/json/" 2>/dev/null |
       jq -r '"\(.pkgver)-\(.pkgrel)"' 2>/dev/null)
-    if [[ -n "$ts_have" && "$ts_new" == [0-9]* ]] && (( $(vercmp "$ts_have" "$ts_new") < 0 )); then
-      print -P "%F{yellow}   tailscale $ts_have -> $ts_new pending - run up for the system upgrade%f"
-      fails=$((fails + 1))
+    if [[ -n "$ts_have" && "$ts_repo" == [0-9]* ]] && (( $(vercmp "$ts_have" "$ts_repo") < 0 )); then
+      print -P "%F{yellow}   tailscale $ts_have -> $ts_repo pending - run up for the system upgrade%f"
+      notices+=("tailscale $ts_have -> $ts_repo pending, run up")
+    elif [[ -n "$ts_have" && "$ts_upstream" == [0-9]* ]] && (( $(vercmp "$ts_have" "$ts_upstream") < 0 )); then
+      print -P "%F{yellow}   tailscale $ts_have -> $ts_upstream is out upstream, but this box's repos do not carry it yet, so up cannot install it; by hand:%f"
+      print "   sudo pacman -U https://archive.archlinux.org/packages/t/tailscale/tailscale-$ts_upstream-$(uname -m).pkg.tar.zst"
+      notices+=("tailscale $ts_upstream out upstream, not on this box's repos yet")
     fi
   fi
   # Passwordless through the one sudoers rule run_after_rex-upgrade-sudo.sh installs; the Mac reaches this through update-vps.
   if [[ "$OSTYPE" == linux* && -f /etc/pacman.d/rex.conf && -x "$HOME/.local/bin/rex-update" ]]; then
     print -P "%F{cyan}==> rex upgrade%f"
-    "$HOME/.local/bin/rex-update" || { print -P "%F{red}   rex upgrade failed - continuing%f"; fails=$((fails + 1)); }
+    "$HOME/.local/bin/rex-update" || { print -P "%F{red}   rex upgrade failed - continuing%f"; failed+=("rex upgrade"); }
   fi
   if [[ "$OSTYPE" == darwin* ]] && command -v mas >/dev/null 2>&1; then
     print -P "%F{cyan}==> mas upgrade%f"
-    mas upgrade || { print -P "%F{red}   mas upgrade failed - continuing%f"; fails=$((fails + 1)); }
+    mas upgrade || { print -P "%F{red}   mas upgrade failed - continuing%f"; failed+=("mas upgrade"); }
   fi
   # The restart ends every program on the server, so inside Rex it waits for the next prompt.
   if [ -x "$HOME/.local/bin/rex-restart-idle" ] && command -v rex >/dev/null 2>&1; then
     print -P "%F{cyan}==> rex: server restart%f"
+    local rex_rc
     if [[ -z "${REX_BLOCK:-}" ]]; then
       "$HOME/.local/bin/rex-restart-idle"
-      (( $? == 2 )) && { print -P "%F{red}   rex server restart failed - continuing%f"; fails=$((fails + 1)); }
-    elif "$HOME/.local/bin/rex-restart-idle" --check; then
-      if [[ -o interactive && -o shinstdin ]]; then
-        autoload -Uz add-zsh-hook && add-zsh-hook precmd _rex_restart_at_prompt
-        print -P "%F{yellow}   restarting at the next prompt, which ends this shell too%f"
-      else
-        print -P "%F{yellow}   left to update-vps, which restarts it once this update returns%f"
+      rex_rc=$?
+      (( rex_rc == 2 )) && { print -P "%F{red}   rex server restart failed - continuing%f"; failed+=("rex server restart"); }
+    else
+      "$HOME/.local/bin/rex-restart-idle" --check
+      rex_rc=$?
+      if (( rex_rc == 0 )); then
+        if [[ -o interactive && -o shinstdin ]]; then
+          autoload -Uz add-zsh-hook && add-zsh-hook precmd _rex_restart_at_prompt
+          print -P "%F{yellow}   restarting at the next prompt, which ends this shell too%f"
+        else
+          print -P "%F{yellow}   left to update-vps, which restarts it once this update returns%f"
+        fi
       fi
     fi
+    (( rex_rc == 3 )) && notices+=("rex server restart waiting on running agents")
   fi
   # Report-only and silent when healthy; adopting the unit destroys live panes, so it stays manual.
   if [ -x "$HOME/.local/bin/herdr-server-health" ]; then
     "$HOME/.local/bin/herdr-server-health" ||
-      { print -P "%F{yellow}   herdr server is not systemd-owned (see above)%f"; fails=$((fails + 1)); }
+      { print -P "%F{yellow}   herdr server is not systemd-owned (see above)%f"; notices+=("herdr server not systemd-owned"); }
   fi
   (( summary )) && _update_summary_end
-  if (( fails )); then
-    print -P "%F{yellow}==> update: done with $fails issue(s)%f"
-  else
-    print -P "%F{green}==> update: done%f"
+  if [[ -n "${UPDATE_RESULT_FILE:-}" ]]; then
+    {
+      (( $#failed )) && print -l -- "failed"$'\t'${^failed}
+      (( $#notices )) && print -l -- "notice"$'\t'${^notices}
+    } >| "$UPDATE_RESULT_FILE"
   fi
-  return 0
+  (( $#notices )) && print -P "%F{yellow}==> update: ${#notices} notice(s): ${${(j:; :)notices}//\%/%%}%f"
+  if (( $#failed )); then
+    print -P "%F{red}==> update: done, ${#failed} step(s) failed: ${${(j:, :)failed}//\%/%%}%f"
+    return 1
+  fi
+  print -P "%F{green}==> update: done%f"
 }
 
 #-------------------------------------------------------------------------------

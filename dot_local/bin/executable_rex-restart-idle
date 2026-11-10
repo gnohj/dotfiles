@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rex-restart-idle [--check] - restart the Rex server onto the installed build when no agent runs; --check only reports.
+# rex-restart-idle [--check] - restart the Rex server onto the installed build when no agent runs; --check only reports. Exit 3 = waiting on agents, 2 = restart failed.
 set -uo pipefail
 
 agent_re='^(claude|codex|pi|opencode)$'
@@ -30,7 +30,7 @@ running=$(awk '$1 == "version:" { print $2 }' <<<"$status")
 busy=$(agents)
 if [ -n "$busy" ]; then
   printf 'rex-restart-idle: server runs %s, %s is installed; not restarting while agents run in:\n%s\n' "$running" "$installed" "$busy"
-  exit 1
+  exit 3
 fi
 if [ "${1:-}" = --check ]; then
   echo "rex-restart-idle: server runs $running, $installed is installed and no agent is running"
