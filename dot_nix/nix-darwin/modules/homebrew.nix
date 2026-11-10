@@ -31,7 +31,6 @@
       "morantron/tmux-fingers"
       "tonisives/tap"
       "vjeantet/tap"
-      "abue-ammar/tinycast"
       "acsandmann/tap"
       "infinitary-labs/tap"
     ];
@@ -115,7 +114,7 @@
       "infinitary-labs/tap/infinitary"
       "bitwarden"
       "localsend"
-      "abue-ammar/tinycast/tinycast@beta"
+      "tinycast@beta"
       "whimsical"
 
       # Window Management & Navigation
