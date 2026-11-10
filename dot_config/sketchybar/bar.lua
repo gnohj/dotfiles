@@ -1,7 +1,7 @@
 local settings = require("config.settings")
 
 sbar.bar({
-	topmost = "window",
+	topmost = "on",
 	height = settings.dimens.graphics.bar.height,
 	color = settings.colors.glass.bar,
 	padding_right = settings.dimens.padding.bar,
