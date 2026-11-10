@@ -12,5 +12,8 @@ require("bar")
 require("default")
 require("items")
 
+local supersede = require("lib.supersede")
+supersede.exit_if_superseded()
 sbar.end_config()
+supersede.watch()
 sbar.event_loop()
