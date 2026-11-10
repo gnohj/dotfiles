@@ -53,7 +53,7 @@ if [ -n "$ticket" ]; then
   done < <("$HOME/.local/bin/vault-note" --all "$cwd" 2>/dev/null)
 fi
 
-# Per-repo hot-path note list lives in the private agents repo, since note titles name work tickets; keep it in sync with ~/.claude/CLAUDE.md.
+# Per-repo hot-path note list lives in the private agents repo, since note titles name work tickets; ~/.claude/CLAUDE.md points here instead of duplicating it.
 hot_paths="$HOME/Developer/agents/shared/hot-paths/$repo.txt"
 if [ -n "$repo" ] && [ -f "$hot_paths" ]; then
   while IFS= read -r rel; do
