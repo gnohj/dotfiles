@@ -38,6 +38,8 @@ GAP = INTERVAL * 3
 CHECKPOINT = 300
 TRUST = CHECKPOINT + GAP
 DROP_TICKS = 3
+# Temperature jitters across its threshold reading to reading, so a rise must hold as long as a drop.
+RISE_TICKS = {"temp": 3}
 REMOTE_HOSTS = [h for h in os.environ.get("RESOURCE_WATCH_REMOTES", "fleet-dev-box" if DARWIN else "").split() if h]
 REMOTE_EVENTS = os.environ.get("RESOURCE_WATCH_REMOTE_EVENTS", "~/.local/state/resource-watch/events")
 LIBRARY = os.path.join(HOME, "Developer", "agents", "shared", "skills", "lavish-library", "library.py")
@@ -70,6 +72,17 @@ def code_id():
             return hashlib.sha256(f.read()).hexdigest()[:12]
     except OSError:
         return ""
+
+
+def confirmed(metric, target, was, streak):
+    direction = (target > was) - (target < was)
+    last, count = streak.get(metric, (0, 0))
+    count = count + 1 if direction and direction == last else 1 if direction else 0
+    streak[metric] = (direction, count)
+    if direction and count < (DROP_TICKS if direction < 0 else RISE_TICKS.get(metric, 1)):
+        return False
+    streak[metric] = (0, 0)
+    return True
 
 
 def run(args, timeout=5):
@@ -494,7 +507,7 @@ def record():
     gauge.read()
     meter.sample()
     current = {m: 0 for m in TIERS}
-    lower_ticks = {m: 0 for m in TIERS}
+    streak = {}
     last_snap = {m: 0.0 for m in TIERS}
     last_checkpoint = 0.0
     prev_tick = time.time()
@@ -515,15 +528,8 @@ def record():
         for metric, value in values.items():
             target = tier(metric, value)
             was = current[metric]
-            if target > was:
-                lower_ticks[metric] = 0
-            elif target < was:
-                lower_ticks[metric] += 1
-                if lower_ticks[metric] < DROP_TICKS:
-                    continue
-                lower_ticks[metric] = 0
-            else:
-                lower_ticks[metric] = 0
+            if not confirmed(metric, target, was, streak):
+                continue
             event = None
             if target != was:
                 event = {"type": "tier", "metric": metric, "from": was, "to": target, "value": value, "values": values}
