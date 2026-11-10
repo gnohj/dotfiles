@@ -37,6 +37,7 @@
 #   claude-account set-token-lifetime <days>  assumed grant lifetime (default 365)
 #   claude-account usage [a]            cached 5h/7d utilization TSV; refreshes in background
 #   claude-account usage-refresh [a]    fetch now (locked); for cron or a forced update
+#   claude-account usage-wait [a] [s]   like usage, but refreshes a line older than s seconds first
 #   claude-account add-work-org <o>     add a GitHub org that counts as work
 #   claude-account work-orgs            list configured work orgs
 #   claude-account set-work-email <e>   which email counts as "work" (for row coloring)
@@ -320,6 +321,8 @@ token_check() {
 # Cross-account rate-limit usage. The status-line payload only ever describes the account THAT session authenticated as, so the other account's headroom is invisible until you open a session on it. Both tokens are already here, and a Haiku call returns anthropic-ratelimit-unified-* headers, so each account can be measured without touching its credentials.
 USAGE_MAX_AGE=300
 USAGE_LOCK_MAX_AGE=120
+USAGE_FETCH_TIMEOUT=20
+USAGE_WAIT_MAX=8
 
 usage_file() { printf '%s' "$HOME/.local/state/claude/usage-$1"; }
 
@@ -328,7 +331,7 @@ fetch_usage() {
   local acct="$1" tok hdr f vals
   tok="$(account_token "$acct")"
   [ -n "$tok" ] || return 1
-  hdr="$(curl -s --max-time 20 -o /dev/null -D - -X POST \
+  hdr="$(curl -s --max-time "$USAGE_FETCH_TIMEOUT" -o /dev/null -D - -X POST \
     -H "Authorization: Bearer $tok" \
     -H "anthropic-beta: oauth-2025-04-20" \
     -H "anthropic-version: 2023-06-01" \
@@ -366,16 +369,36 @@ refresh_usage() {
   rmdir "$lock" 2>/dev/null || true
 }
 
+usage_due() {
+  local stamp
+  stamp="$(cut -f1 "$1" 2>/dev/null || true)"
+  case "$stamp" in '' | *[!0-9]*) stamp=0 ;; esac
+  [ "$(($(now_epoch) - stamp))" -ge "$2" ]
+}
+
 # Prints cache immediately and refreshes in the BACKGROUND: a status-line widget must never wait on the network, so a stale read is served now and the fresh number lands on the next render. stdout is closed on the child or ccstatusline's execSync blocks on the inherited pipe.
 usage_read() {
-  local acct="${1:-$(resolve_account)}" f stamp
+  local acct="${1:-$(resolve_account)}" f
   f="$(usage_file "$acct")"
   [ -n "$(account_token "$acct")" ] || return 0
-  stamp="$(cut -f1 "$f" 2>/dev/null || true)"
-  case "$stamp" in '' | *[!0-9]*) stamp=0 ;; esac
   # Forks the function rather than re-exec'ing $0: one less process, and it does not depend on how this script was invoked (`bash claude-account …` leaves $0 non-executable).
-  if [ "$(($(now_epoch) - stamp))" -ge "$USAGE_MAX_AGE" ]; then
+  if usage_due "$f" "$USAGE_MAX_AGE"; then
     (refresh_usage "$acct" >/dev/null 2>&1 &) >/dev/null 2>&1
+  fi
+  cat "$f" 2>/dev/null || true
+}
+
+# Refreshes a due line before printing it, for a reader that would call the old one unknown.
+usage_wait() {
+  local acct="${1:-$(resolve_account)}" max_age="${2:-$USAGE_MAX_AGE}" f polls=0 USAGE_FETCH_TIMEOUT="$USAGE_WAIT_MAX"
+  f="$(usage_file "$acct")"
+  [ -n "$(account_token "$acct")" ] || return 0
+  if usage_due "$f" "$max_age"; then
+    refresh_usage "$acct" >/dev/null 2>&1
+    while [ -d "$f.lock" ] && usage_due "$f" "$max_age" && [ "$polls" -lt "$((USAGE_WAIT_MAX * 4))" ]; do
+      sleep 0.25
+      polls=$((polls + 1))
+    done
   fi
   cat "$f" 2>/dev/null || true
 }
@@ -668,6 +691,11 @@ seed-config)
   echo "claude-account: could not record folder trust for $PWD in $_cj" >&2
   ;;
 usage) usage_read "${2:-}" ;;
+usage-wait)
+  case "${2:-}" in personal | work | "") ;; *) echo "usage: claude-account usage-wait [personal|work] [max-age-seconds]" >&2; exit 2 ;; esac
+  case "${3:-}" in *[!0-9]*) echo "usage: claude-account usage-wait [personal|work] [max-age-seconds]" >&2; exit 2 ;; esac
+  usage_wait "${2:-}" "${3:-}"
+  ;;
 usage-refresh)
   case "${2:-}" in
   personal | work) refresh_usage "$2" ;;

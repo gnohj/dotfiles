@@ -9,7 +9,7 @@ const CLAUDE_WINDOWS = [
   { id: "five_hour", label: "session", windowSeconds: 5 * 3600 },
   { id: "seven_day", label: "week", windowSeconds: 7 * 86400 },
 ] as const;
-const MAX_FRESH_AGE_MS = 5 * 60 * 1000;
+export const MAX_FRESH_AGE_MS = 5 * 60 * 1000;
 
 type Reading = { window: QuotaWindow; refreshedAtMs: number };
 

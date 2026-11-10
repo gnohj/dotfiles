@@ -14,6 +14,7 @@ import {
   claudeFromDesktop,
   claudeFromStatusline,
   claudeFromUsage,
+  MAX_FRESH_AGE_MS,
   selectClaudeCard,
   type Captures,
   type DesktopSample,
@@ -47,6 +48,10 @@ const schedulesScript = join(
   ".config/sketchybar/items/widgets/schedules-panel.py",
 );
 const claudeAccountScript = join(home, ".local/bin/claude-account");
+const dashboardReadBudgetMs = 60_000;
+const usageMaxAgeSeconds = String(
+  (MAX_FRESH_AGE_MS - dashboardReadBudgetMs) / 1000,
+);
 const paletteFile = join(
   home,
   ".config/colorscheme/active/active-colorscheme.sh",
@@ -245,8 +250,16 @@ async function quotaProviders(errors: string[]): Promise<QuotaProvider[]> {
         CLAUDE_CONFIG_DIR: join(home, ".claude-work"),
       }).catch(failed),
       quotaAxi([]).catch(failed),
-      execute(claudeAccountScript, ["usage", "personal"]).catch(() => ""),
-      execute(claudeAccountScript, ["usage", "work"]).catch(() => ""),
+      execute(claudeAccountScript, [
+        "usage-wait",
+        "personal",
+        usageMaxAgeSeconds,
+      ]).catch(() => ""),
+      execute(claudeAccountScript, [
+        "usage-wait",
+        "work",
+        usageMaxAgeSeconds,
+      ]).catch(() => ""),
       claudePersonalFromDesktop(generatedAtMs).catch(() => undefined),
     ]);
   generatedAtMs = Date.now();
