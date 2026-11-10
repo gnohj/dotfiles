@@ -1,4 +1,4 @@
-# Rex-only sesh entries (never read by sesh, herdr or tmux): rex_host is the host each opens on, rex_label its session name there, rex_layout = "single" one plain tab instead of the dev layout.
+# Rex-only sesh entries (never read by sesh, herdr or tmux): rex_host is the host each opens on, rex_label its session name there.
 
 [[session]]
 name = "hermes-devbox"
@@ -24,12 +24,10 @@ rex_host = "Dev Box"
 name = "home"
 path = "~"
 alias = "x"
-rex_layout = "single"
 
 [[session]]
 name = "devbox-home"
 path = "~"
 alias = "z"
-rex_layout = "single"
 rex_host = "Dev Box"
 rex_label = "home"
