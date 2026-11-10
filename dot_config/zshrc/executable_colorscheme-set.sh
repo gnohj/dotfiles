@@ -22,11 +22,7 @@ error() {
 
 active_file="$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
-# COLORSCHEME_FORCE=1 rebuilds from the ACTIVE scheme, for when the generators changed but the palette did not.
-if [ -z "${1:-}" ] && [ "${COLORSCHEME_FORCE:-}" != 1 ] && [ "$OMARCHY_OWNS_THEME" != 1 ]; then
-  error "No colorscheme profile provided"
-fi
-
+# A name builds that scheme; no name rebuilds the active one. Every run builds everything.
 if [ -n "${1:-}" ]; then
   colorscheme_profile="$1"
   colorscheme_file="$HOME/.config/colorscheme/list/$colorscheme_profile"
@@ -37,20 +33,6 @@ fi
 
 if [ ! -f "$colorscheme_file" ]; then
   error "Colorscheme file '$colorscheme_file' does not exist."
-fi
-
-if [ "${COLORSCHEME_FORCE:-}" = 1 ]; then
-  UPDATED=true
-elif [ ! -f "$active_file" ]; then
-  echo "Active colorscheme file not found. Creating '$active_file'."
-  cp "$colorscheme_file" "$active_file"
-  UPDATED=true
-elif ! diff -q "$active_file" "$colorscheme_file" >/dev/null; then
-  UPDATED=true
-elif [ ! -f "$HOME/.config/starship/starship.toml" ]; then
-  UPDATED=true # outputs missing (fresh box: shipped active matches scheme) - force a rebuild
-else
-  UPDATED=false
 fi
 
 generate_ghostty_theme() {
@@ -99,7 +81,7 @@ EOF
 # Rex imports Ghostty theme files and names the theme after the file; re-importing "gnohj" updates it in place, so a switch never piles up copies.
 generate_rex_theme() {
   local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
-  command -v "$rex" >/dev/null 2>&1 || rex="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+  rex="$(command -v "$rex" 2>/dev/null)" || rex="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
   [ -x "$rex" ] || return 0
   local rex_theme_file="$HOME/.config/rex/themes/gnohj.ghostty"
   mkdir -p "$(dirname "$rex_theme_file")"
@@ -2421,55 +2403,25 @@ EOF
 }
 
 generate_ccstatusline_config() {
-  # Same split as generate_gh_dash_config: jq patches only per-widget colors by id, so a layout change made in ccstatusline's TUI survives the next theme switch.
-  #
-  # "hex:RRGGBB" is ccstatusline's truecolor form - a leading "#" is silently dropped and renders the widget uncolored - and it needs colorLevel 3.
+  # The chezmoi template is the only widget colour list, so a switch renders it like apply does.
   local ccsl_target="$HOME/.config/ccstatusline/settings.json"
 
-  command -v jq >/dev/null 2>&1 || {
-    echo "jq unavailable; skipping ccstatusline theme."
-    return
+  # A fresh machine has no target yet; chezmoi lays it down first.
+  [ -f "$ccsl_target" ] || return 0
+  command -v chezmoi >/dev/null 2>&1 || {
+    echo "chezmoi unavailable; skipping ccstatusline theme."
+    return 0
   }
 
-  # widget id -> palette entry; unlisted ids keep their color, and the usage percentages are absent on purpose since claude-usage-pct colors itself by threshold.
-  local ccsl_colors
-  ccsl_colors="$(
-    cat <<EOF
-{
-  "model":      "hex:${gnohj_color04#\#}",
-  "ctxdot":     "hex:${gnohj_color13#\#}",
-  "ctx":        "hex:${gnohj_color14#\#}",
-  "sesscost":   "hex:${gnohj_color02#\#}",
-  "mocost":     "hex:${gnohj_color13#\#}",
-  "harness":    "hex:${gnohj_color13#\#}",
-  "harnessDot": "hex:${gnohj_color13#\#}",
-  "l5h":        "hex:${gnohj_color03#\#}",
-  "sessreset":  "hex:${gnohj_color13#\#}",
-  "l7d":        "hex:${gnohj_color03#\#}",
-  "weekreset":  "hex:${gnohj_color13#\#}"
-}
-EOF
-  )"
-
-  # Target only: the chezmoi source is a template that resolves the same palette at apply time, so writing literal hexes back into it would overwrite the template expressions with one machine's theme.
-  local ccsl_file
-  for ccsl_file in "$ccsl_target"; do
-    # Skip a missing file rather than creating one: on a fresh machine chezmoi has not laid the target down yet, and the next run themes it.
-    [ -f "$ccsl_file" ] || continue
-    local ccsl_tmp
-    ccsl_tmp="$(mktemp)"
-    if jq --argjson c "$ccsl_colors" '
-        .colorLevel = 3
-        | .lines |= map(map(if $c[.id] then .color = $c[.id] else . end))
-      ' "$ccsl_file" >"$ccsl_tmp" 2>/dev/null && [ -s "$ccsl_tmp" ]; then
-      mv -f "$ccsl_tmp" "$ccsl_file"
-    else
-      rm -f "$ccsl_tmp"
-      echo "ccstatusline theme: failed to patch '$ccsl_file' (left unchanged)."
-    fi
-  done
-
-  echo "ccstatusline theme updated at '$ccsl_target'."
+  local ccsl_tmp
+  ccsl_tmp="$(mktemp "$ccsl_target.XXXXXX")"
+  if chezmoi cat "$ccsl_target" >"$ccsl_tmp" 2>/dev/null && [ -s "$ccsl_tmp" ]; then
+    mv -f "$ccsl_tmp" "$ccsl_target"
+    echo "ccstatusline theme updated at '$ccsl_target'."
+  else
+    rm -f "$ccsl_tmp"
+    echo "ccstatusline theme: chezmoi could not render '$ccsl_target' (left unchanged)."
+  fi
 }
 
 generate_herdr_config() {
@@ -2665,16 +2617,14 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
   generate_gitmux_config
   # starship carries the prompt SHAPE ([env_var.PROMPT_PATH] on, [directory] off); Omarchy's stock prompt renders both and prints "master master" in a worktree. The palette is sourced only to interpolate the heredoc, then stripped back out.
   if [ -f "$active_file" ]; then
-    # shellcheck disable=SC1090
-    source "$active_file"
+    # shellcheck disable=SC1091
+    source "$HOME/.config/colorscheme/palette.sh"
     generate_starship_config
     strip_theme_colours "$HOME/.config/starship/starship.toml" \
                         "$HOME/.config/starship/starship-infra.toml"
 
     # Omarchy themes ghostty/kitty/btop/neovim/claude/pi from its own files, but ships nothing for these - so they are still generated here, off the Omarchy palette rather than the repo's.
-    # shellcheck disable=SC1091
     if [ -r "$HOME/.config/colorscheme/omarchy-palette.sh" ]; then
-      source "$HOME/.config/colorscheme/omarchy-palette.sh"
       generate_herdr_config
       generate_ccstatusline_config
       generate_hunk_config
@@ -2693,126 +2643,102 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
   exit 0
 fi
 
-# Always source the active colorscheme + regenerate the small config
-# files whose generation logic may have changed independently of the
-# theme (e.g. lazygit customCommands, lazydocker keymaps). Cheap — just
-# rewrites a few KB of YAML. The heavier theme-switch actions (sketchybar
-# reload, ghostty/kitty/btop reload, wallpaper, etc.) stay gated behind
-# UPDATED below so unchanged-theme calls don't churn UI.
-if [ -f "$active_file" ]; then
-  source "$active_file"
-  generate_lazygit_config 2>/dev/null || true
-  generate_lazydocker_config 2>/dev/null || true
+if [ "$colorscheme_file" = "$active_file" ]; then
+  echo "Rebuilding all outputs from the active colorscheme."
+else
+  echo "Updating active colorscheme to '$colorscheme_profile'."
 fi
 
-# If there's an update, replace the active colorscheme and perform necessary actions
-if [ "$UPDATED" = true ]; then
-  if [ "$colorscheme_file" = "$active_file" ]; then
-    echo "Rebuilding all outputs from the active colorscheme."
-  else
-    echo "Updating active colorscheme to '$colorscheme_profile'."
-  fi
+# Rebuilding the active scheme makes these one path, and cp would then error out
+[ "$colorscheme_file" = "$active_file" ] || cp "$colorscheme_file" "$active_file"
 
-  # Replace the contents of active-colorscheme.sh - forcing makes these one path, and cp would then error out
-  [ "$colorscheme_file" = "$active_file" ] || cp "$colorscheme_file" "$active_file"
+cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
 
-  cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
+# shellcheck disable=SC1091
+source "$HOME/.config/colorscheme/palette.sh"
 
-  # Source the active colorscheme to load variables
-  source "$active_file"
+# Reload sketchybar to pick up new colors (macOS menu bar — skip on Linux/VPS)
+[[ "$OSTYPE" == darwin* ]] && sketchybar --reload
 
-  # Reload sketchybar to pick up new colors (macOS menu bar — skip on Linux/VPS)
-  [[ "$OSTYPE" == darwin* ]] && sketchybar --reload
+# Generate Starship config files (kept for easy switching)
+generate_starship_config
 
-  # Generate Starship config files (kept for easy switching)
-  generate_starship_config
+# Generate lazygit config
+generate_lazygit_config
 
-  # Generate lazygit config
-  generate_lazygit_config
+# Generate lazydocker config
+generate_lazydocker_config
 
-  # Generate lazydocker config
-  generate_lazydocker_config
+# SIGUSR2 reloads ghostty regardless of focus (a keystroke hits the frontmost app); headless Linux has no terminal to theme.
+if [[ "$OSTYPE" == darwin* ]]; then
+  generate_ghostty_theme
+  pkill -USR2 -x ghostty 2>/dev/null || true
+  generate_rex_theme
+  generate_kitty_theme
+fi
 
-  # Generate the ghostty theme file, then reload config. SIGUSR2 is ghostty's
-  # documented reload signal (systemd ExecReload sends it on Linux; the macOS
-  # build honors it too - verified live). Signal-based reload is focus-INDEPENDENT,
-  # exactly like kitty's `pkill -USR1 -x kitty` above. The prior osascript sent
-  # cmd+shift+, via System Events, which lands on the FRONTMOST app - so running
-  # the theme picker from the kitty quick-access terminal reloaded kitty (signal)
-  # but never reached ghostty (keystroke went to kitty), leaving ghostty's bg stale.
-  # Terminal themes (ghostty/kitty) are for the LOCAL terminal app. On a headless VPS
-  # there's no terminal to theme — your colors come from your Mac's ghostty either way,
-  # and tmux/nvim/tool colors below still regenerate on Linux. So skip these on Linux.
-  if [[ "$OSTYPE" == darwin* ]]; then
-    generate_ghostty_theme
-    pkill -USR2 -x ghostty 2>/dev/null || true
-    generate_rex_theme
-    generate_kitty_theme
-  fi
+# Generate the btop theme
+generate_btop_theme
 
-  # Generate the btop theme
-  generate_btop_theme
+# Generate bat config
+generate_bat_config
 
-  # Generate bat config
-  generate_bat_config
+# Generate delta config
+generate_delta_config
 
-  # Generate delta config
-  generate_delta_config
+# Generate hunk config
+generate_hunk_config
 
-  # Generate hunk config
-  generate_hunk_config
+# Generate borders config (macOS window borders — skip on Linux/VPS)
+[[ "$OSTYPE" == darwin* ]] && generate_borders_config
 
-  # Generate borders config (macOS window borders — skip on Linux/VPS)
-  [[ "$OSTYPE" == darwin* ]] && generate_borders_config
+# Generate gitmux config
+generate_gitmux_config
 
-  # Generate gitmux config
-  generate_gitmux_config
+# Generate gh-dash config
+generate_gh_dash_config
 
-  # Generate gh-dash config
-  generate_gh_dash_config
+# Generate pi theme
+generate_pi_theme
 
-  # Generate pi theme
-  generate_pi_theme
+# Generate Claude Code theme (custom theme, hot-reloaded via ~/.claude/themes watch)
+generate_claude_theme
 
-  # Generate Claude Code theme (custom theme, hot-reloaded via ~/.claude/themes watch)
-  generate_claude_theme
+# Recolor the Claude Code status line (ccstatusline widget colors only)
+generate_ccstatusline_config
 
-  # Recolor the Claude Code status line (ccstatusline widget colors only)
-  generate_ccstatusline_config
+# Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
+generate_herdr_config
 
-  # Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
-  generate_herdr_config
+# Generate yazi theme
+generate_yazi_theme
 
-  # Generate yazi theme
-  generate_yazi_theme
+# Generate tuxedo theme
+generate_tuxedo_theme
 
-  # Generate tuxedo theme
-  generate_tuxedo_theme
+# Generate ghosttyfetch config (macOS terminal-fetch cosmetic — skip on Linux/VPS)
+[[ "$OSTYPE" == darwin* ]] && generate_ghosttyfetch_config
 
-  # Generate ghosttyfetch config (macOS terminal-fetch cosmetic — skip on Linux/VPS)
-  [[ "$OSTYPE" == darwin* ]] && generate_ghosttyfetch_config
+# Generate eza theme
+generate_eza_theme
 
-  # Generate eza theme
-  generate_eza_theme
+# Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
+if typeset -f generate_ls_colors >/dev/null 2>&1; then
+  generate_ls_colors
+  echo "LS_COLORS updated for fd, ls, and eza."
+fi
 
-  # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
-  if typeset -f generate_ls_colors >/dev/null 2>&1; then
-    generate_ls_colors
-    echo "LS_COLORS updated for fd, ls, and eza."
-  fi
+# Generate tmux colors and reload if tmux is running
+if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then
+  "$HOME/.config/tmux/generate-tmux-colors.sh"
+fi
 
-  # Generate tmux colors and reload if tmux is running
-  if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then
-    "$HOME/.config/tmux/generate-tmux-colors.sh"
-  fi
-
-  # Set the wallpaper (skip if file doesn't exist)
-  if [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
-    osascript -e '
-    tell application "System Events"
-        repeat with d in desktops
-            set picture of d to "'"$wallpaper"'"
-        end repeat
-    end tell' 2>/dev/null || true
-  fi
+# Set the wallpaper (skip if file doesn't exist)
+if [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
+  osascript -e '
+  tell application "System Events"
+      repeat with d in desktops
+          set picture of d to "'"$wallpaper"'"
+      end repeat
+  end tell' 2>/dev/null || true
 fi
