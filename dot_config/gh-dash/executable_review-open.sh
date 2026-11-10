@@ -35,11 +35,7 @@ repo_path="${4:?review-open: missing <repo-path>}"
 case "$pr" in '' | *[!0-9]*) echo "review-open: PR must be numeric" >&2; exit 2 ;; esac
 [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "review-open: invalid repository" >&2; exit 2; }
 
-# Detached from gh-dash's terminal, so send our own output to a log and surface
-# failures (e.g. treehouse pool exhausted) as a multiplexer message instead of
-# swallowing them. The log MUST live outside the review-worktree state dir
-# (~/.local/state/gh-review-worktrees), which `review-worktree.sh sweep`
-# iterates as one-file-per-PR — a log file in there is mistaken for a lease.
+# Detached from gh-dash's terminal, so log our own output and surface failures as a multiplexer message.
 LOG="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-open.log"
 mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1

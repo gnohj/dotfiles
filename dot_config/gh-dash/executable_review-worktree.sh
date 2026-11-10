@@ -1,64 +1,35 @@
 #!/usr/bin/env bash
-# Manage treehouse-leased git worktrees for PR review, keyed by PR number.
-#
-# Used by the gh-dash review bindings (acquire) and the R binding (reclaim).
-# treehouse maintains a pool of pre-warmed detached worktrees; we lease one per
-# PR under review so concurrent PRs never share a working directory (hunk diffs
-# the working tree, so a shared worktree would corrupt overlapping reviews).
-#
-# Leases are pinned until explicitly returned. Each PR's slot is recorded in a
-# state file. Release is MANUAL: the automatic window-unlinked → sweep hook is
-# disabled (it killed live reviews on transient tmux read glitches — see
-# agentic.conf), so gh-dash `R` runs `reclaim` to free every slot whose review
-# windows are already closed (covers PRs that merged/closed and left gh-dash,
-# which a per-PR release can't reach). Acquiring the same PR twice reuses its slot.
+# One treehouse worktree per PR under review (hunk diffs the working tree, so PRs must not share one); treehouse is the only record of a lease.
 #
 #   review-worktree.sh acquire <pr-number>   # prints the worktree path
 #   review-worktree.sh release <pr-number>   # return ONE slot by PR, closes its tabs
 #   review-worktree.sh reclaim               # return EVERY idle slot now, then finish any submitted-but-untorn review (gh-dash R)
-#   review-worktree.sh sweep                 # same, but two-strike deferred (auto; disabled)
+#   review-worktree.sh sweep                 # same, but waits and re-reads first (automatic callers)
 #   review-worktree.sh settle                # free leases GitHub shows finished and nothing runs in (timer)
+#   review-worktree.sh leases                # every review lease in every pool: pr, path, leased-at
+#   review-worktree.sh path <pr-number>      # the worktree(s) leased to one PR, or nothing
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees"
+command -v jq >/dev/null 2>&1 || { echo "review-worktree: jq is required" >&2; exit 1; }
+
 LAVISH_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-lavish"
 # Backstop for artifacts whose slot was never reclaimed: release_pr is lease-driven and never fires for those.
 LAVISH_MAX_AGE="${GH_REVIEW_LAVISH_MAX_AGE:-604800}"
 
-# sweep grace period: a freshly-acquired lease has its worktree windows created
-# ASYNCHRONOUSLY (gh-dash bindings run review-open.sh detached), so for the first
-# few seconds the state file exists but NO pane sits in the worktree yet. Without
-# this guard, any window-unlinked event during that setup gap makes sweep return
-# the worktree out from under the still-initializing review (treehouse return
-# --force terminates its processes) — the tabs flash up, then die. Skip leases
-# younger than this. Override with GH_REVIEW_SWEEP_GRACE.
+# A fresh lease has no pane yet, so a sweep must not return it.
 SWEEP_GRACE="${GH_REVIEW_SWEEP_GRACE:-30}"
 SWEEP_LOG="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-sweep.log"
+mkdir -p "${SWEEP_LOG%/*}"
 
-# Two-strike confirmation: tmux list-windows/list-panes return INCONSISTENT
-# results under churn (repeated P presses, sesh session create/destroy) — the
-# review windows momentarily vanish from the listing then reappear a second
-# later. A single window-less read must NOT trigger the destructive release
-# (treehouse return --force kills the worktree's live processes). Instead we
-# require the lease to be seen window-less on a sweep at least SWEEP_CONFIRM
-# seconds after the first window-less sweep; any intervening sweep that sees the
-# window cancels the pending release. Markers live in a dot-dir so the STATE_DIR
-# "*" glob (one file per PR) never mistakes them for leases.
+# tmux listings flicker under churn, so an automatic sweep waits this long and re-reads.
 SWEEP_CONFIRM="${GH_REVIEW_SWEEP_CONFIRM:-8}"
-PENDING_DIR="$STATE_DIR/.pending"
 
 _slog() {
   printf '%s [%s] %s\n' "$(date '+%H:%M:%S')" "$$" "$*" >>"$SWEEP_LOG" 2>/dev/null || true
 }
 
-# gh-dash `R` runs reclaim fully detached (nohup … >/dev/null 2>&1 &), so the TUI
-# shows no feedback. Surface the result as a macOS toast via the unified
-# ~/.local/bin/mac-notify helper (single source of truth for the
-# terminal-notifier || osascript pattern; owns icon/timeout/group/fallback).
-# Absolute path: reclaim runs detached, where ~/.local/bin may not be on PATH.
-# -group collapses repeated R presses onto one banner. Best-effort — a notify
-# failure must never abort the reclaim under set -e.
+# reclaim runs detached with no TUI feedback, so toast the result; a failed notify must never abort it under set -e.
 notify() {
   "$HOME/.local/bin/mac-notify" -t 'gh-dash reclaim' -m "$1" -g gh-dash-reclaim >/dev/null 2>&1 || true
 }
@@ -90,20 +61,25 @@ _bounded() {
 MUX="${MUX:-$HOME/.local/bin/mux/mux}"
 
 review_idle() {
-  local pr="$1" wt="$2" tabs cwds
+  local pr="$1" wts="$2" tabs cwds wt
   tabs="$("$MUX" tabs --all-muxes)" && cwds="$("$MUX" pane-cwds --all-muxes)" || {
     _slog "  keep $pr: multiplexer listing failed"
     return 1
   }
-  if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" ||
-    { [ -n "$wt" ] && cwd_in_worktree "$cwds" "$wt"; }; then
-    _slog "  keep $pr: review tab or pane still open"
+  if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)"; then
+    _slog "  keep $pr: review tab still open"
     return 1
   fi
+  while IFS= read -r wt; do
+    if [ -n "$wt" ] && cwd_in_worktree "$cwds" "$wt"; then
+      _slog "  keep $pr: pane still open in $wt"
+      return 1
+    fi
+  done <<<"$wts"
+  return 0
 }
 
-# True (0) if some line in $1 is exactly $2 or a subdirectory of it — i.e. a pane
-# still sits in the worktree. Prefix-safe: "/a/b" does not match "/a/bc".
+# True when a line of $1 is $2 or below it; prefix-safe, so /a/b does not match /a/bc.
 cwd_in_worktree() {
   printf '%s\n' "$1" | awk -v wt="$2" '$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit f ? 0 : 1 }'
 }
@@ -133,41 +109,37 @@ cmd="${1:-}"
 pr="${2:-}"
 
 case "$cmd" in
-  acquire | release)
+  acquire | release | path)
     if [ -z "$pr" ]; then
-      echo "usage: review-worktree.sh {acquire|release} <pr-number>" >&2
+      echo "usage: review-worktree.sh {acquire|release|path} <pr-number>" >&2
       exit 2
     fi
     ;;
 esac
 
-leased_to_pr() {
-  treehouse status 2>/dev/null | grep -qE "held by review-$1([^0-9]|$)"
+_leases() {
+  local f
+  for f in "$HOME"/.treehouse/*/treehouse-state.json; do
+    [ -f "$f" ] || continue
+    jq -r '.worktrees[]? | select(.leased and ((.lease_holder // "") | test("^review-[0-9]+$"))) | [(.lease_holder | ltrimstr("review-")), .path, (.leased_at // "")] | @tsv' "$f" 2>/dev/null || true
+  done
+}
+
+_lease_paths() { _leases | awk -F'\t' -v pr="$1" '$1 == pr { print $2 }'; }
+
+# BSD date rejects treehouse's nanoseconds and colon offset.
+_lease_epoch() {
+  date -d "$1" +%s 2>/dev/null ||
+    date -j -f '%Y-%m-%dT%H:%M:%S%z' "$(printf '%s' "$1" | sed -E 's/\.[0-9]+//; s/Z$/+0000/; s/([+-][0-9]{2}):([0-9]{2})$/\1\2/')" +%s 2>/dev/null ||
+    echo 0
 }
 
 acquire() {
-  local pr="$1" state_file="$STATE_DIR/$1" existing wt
-  mkdir -p "$STATE_DIR"
-
-  # Auto-release is DISABLED (release is manual via gh-dash `R` → reclaim), for both
-  # tmux and herdr. Reclaim idle slots by hand with `R`.
-
-  if [ -f "$state_file" ]; then
-    existing="$(cat "$state_file")"
-    if [ -d "$existing" ] && leased_to_pr "$pr"; then
-      echo "$existing"
-      return 0
-    fi
-    rm -f "$state_file"
-  fi
-
-  # Reconcile: if treehouse already has a slot leased to this PR (a prior acquire
-  # whose state file was lost, or two near-simultaneous presses), adopt it rather
-  # than leasing a second slot — otherwise the extra lease orphans and leaks.
-  existing="$(treehouse status 2>/dev/null | awk -v h="held by review-$pr" '$0 ~ h {print $3; exit}' | sed "s|^~|$HOME|")"
-  if [ -n "$existing" ] && [ -d "$existing" ]; then
-    echo "$existing" >"$state_file"
-    echo "$existing"
+  local pr="$1" wt
+  # This checkout's pool only; release returns every pool's slot for the PR.
+  wt="$(treehouse status --json 2>/dev/null | jq -r --arg h "review-$pr" 'first(.[]? | select(.lease_holder == $h) | .path) // empty' 2>/dev/null || true)"
+  if [ -n "$wt" ] && [ -d "$wt" ]; then
+    echo "$wt"
     return 0
   fi
 
@@ -178,18 +150,16 @@ acquire() {
     exit 1
   fi
 
-  echo "$wt" >"$state_file"
   echo "$wt"
 }
 
 release_pr() {
   # Digits only: this interpolates into an rm -rf path, and an empty value makes the tab pattern match every "#".
   case "${1:-}" in '' | *[!0-9]*) return 0 ;; esac
-  local pr="$1" mode="${2:-idle}" state_file="$STATE_DIR/$1" wt="" busy="" lavish_dir="$LAVISH_DIR/$1"
-  # Read tolerantly: a concurrent sweep may remove this file between the test and the read, aborting under set -e.
-  wt="$(cat "$state_file" 2>/dev/null || true)"
+  local pr="$1" mode="${2:-idle}" wts="" busy="" lavish_dir="$LAVISH_DIR/$1"
+  wts="$(_lease_paths "$pr")"
   # An explicit release is the review's own teardown, run from one of the tabs it closes, so only automatic releases wait for idle.
-  [ "$mode" = explicit ] || review_idle "$pr" "$wt" || return 1
+  [ "$mode" = explicit ] || review_idle "$pr" "$wts" || return 1
 
   # End idle review resources before returning the worktree.
 
@@ -211,8 +181,6 @@ release_pr() {
   # Stop the background browser before returning its worktree.
   "$HOME/.local/bin/chrome-headed-bg" stop "review-$pr" >/dev/null 2>&1 || true
 
-  # 3. The lease record is the ONLY handle reclaim has, so the tail drops it after the return, never before.
-
   # Detach the return so process cleanup cannot interrupt it.
   _detach() {
     if command -v setsid >/dev/null 2>&1; then
@@ -228,31 +196,27 @@ release_pr() {
     _detach bash -c '
       # Return from outside the worktree to survive process cleanup.
       cd / 2>/dev/null || true
-      wt="$1"; pr="$2"; mux="$3"; log="$4"; sf="$5"; mode="$6"
+      wts="$1"; pr="$2"; mux="$3"; log="$4"; mode="$5"
+      nl=$(printf "\nx"); nl=${nl%x}; IFS=$nl; set -f
       if [ "$mode" != explicit ]; then
         tabs=$("$mux" tabs --all-muxes) && cwds=$("$mux" pane-cwds --all-muxes) || exit 1
         printf "%s\n" "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)" && exit 1
-        if [ -n "$wt" ]; then
+        for wt in $wts; do
           printf "%s\n" "$cwds" | awk -v wt="$wt" '\''$0 == wt || index($0, wt "/") == 1 { f = 1 } END { exit !f }'\'' && exit 1
-        fi
+        done
       fi
       # Every step announces itself: the tail is detached with all output discarded, so an unlogged step that dies is indistinguishable from one that worked.
       _tlog() { printf "%s [%s]   tail #%s: %s\n" "$(date +%H:%M:%S)" "$$" "$pr" "$*" >>"$log" 2>/dev/null || true; }
-      _tlog "started, wt=${wt:-none}"
-      if [ -n "$wt" ] && [ -d "$wt" ]; then
+      [ -n "$wts" ] || _tlog "no worktree is leased to review-$pr, nothing to return"
+      for wt in $wts; do
         # No cd into $wt: --force reaps by cwd, so from inside it treehouse racily kills itself and the slot stays leased.
-        # Logged either side because there is no timeout here - a "returning" with no follow-up line is a hang, which strands every step below it.
-        _tlog "treehouse return starting"
-        if treehouse return "$wt" --force >/dev/null 2>&1; then
-          # Only now: a record dropped before the return leaves a lease reclaim can never see again.
-          rm -f "$sf"
-          _tlog "treehouse returned, lease record dropped"
+        _tlog "treehouse return starting for $wt"
+        if treehouse return "$wt" --force --if-lease-holder "review-$pr" >/dev/null 2>&1; then
+          _tlog "treehouse returned $wt"
         else
-          _tlog "treehouse return FAILED - lease record KEPT so reclaim can retry"
+          _tlog "treehouse return FAILED for $wt - still leased, the settle timer retries"
         fi
-      else
-        rm -f "$sf"
-      fi
+      done
       [ "$mode" = explicit ] || exit 0
       # Re-enumerate and retry: the gpt finder runs with --keep-open, so its tab never closes on its own.
       attempt=1
@@ -267,7 +231,7 @@ release_pr() {
       left=$("$mux" tabs | awk -F"\t" -v pr="$pr" "\$2 ~ (\"#\" pr \"([^0-9]|\$)\") { print \$1 \"=\" \$2 }" | tr "\n" " ")
       # A tab that survives three passes is almost certainly mux close skipping the last tab in its workspace or session.
       if [ -n "$left" ]; then _tlog "LEFTOVER after 3 passes: $left"; else _tlog "all matching tabs closed"; fi
-    ' _ "$wt" "$pr" "$MUX" "$SWEEP_LOG" "$state_file" "$mode" >/dev/null 2>&1 &
+    ' _ "$wts" "$pr" "$MUX" "$SWEEP_LOG" "$mode" >/dev/null 2>&1 &
   ) 2>/dev/null
   return 0
 }
@@ -302,21 +266,19 @@ _review_done() {
 
 # Timer backstop for leases finish never freed: a failed return, or a page reopened after posting.
 settle() {
-  local f pr wt why freed=0
-  [ -d "$STATE_DIR" ] || return 0
-  command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
-  for f in "$STATE_DIR"/*; do
-    [ -f "$f" ] || continue
-    pr="${f##*/}"
-    case "$pr" in '' | *[!0-9]*) continue ;; esac
-    wt="$(cat "$f" 2>/dev/null || true)"
+  local pr wt at why freed=0 done_prs=" "
+  command -v gh >/dev/null 2>&1 || return 0
+  # fd 3 so gh inside the loop cannot swallow the lease list.
+  while IFS=$'\t' read -r -u 3 pr wt at; do
     [ -n "$wt" ] && [ -d "$wt" ] || continue
+    case "$done_prs" in *" $pr "*) continue ;; esac
     _occupied "$wt" && continue
-    why="$(_review_done "$wt" "$pr" "$(_mtime "$f")")" || continue
+    why="$(_review_done "$wt" "$pr" "$(_lease_epoch "$at")")" || continue
     _slog "  SETTLE $pr: $why, nothing running in $wt"
     release_pr "$pr" || continue
+    done_prs="$done_prs$pr "
     freed=$((freed + 1))
-  done
+  done 3< <(_leases)
   [ "$freed" -eq 0 ] || notify "🧹 Freed $freed finished review slot$([ "$freed" -eq 1 ] || echo s)"
   return 0
 }
@@ -356,14 +318,14 @@ lavish_busy() {
   return 1
 }
 
-# A background browser outlives its review whenever release_pr never ran, and nothing else reaps it: drop any whose PR has neither a lease record nor a window.
+# A background browser outlives its review whenever release_pr never ran: drop any whose PR has neither a lease nor a window.
 sweep_chrome() {
-  local wins="$1" name pr
+  local wins="$1" leased="$2" name pr
   while IFS=$'\t' read -r name _; do
     case "$name" in review-*) ;; *) continue ;; esac
     pr="${name#review-}"
     case "$pr" in '' | *[!0-9]*) continue ;; esac
-    [ -e "$STATE_DIR/$pr" ] && continue
+    case " $leased " in *" $pr "*) continue ;; esac
     printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)" && continue
     "$HOME/.local/bin/chrome-headed-bg" stop "$name" >/dev/null 2>&1 || true
     _slog "  stopped orphan background browser for $pr"
@@ -372,14 +334,14 @@ sweep_chrome() {
 }
 
 sweep_lavish() {
-  local now d pr age busy
+  local leased="$1" now d pr age busy
   [ -d "$LAVISH_DIR" ] || return 0
   now="$(date +%s)"
   for d in "$LAVISH_DIR"/*; do
     [ -d "$d" ] || continue
     pr="${d##*/}"
     # A live lease means the review is still open, and release_pr owns that one.
-    [ -e "$STATE_DIR/$pr" ] && continue
+    case " $leased " in *" $pr "*) continue ;; esac
     age=$((now - $(_mtime "$d")))
     [ "$age" -lt "$LAVISH_MAX_AGE" ] && continue
     busy="$(lavish_busy "$d" || true)"
@@ -393,54 +355,12 @@ sweep_lavish() {
   return 0
 }
 
-# Backstop for a lease whose state file is gone: sweep() reads only STATE_DIR, so such a slot stays
-# leased forever and invisible. Ask treehouse for its own leases; --if-lease-holder skips a re-leased slot.
-ORPHANS_FREED=0
-sweep_orphan_leases() {
-  local cwds="$1" wins="$2" f holder pr wt
-  ORPHANS_FREED=0
-  command -v jq >/dev/null 2>&1 || { _slog "  orphan sweep skipped: no jq"; return 0; }
-  command -v treehouse >/dev/null 2>&1 || return 0
-  for f in "$HOME"/.treehouse/*/treehouse-state.json; do
-    [ -f "$f" ] || continue
-    while IFS=$'\t' read -r holder wt; do
-      [ -n "$holder" ] && [ -n "$wt" ] && [ -d "$wt" ] || continue
-      pr="${holder#review-}"
-      case "$pr" in '' | *[!0-9]*) continue ;; esac
-      # A live record means sweep() above owns this lease; releasing it here would double-release.
-      [ -e "$STATE_DIR/$pr" ] && continue
-      if printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)"; then
-        _slog "  keep orphan lease $pr: window #${pr} still open"
-      elif cwd_in_worktree "$cwds" "$wt"; then
-        _slog "  keep orphan lease $pr: pane present in $wt"
-      elif _bounded 90 treehouse return "$wt" --force --if-lease-holder "$holder" >/dev/null 2>&1; then
-        ORPHANS_FREED=$((ORPHANS_FREED + 1))
-        _slog "  RELEASE orphan lease $pr: no state file, no window, no pane - returned $wt"
-      else
-        _slog "  orphan lease $pr: treehouse return failed or timed out for $wt"
-      fi
-    done < <(jq -r '.worktrees[]? | select(.leased and ((.lease_holder // "") | startswith("review-"))) | "\(.lease_holder)\t\(.path)"' "$f" 2>/dev/null)
-  done
-  return 0
-}
-
-# Return every leased review slot whose PR no longer has any tmux window.
-# Return every leased slot whose worktree no longer has ANY open pane in it.
-# Keyed on the worktree path (the state-file contents), NOT the PR label or a
-# single window: closing one of a PR's several review windows must NOT release
-# the slot — only when the LAST pane sitting in that worktree is gone.
+# A PR holding two slots keeps both while either is in use.
 sweep() {
-  # mode=confirm (default): two-strike deferral, for the (currently disabled)
-  #   automatic window-unlinked sweep.
-  # mode=immediate: release every idle slot on this single pass, for the manual
-  #   `reclaim` command (gh-dash `R`) — frees slots for PRs that already merged /
-  #   closed and dropped out of gh-dash, which no per-PR release could reach.
-  local mode="${1:-confirm}"
-  local reclaimed=0
-  sweep_lavish
-  # No bail on a missing STATE_DIR: an orphaned lease outlives its record, which is exactly the empty case.
+  local mode="${1:-confirm}" reclaimed=0 cwds wins pr wt at now age total leased kept=" " idle=" "
+  leased="$(_leases | cut -f1 | tr '\n' ' ')"
+  sweep_lavish "$leased"
   sleep 0.3 # debounce: let the just-closed window/tab finish unlinking
-  local cwds wins f pr wt now age total
   if ! cwds="$("$MUX" pane-cwds --all-muxes)" ||
     ! wins="$("$MUX" tabs --all-muxes | cut -f2-)"; then
     _slog "sweep abort: multiplexer listing failed; no releases"
@@ -450,48 +370,36 @@ sweep() {
   now="$(date +%s)"
   total="$(printf '%s\n' "$cwds" | grep -c . 2>/dev/null || true)"
   _slog "$mode run ($total panes total; $(printf '%s\n' "$cwds" | grep -c treehouse 2>/dev/null) under a treehouse worktree)"
-  for f in "$STATE_DIR"/*; do
-    [ -e "$f" ] || continue
-    pr="${f##*/}"
-    wt="$(cat "$f" 2>/dev/null || true)"
-    # Missing/empty path recorded — can't verify occupancy; leave it for R.
+  while IFS=$'\t' read -r -u 3 pr wt at; do
     [ -n "$wt" ] || continue
-    # Grace period: don't sweep a lease whose review windows are still being
-    # created asynchronously (see SWEEP_GRACE above).
-    age=$((now - $(_mtime "$f")))
+    age=$((now - $(_lease_epoch "$at")))
     if [ "$age" -lt "$SWEEP_GRACE" ]; then
+      kept="$kept$pr "
       _slog "  skip $pr: lease age ${age}s < ${SWEEP_GRACE}s grace"
-      continue
-    fi
-    # Occupancy: keep the lease while EITHER a review window/tab still carries
-    # "#<pr>" (the primary, drift-proof signal — matches release_pr's own
-    # matching) OR any pane still sits in the worktree (also preserves a
-    # manually-opened shell in the tree). Only release when both are absent.
-    if printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)"; then
-      rm -f "$PENDING_DIR/$pr"
+    elif printf '%s\n' "$wins" | grep -qE "#${pr}([^0-9]|$)"; then
+      kept="$kept$pr "
       _slog "  keep $pr: window #${pr} still open"
     elif cwd_in_worktree "$cwds" "$wt"; then
-      rm -f "$PENDING_DIR/$pr"
+      kept="$kept$pr "
       _slog "  keep $pr: pane present in $wt"
-    elif [ "$mode" = immediate ]; then
-      _slog "  RELEASE $pr (reclaim): no #${pr} window and no pane in $wt (lease age ${age}s)"
-      release_pr "$pr" || continue
-      rm -f "$PENDING_DIR/$pr"
-      reclaimed=$((reclaimed + 1))
-    elif [ -f "$PENDING_DIR/$pr" ] && [ "$((now - $(_mtime "$PENDING_DIR/$pr")))" -ge "$SWEEP_CONFIRM" ]; then
-      _slog "  RELEASE $pr: window-less for >=${SWEEP_CONFIRM}s, confirmed (lease age ${age}s)"
-      release_pr "$pr" || continue
-      rm -f "$PENDING_DIR/$pr"
     else
-      mkdir -p "$PENDING_DIR"
-      [ -f "$PENDING_DIR/$pr" ] || : >"$PENDING_DIR/$pr"
-      _slog "  defer $pr: window-less but unconfirmed (needs ${SWEEP_CONFIRM}s sustained absence) — likely transient churn"
+      case "$idle" in *" $pr "*) ;; *) idle="$idle$pr " ;; esac
     fi
+  done 3< <(_leases)
+
+  for pr in $idle; do
+    case "$kept" in *" $pr "*) continue ;; esac
+    if [ "$mode" != immediate ]; then
+      _slog "  defer $pr: window-less, re-reading in ${SWEEP_CONFIRM}s"
+      sleep "$SWEEP_CONFIRM"
+    fi
+    _slog "  RELEASE $pr ($mode): no #${pr} window and no pane in its worktree"
+    # release_pr re-reads tabs and panes: the second look.
+    release_pr "$pr" || continue
+    reclaimed=$((reclaimed + 1))
   done
-  sweep_chrome "$wins"
+  sweep_chrome "$wins" "$leased"
   if [ "$mode" = immediate ]; then
-    sweep_orphan_leases "$cwds" "$wins"
-    reclaimed=$((reclaimed + ORPHANS_FREED))
     if [ "$reclaimed" -gt 0 ]; then
       notify "🧹 Reclaimed $reclaimed idle treehouse review slot$([ "$reclaimed" -eq 1 ] || echo s)"
     else
@@ -507,6 +415,8 @@ case "$cmd" in
   sweep) sweep ;;
   reclaim) sweep immediate; reconcile_artifacts ;;
   settle) settle ;;
+  leases) _leases ;;
+  path) _lease_paths "$pr" ;;
   *)
     echo "unknown command: $cmd" >&2
     exit 2

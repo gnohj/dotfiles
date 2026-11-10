@@ -155,7 +155,7 @@ worktree_risks() {
 }
 
 worktree_available() {
-  local wt="$1" panes tabs f pr mux="${MUX:-$HOME/.local/bin/mux/mux}"
+  local wt="$1" panes tabs path pr mux="${MUX:-$HOME/.local/bin/mux/mux}"
   if ! panes="$("$mux" pane-cwds --all-muxes)" || ! tabs="$("$mux" tabs --all-muxes)"; then
     echo "  ✗ refusing: multiplexer listing failed" >&2
     return 1
@@ -164,15 +164,13 @@ worktree_available() {
     echo "  ✗ refusing: an open multiplexer pane uses $wt" >&2
     return 1
   fi
-  for f in "${XDG_STATE_HOME:-$HOME/.local/state}"/gh-review-worktrees/*; do
-    [ -f "$f" ] && [ "$(cat "$f")" = "$wt" ] || continue
-    pr="${f##*/}"
-    case "$pr" in '' | *[!0-9]*) continue ;; esac
+  while IFS=$'\t' read -r pr path _; do
+    [ "$path" = "$wt" ] || continue
     if printf '%s\n' "$tabs" | cut -f2- | grep -qE "#${pr}([^0-9]|$)"; then
       echo "  ✗ refusing: review #$pr still has an open multiplexer tab" >&2
       return 1
     fi
-  done
+  done < <("$HOME/.config/gh-dash/review-worktree.sh" leases 2>/dev/null)
 }
 
 delete_one() {
@@ -335,13 +333,14 @@ run_direct() {
 # Also reclaim idle gh-dash review slots (separate treehouse pool trees wtrm never deletes), grace-guarded.
 reclaim_review_slots() {
   local rw="$HOME/.config/gh-dash/review-worktree.sh"
-  local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees"
   [ -x "$rw" ] || return 0
   local before after freed
-  before=$(find "$state_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  before=$("$rw" leases 2>/dev/null | wc -l | tr -d ' ')
   [ "${before:-0}" -eq 0 ] && return 0
   "$rw" reclaim >/dev/null 2>&1 || true
-  after=$(find "$state_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  # The return is detached, so give it a moment before counting what is still held.
+  sleep 3
+  after=$("$rw" leases 2>/dev/null | wc -l | tr -d ' ')
   freed=$((before - after))
   if [ "$freed" -gt 0 ]; then
     echo "🌲 reclaimed $freed idle review worktree slot(s); ${after} still leased (active)"

@@ -12,9 +12,9 @@ if [ -e "$file" ]; then
   [ "$resolved" = "$file" ] || { echo "review-lavish-remove-file: retained file escapes its state directory" >&2; exit 1; }
 fi
 state="${LAVISH_AXI_STATE:-$HOME/.lavish-axi/state.json}"
-lease="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees/$pr"
+leased=$("$HOME/.config/gh-dash/review-worktree.sh" path "$pr" 2>/dev/null || true)
 [ -f "$file" ] || { echo "review-lavish-remove-file: no retained file for PR $pr" >&2; exit 1; }
-[ ! -e "$lease" ] || { echo "review-lavish-remove-file: PR $pr still has a review worktree" >&2; exit 1; }
+[ -z "$leased" ] || { echo "review-lavish-remove-file: PR $pr still has a review worktree" >&2; exit 1; }
 
 status=$(jq -r --arg file "$file" '(.sessions // {}) | to_entries[] | select(.value.file == $file) | .value.status' "$state" 2>/dev/null | head -n1)
 [ "$status" = ended ] || { echo "review-lavish-remove-file: PR $pr session is not ended" >&2; exit 1; }

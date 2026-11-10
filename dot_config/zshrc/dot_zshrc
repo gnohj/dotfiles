@@ -1520,8 +1520,7 @@ treehouse-orphans() {
     if (( return_them )); then
       case "$holder" in
         review-*)
-          # gh-dash review lease → use its own release so the gh-review state
-          # file is cleaned too (raw `treehouse return` would leave it dangling).
+          # gh-dash review lease → its own release also ends the page, browser and tabs.
           if "$HOME/.config/gh-dash/review-worktree.sh" release "${holder#review-}" >/dev/null 2>&1; then
             echo "   ↳ released"
           else

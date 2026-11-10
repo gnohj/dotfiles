@@ -295,9 +295,12 @@ repo_clone() {
 # A gh-dash review lease at SHA already has the PR's own dependencies installed.
 review_lease() {
   local repo=$1 number=$2 sha=$3 wt
-  wt=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-worktrees/$number" 2>/dev/null) || return 1
-  [ -d "$wt" ] && [ "$(git -C "$wt" rev-parse HEAD 2>/dev/null)" = "$sha" ] && origin_is "$wt" "$repo" || return 1
-  printf '%s\n' "$wt"
+  while IFS= read -r wt; do
+    [ -d "$wt" ] && [ "$(git -C "$wt" rev-parse HEAD 2>/dev/null)" = "$sha" ] && origin_is "$wt" "$repo" || continue
+    printf '%s\n' "$wt"
+    return 0
+  done < <("$HOME/.config/gh-dash/review-worktree.sh" path "$number" 2>/dev/null)
+  return 1
 }
 
 PR_OPEN_DIR=$STATE_DIR/pr-open
