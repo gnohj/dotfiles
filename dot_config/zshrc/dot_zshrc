@@ -600,31 +600,43 @@ esac
 TRANSIENT_PROMPT_TRANSIENT_PROMPT="%F{${gnohj_color02:-blue}}${_transient_os_glyph}%f %F{blue}❯%f "
 TRANSIENT_PROMPT_TRANSIENT_RPROMPT=''
 
+# Queued commands run in one zle callback after the first prompt; zinit turbo forked a sleep per plugin (~80ms).
+typeset -ga _deferred
+_defer() {
+  (( $#_deferred )) || { local fd; exec {fd}</dev/null && zle -F $fd _deferred_run }
+  _deferred+=("${(j: :)${(q)@}}")
+}
+_deferred_run() {
+  local fd=$1 cmd
+  zle -F $fd
+  exec {fd}<&-
+  for cmd in $_deferred; do eval $cmd; done
+  _deferred=()
+}
+
 # loads extra completion definitions that aren't officially part of zsh
 # Defer - completions aren't needed immediately
-zinit ice wait lucid
-zinit load zsh-users/zsh-completions
+# `light-mode for`, not `zinit light`: zinit 3.17 runs a direct `light` as a tracked load (fzf-tab 49ms vs 9ms).
+_defer zinit light-mode for zsh-users/zsh-completions
 
 # shows a single suggestions (gray text after your cursor) based on latest cmd history
 # can accept it with right arrow.. this plugin has no back suggestions..
 # if you want to go back to (recento to latest comand history) just toggle <C-p> previous or <C-n> next
 # Bind widgets once instead of on every prompt; rebound below after the deferred plugins add theirs.
 ZSH_AUTOSUGGEST_MANUAL_REBIND=1
-zinit light zsh-users/zsh-autosuggestions
-# Skip its first-precmd bind: the deferred atload below binds after fzf-tab and highlighting, the order fzf-tab requires.
+zinit light-mode for zsh-users/zsh-autosuggestions
+# Skip its first-precmd bind: the deferred _history_substring_search_config below binds after fzf-tab and highlighting, the order fzf-tab requires.
 add-zsh-hook -d precmd _zsh_autosuggest_start
 
 # 📎 ZSH plugin that reminds you to use existing aliases for commands you just typed
 # Defer - not needed immediately
-zinit ice wait lucid
-zinit load MichaelAquilina/zsh-you-should-use
+_defer zinit light-mode for MichaelAquilina/zsh-you-should-use
 
 # 🔖 Quickly navigate your work path!
 # zinit load wfxr/formarks
 
 # Load zsh-vi-mode via Zinit with proper configuration
-zinit ice depth=1
-zinit light jeffreytse/zsh-vi-mode
+zinit light-mode depth=1 for jeffreytse/zsh-vi-mode
 
 # Fork-free zvm_define_widget: upstream forks twice per widget ($(zle -l -L), $(declare -f)), ~80ms of zvm_init.
 function zvm_define_widget() {
@@ -671,23 +683,17 @@ function zvm_after_init() {
 
 # adds git aliases, g=git, gst=git status, etc.
 # Defer OMZ snippets - aliases/completions don't need to be immediate
-zinit ice wait lucid
-zinit snippet OMZ::plugins/git/git.plugin.zsh
-zinit ice wait lucid
-zinit snippet OMZL::git.zsh
+_defer zinit snippet OMZ::plugins/git/git.plugin.zsh
+_defer zinit snippet OMZL::git.zsh
 
 # mostly just cli completions
 export SHOW_AWS_PROMPT=false
-zinit ice wait lucid
-zinit snippet OMZP::aws  # Disabled - adds AWS to RPROMPT
-zinit ice wait lucid
-zinit snippet OMZP::chezmoi
-zinit ice wait lucid
-zinit snippet OMZP::command-not-found
-zinit ice wait lucid
-zinit snippet OMZP::docker
-zinit ice wait lucid
-zinit snippet OMZP::golang
+_defer zinit snippet OMZP::aws  # Disabled - adds AWS to RPROMPT
+_defer zinit snippet OMZP::chezmoi
+# On macOS it only stats handler paths that do not exist, one under autofs /home (~16ms).
+[[ $OSTYPE == darwin* ]] || _defer zinit snippet OMZP::command-not-found
+_defer zinit snippet OMZP::docker
+_defer zinit snippet OMZP::golang
 
 #-------------------------------------------------------------------------------
 #--        Zinit -  Load Completions whenever zshell starts
@@ -698,8 +704,7 @@ zinit snippet OMZP::golang
 autoload -Uz compinit
 # Compare calendar dates through zsh modules, without stat/date processes.
 zmodload zsh/datetime
-zmodload -F zsh/stat b:zstat
-# Runs after the first prompt (fzf-tab's atinit), so the ~15ms of compinit never delays it.
+# Runs after the first prompt (queued ahead of fzf-tab), so the ~15ms of compinit never delays it.
 _compinit_deferred() {
   local compdump_day= today= compdump_mtime
   strftime -s today %Y-%m-%d $EPOCHSECONDS
@@ -730,21 +735,15 @@ _compinit_deferred() {
 compdef() { ZINIT_COMPDEF_REPLAY+=( "${(j: :)${(q)@}}" ) }
 
 # Deferred, after compinit and before the widget-wrapping plugins, per fzf-tab's README.
-if (( $+commands[fzf] )); then
-  # Replace zsh's default completion selection menu with fzf!
-  zinit ice wait lucid atinit'_compinit_deferred'
-  zinit load Aloxaf/fzf-tab
-else
-  _compinit_deferred
-fi
+_defer _compinit_deferred
+# Replace zsh's default completion selection menu with fzf!
+(( $+commands[fzf] )) && _defer zinit light-mode for Aloxaf/fzf-tab
 
 # Deferred after fzf-tab so it wraps fzf-tab's widgets; changes text green/red depending on valid command.
-zinit ice wait lucid
-zinit light zdharma-continuum/fast-syntax-highlighting
+_defer zinit light-mode for zdharma-continuum/fast-syntax-highlighting
 
-# Load zsh-transient-prompt AFTER syntax highlighting to avoid conflicts (turbo loads in declaration order)
-zinit ice wait lucid
-zinit light olets/zsh-transient-prompt
+# Load zsh-transient-prompt AFTER syntax highlighting to avoid conflicts (deferred commands run in declaration order)
+_defer zinit light-mode for olets/zsh-transient-prompt
 
 # Define the function with the correct name
 function _history_substring_search_config() {
@@ -754,9 +753,11 @@ function _history_substring_search_config() {
   _zsh_autosuggest_bind_widgets
 }
 
-# Set ice modifiers BEFORE loading the plugin
-zinit ice wait lucid atload'_history_substring_search_config'
-zinit load zsh-users/zsh-history-substring-search
+_defer zinit light-mode for zsh-users/zsh-history-substring-search
+_defer _history_substring_search_config
+
+# No zinit turbo left, so drop its scheduler: a sleep fork at the first prompt, then a timer every second.
+add-zsh-hook -d precmd @zinit-scheduler
 
 
 #-------------------------------------------------------------------------------
