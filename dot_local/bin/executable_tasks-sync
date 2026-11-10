@@ -17,6 +17,9 @@ INBOX_FILE = TODO_DIR / "inbox.txt"
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "tasks-sync"
 SNAPSHOT = STATE_DIR / "snapshot.json"
 SALVAGE = STATE_DIR / "removed.log"
+ALLOW_BULK = STATE_DIR / "allow-bulk"
+NOTICE = STATE_DIR / "last-notice"
+BULK_LIMIT = 5
 
 REM_RE = re.compile(r"(?:^|\s)rem:([0-9A-Fa-f-]{36})(?=\s|$)")
 EVT_RE = re.compile(r"(?:^|\s)evt:(\S+)(?=\s|$)")
@@ -41,6 +44,25 @@ REM_PRI_TO_TODO = {1: "A", 2: "A", 3: "A", 4: "A", 5: "B", 6: "C", 7: "C", 8: "C
 
 def log(msg):
     print(f"tasks-sync: {msg}", file=sys.stderr)
+
+
+class Refused(RuntimeError):
+    """The pass could not check a state it was about to act on, so it changed nothing."""
+
+
+def notify_once(message):
+    """A refusal repeats every pass; the banner fires only when its text changes."""
+    try:
+        if NOTICE.read_text() == message:
+            return
+    except OSError:
+        pass
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    NOTICE.write_text(message)
+    notifier = Path.home() / ".local/bin/mac-notify"
+    if notifier.exists():
+        subprocess.run([str(notifier), "-t", "Tasks sync stopped", "-m", message, "-g", "tasks-sync"],
+                       capture_output=True, check=False)
 
 
 def helper(args, stdin=None):
@@ -151,6 +173,43 @@ def write_atomic(path, lines):
     os.replace(tmp, path)
 
 
+def write_json_atomic(path, obj):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=1, sort_keys=True))
+    os.replace(tmp, path)
+
+
+def edit_line(lines, edits, old, new, **meta):
+    lines[lines.index(old)] = new
+    edits.append((old, new, meta))
+
+
+def cut_line(lines, edits, old, **meta):
+    lines.remove(old)
+    edits.append((old, None, meta))
+
+
+def replay(fresh, edits):
+    """This pass's edits applied to a fresh read, so a line saved meanwhile survives; returns the lines and the edits that no longer fit."""
+    out, missed = list(fresh), []
+    for old, new, meta in edits:
+        if old not in out:
+            missed.append((old, new, meta))
+        elif new is None:
+            out.remove(old)
+        else:
+            out[out.index(old)] = new
+    return out, missed
+
+
+def refuse_bulk(kind, removing, linked, allow):
+    if allow or not (removing > BULK_LIMIT or (removing >= 3 and removing * 4 > linked)):
+        return
+    raise Refused(f"{removing} of {linked} linked {kind} lines would be removed in one pass, which looks like "
+                  f"{kind}s going missing rather than being deleted; nothing was changed. "
+                  f"If the deletes are real, run: tasks-sync --allow-bulk")
+
+
 def set_token(line, key, value):
     pat = re.compile(rf"(^|\s){key}:\S+(?=\s|$)")
     if pat.search(line):
@@ -163,12 +222,15 @@ def drop_token(line, key):
 
 
 def load_snapshot():
-    if SNAPSHOT.exists():
-        try:
-            return json.loads(SNAPSHOT.read_text())
-        except json.JSONDecodeError:
-            log("snapshot corrupt, starting fresh")
-    return {"reminders": {}}
+    try:
+        snap = json.loads(SNAPSHOT.read_text())
+        if isinstance(snap, dict) and isinstance(snap.get("reminders"), dict):
+            return snap
+    except (OSError, json.JSONDecodeError):
+        pass
+    # An empty start would capture every reminder as new, so a lost snapshot stops the pass instead.
+    raise Refused(f"the snapshot at {SNAPSHOT} is missing or unreadable, so what is new cannot be told from "
+                  f"what was already seen; nothing was changed. Run: tasks-sync --baseline")
 
 
 def append_inbox(captures, source):
@@ -194,7 +256,7 @@ def event_fingerprint(e):
     return [e["title"], e["start"], e["time"]]
 
 
-def sync_events(lines, snap, archived, dry):
+def sync_events(lines, edits, snap, archived, dry, allow_bulk):
     """Calendar -> tuxedo, one way: new events land in the inbox, linked lines follow their event."""
     by_evt = {t["evt"]: t for t in (parse(l) for l in lines) if t["evt"]}
     linked = set(snap.get("events_linked", []))
@@ -216,21 +278,22 @@ def sync_events(lines, snap, archived, dry):
             continue
         if t["completed"] or event_fingerprint(e) == prev.get(eid):
             continue
-        i = lines.index(t["raw"])
-        new = set_token(lines[i], "due", e["start"])
+        new = set_token(t["raw"], "due", e["start"])
         new = set_token(new, "at", e["time"]) if e["time"] else drop_token(new, "at")
         title = one_line(e["title"])
         if title and title != t["title"]:
             new = new.replace(t["title"], title, 1)
-        if new != lines[i]:
-            lines[i], changed = new, True
+        if new != t["raw"]:
+            edit_line(lines, edits, t["raw"], new, evt=eid)
+            changed = True
 
-    for eid, t in by_evt.items():
-        if eid in live or eid not in linked or t["completed"]:
-            continue
+    gone = [(eid, t) for eid, t in by_evt.items() if eid not in live and eid in linked and not t["completed"]]
+    refuse_bulk("event", len(gone), len(by_evt), allow_bulk)
+    for eid, t in gone:
         # The event is gone, so the line goes too; salvage keeps what was typed.
-        salvage(t["raw"])
-        lines.remove(t["raw"])
+        if not dry:
+            salvage(t["raw"])
+        cut_line(lines, edits, t["raw"], evt=eid)
         changed = True
 
     if dry:
@@ -257,19 +320,20 @@ def baseline():
     that predates the bridge stays where it is and only later additions flow in."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     fresh = {r["id"]: r for r in helper(["list"])}
-    SNAPSHOT.write_text(json.dumps(
-        {"reminders": fresh, "linked": []}, indent=1, sort_keys=True))
+    write_json_atomic(SNAPSHOT, {"reminders": fresh, "linked": []})
+    NOTICE.unlink(missing_ok=True)
     log(f"baseline: {len(fresh)} existing reminders marked seen, none linked")
 
 
-def sync_once(dry=False):
+def sync_once(dry=False, allow_bulk=False):
+    allow_bulk = allow_bulk or ALLOW_BULK.exists()
+    snap = load_snapshot()
     aliases = list_aliases(helper(["lists"]))
     todo = [parse(l) for l in read_lines(TODO_FILE)]
     for t in todo:
         t["list"] = target_list(t["raw"], aliases)
     # Without done.txt an archived task is indistinguishable from a deleted one.
     archived = {t["rem"] for t in (parse(l) for l in read_lines(DONE_FILE)) if t["rem"]}
-    snap = load_snapshot()
     prev = snap.get("reminders", {})
     linked = set(snap.get("linked", []))
 
@@ -282,7 +346,7 @@ def sync_once(dry=False):
 
     ops, refs, captures = [], [], []
     lines = [t["raw"] for t in todo]
-    changed = False
+    edits = []
 
     for t in todo:
         if t["rem"] or t["evt"] or t["completed"]:
@@ -327,46 +391,44 @@ def sync_once(dry=False):
             if r["recurring"]:
                 finished_series[f"done:{rid}"] = (t, f"{rid}@{r['due']}")
         elif r["completed"] and not t["completed"]:
-            i = lines.index(t["raw"])
             # Drop the priority like tuxedo's own `do`: (A) between the two dates is invalid.
-            lines[i] = f"x {date.today().isoformat()} {PRI_RE.sub('', t['raw'], count=1)}"
-            changed = True
+            edit_line(lines, edits, t["raw"], f"x {date.today().isoformat()} {PRI_RE.sub('', t['raw'], count=1)}", rem=rid)
         elif not r["recurring"] and t["alarm"] != r.get("alarm"):
             ops.append({"op": "update", "ref": f"alarm:{rid}", "id": rid,
                         "alarm": t["alarm"]})
         elif r["modified"] != was.get("modified"):
             # Reminders moved since we last looked; it wins for title and due.
-            i = lines.index(t["raw"])
-            new = lines[i]
+            new = t["raw"]
             if r["due"]:
                 new = set_token(new, "due", r["due"])
             elif t["due"]:
                 new = drop_token(new, "due")
             if r["title"] and r["title"] != t["title"]:
                 new = new.replace(t["title"], r["title"], 1)
-            if new != lines[i]:
-                lines[i], changed = new, True
+            if new != t["raw"]:
+                edit_line(lines, edits, t["raw"], new, rem=rid)
         elif t["title"] != r["title"] or t["due"] != r["due"]:
             ops.append({"op": "update", "ref": f"edit:{rid}", "id": rid,
                         "title": t["title"], "due": t["due"]})
 
-    for rid in linked:
-        if rid in live or rid in archived:
-            continue
-        t = by_rem.get(rid)
-        if t is not None:
-            # The only branch that destroys typed input, so it keeps a salvage copy.
+    gone = [by_rem[rid] for rid in linked if rid not in live and rid not in archived and rid in by_rem]
+    refuse_bulk("reminder", len(gone), len(by_rem), allow_bulk)
+    for t in gone:
+        # The only branch that destroys typed input, so it keeps a salvage copy.
+        if not dry:
             salvage(t["raw"])
-            lines.remove(t["raw"])
-            changed = True
+        cut_line(lines, edits, t["raw"], rem=t["rem"])
 
     archived_evts = {t["evt"] for t in (parse(l) for l in read_lines(DONE_FILE)) if t["evt"]}
     events = {"events": snap.get("events", {}), "events_linked": snap.get("events_linked", [])}
+    events_ran = False
     if EVENT_CALENDARS:
         try:
-            evt_changed, events["events"], events["events_linked"] = sync_events(
-                lines, snap, archived_evts, dry)
-            changed = changed or evt_changed
+            _, events["events"], events["events_linked"] = sync_events(
+                lines, edits, snap, archived_evts, dry, allow_bulk)
+            events_ran = True
+        except Refused:
+            raise
         except RuntimeError as exc:
             # Calendar is optional; a missing grant must never stall the Reminders side.
             log(f"events skipped: {exc}")
@@ -376,7 +438,7 @@ def sync_once(dry=False):
             log(f"would {op['op']}: {op.get('title') or op.get('id')}")
         for c in captures:
             log(f"would capture: {c}")
-        if changed:
+        if edits:
             log(f"would rewrite {TODO_FILE}")
         return
 
@@ -387,35 +449,50 @@ def sync_once(dry=False):
                 continue
             for ref, t in refs:
                 if ref == res["ref"]:
-                    i = lines.index(t["raw"])
-                    lines[i] = set_token(lines[i], "rem", res["id"])
-                    changed = True
+                    edit_line(lines, edits, t["raw"], set_token(t["raw"], "rem", res["id"]), created=res["id"])
             if res["ref"] in finished_series:
                 # Reminders rolled the series forward under the same id; this line keeps only the done occurrence.
                 t, key = finished_series[res["ref"]]
-                i = lines.index(t["raw"])
-                lines[i] = drop_token(lines[i], "rem")
+                edit_line(lines, edits, t["raw"], drop_token(t["raw"], "rem"), rem=t["rem"])
                 occurrences.add(key)
-                changed = True
 
     if captures:
         append_inbox(captures, "Reminders")
 
-    if changed:
-        write_atomic(TODO_FILE, lines)
+    # tuxedo may have saved the file while this pass talked to Reminders, so the edits go onto a fresh read.
+    written, missed = lines, []
+    if edits:
+        before = read_lines(TODO_FILE)
+        written, missed = replay(before, edits)
+        if written != before:
+            write_atomic(TODO_FILE, written)
+    if missed:
+        log(f"todo.txt changed during the pass; {len(missed)} edit(s) no longer fit and wait for the next pass")
+        # A reminder created for a line that has since changed would be created again, so it is taken back.
+        undo = [{"op": "delete", "ref": f"undo:{m['created']}", "id": m["created"]} for _, _, m in missed if "created" in m]
+        if undo:
+            helper(["apply"], stdin=json.dumps(undo))
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     fresh = {r["id"]: r for r in helper(["list"])}
-    now_linked = {t["rem"] for t in (parse(l) for l in lines) if t["rem"]} | archived
-    SNAPSHOT.write_text(json.dumps(
-        {"reminders": fresh, "linked": sorted(now_linked), **events,
-         "occurrences": sorted(k for k in occurrences if k.split("@")[0] in fresh)},
-        indent=1, sort_keys=True))
+    for _, _, meta in missed:
+        # Forgetting what was seen makes the next pass notice the same change again.
+        fresh.pop(meta.get("rem"), None)
+        events["events"].pop(meta.get("evt"), None)
+    now_linked = {t["rem"] for t in (parse(l) for l in written) if t["rem"]} | archived
+    if events_ran:
+        events["events_linked"] = sorted({t["evt"] for t in (parse(l) for l in written) if t["evt"]} | archived_evts)
+    write_json_atomic(SNAPSHOT, {
+        "reminders": fresh, "linked": sorted(now_linked), **events,
+        "occurrences": sorted(k for k in occurrences if k.split("@")[0] in fresh)})
+    ALLOW_BULK.unlink(missing_ok=True)
+    NOTICE.unlink(missing_ok=True)
 
 
 def main():
     args = set(sys.argv[1:])
     dry = "--dry-run" in args
+    allow_bulk = "--allow-bulk" in args
     if "--baseline" in args:
         try:
             baseline()
@@ -428,13 +505,21 @@ def main():
         interval = int(os.environ.get("TASKS_SYNC_INTERVAL", "30"))
         while True:
             try:
-                sync_once(dry)
+                sync_once(dry, allow_bulk)
+            except Refused as exc:
+                log(str(exc))
+                notify_once(str(exc))
             except Exception as exc:
                 log(f"pass failed: {exc}")
             time.sleep(interval)
     else:
         try:
-            sync_once(dry)
+            sync_once(dry, allow_bulk)
+        except Refused as exc:
+            log(str(exc))
+            if not dry:
+                notify_once(str(exc))
+            sys.exit(1)
         except RuntimeError as exc:
             log(str(exc))
             sys.exit(1)
