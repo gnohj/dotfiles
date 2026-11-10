@@ -64,6 +64,22 @@ display_notification() {
   mac-notify -t "$title" -m "$message"
 }
 
+# An unreachable remote is one fact for the whole run, so it is counted here and announced once at the end, not per repo.
+OUTAGE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/git-autopush/outage-runs"
+REMOTE_DOWN_RE='timed out|Could not resolve host|Connection (closed|reset|refused)|closed by remote host|Permission denied \(publickey\)|Network is unreachable|No route to host'
+REMOTE_FAILS=0
+REMOTE_OK=0
+
+report_git_failure() {
+  local what="$1" repo="$2"
+  log_message "ERROR" "$repo" "$what failed: $ERROR_MSG"
+  if [[ "$ERROR_MSG" =~ $REMOTE_DOWN_RE ]]; then
+    REMOTE_FAILS=$((REMOTE_FAILS + 1))
+  else
+    display_notification "$what failed - check logs" "Git $what Error" "$repo"
+  fi
+}
+
 # A dirty tree skips the pull above, so a multi-machine repo is often behind by push time.
 push_with_rebase_retry() {
   local repo="$1"
@@ -129,10 +145,10 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
     # if ! git pull --rebase >>/tmp/git_error.log 2>&1; then
     if ! git pull --rebase 2>"$ERROR_LOG"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
-      log_message "ERROR" "$REPO_NAME" "Pull failed: $ERROR_MSG"
-      display_notification "Pull failed - check logs" "Git Pull Error" "$REPO_NAME"
+      report_git_failure "Pull" "$REPO_NAME"
       continue
     else
+      REMOTE_OK=$((REMOTE_OK + 1))
       log_message "INFO" "$REPO_NAME" "Pull completed successfully"
     fi
   fi
@@ -187,9 +203,9 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
 
     if ! push_with_rebase_retry "$REPO_NAME"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
-      log_message "ERROR" "$REPO_NAME" "Push failed: $ERROR_MSG"
-      display_notification "Push failed - check logs" "Git Push Error" "$REPO_NAME"
+      report_git_failure "Push" "$REPO_NAME"
     else
+      REMOTE_OK=$((REMOTE_OK + 1))
       SUCCESS_MESSAGES+="\n$REPO_NAME $COMPUTER_NAME-$TIMESTAMP"
       log_message "SUCCESS" "$REPO_NAME" "Push completed successfully"
     fi
@@ -199,6 +215,22 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
   # Don't delete the file, It will be deleted when I restart the computer
   # rm -f /tmp/git_error.log
 done
+
+# One banner per outage, on its second failing run in a row: a one-run blip heals itself three minutes later.
+if ((REMOTE_FAILS > 0)); then
+  OUTAGE_RUNS=$(cat "$OUTAGE_FILE" 2>/dev/null)
+  [[ "$OUTAGE_RUNS" =~ ^[0-9]+$ ]] || OUTAGE_RUNS=0
+  OUTAGE_RUNS=$((OUTAGE_RUNS + 1))
+  mkdir -p "$(dirname "$OUTAGE_FILE")"
+  echo "$OUTAGE_RUNS" >"$OUTAGE_FILE"
+  log_message "WARN" "ALL" "Remote unreachable for $REMOTE_FAILS repo(s), failing run $OUTAGE_RUNS of this outage"
+  if ((OUTAGE_RUNS == 2)); then
+    display_notification "GitHub unreachable - $REMOTE_FAILS repo(s) not syncing" "Git Autopush" "ALL"
+  fi
+elif ((REMOTE_OK > 0)) && [[ -f "$OUTAGE_FILE" ]]; then
+  log_message "INFO" "ALL" "Remote reachable again after $(cat "$OUTAGE_FILE") failing run(s)"
+  rm -f "$OUTAGE_FILE"
+fi
 
 # Display all success messages in a single notification
 if [[ -n "$SUCCESS_MESSAGES" ]]; then
