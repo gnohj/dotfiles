@@ -46,6 +46,9 @@ canonical_checkout() { # <origin-url> -> default-branch worktree, or empty
 # still run for these — only the env copy is skipped.
 ENV_COPY_SKIP=(inferno)
 
+# Before the pnpm bail: a reused slot must not inherit the last task's account pins.
+"$HOME/.local/bin/claude-account" forget-path "$WT" >/dev/null 2>&1 || true
+
 # User-global hook — fires for EVERY repo's pool. Only act in a pnpm workspace;
 # bail cleanly everywhere else so it's a no-op for non-JS repos.
 [ -f "$WT/pnpm-lock.yaml" ] || exit 0

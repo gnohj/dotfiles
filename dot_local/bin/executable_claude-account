@@ -19,6 +19,7 @@
 #   claude-account token           its OAuth token, if stored   (used by launchers)
 #   claude-account seed-config --dir <ordinary|absolute-path>  seed trust in that state store
 #   claude-account store-pin [<dir> [ordinary|auto|<store>]]   legacy exact-path override; conflicting launches refuse
+#   claude-account forget-path <dir>  drop every path and store pin at or under <dir> (a reused pool slot)
 #   claude-account cwd [path]      account a directory maps to (ignores override)
 #   claude-account whoami [--all]  the ORG a token authenticates as (--all: both, warns if identical)
 #   claude-account set-org-label <personal|work|uuid> <label>   name an org so whoami prints it
@@ -613,6 +614,24 @@ store-pin)
   *) echo "usage: claude-account store-pin [<dir> [ordinary|auto|<store>]]" >&2; exit 2 ;;
   esac
   ;;
+# A pool slot is reused, so its next occupant must not inherit the last one's pins.
+forget-path)
+  [ $# -eq 2 ] || { echo "usage: claude-account forget-path <dir>" >&2; exit 2; }
+  _p="${2%/}"
+  case "$_p" in /?*) ;; *) echo "claude-account: forget-path needs an absolute path" >&2; exit 2 ;; esac
+  case "$_p" in *$'\t'* | *$'\n'*) echo "claude-account: forget-path refuses a path containing a tab or newline" >&2; exit 2 ;; esac
+  _forgot=""
+  for _f in "$PATH_PINS" "$STORE_PINS"; do
+    [ -r "$_f" ] || continue
+    _t="$(mktemp)"
+    awk -F'\t' -v p="$_p" '$1 != p && index($1, p "/") != 1' "$_f" >"$_t"
+    if cmp -s "$_t" "$_f"; then rm -f "$_t"; continue; fi
+    [ "$_f" = "$STORE_PINS" ] && chmod 600 "$_t"
+    mv -f "$_t" "$_f"
+    _forgot=1
+  done
+  [ -z "$_forgot" ] || echo "claude-account: forgot the pins under $_p"
+  ;;
 # Print shell `export` lines for the current dir's account, for launchers that
 # can't use cs/cr (e.g. gh-dash): `eval "$(claude-account env)" && claude …`.
 # Emits nothing for personal-with-no-token (native config), so eval is a no-op.
@@ -700,7 +719,7 @@ set-work-email)
   ;;
 label-for-email) label_for_email "${2:-}" ;;
 *)
-  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|path-pin [<dir> [<a>]]|store-pin [<dir> [<s>]]|seed-config|set-token <a>|token-status [a]|token-age [a]|token-check [--probe]|set-token-lifetime <d>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
+  echo "usage: claude-account [get|resolve|dir|token|cwd|whoami [--all]|set-org-label <a> <l>|org-labels|set-billing-day <a> <d>|billing-day [a]|pin [<a>]|path-pin [<dir> [<a>]]|store-pin [<dir> [<s>]]|forget-path <dir>|seed-config|set-token <a>|token-status [a]|token-age [a]|token-check [--probe]|set-token-lifetime <d>|add-work-org <o>|work-orgs|set-work-email <e>|work-email|label-for-email <e>]" >&2
   exit 1
   ;;
 esac
