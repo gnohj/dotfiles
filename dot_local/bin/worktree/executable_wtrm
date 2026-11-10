@@ -173,6 +173,15 @@ worktree_available() {
   done < <("$HOME/.config/gh-dash/review-worktree.sh" leases 2>/dev/null)
 }
 
+# A branch with no ticket key gets a thread file named after its folder, which the ticket path below never removes.
+drop_folder_thread() {
+  local wt="$1" thread_id="$2" f
+  [ -z "$thread_id" ] || return 0
+  f="$HOME/.local/state/threads/$(basename "$wt").json"
+  grep -qF "\"worktree\": \"$wt\"" "$f" 2>/dev/null && rm -f "$f"
+  return 0
+}
+
 delete_one() {
   local repo="$1" branch="$2" wt_path="$3" bare="$4"
 
@@ -251,6 +260,7 @@ delete_one() {
     echo "  (path missing, just pruning) $wt_path"
     git -C "$bare" worktree prune 2>/dev/null || true
     git -C "$bare" branch -D "$branch" 2>/dev/null || true
+    drop_folder_thread "$wt_path" "$thread_id"
     return 0
   fi
 
@@ -265,6 +275,7 @@ delete_one() {
   git -C "$bare" worktree prune
   git -C "$bare" branch -D "$branch" 2>/dev/null || echo "  (branch $branch not found locally)"
   command -v zoxide &>/dev/null && zoxide remove "$wt_path" 2>/dev/null || true
+  drop_folder_thread "$wt_path" "$thread_id"
 
   # Detach the rm so this script (and the launcher popup) can exit immediately.
   ( setsid rm -rf "$trash" </dev/null >/dev/null 2>&1 & ) 2>/dev/null \
