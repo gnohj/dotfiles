@@ -13,11 +13,15 @@ have=$(pacman -Q rex | awk '{ print $2 }')
 
 # Rex.app reports only its Sparkle build; the appcast maps it to a Rex version.
 builds=$(rex --autostart=false client ls --json </dev/null 2>/dev/null |
-  jq -r '.clients[].info | select(.kind == "app" and .platform == "macos") | .version | capture("\\((?<b>[0-9]+)\\)").b' | sort -u)
+  jq -r '.clients[].info | select(.kind == "app" and .platform == "macos") | .version | capture("\\((?<b>[0-9]+)\\)").b' | sort -un)
 case $(grep -c . <<<"$builds") in
 0) echo "rex-update: no Mac app is connected to this server, so rex stays at $have"; exit 0 ;;
 1) ;;
-*) echo "rex-update: connected Mac apps disagree (builds $(echo $builds)), rex stays at $have" >&2; exit 1 ;;
+*)
+  # A just-updated Mac app reconnects before its old connection drops, so follow the newest build.
+  echo "rex-update: connected Mac apps report builds $(echo $builds), following the newest"
+  builds=$(tail -n 1 <<<"$builds")
+  ;;
 esac
 
 cast=$(curl -fsS --max-time 15 "$appcast") || { echo "rex-update: could not fetch $appcast" >&2; exit 1; }
