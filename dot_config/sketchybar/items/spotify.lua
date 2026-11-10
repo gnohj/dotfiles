@@ -137,28 +137,20 @@ local function hideWidget()
 	end
 end
 
+-- A hotload burst leaves several Lua instances extracting at once, so each needs its own temp file.
+local EXTRACT_ARTWORK = [[
+	part=$(/usr/bin/mktemp /tmp/spotify_art.XXXXXX) || exit 0
+	%s get 2>/dev/null | %s -r '.artworkData // empty' | /usr/bin/base64 -d > "$part" 2>/dev/null
+	if [ -s "$part" ] && /usr/bin/sips -z %d %d "$part" >/dev/null 2>&1; then
+		/bin/mv "$part" '%s' && echo ok
+	else
+		/bin/rm -f "$part"
+	fi
+]]
+
 local function applyArtwork(trackKey, trackInfo)
 	local artworkPath = "/tmp/spotify_" .. trackKey .. ".jpg"
-	local extract = MEDIA_CONTROL
-		.. " get 2>/dev/null | "
-		.. JQ
-		.. " -r '.artworkData // empty' | /usr/bin/base64 -d > '"
-		.. artworkPath
-		.. ".part' 2>/dev/null; if [ -s '"
-		.. artworkPath
-		.. ".part' ]; then /usr/bin/sips -z "
-		.. ARTWORK_PX
-		.. " "
-		.. ARTWORK_PX
-		.. " '"
-		.. artworkPath
-		.. ".part' >/dev/null 2>&1; /bin/mv '"
-		.. artworkPath
-		.. ".part' '"
-		.. artworkPath
-		.. "'; echo ok; else /bin/rm -f '"
-		.. artworkPath
-		.. ".part'; fi"
+	local extract = EXTRACT_ARTWORK:format(MEDIA_CONTROL, JQ, ARTWORK_PX, ARTWORK_PX, artworkPath)
 
 	sbar.exec(extract, function(result)
 		if artworkTrack ~= trackInfo or not isSpotifyRunning then
@@ -174,6 +166,14 @@ local function applyArtwork(trackKey, trackInfo)
 			icon = { string = "", background = { drawing = true, image = { string = artworkPath } } },
 		})
 	end)
+end
+
+local function ensureArtwork(trackInfo)
+	if artworkTrack == trackInfo then
+		return
+	end
+	artworkTrack = trackInfo
+	applyArtwork((trackInfo:gsub("[^%w]", "")), trackInfo)
 end
 
 -- SbarLua already decodes JSON stdout into a table; a string only arrives if that failed.
@@ -220,9 +220,11 @@ local function updateSpotifyInfo()
 		local albumName = data.album or ""
 		local playerState = data.playing and "playing" or "paused"
 
-		local currentTrackInfo = trackName .. "|" .. artistName .. "|" .. albumName .. "|" .. playerState
+		local trackInfo = trackName .. "|" .. artistName .. "|" .. albumName
+		local currentTrackInfo = trackInfo .. "|" .. playerState
 
 		if currentTrackInfo == lastTrackInfo then
+			ensureArtwork(trackInfo)
 			return
 		end
 		lastTrackInfo = currentTrackInfo
@@ -248,11 +250,7 @@ local function updateSpotifyInfo()
 		fallbackGlyph = isPodcast and GLYPH_PODCAST or GLYPH_SPOTIFY
 		spotifyIcon:set({ drawing = true, icon = { color = color } })
 
-		local trackInfo = trackName .. "|" .. artistName .. "|" .. albumName
-		if artworkTrack ~= trackInfo then
-			artworkTrack = trackInfo
-			applyArtwork((trackInfo:gsub("[^%w]", "")), trackInfo)
-		end
+		ensureArtwork(trackInfo)
 
 		spotify:set({
 			drawing = true,
@@ -314,7 +312,7 @@ end)
 -- The widget no longer handles monitor changes, so a leftover display-monitor.sh has no consumer.
 sbar.exec("pkill -f display-monitor.sh 2>/dev/null")
 
-sbar.exec("/usr/bin/find /tmp -maxdepth 1 -name 'spotify_*.jpg' -mtime +1 -delete 2>/dev/null")
+sbar.exec("/usr/bin/find /tmp -maxdepth 1 -name 'spotify_*' -mtime +1 -delete 2>/dev/null")
 
 log_message("INFO", "Running initial widget update")
 refreshSpotifyBundleIds()
