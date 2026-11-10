@@ -102,6 +102,7 @@ Library/
 .local/bin/helium-personal
 .local/bin/macos-upgrade-check
 .local/bin/media-control-bridge
+.local/bin/sketchybar-update
 .local/bin/msteams-open
 .local/bin/open-pr
 .local/bin/rex

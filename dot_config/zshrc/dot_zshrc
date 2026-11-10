@@ -275,6 +275,7 @@ update() {
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
   [ -x "$HOME/.local/bin/rexpad-update" ] && { "$HOME/.local/bin/rexpad-update" || failed+=("rexpad rebuild"); }
+  [ -x "$HOME/.local/bin/sketchybar-update" ] && { "$HOME/.local/bin/sketchybar-update" || failed+=("sketchybar rebuild"); }
   # After the pulls, so the divergence check sees the fresh monorepo copy; silent when nothing is wrong.
   if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
     "$HOME/.local/bin/claude-settings-relink" ||

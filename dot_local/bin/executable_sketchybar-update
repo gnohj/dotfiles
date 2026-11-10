@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Build the latest SketchyBar release plus ~/.config/sketchybar/patches into ~/.local/bin/sketchybar; silent when current.
+set -uo pipefail
+
+[ "$(uname)" = Darwin ] || exit 0
+
+upstream=https://github.com/FelixKratz/SketchyBar.git
+src=${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar-src
+patches=$HOME/.config/sketchybar/patches
+bin=$HOME/.local/bin/sketchybar
+brew_link=/opt/homebrew/bin/sketchybar
+stamp=${XDG_STATE_HOME:-$HOME/.local/state}/sketchybar/built
+service=gui/$(id -u)/org.nixos.sketchybar
+
+fail() { printf '\033[31m   sketchybar-update: %s\033[0m\n' "$1" >&2; exit 1; }
+note() { printf '\033[33m   sketchybar-update: %s\033[0m\n' "$1" >&2; }
+
+if [ -e "$brew_link" ] && [ "$(readlink "$brew_link")" != "$bin" ]; then
+  fail "$brew_link is not ours (brew formula still installed?); run darwin-rebuild first"
+fi
+
+[ -d "$src/.git" ] || git clone --quiet "$upstream" "$src" || fail "clone failed"
+git -C "$src" fetch --quiet --force --tags origin || fail "fetch failed"
+tag=$(git -C "$src" tag --list 'v*' --sort=-v:refname | head -1)
+[ -n "$tag" ] || fail "no release tag upstream"
+
+shopt -s nullglob
+patch_files=("$patches"/*.patch)
+want="$tag $(cat /dev/null "${patch_files[@]}" | shasum -a 256 | cut -d' ' -f1)"
+if [ -x "$bin" ] && [ -L "$brew_link" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$want" ]; then
+  exit 0
+fi
+
+printf '\033[36m==> sketchybar: build %s with %d local patch(es)\033[0m\n' "$tag" "${#patch_files[@]}"
+git -C "$src" checkout --quiet --force "$tag" && git -C "$src" clean --quiet -fdx || fail "checkout of $tag failed"
+for patch in "${patch_files[@]}"; do
+  if git -C "$src" apply --check "$patch" 2>/dev/null; then
+    git -C "$src" apply "$patch" || fail "applying ${patch##*/} failed"
+  elif git -C "$src" apply --reverse --check "$patch" 2>/dev/null; then
+    note "$tag already contains ${patch##*/}; delete it from dot_config/sketchybar/patches"
+  else
+    fail "${patch##*/} no longer applies to $tag (check FelixKratz/SketchyBar#852); binary left as is"
+  fi
+done
+
+make -C "$src" >/dev/null 2>&1 || fail "build of $tag failed; binary left as is"
+cp -f "$src/bin/sketchybar" "$bin.new" && codesign --force -s - "$bin.new" 2>/dev/null &&
+  mv -f "$bin.new" "$bin" || { rm -f "$bin.new"; fail "install failed; binary left as is"; }
+ln -sfn "$bin" "$brew_link" || fail "could not link $brew_link"
+mkdir -p "${stamp%/*}" && printf '%s\n' "$want" >"$stamp"
+
+if launchctl print "$service" >/dev/null 2>&1; then
+  launchctl kickstart -k "$service" || note "restart failed; run: launchctl kickstart -k $service"
+fi
+printf '   built %s\n' "$tag"
+[ "${#patch_files[@]}" -eq 0 ] &&
+  note "no local patches left; FelixKratz/formulae/sketchybar can go back into homebrew.nix and this script can retire"
+exit 0

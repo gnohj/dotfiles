@@ -44,7 +44,7 @@
       # System services & window management
       "FelixKratz/formulae/borders"
       "media-control" # now-playing bridge for the Spotify PWA (no AppleScript dictionary)
-      "FelixKratz/formulae/sketchybar"
+      # sketchybar: built from the latest upstream release plus local patches by ~/.local/bin/sketchybar-update
       "blacktop/tap/lporg" # save/restore the Launchpad grid; a cask churn wipes it otherwise
       "kanata"
       "koekeishiya/formulae/skhd"
