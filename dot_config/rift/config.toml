@@ -12,7 +12,8 @@ default_disable = false
 focus_follows_mouse = false
 mouse_follows_focus = true
 mouse_hides_on_focus = false
-auto_focus_blacklist = []
+# Two same-app windows on two workspaces make Rift's auto-switch flip between them without end.
+auto_focus_blacklist = ["net.imput.helium"]
 # Feeds sketchybar's workspace widget; needs a Rift restart to take effect.
 run_on_start = [
   '/opt/homebrew/bin/rift-cli subscribe cli --event workspace_changed --command /bin/sh --args -c --args "/opt/homebrew/bin/sketchybar --trigger rift_workspace_changed FOCUSED_WORKSPACE=$RIFT_WORKSPACE_NAME"',

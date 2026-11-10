@@ -81,6 +81,8 @@ default_browser() {
 # Chrome activates itself even under `open -g` and Rift follows it to its workspace, so blacklist the browser for the open and hand focus back.
 open_background() {
   local browser prior original lock="${TMPDIR:-/tmp}/to-desktop-background.lock" i
+  # rift-focus-keeper follows a blacklisted browser itself, so this file tells it to sit the open out.
+  local hold="${XDG_STATE_HOME:-$HOME/.local/state}/rift/follow-hold"
   browser=$(default_browser)
   prior=$(front_app "unix id")
   if [ -z "$browser" ] || [ -z "$prior" ] || [ "$(front_app "bundle identifier")" = "$browser" ] || ! rift-cli execute config get >/dev/null 2>&1; then
@@ -95,6 +97,7 @@ open_background() {
   done
   original=$(rift-cli execute config get 2>/dev/null | jq -c '.settings.auto_focus_blacklist // []')
   rift-cli execute config set settings.auto_focus_blacklist "$(jq -cn --argjson o "$original" --arg b "$browser" '$o + [$b] | unique')" >/dev/null 2>&1
+  mkdir -p "${hold%/*}" && touch "$hold"
   open_in_named_window "$1" || open -g "$1"
   for i in $(seq 20); do
     sleep 0.1
@@ -104,6 +107,7 @@ open_background() {
   done
   sleep 0.3
   rift-cli execute config set settings.auto_focus_blacklist "$original" >/dev/null 2>&1
+  rm -f "$hold"
   rmdir "$lock" 2>/dev/null
 }
 

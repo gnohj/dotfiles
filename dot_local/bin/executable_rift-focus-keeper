@@ -35,8 +35,14 @@ INPUT_WINDOW = 0.4
 # kCGEventLeftMouseDown, RightMouseDown, KeyDown, OtherMouseDown.
 INPUT_EVENTS = (1, 3, 10, 25)
 ID_RE = re.compile(r"pid: (-?\d+), idx: (\d+)")
+# An app on Rift's auto_focus_blacklist is followed here once its focus has held this long.
+FOLLOW_SETTLE = 0.25
+BLACKLIST_RE = re.compile(r"^auto_focus_blacklist = \[([^\]]*)\]", re.M)
 RULE_RE = re.compile(r'\{ app_id = "([^"]+)",(?: title_regex = "([^"]*)",)? (?:workspace = "([A-Z])"|floating = false) \}')
 CONFIG = os.path.expanduser("~/.config/rift/config.toml")
+# to-desktop touches this around a background open; the age limit covers an opener that died holding it.
+HOLD = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "rift", "follow-hold")
+HOLD_LIMIT = 10.0
 
 VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
 history = defaultdict(list)
@@ -52,6 +58,7 @@ claimed = None
 last_focused = None
 current_focus = None
 pending = None
+settling = None
 
 
 def log(message):
@@ -184,8 +191,11 @@ def follow_new_window(wid):
         return False
     uuid, ws = home
     index = ws["index"]
-    if not ws.get("is_active") or not next(d for d in displays if d["uuid"] == uuid).get("is_active_context"):
-        rift_run("display", "focus", "--uuid", uuid)
+    on_active_display = next(d for d in displays if d["uuid"] == uuid).get("is_active_context")
+    if not ws.get("is_active") or not on_active_display:
+        # Focusing the display that is already active re-raises its current window, which pulls Rift straight back.
+        if not on_active_display:
+            rift_run("display", "focus", "--uuid", uuid)
         rift_run("workspace", "switch", str(index))
         print(f"rift-focus-keeper: followed {wid[0]}:{wid[1]} to {ws.get('name')}", flush=True)
         return True
@@ -202,6 +212,22 @@ def rule_workspace(bundle, title):
     rules = [rule for rule in rules if rule[0] == bundle.lower()]
     matches = [(bool(regex), -i, ws) for i, (_, regex, ws) in enumerate(rules) if not regex or re.search(regex, title, re.I)]
     return (max(matches)[2] or None) if matches else None
+
+
+def auto_switch_disabled(bundle):
+    try:
+        with open(CONFIG) as f:
+            listed = BLACKLIST_RE.search(f.read())
+    except OSError:
+        return False
+    return bool(listed) and bundle in re.findall(r'"([^"]+)"', listed.group(1))
+
+
+def follow_held():
+    try:
+        return time.time() - os.path.getmtime(HOLD) < HOLD_LIMIT
+    except OSError:
+        return False
 
 
 def place_window(wid):
@@ -324,22 +350,36 @@ def on_tick(now):
         reclaim(key, wid, now)
 
 
+def follow_settled(now):
+    # Rift's own auto-switch flips without end between two windows of one app, so only a settled focus is followed.
+    global settling, claimed
+    if settling is None or now < settling[1]:
+        return
+    wid, _, previous = settling
+    settling = None
+    if claimed is None and current_focus == wid and not follow_held() and follow_new_window(wid):
+        rift_run("window", "focus", "--window-id", json.dumps({"pid": wid[0], "idx": wid[1]}))
+        claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, previous)
+
+
 def on_focused_window_changed(event, now):
-    global armed, claimed, last_focused, current_focus, pending
+    global armed, claimed, last_focused, current_focus, pending, settling
     key = workspace_key(event)
     wid = (event["window_id"]["pid"], event["window_id"]["idx"])
     current_focus = wid
+    settling = None
     if claimed is not None and now > claimed[2]:
         if wid != claimed[3]:
             pending = None
         claimed = None
+    bundle = app_bundles().get(wid[0], "") if claimed is None else ""
     if wid not in focused_before:
         focused_before.add(wid)
         if wid not in known_windows:
             track_new_window(wid, now)
         follow_new_window(wid)
         claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, last_focused)
-    elif claimed is None and ".app." in app_bundles().get(wid[0], "") and follow_new_window(wid):
+    elif claimed is None and ".app." in bundle and follow_new_window(wid):
         # A relaunched web app activates its window on a hidden workspace, then bounces back like a new one.
         claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, last_focused)
     elif claimed is not None and wid == claimed[0]:
@@ -356,6 +396,11 @@ def on_focused_window_changed(event, now):
         if now <= claimed[1]:
             reclaim(key, claimed[0], now)
             return
+        if ".app." not in web_bundle:
+            # Only a web app bounces after the short window, so any other claim ends here.
+            claimed = None
+    if claimed is None and auto_switch_disabled(bundle or app_bundles().get(wid[0], "")):
+        settling = (wid, now + FOLLOW_SETTLE, last_focused)
     last_focused = wid
     log(f"focus {key} {wid[1]} armed={(armed[1][1], round(armed[2] - now, 2)) if armed else None}")
     hist = history[key]
@@ -407,7 +452,8 @@ def alive(pid):
 def events(proc, parent, server):
     pending = b""
     while parent == 1 or os.getppid() == parent:
-        if not select.select([proc.stdout], [], [], 0.2)[0]:
+        wait = 0.2 if settling is None else max(0.0, min(0.2, settling[1] - time.monotonic()))
+        if not select.select([proc.stdout], [], [], wait)[0]:
             # The subscription never closes when Rift restarts, so watch the server pid.
             if proc.poll() is not None or (server is not None and not alive(server)):
                 return
@@ -456,6 +502,7 @@ def main():
                 on_title_changed(event, now)
             elif kind == "tick":
                 on_tick(now)
+            follow_settled(now)
         if parent == 1 or os.getppid() == parent:
             status = proc.poll() or 1
     finally:
