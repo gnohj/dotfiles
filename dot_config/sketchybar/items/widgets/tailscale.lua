@@ -23,7 +23,7 @@ local tailscale = sbar.add("item", constants.items.TAILSCALE, {
 		drawing = false,
 	},
 	script = "~/.config/sketchybar/items/widgets/tailscale.sh",
-	click_script = "open -a 'Tailscale'",
+	click_script = "~/.config/sketchybar/items/widgets/tailscale-click.sh",
 })
 
 tailscale:subscribe({ "forced", "routine", "system_woke", "wifi_change" })
