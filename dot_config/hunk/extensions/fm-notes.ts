@@ -317,10 +317,48 @@ async function hunkTabmate(): Promise<
   return null;
 }
 
+const AGENT = /^(claude|codex|pi|opencode)$/;
+const SHELL = /^-?(zsh|bash|sh|fish|dash|ksh|tcsh|csh|nu)$/;
+
+// At a bare shell prompt, backticks in a note or file name would run; tmux names agents unreliably, so it only rules out a shell.
+async function agentIn(
+  to: NonNullable<Awaited<ReturnType<typeof hunkTabmate>>>,
+): Promise<boolean> {
+  if (to.kind === "tmux") {
+    const { err, out } = await run("tmux", [
+      "display-message",
+      "-p",
+      "-t",
+      to.pane,
+      "#{pane_current_command}",
+    ]);
+    return !err && out.trim() !== "" && !SHELL.test(out.trim());
+  }
+  const { err, out } = await run("rex", [
+    "--autostart=false",
+    "block",
+    "call",
+    "-s",
+    to.session,
+    "-b",
+    to.block,
+    "process",
+  ]);
+  if (err) return false;
+  try {
+    const fg = JSON.parse(out || "{}").foreground ?? {};
+    return AGENT.test(String(fg.argv0 ?? fg.name ?? "").replace(/^.*\//, ""));
+  } catch {
+    return false;
+  }
+}
+
 async function send(text: string): Promise<string> {
   if (TO !== "tab") return (await run(FM_TODO, ["send", text])).err;
   const to = await hunkTabmate();
   if (!to) return "no agent pane beside this one";
+  if (!(await agentIn(to)))
+    return "no agent is running in the pane beside this one, so nothing was sent";
   if (to.kind === "tmux")
     return (await run("tmux", ["send-keys", "-t", to.pane, "-l", text + "\r"]))
       .err;

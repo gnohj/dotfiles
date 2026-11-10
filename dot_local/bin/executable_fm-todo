@@ -235,6 +235,12 @@ hide() {
   rm -f "$VIEWER_FILE"
 }
 
+# The pane is a shell under the agent; typed at a bare prompt, backticks in the text would run.
+agent_in() {
+  rex --autostart=false --timeout 3s block call -s "$1" -b "$2" process 2>/dev/null |
+    jq -e '.foreground // empty | (.argv0 // .name // "") | sub(".*/"; "") | test("^(claude|codex|pi|opencode)$")' >/dev/null 2>&1
+}
+
 send() {
   local text=$1 sid block
   read -r sid block 2>/dev/null <"$ANCHOR_FILE" || true
@@ -242,6 +248,7 @@ send() {
     read -r sid block <<<"$(REX_BLOCK= fm_pane)"
   fi
   [ -n "$block" ] || { echo "fm-todo: no firstmate Rex pane found" >&2; exit 1; }
+  agent_in "$sid" "$block" || { echo "fm-todo: firstmate is not running in its pane, so nothing was sent" >&2; exit 1; }
   rex send -s "$sid" -b "$block" "$text"
   rex send -s "$sid" -b "$block" $'\r'
 }
