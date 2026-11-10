@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# fm-primary [home] - "<pid> <lock-pid> <held|stale|down>", tab separated, for the primary firstmate of a home.
+set -uo pipefail
+
+home="${1:-${FM_HOME:-$HOME/.local/share/firstmate}}"
+lock="$(head -1 "$home/state/.lock" 2>/dev/null || true)"
+case "$lock" in '' | *[!0-9]*) lock="" ;; esac
+if [ -n "$lock" ] && kill -0 "$lock" 2>/dev/null; then
+  printf '%s\t%s\theld\n' "$lock" "$lock"
+  exit 0
+fi
+
+# A resume keeps the conversation id but not the pid, so the saved id still finds the process.
+sid="$(head -1 "$home/state/.lock-session" 2>/dev/null | tr -d '[:space:]')"
+pid=""
+if [[ "$sid" =~ ^[0-9a-f-]{36}$ ]] && command -v jq >/dev/null 2>&1; then
+  work="$(CLAUDE_ACCOUNT=work "$HOME/.local/bin/claude-account" dir 2>/dev/null || true)"
+  for f in "$HOME"/.claude/sessions/*.json ${work:+"$work"/sessions/*.json}; do
+    [ -f "$f" ] || continue
+    p="$(jq -r --arg id "$sid" 'select(.sessionId == $id) | .pid' "$f" 2>/dev/null)"
+    case "$p" in '' | *[!0-9]*) continue ;; esac
+    kill -0 "$p" 2>/dev/null && { pid="$p"; break; }
+  done
+fi
+
+if [ -n "$pid" ]; then
+  printf '%s\t%s\tstale\n' "$pid" "${lock:--}"
+else
+  printf -- '-\t%s\tdown\n' "${lock:--}"
+fi

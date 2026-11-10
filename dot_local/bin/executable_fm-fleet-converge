@@ -267,9 +267,12 @@ if [ "$MODE" = json ]; then
   pane_pids="$(build_pane_pids "$all_panes")"
   primary="claude"; pinned=""
   [ -r "$FM_HOME/config/primary-harness" ] && { read -r primary <"$FM_HOME/config/primary-harness"; pinned=1; }
-  live=""; lockpid=""
-  [ -r "$FM_HOME/state/.lock" ] && read -r lockpid <"$FM_HOME/state/.lock"
-  if [ -n "$lockpid" ] && kill -0 "$lockpid" 2>/dev/null; then
+  live=""; lockpid=""; lock_state=""
+  IFS="$(printf '\t')" read -r lockpid _ lock_state <<EOF_PRIMARY
+$("$HOME/.local/bin/fm-primary" "$FM_HOME" 2>/dev/null)
+EOF_PRIMARY
+  case "$lock_state" in held | stale) ;; *) lockpid="" ;; esac
+  if [ -n "$lockpid" ]; then
     live="$(ps -p "$lockpid" -o comm= 2>/dev/null | sed 's|.*/||;s/^-//')"
   fi
   sm_line="$(awk 'NF && $1 !~ /^#/ {print; exit}' "$FM_HOME/config/secondmate-harness" 2>/dev/null)"
@@ -312,8 +315,8 @@ print(" ".join(p["pane_id"] for p in d.get("result",{}).get("panes",[])
 $(pid_identity "$lockpid")
 EOF_ID
     fi
-    printf '"primary":{"configured":"%s","configured_pinned":"%s","live":"%s","pid":"%s","pin":"%s","pin_resolved":"%s","live_account":"%s","live_config_dir":"%s","model":"%s","effort":"%s","home":"%s","root":"%s","config_dir":"%s","projects":"%s","pane":"%s"},' \
-      "$primary" "$pinned" "$live" "$lockpid" "$pin" "$resolved" "$live_acct" "$live_dir" "$p_model" "$p_effort" "$FM_HOME" "$ROOT" \
+    printf '"primary":{"configured":"%s","configured_pinned":"%s","live":"%s","pid":"%s","lock":"%s","pin":"%s","pin_resolved":"%s","live_account":"%s","live_config_dir":"%s","model":"%s","effort":"%s","home":"%s","root":"%s","config_dir":"%s","projects":"%s","pane":"%s"},' \
+      "$primary" "$pinned" "$live" "$lockpid" "$lock_state" "$pin" "$resolved" "$live_acct" "$live_dir" "$p_model" "$p_effort" "$FM_HOME" "$ROOT" \
       "$(cd "$ROOT" 2>/dev/null && CLAUDE_ACCOUNT="$resolved" claude-account dir 2>/dev/null || true)" "$projects" "$primary_pane"
     # Model names come from the harnesses' own settings, so a cold fleet still offers real choices with no catalogue to maintain.
     # Per-harness vocabularies, asked of each harness rather than listed here: pi enumerates its own
@@ -361,16 +364,21 @@ EOF_ID
 fi
 
 if [ "$MODE" = tree ]; then
-  # state/.lock holds the live primary's pid whatever harness it runs, so ask the process rather than the config default.
+  # After a resume the lock names a dead pid; fm-primary finds the process by its saved conversation id.
   primary="claude"
   [ -r "$FM_HOME/config/primary-harness" ] && read -r primary <"$FM_HOME/config/primary-harness"
   note="configured; not running"
-  lockpid=""
-  [ -r "$FM_HOME/state/.lock" ] && read -r lockpid <"$FM_HOME/state/.lock"
-  if [ -n "$lockpid" ] && kill -0 "$lockpid" 2>/dev/null; then
+  lockpid=""; lock_state=""; lock_names=""
+  IFS="$(printf '\t')" read -r lockpid lock_names lock_state <<EOF_PRIMARY
+$("$HOME/.local/bin/fm-primary" "$FM_HOME" 2>/dev/null)
+EOF_PRIMARY
+  case "$lock_state" in
+  held | stale)
     live="$(ps -p "$lockpid" -o comm= 2>/dev/null | sed 's|.*/||;s/^-//')"
     [ -n "$live" ] && { primary="$live"; note="live, pid $lockpid"; }
-  fi
+    [ "$lock_state" = stale ] && note="$note; home lock is STALE, it names $lock_names"
+    ;;
+  esac
   printf 'firstmate  %s (%s) · home %s · pin %s\n' \
     "$primary" "$note" "${FM_HOME/#$HOME/\~}" "$(claude-account pin 2>/dev/null || echo auto)"
   last_sm="${sm_ids##* }"

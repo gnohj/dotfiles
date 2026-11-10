@@ -47,7 +47,12 @@ remote_proc_env() {
 b "FLEET (on disk - true from anywhere)"
 kv "home" "$HOME_DIR $([ -d "$HOME_DIR" ] && echo "(exists)" || echo "(MISSING)")"
 kv "size" "$(du -sh "$HOME_DIR" 2>/dev/null | cut -f1)"
-kv "session lock" "$(head -1 "$HOME_DIR/state/.lock" 2>/dev/null || echo 'not held')"
+IFS=$'\t' read -r primary_pid lock_pid lock_state <<<"$("$HOME/.local/bin/fm-primary" "$HOME_DIR" 2>/dev/null)"
+case "${lock_state:-}" in
+  held) kv "session lock" "$lock_pid (live)" ;;
+  stale) kv "session lock" "STALE: names $lock_pid, which exited, while firstmate runs as pid $primary_pid. Tell it to run bin/fm-session-start.sh from its own home, exactly once" ;;
+  *) kv "session lock" "$([ "${lock_pid:--}" = - ] && echo 'not held' || echo "$lock_pid (not running)")" ;;
+esac
 kv "watcher beacon" "$(age "$HOME_DIR/state/.last-watcher-beat") old"
 kv "queued wakes" "$([ -r "$HOME_DIR/state/.wake-queue" ] && wc -l < "$HOME_DIR/state/.wake-queue" | tr -d ' ' || printf 0)"
 if [ -e "$HOME/.local/share/firstmate-work" ]; then
