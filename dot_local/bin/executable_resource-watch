@@ -8,6 +8,7 @@
 """
 import ctypes
 import datetime as dt
+import hashlib
 import html
 import json
 import os
@@ -33,6 +34,8 @@ HOST = os.uname().nodename.split(".")[0]
 INTERVAL = float(os.environ.get("RESOURCE_WATCH_INTERVAL", "10"))
 SUSTAIN = 300
 GAP = INTERVAL * 3
+CHECKPOINT = 300
+TRUST = CHECKPOINT + GAP
 DROP_TICKS = 3
 REMOTE_HOSTS = [h for h in os.environ.get("RESOURCE_WATCH_REMOTES", "fleet-dev-box" if DARWIN else "").split() if h]
 REMOTE_EVENTS = os.environ.get("RESOURCE_WATCH_REMOTE_EVENTS", "~/.local/state/resource-watch/events")
@@ -58,6 +61,14 @@ def tier(metric, value):
     if value is None:
         return 0
     return sum(value >= step for step in TIERS[metric])
+
+
+def code_id():
+    try:
+        with open(os.path.realpath(__file__), "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:12]
+    except OSError:
+        return ""
 
 
 def run(args, timeout=5):
@@ -462,13 +473,15 @@ def record():
         last = None
     if last and now - last > GAP:
         append({"type": "gap", "from": last, "to": now, "reason": "recorder not running"})
-    append({"type": "start", "pid": os.getpid()})
+    code = code_id()
+    append({"type": "start", "pid": os.getpid(), "code": code})
     gauge, meter = CpuGauge(), ProcessMeter()
     gauge.read()
     meter.sample()
     current = {m: 0 for m in TIERS}
     lower_ticks = {m: 0 for m in TIERS}
     last_snap = {m: 0.0 for m in TIERS}
+    last_checkpoint = 0.0
     prev_tick = time.time()
     time.sleep(INTERVAL)
     while True:
@@ -509,14 +522,18 @@ def record():
                 ctx = ctx or Context()
                 event["snapshot"] = snapshot(procs, RANK[metric], ctx)
             last_snap[metric] = tick
+            event["tiers"] = dict(current)
             append(event)
+        if tick - last_checkpoint >= CHECKPOINT:
+            append({"type": "state", "tiers": dict(current), "values": values, "code": code})
+            last_checkpoint = tick
         write_beat(tick, current)
         time.sleep(max(0.0, INTERVAL - (time.time() - tick)))
 
 
 def load_events(day, hosts_dirs):
     events = []
-    days = [(day + dt.timedelta(days=d)).strftime("%Y-%m-%d") for d in (-2, -1, 0, 1)]
+    days = [(day + dt.timedelta(days=d)).strftime("%Y-%m-%d") for d in (-1, 0, 1)]
     for directory in hosts_dirs:
         for name in days:
             path = os.path.join(directory, f"{name}.jsonl")
@@ -534,7 +551,7 @@ def load_events(day, hosts_dirs):
 
 def pull_remotes(day):
     dirs, failures = [], []
-    names = " ".join(f"{(day + dt.timedelta(days=d)).strftime('%Y-%m-%d')}.jsonl" for d in (-2, -1, 0, 1))
+    names = " ".join(f"{(day + dt.timedelta(days=d)).strftime('%Y-%m-%d')}.jsonl" for d in (-1, 0, 1))
     for host in REMOTE_HOSTS:
         target = os.path.join(REMOTE, host)
         os.makedirs(target, exist_ok=True)
@@ -570,37 +587,47 @@ def analyse(events, start, end):
     by_host = {}
     for e in sorted(events, key=lambda e: e.get("t", 0)):
         by_host.setdefault(e.get("host", "?"), []).append(e)
+    horizon = min(end, time.time())
     for host, evs in by_host.items():
         state = {m: 0 for m in TIERS}
         at = {m: [0.0] * 4 for m in TIERS}
-        gaps, crossings, offenders = [], [], {}
-        cursor = start
-        online = False
+        gaps, crossings, offenders, codes = [], [], {}, []
+        cursor, trust, code = None, float("inf"), ""
 
         def accrue(until):
-            nonlocal cursor
-            lo, hi = max(cursor, start), min(until, end)
-            if hi > lo and online:
+            lo, hi = max(cursor, start), min(until, cursor + trust, horizon)
+            if hi > lo:
                 for m in TIERS:
                     at[m][state[m]] += hi - lo
-            cursor = max(cursor, until)
+                if code and code not in codes:
+                    codes.append(code)
+
+        def missing(lo, hi, reason):
+            lo, hi = max(lo, start), min(hi, horizon)
+            if hi > lo:
+                gaps.append({"from": lo, "to": hi, "reason": reason})
 
         for e in evs:
             t = e.get("t", 0)
             kind = e.get("type")
             if kind == "gap":
-                accrue(e["from"])
-                if e["to"] > start and e["from"] < end:
-                    gaps.append({"from": max(e["from"], start), "to": min(e["to"], end), "reason": e.get("reason", "")})
-                cursor = max(cursor, e["to"])
+                missing(e["from"], e["to"], e.get("reason", ""))
+                if cursor is not None:
+                    accrue(e["from"])
+                    cursor = max(cursor, e["to"])
                 continue
-            accrue(t)
+            if cursor is not None:
+                accrue(t)
+                if t - cursor > trust:
+                    missing(cursor + trust, t, "recorder not running" if kind == "start" else "not recorded")
+            cursor = t
+            code = e.get("code", code)
             if kind == "start":
                 state = {m: 0 for m in TIERS}
-                online = True
-                continue
-            online = True
-            if kind == "tier":
+            if "tiers" in e:
+                state = {m: e["tiers"].get(m, 0) for m in TIERS}
+                trust = TRUST
+            elif kind == "tier":
                 state[e["metric"]] = e["to"]
             if start <= t < end and kind in ("tier", "sustained"):
                 if kind == "sustained" or e["to"] > e["from"] or e["to"] == 0:
@@ -624,9 +651,11 @@ def analyse(events, start, end):
                             rec["windows"][(w["workspace"], w["title"])] = w
                         for w in o.get("pwas", []):
                             rec["pwas"][(w["workspace"], w["app"])] = w
-        if online:
-            accrue(end if end < time.time() else time.time())
-        hosts[host] = {"at": at, "gaps": gaps, "crossings": crossings, "offenders": offenders}
+        if cursor is not None:
+            accrue(horizon)
+            if horizon - cursor > trust:
+                missing(cursor + trust, horizon, "not recorded")
+        hosts[host] = {"at": at, "gaps": gaps, "crossings": crossings, "offenders": offenders, "codes": codes}
     return hosts
 
 
@@ -739,6 +768,7 @@ def render(day, hosts, failures, partial, name):
         sections.append(f'''
 <section class="card bg-base-100 border border-base-300 mb-6"><div class="card-body p-4 sm:p-6">
 <h2 class="card-title">{esc(host)}</h2>
+{f'<p class="text-xs opacity-60">Recorder code {", ".join(esc(c) for c in h["codes"])}</p>' if h["codes"] else ""}
 <h3 class="font-semibold mt-2">Responsible</h3>
 <p class="text-sm opacity-70">Ranked by worst colour reached, then how often it led the snapshot. "Led / seen" counts snapshots where it was first / in the top three.</p>
 <div class="overflow-x-auto"><table class="table table-sm"><thead><tr><th>Worst</th><th>Owner</th><th>Metric</th><th class="text-right">Led / seen</th><th class="text-right">Peak cpu</th><th class="text-right">Peak mem</th></tr></thead><tbody>{off_rows}</tbody></table></div>
