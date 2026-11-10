@@ -167,6 +167,17 @@ function M.popup(ctx, side, top, command, opts)
   }))
 end
 
+-- Rex drops a select sent before the app knows the tab; unfocused, a miss leaves the server on the shown tab.
+function M.new_tab(ctx, layout)
+  local created, err = rex.session.new_window{ focus = ctx.client_id == nil, layout = layout }
+  M.fail(err)
+  if ctx.client_id ~= nil then
+    rex.exec{ "sleep", "0.05" }
+    rex.client.queue("session.select", { session_id = ctx.session_id, window_id = created.window_id })
+  end
+  return created
+end
+
 function M.pane_bounds(view, block_id)
   local window = M.tab_of_block(view, block_id)
   if window == nil then return nil end

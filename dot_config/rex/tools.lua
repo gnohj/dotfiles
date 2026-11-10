@@ -88,22 +88,16 @@ function M.setup()
     end,
   }
 
-  -- herdr yazi-herdr.sh: yazi in a new tab at the pane's cwd; keyboard focus follows only a client session.select.
+  -- herdr yazi-herdr.sh: yazi in a new tab at the pane's cwd.
   rex.action{
     name = "yazi_tab",
     title = "Yazi in New Tab",
     category = "Tools",
     run = function(ctx, args)
-      local created, err = rex.session.new_window{
-        layout = rex.layout.block{
-          flavor = c.SHELL,
-          options = { command = { "yazi" }, cwd = c.block_cwd(ctx.block_id) },
-        },
-      }
-      c.fail(err)
-      if ctx.client_id ~= nil then
-        rex.client.queue("session.select", { session_id = ctx.session_id, window_id = created.window_id })
-      end
+      c.new_tab(ctx, rex.layout.block{
+        flavor = c.SHELL,
+        options = { command = { "yazi" }, cwd = c.block_cwd(ctx.block_id) },
+      })
     end,
   }
 
@@ -170,16 +164,10 @@ function M.setup()
     category = "Tools",
     args = { path = "string", line = "integer?" },
     run = function(ctx, args)
-      local created, err = rex.session.new_window{
-        layout = rex.layout.block{
-          flavor = c.SHELL,
-          options = { command = args.line and { "nvim", "+" .. args.line, "--", args.path } or { "nvim", "--", args.path }, cwd = args.path:match("^(.*)/") or c.HOME },
-        },
-      }
-      c.fail(err)
-      if ctx.client_id ~= nil then
-        rex.client.queue("session.select", { session_id = ctx.session_id, window_id = created.window_id })
-      end
+      c.new_tab(ctx, rex.layout.block{
+        flavor = c.SHELL,
+        options = { command = args.line and { "nvim", "+" .. args.line, "--", args.path } or { "nvim", "--", args.path }, cwd = args.path:match("^(.*)/") or c.HOME },
+      })
     end,
   }
 
