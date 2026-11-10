@@ -14,6 +14,7 @@
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
 # Cache command output to speed up shell startup
+zmodload -F zsh/stat b:zstat
 _evalcache() {
   # NOTE: split into two lines — zsh evaluates the rhs of all `local` pairs
   # BEFORE any of the assignments take effect, so combining them on one line
@@ -23,14 +24,29 @@ _evalcache() {
   local cache="$ZDOTDIR/.zsh_cache/$name.zsh"
   shift
   [[ -d "$ZDOTDIR/.zsh_cache" ]] || mkdir -p "$ZDOTDIR/.zsh_cache" || return
-  # ~/.zshenv too: `mise activate` bakes the live PATH in, so a PATH edit there must bust this cache.
-  if [[ ! -s "$cache" || "${commands[$1]}" -nt "$cache" || "$HOME/.zshenv" -nt "$cache" ]]; then
-    local pending
-    pending=$(mktemp "$cache.XXXXXX") || return
-    if "$@" > "$pending" 2>/dev/null && [[ -s "$pending" ]]; then
-      command mv -f -- "$pending" "$cache"
-    else
-      command rm -f -- "$pending"
+  # Line 1 of a cache names the binary it was built from: nix dates every file 1969, so a date check never sees an upgrade.
+  local _ec_bin=${commands[$1]:A} _ec_key _ec_built=
+  local -A _ec_stat
+  local -a _ec_env
+  zstat -H _ec_stat -- "$_ec_bin" 2>/dev/null
+  # ~/.zshenv too: it sets env these inits read (_ZO_*, MISE_*).
+  zstat -A _ec_env +mtime -- "$HOME/.zshenv" 2>/dev/null
+  _ec_key="# built from $_ec_bin $_ec_stat[size] $_ec_stat[mtime] $_ec_env"
+  [[ -s "$cache" ]] && IFS= read -r _ec_built < "$cache"
+  if [[ "$_ec_built" != "$_ec_key" ]]; then
+    local REPLY _ec_pending
+    if REPLY=$("$@" 2>/dev/null) && [[ -n "$REPLY" ]]; then
+      # A fixer that cannot make the output safe to store means this shell runs it uncached.
+      if (( $+functions[_evalcache_fix_$name] )) && ! _evalcache_fix_$name; then
+        eval "$REPLY"
+        return
+      fi
+      _ec_pending=$(mktemp "$cache.XXXXXX") || return
+      if print -r -- "$_ec_key"$'\n'"$REPLY" > "$_ec_pending"; then
+        command mv -f -- "$_ec_pending" "$cache"
+      else
+        command rm -f -- "$_ec_pending"
+      fi
     fi
   fi
   [[ -s "$cache" ]] && source "$cache"
@@ -1732,6 +1748,31 @@ reload_prompt() {
 #-------------------------------------------------------------------------------
 #                  Mise Activation (must be before tool integrations)
 #-------------------------------------------------------------------------------
+
+# `mise activate` bakes the building shell's PATH into its output; swap those lines for live reads so the cache holds no PATH.
+_evalcache_fix_mise() {
+  local line lit shims seen=0
+  local -a out
+  for line in "${(@f)REPLY}"; do
+    case $line in
+      "export __MISE_ORIG_PATH='"*"'")
+        lit=${${line#*\'}%\'}
+        [[ ${lit//\'\\\'\'/\'} == "$PATH" ]] || return 1
+        ;;
+      "export PATH='"*"'")
+        lit=${${line#*\'}%\'}
+        lit=${lit//\'\\\'\'/\'}
+        shims=${lit%%:*}
+        (( ! seen++ )) && [[ $lit == "$shims:${(j.:.)${(@)path:#$shims}}" ]] || return 1
+        out+=('export __MISE_ORIG_PATH="${__MISE_ORIG_PATH:-$PATH}"' "() { path=(\$1 \"\${(@)path:#\$1}\") } ${(qq)shims}")
+        ;;
+      *) out+=("$line") ;;
+    esac
+  done
+  (( seen == 1 )) || return 1
+  REPLY=${(F)out}
+  [[ $REPLY != *"$PATH"* ]]
+}
 
 # Activate mise if available (cached for speed)
 if command -v mise &>/dev/null; then
