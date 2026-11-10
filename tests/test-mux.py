@@ -189,8 +189,9 @@ else:
                         "--json",
                         "--",
                         "env",
+                        "SKIP_FETCH=1",
                         "/bin/bash",
-                        "-lc",
+                        "-lic",
                         "echo 'ok'",
                     ],
                 )
@@ -208,7 +209,22 @@ else:
                         '{"columns":200,"rows":50}',
                     ],
                 )
-                self.assertEqual(len(calls), 2)
+                if "--no-focus" in options:
+                    self.assertEqual(len(calls), 2)
+                    continue
+                self.assertEqual(len(calls), 4)
+                self.assertEqual(
+                    calls[-1],
+                    [
+                        "--autostart=false",
+                        "-C",
+                        "client:new",
+                        "do",
+                        "session.select",
+                        "session_id=session:origin",
+                        "window_id=window:new",
+                    ],
+                )
 
     def test_rex_window_env_and_workspace_and_focus(self):
         result = self.run_mux(
@@ -243,10 +259,11 @@ else:
                 "--json",
                 "--",
                 "env",
+                "SKIP_FETCH=1",
                 "A=b c",
                 "B=it's $literal;*",
                 "/bin/bash",
-                "-lc",
+                "-lic",
                 "echo ok",
             ],
         )
@@ -404,6 +421,59 @@ else:
                 time.sleep(0.01)
         self.fail("review-open was not called")
 
+    def review_log(self):
+        return (self.home / ".local/state/gh-review-open.log").read_text()
+
+    def assert_unpinned(self, env):
+        for name in ["MUX_FORCE_KIND", "REX_SESSION", "HERDR_WORKSPACE_ID"]:
+            self.assertNotIn(name, env)
+
+    def adopt(self, **env):
+        result = subprocess.run(
+            [
+                "/bin/bash",
+                "-c",
+                '. "$HOME/.config/gh-dash/review-mux.sh"; review_mux_adopt "$1"; env',
+                "_",
+                str(self.home / "Developer/web/review"),
+            ],
+            env=self.env | env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        return dict(line.split("=", 1) for line in lines if "=" in line)
+
+    def test_review_adopt_places_the_review(self):
+        self.install_reviews()
+        inherited = {
+            "REX_SESSION": "session:pane",
+            "HERDR_WORKSPACE_ID": "herdr:pane",
+        }
+        env = self.adopt(**inherited)
+        self.assertEqual(env["MUX_FORCE_KIND"], "rex")
+        self.assertEqual(env["REX_SESSION"], "session:web")
+        self.assertNotIn("HERDR_WORKSPACE_ID", env)
+        env = self.adopt(**inherited, TEST_REX_DOWN="1", TEST_WORKSPACE="1")
+        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:review")
+        self.assertEqual(env["HERDR_SOCKET_PATH"], "/stub/herdr.sock")
+        self.assertNotIn("MUX_FORCE_KIND", env)
+        self.assertNotIn("REX_SESSION", env)
+        env = self.adopt(**inherited, REVIEW_PLACED="1")
+        self.assertEqual(env["REX_SESSION"], "session:pane")
+        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:pane")
+        env = self.adopt(
+            **inherited,
+            TEST_REX_DOWN="1",
+            TEST_STALE="1",
+            REVIEW_FALLBACK_HERDR_WORKSPACE="herdr:fallback",
+        )
+        self.assertEqual(env["MUX_FORCE_KIND"], "herdr")
+        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:fallback")
+        self.assertNotIn("REX_SESSION", env)
+
     def test_review_devbox_remote_fallback(self):
         self.install_reviews()
         for state in [{}, {"TEST_STALE": "1"}, {"TEST_NO_SOCKET": "1"}]:
@@ -416,11 +486,7 @@ else:
                     TEST_PLATFORM="Darwin",
                     **state,
                 )
-                self.assertEqual(
-                    result.returncode,
-                    0,
-                    (self.home / ".local/state/gh-review-open.log").read_text(),
-                )
+                self.assertEqual(result.returncode, 0, self.review_log())
                 opened = self.opened()
                 self.assertEqual(
                     opened["argv"],
@@ -431,10 +497,10 @@ else:
                         str(self.home / "Developer/web/review"),
                     ],
                 )
-                self.assertEqual(opened["env"]["MUX_FORCE_KIND"], "rex")
-                self.assertEqual(opened["env"]["REX_SESSION"], "session:web")
-                self.assertNotIn("HERDR_WORKSPACE_ID", opened["env"])
+                self.assert_unpinned(opened["env"])
+                self.assertIn("in workspace session:web", self.review_log())
                 (self.home / "opened.json").unlink()
+                (self.home / ".local/state/gh-review-open.log").unlink()
         self.assertTrue(self.recorded("ssh"))
 
     def test_review_devbox_herdr_and_missing_target(self):
@@ -445,13 +511,11 @@ else:
             "123",
             "iheartradio/web",
             TEST_WORKSPACE="1",
+            TEST_REX_DOWN="1",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        opened = self.opened()
-        self.assertEqual(opened["env"]["HERDR_WORKSPACE_ID"], "herdr:review")
-        self.assertEqual(opened["env"]["HERDR_SOCKET_PATH"], "/stub/herdr.sock")
-        self.assertNotIn("MUX_FORCE_KIND", opened["env"])
-        self.assertFalse(self.recorded("rex"))
+        self.assertEqual(result.returncode, 0, self.review_log())
+        self.assert_unpinned(self.opened()["env"])
+        self.assertIn("in workspace herdr:review", self.review_log())
         (self.home / "opened.json").unlink()
         result = self.run_script(
             "dot_config/gh-dash/executable_review-devbox.sh",
