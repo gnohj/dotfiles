@@ -1816,7 +1816,8 @@ if [[ -z "$TMUX" && -z "$HERDR_ENV" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; th
         TRAPWINCH() {
             [[ $(stty size) == "$_fetch_size" ]] && return
             _fetch_render
-            zle && zle reset-prompt
+            # Builtin widget: a resize mid turbo-load would hit fast-syntax-highlighting's half-built wrapper.
+            zle && zle .reset-prompt
         }
         _fetch_stop_redraw() {
             unfunction TRAPWINCH _fetch_render _fetch_draw _fetch_stop_redraw
