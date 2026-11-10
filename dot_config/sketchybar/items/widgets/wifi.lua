@@ -269,22 +269,16 @@ local function refreshIcon()
 			end
 		end
 
-		sbar.exec([[sleep 2; scutil --nwi | grep -m1 'utun' | awk '{ print $1 }']], function(vpn)
-			refreshingIcon = false
-			if iconRefreshPending then
-				iconRefreshPending = false
-				refreshIcon()
-				return
-			end
-			if vpn ~= "" then
-				wifiIcon = settings.icons.text.wifi.vpn
-				wifiColor = settings.colors.blue
-			end
-			if wifiIcon ~= displayedIcon or wifiColor ~= displayedColor then
-				wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
-				displayedIcon, displayedColor = wifiIcon, wifiColor
-			end
-		end)
+		refreshingIcon = false
+		if iconRefreshPending then
+			iconRefreshPending = false
+			refreshIcon()
+			return
+		end
+		if wifiIcon ~= displayedIcon or wifiColor ~= displayedColor then
+			wifi:set({ icon = { string = wifiIcon, color = wifiColor } })
+			displayedIcon, displayedColor = wifiIcon, wifiColor
+		end
 	end)
 end
 
