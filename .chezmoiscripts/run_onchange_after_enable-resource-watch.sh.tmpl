@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Enable the resource-watch recorder; Linux/systemd only, macOS runs it from the nix-darwin launchd agent.
+# Restart the resource-watch recorder when its script changes: systemd on Linux, launchd on macOS.
 # service sha256: {{ include "dot_config/systemd/user/resource-watch.service" | sha256sum }}
 # script sha256: {{ include "dot_local/bin/executable_resource-watch" | sha256sum }}
 set -eu
 
+if [ "$(uname)" = "Darwin" ]; then
+  # A no-op until darwin-rebuild has loaded the agent.
+  launchctl kickstart -k "gui/$(id -u)/org.nixos.resource-watch" 2>/dev/null || true
+  exit 0
+fi
 [ "$(uname)" = "Linux" ] || exit 0
 command -v systemctl >/dev/null 2>&1 || exit 0
 
