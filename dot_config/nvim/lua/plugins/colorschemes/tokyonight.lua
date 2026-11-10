@@ -229,7 +229,7 @@ return {
         hl["@type.builtin"] = { fg = colors["gnohj_color06"] } -- orange for built-in types (distinct)
         hl.Special = { fg = colors["gnohj_color06"] } -- orange for special/built-in methods
 
-        hl.MiniFilesNormal = { bg = colors["gnohj_color10"] }
+        hl.MiniFilesNormal = { bg = transparent and "NONE" or colors["gnohj_color10"] }
         hl.MiniFilesBorder = { fg = colors["gnohj_color04"] }
         hl.MiniFilesTitle = { fg = colors["gnohj_color04"] }
         hl.MiniFilesTitleFocused = { fg = colors["gnohj_color02"], bold = true }
