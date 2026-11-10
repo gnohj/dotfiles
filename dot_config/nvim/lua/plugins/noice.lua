@@ -2,6 +2,12 @@ return {
   {
     "folke/noice.nvim",
     event = "VeryLazy",
+    -- Claim the cmdline row before the dashboard lays out, or it re-centers mid-fade.
+    init = function()
+      if vim.fn.argc(-1) == 0 then
+        vim.o.cmdheight = 0
+      end
+    end,
     opts = {
       presets = {
         -- This is the search bar or popup that shows up when you press /
