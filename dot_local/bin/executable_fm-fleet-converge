@@ -676,7 +676,6 @@ if [ "$MODE" = crew-account ]; then
       continue
     fi
     echo "$SELF: relaunching $t onto '$pin' (home ${home/#$HOME/\~})"
-    mkdir -p "$HOME/.local/state/claude"; printf '%s\n' "$pin" >"$HOME/.local/state/claude/converge-attempt-$t"
     relaunch_crew "$t" "$home" "Relaunched to move onto the $pin account. $RESUME_NOTE" ||
       echo "$SELF: $t did not settle; see 'claude-session-migrate status' for its worktree"
   done

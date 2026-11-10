@@ -82,6 +82,9 @@ if ! (set -C; printf '%s\n' "$now" >"$stamp") 2>/dev/null; then
   printf '%s\n' "$now" >"$stamp"
 fi
 
+# A debounce stamp is only read for 30 seconds; the harness and brief files beside it are kept.
+find "$stamp_dir" -maxdepth 1 -type f ! -name '*.harness' ! -name '*.txt' -mmin +60 -delete 2>/dev/null || true
+
 # Remembered per PR so a resume restarts a Pi review on Pi, not Claude.
 harness_file="$stamp_dir/${repo//\//_}-$pr.harness"
 if [ "$mode" = resume ] && [ -z "${REVIEW_HARNESS:-}" ] && [ -f "$harness_file" ]; then
