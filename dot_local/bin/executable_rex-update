@@ -21,10 +21,19 @@ case $(grep -c . <<<"$builds") in
 esac
 
 cast=$(curl -fsS --max-time 15 "$appcast") || { echo "rex-update: could not fetch $appcast" >&2; exit 1; }
-want=$(awk -v b="$builds" '/<sparkle:version>/ { gsub(/[^0-9]/, ""); build = $0 } /^Rex [0-9]/ && build == b { print $2; exit }' <<<"$cast")
-newest=$(awk '/^Rex [0-9]/ { print $2; exit }' <<<"$cast")
-[ -n "$want" ] || { echo "rex-update: Mac app build $builds is not in the appcast, rex stays at $have" >&2; exit 1; }
-[ "$newest" != "$want" ] && echo "rex-update: Rex $newest is out; Install Update in the Mac app and the next update brings the dev-box along"
+commit_of() { awk -F'`' -v b="$1" '/<sparkle:version>/ { gsub(/[^0-9]/, ""); build = $0 } /^Rex [0-9]/ && (b == "" || build == b) { print $2; exit }' <<<"$cast"; }
+commit=$(commit_of "$builds")
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "rex-update: Mac app build $builds is not in the appcast, rex stays at $have" >&2; exit 1; }
+[ "$(commit_of "")" != "$commit" ] && echo "rex-update: a newer Rex is out; Install Update in the Mac app and the next update brings the dev-box along"
+
+# Preview releases rename the Mac version (0.1.0-preview.N), but arch packages keep 0.0.<ts>_g<sha>, so match by commit.
+want=$(awk -v c="$commit" '$1 == "Rex" && $2 ~ /^0\.0\.[0-9]+-g[0-9a-f]+$/ && index($0, "`" c "`") { print $2; exit }' <<<"$cast")
+if [ -z "$want" ]; then
+  server=$(sed -n 's/^Server *= *//p' /etc/pacman.d/rex.conf | head -n 1)
+  want=$(curl -fsSL --max-time 15 "${server//\$arch/$(uname -m)}/rex.db" | bsdtar -tf - 2>/dev/null |
+    sed -n "s|^rex-\(0\.0\.[0-9]*_g${commit:0:6}\)-[0-9]*/\$|\1|p" | head -n 1)
+fi
+[ -n "$want" ] || { echo "rex-update: no arch package found for Mac app commit ${commit:0:7} (build $builds), rex stays at $have" >&2; exit 1; }
 
 pkg="${want/-g/_g}-1"
 [ "${have%-*}" = "${pkg%-*}" ] && exit 0
