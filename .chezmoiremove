@@ -214,3 +214,5 @@ scripts/open-tmux-attach.sh
 .config/systemd/user/rex-server.service
 # herdr-jira-status retired: it burned the Codex quota refreshing jira_status, which nothing in the Rex setup reads.
 .local/bin/mux/herdr/herdr-jira-status.sh
+# lib/tiers.lua retired 2026-11-09: resource-watch owns the thresholds and the bar draws the tier it reports.
+.config/sketchybar/lib/tiers.lua

@@ -2,6 +2,7 @@
 """usage:
   resource-watch record            run the recorder (launchd on macOS, systemd on Linux)
   resource-watch snapshot [cpu|rss] print one attributed process snapshot
+  resource-watch beat              print the recorder's latest value and tier per metric; exits 1 when stale
   resource-watch report [DATE]     build DATE's report (default yesterday) into the Lavish Library
   resource-watch report --today    build a partial report for today
   resource-watch catchup           build any missing or incomplete report from the last 7 days
@@ -46,7 +47,7 @@ HERDR = shutil.which("herdr") or os.path.join(HOME, ".local", "bin", "herdr")
 RIFT = shutil.which("rift-cli") or "/opt/homebrew/bin/rift-cli"
 CLK_TCK = os.sysconf("SC_CLK_TCK") if LINUX else 100
 
-# Mirrors sketchybar lib/tiers.lua, cpu_temp.lua and vps.sh; change all three together.
+# The only copy: the bar draws the tier `beat` prints, and the report legend is generated from this.
 TIERS = {
     "cpu": (60, 75, 90),
     "memory": (70, 80, 90),
@@ -443,11 +444,25 @@ def append(event):
         f.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
-def write_beat(t, tiers):
+def write_beat(t, values, tiers):
     tmp = BEAT + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"t": t, "tiers": tiers}, f)
+        json.dump({"t": t, "interval": INTERVAL, "values": values, "tiers": tiers}, f)
     os.replace(tmp, BEAT)
+
+
+def beat():
+    try:
+        with open(BEAT) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        sys.exit(1)
+    if time.time() - data.get("t", 0) > 3 * data.get("interval", INTERVAL):
+        sys.exit(1)
+    values, tiers = data.get("values") or {}, data.get("tiers") or {}
+    for metric in TIERS:
+        value = values.get(metric)
+        print(metric, "-" if value is None else value, tiers.get(metric, 0))
 
 
 def read_metrics(gauge):
@@ -527,7 +542,7 @@ def record():
         if tick - last_checkpoint >= CHECKPOINT:
             append({"type": "state", "tiers": dict(current), "values": values, "code": code})
             last_checkpoint = tick
-        write_beat(tick, current)
+        write_beat(tick, values, current)
         time.sleep(max(0.0, INTERVAL - (time.time() - tick)))
 
 
@@ -691,6 +706,15 @@ def tier_badge(level):
     return f'<span class="badge badge-sm {BADGE[level]}">{TIER_NAMES[level]}</span>'
 
 
+def legend():
+    parts = []
+    for metric, steps in TIERS.items():
+        marks = sorted(set(steps))
+        names = f' ({", ".join(TIER_NAMES[tier(metric, mark)] for mark in marks)})' if len(marks) < 3 else ""
+        parts.append(f'{metric} {"/".join(str(mark) for mark in marks)}{UNITS[metric]}{names}')
+    return ", ".join(parts)
+
+
 def window_list(windows, pwas):
     parts = []
     for w in windows:
@@ -807,7 +831,7 @@ def render(day, hosts, failures, partial, name):
 <h2 class="card-title">Time at each colour</h2>
 <div class="overflow-x-auto"><table class="table table-sm"><thead><tr><th>Host</th><th>Metric</th><th></th><th class="text-right">Yellow</th><th class="text-right">Orange</th><th class="text-right">Red</th></tr></thead>
 <tbody>{"".join(summary_rows) or '<tr><td colspan="6" class="opacity-60">No data recorded for this day.</td></tr>'}</tbody></table></div>
-<p class="text-xs opacity-60">Thresholds: cpu 60/75/90%, memory and disk 70/80/90%, temperature 65/80/90°. Time asleep or powered off is excluded.</p>
+<p class="text-xs opacity-60">Thresholds: {legend()}. Time asleep, powered off or not recorded is excluded.</p>
 </div></section>
 {"".join(sections)}
 </main></body></html>
@@ -863,6 +887,8 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "record":
         record()
+    elif cmd == "beat":
+        beat()
     elif cmd == "snapshot":
         meter = ProcessMeter()
         meter.sample()

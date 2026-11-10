@@ -1,56 +1,54 @@
 #!/bin/bash
-# dev-box CPU, memory, disk and temperature from the box's own herdr-sysinfo.py, so the bar and the herdr sidebar can never disagree.
+# dev-box metrics as its own resource-watch recorder logged them, so bar and report cannot disagree.
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
 VPS_COLOR="$BLUE"
 
 # fleet-dev-box has no port forwards, so it never clashes with an interactive session.
-{ read -r cpu mem disk temp; read -r uptime; } < <(ssh -o BatchMode=yes -o ConnectTimeout=4 -o ServerAliveInterval=2 -o ServerAliveCountMax=2 fleet-dev-box \
-  'HERDR_SYSINFO_RES="{cpu} {memp} {disk} {temp}" HERDR_REPOS_FORMAT= HERDR_SYNC_FORMAT= ~/.local/bin/mux/herdr/herdr-sysinfo.py --print | sed -n 2p; cut -d. -f1 /proc/uptime' 2>/dev/null)
+while read -r name value tier; do
+  if [ "$name" = uptime ]; then uptime="$value"
+  elif [ "$name" = cpu ]; then cpu="$value" cpu_tier="$tier"
+  elif [ "$name" = memory ]; then mem="$value" mem_tier="$tier"
+  elif [ "$name" = disk ]; then disk="$value" disk_tier="$tier"
+  elif [ "$name" = temp ]; then temp="$value" temp_tier="$tier"
+  fi
+done < <(ssh -o BatchMode=yes -o ConnectTimeout=4 -o ServerAliveInterval=2 -o ServerAliveCountMax=2 fleet-dev-box \
+  '/usr/bin/python3 ~/.local/bin/resource-watch beat; echo "uptime $(cut -d. -f1 /proc/uptime)"' 2>/dev/null)
 
-cpu="${cpu%\%}" mem="${mem%\%}" disk="${disk%\%}" temp="${temp%°}"
+# colour05 is the Lua yellow, which colors.sh has no name for.
+tier_color() {
+  if [ "$1" = 3 ]; then echo "$RED"
+  elif [ "$1" = 2 ]; then echo "$ORANGE"
+  elif [ "$1" = 1 ]; then echo "0xff${gnohj_color05#\#}"
+  fi
+}
 
-# Same steps as cpu_temp.lua but resting on the label green; colour05 is the Lua yellow, which colors.sh has no name for.
 temp_color=""
 if [[ "$temp" =~ ^[0-9]+$ ]]; then
-  if (( temp >= 90 )); then temp_color="$RED"
-  elif (( temp >= 80 )); then temp_color="$ORANGE"
-  elif (( temp >= 65 )); then temp_color="0xff${gnohj_color05#\#}"
-  fi
+  temp_color=$(tier_color "$temp_tier")
   temp_label="${temp}°"
 else
   temp_label="--°"
 fi
 
-# Same tiers as lib/tiers.lua: cpu warns from 60/75/90, memory from 70/80/90, disk from 50/75; empty below them.
-tier() {
-  if (( $1 >= $4 )); then echo "$RED"
-  elif (( $1 >= $3 )); then echo "$ORANGE"
-  elif (( $1 >= $2 )); then echo "0xff${gnohj_color05#\#}"
-  fi
-}
-
-disk_tier() {
-  if (( $1 >= 75 )); then echo "$RED"
-  elif (( $1 >= 50 )); then echo "$ORANGE"
-  fi
-}
+uptime_label="--"
+if [[ "$uptime" =~ ^[0-9]+$ ]]; then
+  days=$(( uptime / 86400 ))
+  uptime_label=$(printf '%02dd' $(( days > 999 ? 999 : days )))
+fi
 
 if [[ "$cpu" =~ ^[0-9]+$ && "$mem" =~ ^[0-9]+$ && "$disk" =~ ^[0-9]+$ ]]; then
   cpu=$((10#$cpu)) mem=$((10#$mem)) disk=$((10#$disk))
-  if [[ "$uptime" =~ ^[0-9]+$ ]]; then
-    days=$(( uptime / 86400 ))
-    sketchybar --set widgets.vps_uptime label="$(printf '%02dd' $(( days > 999 ? 999 : days )))"
-  fi
-  cpu_color=$(tier "$cpu" 60 75 90) mem_color=$(tier "$mem" 70 80 90) disk_color=$(disk_tier "$disk")
-  sketchybar --set widgets.vps_cpu label="${cpu}%  " icon.color="${cpu_color:-$ICON_BLUE}" label.color="${cpu_color:-$VPS_COLOR}" \
+  cpu_color=$(tier_color "$cpu_tier") mem_color=$(tier_color "$mem_tier") disk_color=$(tier_color "$disk_tier")
+  sketchybar --set widgets.vps_uptime label="$uptime_label" \
+             --set widgets.vps_cpu label="${cpu}%  " icon.color="${cpu_color:-$ICON_BLUE}" label.color="${cpu_color:-$VPS_COLOR}" \
              --set widgets.vps_memory label="${mem}%  " icon.color="${mem_color:-$ICON_BLUE}" label.color="${mem_color:-$VPS_COLOR}" \
              --set widgets.vps_disk label="${disk}%  " icon.color="${disk_color:-$ICON_BLUE}" label.color="${disk_color:-$VPS_COLOR}" \
              --set widgets.vps_temp label="$temp_label" icon.color="${temp_color:-$ICON_BLUE}" label.color="${temp_color:-$VPS_COLOR}" \
              --trigger group_refresh
 else
-  sketchybar --set widgets.vps_uptime label="--" \
+  sketchybar --set widgets.vps_uptime label="$uptime_label" \
              --set widgets.vps_cpu label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
              --set widgets.vps_memory label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
              --set widgets.vps_disk label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
