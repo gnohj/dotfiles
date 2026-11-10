@@ -19,8 +19,8 @@
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.local/bin/worktree:$PATH"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
 
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+[ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+  source "$HOME/.config/colorscheme/palette.sh"
 
 # Detached zoxide seed of unseen worktrees, so the NEXT picker open is complete without blocking this one.
 ( wtsync >/dev/null 2>&1 & ) 2>/dev/null

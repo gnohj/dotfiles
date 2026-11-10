@@ -28,12 +28,10 @@ esac
 green="#b7ce97"
 warn="#c0aed2"
 red="#da858e"
-active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
-if [ -r "$active" ]; then
+palette_file="$HOME/.config/colorscheme/palette.sh"
+if [ -r "$palette_file" ]; then
   # shellcheck disable=SC1090
-  . "$active" >/dev/null 2>&1
-  # shellcheck disable=SC1091
-  . "$HOME/.config/colorscheme/omarchy-palette.sh" >/dev/null 2>&1 || true
+  . "$palette_file" >/dev/null 2>&1
   green="${gnohj_color02:-$green}"
   warn="${gnohj_color01:-$warn}"
   red="${gnohj_color11:-$red}"

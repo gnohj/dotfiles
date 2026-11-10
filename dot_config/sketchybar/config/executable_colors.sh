@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+source "$HOME/.config/colorscheme/palette.sh"
 
 export BLACK=0xff${gnohj_color10#\#}
 export WHITE=0xff${gnohj_color14#\#}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091,SC2154
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+source "$HOME/.config/colorscheme/palette.sh"
 
 COLORSCHEME_DIR=~/.config/colorscheme/list
 COLORSCHEME_SET_SCRIPT=~/.config/zshrc/colorscheme-set.sh

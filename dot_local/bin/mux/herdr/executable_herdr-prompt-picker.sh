@@ -22,8 +22,8 @@ IFS=$'\x1f' read -r agent cwd < <(printf '%s' "$PANES" |
 [ -d "$cwd" ] || cwd="$HOME"
 project=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || project="$cwd"
 
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+[ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+  source "$HOME/.config/colorscheme/palette.sh"
 color_string="list-border:6,input-border:6,preview-border:6,preview-fg:${gnohj_color04:-},bg+:${gnohj_color13:-},fg+:${gnohj_color02:-},hl+:${gnohj_color04:-},fg:${gnohj_color02:-},info:${gnohj_color09:-},prompt:${gnohj_color04:-},pointer:${gnohj_color04:-},marker:${gnohj_color04:-}"
 
 # The sleep debounces the preview: fzf kills it when the cursor moves on, so a held arrow redraws only the list.

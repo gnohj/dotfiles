@@ -6,9 +6,9 @@ export PATH="$HOME/.local/share/mise/shims:$HOME/.bun/bin:/opt/homebrew/bin:/run
 
 # Quota tiers reuse baby-menu's palette slots: 11 danger, 06 orange, 12 warning, 02 live.
 palette="#a7cfbd #da858e #dc988e #ccd19d #b7ce97"
-active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
-if [ -r "$active" ]; then
-  palette="$( (. "$active" >/dev/null 2>&1; . "$HOME/.config/colorscheme/omarchy-palette.sh" >/dev/null 2>&1 || true; printf '%s %s %s %s %s' "${gnohj_color03:-#a7cfbd}" "${gnohj_color11:-#da858e}" "${gnohj_color06:-#dc988e}" "${gnohj_color12:-#ccd19d}" "${gnohj_color02:-#b7ce97}") )"
+palette_file="$HOME/.config/colorscheme/palette.sh"
+if [ -r "$palette_file" ]; then
+  palette="$( (. "$palette_file" >/dev/null 2>&1; printf '%s %s %s %s %s' "${gnohj_color03:-#a7cfbd}" "${gnohj_color11:-#da858e}" "${gnohj_color06:-#dc988e}" "${gnohj_color12:-#ccd19d}" "${gnohj_color02:-#b7ce97}") )"
 fi
 e=$(printf '\033')
 sgr() {

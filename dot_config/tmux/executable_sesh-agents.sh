@@ -22,8 +22,8 @@ SESH_TOML="${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}"
 # awk aborts on an unreadable input, which would cost the picker every row, not just the chips.
 [[ -s "$ALIAS_CACHE" ]] || ALIAS_CACHE=/dev/null
 
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+[ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+  source "$HOME/.config/colorscheme/palette.sh"
 
 # The "[xx]" chip sits inside the row, between icon and name, so an alias narrows rather than duplicates.
 sesh list "$@" --icons 2>/dev/null | awk -F'\t' -v ESC=$'\033' -v CHIP_HEX="${gnohj_color04:-}" '

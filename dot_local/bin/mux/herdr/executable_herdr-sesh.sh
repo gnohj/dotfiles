@@ -414,8 +414,8 @@ if fpath:
 # --- fzf reload/execute helpers -------------------------------------------------
 case "${1:-}" in
   --list)
-    [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-      source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+    [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+      source "$HOME/.config/colorscheme/palette.sh"
     build_list
     exit 0
     ;;
@@ -432,8 +432,8 @@ os.execv(script, [script, "--warm-locked"])
 ' "${XDG_STATE_HOME:-$HOME/.local/state}/herdr/sesh-git-cache.json.lock" "$SELF"
     ;;
   --warm-locked)
-    [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-      source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+    [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+      source "$HOME/.config/colorscheme/palette.sh"
     sleep 10
     export WARM=1
     build_list >/dev/null 2>&1
@@ -445,8 +445,8 @@ os.execv(script, [script, "--warm-locked"])
     VIEW="${3:-}"
     Q="${4:-}"
     if [ "${5:-}" = --rebuild ]; then
-      [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-        source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+      [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+        source "$HOME/.config/colorscheme/palette.sh"
       build_list >"$ROWS"
     fi
     if [ ! -s "$ROWS" ]; then
@@ -522,8 +522,8 @@ END {
     ;;
   --refresh)
     ROWS="${2:-}"
-    [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-      source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+    [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+      source "$HOME/.config/colorscheme/palette.sh"
     build_list >"$ROWS.tmp" && mv -f "$ROWS.tmp" "$ROWS"
     save_cache "$ROWS"
     : >"$ROWS.fresh"
@@ -658,8 +658,8 @@ hg.drop(sys.argv[1:])
 esac
 
 # --- interactive picker ---------------------------------------------------------
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+[ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+  source "$HOME/.config/colorscheme/palette.sh"
 
 color_string="list-border:6,input-border:6,header-bg:-1,header-border:6,bg+:${gnohj_color13:-},fg+:${gnohj_color02:-},hl+:${gnohj_color04:-},fg:${gnohj_color02:-},info:${gnohj_color09:-},prompt:${gnohj_color04:-},pointer:${gnohj_color04:-},marker:${gnohj_color04:-},header:${gnohj_color09:-}"
 

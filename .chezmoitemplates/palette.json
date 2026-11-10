@@ -1,9 +1,8 @@
 {{- /* The gnohj_color* palette as JSON, resolved at apply time so a config chezmoi renders matches byte-for-byte what colorscheme-set.sh writes - otherwise chezmoi reads the generated file as drift and reverts it on the next apply. */ -}}
 {{- $seed := printf `. "%s/dot_config/colorscheme/active/executable_active-colorscheme.sh" 2>/dev/null
-. "%s/dot_config/colorscheme/executable_relight.sh" 2>/dev/null` .chezmoi.sourceDir .chezmoi.sourceDir -}}
+. "%s/dot_config/colorscheme/executable_relight.sh" 2>/dev/null
+. "%s/dot_config/colorscheme/executable_palette.sh" 2>/dev/null` .chezmoi.sourceDir .chezmoi.sourceDir .chezmoi.sourceDir -}}
 {{- $script := print $seed `
-. "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null
-. "$HOME/.config/colorscheme/omarchy-palette.sh" 2>/dev/null
 printf '{'
 sep=
 for v in $(compgen -v | grep '^gnohj_color[0-9]*$'); do

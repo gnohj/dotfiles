@@ -6,7 +6,7 @@ set -uo pipefail
 store="$HOME/.local/bin/mux/herdr/herdr-annotate-store.py"
 
 # shellcheck disable=SC1091
-[ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] && . "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+[ -f "$HOME/.config/colorscheme/palette.sh" ] && . "$HOME/.config/colorscheme/palette.sh"
 FZF_COLORS="--color=bg+:${gnohj_color13:-},border:${gnohj_color03:-},fg:${gnohj_color04:-},fg+:${gnohj_color04:-},hl+:${gnohj_color04:-},info:${gnohj_color09:-},prompt:${gnohj_color04:-},pointer:${gnohj_color04:-},marker:${gnohj_color04:-},header:${gnohj_color09:-}"
 
 export HERDR_ANNOTATE_KEY_COLOR="${gnohj_color02:-}" HERDR_ANNOTATE_TEXT_COLOR="${gnohj_color04:-}"

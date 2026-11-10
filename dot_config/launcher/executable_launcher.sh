@@ -35,8 +35,8 @@ if [ "$LAUNCHER_NEEDS" = preview ]; then
   MUX_LIVE="${MUX_LIVE:-}"
 else
   # shellcheck source=/dev/null
-  [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ] &&
-    source "$HOME/.config/colorscheme/active/active-colorscheme.sh" || true
+  [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
+    source "$HOME/.config/colorscheme/palette.sh" || true
 
   # mux_kind() — one definition of "which mux is live", shared with the mux dispatcher.
   # shellcheck source=/dev/null

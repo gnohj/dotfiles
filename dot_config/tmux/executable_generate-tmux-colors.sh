@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090
 # shellcheck disable=SC1091
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null || true
+source "$HOME/.config/colorscheme/palette.sh" 2>/dev/null || true
 
 # Defensive defaults (Tokyo Night-ish) for the vars this script emits, in case
 # the active palette is momentarily unavailable (e.g. mid `chezmoi apply` on a

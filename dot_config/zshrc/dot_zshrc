@@ -81,13 +81,9 @@ if [ -f "$HOME/.config/colorscheme/colorscheme-vars.sh" ]; then
   source "$HOME/.config/colorscheme/colorscheme-vars.sh"
 fi
 
-# Source active colorscheme to get color variables (gnohj_color01, etc.)
-if [ -f "$HOME/.config/colorscheme/active/active-colorscheme.sh" ]; then
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
-fi
-# On Omarchy the desktop theme wins over the repo palette; a no-op everywhere else.
-if [ -f "$HOME/.config/colorscheme/omarchy-palette.sh" ]; then
-  source "$HOME/.config/colorscheme/omarchy-palette.sh"
+# Load the palette (gnohj_color01, etc.) through the one loader.
+if [ -f "$HOME/.config/colorscheme/palette.sh" ]; then
+  source "$HOME/.config/colorscheme/palette.sh"
 fi
 
 #-------------------------------------------------------------------------------
@@ -1376,7 +1372,7 @@ alias fmc="fm-compass"
 unalias outdated 2>/dev/null
 outdated() {
   # Source active colorscheme to get current colors
-  source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null
+  source "$HOME/.config/colorscheme/palette.sh" 2>/dev/null
 
   # Convert hex to RGB for terminal colors
   local brew_color_hex="${gnohj_color01#\#}"  # Magenta/Purple (brew notification color)

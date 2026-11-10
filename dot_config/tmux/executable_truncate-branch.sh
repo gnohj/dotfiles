@@ -11,7 +11,7 @@ log() {
 }
 
 # shellcheck disable=SC1090
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh" 2>/dev/null
+source "$HOME/.config/colorscheme/palette.sh" 2>/dev/null
 
 input="${1:-$(cat)}"
 log "Input received: $input"

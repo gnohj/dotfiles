@@ -2,7 +2,7 @@
 # shellcheck disable=SC2154
 # shellcheck disable=SC1090
 
-source "$HOME/.config/colorscheme/active/active-colorscheme.sh"
+source "$HOME/.config/colorscheme/palette.sh"
 
 PANE_ID="${1:-}"
 
