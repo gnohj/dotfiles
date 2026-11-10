@@ -7,13 +7,11 @@ import plistlib
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
 UID = os.getuid()
 HOME = Path.home()
-CACHE = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "sketchybar" / "schedules.json"
 PLIST_LOCATIONS = (
     (HOME / "Library/LaunchAgents", f"gui/{UID}"),
     (Path("/Library/LaunchAgents"), f"gui/{UID}"),
@@ -80,6 +78,15 @@ def human_duration(seconds):
     return f"{days}d {hours:02d}h"
 
 
+def cadence(seconds):
+    parts = []
+    for unit, size in (("d", 86400), ("h", 3600), ("m", 60), ("s", 1)):
+        count, seconds = divmod(seconds, size)
+        if count:
+            parts.append(f"{count}{unit}")
+    return "every " + " ".join(parts)
+
+
 def friendly_name(label):
     if label in KNOWN_NAMES:
         return KNOWN_NAMES[label]
@@ -120,29 +127,27 @@ def launch_snapshot():
 
 def launch_state(label, domain, plist_disabled, disabled, snapshot=None):
     if plist_disabled or label in disabled:
-        return {"status": "disabled", "runs": None, "active": False, "problem": False}
+        return {"status": "disabled", "active": False, "problem": False}
     if snapshot is not None and domain == f"gui/{UID}":
         if label not in snapshot:
-            return {"status": "unloaded", "runs": None, "active": False, "problem": True}
+            return {"status": "unloaded", "active": False, "problem": True}
         pid, exit_code = snapshot[label]
         if pid != "-":
-            return {"status": "running", "runs": None, "active": True, "problem": False}
+            return {"status": "running", "active": True, "problem": False}
         if exit_code >= 0:
             status = "failed" if exit_code else "scheduled"
-            return {"status": status, "runs": None, "active": True, "problem": bool(exit_code)}
+            return {"status": status, "active": True, "problem": bool(exit_code)}
     result = run(["/bin/launchctl", "print", f"{domain}/{label}"])
     if result.returncode != 0:
-        return {"status": "unloaded", "runs": None, "active": False, "problem": True}
+        return {"status": "unloaded", "active": False, "problem": True}
     state_match = re.search(r"^\s*state = (.+)$", result.stdout, re.MULTILINE)
-    runs_match = re.search(r"^\s*runs = (\d+)$", result.stdout, re.MULTILINE)
     exit_match = re.search(r"^\s*last exit code = (-?\d+)$", result.stdout, re.MULTILINE)
     state = state_match.group(1) if state_match else ""
-    runs = int(runs_match.group(1)) if runs_match else None
     if state == "running":
-        return {"status": "running", "runs": runs, "active": True, "problem": False}
+        return {"status": "running", "active": True, "problem": False}
     if exit_match and int(exit_match.group(1)) != 0:
-        return {"status": "failed", "runs": runs, "active": True, "problem": True}
-    return {"status": "scheduled", "runs": runs, "active": True, "problem": False}
+        return {"status": "failed", "active": True, "problem": True}
+    return {"status": "scheduled", "active": True, "problem": False}
 
 
 def calendar_entries(value):
@@ -190,34 +195,7 @@ def next_calendar(value, now):
     return best
 
 
-def load_cache():
-    try:
-        return json.loads(CACHE.read_text())
-    except (OSError, json.JSONDecodeError):
-        return {"jobs": {}}
-
-
-def save_cache(cache):
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", dir=CACHE.parent, delete=False) as handle:
-        json.dump(cache, handle)
-        temporary = handle.name
-    os.replace(temporary, CACHE)
-
-
-def interval_remaining(label, interval, runs, now, cache):
-    jobs = cache.setdefault("jobs", {})
-    previous = jobs.get(label, {})
-    last_seen = previous.get("last_seen")
-    if last_seen is None or (previous and runs is not None and previous.get("runs") != runs):
-        last_seen = now.timestamp()
-    jobs[label] = {"runs": runs, "last_seen": last_seen}
-    elapsed = max(0, now.timestamp() - last_seen)
-    remaining = interval - (elapsed % interval)
-    return human_duration(remaining)
-
-
-def plist_jobs(now, cache, summary=False):
+def plist_jobs(now, summary=False):
     jobs = []
     snapshot = launch_snapshot() if summary else None
     disabled_by_domain = {}
@@ -241,14 +219,13 @@ def plist_jobs(now, cache, summary=False):
             section = section_for(label, path)
             if section is None:
                 continue
-            state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain],
-                                 None if interval else snapshot)
+            state = launch_state(label, domain, bool(plist.get("Disabled")), disabled_by_domain[domain], snapshot)
             manageable = domain.startswith("gui/")
             runnable = manageable and state["active"]
             if state["status"] in {"disabled", "unloaded", "failed", "running"}:
                 remaining = state["status"]
             elif interval:
-                remaining = interval_remaining(label, int(interval), state["runs"], now, cache)
+                remaining = cadence(int(interval))
             elif summary:
                 remaining = ""
             elif calendar:
@@ -438,9 +415,7 @@ def claude_jobs(now):
 def main():
     summary = "--summary" in sys.argv[1:]
     now = dt.datetime.now().astimezone()
-    cache = load_cache()
-    jobs = plist_jobs(now, cache, summary) + claude_jobs(now) + cron_jobs(now)
-    save_cache(cache)
+    jobs = plist_jobs(now, summary) + claude_jobs(now) + cron_jobs(now)
     jobs.sort(key=lambda job: (SECTION_ORDER[job["section"]], job["name"].lower()))
     active = sum(job["active"] for job in jobs)
     problems = sum(job["problem"] for job in jobs)
