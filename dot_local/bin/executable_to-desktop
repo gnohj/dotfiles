@@ -80,7 +80,7 @@ default_browser() {
 
 # Chrome activates itself even under `open -g` and Rift follows it to its workspace, so blacklist the browser for the open and hand focus back.
 open_background() {
-  local browser prior original lock="${TMPDIR:-/tmp}/to-desktop-background.lock" i
+  local browser prior original edit=0 deadline lock="${TMPDIR:-/tmp}/to-desktop-background.flock"
   # rift-focus-keeper follows a blacklisted browser itself, so this file tells it to sit the open out.
   local hold="${XDG_STATE_HOME:-$HOME/.local/state}/rift/follow-hold"
   browser=$(default_browser)
@@ -89,26 +89,31 @@ open_background() {
     open_in_named_window "$1" || open -g "$1"
     return
   fi
-  # Serialized so a batch of finished reviews never restores another open's temporary entry as the original.
-  for i in $(seq 100); do
-    mkdir "$lock" 2>/dev/null && break
-    [ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$lock" 2>/dev/null
-    sleep 0.1
-  done
-  original=$(rift-cli execute config get 2>/dev/null | jq -c '.settings.auto_focus_blacklist // []')
-  rift-cli execute config set settings.auto_focus_blacklist "$(jq -cn --argjson o "$original" --arg b "$browser" '$o + [$b] | unique')" >/dev/null 2>&1
+  # A kernel lock dies with its holder, and an open that cannot get a turn lands plainly rather than edit shared state unserialized.
+  if ! { exec 9>"$lock"; } 2>/dev/null || ! lockf -s -t 10 9 2>/dev/null; then
+    exec 9>&-
+    open_in_named_window "$1" || open -g "$1"
+    return
+  fi
+  original=$(rift-cli execute config get 2>/dev/null | jq -c '.settings.auto_focus_blacklist // []' 2>/dev/null)
+  # Edited only when the browser is missing from a list that was actually read, so nothing unread is ever written back.
+  if [ "$(jq -cn --argjson o "${original:-null}" --arg b "$browser" '($o | type) == "array" and ($o | index($b)) == null' 2>/dev/null)" = true ]; then
+    rift-cli execute config set settings.auto_focus_blacklist "$(jq -cn --argjson o "$original" --arg b "$browser" '$o + [$b]')" >/dev/null 2>&1 && edit=1
+  fi
   mkdir -p "${hold%/*}" && touch "$hold"
   open_in_named_window "$1" || open -g "$1"
-  for i in $(seq 20); do
+  # By the clock, not by count: each check costs an osascript call, which stretched 20 rounds to several seconds.
+  deadline=$((SECONDS + 2))
+  while [ "$SECONDS" -le "$deadline" ]; do
     sleep 0.1
     [ "$(front_app "unix id")" != "$prior" ] || continue
     osascript -e "tell application \"System Events\" to set frontmost of first process whose unix id is $prior to true" >/dev/null 2>&1
     break
   done
   sleep 0.3
-  rift-cli execute config set settings.auto_focus_blacklist "$original" >/dev/null 2>&1
+  [ "$edit" = 1 ] && rift-cli execute config set settings.auto_focus_blacklist "$original" >/dev/null 2>&1
   rm -f "$hold"
-  rmdir "$lock" 2>/dev/null
+  exec 9>&-
 }
 
 LINK_WINDOW=review
