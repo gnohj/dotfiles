@@ -55,6 +55,7 @@ function M.setup()
     title = "Lazygit (floating)",
     category = "Tools",
     run = function(ctx, args)
+      if c.forward(ctx, "lazygit") then return end
       local cwd = c.block_cwd(ctx.block_id)
       local repo = rex.exec{ "git", "-C", cwd, "rev-parse", "--git-dir" }
       if repo == nil or not repo.ok then return end

@@ -40,6 +40,14 @@ function M.write_state(name, value)
   f:close()
 end
 
+-- A key in another server's pane runs this server's action, so hand it to that server's own copy.
+function M.forward(ctx, action)
+  if type(ctx.server) ~= "string" then return false end
+  M.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false -S "$0" do -s "$1" -b "$2" "$3"',
+                                    ctx.server, ctx.session_id or "", ctx.block_id or "", action }, { detach = true, env = M.REX_ENV })))
+  return true
+end
+
 function M.foreground(block_id)
   local p = rex.block.call(M.TERM, "process", { block_id = block_id })
   if p == nil then return nil end
