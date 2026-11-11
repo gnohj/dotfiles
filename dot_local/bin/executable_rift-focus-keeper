@@ -471,8 +471,8 @@ def stop(signum, frame):
 
 
 def rift_server_pid():
-    # The --recover-windows helper shares the name, so only launchd's own child counts as the server.
-    found = subprocess.run(["/usr/bin/pgrep", "-nx", "-P", "1", "rift"], capture_output=True, text=True).stdout.strip()
+    # -a: pgrep skips its own ancestors, and Rift is ours; the exact argv leaves out the --recover-windows helper.
+    found = subprocess.run(["/usr/bin/pgrep", "-anxf", os.path.join(os.path.dirname(RIFT), "rift")], capture_output=True, text=True).stdout.strip()
     return int(found) if found else None
 
 
