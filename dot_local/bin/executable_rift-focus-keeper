@@ -41,6 +41,8 @@ MATCHERS = ("app_id", "app_name", "title_regex", "title_substring", "ax_role", "
 # to-desktop touches this around a background open; the age limit covers an opener that died holding it.
 HOLD = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "rift", "follow-hold")
 HOLD_LIMIT = 10.0
+# A workspace_changed naming the keeper's own switch target within this long is its own echo.
+OWN_SWITCH_WINDOW = 1.0
 
 VERBOSE = os.environ.get("RIFT_FOCUS_KEEPER_VERBOSE") == "1"
 history = defaultdict(list)
@@ -57,6 +59,7 @@ last_focused = None
 current_focus = None
 pending = None
 settling = None
+own_switch = None
 
 
 def log(message):
@@ -190,6 +193,7 @@ def follow_held():
 
 def follow_new_window(wid):
     # Rift focuses a fresh window on its rule's hidden workspace but never switches there.
+    global own_switch
     if follow_held():
         return False
     try:
@@ -207,6 +211,7 @@ def follow_new_window(wid):
         # Focusing the display that is already active re-raises its current window, which pulls Rift straight back.
         if not on_active_display:
             rift_run("display", "focus", "--uuid", uuid)
+        own_switch = (ws.get("name"), time.monotonic() + OWN_SWITCH_WINDOW)
         rift_run("workspace", "switch", str(index))
         say(f"followed {wid[0]}:{wid[1]} to {ws.get('name')}")
         return True
@@ -392,11 +397,26 @@ def follow_settled(now):
     global settling, claimed
     if settling is None or now < settling[1]:
         return
-    wid, _, previous = settling
+    wid, deadline, previous = settling
     settling = None
+    # Rift reports the focus of a workspace the user just switched to up to ~500ms late, so a key or click since is the user leaving.
+    if seconds_since_input() < now - (deadline - FOLLOW_SETTLE):
+        return
     if claimed is None and current_focus == wid and follow_new_window(wid):
         rift_run("window", "focus", "--window-id", json.dumps({"pid": wid[0], "idx": wid[1]}))
         claimed = (wid, now + CLAIM_WINDOW, now + BROWSER_CLAIM_WINDOW, previous)
+
+
+def on_workspace_changed(event, now):
+    # A switch the keeper did not make leaves any focus it was about to follow stale.
+    global own_switch, settling, claimed, pending
+    if own_switch is not None and now <= own_switch[1] and event.get("workspace_name") == own_switch[0]:
+        own_switch = None
+        return
+    settling = None
+    if seconds_since_input() < INPUT_WINDOW:
+        claimed = None
+        pending = None
 
 
 def on_focused_window_changed(event, now):
@@ -537,6 +557,8 @@ def main():
                 refresh_centers()
             elif kind == "focused_window_changed":
                 on_focused_window_changed(event, now)
+            elif kind == "workspace_changed":
+                on_workspace_changed(event, now)
             elif kind == "window_title_changed":
                 on_title_changed(event, now)
             elif kind == "tick":
