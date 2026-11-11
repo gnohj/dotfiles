@@ -130,6 +130,10 @@ sign_in_end() {
   printf '%s' "$1" | jq -r 'select(.refreshTokenExpiresAt) | "\(.refreshTokenExpiresAt / 1000 | floor | strftime("%Y-%m-%d")) \((.refreshTokenExpiresAt / 1000 - now) / 86400 | floor)"' 2>/dev/null || true
 }
 
+plan() {
+  printf '%s' "$1" | jq -r '.subscriptionType // empty' 2>/dev/null || true
+}
+
 ended() {
   local end
   end="$(sign_in_end "$1")"
@@ -316,6 +320,10 @@ login)
   recognise || exit 1
   stash_live
   before="$(live_json)"
+  other=work
+  [ "$2" = work ] && other=personal
+  was="$(plan "$(slot_read "$2")")"
+  theirs="$(plan "$(slot_read "$other")")"
   # A sign-in rewrites the shared ~/.claude.json oauthAccount, so the terminal's copy is restored after.
   saved_account="$(jq -c '.oauthAccount // empty' "$HOME/.claude.json" 2>/dev/null || true)"
   # A failed sign-in can leave the store rewritten without its MCP sign-ins, so the saved copy goes back.
@@ -325,11 +333,17 @@ login)
   fi
   login="$(live_login)"
   [ -n "$login" ] || die "the sign-in did not leave a login in the default store"
-  [ -n "$before" ] && set_live_login "$login" "$before"
   if [ -n "$saved_account" ]; then
     tmp="$(mktemp "$HOME/.claude.json.XXXXXX")"
     jq --argjson a "$saved_account" '.oauthAccount = $a' "$HOME/.claude.json" >"$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$HOME/.claude.json" || rm -f "$tmp"
   fi
+  # A browser still signed into the other account approves as that account without asking.
+  now="$(plan "$login")"
+  if [ -n "$was" ] && [ "$now" != "$was" ] && [ "$now" = "$theirs" ]; then
+    [ -n "$before" ] && write_store "$before"
+    die "that sign-in is a '$now' account like the saved $other login, not '$was' like $2; nothing was saved. Switch the browser to the $2 account and run this again"
+  fi
+  [ -n "$before" ] && set_live_login "$login" "$before"
   slot_write "$2" "$login"
   set_current "$2"
   echo "$SELF: saved the $2 login, $(login_state "$login"); '$SELF $2' now switches Infinitary to it"
