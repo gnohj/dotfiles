@@ -10,7 +10,7 @@ import subprocess
 KIND_MARK = {"scout": "\U0001f52d", "ship": "⛵"}
 SECONDMATE_MARK = "\U0001f6a2"
 CACHE_DIR = os.path.expanduser("~/.cache/fm-rex-labels")
-TAB_NUMBER_RE = re.compile(r"^\d+\. ?")
+TAB_NUMBER_RE = re.compile(r"^\d+\. ")
 
 
 def rex(server, *args):
