@@ -39,6 +39,8 @@ export default {
       match: [
         "*.atlassian.net/*",
         "github.com/iheartradio/*",
+        "*.iheart.com/*",
+        "*.internal.example.com/*",
         "*.ts.net/*",
         "*.safelinks.protection.outlook.com/*",
         "iheartmedia.sharepoint.com/*",
