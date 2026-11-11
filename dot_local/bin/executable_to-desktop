@@ -126,8 +126,11 @@ function run([url, name, background, bundle]) {
   if (!app.running()) throw new Error("browser not running");
   const win = app.windows().find((w) => w.givenName() === name);
   if (!win) throw new Error("no window named " + name);
+  const prior = win.activeTabIndex();
   win.tabs.push(app.Tab({ url }));
-  if (background !== "1") {
+  if (background === "1") {
+    win.activeTabIndex = prior;
+  } else {
     win.index = 1;
     app.activate();
   }
