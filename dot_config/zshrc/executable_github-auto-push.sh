@@ -69,6 +69,15 @@ OUTAGE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/git-autopush/outage-runs"
 REMOTE_DOWN_RE='timed out|Could not resolve host|Connection (closed|reset|refused)|closed by remote host|Permission denied \(publickey\)|Network is unreachable|No route to host'
 REMOTE_FAILS=0
 REMOTE_OK=0
+STUCK_DIR="${OUTAGE_FILE%/*}/stuck"
+
+# A repo that needs a hand has stopped syncing, which is worth one banner per episode, not one per run.
+announce_stuck() {
+  local repo="$1" message="$2"
+  [[ -e "$STUCK_DIR/$repo" ]] && return 0
+  mkdir -p "$STUCK_DIR" && : >"$STUCK_DIR/$repo"
+  display_notification "$message" "Git Autopush" "$repo"
+}
 
 report_git_failure() {
   local what="$1" repo="$2"
@@ -118,6 +127,13 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
     continue
   fi
 
+  # Quiet files do not mean finished work: an unattended commit would conclude a stopped merge, conflict markers and all.
+  if [[ -n $(git ls-files --unmerged | head -n 1) || -e $(git rev-parse --git-path MERGE_HEAD) || -e $(git rev-parse --git-path CHERRY_PICK_HEAD) || -e $(git rev-parse --git-path REVERT_HEAD) ]]; then
+    log_message "INFO" "$REPO_NAME" "Merge, cherry-pick or revert in progress - leaving it alone"
+    announce_stuck "$REPO_NAME" "$REPO_NAME is mid-merge - not syncing until it is finished or aborted"
+    continue
+  fi
+
   log_message "INFO" "$REPO_NAME" "Starting git operations"
 
   # Clean up stale lock files from crashed git processes
@@ -141,14 +157,28 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
   # Check for unstaged changes and skip pull if found
   if [[ -n $(git status --porcelain) ]]; then
     log_message "INFO" "$REPO_NAME" "Unstaged changes detected. Skipping pull."
+    rm -f "$STUCK_DIR/$REPO_NAME"
   else
     # if ! git pull --rebase >>/tmp/git_error.log 2>&1; then
     if ! git pull --rebase 2>"$ERROR_LOG"; then
       ERROR_MSG=$(cat "$ERROR_LOG")
-      report_git_failure "Pull" "$REPO_NAME"
-      continue
+      # Never leave an unattended repo mid-rebase: detached, every later run would skip it without a word.
+      git rebase --abort 2>/dev/null || true
+      if [[ "$ERROR_MSG" =~ $REMOTE_DOWN_RE ]]; then
+        report_git_failure "Pull" "$REPO_NAME"
+        continue
+      elif git merge-base --is-ancestor '@{upstream}' HEAD 2>/dev/null && [[ -n $(git rev-list --merges '@{upstream}..HEAD' | head -n 1) ]]; then
+        # A merge made by hand already holds the remote's commits; replaying it is what failed, so it is pushed as it is.
+        log_message "INFO" "$REPO_NAME" "Local merge already contains the remote - pushing it as it is"
+        rm -f "$STUCK_DIR/$REPO_NAME"
+      else
+        log_message "ERROR" "$REPO_NAME" "Pull failed: $ERROR_MSG"
+        announce_stuck "$REPO_NAME" "$REPO_NAME pull failed - not syncing until it is fixed by hand, see the log"
+        continue
+      fi
     else
       REMOTE_OK=$((REMOTE_OK + 1))
+      rm -f "$STUCK_DIR/$REPO_NAME"
       log_message "INFO" "$REPO_NAME" "Pull completed successfully"
     fi
   fi
