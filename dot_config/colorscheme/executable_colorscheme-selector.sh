@@ -1,34 +1,209 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1091,SC2154
+# shellcheck disable=SC1090,SC2154
 
-source "$HOME/.config/colorscheme/palette.sh"
+# Usage: colorscheme-selector.sh [name-filter] [header] [prompt] | <wallpaper image>. Enter keeps, Esc reverts, Tab toggles live preview.
 
-COLORSCHEME_DIR=~/.config/colorscheme/list
-COLORSCHEME_SET_SCRIPT=~/.config/zshrc/colorscheme-set.sh
+list="$HOME/.config/colorscheme/list"
+active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
+setter="${COLORSCHEME_SET_SCRIPT:-$HOME/.config/zshrc/colorscheme-set.sh}"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/colorscheme"
+lock="$state/lock"
+gen="${THEME_GENERATOR:-$HOME/.local/bin/theme-from-wallpaper}"
+new_row="+ new from wallpaper"
+# ANSI indexes, not palette hexes, so the picker's own chrome follows the terminal as it repaints.
+fzf_colors="bg+:8,fg+:7,hl+:4,fg:2,info:8,prompt:4,pointer:4,marker:4,header:8,border:6"
+
+pending() { want=$(cat "$state/want" 2>/dev/null) && [ -f "$list/$want" ] && ! cmp -s "$list/$want" "$active"; }
+
+# One worker at a time, always applying the newest request, so fast scrolling never lands an older theme last.
+worker() {
+  while pending && mkdir "$lock" 2>/dev/null; do
+    while pending; do "$setter" --preview "$want" >/dev/null 2>&1 || rm -f "$state/want"; done
+    rmdir "$lock"
+  done
+}
+
+# Stop previewing and let an in-flight apply finish (5s cap, so a hung setter cannot hang the picker).
+settle() {
+  rm -f "$state/want"
+  for _ in {1..100}; do
+    [ -d "$lock" ] || break
+    sleep 0.05
+  done
+}
+
+revert() {
+  settle
+  cmp -s "$state/origin" "$active" || { cp "$state/origin" "$active" && "$setter" --preview >/dev/null 2>&1; }
+}
+
+# Kitty unicode placeholders are plain text cells, so fzf lays the image out like any line; returns 1 where the terminal cannot draw them.
+thumb() {
+  case "${TERM_PROGRAM:-}${KITTY_WINDOW_ID:+kitty}" in rex | ghostty | *kitty) ;; *) return 1 ;; esac
+  [ "$3" -ge 3 ] && [ -f "$1" ] && command -v kitten >/dev/null 2>&1 || return 1
+  # The last icat line is a bare reset with no newline, which makes fzf draw a scroll marker; fold it into the line before.
+  kitten icat --clear --transfer-mode=stream --unicode-placeholder --stdin=no --align=left --place="${2}x${3}@0x0" "$1" 2>/dev/null | sed '$d' | sed $'$s/$/\e[m/'
+}
+
+preview() {
+  [ -f "$list/$1" ] || return 0
+  . "$list/$1"
+  local live=OFF cols="${FZF_PREVIEW_COLUMNS:-60}" c
+  if [ ! -e "$state/live-off" ]; then
+    live=ON
+    printf '%s' "$1" >"$state/want"
+    # Own process group: fzf kills the preview's group on every cursor move, and a half-finished apply must not die with it.
+    (
+      set -m
+      "$0" --worker &
+    ) >/dev/null 2>&1
+  fi
+
+  local B C P T H K F S Y N M R
+  rgb() { printf -v "$1" '\e[%d;2;%d;%d;%dm' "$2" "0x${3:1:2}" "0x${3:3:2}" "0x${3:5:2}"; }
+  rgb C 48 "$gnohj_color07"
+  rgb T 38 "$gnohj_color04"
+  rgb H 38 "$gnohj_color14"
+  rgb K 38 "$gnohj_color01"
+  rgb F 38 "$gnohj_color03"
+  rgb S 38 "$gnohj_color02"
+  rgb Y 38 "$gnohj_color05"
+  rgb N 38 "$gnohj_color15"
+  rgb M 38 "$gnohj_color09"
+  rgb R 38 "$gnohj_color11"
+
+  # Padded to the pane width so a background fills the row; ASCII only, so ${#text} is the width in any locale.
+  row() {
+    local out="" n=0
+    while [ $# -gt 0 ]; do
+      out+="$1$2"
+      n=$((n + ${#2}))
+      shift 2
+    done
+    printf '%s%s%*s\e[0m\n' "$B" "$out" $((cols > n ? cols - n : 0)) ''
+  }
+
+  row "$H" " ${1%-colors.sh}"
+  printf '%s ' "$B"
+  for c in "$gnohj_color11" "$gnohj_color15" "$gnohj_color05" "$gnohj_color02" "$gnohj_color03" "$gnohj_color04" "$gnohj_color01" "$gnohj_color14"; do
+    printf '\e[48;2;%d;%d;%dm    ' "0x${c:1:2}" "0x${c:3:2}" "0x${c:5:2}"
+  done
+  printf '%s%*s\e[0m\n' "$B" $((cols > 33 ? cols - 33 : 0)) ''
+  printf '%s ' "$B"
+  for c in "$gnohj_color07" "$gnohj_color17" "$gnohj_color16" "$gnohj_color13" "$gnohj_color08" "$gnohj_color09" "$gnohj_color24" "$gnohj_color06"; do
+    printf '\e[38;2;%d;%d;%dm▀▀▀▀' "0x${c:1:2}" "0x${c:3:2}" "0x${c:5:2}"
+  done
+  printf '%s%*s\e[0m\n' "$B" $((cols > 33 ? cols - 33 : 0)) ''
+  row "$T" ""
+  row "$F" " ~/.local/share/chezmoi " "$K" "main " "$S" "\$ " "$T" "git status " "$M" "-sb"
+  row "$T" ""
+  P=$B B=$C
+  row "$K" " fn " "$F" "apply" "$H" "(" "$T" "theme" "$H" ": " "$Y" "&Theme" "$H" ") -> " "$Y" "Result" "$H" "<()> {"
+  row "$K" "   let " "$T" "bg " "$H" "= " "$T" "theme" "$H" "." "$F" "color" "$H" "(" "$S" '"background"' "$H" "); " "$M" "// lookup"
+  row "$F" "   reload" "$H" "(" "$Y" "Surface" "$H" "::" "$T" "Ghostty" "$H" ", " "$N" "120" "$H" ")?;"
+  row "$H" " }"
+  B=$P
+  row "$T" ""
+  row "$S" " + foreground = $gnohj_color04"
+  row "$R" " - background = $gnohj_color10"
+  row "$T" ""
+  row "$M" " live $live  " "$M" "(tab toggles)"
+  row "$M" " wallpaper  " "$T" "${wallpaper##*/}"
+
+  thumb "$wallpaper" $((cols - 2)) $((${FZF_PREVIEW_LINES:-0} - 17))
+}
+
+case "${1:-}" in
+--preview)
+  preview "$2"
+  exit 0
+  ;;
+--worker)
+  worker
+  exit 0
+  ;;
+--image)
+  thumb "$2" "${FZF_PREVIEW_COLUMNS:-40}" "${FZF_PREVIEW_LINES:-0}" || printf '%s\n' "$2"
+  exit 0
+  ;;
+--toggle)
+  if [ -e "$state/live-off" ]; then rm -f "$state/live-off"; else
+    : >"$state/live-off"
+    revert
+  fi
+  exit 0
+  ;;
+esac
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf is not installed. Please install it first."
   exit 1
 fi
 
-# shellcheck disable=SC2207
-schemes=($(find "$COLORSCHEME_DIR" -name "*.sh" -print0 | xargs -0 -n 1 basename))
+if [ -f "${1:-}" ]; then
+  THEME_NEW=$("$gen" "$1") || exit 1
+  export THEME_NEW
+  set --
+fi
 
-if [ ${#schemes[@]} -eq 0 ]; then
-  echo "No color scheme scripts found in $COLORSCHEME_DIR."
+shopt -s nullglob nocasematch
+new="" first="" rest=""
+[ -f "$list/${THEME_NEW:-}" ] && new="$THEME_NEW"$'\n'
+for f in "$list"/*.sh; do
+  n="${f##*/}"
+  [ "$n" = "${THEME_NEW:-}" ] && continue
+  case "$n" in *"${1:-}"*) ;; *) continue ;; esac
+  # The active scheme leads so the cursor opens on it and nothing repaints until you move.
+  if cmp -s "$f" "$active"; then first="$n"$'\n'; else rest+="$n"$'\n'; fi
+done
+if [ -z "$new$first$rest" ]; then
+  echo "No color scheme scripts found in $list."
   exit 1
 fi
 
-selected_scheme=$(printf "%s\n" "${schemes[@]}" | fzf \
-  --height=40% \
-  --reverse \
-  --header="Select a Color Scheme" \
-  --prompt="Theme > " \
-  --color "bg+:$gnohj_color16,fg+:$gnohj_color14,hl+:$gnohj_color04,fg:$gnohj_color02,info:$gnohj_color09,prompt:$gnohj_color04,pointer:$gnohj_color04,marker:$gnohj_color04,header:$gnohj_color09")
+mkdir -p "$state"
+rmdir "$lock" 2>/dev/null
+rm -f "$state/want"
+cp "$active" "$state/origin"
+trap revert EXIT
+trap 'exit 129' HUP INT TERM
 
-if [ -z "$selected_scheme" ]; then
-  echo "No color scheme selected."
-  exit 0
+# Open on the scheme below the new-theme row; with no active or new scheme, stay on that row so opening repaints nothing.
+pos=2
+[ -n "$new$first" ] || pos=1
+sel=$(printf '%s\n%s' "$new_row" "$new$first$rest" |
+  FZF_VIM_HEADER="${2:-Select a Color Scheme}" FZF_VIM_NORMAL_BINDS="tab:execute-silent($0 --toggle)+refresh-preview" \
+    "$HOME/.local/bin/fzf-vim.sh" --prompt="${3:-Theme > }" \
+    --color "$fzf_colors" \
+    --wrap --bind "load:pos($pos)" --preview "$0 --preview {}" --preview-window 'right:55%:border-left')
+rc=$?
+# fzf-vim.sh runs fzf with --no-clear, which leaves the terminal on the alternate screen; step off it so a shell prompt does not draw over the picker.
+leave_screen() { printf '\e[?1049l' >/dev/tty 2>/dev/null; }
+leave_screen
+
+if [ "$rc" = 0 ] && [ "$sel" = "$new_row" ]; then
+  revert
+  trap - EXIT
+  unset THEME_NEW
+  # Shown by file name; {} stays the full path.
+  img=$("$gen" --unused | FZF_VIM_HEADER="New theme from a wallpaper" "$HOME/.local/bin/fzf-vim.sh" --prompt="Wallpaper > " \
+    --color "$fzf_colors" --wrap --delimiter / --with-nth -1 --preview "$0 --image {}" --preview-window 'right:55%:border-left')
+  rc=$?
+  leave_screen
+  [ "$rc" = 130 ] && exit 130
+  if [ -n "$img" ]; then
+    THEME_NEW=$("$gen" "$img") && export THEME_NEW || {
+      echo "Press any key."
+      read -rsn1
+    }
+  fi
+  exec "$0" "$@"
 fi
 
-"$COLORSCHEME_SET_SCRIPT" "$selected_scheme"
+if [ "$rc" = 0 ] && [ -f "$list/$sel" ]; then
+  settle
+  trap - EXIT
+  "$setter" "$sel"
+  exit
+fi
+exit "$rc"

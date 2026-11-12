@@ -22,7 +22,15 @@ error() {
 
 active_file="$HOME/.config/colorscheme/active/active-colorscheme.sh"
 
-# A name builds that scheme; no name rebuilds the active one. Every run builds everything.
+# --preview repaints only what is on screen (terminals, bar, borders, tmux, wallpaper); the theme picker runs it per cursor move.
+preview_only=0
+if [ "${1:-}" = --preview ]; then
+  preview_only=1
+  shift
+fi
+full() { [ "$preview_only" = 1 ] || "$@"; }
+
+# A name builds that scheme; no name rebuilds the active one. Every full run builds everything.
 if [ -n "${1:-}" ]; then
   colorscheme_profile="$1"
   colorscheme_file="$HOME/.config/colorscheme/list/$colorscheme_profile"
@@ -2613,6 +2621,7 @@ EOF
 
 # Omarchy: skip the generators it has its own theme file for, but still emit the behaviour-bearing configs and every surface it themes nothing for.
 if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
+  [ "$preview_only" = 0 ] || error "Omarchy owns theming here; nothing to preview."
   generate_lazygit_config
   generate_gitmux_config
   # starship carries the prompt SHAPE ([env_var.PROMPT_PATH] on, [directory] off); Omarchy's stock prompt renders both and prints "master master" in a worktree. The palette is sourced only to interpolate the heredoc, then stripped back out.
@@ -2652,22 +2661,22 @@ fi
 # Rebuilding the active scheme makes these one path, and cp would then error out
 [ "$colorscheme_file" = "$active_file" ] || cp "$colorscheme_file" "$active_file"
 
-cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
+full cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
 
 # shellcheck disable=SC1091
 source "$HOME/.config/colorscheme/palette.sh"
 
-# Reload sketchybar to pick up new colors (macOS menu bar — skip on Linux/VPS)
-[[ "$OSTYPE" == darwin* ]] && sketchybar --reload
+# Recolour sketchybar in place (lib/theme.lua remaps every item to the new palette) rather than reloading it; macOS only.
+[[ "$OSTYPE" == darwin* ]] && sketchybar --trigger theme_changed
 
 # Generate Starship config files (kept for easy switching)
-generate_starship_config
+full generate_starship_config
 
 # Generate lazygit config
-generate_lazygit_config
+full generate_lazygit_config
 
 # Generate lazydocker config
-generate_lazydocker_config
+full generate_lazydocker_config
 
 # SIGUSR2 reloads ghostty regardless of focus (a keystroke hits the frontmost app); headless Linux has no terminal to theme.
 if [[ "$OSTYPE" == darwin* ]]; then
@@ -2678,49 +2687,56 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Generate the btop theme
-generate_btop_theme
+full generate_btop_theme
 
 # Generate bat config
-generate_bat_config
+full generate_bat_config
 
 # Generate delta config
-generate_delta_config
+full generate_delta_config
 
 # Generate hunk config
-generate_hunk_config
+full generate_hunk_config
 
 # Generate borders config (macOS window borders — skip on Linux/VPS)
-[[ "$OSTYPE" == darwin* ]] && generate_borders_config
+if [[ "$OSTYPE" == darwin* ]]; then
+  if [ "$preview_only" = 1 ]; then
+    # The launchd restart is too slow per cursor move; a running borders takes new colours from a second invocation (same mapping as bordersrc).
+    pgrep -x borders >/dev/null && /opt/homebrew/bin/borders "active_color=0xff${gnohj_color03#\#}" "inactive_color=0x33${gnohj_color09#\#}" >/dev/null 2>&1 &
+  else
+    generate_borders_config
+  fi
+fi
 
 # Generate gitmux config
-generate_gitmux_config
+full generate_gitmux_config
 
 # Generate gh-dash config
-generate_gh_dash_config
+full generate_gh_dash_config
 
 # Generate pi theme
-generate_pi_theme
+full generate_pi_theme
 
 # Generate Claude Code theme (custom theme, hot-reloaded via ~/.claude/themes watch)
-generate_claude_theme
+full generate_claude_theme
 
 # Recolor the Claude Code status line (ccstatusline widget colors only)
-generate_ccstatusline_config
+full generate_ccstatusline_config
 
 # Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
-generate_herdr_config
+full generate_herdr_config
 
 # Generate yazi theme
-generate_yazi_theme
+full generate_yazi_theme
 
 # Generate tuxedo theme
-generate_tuxedo_theme
+full generate_tuxedo_theme
 
 # Generate ghosttyfetch config (macOS terminal-fetch cosmetic — skip on Linux/VPS)
-[[ "$OSTYPE" == darwin* ]] && generate_ghosttyfetch_config
+[[ "$OSTYPE" == darwin* ]] && full generate_ghosttyfetch_config
 
 # Generate eza theme
-generate_eza_theme
+full generate_eza_theme
 
 # Generate LS_COLORS for fd, ls, eza (if generate_ls_colors function exists)
 if typeset -f generate_ls_colors >/dev/null 2>&1; then

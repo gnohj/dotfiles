@@ -462,19 +462,11 @@ themes_menu() {
 
 # $1 = name filter ("" = all), $2 = header, $3 = prompt.
 themes_filtered() {
-  local sel rc=0
-  sel=$(
-    {
-      provide_themes | { [ -n "$1" ] && grep -i "$1" || cat; }
-      printf "← Back\n"
-    } | ~/.local/bin/fzf-vim.sh --height=40% --header="$2" --prompt="$3" --ansi $FZF_COLORS
-  ) || rc=$?
-  # fzf-vim.sh, not raw fzf: plain fzf returns 130 for BOTH Esc and Ctrl+C.
+  local rc=0
+  # Exits 130 on Ctrl+C and 1 on Esc, so Esc is the way back.
+  "$HOME/.config/colorscheme/colorscheme-selector.sh" "$1" "$2" "$3" || rc=$?
   quit_on_interrupt "$rc"
-  case "$sel" in
-  "← Back" | "") themes_menu ;;
-  *) "$HOME/.config/zshrc/colorscheme-set.sh" "$sel" ;;
-  esac
+  [ "$rc" = 0 ] || themes_menu
 }
 
 # fza — copy an alias name to the clipboard.
