@@ -1,7 +1,8 @@
 local colors = require("config.colors")
 local groups = require("items.widgets.groups")
 
-local TIER_COLORS <const> = { colors.yellow, colors.orange, colors.red }
+-- Names, not values: the palette can change under a running bar.
+local TIER_COLORS <const> = { "yellow", "orange", "red" }
 local BEAT <const> = "/usr/bin/python3 $HOME/.local/bin/resource-watch beat 2>/dev/null"
 
 local M = {}
@@ -16,7 +17,7 @@ local function refresh()
 			local key = text .. (tier or "")
 			if shown[metric] ~= key then
 				shown[metric] = key
-				local color = TIER_COLORS[tonumber(tier)]
+				local color = colors[TIER_COLORS[tonumber(tier)]]
 				widget.item:set({
 					icon = { color = color or colors.blue },
 					label = { string = text, color = color or (value and colors.cyan or colors.grey) },

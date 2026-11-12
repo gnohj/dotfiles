@@ -11,6 +11,7 @@ require("config")
 require("bar")
 require("default")
 require("items")
+require("lib.theme")
 
 local supersede = require("lib.supersede")
 supersede.exit_if_superseded()

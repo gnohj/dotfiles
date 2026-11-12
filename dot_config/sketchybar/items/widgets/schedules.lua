@@ -38,13 +38,14 @@ local header = sbar.add("item", constants.items.SCHEDULES .. ".header", {
 	click_script = popup.close_script(schedules.name),
 })
 
+-- Names, not values: the palette can change under a running bar.
 local statusColors <const> = {
-	scheduled = settings.colors.green,
-	running = settings.colors.blue,
-	failed = settings.colors.red,
-	unloaded = settings.colors.yellow,
-	disabled = settings.colors.grey,
-	complete = settings.colors.grey,
+	scheduled = "green",
+	running = "blue",
+	failed = "red",
+	unloaded = "yellow",
+	disabled = "grey",
+	complete = "grey",
 }
 
 local opening = false
@@ -145,7 +146,7 @@ local function render(state)
 				},
 			})
 		else
-			local color = statusColors[row.status] or settings.colors.grey
+			local color = settings.colors[statusColors[row.status]] or settings.colors.grey
 			-- The AI suffix eats name width, so trim the name by the same amount to keep one line.
 			local name = popup.ellipsize(row.name, row.ai and 22 or 27) .. (row.ai and "  · AI" or "")
 			addRow({

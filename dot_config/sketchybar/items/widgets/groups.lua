@@ -50,13 +50,17 @@ local function hex(color)
 	return string.format("0x%08x", color)
 end
 
--- Ranked so a badge wears its most severe member's colour.
-local severity <const> = {
-	[hex(colors.red)] = 3,
-	[hex(colors.orange)] = 2,
-	[hex(colors.yellow)] = 1,
-	[hex(colors.shell_yellow)] = 1,
-}
+-- Ranked so a badge wears its most severe member's colour. Compared per call: the palette can change under a running bar.
+local function severity(color)
+	if color == hex(colors.yellow) or color == hex(colors.shell_yellow) then
+		return 1
+	elseif color == hex(colors.orange) then
+		return 2
+	elseif color == hex(colors.red) then
+		return 3
+	end
+	return 0
+end
 
 local INNER <const> = 10
 local GLYPH_GAP <const> = 6
@@ -185,7 +189,7 @@ function M.show(group, on)
 end
 
 local function rank(item)
-	local icon, label = severity[item.icon.color] or 0, severity[item.label.color] or 0
+	local icon, label = severity(item.icon.color), severity(item.label.color)
 	if icon >= label then
 		return icon, item.icon.color
 	end
