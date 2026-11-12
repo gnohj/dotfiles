@@ -39,6 +39,13 @@ if [ -z "$want" ]; then
   want=$(curl -fsSL --max-time 15 "${server//\$arch/$(uname -m)}/rex.db" | bsdtar -tf - 2>/dev/null |
     sed -n "s|^rex-\(0\.0\.[0-9]*_g${commit:0:6}\)-[0-9]*/\$|\1|p" | head -n 1)
 fi
+# Once the snapshot db moves past the commit, the preview channel's BUILDDATE is the snapshot timestamp.
+preview=$(awk -v c="$commit" '$1 == "Rex" && $2 ~ /^0\.1\.0-preview\.[0-9]+$/ && index($0, "`" c "`") { print $2; exit }' <<<"$cast")
+if [ -z "$want" ] && [ -n "$preview" ]; then
+  ts=$(curl -fsSL --max-time 15 "${server%/snapshot/*}/preview/$(uname -m)/rex.db" |
+    bsdtar -xOf - "rex-${preview/-preview./preview}-1/desc" 2>/dev/null | awk 'f { print; exit } /^%BUILDDATE%$/ { f = 1 }')
+  [[ "$ts" =~ ^[0-9]+$ ]] && want="0.0.$ts-g${commit:0:6}"
+fi
 [ -n "$want" ] || { echo "rex-update: no arch package found for Mac app commit ${commit:0:7} (build $builds), rex stays at $have" >&2; exit 1; }
 
 pkg="${want/-g/_g}-1"
