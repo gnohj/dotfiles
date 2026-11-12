@@ -108,3 +108,14 @@ rex.bind(P .. "u", "client.prompt.previous")
 
 -- cmd+shift+v: copied files or a copied image sent to the pane's host and pasted as paths (herdr --remote did images natively).
 if has_paste then rex.bind("cmd+shift+v", "file_paste") end
+
+-- >>> pulse >>>
+-- Pulse watchlist pane, installed by mise (`npm:rex-pulse-ticker`); latest/lts are mise-maintained symlinks.
+local mise = os.getenv("HOME") .. "/.local/share/mise/installs"
+local pulse = mise .. "/npm-rex-pulse-ticker/latest/lib/node_modules/rex-pulse-ticker"
+local pulse_lua = io.open(pulse .. "/lua/pulse.lua")
+if pulse_lua then
+  pulse_lua:close()
+  dofile(pulse .. "/lua/pulse.lua").setup({ bin = { mise .. "/node/lts/bin/node", pulse .. "/bin/pulse-rex.js" } })
+end
+-- <<< pulse <<<
