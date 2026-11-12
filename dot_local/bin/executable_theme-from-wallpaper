@@ -4,19 +4,43 @@
   theme-from-wallpaper <image>   write ~/.config/colorscheme/list/<name>-colors.sh, print its file name
   theme-from-wallpaper --unused  list wallpapers in ~/Pictures/wallpapers and ~/Documents/Pictures/wallpapers that no scheme uses yet
   theme-from-wallpaper --regenerate  rewrite every generated scheme from its wallpaper, after a change to this generator
+  theme-from-wallpaper --online  suggest three 5K wallpapers from Unsplash as "label<TAB>preview image" rows; passing a preview image as <image> downloads the full one into ~/Pictures/wallpapers first
+
+--online needs UNSPLASH_ACCESS_KEY, from the environment or ~/.zsh_gnohj_env.secrets.
 
 The background comes from the image's dark tones. Red, orange, yellow and green stay classic hues so status keeps its meaning; blue, cyan and magenta are one hue, the image's main one, in three tones. Every text color is pushed until it clears 4.5:1 on the background.
 """
+import json
 import math
 import os
+import random
 import re
 import subprocess
 import sys
+import tempfile
+import urllib.parse
 
 HOME = os.path.expanduser("~")
 LIST = os.path.join(HOME, ".config/colorscheme/list")
 WALLPAPERS = (os.path.join(HOME, "Pictures/wallpapers"), os.path.join(HOME, "Documents/Pictures/wallpapers"))
 IMAGES = (".jpg", ".jpeg", ".png", ".webp", ".avif")
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "theme-from-wallpaper")
+SUGGESTIONS = os.path.join(CACHE, "suggestions")
+POOL = os.path.join(CACHE, "pool.json")
+UNSPLASH = os.environ.get("UNSPLASH_API", "https://api.unsplash.com")
+# Each term was checked against real results; ones that came back bright, toy-like or full of portraits were dropped.
+QUERIES = (
+    "cyberpunk city", "neon city night", "tokyo night neon", "night skyline", "dark abstract render",
+    "nebula", "galaxy", "milky way", "planet space", "earth from space", "aurora borealis",
+)
+PEOPLE = {"boy", "child", "children", "couple", "face", "girl", "guy", "lady", "man", "men", "model", "people", "person", "portrait", "selfie", "woman", "women"}
+FILLER = {
+    "a", "an", "and", "are", "as", "at", "between", "by", "during", "for", "from", "has", "in", "into", "is", "it", "its", "lot", "lots", "near", "of", "on", "out", "over",
+    "says", "some", "that", "the", "there", "this", "through", "to", "under", "up", "very", "while", "with",
+}
+WIDTH = 5120
+# Mean brightness, 0 to 1; the wallpapers already in use run from 0.12 to 0.43.
+BRIGHTEST = 0.40
 
 
 def lin(c):
@@ -70,6 +94,167 @@ def scheme_wallpapers():
         if m:
             used.add(os.path.basename(m.group(1)))
     return used
+
+
+def access_key():
+    key = os.environ.get("UNSPLASH_ACCESS_KEY", "")
+    # The picker also runs from the launcher and tmux, which never sourced the shell's secrets.
+    for name in (".zsh_gnohj_env.secrets", ".zsh_gnohj_env.local"):
+        if key:
+            break
+        try:
+            with open(os.path.join(HOME, name), errors="replace") as f:
+                m = re.search(r"""^(?:export\s+)?UNSPLASH_ACCESS_KEY=["']?([^"'\s]+)""", f.read(), re.M)
+        except OSError:
+            continue
+        key = m.group(1) if m else ""
+    return key
+
+
+def curl(*args, key="", seconds=10):
+    """Return (HTTP status, body); status 0 means no answer."""
+    # The key goes in on stdin, never argv, and only to the API itself, whatever URL an answer names.
+    if key and not args[-1].startswith(UNSPLASH + "/"):
+        return 0, b""
+    auth = ["-H", "@-"] if key else []
+    try:
+        r = subprocess.run(
+            ["curl", "-gfsSL", "--connect-timeout", "4", "--max-time", str(seconds), "-w", "\n%{http_code}", *auth, *args],
+            input=f"Authorization: Client-ID {key}\nAccept-Version: v1\n".encode() if key else None, capture_output=True,
+        )
+    except FileNotFoundError:
+        return 0, b""
+    body, _, status = r.stdout.rpartition(b"\n")
+    return (int(status) if status.isdigit() else 0), body
+
+
+def fits(photo):
+    return photo["query"] in QUERIES and not set(re.findall(r"[a-z]+", photo["alt"].lower())) & PEOPLE
+
+
+def refill(pool, key):
+    """Top up the pool from three searches; returns the reason when one fails."""
+    known = set(pool["seen"]) | {p["id"] for p in pool["photos"]}
+    problem, fresh = "", []
+    for query in random.sample(QUERIES, 3):
+        params = {"query": query, "orientation": "landscape", "content_filter": "high", "per_page": 30, "page": random.randint(1, 4)}
+        status, body = curl(f"{UNSPLASH}/search/photos?{urllib.parse.urlencode(params)}", key=key)
+        if status != 200:
+            problem = {0: "could not reach Unsplash", 401: "Unsplash rejected UNSPLASH_ACCESS_KEY", 403: "Unsplash hourly limit reached, try again later"}.get(status, f"Unsplash answered HTTP {status}")
+            break
+        try:
+            results = json.loads(body)["results"]
+        except (ValueError, KeyError, TypeError):
+            problem = "Unsplash sent an answer this script cannot read"
+            break
+        for photo in results:
+            try:
+                w, h = int(photo["width"]), int(photo["height"])
+                entry = {
+                    "id": photo["id"], "width": w, "height": h, "raw": photo["urls"]["raw"], "ping": photo["links"]["download_location"],
+                    "alt": photo.get("alt_description") or photo.get("description") or "", "query": query,
+                    # Shown in the picker, so nothing that could drive the terminal.
+                    "by": re.sub(r"[^ -~\u00a1-\uffff]", "", photo["user"]["name"]),
+                }
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not (entry["raw"].startswith("https://") and entry["ping"].startswith(UNSPLASH + "/")):
+                continue
+            if w >= WIDTH and 1.4 <= w / h <= 2.2 and not photo.get("premium") and entry["id"] not in known and fits(entry):
+                known.add(entry["id"])
+                fresh.append(entry)
+    # palette=json is an imgix extra Unsplash does not promise, so a photo with no answer stays in.
+    with tempfile.TemporaryDirectory() as tmp:
+        fetch = []
+        for n, entry in enumerate(fresh):
+            fetch += ["-o", os.path.join(tmp, str(n)), entry["raw"] + "&w=200&palette=json"]
+        if fetch:
+            curl("--parallel", *fetch, seconds=15)
+        for n, entry in enumerate(fresh):
+            try:
+                with open(os.path.join(tmp, str(n))) as f:
+                    bright = float(json.load(f)["average_luminance"]) > BRIGHTEST
+            except (OSError, ValueError, KeyError, TypeError):
+                bright = False
+            if not bright:
+                pool["photos"].append(entry)
+    random.shuffle(pool["photos"])
+    return problem
+
+
+def suggest(count=3):
+    key = access_key()
+    if not key:
+        sys.exit("set UNSPLASH_ACCESS_KEY for Unsplash suggestions")
+    os.makedirs(SUGGESTIONS, exist_ok=True)
+    for name in os.listdir(SUGGESTIONS):
+        os.remove(os.path.join(SUGGESTIONS, name))
+    try:
+        with open(POOL) as f:
+            pool = json.load(f)
+        pool = {"photos": [p for p in pool["photos"] if fits(p)], "seen": list(pool["seen"])}
+    except (OSError, ValueError, KeyError, TypeError):
+        pool = {"photos": [], "seen": []}
+    problem = refill(pool, key) if len({p["query"] for p in pool["photos"]}) < count else ""
+    # One per search first, so a single open shows three different kinds of picture.
+    picks = []
+    for distinct in (True, False):
+        for photo in pool["photos"]:
+            if len(picks) < count and photo not in picks and not (distinct and photo["query"] in {p["query"] for p in picks}):
+                picks.append(photo)
+    if not picks:
+        sys.exit(problem or "Unsplash had no 5K wallpapers this time")
+
+    taken = {os.path.splitext(n)[0].lower() for folder in WALLPAPERS if os.path.isdir(folder) for n in os.listdir(folder)}
+    taken |= {n[: -len("-colors.sh")] for n in os.listdir(LIST) if n.endswith("-colors.sh")} if os.path.isdir(LIST) else set()
+    fetch = []
+    for photo in picks:
+        words = [w for w in re.findall(r"[a-z0-9]+", photo["alt"].lower()) if w not in FILLER][:4]
+        base = "-".join(words or re.findall(r"[a-z0-9]+", photo["query"]))
+        name, n = base, 2
+        while name in taken:
+            name, n = f"{base}-{n}", n + 1
+        taken.add(name)
+        photo["name"], photo["size"] = name, f"{WIDTH}x{round(WIDTH * photo['height'] / photo['width'])}"
+        photo["preview"] = os.path.join(SUGGESTIONS, name + ".jpg")
+        fetch += ["-o", photo["preview"], photo["raw"] + "&w=1600&q=80&fm=jpg&fit=max"]
+    curl("--parallel", *fetch, seconds=15)
+
+    for photo in picks:
+        if not (os.path.isfile(photo["preview"]) and os.path.getsize(photo["preview"]) > 1024):
+            problem = problem or "could not load previews from Unsplash"
+            continue
+        with open(os.path.splitext(photo["preview"])[0] + ".json", "w") as f:
+            json.dump(photo, f)
+        with open(photo["preview"] + ".caption", "w") as f:
+            f.write(f"Not downloaded yet. Enter saves it at {photo['size']} to ~/Pictures/wallpapers.\nPhoto by {photo['by']} on Unsplash.\n")
+        pool["photos"].remove(photo)
+        pool["seen"] = (pool["seen"] + [photo["id"]])[-2000:]
+        print(f"\033[33m\u2193 download\033[m  {photo['name']}  {photo['size']}  Unsplash\t{photo['preview']}")
+    with open(POOL, "w") as f:
+        json.dump(pool, f)
+    if problem:
+        sys.exit(problem)
+
+
+def download(preview):
+    try:
+        with open(os.path.splitext(preview)[0] + ".json") as f:
+            photo = json.load(f)
+    except (OSError, ValueError):
+        sys.exit(f"{preview} is not a suggestion from --online.")
+    os.makedirs(WALLPAPERS[0], exist_ok=True)
+    target = os.path.join(WALLPAPERS[0], photo["name"] + ".jpg")
+    print(f"Downloading {photo['name']}.jpg ({photo['size']}) from Unsplash...", file=sys.stderr)
+    status, _ = curl("-o", target + ".part", f"{photo['raw']}&w={WIDTH}&q=90&fm=jpg&fit=max", seconds=180)
+    if status != 200 or not os.path.isfile(target + ".part") or os.path.getsize(target + ".part") < 1024:
+        if os.path.exists(target + ".part"):
+            os.remove(target + ".part")
+        sys.exit(f"Could not download {photo['name']}.jpg from Unsplash.")
+    os.replace(target + ".part", target)
+    # Unsplash asks every app to report a download; the theme does not depend on the answer.
+    curl(photo["ping"], key=access_key())
+    return target
 
 
 def palette(image):
@@ -157,9 +342,14 @@ def main():
                     seen.add(name)
                     print(os.path.join(folder, name))
         return
+    if sys.argv[1:] == ["--online"]:
+        suggest()
+        return
     if len(sys.argv) != 2 or not os.path.isfile(sys.argv[1]):
         sys.exit(__doc__)
     image = os.path.abspath(sys.argv[1])
+    if os.path.dirname(image) == SUGGESTIONS:
+        image = download(image)
     if os.path.basename(image) in scheme_wallpapers():
         sys.exit(f"A scheme already uses {image}; pick it from the theme list instead.")
     slug = re.sub(r"[^a-z0-9]+", "-", os.path.splitext(os.path.basename(image))[0].lower()).strip("-") or "wallpaper"

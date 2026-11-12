@@ -123,7 +123,14 @@ case "${1:-}" in
   exit 0
   ;;
 --image)
-  thumb "$2" "${FZF_PREVIEW_COLUMNS:-40}" "${FZF_PREVIEW_LINES:-0}" || printf '%s\n' "$2"
+  cols="${FZF_PREVIEW_COLUMNS:-40}" lines="${FZF_PREVIEW_LINES:-0}"
+  # Folded here, not by fzf, so the image height stays exact.
+  if [ -f "$2.caption" ]; then
+    caption=$(fold -s -w "$((cols > 2 ? cols - 1 : 1))" "$2.caption")
+    printf '\e[33m%s\e[m\n\n' "$caption"
+    lines=$((lines - $(wc -l <<<"$caption") - 1))
+  fi
+  thumb "$2" "$cols" "$lines" || printf '%s\n' "$2"
   exit 0
   ;;
 --toggle)
@@ -185,12 +192,19 @@ if [ "$rc" = 0 ] && [ "$sel" = "$new_row" ]; then
   revert
   trap - EXIT
   unset THEME_NEW
-  # Shown by file name; {} stays the full path.
-  img=$("$gen" --unused | FZF_VIM_HEADER="New theme from a wallpaper" "$HOME/.local/bin/fzf-vim.sh" --prompt="Wallpaper > " \
-    --color "$fzf_colors" --wrap --delimiter / --with-nth -1 --preview "$0 --image {}" --preview-window 'right:55%:border-left')
+  printf 'Finding wallpapers on Unsplash...\n' >/dev/tty 2>/dev/null
+  online=$("$gen" --online 2>"$state/online-error")
+  note=$(head -n 1 "$state/online-error")
+  [ -z "$online" ] || note="${note:-download rows are saved from Unsplash when picked}"
+  img=$({
+    [ -z "$online" ] || printf '%s\n' "$online"
+    "$gen" --unused | while IFS= read -r path; do printf '%s\t%s\n' "${path##*/}" "$path"; done
+  } | FZF_VIM_HEADER="New theme from a wallpaper${note:+$'\n'$note}" "$HOME/.local/bin/fzf-vim.sh" --prompt="Wallpaper > " \
+    --color "$fzf_colors" --ansi --wrap --delimiter '\t' --with-nth 1 --preview "$0 --image {2}" --preview-window 'right:55%:border-left')
   rc=$?
   leave_screen
   [ "$rc" = 130 ] && exit 130
+  img="${img#*$'\t'}"
   if [ -n "$img" ]; then
     THEME_NEW=$("$gen" "$img") && export THEME_NEW || {
       echo "Press any key."
