@@ -89,7 +89,7 @@ update() {
     color="$ICON_BLUE"
   else
     icon="$ICON_BT"
-    color="$GREY"
+    color="$ICON_BLUE"
   fi
 
   sketchybar --set "$NAME" icon="$icon" icon.color="$color"

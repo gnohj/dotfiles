@@ -16,7 +16,7 @@ local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	icon = {
 		string = settings.icons.text.bluetooth.on,
 		font = { size = 14.0 },
-		color = settings.colors.grey,
+		color = settings.colors.blue,
 		padding_left = 0,
 		padding_right = 0,
 	},
@@ -181,7 +181,7 @@ local function applyIcon(state)
 	elseif #state.connected > 0 then
 		icon, color = settings.icons.text.bluetooth.connected, settings.colors.blue
 	else
-		icon, color = settings.icons.text.bluetooth.on, settings.colors.grey
+		icon, color = settings.icons.text.bluetooth.on, settings.colors.blue
 	end
 	if icon ~= displayedIcon or color ~= displayedColor then
 		bluetooth:set({ icon = { string = icon, color = color } })
