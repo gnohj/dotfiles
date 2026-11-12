@@ -43,11 +43,11 @@
     "neorex": {
       "flake": false,
       "locked": {
-        "lastModified": 1794353800,
-        "narHash": "sha256-++QGAD/t2WwXYEMnCiHI4LnQP6adYkBKeIODZM5C2PA=",
+        "lastModified": 1794500397,
+        "narHash": "sha256-rTQQ5WKnqi7MY7LCgEg5zGrt+Q1F0cWagbflnUMay3Y=",
         "owner": "alexrlocke",
         "repo": "neorex",
-        "rev": "675241e94916587782f0091a8cf8f25b332b0993",
+        "rev": "b3e92161a1f28025033fe4d2d3dd40315ed4be5f",
         "type": "github"
       },
       "original": {
