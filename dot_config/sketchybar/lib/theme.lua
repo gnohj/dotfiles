@@ -24,7 +24,11 @@ end
 sbar.add("event", "theme_changed")
 local watcher = sbar.add("item", { drawing = false, updates = true })
 watcher:subscribe("theme_changed", function()
-	local map = colors.reload()
+	local map, ambiguous = colors.reload()
+	if ambiguous then
+		sbar.exec("sketchybar --reload")
+		return
+	end
 	if next(map) == nil then
 		return
 	end

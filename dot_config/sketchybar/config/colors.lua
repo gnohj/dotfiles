@@ -81,9 +81,9 @@ end
 
 local colors <const> = build(load_colors())
 
--- Re-read the palette into this same table (every module holds a reference to it) and return old rgb -> new rgb for what changed.
+-- Re-read the palette into this same table (every module holds a reference to it) and return old rgb -> new rgb for what changed, and whether one old rgb now needs two new ones.
 function colors.reload()
-	local map = {}
+	local map, target, ambiguous = {}, {}, false
 	local function merge(old, new)
 		local keys = {}
 		for k in pairs(new) do
@@ -96,16 +96,21 @@ function colors.reload()
 				merge(old[k], v)
 			elseif type(v) == "number" then
 				local from, to = old[k] & 0xffffff, v & 0xffffff
-				-- shortcut: two names sharing an rgb (gnohj: cyan and orange) both follow the first by name, upgrade to per-item intent if a wrong tint ever sticks.
-				if from ~= to and map[from] == nil then
-					map[from] = to
+				-- Two names sharing an rgb (gnohj: cyan and orange) cannot be told apart on a painted item once they part ways.
+				if target[from] == nil then
+					target[from] = to
+					if from ~= to then
+						map[from] = to
+					end
+				elseif target[from] ~= to then
+					ambiguous = true
 				end
 				old[k] = v
 			end
 		end
 	end
 	merge(colors, build(load_colors()))
-	return map
+	return map, ambiguous
 end
 
 return colors
