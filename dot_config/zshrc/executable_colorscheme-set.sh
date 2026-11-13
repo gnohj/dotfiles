@@ -2449,8 +2449,8 @@ generate_tuxedo_theme() {
   . "$HOME/.config/colorscheme/relight.sh"
   local tuxedo_theme_file="$HOME/.config/tuxedo/themes/gnohj.toml"
   local tuxedo_cursor tuxedo_selected tuxedo_dim
-  tuxedo_cursor="$(gnohj_relight "$gnohj_color04" 0.20)"
-  tuxedo_selected="$(gnohj_relight "$gnohj_color04" 0.26)"
+  tuxedo_cursor="$gnohj_selection"
+  tuxedo_selected="$(gnohj_relight "$gnohj_selection" 0.26)"
   tuxedo_dim="$(gnohj_relight "$gnohj_color08" 0.50)"
   # accent doubles as the autocomplete highlight bg, so it matches the cursor row.
   mkdir -p "$(dirname "$tuxedo_theme_file")"
