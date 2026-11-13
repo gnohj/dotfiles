@@ -147,9 +147,13 @@ return {
         },
       })
 
-      opts.cmdline = {
+      opts.cmdline = vim.tbl_deep_extend("force", opts.cmdline or {}, {
         enabled = true,
-      }
+        keymap = {
+          ["<Up>"] = { "select_prev", "fallback" },
+          ["<Down>"] = { "select_next", "fallback" },
+        },
+      })
 
       opts.completion = {
         --   keyword = {
