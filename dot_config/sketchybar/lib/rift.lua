@@ -107,8 +107,12 @@ function Rift:focused_window()
 end
 
 function Rift.focus_command(window)
-	return string.format("%s execute window focus --window-id '%s' --window-server-id %s",
-		CLI, window.rift_id, tostring(window["window-id"]))
+	return string.format(
+		"%s execute window focus --window-id '%s' --window-server-id %s",
+		CLI,
+		window.rift_id,
+		tostring(window["window-id"])
+	)
 end
 
 return Rift

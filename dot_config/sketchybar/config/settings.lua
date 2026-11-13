@@ -4,8 +4,8 @@ local icons <const> = require("config.icons")
 local dimens <const> = require("config.dimens")
 
 return {
-  fonts = fonts,
-  dimens = dimens,
-  colors = colors,
-  icons = icons,
+	fonts = fonts,
+	dimens = dimens,
+	colors = colors,
+	icons = icons,
 }
