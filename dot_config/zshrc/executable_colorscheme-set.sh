@@ -66,10 +66,8 @@ generate_ghostty_theme() {
   cat >"$ghostty_conf_file" <<EOF
 # Auto-generated ghostty configuration
 background = $gnohj_color10
-# foreground = gnohj blue (gnohj_color04) instead of the near-white gnohj_color14,
-# so terminal text (incl. the Claude Code pane) reads steel blue. Global: tints all
-# default terminal text. ANSI white stays gnohj_color14 (palette 7/15 below).
-foreground = $gnohj_color04
+# The text role, not a palette hue, so blue output stays distinguishable from body text.
+foreground = $gnohj_text
 
 cursor-color = $gnohj_color24
 
@@ -124,9 +122,8 @@ generate_kitty_theme() {
   cat >"$temp_file" <<EOF
 # Auto-generated kitty theme configuration
 background $gnohj_color10
-# foreground = gnohj blue (gnohj_color04) instead of near-white gnohj_color14, so
-# terminal text (incl. the Claude Code pane) reads steel blue. Matches ghostty.
-foreground $gnohj_color04
+# The text role, not a palette hue; matches ghostty.
+foreground $gnohj_text
 
 cursor $gnohj_color24
 
@@ -200,7 +197,7 @@ theme[title]="$gnohj_color14"
 theme[hi_fg]="$gnohj_color02"
 
 # Background color of selected item in processes box (match tmux copy selection)
-theme[selected_bg]="$gnohj_color13"
+theme[selected_bg]="$gnohj_selection"
 
 # Foreground color of selected item in processes box (match tmux copy selection)
 theme[selected_fg]="$gnohj_color02"
@@ -439,7 +436,7 @@ generate_lazygit_config() {
     inactiveBorderColor:
       - \"${gnohj_color04}\"
     selectedLineBgColor:
-      - \"${gnohj_color13}\"
+      - \"${gnohj_selection}\"
     unstagedChangesColor:
       - \"${gnohj_color06}\"
 "
@@ -649,7 +646,7 @@ generate_bat_config() {
         <key>selection</key>
         <string>$gnohj_color16</string>
         <key>lineHighlight</key>
-        <string>$gnohj_color13</string>
+        <string>$gnohj_selection</string>
       </dict>
     </dict>
     <dict>
@@ -715,6 +712,7 @@ EOF
 
 generate_borders_config() {
   borders_script="$HOME/.config/borders/bordersrc"
+  mkdir -p "$(dirname "$borders_script")"
 
   # Generate the borders configuration script
   cat >"$borders_script" <<EOF
@@ -2272,10 +2270,10 @@ generate_pi_theme() {
     "yellow": "${gnohj_color05}",
     "orange": "${gnohj_color06}",
     "red": "${gnohj_color11}",
-    "text": "${gnohj_color14}",
+    "text": "${gnohj_text}",
     "comment": "${gnohj_color09}",
     "muted": "${gnohj_color08}",
-    "dim": "${gnohj_color13}",
+    "dim": "${gnohj_text_muted}",
     "darkGray": "${gnohj_color17}",
     "selectedBg": "${gnohj_color17}",
     "codeBg": "#1c2632",
@@ -2365,9 +2363,9 @@ generate_claude_theme() {
   "base": "dark-ansi",
   "overrides": {
     "claude": "${gnohj_color03}",
-    "text": "${gnohj_color14}",
+    "text": "${gnohj_text}",
     "inverseText": "${gnohj_color10}",
-    "inactive": "${gnohj_color13}",
+    "inactive": "${gnohj_text_muted}",
     "subtle": "${gnohj_color17}",
     "suggestion": "${gnohj_color03}",
     "permission": "${gnohj_color01}",
@@ -2375,7 +2373,7 @@ generate_claude_theme() {
 
     "success": "${gnohj_color02}",
     "error": "${gnohj_color11}",
-    "warning": "${gnohj_color03}",
+    "warning": "${gnohj_color05}",
     "merged": "${gnohj_color01}",
 
     "promptBorder": "${gnohj_color03}",
@@ -2763,11 +2761,19 @@ if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then
 fi
 
 # Set the wallpaper (skip if file doesn't exist)
-if [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
-  osascript -e '
-  tell application "System Events"
-      repeat with d in desktops
-          set picture of d to "'"$wallpaper"'"
-      end repeat
-  end tell' 2>/dev/null || true
+if [[ "$OSTYPE" == darwin* ]] && [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
+  # NSWorkspace instead of System Events so the scaling is pinned to Fill Screen
+  osascript -l JavaScript -e '
+  ObjC.import("AppKit");
+  function run(argv) {
+    const workspace = $.NSWorkspace.sharedWorkspace;
+    const url = $.NSURL.fileURLWithPath(argv[0]);
+    const options = $.NSMutableDictionary.alloc.init;
+    options.setObjectForKey($.NSNumber.numberWithInt($.NSImageScaleProportionallyUpOrDown), $.NSWorkspaceDesktopImageScalingKey);
+    options.setObjectForKey($.NSNumber.numberWithBool(true), $.NSWorkspaceDesktopImageAllowClippingKey);
+    const screens = $.NSScreen.screens;
+    for (let i = 0; i < screens.count; i++) {
+      workspace.setDesktopImageURLForScreenOptionsError(url, screens.objectAtIndex(i), options, null);
+    }
+  }' "$wallpaper" >/dev/null 2>&1 || true
 fi

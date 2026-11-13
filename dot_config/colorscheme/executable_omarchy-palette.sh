@@ -45,6 +45,8 @@ if [ -r "$_omp_file" ]; then
   gnohj_color54="${_omp_c_muted:-${gnohj_color54:-}}"
   # No gnohj slot holds a selection fill - generate_herdr_config derives one - so this hands over the theme's own instead.
   omarchy_selection_bg="${_omp_c_selection:-}"
+  gnohj_text="${_omp_c_foreground:-${gnohj_text:-}}"
+  gnohj_selection="${_omp_c_selection:-${gnohj_selection:-}}"
 
   unset _omp_k _omp_eq _omp_v _omp_rest
   unset _omp_c_accent _omp_c_selection _omp_c_muted _omp_c_background _omp_c_dark_background \

@@ -32,6 +32,7 @@ wallpaper="$HOME/Pictures/wallpapers/space-roygbiv.jpg"
 # color06 - nvim orange
 #-------------------------------------------------------------------------------
 gnohj_color04=#a3b8c6
+gnohj_text=#a3b8c6
 gnohj_color02=#b7ce97
 gnohj_color03=#a7cfbd
 gnohj_color01=#c0aed2

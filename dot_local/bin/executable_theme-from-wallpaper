@@ -8,7 +8,7 @@
 
 --online needs UNSPLASH_ACCESS_KEY, from the environment or ~/.zsh_gnohj_env.secrets.
 
-The background comes from the image's dark tones. Red, orange, yellow and green stay classic hues so status keeps its meaning; blue, cyan and magenta are one hue, the image's main one, in three tones. Every text color is pushed until it clears 4.5:1 on the background.
+The background comes from the image's dark tones. Red, orange, yellow and green stay classic hues so status keeps its meaning; blue is the image's main hue, body text is a soft tint of it in a slot of its own, and cyan and magenta start at their classic hues and move until they sit 30 degrees clear of every other role. Every text color is pushed until it clears 4.5:1 on the background.
 """
 import json
 import math
@@ -281,13 +281,23 @@ def palette(image):
         return (h + ((ah - h + 180) % 360 - 180) * 0.2) % 360
 
     R, O, Y, G = (hue(h) for h in (25, 55, 100, 145))
-    # Identity colors follow the image, but the primary one keeps 40 degrees clear of red so plain text never reads as an error.
+    # The primary follows the image, but keeps 40 degrees clear of red so plain text never reads as an error.
     away = (ah - R + 180) % 360 - 180
     B = ah if abs(away) >= 40 else R + (40 if away >= 0 else -40)
-    # One hue, two tones: the cyan and magenta roles share the primary hue and differ only in lightness, so a bar or prompt reads as one color family.
-    CY, M = B, B
+
+    def accent(anchor, taken):
+        for step in range(0, 181, 5):
+            for h in (anchor - step, anchor + step):
+                if all(abs((h - t + 180) % 360 - 180) >= 30 for t in taken):
+                    return h % 360
+        return anchor
+
+    CY = accent(hue(200), (R, O, Y, G, B))
+    M = accent(hue(300), (R, O, Y, G, B, CY))
+    # 03 is the accent that borders, the bar and the prompt wear, so it stays on the image's hue; body text is its own slot with only a hint of it.
     p = {
-        "01": text(0.70, c, M), "02": text(0.82, c, G), "03": text(0.87, c * 0.55, CY), "04": text(0.76, c, B), "05": text(0.85, c, Y),
+        "text": text(0.81, 0.03, B),
+        "01": text(0.70, c, M), "02": text(0.82, c, G), "03": text(0.87, c * 0.55, B), "04": text(0.76, c, B), "05": text(0.85, c, Y),
         "06": text(0.80, c, O), "07": lch(0.215, bc, bh), "08": lch(0.52, 0.03, bh), "09": text(0.64, 0.035, bh), "10": bg,
         "11": text(0.78, c, R), "12": text(0.88, c, Y), "13": lch(0.46, 0.03, bh), "14": text(0.88, 0.02, bh, 7), "15": text(0.80, c, O),
         "16": lch(0.34, 0.06, ah), "17": lch(0.30, 0.03, bh),
@@ -301,8 +311,8 @@ def palette(image):
         "54": lch(0.50, 0.04, bh), "55": text(0.68, c, (M - 25) % 360), "56": lch(0.24, 0.02, bh), "57": lch(0.60, 0.06, B), "58": lch(0.92, 0.03, CY),
         "59": lch(0.56, 0.07, CY), "60": lch(0.56, 0.07, G), "61": lch(0.56, 0.07, B), "62": lch(0.56, 0.07, M), "63": lch(0.56, 0.07, Y),
     }
-    for slot in ("01", "02", "03", "04", "05", "06", "09", "11", "12", "14", "15", "24"):
-        assert contrast(p[slot], bg) >= 4.5, f"color{slot} {p[slot]} is under 4.5:1 on {bg}"
+    for slot in ("text", "01", "02", "03", "04", "05", "06", "09", "11", "12", "14", "15", "24"):
+        assert contrast(p[slot], bg) >= 4.5, f"{slot} {p[slot]} is under 4.5:1 on {bg}"
     return p
 
 
@@ -316,6 +326,7 @@ def write(image, target):
         sys.exit(f"Could not read {image} with ImageMagick: {e}")
     shown = "$HOME" + image[len(HOME):] if image.startswith(HOME + os.sep) else image
     lines = ["#!/usr/bin/env bash", "#shellcheck disable=SC2034", f"# Generated from {os.path.basename(image)} by theme-from-wallpaper.", f'wallpaper="{shown}"']
+    lines += [f"gnohj_text={colors.pop('text')}"]
     lines += [f"gnohj_color{slot}={value}" for slot, value in sorted(colors.items())]
     os.makedirs(LIST, exist_ok=True)
     with open(target, "w") as f:

@@ -14,5 +14,5 @@ done
 # Omarchy hands over its own selection fill; off it this must reproduce generate_herdr_config's relight, or the key renders empty and herdr falls back to the terminal's own selection colours.
 selection_bg="${omarchy_selection_bg:-}"
 [ -n "$selection_bg" ] || selection_bg="$(gnohj_relight "$gnohj_color04" 0.20)"
-printf '%s"selection_bg":"%s"}' "$sep" "$selection_bg"` -}}
+printf '%s"selection_bg":"%s","text":"%s","text_muted":"%s","selection":"%s","accent":"%s"}' "$sep" "$selection_bg" "$gnohj_text" "$gnohj_text_muted" "$gnohj_selection" "$gnohj_accent"` -}}
 {{- output "bash" "-c" $script -}}

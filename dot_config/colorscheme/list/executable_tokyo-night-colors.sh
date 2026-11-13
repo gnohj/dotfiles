@@ -20,7 +20,7 @@
 #-------------------------------------------------------------------------------
 #--                  Wallpaper
 #-------------------------------------------------------------------------------
-wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
+wallpaper="$HOME/Pictures/wallpapers/moon-2-4K.png"
 #-------------------------------------------------------------------------------
 #--           Terminal Palette Colors
 # color04 - ghostty blue / nvim purple
@@ -32,6 +32,7 @@ wallpaper="$HOME/Pictures/wallpapers/moon-2.png"
 # color06 - nvim orange
 #-------------------------------------------------------------------------------
 gnohj_color04=#7aa2f7
+gnohj_text=#c0caf5
 gnohj_color02=#9ece6a
 gnohj_color03=#7dcfff
 gnohj_color01=#bb9af7

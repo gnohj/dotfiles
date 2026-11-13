@@ -67,10 +67,11 @@ preview() {
     ) >/dev/null 2>&1
   fi
 
-  local B C P T H K F S Y N M R
+  local B C P T U H K F S Y N M R
   rgb() { printf -v "$1" '\e[%d;2;%d;%d;%dm' "$2" "0x${3:1:2}" "0x${3:3:2}" "0x${3:5:2}"; }
   rgb C 48 "$gnohj_color07"
-  rgb T 38 "$gnohj_color04"
+  rgb T 38 "${gnohj_text:-$gnohj_color14}"
+  rgb U 38 "$gnohj_color04"
   rgb H 38 "$gnohj_color14"
   rgb K 38 "$gnohj_color01"
   rgb F 38 "$gnohj_color03"
@@ -106,13 +107,13 @@ preview() {
   row "$F" " ~/.local/share/chezmoi " "$K" "main " "$S" "\$ " "$T" "git status " "$M" "-sb"
   row "$T" ""
   P=$B B=$C
-  row "$K" " fn " "$F" "apply" "$H" "(" "$T" "theme" "$H" ": " "$Y" "&Theme" "$H" ") -> " "$Y" "Result" "$H" "<()> {"
-  row "$K" "   let " "$T" "bg " "$H" "= " "$T" "theme" "$H" "." "$F" "color" "$H" "(" "$S" '"background"' "$H" "); " "$M" "// lookup"
-  row "$F" "   reload" "$H" "(" "$Y" "Surface" "$H" "::" "$T" "Ghostty" "$H" ", " "$N" "120" "$H" ")?;"
+  row "$K" " fn " "$F" "apply" "$H" "(" "$U" "theme" "$H" ": " "$Y" "&Theme" "$H" ") -> " "$Y" "Result" "$H" "<()> {"
+  row "$K" "   let " "$U" "bg " "$H" "= " "$U" "theme" "$H" "." "$F" "color" "$H" "(" "$S" '"background"' "$H" "); " "$M" "// lookup"
+  row "$F" "   reload" "$H" "(" "$Y" "Surface" "$H" "::" "$U" "Ghostty" "$H" ", " "$N" "120" "$H" ")?;"
   row "$H" " }"
   B=$P
   row "$T" ""
-  row "$S" " + foreground = $gnohj_color04"
+  row "$S" " + foreground = ${gnohj_text:-$gnohj_color14}"
   row "$R" " - background = $gnohj_color10"
   row "$T" ""
   row "$M" " live $live  " "$M" "(tab toggles)"
