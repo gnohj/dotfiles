@@ -136,12 +136,26 @@ local function updateWorkspaceIndicator(currentWorkspace)
 	end
 end
 
+local RETRY_DELAY = 5 -- seconds between attempts
+local RETRY_EVENT = "workspace_retry_init"
+
+-- Rift restarts (darwin-rebuild, upgrades) drop queries mid-session; retry instead of leaving the bar blank.
+local retry_pending = false
+local function schedule_retry()
+	if retry_pending then
+		return
+	end
+	retry_pending = true
+	sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
+end
+
 local function updateWindows()
 	log_message("INFO", "updateWindows called")
 
 	if not ensure_connection() then
 		log_message("ERROR", "Cannot update windows - Rift not reachable")
 		update_running = false
+		schedule_retry()
 		return
 	end
 
@@ -153,6 +167,7 @@ local function updateWindows()
 		log_message("ERROR", "Failed to get current workspace: " .. tostring(currentWorkspace))
 		rift = nil -- force full reconnect on next call
 		update_running = false
+		schedule_retry()
 		return
 	end
 
@@ -166,6 +181,7 @@ local function updateWindows()
 		log_message("ERROR", "Failed to list windows: " .. tostring(windowsJson))
 		rift = nil -- force full reconnect on next call
 		update_running = false
+		schedule_retry()
 		return
 	end
 
@@ -302,12 +318,10 @@ workspaceItem:subscribe(constants.events.SWAP_MENU_AND_SPACES, function(env)
 end)
 
 -- Sketchybar often starts before Rift after login, so keep retrying instead of disabling the widget.
-local RETRY_DELAY = 5 -- seconds between attempts
-local RETRY_EVENT = "workspace_retry_init"
-
 sbar.exec("sketchybar --add event " .. RETRY_EVENT)
 
 frontAppWatcher:subscribe(RETRY_EVENT, function()
+	retry_pending = false
 	if rift and rift:is_initialized() then
 		return -- already connected, nothing to do
 	end
@@ -315,7 +329,7 @@ frontAppWatcher:subscribe(RETRY_EVENT, function()
 		log_message("INFO", "Rift reachable on retry — workspace widget enabled")
 		getWindows()
 	else
-		sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
+		schedule_retry()
 	end
 end)
 
@@ -324,5 +338,5 @@ if init_rift() then
 	getWindows()
 else
 	log_message("WARN", "Rift not yet reachable - retrying every " .. RETRY_DELAY .. "s")
-	sbar.exec("sleep " .. RETRY_DELAY .. " && sketchybar --trigger " .. RETRY_EVENT)
+	schedule_retry()
 end
