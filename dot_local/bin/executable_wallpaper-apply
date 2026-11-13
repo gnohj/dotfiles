@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# macOS keeps a wallpaper per display, so sketchybar reruns this on display_change.
+# No argument (sketchybar) skips screens that already match; a path always sets, since the readback lags.
 [[ "$OSTYPE" == darwin* ]] || exit 0
 
 wallpaper="${1:-}"
+only_changed=0
 if [ -z "$wallpaper" ]; then
+  only_changed=1
   active="$HOME/.config/colorscheme/active/active-colorscheme.sh"
   [ -f "$active" ] || exit 0
   wallpaper=$(. "$active" >/dev/null 2>&1; printf '%s' "$wallpaper")
@@ -21,6 +23,9 @@ function run(argv) {
   options.setObjectForKey($.NSNumber.numberWithBool(true), $.NSWorkspaceDesktopImageAllowClippingKey);
   const screens = $.NSScreen.screens;
   for (let i = 0; i < screens.count; i++) {
-    workspace.setDesktopImageURLForScreenOptionsError(url, screens.objectAtIndex(i), options, null);
+    const screen = screens.objectAtIndex(i);
+    const current = workspace.desktopImageURLForScreen(screen);
+    if (argv[1] === "1" && current && current.path.js === url.path.js) continue;
+    workspace.setDesktopImageURLForScreenOptionsError(url, screen, options, null);
   }
-}' "$wallpaper" >/dev/null 2>&1 || true
+}' "$wallpaper" "$only_changed" >/dev/null 2>&1 || true
