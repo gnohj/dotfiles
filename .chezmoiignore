@@ -39,6 +39,10 @@ tasks
 .config/kitty/kitty-theme.conf
 # A link colorscheme-set.sh points at the picked scheme; a source copy would be put back over it on every apply.
 .config/colorscheme/active/active-colorscheme.sh
+# Written by colorscheme-set.sh (generate_borders_config) from the active theme; a source copy pinned one theme's border colours.
+.config/borders/bordersrc
+# Same for ghosttyfetch's colours (generate_ghosttyfetch_config).
+.config/ghosttyfetch/config.json
 # Same story: colorscheme-set.sh (generate_lazygit/gitmux/btop/starship/yazi)
 # does a full `cat >` overwrite of each on every theme switch, re-resolving colors
 # from the active colorscheme. Tracking them as source = perpetual `chezmoi diff`
