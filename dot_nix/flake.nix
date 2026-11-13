@@ -5,14 +5,11 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     # Pinned nixpkgs that still packages gh-dash 4.23.2. 4.24.x regressed with a
-    # nil-pointer panic on terminals (e.g. tmux) that don't promptly answer the
+    # nil-pointer panic on terminals that don't promptly answer the
     # OSC 11 background-color query — see dlvhdr/gh-dash#876. The fix is on the
     # gh-dash main branch but unreleased; drop this pin once a tagged release
     # past 4.24.1 lands in nixpkgs-unstable.
     nixpkgs-ghdash.url = "github:NixOS/nixpkgs/c92a446a730c";
-
-    # Pinned nixpkgs whose sesh still builds; go-mockery 3.8.0 can't read go 1.27 export data, drop once nixpkgs bumps it.
-    nixpkgs-sesh.url = "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30";
 
     # Rex-native Neovim frontend, built from source (not in nixpkgs); bump with `nix flake update neorex`.
     neorex = {
@@ -40,13 +37,11 @@
         pkgs = import nixpkgs {
           system = "x86_64-linux";
           config.allowUnfree = true;
-          # Pin gh-dash to 4.23.2 — 4.24.x panics under tmux (dlvhdr/gh-dash#876).
+          # Pin gh-dash to 4.23.2 - 4.24.x panics on terminals slow to answer OSC 11 (dlvhdr/gh-dash#876).
           # Mirrors the overlay in nix-darwin/default-silicon.nix (x86_64-linux here).
           overlays = [
             (final: prev: {
               gh-dash = inputs.nixpkgs-ghdash.legacyPackages."x86_64-linux".gh-dash;
-              # Pin sesh until go-mockery builds under go 1.27; see flake.nix nixpkgs-sesh.
-              sesh = inputs.nixpkgs-sesh.legacyPackages."x86_64-linux".sesh;
             })
           ];
         };

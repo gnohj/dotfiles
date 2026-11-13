@@ -26,9 +26,7 @@ WT="${1:-}"
 [ -f "$WT/pnpm-lock.yaml" ] || exit 0
 command -v pnpm >/dev/null 2>&1 || exit 0
 
-# tmux commands no-op under Rex; `mux kind` covers review-open.sh, which gh-dash runs detached with no $TMUX.
-if [ -n "${TMUX:-}" ]; then MUX=tmux
-else MUX="$("$HOME/.local/bin/mux/mux" kind 2>/dev/null || echo none)"; fi
+MUX="$("$HOME/.local/bin/mux/mux" kind 2>/dev/null || echo none)"
 
 label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
 
@@ -44,13 +42,6 @@ label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
     msg="⚠️ treehouse: $label pnpm install failed"
   fi
   case "$MUX" in
-    tmux)
-      # Status message on the session with a pane in this worktree, plus a desktop notif - mirrors wt-setup.
-      sess="$(tmux list-panes -a -F '#{pane_current_path}|#{session_name}' 2>/dev/null \
-        | awk -F'|' -v w="$WT" '$1==w||index($1,w"/")==1{print $2; exit}')"
-      [ -n "$sess" ] && command -v tmux >/dev/null 2>&1 && tmux display-message -d 6000 -t "$sess" "$msg" 2>/dev/null
-      command -v mac-notify >/dev/null 2>&1 && mac-notify -t "treehouse deps" -m "$msg" -T 5 2>/dev/null
-      ;;
     rex)
       "$HOME/.local/bin/mux/mux" notify --title "treehouse deps" "$msg" 2>/dev/null || true
       ;;

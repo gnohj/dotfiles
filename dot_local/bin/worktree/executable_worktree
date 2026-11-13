@@ -67,24 +67,9 @@ fmt_secs() {
   fi
 }
 
-# Fired by skhd, these verbs run OUTSIDE any tmux client, so `tmux display-popup`
-# has no client to host on and the script appears to "just close" (under set -e,
-# before any banner fires). Re-enter the tmux server context so the popup renders.
-# Only when tmux is the LIVE multiplexer: on the Mac a tmux server exists even
-# while you're on Rex, where the capture runs inline instead.
-respawn_into_tmux() {
-  local verb="$1"
-  [ -z "${TMUX:-}" ] || return 1
-  [ -z "${WORKTREE_RESPAWNED:-}" ] || return 1
-  [ "$("$MUX" kind)" = tmux ] || return 1
-  tmux ls >/dev/null 2>&1 || return 1
-  WORKTREE_RESPAWNED=1 tmux run-shell -b "$SELF $verb"
-  return 0
-}
-
 # WARNING: under mux popup's inline fallback the staged script shares this process's stdio - so the header must stay a positional arg (stdin would leave `read` on a drained heredoc) and the answer must come back in a global (a command substitution would swallow the prompt).
 popup_read() {
-  local w="$1" h="$2" label="$3" header="$4" sh out hdr
+  local label="$1" header="$2" sh out hdr
   out=$(mktemp -t worktree-popup-input.XXXXXX)
   sh=$(mktemp -t worktree-popup.XXXXXX.sh)
   # SAFETY: the header carries clipboard text, so the script cats it from its own file — inlined as a heredoc, a payload line matching the delimiter would close it and run the rest as shell.
@@ -104,7 +89,7 @@ popup_read() {
     printf 'printf %%s "$ans" > %q\n' "$out"
   } > "$sh"
   # A cancel exits non-zero and set -e would abort before the caller can check.
-  "$MUX" popup --width "$w" --height "$h" "$sh" || true
+  "$MUX" popup "$sh" || true
   POPUP_ANSWER=$(cat "$out" 2>/dev/null || true)
   rm -f "$out" "$sh" "$hdr"
 }
@@ -334,15 +319,9 @@ cmd_runner() {
   # spawned Terminal.app it resolves to "Apple_Terminal", so auto-detected banner
   # icons would always show Terminal's. Bake the icon through to every banner site.
   USER_TERM_HINT="${TERM_PROGRAM:-}"
-  if [ -z "$USER_TERM_HINT" ] && command -v tmux >/dev/null 2>&1; then
-    USER_TERM_HINT=$(tmux display-message -p '#{client_termtype}' 2>/dev/null || true)
-  fi
   ICON_PNG=$(resolve-term-icon "${USER_TERM_HINT:-terminal}" 2>/dev/null || true)
 
-  # `open -na Terminal` propagates TERM_* and TMUX but filters custom vars. When
-  # the caller is inside tmux + Ghostty, TERM_PROGRAM=ghostty propagates and
-  # tricks Terminal's zshrc into firing ghosttyfetch, which spawns its own tmux
-  # child and creates an unnamed numeric session. Unsetting it is the only fix.
+  # `open -na Terminal` keeps TERM_PROGRAM=ghostty, which would make Terminal's zshrc fire ghosttyfetch.
   unset TERM_PROGRAM TERM_PROGRAM_VERSION
   export SKIP_FETCH=1
 
@@ -350,13 +329,6 @@ cmd_runner() {
   FINAL_TIMEOUT=30       # outcome banner — sticks longer so it isn't missed
 
   mac-notify -t "$START_TITLE" -m "$START_MESSAGE" -g "$WORKTREE_GROUP" -T "$TIMEOUT_SECONDS"
-
-  # Snapshot tmux sessions BEFORE Terminal.app opens — Terminal/shell init
-  # occasionally spawns an unnamed numeric session as a side effect and we need to
-  # know it wasn't ours. Snapshotting inside the inner script is too late.
-  # `|| true` inside the pipeline: under pipefail a serverless `tmux ls` kills the runner right after the start banner.
-  TMUX_SNAPSHOT=$(mktemp -t "${WORKTREE_LOG_TAG}-tmux.XXXXXX")
-  { tmux ls -F '#{session_name}' 2>/dev/null || true; } | sort -u > "$TMUX_SNAPSHOT"
 
   # Snapshot all git worktrees under ~/Developer before claude runs; the new one is
   # the set difference afterward - an authoritative detector that doesn't depend on
@@ -453,7 +425,7 @@ cleanup() {
     end tell
   end run' "\$our_tty" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
   # $PS_LOG_PER_RUN stays: wt-setup's bg subshell keeps writing to it after exit, and macOS cleans its temp dir.
-  rm -f "$TMPSCRIPT" "$TMUX_SNAPSHOT" "$WT_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
+  rm -f "$TMPSCRIPT" "$WT_SNAPSHOT" "$LOG_HEADER_FILE" "$PROMPT_FILE" "$CAPTURE_PAYLOAD_FILE" "$CAPTURE_CONTEXT_FILE" "/tmp/worktree-runner-\$\$.state"
 }
 trap cleanup EXIT
 
@@ -468,15 +440,12 @@ TAG=$WORKTREE_LOG_TAG
 STARTED=\$(date +%s)
 STATE
 
-# Strip TMUX so wt-setup sees a headless flow and doesn't hijack the user's tmux client via sesh connect.
-unset TMUX TMUX_PANE TMUX_PLUGIN_MANAGER_PATH
-
 # Terminal.app's spawn env lacks the user's PATH; restore enough for claude, git, wt-add and pnpm.
 export PATH="\$HOME/.local/bin:\$HOME/.local/bin/mux:\$HOME/.local/bin/worktree:\$HOME/.local/share/mise/shims:\$HOME/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export SKIP_FETCH=1
 # claude → wt-add → wt-setup inherit this, so setup writes to OUR per-run log instead of the global one.
 export WORKTREE_SETUP_LOG="$PS_LOG_PER_RUN"
-# Where wt-setup opens the result (Rex / sesh / clipboard), baked in so it survives the open→Terminal boundary.
+# Where wt-setup opens the result (Rex / clipboard), baked in so it survives the open→Terminal boundary.
 export WORKTREE_OPEN_IN="${WORKTREE_OPEN_IN:-}"
 
 # Inject account creds like the interactive claude() function does — raw
@@ -592,8 +561,7 @@ if [ -n "\$PS_LOG_NEW" ]; then
   WORKTREE_NAME=\$(basename "\$WORKTREE_PATH")
   # Session name = path relative to ~/Developer/ so the folder bucket (infra/,
   # fix/, feat/, …) survives. basename() would drop it and yield "web/test-test"
-  # for ~/Developer/web/infra/test-test; we want "web/infra/test-test" to match
-  # sesh's zoxide-derived names.
+  # for ~/Developer/web/infra/test-test; we want "web/infra/test-test".
   SESSION="\${WORKTREE_PATH#\$HOME/Developer/}"
 
   if printf '%s' "\$LATEST_RUN" | grep -q "worktree setup complete!"; then
@@ -692,11 +660,7 @@ case "\$OUTCOME" in
   success)
     TITLE="Worktree ready · \$DURATION_FMT"
     MSG=\${SESSION:-$FALLBACK_Q}
-    # Defer session creation to switch time. Pre-creating here causes a brief
-    # gitmux/status-bar flicker on the current session, because tmux new-session
-    # -d fires the global session-created hook which briefly affects what tmux's
-    # "current" pointer resolves to. Write "<name>|<path>" instead so
-    # notify-idle-switch.sh can create-and-attach on demand.
+    # Defer session creation to switch time: write "<name>|<path>" so notify-idle-switch.sh can create-and-attach on demand.
     if [ -n "\$SESSION" ] && [ -d "\$WORKTREE_PATH" ]; then
       echo "\$SESSION|\$WORKTREE_PATH" > /tmp/notify-idle.latest 2>/dev/null || true
     fi
@@ -813,38 +777,27 @@ echo "[\$(date +%H:%M:%S)] mac-notify exit: \$?" >> $LOGFILE
 # Brief pause so the notification actually posts before the window closes.
 sleep 1
 
-# Kill any new unnamed (numeric) tmux session that appeared during our run.
-TMUX_SESS_AFTER=\$(tmux ls -F '#{session_name}' 2>/dev/null | sort -u)
-if [ -n "\$TMUX_SESS_AFTER" ] && [ -f "$TMUX_SNAPSHOT" ]; then
-  comm -13 "$TMUX_SNAPSHOT" <(printf '%s\n' "\$TMUX_SESS_AFTER") \
-    | grep -E '^[0-9]+\$' \
-    | while read -r stale; do
-        tmux kill-session -t "\$stale" 2>/dev/null || true
-      done
-fi
-
 # The Terminal-quit watcher is spawned by the EXIT trap above, so one fires
 # regardless of how we exit — completion, abort SIGTERM, claude crash, error.
 exit 0
 EOF
 
-  # macOS gets a Terminal.app window; a bare `tmux new-window` would strand the session in an invisible tmux server on the VPS.
+  # macOS gets a Terminal.app window; elsewhere the runner detaches and a Rex tab tails its log.
   RUNNER_LOG="$HOME/.logs/${WORKTREE_LOG_TAG}.log"
   if [ "$(uname)" = Darwin ]; then
     open -g -n -a "Terminal" --env SKIP_FETCH=1 "$TMPSCRIPT"
-  elif [ "$("$MUX" kind)" != none ]; then
+  else
     # Own session: closing a pane hangs up its pty, which killed a runner living there by SIGHUP with its EXIT trap unrun.
     LOG_OFFSET=$(wc -c 2>/dev/null < "$RUNNER_LOG" || echo 0)
     SKIP_FETCH=1 setsid "$TMPSCRIPT" </dev/null >/dev/null 2>&1 &
     # No job control in a script, so setsid is not the pgid leader and execs in place - $! is the runner.
     RUNNER_PID=$!
+    [ "$("$MUX" kind)" != none ] || return 0
     # --no-focus mirrors the Darwin `open -g` above: the capture must not yank you out of what you were doing.
     # $HOME, not $PWD: the origin worktree may be gone, and a bad --cwd fails tab create.
     # A viewer only, so closing it costs nothing; --pid keeps the old close-on-exit contract.
     "$MUX" window --no-focus "$WORKTREE_GROUP" "$HOME" \
       "tail --pid=$RUNNER_PID -c +$((LOG_OFFSET + 1)) -f $(printf '%q' "$RUNNER_LOG")"
-  else
-    tmux new-session -d -s "$WORKTREE_GROUP" -e SKIP_FETCH=1 "$TMPSCRIPT"
   fi
 }
 
@@ -1097,8 +1050,6 @@ MODEL: haiku" \
 # is shared with the other capture verbs.
 #-------------------------------------------------------------------------------
 cmd_prompt() {
-  respawn_into_tmux prompt && exit 0
-
   local INPUT
   _POPUP_HDR=$(cat <<'EOF'
 Worktree from description (claude infers repo · folder · slug)
@@ -1115,7 +1066,7 @@ Format: <repo> <folder-hint> <slug>   (space-separated, loose)
 
 EOF
   )
-  popup_read 70% 30% "> " "$_POPUP_HDR"
+  popup_read "> " "$_POPUP_HDR"
   INPUT="$POPUP_ANSWER"
   [ -n "$INPUT" ] || exit 0
 
@@ -1249,8 +1200,6 @@ MODEL:         $SELECTED_MODEL" \
 #   Text + other                 → describe pipeline with context appended
 #-------------------------------------------------------------------------------
 cmd_clipboard() {
-  respawn_into_tmux clipboard && exit 0
-
   if ! detect_clipboard worktree-clipboard; then
     notify_error "worktree-clipboard" "Clipboard is empty"
     exit 1
@@ -1276,7 +1225,7 @@ Press Enter alone to use clipboard as-is.
 
 EOF
   )
-  popup_read 70% 30% "context > " "$_POPUP_HDR"
+  popup_read "context > " "$_POPUP_HDR"
   CONTEXT="$POPUP_ANSWER"
 
   if [ "$CLIPBOARD_KIND" = "image" ]; then
@@ -1426,8 +1375,6 @@ MODEL: $SELECTED_MODEL" \
 # immediately, then file once you've actually narrowed the bug.
 #-------------------------------------------------------------------------------
 cmd_bug() {
-  respawn_into_tmux bug && exit 0
-
   if ! detect_clipboard worktree-bug; then
     notify_error "worktree-bug" "Clipboard is empty"
     exit 1
@@ -1487,7 +1434,7 @@ $POPUP_HEAD
 
 EOF
   )
-  popup_read 70% 35% "context > " "$_POPUP_HDR"
+  popup_read "context > " "$_POPUP_HDR"
   CONTEXT="$POPUP_ANSWER"
 
   # Jira URL — ticket exists, so no DEFER_JIRA. Mode A → haiku.
@@ -1721,7 +1668,7 @@ Previous context: ${OLD_CONTEXT:-(none)}
 
 EOF
   )
-  popup_read 75% 35% "context > " "$_POPUP_HDR"
+  popup_read "context > " "$_POPUP_HDR"
   NEW_CONTEXT="$POPUP_ANSWER"
 
   if [ -z "$NEW_CONTEXT" ]; then
@@ -1823,8 +1770,6 @@ $([ "$CLIPBOARD_KIND" = "image" ] && echo "IMAGE PATH: $TMP_IMG" || echo "CLIP: 
 #                       to the clipboard, success banner.
 #-------------------------------------------------------------------------------
 cmd_jira_file() {
-  respawn_into_tmux jira-file && exit 0
-
   local PROMPT_DETAIL="$WT_DIR/jira-prompt-company.md"
   local LOGFILE="$HOME/.logs/worktree-jira-file.log"
   mkdir -p "$(dirname "$LOGFILE")"
@@ -1851,19 +1796,8 @@ cmd_jira_file() {
     sleep 0.3
   }
 
-  # Derive the path-slug from the FOCUSED pane's working directory. The
-  # skhd → tmux run-shell respawn lands us in the tmux server's CWD (~ or /), not
-  # the user's pane, so a plain `git rev-parse --show-toplevel` always fails with
-  # "not a git repo". Ask tmux where the user actually is.
-  local ACTIVE_PATH="$PWD" FOCUSED_PATH="" in_rex=""
-  # Under Rex this runs inline in the focused block, so a detached tmux focus would point elsewhere.
-  [ "$("$MUX" kind 2>/dev/null)" = rex ] && in_rex=1
-  if [ -z "$in_rex" ] && command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    FOCUSED_PATH=$(tmux display-message -p '#{pane_current_path}' 2>/dev/null || true)
-  fi
-  if [ -n "$FOCUSED_PATH" ] && [ -d "$FOCUSED_PATH" ]; then
-    ACTIVE_PATH="$FOCUSED_PATH"
-  fi
+  # Derive the path-slug from the working directory: under Rex this runs inline in the focused block.
+  local ACTIVE_PATH="$PWD"
 
   local WORKTREE_PATH VAULT_INBOX REL SLUG NOTE
   WORKTREE_PATH=$(git -C "$ACTIVE_PATH" rev-parse --show-toplevel 2>/dev/null || true)
@@ -1878,8 +1812,7 @@ cmd_jira_file() {
       exit 1
       ;;
   esac
-  # Resolve the vault from the WORKTREE path, NOT $PWD — the respawn lands in the
-  # tmux server's cwd. Work worktree → work vault.
+  # Resolve the vault from the WORKTREE path, NOT $PWD. Work worktree → work vault.
   VAULT_INBOX="$("$HOME/.local/bin/vault-path" "$WORKTREE_PATH")/Notes-Inbox"
   REL="${WORKTREE_PATH#"$HOME"/Developer/}"
   SLUG="${REL//\//-}"
@@ -1918,7 +1851,7 @@ PICKED=\$(tail -n +4 "$PICK_MENU" | fzf --prompt='pending > ' --height=100% --he
 echo "\$PICKED" > "$PICK_INPUT"
 EOF
 
-      "$MUX" popup --width 80% --height 60% "$PICK_SH" || true
+      "$MUX" popup "$PICK_SH" || true
 
       PICKED=$(cat "$PICK_INPUT" 2>/dev/null || true)
       rm -f "$PICK_INPUT" "$PICK_MENU" "$PICK_SH"
@@ -2055,7 +1988,7 @@ Anything else (incl. blank Enter) cancels — pending note stays put.
 
 EOF
   )
-  popup_read 90% 80% "confirm > " "$_POPUP_HDR"
+  popup_read "confirm > " "$_POPUP_HDR"
   CONFIRM="$POPUP_ANSWER"
   case "$CONFIRM" in
     y|Y|yes|YES|Yes) ;;
@@ -2259,7 +2192,7 @@ cmd_abort() {
 fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='abort > ' < '$LIST_FILE' > '$PICK_FILE'
 EOF
 
-  "$MUX" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
+  "$MUX" popup "$PICK_SH" 2>/dev/null || true
 
   PICK=$(cat "$PICK_FILE" 2>/dev/null || true)
   # User cancelled (Esc / Ctrl-C) — leave everything alone.

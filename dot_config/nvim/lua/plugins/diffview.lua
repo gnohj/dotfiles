@@ -43,9 +43,9 @@ return {
       },
     },
     hooks = {
-      -- Quit nvim when diffview closes (since it's in a dedicated tmux window)
+      -- Quit nvim when diffview closes (since it's in a dedicated window)
       view_closed = function()
-        -- Only auto-quit if this is a dedicated diff instance (tmux window)
+        -- Only auto-quit if this is a dedicated diff instance
         if vim.g.quit_after_diff then
           vim.cmd("qa")
         end

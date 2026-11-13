@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# Smart-switch binding for rctrl - '.
-# Reads the latest session that emitted an idle banner (tracked by
-# notify-idle.sh in /tmp/notify-idle.latest), switches to it, then clears all
-# displayed banners. Every jump goes through a `mux` verb, never tmux directly.
+# Banner click handler: jumps to the session in /tmp/notify-idle.latest via a mux verb, then clears all banners.
 
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
@@ -17,14 +14,13 @@ ENTRY=$(cat "$STATE_FILE" 2>/dev/null)
 [ -z "$ENTRY" ] && exit 0
 
 # State file format:
-#   "<session_name>"           — bare session name (claude-idle banners)
 #   "<session_name>|<path>"    — session may not exist yet, create at path
 #                                (worktree runner success banners)
 #   "vault|<note-path>"        — most recent worktree attempt failed or
 #                                was deliberately skipped (NOT_BUG); the
 #                                runner captured it to the second-brain
 #                                inbox and points us at the note. Open
-#                                the vault tmux session and the note in
+#                                the vault session and the note in
 #                                a fresh nvim window so the user can
 #                                review the decision in context.
 
@@ -36,11 +32,7 @@ vault\|*)
   VAULT_INBOX="$VAULT_DIR/Notes-Inbox"
   VAULT_SESSION="$(basename "$VAULT_DIR")"
 
-  # If multiple worktree captures landed in the inbox in the last hour,
-  # offer an fzf picker so the user can choose which one to open. The
-  # state file always points at the LATEST, but a stack of failures
-  # would otherwise hide the earlier ones from `rctrl + '`. Single-slot
-  # state is preserved — picker only opens when COUNT > 1.
+  # Several worktree captures in the last hour get an fzf picker, since the single-slot state only names the latest.
   # GNU stat first: on Linux `stat -f` reads its arg as a filesystem and poisons the list.
   RECENT_NOTES=$(find "$VAULT_INBOX" -maxdepth 1 -name '*Worktree-*.md' -mmin -60 -type f 2>/dev/null \
     | xargs -I{} sh -c 'stat -c "%Y %n" "$1" 2>/dev/null || stat -f "%m %N" "$1" 2>/dev/null' _ {} \
@@ -89,14 +81,14 @@ vault\|*)
       printf '%s │ %-9s │ %-18s │ %s\t%s\n' "$mtime" "$outcome" "$entry" "$slug" "$path"
     done <<< "$RECENT_NOTES" > "$PICK_LIST"
 
-    # Staged as a script so mux popup can draw it or exec it inline under Rex.
+    # Staged as a script so mux popup can exec it inline.
     PICK_SH=$(mktemp -t notify-idle-picker.XXXXXX.sh)
     chmod +x "$PICK_SH"
     cat > "$PICK_SH" <<EOF
 #!/usr/bin/env bash
 fzf --reverse --delimiter=\$'\t' --with-nth=1 --prompt='capture > ' < '$PICK_LIST' > '$PICK_OUT'
 EOF
-    "$MUX" popup --width 80% --height 40% "$PICK_SH" 2>/dev/null || true
+    "$MUX" popup "$PICK_SH" 2>/dev/null || true
     rm -f "$PICK_SH"
 
     PICK=$(cat "$PICK_OUT" 2>/dev/null || true)
@@ -119,21 +111,11 @@ EOF
   fi
   ;;
 *)
-  RAW="${ENTRY%%|*}"
+  SESSION_LABEL="${ENTRY%%|*}"
   WORKTREE_PATH=""
   case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
 
-  # RAW is a tmux pane id (%N) or a bare session; only the latter has a label.
-  SESSION_LABEL=""
-  case "$RAW" in
-    "" | %*) ;;
-    *) SESSION_LABEL="$RAW" ;;
-  esac
-
-  # Only pane-id shapes are worth a focus attempt; a session name just costs a fork.
-  if [ -n "$RAW" ] && [ -z "$SESSION_LABEL" ] && "$MUX" focus "$RAW" 2>/dev/null; then
-    :
-  elif [ -n "$WORKTREE_PATH" ]; then
+  if [ -n "$WORKTREE_PATH" ]; then
     # Deferred creation: the worktree wrapper skips pre-creating the session.
     if [ -n "$SESSION_LABEL" ]; then
       "$MUX" session --label "$SESSION_LABEL" "$WORKTREE_PATH" >/dev/null 2>&1 || true

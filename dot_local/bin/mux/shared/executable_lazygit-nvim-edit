@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # Lazygit custom command for `<C-o>`: open the selected file in the
-# nvim that was in the pane behind the popup (RPC), or spawn one if
+# nvim in a sibling Rex block (RPC), or spawn one in a new window if
 # none is running. Then auto-close the popup.
 
 set -uo pipefail
 
-# DO NOT try to kill-pane the popup. Tmux popups are not panes —
-# display-message returns the host pane instead, and kill-pane on that
-# nukes the user's real working pane. Killing the lazygit process via
-# process-tree walk is the only safe approach.
+# Close the popup by killing the lazygit pid from a process-tree walk, never a pane, which could hit the user's working pane.
 find_lazygit_pid() {
   local pid=$$ name
   for _ in 1 2 3 4 5 6; do
@@ -29,7 +26,6 @@ mkdir -p "$(dirname "$DEBUG_LOG")"
   printf '=== %s ===\n' "$(date)"
   printf 'arg1: %q\n' "${1:-}"
   printf 'PWD: %s\n' "$PWD"
-  printf 'LAZYGIT_HOST_PANE: %q\n' "${LAZYGIT_HOST_PANE:-(unset)}"
   printf 'lazygit pid (process-tree walk): %s\n' "$(find_lazygit_pid || echo '(not found)')"
 } >> "$DEBUG_LOG"
 
@@ -48,10 +44,8 @@ OPEN_DIR=$(git -C "$(dirname "$ABS_FILE")" rev-parse --show-toplevel 2>/dev/null
 [ -n "$OPEN_DIR" ] || OPEN_DIR=$(dirname "$ABS_FILE")
 echo "  open dir (git root): $OPEN_DIR" >> "$DEBUG_LOG"
 
-# These get interpolated into strings a shell will parse (send-keys / send-text / new-window),
-# so quote them for the shell rather than wrapping in literal quotes a filename could close.
+# Interpolated into a string a shell will parse (mux window), so quote it for the shell rather than wrapping in literal quotes a filename could close.
 Q_FILE=$(printf %q "$ABS_FILE")
-Q_DIR=$(printf %q "$OPEN_DIR")
 
 # Deferred via double-fork because killing lazygit synchronously would
 # SIGHUP this script (we're a customCommand subprocess of lazygit).
@@ -66,35 +60,11 @@ close_popup_deferred() {
   ( ( sleep 0.2; kill -TERM "$lazygit_pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 & ) 2>/dev/null
 }
 
-# C-u clears any partial command the user typed before hitting rctrl-g,
-# so we never concatenate it with the nvim invocation.
-spawn_in_host_pane() {
-  local pane="$1"
-  local current_cmd
-  current_cmd=$(tmux display-message -t "$pane" -p '#{pane_current_command}' 2>/dev/null)
-  echo "  host pane $pane current_command: $current_cmd" >> "$DEBUG_LOG"
-  case "$current_cmd" in
-    bash|zsh|fish|sh|dash|tcsh|ksh)
-      tmux send-keys -t "$pane" C-u "cd $Q_DIR && nvim $Q_FILE" Enter 2>>"$DEBUG_LOG"
-      echo "  → sent nvim launch to host pane $pane (shell: $current_cmd)" >> "$DEBUG_LOG"
-      return 0
-      ;;
-    *)
-      # Host pane is running a TUI — send-keys would corrupt its input.
-      echo "  → host pane running '$current_cmd'; falling back to new-window" >> "$DEBUG_LOG"
-      spawn_in_new_window
-      ;;
-  esac
-}
-
-spawn_in_new_window() {
-  echo "  → spawning nvim in new tmux window" >> "$DEBUG_LOG"
-  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    tmux new-window -c "$OPEN_DIR" "nvim $Q_FILE" >>"$DEBUG_LOG" 2>&1
-    echo "  tmux new-window exit: $?" >> "$DEBUG_LOG"
-  else
-    echo "  → tmux unavailable" >> "$DEBUG_LOG"
-  fi
+new_window_and_exit() {
+  echo "  → new window in $OPEN_DIR" >> "$DEBUG_LOG"
+  "$HOME/.local/bin/mux/mux" window "🖋️" "$OPEN_DIR" "nvim $Q_FILE" >>"$DEBUG_LOG" 2>&1
+  close_popup_deferred
+  exit 0
 }
 
 # The ctrl+g popup floats over its window, so a sibling block's nvim (socket named by init.lua) is the editor to reuse.
@@ -114,38 +84,9 @@ rex_edit_and_exit() {
       exit 0
     fi
   done
-  echo "  rex: no nvim beside the popup; new window in $OPEN_DIR" >> "$DEBUG_LOG"
-  "$HOME/.local/bin/mux/mux" window "🖋️" "$OPEN_DIR" "nvim $Q_FILE" >>"$DEBUG_LOG" 2>&1
-  close_popup_deferred
-  exit 0
+  echo "  rex: no nvim beside the popup" >> "$DEBUG_LOG"
+  new_window_and_exit
 }
 
-# Ask the dispatcher, not the pane env: a popup sets none, so a pane-env guard would fall through to tmux.
-case "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" in
-  rex)
-    echo "  mux kind: rex → Rex path" >> "$DEBUG_LOG"
-    [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit
-    ;;
-esac
-
-# --- tmux path (unchanged) --------------------------------------------------
-PANE_ID="${LAZYGIT_HOST_PANE:-}"
-if [ -z "$PANE_ID" ]; then
-  spawn_in_new_window
-  close_popup_deferred
-  exit 0
-fi
-
-PANE_NUM="${PANE_ID#%}"
-SOCK="/tmp/nvim-${PANE_NUM}.sock"
-echo "  resolved SOCK: $SOCK (exists: $([ -S "$SOCK" ] && echo yes || echo no))" >> "$DEBUG_LOG"
-
-if [ ! -S "$SOCK" ]; then
-  spawn_in_host_pane "$PANE_ID"
-  close_popup_deferred
-  exit 0
-fi
-
-nvim --server "$SOCK" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1
-echo "  nvim --remote exit: $?" >> "$DEBUG_LOG"
-close_popup_deferred
+[ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit
+new_window_and_exit

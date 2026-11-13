@@ -52,21 +52,10 @@ list_worktrees() {
   done < <(parse_repos)
 }
 
-# Close any session rooted in the worktree; sweep every mux, a stale one is broken either way.
+# Close any Rex session rooted in the worktree.
 kill_sessions_for() {
   local wt="$1"
-  kill_tmux_sessions_for "$wt"
   kill_rex_sessions_for "$wt"
-}
-
-kill_tmux_sessions_for() {
-  local wt="$1"
-  command -v tmux &>/dev/null || return 0
-  tmux list-sessions -F '#{session_name}	#{session_path}' 2>/dev/null \
-    | awk -F'\t' -v p="$wt" 'index($2, p) == 1 { print $1 }' \
-    | while read -r sess; do
-        [ -n "$sess" ] && tmux kill-session -t "$sess" 2>/dev/null || true
-      done
 }
 
 # Rex reports a cwd per block only, so a session goes when any of its blocks sits in the worktree.
@@ -260,7 +249,7 @@ delete_one() {
   command -v zoxide &>/dev/null && zoxide remove "$wt_path" 2>/dev/null || true
   drop_folder_thread "$wt_path" "$thread_id"
 
-  # Detach the rm so this script (and the launcher popup) can exit immediately.
+  # Detach the rm so this script (and the launcher) can exit immediately.
   ( setsid rm -rf "$trash" </dev/null >/dev/null 2>&1 & ) 2>/dev/null \
     || ( rm -rf "$trash" </dev/null >/dev/null 2>&1 & disown ) 2>/dev/null \
     || ( rm -rf "$trash" </dev/null >/dev/null 2>&1 & )

@@ -57,12 +57,9 @@
         gcc15Stdenv = final.clangStdenv;
       };
 
-      # Pin gh-dash to 4.23.2 — 4.24.x panics under tmux (dlvhdr/gh-dash#876).
+      # Pin gh-dash to 4.23.2 - 4.24.x panics on terminals slow to answer OSC 11 (dlvhdr/gh-dash#876).
       # Sourced from a pinned nixpkgs input; see flake.nix nixpkgs-ghdash.
       gh-dash = inputs.nixpkgs-ghdash.legacyPackages."aarch64-darwin".gh-dash;
-
-      # Pin sesh until go-mockery builds under go 1.27; see flake.nix nixpkgs-sesh.
-      sesh = inputs.nixpkgs-sesh.legacyPackages."aarch64-darwin".sesh;
     })
   ];
 

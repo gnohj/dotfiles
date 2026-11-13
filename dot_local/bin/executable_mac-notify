@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# Unified notification helper. Single source of truth for the
-# `terminal-notifier ... || osascript ...` pattern that was duplicated
-# across the worktree dispatcher (runner, capture, abort, retry and every
-# capture entry point) and notify-idle.sh. Named for its macOS origin, but
-# every caller is cross-platform now: off darwin it emits through mux
-# (Rex / tmux) so the dev box gets the same banners.
+# Unified terminal-notifier/osascript banner helper for every worktree caller; off darwin it emits through mux (Rex) instead.
 #
 # Usage:
 #   mac-notify --title "T" --message "M" [opts]
@@ -26,10 +21,7 @@
 #                           ~/.local/bin/resolve-term-icon.
 #       --no-icon           suppress icon entirely (skip the
 #                           auto-resolve, don't pass -contentImage).
-#   -e, --execute <cmd>     command to run when the banner is clicked.
-#                           Same effect as `rctrl + '` for worktree
-#                           banners (which pass the notify-idle-switch
-#                           handler here).
+#   -e, --execute <cmd>     command to run when the banner is clicked (worktree banners pass notify-idle-switch.sh).
 #
 # Behavior:
 #   - Runs `terminal-notifier` with the assembled args. Terminal-notifier
@@ -38,7 +30,7 @@
 #   - Falls back to `osascript display notification` when
 #     terminal-notifier isn't installed. The fallback can't honor
 #     group/sound/icon/execute — those are silently ignored.
-#   - Off darwin: emits via `mux notify` (Rex desktop banner / tmux message),
+#   - Off darwin: emits via `mux notify` (Rex desktop banner),
 #     then notify-send, then stderr. group/timeout/icon/execute are
 #     dropped — no multiplexer toast has an equivalent.
 #   - Always exits 0; notifications are best-effort. Errors are
@@ -81,7 +73,7 @@ if [ -z "$TITLE" ] && [ -z "$MESSAGE" ]; then
 fi
 
 # Off darwin there is no terminal-notifier, but the banner still has somewhere to
-# land: mux owns the live multiplexer's toast (Rex desktop banner / tmux message),
+# land: mux owns the live multiplexer's toast (Rex desktop banner),
 # so the devbox gets the same start/heartbeat/outcome banners the Mac does. Args
 # terminal-notifier owns alone are dropped - no multiplexer toast has a group replacement
 # (heartbeats stack instead of replacing), timeout, content image, or click action.
@@ -101,16 +93,10 @@ fi
 # generic Terminal.app icon. Detection order:
 #   1. $TERM_PROGRAM (set by most modern terminals: "ghostty", "iTerm.app",
 #      "Apple_Terminal", "WezTerm", …)
-#   2. tmux's client_termtype (when called from inside a tmux server
-#      reach — e.g. from a script fired via skhd that's bound to keys
-#      pressed inside a tmux pane)
-#   3. fall back to "terminal" (resolve-term-icon will return Terminal.app's
+#   2. fall back to "terminal" (resolve-term-icon will return Terminal.app's
 #      icon, which is the safe generic).
 if [ "$AUTO_ICON" = "1" ] && [ -z "$ICON" ]; then
   term_hint="${TERM_PROGRAM:-}"
-  if [ -z "$term_hint" ] && command -v tmux >/dev/null 2>&1; then
-    term_hint=$(tmux display-message -p '#{client_termtype}' 2>/dev/null || true)
-  fi
   ICON=$(resolve-term-icon "${term_hint:-terminal}" 2>/dev/null || true)
 fi
 

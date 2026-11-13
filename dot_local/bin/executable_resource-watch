@@ -222,7 +222,6 @@ class Context:
     bundles = {}
 
     def __init__(self):
-        self.panes = self.tmux_panes()
         self.windows = self.rift_windows() if DARWIN else self.hypr_windows()
         self.window_pids = {w["pid"] for w in self.windows}
         self.launchd_jobs = self.launchd_job_pids() if DARWIN else set()
@@ -231,18 +230,6 @@ class Context:
     def launchd_job_pids():
         rows = (line.split("\t", 1)[0] for line in run(["launchctl", "list"]).splitlines())
         return {int(pid) for pid in rows if pid.isdigit()}
-
-    def tmux_panes(self):
-        if not shutil.which("tmux"):
-            return {}
-        out = run(["tmux", "list-panes", "-a", "-F", "#{pane_pid}\t#{session_name}\t#{window_index}:#{window_name}\t#{pane_title}"])
-        result = {}
-        for line in out.splitlines():
-            parts = line.split("\t")
-            if len(parts) == 4 and parts[0].isdigit():
-                result[int(parts[0])] = {"kind": "tmux", "key": f"tmux:{parts[1]}:{parts[2]}",
-                                         "label": f"tmux {parts[1]} › {parts[2]}", "detail": parts[3]}
-        return result
 
     def rift_windows(self):
         try:
@@ -302,8 +289,6 @@ class Context:
         seen, cur, window_pid = set(), pid, None
         while cur and cur not in seen and cur in procs:
             seen.add(cur)
-            if cur in self.panes:
-                return self.panes[cur]
             if window_pid is None and LINUX and cur in self.window_pids:
                 window_pid = cur
             cur = procs[cur]["ppid"]

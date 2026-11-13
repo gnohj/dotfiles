@@ -70,7 +70,7 @@ if [ "$IS_MAIN_WORKTREE" = true ]; then
   exit 0
 fi
 
-# Register with zoxide, then open: Rex session (WORKTREE_OPEN_IN=rex), sesh inside tmux, else copy the session name.
+# Register with zoxide, then open: Rex session (WORKTREE_OPEN_IN=rex), else copy the session name.
 if command -v zoxide &>/dev/null; then
   # Use the interactive zshrc's zoxide DB, or non-interactive runs write to a default DB that `z` never reads.
   export _ZO_DATA_DIR="$HOME/.config/zshrc"
@@ -108,7 +108,7 @@ if [ -n "$THREAD_BRANCH" ]; then
   "repo": "$REPO_NAME",
   "branch": "$THREAD_BRANCH",
   "worktree": "$CURRENT_WORKTREE",
-  "tmux_session": "$THREAD_SESSION",
+  "session": "$THREAD_SESSION",
   "vault_note": null,
   "pr_url": null,
   "created_at": "$NOW",
@@ -127,21 +127,10 @@ if [ "${WORKTREE_OPEN_IN:-}" = "rex" ]; then
   else
     log "✗ Rex session open failed"
   fi
-elif [ -n "$TMUX" ] && command -v sesh &>/dev/null; then
-  # Stamp so the tmux session-created hook knows this is a sesh launch (fast nvim).
-  "$HOME/.config/sesh/sesh-spawn.sh" stamp
-  if sesh connect "$CURRENT_WORKTREE" 2>>"$LOGFILE"; then
-    log "✓ sesh session connected"
-  else
-    log "✗ sesh connect failed"
-  fi
 elif command -v pbcopy &>/dev/null || command -v wl-copy &>/dev/null; then
   # Use the path relative to ~/Developer/ so the folder bucket survives.
   # ~/Developer/web/infra/test-test → "web/infra/test-test"
-  # basename(...) would give just "test-test"; prepending REPO_NAME loses
-  # the bucket. Older worktrees show full bucket paths in tmux/gitmux
-  # because sesh auto-derives names from the zoxide cwd (which uses the
-  # full relative path); we match that here so new sessions look identical.
+  # basename(...) would give just "test-test"; prepending REPO_NAME loses the bucket.
   CLIPBOARD_VALUE="${CURRENT_WORKTREE#$HOME/Developer/}"
   # macOS: pbcopy. Linux: wl-copy fallback (both absent → the else branch above).
   if printf '%s' "$CLIPBOARD_VALUE" | { pbcopy || wl-copy; } 2>>"$LOGFILE"; then
@@ -150,7 +139,7 @@ elif command -v pbcopy &>/dev/null || command -v wl-copy &>/dev/null; then
     log "✗ clipboard copy failed"
   fi
 else
-  log "· no \$TMUX and no pbcopy; user must navigate manually"
+  log "· no Rex and no clipboard tool; user must navigate manually"
 fi
 
 # Copy .env files from main worktree if they exist. Covers repo-root envs
@@ -188,7 +177,7 @@ done
 # per-repo hook), the user gets the success banner in ~10–15s instead
 # of 60–90s, and can rctrl+' into the new worktree session immediately.
 # The slow steps run in a detached background subshell below; when
-# that finishes, it sends a tmux display-message + macOS notification
+# that finishes, it sends a mux notify + macOS notification
 # so the user knows full setup (deps + codegen + hook) is ready.
 log "$REPO_NAME worktree setup complete!"
 log "=== END ==="
@@ -278,7 +267,7 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
     final_msg="⚠️ $WORKTREE_NAME setup completed with errors - check $LOGFILE"
     notify_title="⚠️ Background setup had errors"
   fi
-  "$HOME/.local/bin/mux/mux" notify --title "$notify_title" --duration 8000 "$final_msg" 2>/dev/null || true
+  "$HOME/.local/bin/mux/mux" notify --title "$notify_title" "$final_msg" 2>/dev/null || true
   if command -v mac-notify >/dev/null 2>&1; then
     mac-notify -t "$notify_title" -m "$WORKTREE_NAME" -T 6 -g "worktree-bg-$WORKTREE_NAME" 2>/dev/null
   fi
@@ -287,5 +276,5 @@ SESSION_NAME="${CURRENT_WORKTREE#$HOME/Developer/}"
 
 # Fast-path final notification: tell the user the worktree dir is
 # ready (sync part done); the bg subshell fires again when deps + codegen finish.
-"$HOME/.local/bin/mux/mux" notify --title "🌳 worktree ready" --duration 5000 \
+"$HOME/.local/bin/mux/mux" notify --title "🌳 worktree ready" \
   "🌳 $WORKTREE_NAME ready (deps installing in background)" 2>/dev/null || true

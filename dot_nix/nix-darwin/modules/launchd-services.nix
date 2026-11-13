@@ -369,7 +369,7 @@ in
       };
     };
 
-    # Logs which processes, apps, windows and tmux panes are responsible each time a sketchybar resource widget changes colour.
+    # Logs which processes, apps and windows are responsible each time a sketchybar resource widget changes colour.
     resource-watch = {
       serviceConfig = {
         ProgramArguments = [

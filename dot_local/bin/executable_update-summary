@@ -68,7 +68,6 @@ snapshot() {
   shift
   mkdir -p "$dir"
   snap_git "$dir/git.tsv" "$@"
-  snap_git "$dir/tmux-plugin.tsv" "${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.config/tmux/plugins}"/*
   if command -v brew >/dev/null 2>&1; then
     snap_dir_versions "$(brew --cellar)" | tsv_sorted >"$dir/brew.tsv"
     snap_dir_versions "$(brew --caskroom)" | tsv_sorted >"$dir/cask.tsv"
@@ -138,7 +137,6 @@ report() {
   [ -d "$before" ] && [ -d "$after" ] || { echo "update-summary: missing snapshot in $dir" >&2; exit 1; }
   rows=$(
     report_git repo "$before/git.tsv" "$after/git.tsv" 1
-    report_git tmux-plugin "$before/tmux-plugin.tsv" "$after/tmux-plugin.tsv" 0
     report_versions flake "$before/flake.tsv" "$after/flake.tsv"
     report_nix "$before" "$after" "$dir/nix-more"
     report_versions brew "$before/brew.tsv" "$after/brew.tsv"
@@ -147,7 +145,7 @@ report() {
     report_versions mas "$before/mas.tsv" "$after/mas.tsv"
     report_versions system "$before/system.tsv" "$after/system.tsv"
   )
-  for area in tmux-plugin flake nix brew cask mise mas system; do
+  for area in flake nix brew cask mise mas system; do
     printf '%s\n' "$rows" | grep -q "^$area"$'\t' && continue
     case $area in
       nix) [ -s "$after/nix-profile" ] || continue ;;

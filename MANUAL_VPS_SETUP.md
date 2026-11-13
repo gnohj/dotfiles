@@ -37,7 +37,7 @@ export TS_AUTHKEY=tskey-... GITHUB_TOKEN=ghp-...
 curl -fsSL https://raw.githubusercontent.com/gnohj/dotfiles/main/linux-vps-setup.sh | bash
 ```
 
-It's idempotent, and it prints the interactive remainder (§5–§5b) at the end. Run it inside tmux/mosh so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
+It's idempotent, and it prints the interactive remainder (§5–§5b) at the end. Run it over mosh or inside a Rex session so a dropped link doesn't kill the long cargo builds. The sections below are the same steps by hand, for when you want to understand or diverge from what the script does.
 
 ## 2. User + SSH hardening
 
@@ -110,10 +110,10 @@ Reload with `source ~/.zshrc`.
 ## 6. Run agents + connect
 
 ```
-tmux new -s claude -c ~/work    # then run: claude   (Ctrl-b d to detach)
+rex new -c ~/work    # then run: claude
 ```
 
-Laptop: `ssh gnohj@<box>.ts.net` (or `mosh`) → `tmux attach`.
+Laptop: the Rex app reaches the box's Rex server over Tailscale; from a shell, `rex hosts` then `rex -S <box> ls`.
 
 ## 6b. Monitoring — trial data for the 16-vs-32 GB verdict
 
@@ -202,7 +202,7 @@ No per-tool config, no nvim override, and anything new that respects either vari
 ## ✅ Verify
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
-- [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
+- [ ] `chezmoi apply` clean; shell / nvim / Rex feel like the Mac
 - [ ] on PATH: `treehouse no-mistakes atuin claude codex gemini pi`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)

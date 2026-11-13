@@ -55,4 +55,4 @@ ps -eo pid,comm= | awk '$2 ~ /(^|\/)kitty$/ {print $1}' | while read -r _pid; do
   kill -USR1 "$_pid" 2>/dev/null || true
 done
 
-tmux display-message "$MSG" 2>/dev/null || echo "$MSG"
+echo "$MSG"

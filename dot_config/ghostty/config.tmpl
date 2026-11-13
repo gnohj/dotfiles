@@ -37,7 +37,7 @@ custom-shader-animation = false
 custom-shader = ./shaders/bloom025.glsl
 # custom-shader = ./shaders/cursor_blaze.gsl
 custom-shader = ./shaders/cursor_smear_fade.glsl
-# Animate cursor trails only while focused, including inside tmux/nvim/TUIs.
+# Animate cursor trails only while focused, including inside nvim/TUIs.
 custom-shader-animation = true
 # custom-shader = ./shaders/cursor_smear.gsl
 # custom-shader = ./shaders/cineShader-Lava.glsl
@@ -133,27 +133,6 @@ shell-integration = detect
 # shell-integration-features merged into line 51
 
 keybind = shift+enter=text:\n
-
-# hijack key events before encoding (ghosty cant encode modern keys, so it swallows/clobbers)
-keybind = ctrl+backquote=text:\x01p
-keybind = ctrl+tab=text:\x01n
-keybind = ctrl+shift+tab=text:\x01p
-keybind = ctrl+space=text:\x01\x20
-keybind = ctrl+enter=text:\x01L
-# ctrl+' feeds tmux's prefix+' notify-idle-switch bind
-keybind = ctrl+apostrophe=text:\x01\x27
-keybind = ctrl+slash=text:\x01\x2f
-# ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding
-keybind = ctrl+physical:one=text:\x01\x31
-keybind = ctrl+physical:two=text:\x01\x32
-keybind = ctrl+physical:three=text:\x01\x33
-keybind = ctrl+physical:four=text:\x01\x34
-keybind = ctrl+physical:five=text:\x01\x35
-keybind = ctrl+physical:six=text:\x01\x36
-keybind = ctrl+physical:seven=text:\x01\x37
-keybind = ctrl+physical:eight=text:\x01\x38
-keybind = ctrl+physical:nine=text:\x01\x39
-keybind = ctrl+physical:zero=text:\x01\x30
 
 # background - https://wallhaven.cc/
 # background-blur-radius = 40

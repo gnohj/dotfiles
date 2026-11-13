@@ -25,16 +25,10 @@ linux-setup.sh
 linux-vps-setup.sh
 tasks
 
-# Generated at runtime by generate-tmux-colors.sh (run-shell on tmux start,
-# prefix+r reload, and colorscheme-set.sh). Self-rewrites a `# Generated at:`
-# timestamp on every run and re-resolves @chip_* from the active colorscheme,
-# so tracking it as source guarantees perpetual `chezmoi diff` drift.
-.config/tmux/tmux-colors.conf
-
 # Generated at runtime by colorscheme-set.sh (generate_ghostty_theme /
 # generate_kitty_theme) - re-resolved from the active colorscheme on every theme
 # switch, so tracking them as source guarantees perpetual `chezmoi diff` drift.
-# colorscheme-set.sh is the sole owner (same pattern as tmux-colors.conf above).
+# colorscheme-set.sh is the sole owner.
 .config/ghostty/ghostty-theme
 .config/kitty/kitty-theme.conf
 # A link colorscheme-set.sh points at the picked scheme; a source copy would be put back over it on every apply.
@@ -43,13 +37,12 @@ tasks
 .config/borders/bordersrc
 # Same for ghosttyfetch's colours (generate_ghosttyfetch_config).
 .config/ghosttyfetch/config.json
-# Same story: colorscheme-set.sh (generate_lazygit/gitmux/btop/starship/yazi)
+# Same story: colorscheme-set.sh (generate_lazygit/btop/starship/yazi)
 # does a full `cat >` overwrite of each on every theme switch, re-resolving colors
 # from the active colorscheme. Tracking them as source = perpetual `chezmoi diff`
 # drift (each has a "do not edit directly" header). Standalone configs, so a fresh
 # box just uses tool defaults until the first `theme` run regenerates them.
 .config/lazygit/config.yml
-.config/gitmux/gitmux.yml
 .config/btop/themes/btop-theme.theme
 .config/starship/starship.toml
 .config/starship/starship-infra.toml
@@ -86,9 +79,6 @@ Library/
 # Finicky is a macOS default-browser router
 .config/finicky
 
-# Rex picker entries that open on the Dev Box from the Mac
-.config/sesh/rex.toml
-
 # macOS window management & system utilities
 .config/borders/
 .config/helium/
@@ -103,7 +93,6 @@ Library/
 .baby-menu/
 .baby-menu-sidebar/
 .local/bin/baby-menu-toggle
-.local/bin/build-pinned-tmux
 .local/bin/review-window
 .local/bin/helium-personal
 .local/bin/wallpaper-apply
@@ -172,7 +161,6 @@ Library/
 #   .config/ghostty/config
 #   .config/kitty/kitty.conf
 #   .config/btop/btop.conf
-#   .config/tmux/tmux.conf
 {{- end }}
 
 # The theme-set hook that re-runs colorscheme-set.sh; nothing reads it off Omarchy.

@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# Prints "city-stateabbrev" (e.g. austin-tx) from the machine's public-IP
-# geolocation, for the tmux host cell (host_short@city). Fully dynamic: when a
-# box relocates (Dallas -> Atlanta) its public IP changes and this re-resolves
-# on its own — nothing to edit. Cached ~5min so the status bar never forks a
-# network call per refresh; on a network failure it prints the last known value.
-# Cross-platform (macOS + Linux).
+# Prints "city-stateabbrev" (austin-tx) from public-IP geolocation for the launcher badge; cached ~5min, last value on failure, macOS + Linux.
 
 set -uo pipefail
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
-# Zone goes to a sibling file, never stdout: that is the tmux host cell's contract, split on "-".
-TZ_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/host-tz"
 # 5min, not 1h: an exit node flipping changes egress geo instantly.
 TTL=300
 
@@ -26,13 +19,13 @@ file_mtime() {
   printf '%s' "$m"
 }
 
-# Fresh cache -> print it, skip the network. A missing zone counts as stale so old installs backfill.
-if [ -f "$CACHE" ] && [ -f "$TZ_CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
+# Fresh cache -> print it, skip the network.
+if [ -f "$CACHE" ] && [ "$(( $(date +%s) - $(file_mtime "$CACHE") ))" -lt "$TTL" ]; then
   cat "$CACHE"
   exit 0
 fi
 
-# ipinfo over HTTPS (ip-api put Austin AT&T IPs in Woodway); sed, not jq, which bare tmux PATH lacks.
+# ipinfo over HTTPS (ip-api put Austin AT&T IPs in Woodway); sed, not jq, which a bare caller PATH lacks.
 resp="$(curl -sf --max-time 4 'https://ipinfo.io/json' 2>/dev/null || true)"
 val() { printf '%s' "$resp" | sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" | head -n 1; }
 
@@ -57,20 +50,15 @@ us_state_abbrev() {
 }
 
 city=""
-zone=""
 if [ -n "$(val city)" ]; then
   city="$(printf '%s-%s' "$(val city)" "$(us_state_abbrev "$(val region)" "$(val country)")" \
     | tr 'A-Z ' 'a-z-' \
     | tr -cd 'a-z0-9-')"
-  # Charset-clamped like the city above: this is remote data that lands on disk.
-  zone="$(val timezone | tr -cd 'A-Za-z0-9/_+-')"
 fi
 
 if [ -n "$city" ] && [ "$city" != "-" ]; then
   mkdir -p "$(dirname "$CACHE")"
   printf '%s' "$city" >"$CACHE"
-  # Only ever written next to a good city, so the two never describe different places.
-  [ -n "$zone" ] && printf '%s' "$zone" >"$TZ_CACHE"
   printf '%s' "$city"
 elif [ -f "$CACHE" ]; then
   cat "$CACHE"   # network failed -> last known location

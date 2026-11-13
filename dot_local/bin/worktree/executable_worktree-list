@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Emit one row per git worktree for the sesh picker's ctrl-w source
-# (see ~/.config/tmux/sesh-popup.sh). Rows are TAB-delimited:
+# Emit one row per git worktree for the Rex session picker's ctrl-w source. Rows are TAB-delimited:
 #
 #     <glyph> <display-name>\t<absolute-path>
 #

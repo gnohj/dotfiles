@@ -209,7 +209,7 @@ in
     remapCapsLockToEscape = false;
   };
 
-  # Disable Mission Control "Switch to Desktop N" (symbolic hotkeys 118-127), which grab control+<digit> above the terminal and broke tmux window nav (the "control+3 wall").
+  # Disable Mission Control "Switch to Desktop N" (symbolic hotkeys 118-127), which grab control+<digit> above the terminal and broke terminal ctrl+digit tab nav (the "control+3 wall").
   # Uses `defaults -dict-add` (MERGE) NOT system.defaults.CustomUserPreferences, which would rewrite the whole AppleSymbolicHotKeys dict and WIPE the ~65 other hotkeys.
   # keycodes: 1=18 2=19 3=20 4=21 5=23 6=22 7=26 8=28 9=25 0=29 ; control mod = 262144
   system.activationScripts.postActivation.text = lib.mkAfter ''

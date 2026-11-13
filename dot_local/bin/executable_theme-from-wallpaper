@@ -98,7 +98,7 @@ def scheme_wallpapers():
 
 def access_key():
     key = os.environ.get("UNSPLASH_ACCESS_KEY", "")
-    # The picker also runs from the launcher and tmux, which never sourced the shell's secrets.
+    # The picker also runs from the launcher, which never sourced the shell's secrets.
     for name in (".zsh_gnohj_env.secrets", ".zsh_gnohj_env.local"):
         if key:
             break

@@ -16,8 +16,8 @@ local probed = nil
 
 -- Own pane env first, then the `mux kind` probe.
 function M.kind()
-  if vim.env.MUX_FORCE_KIND == "rex" or vim.env.MUX_FORCE_KIND == "tmux" then
-    return vim.env.MUX_FORCE_KIND
+  if vim.env.MUX_FORCE_KIND == "rex" then
+    return "rex"
   end
   if
     vim.env.TERM_PROGRAM == "rex"
@@ -25,9 +25,6 @@ function M.kind()
     and vim.env.REX_BLOCK ~= ""
   then
     return "rex"
-  end
-  if vim.env.TMUX and vim.env.TMUX ~= "" then
-    return "tmux"
   end
   if probed == nil then
     local out = vim.trim(vim.fn.system({ mux_bin(), "kind" }))
@@ -41,7 +38,7 @@ end
 local function dispatch(args, what)
   if not M.kind() then
     vim.notify(
-      "No Rex or tmux session detected - can't " .. what,
+      "No Rex session detected - can't " .. what,
       vim.log.levels.WARN
     )
     return

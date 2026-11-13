@@ -1,10 +1,10 @@
--- Pane actions: close pane-or-tab, last-pane toggle, and ctrl+h/j/k/l navigation that yields to vim/tmux/ssh.
+-- Pane actions: close pane-or-tab, last-pane toggle, and ctrl+h/j/k/l navigation that yields to vim/ssh.
 local c = require("common")
 local sessions = require("sessions")
 
 local M = {}
 
-local PASS_THROUGH = { "vim", "tmux", "ssh" }
+local PASS_THROUGH = { "vim", "ssh" }
 
 local function owns_ctrl_hjkl(block_id)
   local fg = c.foreground(block_id)

@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# Clear stuck agent-idle notification banners + the shared idle-state marker.
-# Bound to `rctrl-esc` locally via skhd; on a VPS the same script is invoked by a
-# tmux key server-side. uname-branched so it does the right thing on whichever box
-# the tmux server lives on, and safe to re-run (already-clear = clean no-op).
-#
-# Companion to the notify-idle family: notify-idle.sh (emitter) writes the marker,
-# notify-idle-switch.sh (rctrl-') jumps to the latest banner's session, this clears.
+# Clears stuck agent-idle banners and the idle marker (skhd rctrl-esc); safe to re-run.
 set -uo pipefail
 
-# Shared idle-state marker written by notify-idle.sh — portable on both OSes.
+# Shared idle-state marker written by the worktree runner, portable on both OSes.
 rm -f /tmp/notify-idle.latest
 
 case "$(uname -s)" in

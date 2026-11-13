@@ -222,7 +222,7 @@ scripts/open-tmux-attach.sh
 # nvim reads the active theme link itself now; this was its private copy of the palette.
 .config/nvim/lua/config/active-colorscheme.sh
 
-# herdr TUI retired 2026-11-12: Rex is the only multiplexer (tmux in Ghostty the fallback); the Herdr GUI app keeps its own ~/.config/herdr-app.
+# herdr TUI retired 2026-11-12: Rex is the only multiplexer; the Herdr GUI app keeps its own ~/.config/herdr-app.
 .config/herdr/config.toml
 .config/herdr/lib/annotate-handoff.lua
 .config/herdr/lib/scrollback-nvim-init.lua
@@ -281,3 +281,51 @@ scripts/open-tmux-attach.sh
 .local/bin/mux/shared/herdr-socket-path
 .local/bin/pbcopy
 .nix/nix-darwin/modules/mux-daemons.json
+
+# tmux, sesh and gitmux retired 2026-11-13: Rex is the only multiplexer and the Rex picker reads its own entries and git status.
+.config/nvim/lua/plugins/tmux-navigator.lua
+.config/rex/sesh.lua
+.config/sesh/sesh.toml
+.config/sesh/dev.sh
+.config/sesh/sesh-spawn.sh
+.config/sesh/startup.sh
+.config/sesh/rex.toml
+.config/television/cable/sesh.toml
+.config/television/cable/tmux-sessions.toml
+.config/television/cable/tmux-windows.toml
+.config/tmux/agentic.conf
+.config/tmux/base.conf
+.config/tmux/generate-status-line.sh
+.config/tmux/generate-tmux-colors.sh
+.config/tmux/get-pr-number.sh
+.config/tmux/initial-window-setup.sh
+.config/tmux/sesh-agents.sh
+.config/tmux/sesh-popup.sh
+.config/tmux/sesh-session-created.sh
+.config/tmux/status-git-refresh.sh
+.config/tmux/status-gitmux.sh
+.config/tmux/toggle-terminal-transparency.sh
+.config/tmux/truncate-branch.sh
+.config/tmux/lib/dev-window.sh
+.config/tmux/lib/scrollback-nvim-init.lua
+.config/tmux/lib/scrollback-view.sh
+.config/tmux/lib/smart-split-layout.sh
+.config/tmux/native.conf
+.config/tmux/tmux.conf
+.config/tmux/window-emojis.conf
+.local/bin/build-pinned-tmux
+.config/tmux/toggle-ghostty-transparency.sh
+.config/tmux/toggle-kitty-transparency.sh
+.config/sesh/sesh-aliases.sh
+.local/bin/mux/rex/rex-sesh-ctl
+.local/bin/mux/rex/rex-sesh-picker.sh
+.local/bin/mux/rex/sesh_gitmux.py
+.local/bin/mux/shared/notify-idle-emit.sh
+.local/bin/mux/shared/notify-idle.sh
+.local/bin/mux/tmux/lazygit.sh
+.local/bin/mux/tmux/open-tmux-attach.sh
+.local/bin/mux/tmux/sesh-switcher.sh
+.local/bin/mux/tmux/tmux-window-simple.sh
+.local/bin/mux/tmux/yazi-launch.sh
+.config/tmux/tmux-colors.conf
+.config/gitmux/gitmux.yml

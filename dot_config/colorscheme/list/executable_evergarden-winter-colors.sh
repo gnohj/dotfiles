@@ -9,8 +9,6 @@
 # Hex colors should be lowercase for compatibility
 # Applicable terminal file:
 # ~/.config/ghostty/ghostty-theme
-# Applicable tmux file:
-# ~/.config/tmux/set_tmux_colors.sh
 # Applicable neovim plugins:
 # - colorscheme - evergarden.lua, etc.
 # - highlights.lua
@@ -40,7 +38,7 @@ gnohj_color05=#f5d098
 gnohj_color08=#4a585c
 gnohj_color06=#f7a182
 #-------------------------------------------------------------------------------
-#--           Terminal / Tmux / Nvim
+#--           Terminal / Nvim
 #-------------------------------------------------------------------------------
 # Background
 
@@ -144,7 +142,7 @@ gnohj_color57=#58686d
 gnohj_color58=#f8f9e8
 
 #-------------------------------------------------------------------------------
-#--               Gitmux High Contrast Colors
+#--               High Contrast Colors
 #-------------------------------------------------------------------------------
 # Brighter/more vibrant versions for better visibility
 gnohj_color59=#4a8091

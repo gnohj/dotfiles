@@ -1,4 +1,4 @@
--- Isolated nvim for the rex-scrollback viewer; port of tmux/lib/scrollback-nvim-init.lua. Isolation is the point: loading the full user config is what made this opaque, since the colorscheme paints Normal.
+-- Isolated nvim for the rex-scrollback viewer. Isolation is the point: loading the full user config is what made this opaque, since the colorscheme paints Normal.
 
 vim.o.termguicolors = true
 

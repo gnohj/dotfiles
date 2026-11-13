@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Seed every worktree from worktree-list into zoxide (catch-all for trees not made by wt-setup); run detached from zshrc and sesh-popup.sh.
+# Seed every worktree from worktree-list into zoxide (catch-all for trees not made by wt-setup); run detached from zshrc and the Rex session picker.
 
 export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.local/bin/worktree:$PATH"
 [ "$(uname)" = Linux ] && PATH="$HOME/.nix-profile/bin:$PATH"
@@ -18,7 +18,7 @@ fi
 # Add ONLY worktrees not already in the DB. `zoxide add` bumps a path's
 # frecency score on every call, so bulk-adding existing entries on each shell
 # start / picker open would inflate worktree ranks over dirs actually visited.
-# Genuine visits (the sesh-popup ctrl-w connect) still add unconditionally —
+# Genuine visits (the session picker's ctrl-w connect) still add unconditionally -
 # there the score bump is the whole point.
 # LC_ALL=C so `sort` and `comm` agree on byte-order collation on both macOS
 # (BSD) and Linux (GNU) — a locale mismatch between the two would make comm

@@ -42,8 +42,7 @@ local function is_personal_vault()
     and v == vim.fn.resolve(vim.fn.expand("~/Obsidian/second-brain"))
 end
 
--- Smart multiplexer split for AI agent CLIs (claude, pi, ...). Dispatches to
--- Rex or tmux depending on the live multiplexer; see config/mux.lua.
+-- Rex split for AI agent CLIs (claude, pi, ...); see config/mux.lua.
 local function agent_split(cmd)
   require("config.mux").agent_split(cmd)
 end
@@ -51,7 +50,7 @@ end
 -- Generate the post-processed figlet block for `name`/`font`, memoized to disk.
 -- snacks blocks on this `figlet` subprocess before the colorscheme paints (see
 -- init.lua), so on consecutive starts we skip the shell-out entirely and read
--- the cached block instead. Cache is keyed by name+font, so a new tmux session,
+-- the cached block instead. Cache is keyed by name+font, so a new Rex session,
 -- worktree, or font produces a fresh entry; the old ones just linger harmlessly.
 -- Returns the padded figlet string, or nil when figlet is missing/errored so the
 -- caller can fall back to plain text. Bump CACHE_VERSION whenever the font file,

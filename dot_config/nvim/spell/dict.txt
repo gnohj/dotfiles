@@ -175,7 +175,6 @@ skwed
 sourcemaps
 sudo
 talkback
-tmux
 url
 usprivacy
 v1

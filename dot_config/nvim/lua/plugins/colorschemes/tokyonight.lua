@@ -163,10 +163,10 @@ return {
         global_colors.none = "NONE"
       end,
       on_highlights = function(hl, hl_colors)
-        -- Visual mode highlight matching tmux copy-mode colors
+        -- Visual mode highlight
         hl.Visual = {
-          bg = colors["gnohj_color13"], -- Match tmux background (#536571)
-          fg = colors["gnohj_color02"], -- Match tmux foreground (#b7ce97)
+          bg = colors["gnohj_color13"], -- #536571
+          fg = colors["gnohj_color02"], -- #b7ce97
         }
         hl.VisualNOS = {
           bg = colors["gnohj_color13"],

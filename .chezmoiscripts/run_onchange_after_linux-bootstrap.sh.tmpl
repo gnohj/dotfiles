@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# linux-bootstrap version: 19   (bump to force a re-run on `chezmoi apply`)
+# linux-bootstrap version: 20   (bump to force a re-run on `chezmoi apply`)
 #
 # System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
-# tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
+# ripgrep, lazygit, …) now comes from Nix/home-manager, which
 # runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: agents live in
-# Rex/tmux, reached over Tailscale (mosh/ssh from the laptop).
+# Rex, reached over Tailscale (mosh/ssh from the laptop).
 # This script installs what Nix deliberately doesn't: apt system base + monitoring,
-# zinit, tpm, ghostty terminfo, mise runtimes/AI agents.
+# zinit, ghostty terminfo, mise runtimes/AI agents.
 # Skipped on macOS via .chezmoiignore. The interactive `tailscale up` is a separate
 # one-time manual step.
 # Every step is best-effort (|| true / guarded) so a hiccup never aborts `chezmoi apply`.
@@ -26,15 +26,6 @@ ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
 if [ ! -f "$ZINIT_HOME/zinit.zsh" ] && command -v git >/dev/null 2>&1; then
   echo "==> cloning zinit"
   git clone --depth=1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" || true
-fi
-
-# 3c. tpm — tmux plugin manager (zinit's tmux analogue). Clone it so the
-#     `run tpm` at the bottom of base.conf doesn't return 127 on a fresh box.
-#     Install the plugins once with tmux `prefix + I` (interactive, can't script).
-TPM_DIR="$HOME/.config/tmux/plugins/tpm"
-if [ ! -e "$TPM_DIR/tpm" ] && command -v git >/dev/null 2>&1; then
-  echo "==> cloning tpm (tmux plugin manager)"
-  git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR" >/dev/null 2>&1 || true
 fi
 
 # 3a. Pre-seed GitHub's SSH host key so `git clone`/`ssh -T git@github.com` don't
@@ -58,13 +49,8 @@ fi
 
 # 4. apt base packages — only with passwordless sudo, else print the one-liner.
 #    mosh gives roaming laptop attach; python3 is an nvim/tooling dep; wl-clipboard
-#    is a best-effort no-op on a headless VPS. tmux itself now comes from Nix
-#    (home-manager), pinned to the Mac's version via flake.lock — so it's no longer an
-#    apt package or a from-source build, and its build deps (libevent/ncurses/bison) are gone.
+#    is a best-effort no-op on a headless VPS.
 # pinentry-curses drives rbw's headless master-password unlock (see step 6b).
-# perl: the tmux status-line git-cache refresher (status-git-refresh.sh) strips
-# trailing style codes with `perl -pe`; perl-base is essential on Debian/Ubuntu
-# anyway, but declare it so a stripped image doesn't leave the git segment blank.
 # sysstat + atop: record CPU/mem/swap time-series for the 16-vs-32 GB trial verdict.
 # sysstat = CSV-exportable sar history (vps-usage-export.sh); atop = per-process replay.
 APT_PKGS="git zsh curl unzip build-essential wl-clipboard python3 perl mosh pinentry-curses sysstat atop figlet pkg-config"
@@ -73,7 +59,7 @@ if command -v apt-get >/dev/null 2>&1; then
     echo "==> apt: $APT_PKGS"
     sudo -n apt-get update -y >/dev/null 2>&1 || true
     sudo -n apt-get install -y $APT_PKGS >/dev/null 2>&1 || true
-    # linger: keep tmux + user services alive after logout. Without it logind reaps
+    # linger: keep Rex + user services alive after logout. Without it logind reaps
     # user processes on last-session-close and "sessions survive" fails. THE key knob.
     echo "==> enabling user linger (services survive logout)"
     sudo -n loginctl enable-linger "$(id -un)" >/dev/null 2>&1 || true
@@ -120,16 +106,8 @@ if command -v apt-get >/dev/null 2>&1; then
   fi
 fi
 
-# 4c. tmux comes from Nix (home-manager), pinned to the Mac's exact version via
-#     flake.lock. apt's /usr/bin/tmux (3.4) can't be removed (ubuntu-server + byobu
-#     depend on it) so it lingers, and a 3.4 client against the 3.7b server dies
-#     ("server exited unexpectedly", and it can crash the whole server). Interactive
-#     shells resolve the Nix tmux fine, but the tmux run-shell binds (sesh-switcher,
-#     yazi-launch, open-tmux-attach, ...) run in a bare PATH where /usr/bin can win.
-#     Shim it: ~/.local/bin/tmux -> the Nix tmux. Every bind already puts ~/.local/bin
-#     ahead of /usr/bin, so the shim beats apt everywhere with one symlink.
-if [ -x "$HOME/.nix-profile/bin/tmux" ]; then
-  ln -sf "$HOME/.nix-profile/bin/tmux" "$HOME/.local/bin/tmux"
+if [ -L "$HOME/.local/bin/tmux" ]; then
+  rm -f "$HOME/.local/bin/tmux"
 fi
 
 # 5. Tailscale — private mesh the PWA + laptop reach this box over. Installs binary +
@@ -139,7 +117,7 @@ if ! command -v tailscale >/dev/null 2>&1; then
   curl -fsSL https://tailscale.com/install.sh | sh || echo "!! tailscale install failed — see https://tailscale.com/download"
 fi
 
-# 6. The whole CLI toolchain (nvim, ripgrep, lazygit, agent CLIs, gitmux/sesh,
+# 6. The whole CLI toolchain (nvim, ripgrep, lazygit, agent CLIs,
 #    gh-dash, treehouse/no-mistakes/treekanga, atuin, node/pnpm, …) is DECLARED in
 #    the Linux block of ~/.config/mise/config.toml and installed declaratively by
 #    run_onchange_after_mise-install.sh (`mise install`), which mise retries — not a
@@ -161,7 +139,7 @@ fi
 # Colorscheme seed lives in run_once_after_seed-default-theme.sh, not duplicated here.
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker"
+echo "    Confirm on PATH: mise git zsh nvim mosh node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT: 'sudo tailscale up' (no --ssh: OpenSSH over the tailnet), then run 'claude'/'codex' once for OAuth."

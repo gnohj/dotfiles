@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rex-sesh-ctl - answers rex-sesh-picker.sh's session calls against Rex (ids as rex-snapshot.lua writes them); needs Rex Remote Control on.
+# rex-session-ctl - answers rex-session-picker.sh's session calls against Rex (ids as rex-snapshot.lua writes them); needs Rex Remote Control on.
 set -uo pipefail
 
 rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
@@ -23,7 +23,7 @@ app_do() {
   moved
 }
 
-# Tells the sesh popup focus went elsewhere, so it skips returning to the pane it opened from.
+# Tells the picker popup focus went elsewhere, so it skips returning to the pane it opened from.
 moved() {
   [ -z "${REX_POPUP_MOVED:-}" ] || echo 1 >"$REX_POPUP_MOVED"
 }
@@ -56,19 +56,8 @@ remote() {
   "$rex" --autostart=false ${server[@]+"${server[@]}"} "$@"
 }
 
-# sesh.toml plus the Mac's Rex-only rex.toml, which sesh itself never reads.
-rex_toml="$HOME/.config/sesh/rex.toml"
 
-entries() {
-  sesh list -c -j 2>/dev/null
-  [ ! -f "$rex_toml" ] || sesh -C "$rex_toml" list -c -j 2>/dev/null
-}
-
-entry_key() {
-  awk -v n="$1" -v k="$2" -F'"' 'FNR == 1 || /^\[/ {name = ""} $1 ~ /^name *= *$/ {name = $2} $1 ~ ("^" k " *= *$") && name == n {print $2; exit}' "$HOME/.config/sesh/sesh.toml" "$rex_toml" 2>/dev/null
-}
-
-# A cached picker row can name a closed session; the server says so in 30ms (the app's select stalls 5s), so exit 3 and rex-sesh-picker.sh re-resolves it.
+# A cached picker row can name a closed session; the server says so in 30ms (the app's select stalls 5s), so exit 3 and rex-session-picker.sh re-resolves it.
 select_session() {
   local live
   if live=$(remote api call session.list '{}' 2>/dev/null); then
@@ -111,20 +100,19 @@ case "${1:-} ${2:-}" in
     remote block close -s "session:$sid" "block:${3#*:}" >/dev/null 2>&1
     ;;
   "layout --entry")
-    # A rex_host entry opens on that host as rex_label (else its name), its dir sent as ~/... so the host's own sesh_open resolves it.
-    host=$(entry_key "$3" rex_host)
-    label=$(entry_key "$3" rex_label)
+    # A rex_host entry opens on that host as rex_label (else its name), its dir sent as ~/... so the host's own session_open resolves it.
+    entry=$(python3 -B "$here/entries.py" | jq -c --arg n "$3" 'first(.[] | select(.name == $n)) // empty')
+    [ -n "$entry" ] || die "No entries.toml entry named $3."
+    host=$(jq -r '.rex_host // empty' <<<"$entry")
     [ -z "$host" ] || server=(-S "$host")
-    args=$(entries | jq -sc --arg n "$3" --arg home "$HOME" --arg pinned "$host" --arg label "$label" \
-      'first(add[] | select(.Name == $n) | {label: (if $label != "" then $label else .Name end), dir: (.Path | rtrimstr("/") | if . == "" then "/" elif $pinned != "" and startswith($home) then "~" + .[($home | length):] else . end), startup: .StartupCommand})')
-    [ -n "$args" ] || die "No sesh.toml entry named $3."
-    app_do sesh_open --args "$args"
+    args=$(jq -c --arg home "$HOME" '(.rex_host // "") as $pinned | {label: (.rex_label // .name), dir: (.path | if $pinned == "" and (. == "~" or startswith("~/")) then $home + .[1:] else . end | rtrimstr("/") | if . == "" then "/" else . end), startup: (.startup_command // "")}' <<<"$entry")
+    app_do session_open --args "$args"
     ;;
   layout*)
     dir="${2%/}"
-    app_do sesh_open --args "$(jq -cn --arg d "$dir" '{label: ($d | split("/") | last), dir: $d}')"
+    app_do session_open --args "$(jq -cn --arg d "$dir" '{label: ($d | split("/") | last), dir: $d}')"
     ;;
   *)
-    die "rex-sesh-ctl: unsupported call: $*"
+    die "rex-session-ctl: unsupported call: $*"
     ;;
 esac

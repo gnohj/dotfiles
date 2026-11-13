@@ -7,7 +7,7 @@ require("sessions").setup()
 require("tools").setup()
 local panes = require("panes")
 panes.setup()
-local sesh_aliases = require("sesh").setup()
+local entry_aliases = require("entries").setup()
 local has_paste = require("paste").setup()
 
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
@@ -47,7 +47,7 @@ rex.bind(P .. "shift+1", "pane.move_to_new_tab")
 for key, dir in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
   rex.bind(P .. key, "pane.focus", { direction = dir })
   rex.bind(P .. "shift+" .. key, "pane.move", { direction = dir })
-  -- ctrl+h/j/k/l: the key goes to vim/tmux/ssh, otherwise Rex focus moves.
+  -- ctrl+h/j/k/l: the key goes to vim/ssh, otherwise Rex focus moves.
   rex.bind("ctrl+" .. key, panes.navigate(dir))
 end
 
@@ -84,9 +84,9 @@ rex.bind(P .. "shift+d", "close_session")
 rex.bind(P .. "shift+x", "close_tab")
 rex.bind(P .. "shift+n", "new_session_here")
 
--- Sesh: ctrl+t picker, and each sesh.toml alias as prefix, space, alias.
-rex.bind("ctrl+t", "sesh_picker")
-for _, a in ipairs(sesh_aliases) do
+-- Sessions: ctrl+t picker, and each entries.toml alias as prefix, space, alias.
+rex.bind("ctrl+t", "session_picker")
+for _, a in ipairs(entry_aliases) do
   rex.bind(P .. "space>" .. a.keys, a.action)
 end
 

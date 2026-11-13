@@ -26,29 +26,6 @@ class MuxTests(unittest.TestCase):
             "LC_ALL": "C.UTF-8",
         }
         self.stub(
-            "herdr",
-            """
-if args == ["status", "server"]:
-    if os.getenv("TEST_HERDR") == "default":
-        print("status: running")
-elif args == ["session", "list"]:
-    print("NAME STATUS SOCKET")
-    if os.getenv("TEST_HERDR") == "named":
-        print("fm-remote running /stub/herdr.sock")
-""",
-        )
-        self.stub(
-            "tmux",
-            """
-if args == ["ls"] and os.getenv("TEST_TMUX"):
-    print("detached: 1 windows")
-elif args == ["list-clients"] and os.getenv("TEST_TMUX") == "attached":
-    print("client")
-else:
-    sys.exit(1)
-""",
-        )
-        self.stub(
             "rex",
             """
 assert args.pop(0) == "--autostart=false", args
@@ -96,35 +73,11 @@ else:
 
     def test_detection_matrix(self):
         cases = [
-            (
-                {
-                    "HERDR_SOCKET_PATH": "/pane",
-                    "TERM_PROGRAM": "rex",
-                    "REX_BLOCK": "b",
-                    "TMUX": "t",
-                },
-                "herdr",
-            ),
-            ({"TERM_PROGRAM": "tmux", "REX_BLOCK": "b", "TMUX": "t"}, "tmux"),
-            (
-                {
-                    "TERM_PROGRAM": "rex",
-                    "REX_BLOCK": "b",
-                    "TEST_HERDR": "default",
-                    "TEST_TMUX": "detached",
-                },
-                "rex",
-            ),
+            ({"TERM_PROGRAM": "rex", "REX_BLOCK": "b"}, "rex"),
             ({"REX_BLOCK": "b"}, "none"),
             ({"TERM_PROGRAM": "rex"}, "none"),
-            ({"MUX_FORCE_KIND": "rex", "HERDR_SOCKET_PATH": "/pane"}, "rex"),
-            (
-                {"TEST_HERDR": "default", "TEST_REX": "1", "TEST_TMUX": "attached"},
-                "herdr",
-            ),
-            ({"TEST_HERDR": "named", "TEST_REX": "1"}, "herdr"),
-            ({"TEST_REX": "1", "TEST_TMUX": "detached"}, "rex"),
-            ({"TEST_TMUX": "detached"}, "tmux"),
+            ({"MUX_FORCE_KIND": "rex"}, "rex"),
+            ({"TEST_REX": "1"}, "rex"),
             ({}, "none"),
         ]
         for env, expected in cases:
@@ -154,7 +107,6 @@ else:
             ([], []),
             (["--keep-open"], ["--keep-open"]),
             (["--no-focus"], ["--focus=false"]),
-            (["--popup", "--popup-size", "90%x80%"], []),
             (["--focus", "--no-focus"], ["--focus=false"]),
         ]
         for options, expected in cases:
@@ -315,27 +267,7 @@ else:
         config.mkdir(parents=True)
         shutil.copy(ROOT / "dot_config/gh-dash/review-mux.sh", config / "review-mux.sh")
         (self.home / ".config/devbox-host").write_text("devbox\n")
-        socket = self.stub(
-            "socket-path",
-            """
-if not os.getenv("TEST_NO_SOCKET"):
-    print("/stub/herdr.sock")
-""",
-        )
-        socket.rename(self.bin / "mux/shared/herdr-socket-path")
-        self.stub(
-            "herdr",
-            """
-if os.getenv("TEST_STALE"):
-    sys.exit(1)
-if args == ["pane", "list"]:
-    print(json.dumps({"result": {"panes": [{"workspace_id": "herdr:review", "cwd": os.path.join(os.environ["HOME"], "Developer/web/review")}] if os.getenv("TEST_WORKSPACE") else []}}))
-elif args == ["tab", "list"]:
-    print(json.dumps({"result": {"tabs": []}}))
-else:
-    sys.exit("unexpected herdr argv: " + repr(args))
-""",
-        )
+        shutil.copy(self.mux, self.bin / "mux/mux")
         self.stub(
             "rex",
             """
@@ -425,7 +357,7 @@ else:
         return (self.home / ".local/state/gh-review-open.log").read_text()
 
     def assert_unpinned(self, env):
-        for name in ["MUX_FORCE_KIND", "REX_SESSION", "HERDR_WORKSPACE_ID"]:
+        for name in ["MUX_FORCE_KIND", "REX_SESSION"]:
             self.assertNotIn(name, env)
 
     def adopt(self, **env):
@@ -448,82 +380,49 @@ else:
 
     def test_review_adopt_places_the_review(self):
         self.install_reviews()
-        inherited = {
-            "REX_SESSION": "session:pane",
-            "HERDR_WORKSPACE_ID": "herdr:pane",
-        }
+        inherited = {"REX_SESSION": "session:pane"}
         env = self.adopt(**inherited)
         self.assertEqual(env["MUX_FORCE_KIND"], "rex")
         self.assertEqual(env["REX_SESSION"], "session:web")
-        self.assertNotIn("HERDR_WORKSPACE_ID", env)
-        env = self.adopt(**inherited, TEST_REX_DOWN="1", TEST_WORKSPACE="1")
-        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:review")
-        self.assertEqual(env["HERDR_SOCKET_PATH"], "/stub/herdr.sock")
+        env = self.adopt(**inherited, TEST_REX_DOWN="1")
         self.assertNotIn("MUX_FORCE_KIND", env)
-        self.assertNotIn("REX_SESSION", env)
-        env = self.adopt(**inherited, REVIEW_PLACED="1")
         self.assertEqual(env["REX_SESSION"], "session:pane")
-        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:pane")
-        env = self.adopt(
-            **inherited,
-            TEST_REX_DOWN="1",
-            TEST_STALE="1",
-            REVIEW_FALLBACK_HERDR_WORKSPACE="herdr:fallback",
-        )
-        self.assertEqual(env["MUX_FORCE_KIND"], "herdr")
-        self.assertEqual(env["HERDR_WORKSPACE_ID"], "herdr:fallback")
-        self.assertNotIn("REX_SESSION", env)
+        env = self.adopt(**inherited, REVIEW_PLACED="1")
+        self.assertNotIn("MUX_FORCE_KIND", env)
+        self.assertEqual(env["REX_SESSION"], "session:pane")
 
     def test_review_devbox_remote_fallback(self):
         self.install_reviews()
-        for state in [{}, {"TEST_STALE": "1"}, {"TEST_NO_SOCKET": "1"}]:
-            with self.subTest(state=state):
-                result = self.run_script(
-                    "dot_config/gh-dash/executable_review-devbox.sh",
-                    "full",
-                    "123",
-                    "iheartradio/web",
-                    TEST_PLATFORM="Darwin",
-                    **state,
-                )
-                self.assertEqual(result.returncode, 0, self.review_log())
-                opened = self.opened()
-                self.assertEqual(
-                    opened["argv"],
-                    [
-                        "full",
-                        "123",
-                        "iheartradio/web",
-                        str(self.home / "Developer/web/review"),
-                    ],
-                )
-                self.assert_unpinned(opened["env"])
-                self.assertIn("in workspace session:web", self.review_log())
-                (self.home / "opened.json").unlink()
-                (self.home / ".local/state/gh-review-open.log").unlink()
+        result = self.run_script(
+            "dot_config/gh-dash/executable_review-devbox.sh",
+            "full",
+            "123",
+            "iheartradio/web",
+            TEST_PLATFORM="Darwin",
+        )
+        self.assertEqual(result.returncode, 0, self.review_log())
+        opened = self.opened()
+        self.assertEqual(
+            opened["argv"],
+            [
+                "full",
+                "123",
+                "iheartradio/web",
+                str(self.home / "Developer/web/review"),
+            ],
+        )
+        self.assert_unpinned(opened["env"])
+        self.assertIn("in workspace session:web", self.review_log())
         self.assertTrue(self.recorded("ssh"))
 
-    def test_review_devbox_herdr_and_missing_target(self):
+    def test_review_devbox_missing_target(self):
         self.install_reviews()
         result = self.run_script(
             "dot_config/gh-dash/executable_review-devbox.sh",
             "full",
             "123",
             "iheartradio/web",
-            TEST_WORKSPACE="1",
             TEST_REX_DOWN="1",
-        )
-        self.assertEqual(result.returncode, 0, self.review_log())
-        self.assert_unpinned(self.opened()["env"])
-        self.assertIn("in workspace herdr:review", self.review_log())
-        (self.home / "opened.json").unlink()
-        result = self.run_script(
-            "dot_config/gh-dash/executable_review-devbox.sh",
-            "full",
-            "123",
-            "iheartradio/web",
-            TEST_REX_DOWN="1",
-            TEST_STALE="1",
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.home / "opened.json").exists())
@@ -535,7 +434,6 @@ else:
                 result = self.run_script(
                     "dot_config/gh-dash/executable_auto-review.sh",
                     TEST_PLATFORM=platform,
-                    TEST_STALE="1",
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 opened = self.opened()
@@ -558,7 +456,6 @@ else:
             "dot_local/bin/executable_review-lavish-resume",
             "123",
             "iheartradio/web",
-            TEST_STALE="1",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         opened = self.opened()
@@ -583,11 +480,9 @@ else:
         script = """
 local path = arg[1]
 local cases = {
-  {{HERDR_SOCKET_PATH="h", TERM_PROGRAM="rex", REX_BLOCK="b", TMUX="t"}, "herdr"},
-  {{TERM_PROGRAM="tmux", REX_BLOCK="b", TMUX="t"}, "tmux"},
   {{TERM_PROGRAM="rex", REX_BLOCK="b"}, "rex"},
   {{REX_BLOCK="b"}, nil},
-  {{MUX_FORCE_KIND="rex", HERDR_SOCKET_PATH="h"}, "rex"},
+  {{MUX_FORCE_KIND="rex"}, "rex"},
 }
 for _, case in ipairs(cases) do
   vim = {env=case[1], fn={system=function() return "none" end, expand=function(s) return s end}, v={shell_error=0}, trim=function(s) return s end}

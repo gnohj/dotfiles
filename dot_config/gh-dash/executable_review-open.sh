@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # review-open.sh - open a PR-review window layout (hunk / Claude)
-# for one PR in Rex/tmux windows. Dispatches on <mode> to match each gh-dash
+# for one PR in Rex windows. Dispatches on <mode> to match each gh-dash
 # `prs` binding.
 #
 #   review-open.sh <mode> <pr-number> <repo-name> <repo-path>
@@ -16,15 +16,7 @@
 #   fixci      -        agent fixes the failing CI checks on your own PR (the Library's wrench button)
 #
 # REVIEW_HARNESS=pi runs full/resume/resolve/fixci on Pi (REVIEW_PI_MODEL, REVIEW_PI_THINKING) and skips dispatch.
-#
-# Invoked BACKGROUNDED by the gh-dash bindings (`nohup bash review-open.sh ... &`).
-# That detachment is the whole point: the first `mux window` call runs
-# `tmux new-window` (no -d), which steals the active window away from gh-dash
-# while gh-dash is still running the keybind command. gh-dash then tears that
-# command down with SIGTERM (`exit status 143`) before the chain finishes.
-# Running the chain detached means gh-dash sees an instant exit 0, and the focus
-# switch to the review windows happens after gh-dash has restored its TUI.
-# `full` opts out of that switch entirely via --no-focus; the rest still take it.
+# Backgrounded by gh-dash so the focused first window cannot get the keybind command SIGTERMed (143) mid-chain; `full` passes --no-focus.
 
 set -euo pipefail
 
@@ -50,12 +42,9 @@ fi
 . "$HOME/.config/gh-dash/review-mux.sh"
 review_mux_adopt "$repo_path"
 
+# Rex has no toast and a detached dev-box run has no viewer, so banner the workstation.
 notify_msg() {
-  case "$("$HOME/.local/bin/mux/mux" kind)" in
-    tmux) tmux display-message -d 6000 "$1" 2>/dev/null || true ;;
-    # Rex has no toast and a detached dev-box run has no viewer, so banner the workstation.
-    *) printf '%s\n%s' "gh-dash review" "$1" | "$HOME/.local/bin/to-desktop" notify - >/dev/null 2>&1 || true ;;
-  esac
+  printf '%s\n%s' "gh-dash review" "$1" | "$HOME/.local/bin/to-desktop" notify - >/dev/null 2>&1 || true
 }
 
 notify_fail() {

@@ -1019,11 +1019,7 @@ keymap("n", "z;", function()
 end, { desc = "[P]Fold all headings level 4 or above" })
 
 --
--- Right mouse drag → visual-select + auto-copy to the system clipboard,
--- mirroring the tmux right-drag-to-copy binding. Inside nvim the mouse is
--- owned by nvim (mouse=a), so tmux passes the event through and we replicate
--- the behavior here. clipboard=unnamedplus means a plain `y` lands on the
--- macOS clipboard. mousemodel=extend (options.lua) frees the right button.
+-- Right drag visual-selects and copies to the clipboard (unnamedplus); mousemodel=extend in options.lua frees the right button.
 keymap(
   { "n", "v" },
   "<RightMouse>",

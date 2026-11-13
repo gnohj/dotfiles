@@ -69,24 +69,13 @@ check_brew() {
   local pinned missing p
   pinned="$(/opt/homebrew/bin/brew list --pinned 2>/dev/null)"
   missing=""
-  for p in kanata tmux libevent ncurses; do
+  for p in kanata; do
     printf '%s\n' "$pinned" | grep -qx "$p" || missing="$missing $p"
   done
   if [ -z "$missing" ]; then
-    ok brew-pins "kanata tmux libevent ncurses"
+    ok brew-pins "kanata"
   else
     bad brew-pins "not pinned:$missing" "brew pin$missing  (never run a blanket brew upgrade)"
-  fi
-}
-
-check_tmux() {
-  local target ver
-  target="$(readlink /opt/homebrew/bin/tmux 2>/dev/null)"
-  ver="$(/opt/homebrew/bin/tmux -V 2>&1)"
-  if [ "$target" = "$HOME/.local/opt/tmux-3.6b/bin/tmux" ] && [ "$ver" = "tmux 3.6b" ]; then
-    ok tmux "$ver via ~/.local/opt/tmux-3.6b"
-  else
-    bad tmux "link=${target:-none} -V='$ver'" "build-pinned-tmux (backup tree: ~/.local/opt/tmux-3.6b.pre-upgrade-backup)"
   fi
 }
 
@@ -234,7 +223,6 @@ check_nix
 check_etc
 check_clt
 check_brew
-check_tmux
 check_keyboard
 check_desktop
 check_launchd

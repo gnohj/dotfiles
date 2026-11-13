@@ -3,7 +3,7 @@
 # gh-dash `M` reviews and orchestrator `-e` agents get deps + env ready.
 #
 # Deliberately LEAN vs wt-setup (~/.local/bin/worktree): this does NOT create a
-# thread-state note, wire up sesh/Rex/pbcopy sessions, run codegen, fire
+# thread-state note, wire up Rex/pbcopy sessions, run codegen, fire
 # notifications, or kill windows — treehouse owns the pool-worktree lifecycle,
 # so all we want is a usable checkout. Just three things:
 #   1. copy .env files + .no-mistakes.yaml from the repo's main worktree (if missing here)

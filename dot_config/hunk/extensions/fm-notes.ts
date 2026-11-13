@@ -276,13 +276,12 @@ async function poll(tick: number): Promise<void> {
   showStatus(notes);
 }
 
-async function hunkTabmate(): Promise<
-  | { kind: "rex"; session: string; block: string }
-  | { kind: "tmux"; pane: string }
-  | null
-> {
+async function hunkTabmate(): Promise<{
+  session: string;
+  block: string;
+} | null> {
   const env = process.env;
-  if (env.TERM_PROGRAM === "rex" && env.REX_BLOCK && !env.TMUX) {
+  if (env.TERM_PROGRAM === "rex" && env.REX_BLOCK) {
     const rexSession = env.REX_SESSION ?? "";
     const me = env.REX_BLOCK;
     const { out } = await run("rex", [
@@ -302,38 +301,20 @@ async function hunkTabmate(): Promise<
       const other =
         mine &&
         blocks.find((b) => b.window_id === mine.window_id && b.block_id !== me);
-      return other
-        ? { kind: "rex", session: rexSession, block: other.block_id }
-        : null;
+      return other ? { session: rexSession, block: other.block_id } : null;
     } catch {
       return null;
     }
-  }
-  if (env.TMUX && env.TMUX_PANE) {
-    const { out } = await run("tmux", ["list-panes", "-F", "#{pane_id}"]);
-    const other = out.split("\n").find((p) => p && p !== env.TMUX_PANE);
-    return other ? { kind: "tmux", pane: other } : null;
   }
   return null;
 }
 
 const AGENT = /^(claude|codex|pi|opencode)$/;
-const SHELL = /^-?(zsh|bash|sh|fish|dash|ksh|tcsh|csh|nu)$/;
 
-// At a bare shell prompt, backticks in a note or file name would run; tmux names agents unreliably, so it only rules out a shell.
+// At a bare shell prompt, backticks in a note or file name would run, so only a known agent counts.
 async function agentIn(
   to: NonNullable<Awaited<ReturnType<typeof hunkTabmate>>>,
 ): Promise<boolean> {
-  if (to.kind === "tmux") {
-    const { err, out } = await run("tmux", [
-      "display-message",
-      "-p",
-      "-t",
-      to.pane,
-      "#{pane_current_command}",
-    ]);
-    return !err && out.trim() !== "" && !SHELL.test(out.trim());
-  }
   const { err, out } = await run("rex", [
     "--autostart=false",
     "block",
@@ -359,9 +340,6 @@ async function send(text: string): Promise<string> {
   if (!to) return "no agent pane beside this one";
   if (!(await agentIn(to)))
     return "no agent is running in the pane beside this one, so nothing was sent";
-  if (to.kind === "tmux")
-    return (await run("tmux", ["send-keys", "-t", to.pane, "-l", text + "\r"]))
-      .err;
   const first = await run("rex", [
     "--autostart=false",
     "send",

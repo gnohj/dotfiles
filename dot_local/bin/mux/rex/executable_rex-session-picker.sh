@@ -1,11 +1,11 @@
 #!/bin/bash
-# rex-sesh-picker.sh - the ctrl+t Rex session picker, a sesh.lua popup whose session calls rex-sesh-ctl answers on every `rex hosts` entry.
+# rex-session-picker.sh - the ctrl+t Rex session picker, an entries.lua popup whose session calls rex-session-ctl answers on every `rex hosts` entry.
 #
 # The cursor starts on the row you are currently in (see focus_row), not on row 1.
 #
-#   enter   → focus an open workspace, else open the dir with the sesh dev layout
-#             (rex-sesh-ctl layout -> sesh_open; attaches if already open)
-#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡) or a zoxide dir (📁). 🔧 config is left alone (it lives in sesh.toml); the list reloads in place.
+#   enter   → focus an open workspace, else open the dir as a new session
+#             (rex-session-ctl layout -> session_open; attaches if already open)
+#   ctrl-d  → delete the highlighted item WITHOUT closing the picker: close a workspace group (⚡) or a zoxide dir (📁). 🔧 config is left alone (it lives in entries.toml); the list reloads in place.
 #   ctrl-f  → fast-forward the highlighted row's repo from its upstream, ctrl-p pushes it. These are lazygit's f and P: f is its fastForward(), so it is "pull --ff-only" where there is a work tree and a ref-only "fetch remote up:branch" on a bare-layout container, NOT a bare fetch. Works in the full list as well as the ctrl-g git view, and costs no search key since both are unbound in ghostty and fzf. Agent/tab rows act on their workspace's repo, so any row of a tree hits the same checkout.
 #   ctrl-g  → INSIDE the git view, open the highlighted row's repo in lazygit (a bare container opens the checkout holding its branch). From the full list it still toggles the git view on.
 #   esc     → close the popup, from ANY view: the git filter and the ctrl-w worktree menu close outright rather than stepping back to the full list. ctrl-b does the same.
@@ -18,11 +18,11 @@
 #   --view <rows> <view> <q> [--rebuild]   filter <rows> into <view>, print an fzf action
 set -uo pipefail
 
-ctl="$HOME/.local/bin/mux/rex/rex-sesh-ctl"
+ctl="$HOME/.local/bin/mux/rex/rex-session-ctl"
 LAYOUT=("$ctl" layout)
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 export _ZO_DATA_DIR="${_ZO_DATA_DIR:-$HOME/.config/zshrc}"
-SELF="$HOME/.local/bin/mux/rex/rex-sesh-picker.sh"
+SELF="$HOME/.local/bin/mux/rex/rex-session-picker.sh"
 
 # Detaching the warm pass is not enough - its ~9 CPU-seconds land while you scroll the picker that spawned it; taskpolicy -b throttles CPU and I/O, nice is the Linux fallback.
 if command -v taskpolicy >/dev/null 2>&1; then
@@ -31,7 +31,7 @@ else
   BG=(nice -n 19)
 fi
 
-CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/sesh/picker-rows"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/rex-picker/rows"
 save_cache() {
   mkdir -p "${CACHE_FILE%/*}" && cp -f "$1" "$CACHE_FILE.$$" && mv -f "$CACHE_FILE.$$" "$CACHE_FILE"
 }
@@ -39,14 +39,12 @@ save_cache() {
 build_list() {
   # Probes fan out into files, not command substitution: a subshell cannot hand a variable back.
   local src
-  src="$(mktemp -d "${TMPDIR:-/tmp}/rex-sesh-src.XXXXXX")" || return 1
+  src="$(mktemp -d "${TMPDIR:-/tmp}/rex-picker-src.XXXXXX")" || return 1
   "$ctl" api snapshot >"$src/sn" 2>/dev/null &
-  sesh list -c -j >"$src/en" 2>/dev/null &
-  sesh -C "$HOME/.config/sesh/rex.toml" list -c -j >"$src/rx" 2>/dev/null &
   zoxide query -l >"$src/zo" 2>/dev/null &
-  # `sesh list` omits aliases in every output mode, so read them straight from sesh.toml.
-  "$HOME/.config/sesh/sesh-aliases.sh" >"$src/al" 2>/dev/null &
+  "$HOME/.local/bin/mux/rex/rex-session-aliases" >"$src/al" 2>/dev/null &
   wait
+  export gnohj_color02 gnohj_color04 gnohj_color05 gnohj_color11
   SRC="$src" \
   FG="${gnohj_color02:-}" DIM="${gnohj_color09:-}" ACCENT="${gnohj_color04:-}" \
   WARM_NEEDED_FILE="$src/warm" HOME="$HOME" python3 -c '
@@ -67,7 +65,22 @@ def real(p):
     try: return os.path.realpath(p).rstrip("/") or p
     except Exception: return p
 
-# Two indexes over the sesh-aliases.sh rows "<alias>\t<name>\t<path>": by NAME, the only field two
+import sys as _sys
+_sys.dont_write_bytecode = True                                    # keep __pycache__ out of the scripts dir
+_sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/rex"))
+import entries as cfgfile   # entries.toml parsing
+import git_status as gs     # git status symbols + their cache
+cfg_raw = cfgfile.read()
+
+# A rex_host entry is pinned to another host (as rex_label, else its name), so its local path never stands for it.
+pins, pin_labels, pinned_by_label = {}, {}, {}
+for e in cfg_raw:
+    if e.get("rex_host"):
+        lab = e.get("rex_label") or e["name"]
+        pins[e["name"]], pin_labels[e["name"]] = e["rex_host"], lab
+        pinned_by_label[(e["rex_host"], lab)] = e["name"]
+
+# Two indexes over the rex-session-aliases rows "<alias>\t<name>\t<path>": by NAME, the only field two
 # entries sharing one path still differ on, and by PATH, the fallback that keeps an OPEN workspace
 # showing its config alias. Path stays last-write-wins; the name lookup is what twins read.
 def load_aliases():
@@ -79,15 +92,12 @@ def load_aliases():
                 if len(f) == 3 and f[0] and f[2]:
                     p = f[2].rstrip("/")
                     if f[1]: by_name.setdefault(f[1], f[0])
+                    if f[1] in pins: continue
                     by_path[p] = f[0]
                     by_path.setdefault(real(p), f[0])
     except Exception: pass
     return by_name, by_path
 alias_by_name, alias_by_path = load_aliases()
-# rex.toml lists the Mac entries that open on another host; sesh and tmux never read it.
-rex_entries = load("rx") or []
-for e in rex_entries:
-    if e.get("Name") and e.get("Alias"): alias_by_name.setdefault(e["Name"], e["Alias"])
 snapshot = (load("sn") or {}).get("result", {}).get("snapshot", {})
 # Chips pad to the widest alias so a one-letter one does not pull its name a column left.
 ALIAS_W = max([len(a) for a in list(alias_by_name.values()) + list(alias_by_path.values())] or [0])
@@ -103,15 +113,11 @@ TAB = "\t"
 rows = []
 
 # ---- git columns -----------------------------------------------------------------
-# Same gitmux config as the tmux status line; sesh_gitmux.py parses it to SGR and caches, and only the symbols are shown.
+# git_status.py renders each repo status as SGR and caches it.
 #
 # Layout: ⚡ name+symbols │ path. Glyphs sit INLINE in the name column (name clips to NAME_W - sw - 1 so status stays visible); they are ambiguous-width, so a row measured wrong now shifts ITS path cell.
-import sys as _sys
-_sys.dont_write_bytecode = True                                    # keep __pycache__ out of the scripts dir
-_sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/rex"))
-import sesh_gitmux as hg   # gitmux parsing + the status cache
 NAME_W, PATH_W = 38, 40  # per-section clip thresholds (columns); NAME_W now holds name + inline symbols
-SYM_W, dwidth = hg.SYM_W, hg.dwidth
+SYM_W, dwidth = gs.SYM_W, gs.dwidth
 
 def dclip(s, w, left=False):  # plain-text clip to display width w, "…" on the clipped end
     if dwidth(s) <= w: return s
@@ -172,17 +178,17 @@ def derive_name(cwd, full):
         return segs[-1] if len(segs) >= 3 else "/".join(segs)
     return os.path.basename(d)
 
-sesh_entries = (load("en") or []) + rex_entries
+cfg_entries = [{"Src": "config", "Name": e["name"], "Path": cfgfile.expand(e["path"], home)} for e in cfg_raw]
 try:
     with open(os.path.join(os.environ["SRC"], "zo")) as fh:
-        sesh_entries.extend({"Src": "zoxide", "Path": line.rstrip("\n")} for line in fh if line.rstrip("\n"))
+        cfg_entries.extend({"Src": "zoxide", "Path": line.rstrip("\n")} for line in fh if line.rstrip("\n"))
 except Exception: pass
-cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in sesh_entries if e.get("Src") == "config"}
+cfg_paths = {(e.get("Path", "") or "").rstrip("/") for e in cfg_entries if e.get("Src") == "config"}
 # The identity map: Name -> Path, and Path -> every Name sitting at it. A path holding two names
 # (the firstmate personal/work pair) can no longer name a session on its own - that is the whole
 # reason resolve_entry asks the label first.
 cfg_names, names_by_path = {}, {}
-for e in sesh_entries:
+for e in cfg_entries:
     if e.get("Src") != "config": continue
     nm, p = (e.get("Name") or "").strip(), (e.get("Path") or "").rstrip("/")
     if not nm: continue
@@ -196,32 +202,15 @@ for e in sesh_entries:
 # A hand-renamed workspace falls back to the path rule, ambiguous again for a twin - the stated
 # limit of carrying identity on a label, and it degrades to showing both rows, not to a crash.
 def resolve_entry(lname, cwd):
-    # alias_by_name also names the secondmate homes sesh-aliases.sh emits, which are not sesh.toml entries.
+    # alias_by_name also names the secondmate homes rex-session-aliases emits, which are not entries.toml entries.
     if lname and (lname in cfg_names or lname in alias_by_name): return lname
     for k in (cwd, real(cwd) if cwd else ""):
         got = names_by_path.get(k) if k else None
         if got and len(got) == 1: return got[0]
     return ""
 
-# sesh.toml rex_host pins an entry to another host (as rex_label, else its name), so its local path never stands for it.
-pins, pin_labels, pinned_by_label = {}, {}, {}
-for fname in ("sesh.toml", "rex.toml"):
-    try:
-        with open(os.path.join(home, ".config", "sesh", fname)) as fh: lines = list(fh) + ["["]
-    except Exception: continue
-    cur = {}
-    for line in lines:
-        if line.lstrip().startswith("["):
-            if cur.get("name") and cur.get("rex_host"):
-                lab = cur.get("rex_label") or cur["name"]
-                pins[cur["name"]], pin_labels[cur["name"]] = cur["rex_host"], lab
-                pinned_by_label[(cur["rex_host"], lab)] = cur["name"]
-            cur = {}
-        m = re.match(r"\s*(name|rex_host|rex_label)\s*=\s*\"(.*)\"\s*$", line)
-        if m: cur[m.group(1)] = m.group(2)
-
 # Collect every entry uniformly: (kind, icon, name, path, target, active, entry, shown path, host).
-#   ws  ⚡ open Rex sessions          cfg 🔧 sesh config dirs      zox 📁 zoxide dirs
+#   ws  ⚡ open Rex sessions          cfg 🔧 entries.toml dirs     zox 📁 zoxide dirs
 entries = []
 active_paths, active_names = set(), set()
 crew_tabs = {}
@@ -260,7 +249,7 @@ for w in snapshot.get("workspaces", []):
     add_crew(wid, "")
 
 seen_names, seen_paths = set(), set()
-for e in sesh_entries:
+for e in cfg_entries:
     p = (e.get("Path", "") or "").rstrip("/")
     if not p: continue
     nm = (e.get("Name") or "").strip()
@@ -292,7 +281,7 @@ for e in sesh_entries:
     entries.append((kind, icon, name, p, ("cfg:" + ent) if ent else (kind + ":" + p), False, ent, "", ""))
 
 now = time.time()
-cache = hg.load()
+cache = gs.load()
 paths = [en[3] for en in entries if en[3]]
 listed = set(paths)
 # A vanished path also needs the warm pass: the sysinfo sync count reads every cache entry, listed or not.
@@ -301,11 +290,11 @@ if os.environ.get("WARM") != "1" and (any(p not in cache for p in paths) or any(
     except Exception: pass
 
 def compute(p):
-    return p, hg.entry(hg.git_pairs(p, roots_only=p not in active_paths)[1], now)
+    return p, gs.entry(gs.git_pairs(p, roots_only=p not in active_paths), now)
 
 if os.environ.get("WARM") == "1":
     todo = [p for p in dict.fromkeys(paths) if p not in cache][:12]
-    hg.update(dict(map(compute, todo)), keep=listed)    # merge under the write lock; prune vanished paths
+    gs.update(dict(map(compute, todo)), keep=listed)    # merge under the write lock; prune vanished paths
     raise SystemExit(0)
 
 sym = {}
@@ -313,13 +302,13 @@ for p in paths:
     hit = cache.get(p)
     if hit: sym[p] = (hit[1], hit[2], hit[3] if len(hit) > 3 else False)
 
-# Sort: active, repos with git activity (hg.has_changes - working tree plus ahead/behind), sesh.toml config, rest — fzf tiebreaks on this input index.
+# Sort: active, repos with git activity (working tree plus ahead/behind), entries.toml config, rest — fzf tiebreaks on this input index.
 # NOTE: this python block is inside a single-quoted bash string, so an apostrophe here ends it - keep comments apostrophe-free.
 def prio(ie):
     i, en = ie
     if en[5]: return (0, i)                                     # active
     if sym.get(en[3], ("", 0, False))[2]: return (1, i)         # dirty / unpushed / unpulled
-    if en[0] == "cfg": return (2, i)                            # curated sesh.toml entries
+    if en[0] == "cfg": return (2, i)                            # curated entries.toml entries
     return (3, i)
 
 # Render: <emoji> name ❯ path ❯ symbols — one emoji per row (label glyph else kind icon), DISPLAY-width padded so columns align.
@@ -340,7 +329,7 @@ def watched(p, active):
 
 # ctrl-g filters HERE rather than in fzf so --view matching, the cursor file and the target dispatch all keep working on a smaller ROWS file.
 ordered = [en for _, en in sorted(enumerate(entries), key=prio)]
-if os.environ.get("SESH_GIT_ONLY") == "1":
+if os.environ.get("PICKER_GIT_ONLY") == "1":
     dirty = [en for en in ordered if sym.get(en[3], ("", 0, False))[2]]
     # Nothing dirty lists every repo watched instead of a blank screen; the count rides CLEAN_FILE out to the header.
     ordered = dirty if dirty else [en for en in ordered if watched(en[3], en[5])]
@@ -412,7 +401,7 @@ try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 except OSError: raise SystemExit(0)
 os.set_inheritable(fd, True)
 os.execv(script, [script, "--warm-locked"])
-' "${XDG_STATE_HOME:-$HOME/.local/state}/sesh/sesh-git-cache.json.lock" "$SELF"
+' "${XDG_STATE_HOME:-$HOME/.local/state}/rex-picker/git-cache.json.lock" "$SELF"
     ;;
   --warm-locked)
     [ -f "$HOME/.config/colorscheme/palette.sh" ] &&
@@ -442,7 +431,7 @@ os.execv(script, [script, "--warm-locked"])
       # No --with-nth: --nth binds to the transform when one is set, so dropping it aims --nth=1 at raw field 1 (plain name) and leaves the path column unsearchable.
       # $ROWS is read first (guaranteed non-empty above) so FNR==NR still means "first file" when nothing matched.
       POS=$(fzf --ansi --delimiter='\t' --nth=1 --no-sort --filter="$Q" <"$ROWS" \
-        | awk -F'\t' -v out="$VIEW" -v q="$Q" -v aliases="${SESH_ALIASES:-}" '
+        | awk -F'\t' -v out="$VIEW" -v q="$Q" -v aliases="${PICKER_ALIASES:-}" '
 BEGIN {
   q = tolower(q)
   # Jump without enter only when no other alias starts with the query, so "b" never shadows "bm".
@@ -490,7 +479,7 @@ END {
       case "$POS" in
         *" pick") PICK=$(printf '+become(cat %q)' "$VIEW.pick") ;;
         *" later")
-          # sesh alias_auto_connect_delay: "b" also starts "bm", so it connects only after a 150ms pause.
+          # "b" also starts "bm", so it connects only after a 150ms pause.
           ( sleep 0.15
             [ "$(cat "$VIEW.q" 2>/dev/null)" = "$Q" ] && [ -n "${FZF_PORT:-}" ] &&
               curl -s -m 1 -H "x-api-key: ${FZF_API_KEY:-}" -XPOST "localhost:$FZF_PORT" -d "become(cat $(printf '%q' "$VIEW.pick"))"
@@ -607,8 +596,8 @@ END {
 import sys, os
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.expanduser("~/.local/bin/mux/rex"))
-import sesh_gitmux as hg
-hg.drop(sys.argv[1:])
+import git_status
+git_status.drop(sys.argv[1:])
 ' "$GPATH" "$ROOT" 2>/dev/null
 
     [ "$rc" = 0 ] || pause
@@ -633,7 +622,7 @@ hg.drop(sys.argv[1:])
           "$ctl" workspace focus "$focused" >/dev/null 2>&1
         ;;
       zox:*) zoxide remove "${2#zox:}" >/dev/null 2>&1 ;;
-      cfg:*) : ;;  # config entries live in sesh.toml — not deletable from the picker
+      cfg:*) : ;;  # config entries live in entries.toml — not deletable from the picker
       tab:*) : ;;  # a whole tab of agents is too blunt for ctrl-d; kill its panes instead
     esac
     exit 0
@@ -649,21 +638,19 @@ color_string="list-border:6,input-border:6,header-bg:-1,header-border:6,bg+:${gn
 command -v fzf     >/dev/null 2>&1 || { echo "fzf required";     sleep 1; exit 0; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 required"; sleep 1; exit 0; }
 
-# Built ONCE per open; --view re-reads this instead of re-querying Rex and gitmux. Per-PID so two open pickers cannot collide.
-ROWS_FILE="${TMPDIR:-/tmp}/rex-sesh-rows.$$"
-VIEW_FILE="${TMPDIR:-/tmp}/rex-sesh-view.$$"
+# Built ONCE per open; --view re-reads this instead of re-querying Rex and git. Per-PID so two open pickers cannot collide.
+ROWS_FILE="${TMPDIR:-/tmp}/rex-picker-rows.$$"
+VIEW_FILE="${TMPDIR:-/tmp}/rex-picker-view.$$"
 # Set only for the interactive open, so --list/--warm/--rebuild skip the cursor lookup.
-export FOCUS_FILE="${TMPDIR:-/tmp}/rex-sesh-pos.$$"
+export FOCUS_FILE="${TMPDIR:-/tmp}/rex-picker-pos.$$"
 # The watched-repo count when the git view found nothing dirty; the header reads it.
-export CLEAN_FILE="${TMPDIR:-/tmp}/rex-sesh-clean.$$"
+export CLEAN_FILE="${TMPDIR:-/tmp}/rex-picker-clean.$$"
 trap 'rm -f "$ROWS_FILE" "$ROWS_FILE.tmp" "$ROWS_FILE.fresh" "$ROWS_FILE.started" "$VIEW_FILE" "$VIEW_FILE.pick" "$VIEW_FILE.q" "$FOCUS_FILE" "$CLEAN_FILE"' EXIT
 # --listen lets a delayed alias pick reach fzf from a background job; the key keeps other local users off the port.
 export FZF_API_KEY="$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM"
-# Read once per open: every keystroke runs --view, and re-reading sesh.toml there cost ~45ms a key.
-SESH_ALIASES=$(awk -F'\t' '{printf "%s ", $1}' "${XDG_CACHE_HOME:-$HOME/.cache}/sesh/aliases.tsv" 2>/dev/null)
-[ -n "$SESH_ALIASES" ] || SESH_ALIASES=$("$HOME/.config/sesh/sesh-aliases.sh" 2>/dev/null | awk -F'\t' '{printf "%s ", $1}')
-SESH_ALIASES+=$(awk -F'"' '$1 ~ /^alias *= *$/ {printf "%s ", $2}' "$HOME/.config/sesh/rex.toml" 2>/dev/null)
-export SESH_ALIASES
+# Read once per open: every keystroke runs --view, and re-reading entries.toml there cost ~45ms a key.
+PICKER_ALIASES=$("$HOME/.local/bin/mux/rex/rex-session-aliases" 2>/dev/null | awk -F'\t' '{printf "%s ", $1}')
+export PICKER_ALIASES
 
 focus_target() {
   case "$1" in
@@ -687,7 +674,7 @@ GIT_ONLY=0
 "$HOME/.local/bin/mux/rex/rex-wait-size"
 while true; do
   # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
-  export SESH_GIT_ONLY="$GIT_ONLY"
+  export PICKER_GIT_ONLY="$GIT_ONLY"
   CACHED=0
   if [ "$GIT_ONLY" = 0 ] && [ -z "${REOPEN:-}" ] && [ -s "$CACHE_FILE" ]; then
     cp -f "$CACHE_FILE" "$ROWS_FILE"
@@ -735,7 +722,7 @@ while true; do
   fi
   [ -n "$START_POS" ] || START_POS=1
   # --disabled hands matching to $SELF --view so a hit can bring its ancestors; the trade is losing fzf's match highlighting.
-  # --no-sort (as in sesh-popup.sh) keeps build_list's ⚡/🔧 grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
+  # --no-sort keeps build_list's ⚡/🔧 grouping under every query; tiebreak=index could not, since index only breaks SCORE ties.
   OUT=$(fzf <"$ROWS_FILE" \
     --with-shell '/bin/bash -c' \
     --no-border --ansi --layout=reverse --list-border --no-sort \

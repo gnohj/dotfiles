@@ -90,8 +90,7 @@ fi
 #--          Cross-platform shims (Linux VPS / SSH)
 #-------------------------------------------------------------------------------
 # On non-macOS, define the macOS clipboard/open tools in terms of their Linux
-# equivalents so every existing call site (fze, gbc, pullreq, ticket, tmux
-# copy-pipe, …) keeps working untouched. Only defined when the real command is
+# equivalents so every existing call site (fze, gbc, pullreq, ticket, …) keeps working untouched. Only defined when the real command is
 # absent, so a Linux box that happens to have them installed still wins.
 if [[ "$OSTYPE" != darwin* ]]; then
   if ! command -v pbcopy >/dev/null 2>&1; then
@@ -211,10 +210,6 @@ up() {
   # the sketchybar package badge caches a pre-rebuild nix count; drop it so the widget recomputes.
   rm -f "$HOME/.cache/sketchybar/nix-preview.count"
   command -v sketchybar >/dev/null 2>&1 && sketchybar --trigger package_update 2>/dev/null || true
-
-  print -P "%F{cyan}==> tpm: tmux plugins%f"
-  local tpm="${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.config/tmux/plugins/}tpm/bin/update_plugins"
-  [ -x "$tpm" ] && "$tpm" all || true
 
   (( summary )) && _update_summary_end
   if (( update_rc )); then
@@ -390,7 +385,7 @@ fi
 #--                      Homebrew Package Manager
 #-------------------------------------------------------------------------------
 # Add Homebrew to PATH (for packages managed by nix-darwin)
-# Examples: pay-respects, skhd, gitmux, sesh, borders, etc.
+# Examples: pay-respects, skhd, borders, etc.
 if [ -d '/opt/homebrew/bin' ]; then
   export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 fi
@@ -556,7 +551,7 @@ add-zsh-hook precmd _prompt_blank_precmd
 add-zsh-hook preexec _prompt_blank_preexec
 
 # Rex tab status (OSC 7501): spinner while a tracked batch command runs, then a done/error mark if it took 10s+.
-if [[ $TERM_PROGRAM == rex && -z $TMUX ]]; then
+if [[ $TERM_PROGRAM == rex ]]; then
     zmodload zsh/datetime
     typeset -ga _rex_status_track=(
         up update brew mise nix darwin-rebuild chezmoi
@@ -812,7 +807,7 @@ SAVEHIST=$HISTSIZE
 setopt appendhistory
 setopt sharehistory
 setopt hist_ignore_dups
-# Ctrl+D at an empty prompt no longer exits the shell (which would close the tmux
+# Ctrl+D at an empty prompt no longer exits the shell (which would close the
 # pane). rctrl+d is reserved for nvim's half-page scroll; a stray one in a shell
 # should be a no-op, not a pane-kill. Type `exit` to close a shell intentionally.
 setopt ignore_eof
@@ -830,11 +825,7 @@ alias y='YAZI_START_DIR="$PWD" yazi'
 # Open the rexpad list named after the current directory
 alias rpad='rexpad --list "cwd-$(basename "$PWD")" show --ratio 20'
 
-# Run the Omarchy-style launcher inline in the current terminal (draws via fzf).
-# `launcher` and `ql` share ALL launcher logic (launcher.sh); only the backend
-# differs:
-#   launcher  → LAUNCHER_MODE=tmux  (window actions drive tmux; use inside tmux)
-#   ql        → LAUNCHER_MODE=quake (launcher runs standalone; use in the quake)
+# launcher runs one inline pass, ql the persistent quake loop; both are launcher.sh.
 alias launcher='~/.config/launcher/launcher.sh'
 alias ql='~/.config/launcher/launcher-quake.sh'
 
@@ -849,11 +840,6 @@ alias cz='chezmoi'
 alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi re-add'
-
-# tmux profiles — the default `tmux`/`sesh` flow uses ~/.config/tmux/tmux.conf
-# (base + agentic HUD). These select the alternate profiles:
-#   tn  — clean personal tmux, no agent HUD (base only)
-alias tn='tmux -f ~/.config/tmux/native.conf'
 
 # btopc / btopm: proc-only fullscreen tables, cpu- or memory-sorted ("cpu direct" is a strict live top-to-bottom sort; "cpu lazy" smooths order over time and looks unsorted).
 # Extra args are key=value btop.conf overrides. Cache dir, not /tmp: on Linux /tmp is shared between users.
@@ -892,11 +878,8 @@ btop2() {
       echo "btop2: could not split the Rex block; run btopm and btopc separately"
       return 1
     fi
-  elif [[ -n "$TMUX" ]]; then
-    tmux split-window -h "btop -c ${(q)cpu_conf}"
-    tmux select-pane -L
   else
-    echo "btop2 needs Rex or tmux; run btopm and btopc in separate splits instead"
+    echo "btop2 needs Rex; run btopm and btopc in separate splits instead"
     return 1
   fi
   command btop -c "$mem_conf"
@@ -1042,7 +1025,7 @@ function nvim {
       -|--headless|--embed|--version|-v|--help|-h|-l|-e|-E|-es|-Es|--api-info|--server|--remote*) command nvim "$@"; return ;;
     esac
   done
-  if [[ $TERM_PROGRAM == rex && -n $REX_SESSION && -z $TMUX && -z $SSH_CONNECTION && -t 0 && -t 1 ]] && (( $+commands[neorex] )); then
+  if [[ $TERM_PROGRAM == rex && -n $REX_SESSION && -z $SSH_CONNECTION && -t 0 && -t 1 ]] && (( $+commands[neorex] )); then
     local marker session args=("$@")
     marker=$(mktemp "${TMPDIR:-/tmp}/neorex-restart.XXXXXX") || return
     rm -f "$marker"
@@ -1255,7 +1238,6 @@ fetch-origin() {
   git fetch origin ${(f)refs}
 }
 alias fo='fetch-origin'
-alias clpr="rm -f ~/.cache/tmux-pr-numbers/* && echo 'Cleared PR number cache'"
 alias gcom="g checkout master"
 alias gpod="g pull origin develop"
 alias gcod="g checkout develop"
@@ -1494,7 +1476,7 @@ cdm() {
 }
 
 # List (and with -r, return) ORPHANED treehouse pool leases: slots that are
-# leased but have NO tmux pane sitting inside them — the gh-dash review or
+# leased but have NO pane sitting inside them - the gh-dash review or
 # orchestrator agent that borrowed the slot is gone, so it's silently holding
 # pool capacity (the leak that stranded 19153/19179 before). Reads treehouse's
 # own per-pool state files, so it spans EVERY pool (web review, inferno,
@@ -1643,29 +1625,6 @@ if [ -s "$HOME/.bun/_bun" ]; then
   }
 fi
 
-
-
-# -----------------------------  Tmux - Update Pane Path -so that lazygit (rctrl+g) can work anywhere (buffer, tmux pane, etc.)
-if [[ -n "$TMUX" ]]; then
-  function update_tmux_pwd() {
-    if [[ -n "$TMUX_PANE" ]]; then
-      tmux set-environment -t "$TMUX_PANE" PANE_CWD_${TMUX_PANE} "$PWD" 2>/dev/null
-    fi
-  }
-
-  function cleanup_tmux_pane() {
-    if [[ -n "$TMUX_PANE" ]]; then
-      tmux set-environment -u -t "$TMUX_PANE" PANE_CWD_${TMUX_PANE} 2>/dev/null
-    fi
-  }
-  trap cleanup_tmux_pane EXIT
-
-  add-zsh-hook chpwd update_tmux_pwd
-  function z() {
-    __zoxide_z "$@" && update_tmux_pwd
-  }
-fi
-
 #-------------------------------------------------------------------------------
 #                  Global Helpers
 #-------------------------------------------------------------------------------
@@ -1808,8 +1767,8 @@ if command -v sketchybar &>/dev/null; then
 fi
 
 # -----------------------------  System Fetch
-# Only in a new terminal's top shell: not in tmux panes (already shown) or SKIP_FETCH one-off windows.
-if [[ -z "$TMUX" && "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
+# Only in a new terminal's top shell, not in SKIP_FETCH one-off windows.
+if [[ "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
     if command -v fastfetch &>/dev/null; then
         # The image plus the 36-column boxes need ~75 columns; narrower panes drop the image, and below the boxes skip it.
         _fetch_draw() {

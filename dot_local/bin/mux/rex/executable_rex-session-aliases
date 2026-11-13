@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Emits "<alias>\t<name>\t<path>" per aliased [[session]]; `sesh list` never exposes aliases itself.
+# Emits "<alias>\t<name>\t<path>" per aliased [[session]] in entries.toml, plus the secondmate homes.
 
-CONFIG="${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}"
+CONFIG="${REX_ENTRIES:-$HOME/.config/rex/entries.toml}"
 [ -f "$CONFIG" ] || exit 0
-# Path kept in step with sesh-agents.sh, which reads this cache directly rather than forking here.
-CACHE="${SESH_ALIAS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/sesh/aliases.tsv}"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/rex-picker/aliases.tsv"
 
 # awk, not python: on the popup's reload path an interpreter start-up outweighed the whole pipeline.
 parse() {
@@ -12,7 +11,7 @@ parse() {
 function emit() {
   if (alias != "" && name != "" && path != "") {
     p = path
-    # Bare leading-`~` swap with no normalising, matching how sesh builds its own Path field.
+    # Bare leading-`~` swap with no normalising, matching entries.py expand().
     if (p == "~") p = home
     else if (substr(p, 1, 2) == "~/") p = home substr(p, 2)
     sub(/\/+$/, "", p)
@@ -45,7 +44,7 @@ if [ ! -s "$CACHE" ] || [ "$CONFIG" -nt "$CACHE" ]; then
   fi
 fi
 
-# Secondmate homes come and go without touching sesh.toml, so they are emitted past the cache rather
+# Secondmate homes come and go without touching entries.toml, so they are emitted past the cache rather
 # than parsed into it: "sm" plus the shortest prefix that separates them, so smi/smw stay stable.
 mates() {
   local d n suffix a i clash other osuffix

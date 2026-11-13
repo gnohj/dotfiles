@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ICON=$(resolve-term-icon ghostty)        # from explicit hint
-#   ICON=$(resolve-term-icon "$TERM_ID")     # from #{client_termtype}
+#   ICON=$(resolve-term-icon "$TERM_ID")     # from a terminal hint
 #   ICON=$(resolve-term-icon)                # falls back to Terminal.app
 #
 # Returns nothing (no failure) when no .icns can be found — caller should

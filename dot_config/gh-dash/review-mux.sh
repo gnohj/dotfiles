@@ -17,7 +17,6 @@ EOF
     printf '%s' "$target" | jq -c '. + {remote:true}'
     return
   fi
-  [ "${MUX_FORCE_KIND:-}" = tmux ] && return 1
   review_mux_rex_target "$label"
 }
 

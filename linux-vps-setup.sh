@@ -22,7 +22,7 @@
 # and are printed at the end (`tailscale up`, `gh auth login`, rbw secrets, OAuth).
 #
 # NOTE: the toolchain bootstrap is long (cargo builds). For a flaky link, run it
-# inside tmux/mosh so a dropped SSH connection doesn't kill it mid-build.
+# over mosh or inside a Rex session so a dropped SSH connection doesn't kill it mid-build.
 set -euo pipefail
 
 # Pinned: the flake output (gnohj-linux-x86_64) and home-manager/home.nix pin this

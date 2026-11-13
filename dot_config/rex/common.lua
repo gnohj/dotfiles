@@ -114,7 +114,7 @@ end
 
 -- Toggle popup in one floating layer that Rex frames and closes on exit; bounds are {x,y,w,h}.
 M.POPUP_LABEL = "popup"
-M.POPUP_LABELS = { [M.POPUP_LABEL] = true, lazygit = true, sesh = true, ["fm-chat"] = true }
+M.POPUP_LABELS = { [M.POPUP_LABEL] = true, lazygit = true, sessions = true, ["fm-chat"] = true }
 -- A new layer is 80x24 until Rex sizes it; wait, or the first frame is drawn too narrow.
 local RUN_SIZED = [["$HOME/.local/bin/mux/rex/rex-wait-size"; exec "$@"]]
 

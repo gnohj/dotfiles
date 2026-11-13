@@ -15,48 +15,38 @@ need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for Rex"; }
 
 cmd_help() {
   cat <<'EOF'
-mux - multiplexer operations against whichever of Rex/tmux is live.
+mux - multiplexer operations against the live Rex server.
 
-  mux kind                                 rex | tmux | none
+  mux kind                                 rex | none
   mux session-label                        workspace/session name, emoji stripped
   mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
   mux split  <cwd> <cmd>                   run a command beside the current pane
-  mux focus  <pane-id>                     focus a pane by recorded id
-  mux send-keys <pane-id> <key>...         send key presses to a pane
-  mux pane-pids <pane-id>                  pids in the pane's foreground
-  mux pane-width <pane-id>                 columns the pane currently occupies
   mux session [--label NAME] [--no-focus] [<cwd>]
                                            focus a session/workspace, building
                                            one at <cwd> if none exists
-  mux tabs [--all-muxes]                  "<id><TAB><label>" per open window/tab
+  mux tabs [--all-muxes]                   "<id><TAB><label>" per open window/tab
   mux pane-cwds [--all-muxes]              cwd of every open pane, one per line
                                            --all-muxes is read-only; errors fail
   mux close  <id>                          close a window/tab by `mux tabs` id
   mux notify [OPTS] <message>              transient message
-  mux popup  [OPTS] <script-path>          run a script modally
+  mux popup  <script-path>                 run a script inline
   mux help
 
 window options:
   --print-pane        print the new pane id (for HUNK_PANE capture)
   --keep-open         leave the window at a prompt when <cmd> exits
-                      (default: the window closes, mirroring tmux new-window)
+                      (default: the window closes)
   --no-focus          create the window without switching to it, for work that
                       runs on your behalf (the macOS counterpart is `open -g`)
   --focus             switch to it even when it lands in another workspace, for
                       a window the user explicitly asked to look at
   --env KEY=VALUE     set an env var in the new window (repeatable)
-  --workspace ID      override the target Rex or tmux session;
+  --workspace ID      override the target Rex session;
                       defaults to the one this process was invoked from
-  --popup             prefer a modal popup; Rex
-                      falls back to a normal focused tab
-  --popup-size WxH    popup size, tmux only (default 80%x90%)
-Detection: pane env Rex (TERM_PROGRAM=rex and REX_BLOCK), then tmux;
-otherwise live servers Rex, then tmux. MUX_FORCE_KIND overrides this.
+Detection: pane env Rex (TERM_PROGRAM=rex and REX_BLOCK), otherwise a
+live Rex server. MUX_FORCE_KIND=rex overrides this.
 notify options:
   --title TEXT        Rex desktop banner title (default "notice")
-  --duration MS       tmux status-line duration, tmux only (default 5000)
-popup options:
-  --width W  --height H    tmux popup size (default 70% x 30%)
 EOF
 }
 
@@ -73,7 +63,6 @@ cmd_session_label() {
         jq -r '.label // empty' 2>/dev/null |
         sed 's/^[^[:alnum:]]*//'
       ;;
-    tmux) tmux display-message -p '#S' 2>/dev/null || true ;;
   esac
 }
 
@@ -81,10 +70,6 @@ cmd_session_label() {
 origin_workspace() {
   case "$(cmd_kind)" in
     rex) printf '%s' "${REX_SESSION:-}" ;;
-    tmux)
-      [ -n "${TMUX_PANE:-}" ] || return 0
-      tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || true
-      ;;
   esac
 }
 
@@ -95,15 +80,13 @@ rex_app_client() {
 
 # The window closes when <cmd> exits, unless --keep-open.
 cmd_window() {
-  local print_pane="" popup="" popup_size="80%x90%" ws="" keep="" no_focus="" force_focus="" envs=() e
+  local print_pane="" ws="" keep="" no_focus="" force_focus="" envs=() e
   while [ $# -gt 0 ]; do
     case "$1" in
       --print-pane) print_pane=1; shift ;;
       --keep-open)  keep=1; shift ;;
       --no-focus)   no_focus=1; shift ;;
       --focus)      force_focus=1; shift ;;
-      --popup)      popup=1; shift ;;
-      --popup-size) popup_size="$2"; shift 2 ;;
       --workspace)  ws="$2"; shift 2 ;;
       --env)        envs+=("$2"); shift 2 ;;
       --)           shift; break ;;
@@ -152,32 +135,7 @@ cmd_window() {
       [ -n "$print_pane" ] && printf '%s\n' "$pane"
       return 0
       ;;
-    tmux)
-      # Modal popup: only meaningful without pane capture.
-      if [ -n "$popup" ] && [ -z "$print_pane" ]; then
-        tmux display-popup ${cwd:+-d "$cwd"} -w "${popup_size%x*}" -h "${popup_size#*x}" -E "$command"
-        return 0
-      fi
-      # Session-scoped: appends at the next free index, and only yanks a client already attached there.
-      local targs=(new-window -n "$name")
-      # -d is tmux's `open -g`: the window is built but the client stays where it is.
-      [ -n "$no_focus" ] && targs+=(-d)
-      [ -n "$cwd" ] && targs+=(-c "$cwd")
-      [ -n "$ws" ] && targs+=(-t "$ws:")
-      [ -n "$print_pane" ] && targs+=(-P -F '#{pane_id}')
-      for e in "${envs[@]:-}"; do [ -n "$e" ] && targs+=(-e "$e"); done
-      # Separate argv, not one string, so a quote in $command can't break out.
-      if [ -n "$keep" ]; then
-        local sh="${SHELL:-/bin/zsh}"
-        targs+=("$sh" -l -c "$command; exec $sh -l")
-      else
-        targs+=("$command")
-      fi
-      tmux "${targs[@]}"
-      # `new-window -t other-session` leaves the client put, so --focus must move it explicitly.
-      [ -n "$force_focus" ] && [ -z "$no_focus" ] && [ -n "$ws" ] && tmux switch-client -t "$ws:" 2>/dev/null
-      ;;
-    none) die "no Rex or tmux session detected" ;;
+    none) die "no Rex session detected" ;;
   esac
 }
 
@@ -202,70 +160,11 @@ cmd_split() {
       "$rex" --autostart=false split -s "$REX_SESSION" -b "$REX_BLOCK" --split=right --ratio "$ratio" \
         -c "$cwd" --shell=none -- env SKIP_FETCH=1 "${SHELL:-/bin/sh}" -lic "$command" >/dev/null || die "Rex split failed"
       ;;
-    tmux)
-      if [ "$(tmux list-panes 2>/dev/null | wc -l | tr -d ' ')" = 1 ]; then
-        tmux split-window -h -l 25% -c "$cwd" "$command"
-      else
-        tmux split-window -h -c "$cwd" "$command"
-        tmux select-layout even-horizontal >/dev/null 2>&1
-      fi
-      ;;
-    none) die "no Rex or tmux session detected" ;;
+    none) die "no Rex session detected" ;;
   esac
 }
 
-# Focus a pane by id; its SHAPE picks the backend. 0 focused · 1 gone · 2 not a pane id.
-cmd_focus() {
-  local pane="${1:?mux focus: missing <pane-id>}" session
-  case "$pane" in
-    %*)
-      session="$(tmux display-message -t "$pane" -p '#{session_name}' 2>/dev/null)" || return 1
-      [ -n "$session" ] || return 1
-      # select-pane alone won't change the current window, so both are needed.
-      tmux select-window -t "$pane" 2>/dev/null || true
-      tmux select-pane -t "$pane" 2>/dev/null || true
-      tmux switch-client -t "$session" 2>/dev/null ||
-        tmux attach-session -t "$session" 2>/dev/null || true
-      ;;
-    *) return 2 ;;
-  esac
-}
-
-# Drive a TUI in another pane; dispatch on the id SHAPE, exit 2 when neither backend owns it.
-cmd_send_keys() {
-  local pane="${1:?mux send-keys: missing <pane-id>}"
-  shift
-  [ $# -gt 0 ] || die "send-keys: missing <key>" 2
-  case "$pane" in
-    %*)   tmux send-keys -t "$pane" "$@" 2>/dev/null ;;
-    *)    return 2 ;;
-  esac
-}
-
-# Correlates a pane with a process-keyed API; children cover a wrapper shell.
-cmd_pane_pids() {
-  local pane="${1:?mux pane-pids: missing <pane-id>}" pid
-  case "$pane" in
-    %*)
-      pid="$(tmux display-message -pt "$pane" '#{pane_pid}' 2>/dev/null)" || return 0
-      [ -n "$pid" ] || return 0
-      printf '%s\n' "$pid"
-      pgrep -P "$pid" 2>/dev/null || true
-      ;;
-    *) return 2 ;;
-  esac
-}
-
-# Columns the pane occupies now; empty when it is gone, so "unknown" reads apart from a number.
-cmd_pane_width() {
-  local pane="${1:?mux pane-width: missing <pane-id>}"
-  case "$pane" in
-    %*) tmux display-message -pt "$pane" '#{pane_width}' 2>/dev/null || true ;;
-    *)  return 2 ;;
-  esac
-}
-
-sesh_label() {
+dir_label() {
   local dir="$1" label="" rel s1 rest s2 after2 s3 key
   [ -d "$dir" ] || return 1
   case "$dir" in
@@ -319,7 +218,7 @@ cmd_session() {
       local rex sid client
       rex="$(rex_bin)" || die "Rex CLI unavailable"
       # The directory-derived label, so the session is found again by the same name.
-      [ -n "$label" ] || label="$(sesh_label "$cwd")" || return 1
+      [ -n "$label" ] || label="$(dir_label "$cwd")" || return 1
       sid="$("$rex" --autostart=false ls --json 2>/dev/null | jq -r --arg w "$label" \
         'first(.sessions[]? | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w) | .session_id) // empty')"
       [ -n "$sid" ] && [ -n "$no_focus" ] && return 0
@@ -329,21 +228,11 @@ cmd_session() {
       if [ -n "$sid" ]; then
         "$rex" --autostart=false -C "$client" do session.select "session_id=$sid" >/dev/null
       else
-        "$rex" --autostart=false -C "$client" do sesh_open --args "$(jq -cn --arg l "$label" --arg d "$cwd" \
+        "$rex" --autostart=false -C "$client" do session_open --args "$(jq -cn --arg l "$label" --arg d "$cwd" \
           --arg b "$no_focus" '{label: $l, dir: $d} + (if $b == "" then {} else {background: "1"} end)')" >/dev/null
       fi
       ;;
-    tmux)
-      [ -n "$label" ] || label="$(basename "$cwd")"
-      if ! tmux has-session -t "$label" 2>/dev/null; then
-        [ -n "$cwd" ] || return 1
-        tmux new-session -d -s "$label" -c "$cwd" 2>/dev/null || return 1
-      fi
-      [ -n "$no_focus" ] && return 0
-      tmux switch-client -t "$label" 2>/dev/null ||
-        tmux attach-session -t "$label" 2>/dev/null || true
-      ;;
-    none) die "no Rex or tmux session detected" ;;
+    none) die "no Rex session detected" ;;
   esac
 }
 
@@ -384,13 +273,6 @@ cmd_all_muxes() {
   if rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
     rex_list "$query" || return 1
   fi
-  if command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then
-    if [ "$query" = tabs ]; then
-      tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || return 1
-    else
-      tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || return 1
-    fi
-  fi
 }
 
 # Every open window/tab as "<id><TAB><label>".
@@ -398,7 +280,6 @@ cmd_tabs() {
   if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes tabs; return; fi
   case "$(cmd_kind)" in
     rex) rex_list tabs || true ;;
-    tmux) tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || true ;;
   esac
 }
 
@@ -407,7 +288,6 @@ cmd_pane_cwds() {
   if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes pane-cwds; return; fi
   case "$(cmd_kind)" in
     rex) rex_list pane-cwds || true ;;
-    tmux) tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true ;;
   esac
 }
 
@@ -425,16 +305,14 @@ cmd_close() {
         "$rex" --autostart=false window close -s "$sid" "${id#*/}" >/dev/null 2>&1 || true
       fi
       ;;
-    tmux)  tmux kill-window -t "$id" 2>/dev/null || true ;;
   esac
 }
 
 cmd_notify() {
-  local title="notice" duration=5000
+  local title="notice"
   while [ $# -gt 0 ]; do
     case "$1" in
       --title) title="$2"; shift 2 ;;
-      --duration) duration="$2"; shift 2 ;;
       --) shift; break ;;
       -*) die "notify: unknown option $1" 2 ;;
       *) break ;;
@@ -442,7 +320,6 @@ cmd_notify() {
   done
   local msg="${1:?mux notify: missing <message>}"
   case "$(cmd_kind)" in
-    tmux)  tmux display-message -d "$duration" "$msg" 2>/dev/null || printf '%s\n' "$msg" >&2 ;;
     # Rex has no toast CLI; the guard stops to-desktop's own `mux notify` fallback looping back here.
     rex)
       if [ -z "${MUX_NOTIFY_VIA_DESKTOP:-}" ] && printf '%s\n%s' "${title//$'\n'/ }" "$msg" |
@@ -455,13 +332,10 @@ cmd_notify() {
   esac
 }
 
-# Exit status is the inner script's, so a cancel is distinguishable from a failure.
+# Rex has no popup CLI, so the script runs inline; exit status is the inner script's, so a cancel is distinguishable from a failure.
 cmd_popup() {
-  local width="70%" height="30%"
   while [ $# -gt 0 ]; do
     case "$1" in
-      --width) width="$2"; shift 2 ;;
-      --height) height="$2"; shift 2 ;;
       --) shift; break ;;
       -*) die "popup: unknown option $1" 2 ;;
       *) break ;;
@@ -469,11 +343,8 @@ cmd_popup() {
   done
   local script="${1:?mux popup: missing <script-path>}"
   [ -x "$script" ] || chmod +x "$script" 2>/dev/null || true
-  case "$(cmd_kind)" in
-    tmux) tmux display-popup -E -w "$width" -h "$height" "$script" ;;
-    # Rex has no popup CLI, so the script runs inline.
-    *)    clear 2>/dev/null || true; "$script" ;;
-  esac
+  clear 2>/dev/null || true
+  "$script"
 }
 
 verb="${1:-help}"
@@ -483,10 +354,6 @@ case "$verb" in
   session-label) cmd_session_label "$@" ;;
   window)        cmd_window "$@" ;;
   split)         cmd_split "$@" ;;
-  focus)         cmd_focus "$@" ;;
-  send-keys)     cmd_send_keys "$@" ;;
-  pane-pids)     cmd_pane_pids "$@" ;;
-  pane-width)    cmd_pane_width "$@" ;;
   session)       cmd_session "$@" ;;
   tabs)          cmd_tabs "$@" ;;
   pane-cwds)     cmd_pane_cwds "$@" ;;

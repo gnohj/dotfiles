@@ -25,13 +25,13 @@ if [ "$current_opacity" = "1.0" ] || [ "$current_opacity" = "1" ]; then
   new_opacity="$previous_opacity"
   comment_opacity="1.0"
   MSG="Ghostty: Transparency ON ($new_opacity) - Press Cmd+Shift+, to reload"
-  tmux display-message "$MSG" 2>/dev/null || echo "$MSG"
+  echo "$MSG"
 else
   # Going from transparent to opaque
   new_opacity="1.0"
   comment_opacity="$current_opacity"
   MSG="Ghostty: Transparency OFF - Press Cmd+Shift+, to reload"
-  tmux display-message "$MSG" 2>/dev/null || echo "$MSG"
+  echo "$MSG"
 fi
 
 # Remove any existing background-opacity lines (both active and commented)

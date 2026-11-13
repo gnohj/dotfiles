@@ -37,12 +37,10 @@ vim.g.loaded_matchit = 1
 
 require("config.lazy")
 
--- Per-pane RPC socket (REX_BLOCK or TMUX_PANE) so external tools reach THIS nvim when several run.
+-- Per-pane RPC socket (REX_BLOCK) so external tools reach THIS nvim when several run.
 local pane_key
 if vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK then
   pane_key = "rex-" .. vim.env.REX_BLOCK:gsub("[^%w]", "-")
-elseif vim.env.TMUX_PANE then
-  pane_key = vim.env.TMUX_PANE:gsub("%%", "")
 end
 if pane_key then
   local socket = "/tmp/nvim-" .. pane_key .. ".sock"

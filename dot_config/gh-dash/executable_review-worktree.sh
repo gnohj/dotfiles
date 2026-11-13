@@ -22,7 +22,7 @@ SWEEP_GRACE="${GH_REVIEW_SWEEP_GRACE:-30}"
 SWEEP_LOG="${XDG_STATE_HOME:-$HOME/.local/state}/gh-review-sweep.log"
 mkdir -p "${SWEEP_LOG%/*}"
 
-# tmux listings flicker under churn, so an automatic sweep waits this long and re-reads.
+# Multiplexer listings flicker under churn, so an automatic sweep waits this long and re-reads.
 SWEEP_CONFIRM="${GH_REVIEW_SWEEP_CONFIRM:-8}"
 
 _slog() {

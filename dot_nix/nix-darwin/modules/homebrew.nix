@@ -28,7 +28,6 @@
       "sst/tap"
       "koekeishiya/formulae"
       "kunchenguid/tap"
-      "morantron/tmux-fingers"
       "tonisives/tap"
       "vjeantet/tap"
       "acsandmann/tap"
@@ -55,15 +54,6 @@
       # Shell & plugin managers
       "zinit"
       "atuin" # shell history — 18.17+ needs rustc 1.96.1, newer than nixpkgs
-
-      # Terminal & tmux utilities
-      # gitmux, sesh, television → moved to Nix (dot_nix/common/package-list.nix,
-      # shared cross-platform). atuin stays on brew (aarch64 rustc lag).
-      "morantron/tmux-fingers/tmux-fingers"
-      # Deps of the source-built tmux 3.6b pin (build-pinned-tmux); zap removes them otherwise.
-      "libevent"
-      "ncurses"
-      "pkgconf"
 
       # macOS utilities
       "terminal-notifier"

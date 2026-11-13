@@ -23,24 +23,6 @@ class ReviewLeaseTests(unittest.TestCase):
     def setUp(self):
         mux_tests.MuxTests.setUp(self)
         self.stub(
-            "herdr",
-            """
-if args == ["status", "server"]:
-    print("status: stopped" if os.getenv("TEST_ALL_DOWN") else "status: running")
-elif args == ["session", "list"]:
-    print("NAME STATUS SOCKET" if os.getenv("TEST_ALL_DOWN") else "NAME STATUS SOCKET\\ndefault running /stub/default\\nother running /stub/other")
-elif args == ["workspace", "list"]:
-    print(json.dumps({"result": {"workspaces": [{"workspace_id": "ws"}]}}))
-elif args[:2] == ["tab", "list"]:
-    if os.getenv("TEST_FAIL") == "herdr": sys.exit(1)
-    print(json.dumps({"result": {"tabs": [{"tab_id": "tab", "label": "🤖 #123"}] if os.getenv("TEST_TAB") == "herdr" and os.getenv("HERDR_SOCKET_PATH") == "/stub/other" else []}}))
-elif args == ["pane", "list"]:
-    print(json.dumps({"result": {"panes": [] if os.getenv("TEST_EMPTY_PANES") else [{"cwd": os.getenv("TEST_CWD") if os.getenv("TEST_PANE") == "herdr" else "/unrelated"}]}}))
-else:
-    sys.exit("unexpected herdr argv: " + repr(args))
-""",
-        )
-        self.stub(
             "rex",
             """
 assert args.pop(0) == "--autostart=false", args
@@ -62,20 +44,6 @@ else:
 """,
         )
         self.stub(
-            "tmux",
-            """
-if args == ["ls"]:
-    sys.exit(1 if os.getenv("TEST_ALL_DOWN") else 0)
-elif args[0] == "list-windows":
-    if os.getenv("TEST_FAIL") == "tmux": sys.exit(1)
-    if os.getenv("TEST_TAB") == "tmux": print("@1\\t🤖 #123")
-elif args[0] == "list-panes":
-    if os.getenv("TEST_PANE") == "tmux": print(os.getenv("TEST_CWD"))
-else:
-    sys.exit("unexpected tmux argv: " + repr(args))
-""",
-        )
-        self.stub(
             "treehouse",
             """
 assert args[0] == "return", args
@@ -87,12 +55,13 @@ with open(os.path.join(os.environ["HOME"], "returns"), "a") as log:
             self.stub(name, "pass\n")
         self.stub("lsof", "pass\n")
         self.stub("setsid", "os.execvp(args[0], args)\n")
-        self.leases = self.home / ".local/state/gh-review-worktrees"
-        self.leases.mkdir(parents=True)
         self.wt = self.home / "pool/123"
         self.wt.mkdir(parents=True)
-        self.record = self.leases / "123"
-        self.record.write_text(str(self.wt))
+        config = self.home / ".config/gh-dash"
+        config.mkdir(parents=True)
+        worktree = config / "review-worktree.sh"
+        shutil.copy(ROOT / "dot_config/gh-dash/executable_review-worktree.sh", worktree)
+        worktree.chmod(0o755)
         self.env |= {
             "MUX": str(
                 self.stub(
@@ -103,21 +72,33 @@ with open(os.path.join(os.environ["HOME"], "returns"), "a") as log:
             "GH_REVIEW_SWEEP_GRACE": "0",
             "TEST_CWD": str(self.wt / "nested"),
         }
+        self.lease("123")
+
+    def lease(self, *prs):
         pool = self.home / ".treehouse/pool/treehouse-state.json"
-        pool.parent.mkdir(parents=True)
+        pool.parent.mkdir(parents=True, exist_ok=True)
         pool.write_text(
             json.dumps(
                 {
                     "worktrees": [
                         {
                             "leased": True,
-                            "lease_holder": "review-123",
+                            "lease_holder": f"review-{pr}",
                             "path": str(self.wt),
                         }
+                        for pr in prs
                     ]
                 }
             )
         )
+
+    def returned(self):
+        path = self.home / "returns"
+        for _ in range(500):
+            if path.exists():
+                return [json.loads(line) for line in path.read_text().splitlines()]
+            time.sleep(0.01)
+        return []
 
     def cleanup_command(self, command="reclaim", **env):
         return self.run_script(
@@ -157,9 +138,7 @@ with open(os.path.join(os.environ["HOME"], "returns"), "a") as log:
     def test_wtrm_refuses_busy_or_unknown_union(self):
         for state in [
             {"TEST_TAB": "rex"},
-            {"TEST_PANE": "herdr"},
             {"TEST_PANE": "rex"},
-            {"TEST_PANE": "tmux"},
             {"TEST_FAIL": "rex"},
             {},
         ]:
@@ -186,65 +165,45 @@ with open(os.path.join(os.environ["HOME"], "returns"), "a") as log:
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout, "")
 
-    def test_union_preserves_review_on_each_mux(self):
-        for mux in ["herdr", "rex", "tmux"]:
-            with self.subTest(mux=mux):
-                result = self.cleanup_command(TEST_TAB=mux)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(self.record.exists())
-                self.assertFalse((self.home / "returns").exists())
-
-    def test_release_refuses_visible_review(self):
-        result = self.cleanup_command("release", TEST_TAB="rex")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertTrue(self.record.exists())
+    def test_review_tab_preserves_lease(self):
+        result = self.cleanup_command(TEST_TAB="rex")
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.home / "returns").exists())
 
-    def test_release_refuses_unknown_or_occupied_panes(self):
+    def test_explicit_release_returns_despite_open_tab(self):
+        result = self.cleanup_command("release", TEST_TAB="rex")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.returned(),
+            [["return", str(self.wt), "--force", "--if-lease-holder", "review-123"]],
+        )
+
+    def test_occupied_or_unknown_panes_preserve_lease(self):
         for state in [{"TEST_FAIL": "rex"}, {"TEST_PANE": "rex"}]:
             with self.subTest(state=state):
-                result = self.cleanup_command("release", **state)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertTrue(self.record.exists())
+                result = self.cleanup_command(**state)
+                self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertFalse((self.home / "returns").exists())
 
     def test_failed_listing_keeps_every_lease(self):
-        second = self.leases / "456"
-        second.write_text(str(self.wt))
-        for failed in ["herdr", "rex", "tmux", "process"]:
+        self.lease("123", "456")
+        for failed in ["rex", "process"]:
             with self.subTest(failed=failed):
                 result = self.cleanup_command(TEST_FAIL=failed)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(self.record.exists())
-                self.assertTrue(second.exists())
                 self.assertFalse((self.home / "returns").exists())
 
     def test_malformed_listing_keeps_lease(self):
         self.cleanup_command(TEST_MALFORMED="1")
-        self.assertTrue(self.record.exists())
         self.assertFalse((self.home / "returns").exists())
 
     def test_all_empty_releases(self):
         result = self.cleanup_command(TEST_EMPTY_PANES="1")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for _ in range(500):
-            if not self.record.exists():
-                break
-            time.sleep(0.01)
-        self.assertFalse(self.record.exists())
-        self.assertTrue((self.home / "returns").exists())
-
-    def test_pane_on_each_mux_preserves_lease(self):
-        for mux in ["herdr", "rex", "tmux"]:
-            with self.subTest(mux=mux):
-                self.cleanup_command(TEST_PANE=mux)
-                self.assertTrue(self.record.exists())
-                self.assertFalse((self.home / "returns").exists())
-
-    def test_orphan_lease_preserved_by_review_tab(self):
-        self.record.unlink()
-        self.cleanup_command(TEST_TAB="rex")
-        self.assertFalse((self.home / "returns").exists())
+        self.assertEqual(
+            self.returned(),
+            [["return", str(self.wt), "--force", "--if-lease-holder", "review-123"]],
+        )
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ if command -v tailscale >/dev/null 2>&1 && ! tailscale serve status 2>/dev/null 
   sudo tailscale serve --bg --https=7297 "unix:$serve_sock" || echo "!! tailscale serve for Rex failed - run: sudo tailscale serve --bg --https=7297 unix:$serve_sock"
 fi
 
-# The Mac as a host, so this box's sesh picker lists its sessions; the Mac's built-in Tailscale admits only this same login.
+# The Mac as a host, so this box's session picker lists its sessions; the Mac's built-in Tailscale admits only this same login.
 suffix=$(tailscale status --json 2>/dev/null | jq -r '.MagicDNSSuffix // empty' 2>/dev/null || true)
 if [ -n "$suffix" ] && ! rex hosts --json 2>/dev/null | jq -e '.hosts[] | select(.host.label == "Mac")' >/dev/null 2>&1; then
   rex hosts add Mac "https://macbook-rex.$suffix" >/dev/null || echo "!! rex hosts add Mac failed - run: rex hosts add Mac https://macbook-rex.$suffix"

@@ -14,8 +14,8 @@ set -euo pipefail
 
 SELF="${BASH_SOURCE[0]}"
 
-# `tmux` (default) runs in a tmux popup and drives tmux; `quake` runs standalone as a persistent loop and drives the live mux.
-LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
+# `inline` (default) runs one pass in the current terminal; `quake` runs as a persistent loop. Both drive the live mux.
+LAUNCHER_MODE="${LAUNCHER_MODE:-inline}"
 
 # fzf re-forks --preview per cursor move, so each mode skips the startup work it never reads.
 case "${1:-}" in
@@ -75,7 +75,7 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 #                  OS (filtered at every derivation path, so it can't be dispatched
 #                  off-OS either). scope is field 9; os is field 10 — set an empty
 #                  scope (||) when an entry needs os but not mac.
-#   mux            omitted = all | tmux | rex. Field 11, same treatment as os but
+#   mux            omitted = all | rex. Field 11, same treatment as os but
 #                  against the LIVE mux — set empty scope+os (|||) to reach it.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
@@ -125,7 +125,6 @@ SIMPLE_ACTIONS=(
   "📦 Check Outdated Packages|act_outdated|Check outdated Homebrew (mac) + mise packages; nix refreshes via 'up' (flake.lock), not per-package"
   "🧹 Cleanup Logs|act_cleanup_logs|Delete old log files from ~/.logs (this machine only)"
   "🌿 Copy Current Branch|act_copy_branch|Copy the current git branch name to clipboard|mac"
-  "📋 Copy Pane Address|act_copy_pane_address|Copy the focused pane's address — server · session · window · pane (1-based) · pane-id — to clipboard|mac||tmux"
   "🧼 Dirty Repos|act_dirty_repos|List all repos with uncommitted changes"
   "🩺 Errors & Orphans|act_errors|Service-log errors + orphaned processes with kill commands"
   "📈 Usage Report (cpu/mem)|act_usage_report|CPU/mem/swap trend for the dev-box-sizing decision (macOS: usage-report + spike culprits; Linux: sar/atop export)"
@@ -247,8 +246,7 @@ action_fn() {
 # a persistent root-menu loop (see the entry point), so every action — a process,
 # a GUI hand-off, a worktree capture — returns to the root menu the moment it
 # finishes. Nothing dismisses the quake per-action; only an explicit Ctrl+C tears
-# the picker down. In tmux mode the popup closes on its own when the launcher
-# exits, exactly as before.
+# the picker down. In inline mode the launcher exits after the action.
 run_action() {
   local fn="$1"
   shift
@@ -398,9 +396,7 @@ main_menu() {
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || rc=$?
   quit_on_interrupt "$rc"
   printf '\033[2J\033[H'
-  # Empty = Esc / aborted fzf. Never an exit: in quake mode the loop just redraws
-  # root (only Ctrl+C quits); in tmux mode returning falls through to the end of
-  # the script, closing the popup as before.
+  # Empty = Esc / aborted fzf: quake redraws root, inline falls through to the end.
   [ -z "$choice" ] && return 0
   dispatch_root "$choice"
   return 0
@@ -465,7 +461,7 @@ themes_filtered() {
 aliases_menu() {
   local selected rc=0
   # Grep alias decls from rc files instead of sourcing zshrc (zinit + plugins
-  # make a non-interactive `source` hang inside the popup).
+  # make a non-interactive `source` hang inside the launcher).
   selected=$(grep -hE "^[[:space:]]*alias [A-Za-z0-9_.-]+=" \
     "$HOME/.config/zshrc/.zshrc" "$HOME/.zsh_gnohj_env" \
     "$HOME/.zsh_aws_cmds" "$HOME/.zsh_radioctl_cmds" 2>/dev/null |
@@ -484,19 +480,7 @@ aliases_menu() {
 # Actions (bodies ported verbatim; load-bearing comments kept)
 #===============================================================================
 
-# Resolve the working directory of the pane the launcher should act on, across
-# every context the launcher can run in:
-#
-#   * plain tmux (default socket or any -L server): the active pane of the
-#     active window IS the repo pane. A bare `display-message -p
-#     '#{pane_current_path}'` can resolve to the popup itself (same trap fixed
-#     in act_copy_pane_address), so we read it from `list-panes` instead —
-#     popups are excluded from `list-panes`, so the real pane wins every time.
-#   * Rex with no tmux around us: ask Rex for the focused block's cwd (rex_focused_cwd).
-#
-# Empty output lets callers fall back to $PWD. Every step is guarded so a
-# missing tool / stopped server degrades to the plain-tmux path, never worse
-# than the pre-fix behavior.
+# The focused Rex block's cwd; empty lets callers fall back to $PWD.
 rex_focused_cwd() {
   [ -n "${REX_SESSION:-}" ] || return 1
   command -v jq >/dev/null 2>&1 || return 1
@@ -510,23 +494,10 @@ rex_focused_cwd() {
 }
 
 focused_pane_path() {
-  local line cmd path hcwd
-  # `|| true` so a failing tmux (running standalone, e.g. from the quake, where
-  # there is no tmux server) does not trip `set -euo pipefail` and abort the whole
-  # launcher before the Rex fallback below can run.
-  # session_attached for the same reason as active_mux: a detached session's active
-  # pane would otherwise win and hand back a cwd you are not actually looking at.
-  line=$(tmux list-panes -s -f '#{&&:#{session_attached},#{&&:#{window_active},#{pane_active}}}' \
-    -F '#{pane_current_command}	#{pane_current_path}' 2>/dev/null | head -1) || true
-  cmd=${line%%$'\t'*}
-  path=${line#*$'\t'}
-
-  if [ -z "$path" ] && [ "$(active_mux)" = rex ]; then
-    hcwd=$(rex_focused_cwd) && [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
-    return 0
-  fi
-
-  printf '%s' "$path"
+  local hcwd
+  [ "$(active_mux)" = rex ] || return 0
+  hcwd=$(rex_focused_cwd) && [ -n "$hcwd" ] && printf '%s' "$hcwd"
+  return 0
 }
 
 # Copy stdin to clipboard portably: pbcopy on macOS, else OSC52 (lands on the SSH client's clipboard); base64 newlines stripped, \a terminates.
@@ -538,33 +509,21 @@ clip() {
   fi
 }
 
-# Transient message. tmux mode uses the tmux status line; standalone prints inline.
+# Transient message, printed inline.
 notify() {
-  if [ "$LAUNCHER_MODE" = quake ]; then
-    echo "$1"
-    sleep 1.5
-  else
-    tmux display-message -d 3000 "$1" 2>/dev/null || { echo "$1"; sleep 1.5; }
-  fi
+  echo "$1"
+  sleep 1.5
 }
 
-# Which multiplexer to open INTO — the live one, not whatever LAUNCHER_MODE assumes
-# (the quake is LAUNCHER_MODE=quake for its own UI, but you may be running tmux).
+# Which multiplexer to open INTO - the live one, not whatever LAUNCHER_MODE assumes.
 # Delegates to mux_kind() from mux/shared/mux-detect.sh, sourced at the top of this
 # file, so the dispatcher and the launcher can't drift on the answer; mux_kind itself
 # is NOT memoized, which is why the result is resolved once into MUX_LIVE at startup.
 #
 # Reads the MUX_LIVE resolved at startup; "" means nothing running (mux_kind's "none").
-# The one case it can't disambiguate — two independent muxes in two visible terminals
-# at once — would need a focus-tracker daemon; not built (you run one at a time).
 active_mux() { [ -z "$MUX_LIVE" ] || printf '%s\n' "$MUX_LIVE"; }
 
-# host@city for the badge, mirroring the tmux host cell (host_cell_fmt in
-# generate-tmux-colors.sh): same host-city geoip helper, same "drop @city when it
-# can't be resolved" rule. Reads the cache FILE rather than forking host-city,
-# because fzf re-invokes --mux-badge on every focus event; a cold cache is warmed
-# in the background and this render shows the bare hostname, exactly like tmux's
-# backgrounded @host_city set.
+# host@city from the host-city cache file, not a fork: fzf re-runs --mux-badge on every focus event, and a cold cache shows the bare host.
 mux_host_label() {
   local host city="" cache="${XDG_CACHE_HOME:-$HOME/.cache}/host-city"
   host="$LAUNCHER_HOST"
@@ -585,20 +544,14 @@ sgr() {
   printf '\033[%s38;2;%d;%d;%dm' "${2:+1;}" "$((16#${hex:0:2}))" "$((16#${hex:2:2}))" "$((16#${hex:4:2}))"
 }
 
-# Colored badge for the live multiplexer plus the box it's on — shown in the
-# launcher header so you always know both where an "open window/tab" action will
-# land and which machine you're aimed at (matters over ssh).
-# Palette-driven (the colorscheme is sourced at the top of this file): both muxes
-# wear the purple and the LABEL names which one, so the eye goes to host@city in red
-# — the thing that changes when you're aimed at another box. Hex fallbacks keep it
-# readable if a scheme omits a var.
+# Badge naming the live mux and host@city (red, since it changes when aimed at another box); hex fallbacks cover schemes missing a var.
 mux_indicator() {
   local mux badge off=$'\033[0m' dim host
   dim=$(sgr "${gnohj_color08:-#505e62}")
   host=$(sgr "${gnohj_color11:-#da858e}")
   mux=$(active_mux)
   case "$mux" in
-    rex | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
+    rex) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
     *) badge="$(sgr "${gnohj_color08:-#505e62}" 1)● no mux${off}" ;;
   esac
   printf '%s %s·%s %s%s%s' "$badge" "$dim" "$off" "$host" "$(mux_host_label)" "$off"
@@ -612,16 +565,11 @@ open_window() {
   dismiss_quake
 }
 
-# NAMED window (tmux reuses by emoji). 4th arg is CLOSE_ON_EXIT, as tmux-window-simple.sh takes it.
+# Window labelled by emoji. 4th arg is CLOSE_ON_EXIT: "true" closes the window when <cmd> exits.
 open_named_window() {
-  local emoji="$1" name="$2" cmd="$3" close_on_exit="${4:-}" keep=""
+  local emoji="$1" cmd="$3" close_on_exit="${4:-}" keep=""
   [ "$close_on_exit" = true ] || keep=1
-  if [ "$(active_mux)" = rex ]; then
-    open_window "$emoji" "$cmd" "" "$keep"
-  else
-    ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $close_on_exit &&
-      dismiss_quake
-  fi
+  open_window "$emoji" "$cmd" "" "$keep"
 }
 
 # Hide the quake after a hand-off: kitty socket, then its tty escape channel (survives the
@@ -658,8 +606,7 @@ open_url() { to-desktop open "$1"; }
 # user wants it to bypass that and tear the launcher (and the quake) down. Called
 # right after each picker with its captured exit code; runs in the main shell (the
 # `$(...)` capture is a subshell, but its exit code propagates out), so `exit`
-# here ends the whole launcher. In tmux mode dismiss_quake no-ops and the exit
-# closes the popup — Ctrl+C dismissing the popup is correct there too.
+# here ends the whole launcher. In inline mode dismiss_quake no-ops and the exit ends the launcher.
 quit_on_interrupt() {
   [ "${1:-0}" = 130 ] || return 0
   dismiss_quake
@@ -668,19 +615,10 @@ quit_on_interrupt() {
 
 # Navigate "up one level" to the root menu. In quake mode the launcher is a
 # persistent loop (see the entry point), so returning unwinds to it and root
-# re-renders. In tmux mode there's no loop, so recurse into main_menu to redraw
-# root in place — the original single-popup behavior, unchanged.
+# re-renders. In inline mode there's no loop, so recurse into main_menu to redraw root in place.
 back_to_root() {
   [ "$LAUNCHER_MODE" = quake ] && return 0
   main_menu
-}
-
-# Guard for actions still wired only to tmux: when tmux is not live, say so and bail
-# instead of aborting the launcher under `set -euo pipefail`.
-require_tmux() {
-  # Allow whenever tmux is the LIVE mux (even from the quake); block otherwise.
-  [ "$(active_mux)" != tmux ] && { notify "'$1' needs tmux (not the live mux)"; return 1; }
-  return 0
 }
 
 act_ai_rtk() { open_named_window 📊 rtk "rtk gain --graph"; }
@@ -752,8 +690,7 @@ act_notes_current() {
   # No note is an ordinary exit 1, and this script runs under set -e.
   MATCHES=$("$HOME/.local/bin/vault-note" --all --ticket "$ID" "${pane_path:-$PWD}" 2>/dev/null) || MATCHES=""
   COUNT=$(printf '%s' "$MATCHES" | grep -c .) || COUNT=0
-  # open_window abstracts the multiplexer: a new tmux window or a new Rex tab. (Avoids nested popups: the launcher may itself run in
-  # a tmux popup, and display-popup-from-popup races the outer one's lifecycle.)
+  # open_window opens the note in a new Rex tab.
   case "$COUNT" in
   0) notify "no vault note for $ID" ;;
   1) open_window "📝" "nvim '$MATCHES'" "${pane_path:-$PWD}" ;;
@@ -859,33 +796,19 @@ act_system_up() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
 
-# AI capture per host: tmux hands off via run-shell -b (popups can't nest); Rex runs inline with WORKTREE_OPEN_IN naming the mux.
+# AI capture runs inline, with WORKTREE_OPEN_IN naming the live mux.
 run_worktree_capture() {
-  local verb="$1" mux
-  mux=$(active_mux)
-  if [ "$mux" = rex ]; then
-    WORKTREE_OPEN_IN=$mux "$HOME/.local/bin/worktree/worktree" "$verb" && dismiss_quake
-  else
-    tmux run-shell -b "$HOME/.local/bin/worktree/worktree $verb"
-  fi
+  WORKTREE_OPEN_IN=$(active_mux) "$HOME/.local/bin/worktree/worktree" "$1" && dismiss_quake
 }
 
-# wt-new runs inline and self-detects its host: tmux → sesh connect, Rex → new session.
+# wt-new runs inline and opens the new worktree as a Rex session.
 act_worktree_add() { ~/.local/bin/worktree/wt-new && dismiss_quake; }
 act_worktree_ai_prompt() { run_worktree_capture prompt; }
-act_worktree_jira() {
-  local mux
-  mux=$(active_mux)
-  if [ "$mux" = rex ]; then
-    WORKTREE_OPEN_IN=$mux ~/.local/bin/worktree/worktree jira && dismiss_quake
-  else
-    ~/.local/bin/worktree/worktree jira
-  fi
-}
+act_worktree_jira() { run_worktree_capture jira; }
 act_worktree_clipboard() { run_worktree_capture clipboard; }
 act_worktree_bug() { run_worktree_capture bug; }
 act_worktree_retry() { run_worktree_capture retry; }
-# wtrm sweeps the worktree's tmux and Rex sessions.
+# wtrm sweeps the worktree's Rex sessions.
 act_worktree_delete() { ~/.local/bin/worktree/wtrm; }
 
 act_outdated() {
@@ -911,29 +834,6 @@ act_copy_branch() {
     echo "Copied branch: $branch"
   else
     echo "Not in a git repository"
-  fi
-  sleep 1
-}
-
-# Copy the focused pane's full tmux address. The launcher runs in a popup, so a
-# bare `display-message` resolves to the popup itself, not the pane you were on.
-# Find the real focused pane first (active pane of the active window — popups are
-# NOT in `list-panes`, so they're excluded), then read its address. window/pane
-# are shown 1-based to match the status bar (tmux is 0-based internally); the raw
-# #{pane_id} (%N) is the unambiguous target — Hunk review sessions match on it.
-act_copy_pane_address() {
-  require_tmux "Copy Pane Address" || return
-  target=$(tmux list-panes -s -f '#{&&:#{window_active},#{pane_active}}' -F '#{pane_id}' 2>/dev/null | head -1) || target=""
-  if [ -n "$target" ]; then
-    addr=$(tmux display-message -t "$target" -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
-  else
-    addr=$(tmux display-message -p 'server=#{b:socket_path} · session=#{session_name} · window=#{e|+:#{window_index},1} · pane=#{e|+:#{pane_index},1} · id=#{pane_id}' 2>/dev/null)
-  fi
-  if [ -n "$addr" ]; then
-    printf '%s' "$addr" | clip
-    echo "Copied pane address: $addr"
-  else
-    echo "No tmux pane context"
   fi
   sleep 1
 }
@@ -967,7 +867,7 @@ act_ghpr() {
 act_restart_launcher() { exec env LAUNCHER_MODE="$LAUNCHER_MODE" "$SELF"; }
 
 act_toggle_transparency() {
-  ~/.config/tmux/toggle-terminal-transparency.sh
+  ~/.local/bin/toggle-terminal-transparency.sh
   echo "Transparency toggled"
   sleep 1
 }
@@ -991,9 +891,7 @@ fi
 
 if [[ "${1:-}" == "--category" ]]; then
   get_cat "${2:-}" || { echo "Unknown category: ${2:-}"; exit 1; }
-  # Direct category entry is a standalone popup (not a drilldown inside the
-  # full-height main menu), so fill the popup instead of the 40% drilldown height
-  # — otherwise the preview border only spans 40% and reads as "cut off".
+  # A direct category entry is a standalone picker, so fill the terminal or the preview border looks cut off at 40%.
   export LAUNCHER_SUBMENU_HEIGHT=100%
   if [ "$REC6" = generic ]; then
     generic_submenu "$REC1" "$REC3" "$REC4" "$REC5" "$REC7"
@@ -1013,7 +911,5 @@ if [ "$LAUNCHER_MODE" = quake ]; then
     main_menu || true
   done
 else
-  # tmux popup: single pass. The popup closes when the launcher exits, which the
-  # worktree hand-off relies on (`tmux run-shell -b` fires after the popup closes).
   main_menu
 fi
