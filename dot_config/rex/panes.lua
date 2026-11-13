@@ -194,6 +194,17 @@ local function left_popup(window, from)
   end
 end
 
+local function focus_toward(ctx, window, dir)
+  local rects, tiled, floats
+  if window then rects, tiled, floats = pane_rects(window, ctx.block_id) end
+  if rects == nil then
+    rex.session.focus_direction{ session_id = ctx.session_id, direction = dir }
+  else
+    local target = nearest(rects, ctx.block_id, dir) or underneath(tiled, floats, ctx.block_id)
+    if target ~= nil then rex.session.focus_block{ session_id = ctx.session_id, block_id = target } end
+  end
+end
+
 -- A key handler rather than an action, since only a handler can hand the key back to the pane by returning false.
 function M.navigate(dir)
   return function(ctx, ev)
@@ -204,19 +215,22 @@ function M.navigate(dir)
       return true
     end
     if owns_ctrl_hjkl(ctx.block_id) then return false end
-    local rects, tiled, floats
-    if window then rects, tiled, floats = pane_rects(window, ctx.block_id) end
-    if rects == nil then
-      rex.session.focus_direction{ session_id = ctx.session_id, direction = dir }
-    else
-      local target = nearest(rects, ctx.block_id, dir) or underneath(tiled, floats, ctx.block_id)
-      if target ~= nil then rex.session.focus_block{ session_id = ctx.session_id, block_id = target } end
-    end
+    focus_toward(ctx, window, dir)
     return true
   end
 end
 
 function M.setup()
+  -- vim-rex-navigator calls this from nvim's edge split, so ctrl+h/j/k/l continues into Rex panes.
+  rex.action{
+    name = "vim_rex_focus",
+    title = "Focus Pane from Vim",
+    category = "Panes",
+    run = function(ctx, args)
+      focus_toward(ctx, c.tab_of_block(c.windows(), ctx.block_id), args.direction)
+    end,
+  }
+
   -- block.close takes a tab with its last pane; an emptied session lingers, so close it and return to the last.
   rex.action{
     name = "close_pane",
