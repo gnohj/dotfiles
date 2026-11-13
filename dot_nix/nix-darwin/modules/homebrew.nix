@@ -136,6 +136,7 @@
       "logi-options+"
 
       # Media
+      "upscayl" # AI image upscaler for sub-4K wallpapers
       "vlc"
 
       # VPN & Security
