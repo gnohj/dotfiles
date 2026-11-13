@@ -57,7 +57,7 @@ check_clt() {
       ok clt "$clt"
     fi
   else
-    bad clt "xcrun/git fail (Command Line Tools invalidated); five herdr daemons run on /usr/bin/python3 and crash-loop until this is fixed" "step 2: softwareupdate --list, then sudo softwareupdate -i \"<Command Line Tools label>\" (xcode-select --install is a no-op while old CLT exist)"
+    bad clt "xcrun/git fail (Command Line Tools invalidated); the launchd daemons on /usr/bin/python3 (resource-watch, billing-watch, fm-rex-labels, thread-status) crash-loop until this is fixed" "step 2: softwareupdate --list, then sudo softwareupdate -i \"<Command Line Tools label>\" (xcode-select --install is a no-op while old CLT exist)"
   fi
 }
 

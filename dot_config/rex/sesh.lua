@@ -10,7 +10,7 @@ local function dev_windows(dir, startup)
   return { { layout = rex.layout.block{ flavor = c.SHELL, options = options } } }
 end
 
--- Session glyphs from herdr-sesh-layout.sh: pinned names first, then 💻 home, 🌳 linked worktree, 🌿 repo, 📁 anything else.
+-- Session glyphs: pinned names first, then 💻 home, 🌳 linked worktree, 🌿 repo, 📁 anything else.
 local NAME_GLYPHS = { jira = "🔷", github = "🐙", browser = "🌐", fm = "🚢", hermes = "🤖", tasks = "📝", home = c.HOME:match("^/Users/") and "🍎" or "🐧" }
 
 local function session_glyph(name, dir)
@@ -52,7 +52,7 @@ local function open_session(name, dir, startup, background)
   if not background then rex.client.queue("session.select", { session_id = s.session_id }) end
 end
 
--- sesh.toml entries, read from the same file sesh and herdr-sesh.sh use.
+-- sesh.toml entries, read from the same file sesh and rex-sesh-picker.sh use.
 local function read_sesh(path)
   local f = io.open(path)
   if f == nil then return {} end
@@ -84,8 +84,8 @@ local function entry_action(e, dir, action)
         open_session(e.name, dir, e.startup_command, false)
         return
       end
-      -- Lua here only reaches the focused session's server, so a pinned entry or a press from another host goes through rex-herdr.
-      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" layout --entry "$0"', e.name },
+      -- Lua here only reaches the focused session's server, so a pinned entry or a press from another host goes through rex-sesh-ctl.
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-sesh-ctl" layout --entry "$0"', e.name },
                                       { detach = true, env = c.REX_ENV })))
     end,
   }
@@ -93,7 +93,7 @@ end
 
 -- Returns each entry's alias as a key sequence ("a>b") beside its action, for the caller to bind.
 function M.setup()
-  -- herdr-new-workspace.sh: session at the focused pane's cwd, labelled by its basename.
+  -- Session at the focused pane's cwd, labelled by its basename.
   rex.action{
     name = "new_session_here",
     title = "New Session at Pane Directory",
@@ -105,7 +105,7 @@ function M.setup()
     end,
   }
 
-  -- Called by rex-herdr and `mux session`; an empty startup means a plain shell, background="1" builds it unselected.
+  -- Called by rex-sesh-ctl and `mux session`; an empty startup means a plain shell, background="1" builds it unselected.
   rex.action{
     name = "sesh_open",
     title = "Open Sesh Session",
@@ -118,15 +118,15 @@ function M.setup()
     end,
   }
 
-  -- herdr-sesh.sh itself as a floating popup, 48% x 70% centred like herdr's, its herdr calls answered by rex-herdr.
+  -- rex-sesh-picker.sh as a floating popup, 48% x 70% centred, its session calls answered by rex-sesh-ctl.
   rex.action{
     name = "sesh_picker",
     title = "Sesh Picker",
     category = "Sesh",
     run = function(ctx, args)
       sessions.leave_session(ctx)
-      -- rex-herdr marks REX_POPUP_MOVED when it switches focus; otherwise focus returns to the pane the picker opened from.
-      local run = 'm=$(mktemp); REX_POPUP_MOVED="$m" "$HOME/.local/bin/mux/herdr/herdr-sesh.sh"; [ -s "$m" ] || "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1; rm -f "$m"'
+      -- rex-sesh-ctl marks REX_POPUP_MOVED when it switches focus; otherwise focus returns to the pane the picker opened from.
+      local run = 'm=$(mktemp); REX_POPUP_MOVED="$m" "$HOME/.local/bin/mux/rex/rex-sesh-picker.sh"; [ -s "$m" ] || "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1; rm -f "$m"'
       c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", run, ctx.block_id }, { self_sized = true, label = "sesh" })
     end,
   }

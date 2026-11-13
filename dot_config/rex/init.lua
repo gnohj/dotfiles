@@ -1,4 +1,4 @@
--- herdr keymap ported to Rex: modules beside this file register actions via setup(), every key binds here; apply with `rex config reload`.
+-- Rex keymap: modules beside this file register actions via setup(), every key binds here; apply with `rex config reload`.
 
 local P = "ctrl+a>"
 
@@ -13,7 +13,7 @@ local has_paste = require("paste").setup()
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
 
--- Tabs (herdr: new_tab, next/previous_tab, close_tab, rename_tab on prefix+%).
+-- Tabs: new, next/previous, last, close others, rename on prefix+%.
 rex.bind(P .. "c", "client.tab.new")
 rex.bind(P .. "n", "next_tab")
 rex.bind(P .. "p", "previous_tab")
@@ -31,7 +31,7 @@ rex.bind("ctrl+space", "last_tab")
 rex.bind("ctrl+0", "close_other_tabs")
 rex.bind(P .. "0", "close_other_tabs")
 
--- Panes (herdr: split_vertical, split_horizontal + prefix+= alias, close_pane, zoom).
+-- Panes: split right, split down + prefix+= alias, close, zoom, float.
 rex.bind(P .. "v", "pane.split", { direction = "auto" })
 rex.bind(P .. "-", "pane.split", { direction = "down" })
 rex.bind(P .. "=", "pane.split", { direction = "down" })
@@ -47,13 +47,13 @@ rex.bind(P .. "shift+1", "pane.move_to_new_tab")
 for key, dir in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
   rex.bind(P .. key, "pane.focus", { direction = dir })
   rex.bind(P .. "shift+" .. key, "pane.move", { direction = dir })
-  -- vim-herdr-navigation: the key goes to vim/tmux/herdr/ssh, otherwise Rex focus moves.
+  -- ctrl+h/j/k/l: the key goes to vim/tmux/ssh, otherwise Rex focus moves.
   rex.bind("ctrl+" .. key, panes.navigate(dir))
 end
 
 rex.bind("ctrl+b", "last_pane")
 
--- prefix+r: resize mode (herdr resize_mode), h/j/k/l and arrows.
+-- prefix+r: resize mode, h/j/k/l and arrows.
 rex.mode("resize", { exclusive = true })
 rex.bind(P .. "r", "client.mode.enter", { name = "resize" })
 for _, pair in ipairs({ { "h", "left" }, { "j", "down" }, { "k", "up" }, { "l", "right" },
@@ -73,7 +73,7 @@ end
 rex.bind("move/enter", "client.mode.exit")
 rex.bind("move/q", "client.mode.exit")
 
--- Sessions = herdr workspaces (next/previous_workspace, rename on prefix+$, close_workspace).
+-- Sessions: next/previous, rename on prefix+$, switch, last, close.
 rex.bind(P .. "w", "switch_session", { action = "session.next" })
 rex.bind(P .. "shift+w", "switch_session", { action = "session.previous" })
 rex.bind(P .. "shift+4", "session.rename")
@@ -96,7 +96,7 @@ rex.bind(P .. "y", "yazi_tab")
 rex.bind(P .. "e", "scrollback_view")
 rex.bind(P .. "shift+f", "pluck")
 
--- UI: herdr toggle_sidebar on prefix+E, settings, help, reload_config. prefix+V and prefix+a are Rex-only.
+-- UI: sidebar on prefix+E, tab style, activity, settings, palette, reload, find.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")
 rex.bind(P .. "shift+v", "client.tab_style.toggle")
 rex.bind(P .. "a", "client.sidebar.activity.toggle")
@@ -106,7 +106,7 @@ rex.bind(P .. "shift+r", "client.config.reload")
 rex.bind(P .. "[", "client.find.open")
 rex.bind(P .. "u", "client.prompt.previous")
 
--- cmd+shift+v: copied files or a copied image sent to the pane's host and pasted as paths (herdr --remote did images natively).
+-- cmd+shift+v: copied files or a copied image sent to the pane's host and pasted as paths.
 if has_paste then rex.bind("cmd+shift+v", "file_paste") end
 
 -- >>> pulse >>>

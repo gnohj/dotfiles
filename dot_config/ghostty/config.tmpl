@@ -62,8 +62,6 @@ font-style-italic = "Italic"
 font-style-bold-italic = "Bold Italic"
 # Nerd Fonts patch U+26A1, so force the color emoji face to match kitty (new windows only).
 font-codepoint-map = U+26A1=Apple Color Emoji
-# herdr 0.8.2 status_indicators="symbols" uses U+25D0, the one glyph of its five JetBrainsMono lacks; Menlo is monospace so it falls back at a matching size instead of an oversized system face.
-font-codepoint-map = U+25D0=Menlo
 adjust-cell-width = -5%
 adjust-cell-height = 10%
 adjust-underline-thickness = 40%
@@ -121,7 +119,7 @@ clipboard-read = "allow"
 clipboard-trim-trailing-spaces = true
 clipboard-write = "allow"
 
-# herdr drag-copy writes CLIPBOARD over OSC 52, so Super+V's shift+insert must read it, not PRIMARY
+# Copies land in CLIPBOARD over OSC 52, so Super+V's shift+insert must read it, not PRIMARY
 keybind = shift+insert=paste_from_clipboard
 
 # misc
@@ -142,8 +140,7 @@ keybind = ctrl+tab=text:\x01n
 keybind = ctrl+shift+tab=text:\x01p
 keybind = ctrl+space=text:\x01\x20
 keybind = ctrl+enter=text:\x01L
-# ctrl+; and ctrl+' feed herdr's prefix+, / prefix+' agent-queue binds - not tmux-dash leftovers
-keybind = ctrl+semicolon=text:\x01\x2c
+# ctrl+' feeds tmux's prefix+' notify-idle-switch bind
 keybind = ctrl+apostrophe=text:\x01\x27
 keybind = ctrl+slash=text:\x01\x2f
 # ctrl+<digit> → tmux select-window. Digits have NO clean terminal encoding

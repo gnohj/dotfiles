@@ -42,7 +42,7 @@ local function overlaps(spans, s, e)
   return false
 end
 
--- url extmarks become OSC 8 hyperlinks, which herdr opens on Ctrl-click.
+-- url extmarks become OSC 8 hyperlinks, which the terminal opens on click.
 local function tag(buf, key_url)
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   local taken = {}

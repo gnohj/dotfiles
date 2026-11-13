@@ -36,15 +36,13 @@ if [ -r "$_omp_file" ]; then
   gnohj_color17="${_omp_c_muted:-${gnohj_color17:-}}"
   gnohj_color24="${_omp_c_accent:-${gnohj_color24:-}}"
   gnohj_color26="${_omp_c_lighter_background:-${gnohj_color26:-}}"
-  # The three-step ink ladder herdr's sidebar needs: 13 dim rows, 46 panel headers, 14 the active row.
+  # The three-step ink ladder: 13 dim rows, 46 panel headers, 14 the active row.
   gnohj_color13="${_omp_c_dark_foreground:-${gnohj_color13:-}}"
   gnohj_color46="${_omp_c_foreground:-${gnohj_color46:-}}"
   gnohj_color14="${_omp_c_bright_foreground:-${_omp_c_foreground:-${gnohj_color14:-}}}"
   gnohj_color42="${_omp_c_light_foreground:-${_omp_c_foreground:-${gnohj_color42:-}}}"
   gnohj_color49="${_omp_c_bright_cyan:-${_omp_c_cyan:-${gnohj_color49:-}}}"
   gnohj_color54="${_omp_c_muted:-${gnohj_color54:-}}"
-  # No gnohj slot holds a selection fill - generate_herdr_config derives one - so this hands over the theme's own instead.
-  omarchy_selection_bg="${_omp_c_selection:-}"
   gnohj_text="${_omp_c_foreground:-${gnohj_text:-}}"
   gnohj_selection="${_omp_c_selection:-${gnohj_selection:-}}"
 

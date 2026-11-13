@@ -163,7 +163,8 @@ No ssh-config edit is needed for a new box — the Mac's `Host dev-box dev-box-*
 ssh macbook browser-debug && sleep 3 && curl -s http://127.0.0.1:9222/json/version
 ```
 
-A Chrome version JSON means the whole chain is live: forced-command SSH to the Mac, Chrome launched there on the debug profile, and CDP reaching back through the `RemoteForward` that herdr carries on every `--remote` attach. A connection reset means Chrome isn't listening; `Permission denied` means the key isn't authorized.
+A Chrome version JSON means the whole chain is live: forced-command SSH to the Mac, Chrome launched there on the debug profile, and CDP reaching back through the `RemoteForward 9222` on the Mac's SSH session to the box.
+A connection reset means Chrome isn't listening; `Permission denied` means the key isn't authorized.
 
 Then check the tab reader, which needs a real browser window open on the Mac:
 
@@ -183,7 +184,8 @@ A `<browser>\t<url>` line means the 🎫 worktree capture will work from here. E
 
 Then `tailscale status` maps that IP to a peer name, skipping any peer whose OS has no browser to open into (a phone). Nothing is read from disk, and `role` reports `devbox` only while somebody is attached, so an idle banner fired at 3am is not reverse-SSHed into an empty room.
 
-What this deliberately does **not** use is `$SSH_CONNECTION`. The herdr server is systemd-spawned and long-lived, so it bakes in whoever attached first and every pane it later spawns inherits that same value forever.
+What this deliberately does **not** use is `$SSH_CONNECTION`.
+A long-lived multiplexer server bakes in whoever attached first, and every pane it later spawns inherits that same value forever.
 
 **URL opening is wired through one variable.** `.zshenv` exports `BROWSER=desktop-open` and `GH_BROWSER=desktop-open`, and `desktop-open` is a one-word wrapper around `to-desktop open`. That is the whole integration:
 
@@ -201,7 +203,7 @@ No per-tool config, no nvim override, and anything new that respects either vari
 
 - [ ] Tailscale up on box + laptop + phone (same tailnet)
 - [ ] `chezmoi apply` clean; shell / nvim / tmux feel like the Mac
-- [ ] on PATH: `treehouse herdr no-mistakes atuin claude codex gemini pi`
+- [ ] on PATH: `treehouse no-mistakes atuin claude codex gemini pi`
 - [ ] `gh auth status` OK; `claude` / `codex` authed
 - [ ] `~/.zsh_gnohj_env.local` is `chmod 600` and `env | grep -c TURBO_TOKEN` prints `1` (cold turbo = minutes-long `pre-push`)
 - [ ] `loginctl show-user "$(id -un)" | grep Linger=yes` — close laptop, session survives

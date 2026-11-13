@@ -4,7 +4,7 @@
 
 set -e
 
-# Omarchy owns COLOUR (`omarchy theme set`), but this script is the only source of BEHAVIOUR for lazygit keybindings and gitmux symbols (herdr-git-status.sh parses those glyphs), so branch below instead of exiting — lazydocker is chezmoi-managed and stays untouched.
+# Omarchy owns COLOUR (`omarchy theme set`), but this script is the only source of BEHAVIOUR for lazygit keybindings and gitmux symbols (the Rex session picker's sesh_gitmux.py parses those glyphs), so branch below instead of exiting - lazydocker is chezmoi-managed and stays untouched.
 OMARCHY_OWNS_THEME=0
 if [ -r /etc/os-release ] && grep -q '^ID=omarchy$' /etc/os-release; then
   OMARCHY_OWNS_THEME=1
@@ -516,9 +516,7 @@ customCommands:
     context: "global"
     subprocess: yes
 
-  # <c-e> (Emoji), not <c-a>: <c-a> is herdr's prefix, so it never reaches
-  # lazygit inside a herdr pane. Trigger with LEFT ctrl (;-hold layer) — skhd's
-  # rctrl-e is RIGHT-ctrl only, so left-ctrl+e is clear.
+  # <c-e> (Emoji), not <c-a>: <c-a> is the Rex and tmux prefix, so it never reaches lazygit. Trigger with LEFT ctrl (;-hold layer) - skhd's rctrl-e is RIGHT-ctrl only.
   - key: "<c-e>"
     prompts:
       - type: "menuFromCommand"
@@ -2146,8 +2144,7 @@ EOF
 generate_gh_dash_config() {
   # gh-dash's keybindings, PR/issue queries, repoPaths and layout are hand-
   # maintained in the chezmoi source (dot_config/gh-dash/config.yml) and applied
-  # by chezmoi. Only the theme: block is theme-dependent, so - exactly like
-  # generate_herdr_config - it is managed here as a marker-delimited block appended
+  # by chezmoi. Only the theme: block is theme-dependent, so it is managed here as a marker-delimited block appended
   # at EOF and rewritten from the gnohj_color* palette, into the live target only - the chezmoi source is a template resolving the same palette at apply time. Edit keybindings/queries THERE, colors HERE.
   local gh_dash_target="$HOME/.config/gh-dash/config.yml"
 
@@ -2194,7 +2191,7 @@ EOF
 generate_gitmux_config() {
   gitmux_conf_file="$HOME/.config/gitmux/gitmux.yml"
 
-  # Symbols are behaviour (herdr-git-status.sh parses them) so they land everywhere; only `styles:` is colour, dropped on Omarchy so generate-tmux-colors.sh governs.
+  # Symbols are behaviour (the Rex session picker's sesh_gitmux.py parses them) so they land everywhere; only `styles:` is colour, dropped on Omarchy so generate-tmux-colors.sh governs.
   if [ "${OMARCHY_OWNS_THEME:-0}" = 1 ]; then
     gitmux_styles_block=""
   else
@@ -2446,148 +2443,6 @@ generate_ccstatusline_config() {
   fi
 }
 
-generate_herdr_config() {
-  # herdr draws its own UI (panels, split-pane borders, sidebar). Two knobs feed
-  # its colors, both mapped here from the gnohj_color* palette so herdr tracks
-  # the active scheme like every other tool:
-  #
-  #   * [theme.custom] - the full 15-token palette herdr accepts (Catppuccin role
-  #     names: panel_bg, surface0/1, surface_dim, overlay0/1, text, subtext0,
-  #     mauve, green, yellow, red, blue, teal, peach). Managed as a marker-
-  #     delimited block appended at EOF, so the hand-maintained [keys]/[remote]/
-  #     [session] config is never touched. panel_bg stays "reset" to preserve the
-  #     terminal background (herdr draws over it - keeps transparency working).
-  #   * [ui] accent - the active/focused border + nav highlight. It is NOT a
-  #     [theme.custom] token, so it is kept on its own line (retarget existing,
-  #     else inject under [ui]). Matched to gnohj_color03, identical to the tmux
-  #     active-pane border, so the focus cue is the same in herdr and plain tmux.
-  #
-  # Target only, then hot-reload: the repaint that needs no apply, while config.toml.tmpl resolves the same palette so apply lands identical bytes. perl -i keeps the edits portable; colors pass via env to avoid shell-quote gymnastics.
-  local herdr_accent="$gnohj_color03"
-  # Selected-row fill: gnohj_color04 relit to 20% lightness - a plain RGB multiply drops HSL saturation as it darkens (why the old color13*50% read grey), and awk carries the float math without adding python3 to the VPS theme path. Never "reset": panel_contrast_fg falls back to surface_dim when panel_bg is Reset, so this doubles as the ink on the accent-backed active tab and must stay dark.
-  # shellcheck disable=SC1091
-  . "$HOME/.config/colorscheme/relight.sh"
-  # Omarchy themes ship their own selection fill; relighting color04 is the fallback for palettes that have none.
-  local herdr_sel_bg
-  herdr_sel_bg="${omarchy_selection_bg:-}"
-  [ -n "$herdr_sel_bg" ] || herdr_sel_bg="$(gnohj_relight "$gnohj_color04" 0.20)"
-  local herdr_target="$HOME/.config/herdr/config.toml"
-  # Inline per-token sidebar row colors (herdr 0.7.5) - the one row line that carries $git.
-  # Row 2 is the $br/$br_on pair (branch minus its ticket key, fed by herdr-git-status.sh) plus
-  # $git; see the comment above [ui.sidebar.spaces] in config.toml.tmpl for why it is not the
-  # built-in `branch`. Both halves need an explicit fg or they fall back to the `blue` theme
-  # token (gnohj green). Dim is overlay0; lit is gnohj green, matching $pn_on so
-  # both panels light their selected row alike and track the scheme rather than mauve's value.
-  # The pin cells ($sys/$sysres/$systime/$repos/$sync) are GONE: 0.8.2's tab_bar_right is a real status bar, so the pinned space they hung off was retired with the herdr-sysinfo daemon, taking row 4 with it.
-  local herdr_rows
-  herdr_rows="$(printf 'rows = [["state_icon", "workspace", { token = "$mdl", fg = "%s" }], [{ token = "$br", fg = "%s" }, { token = "$br_on", fg = "%s" }]]' \
-    "$gnohj_color13" "$gnohj_color13" "$gnohj_color02")"
-  # One row set for every agent: rows_by_agent is gone, since both daemons feed a $pn_* slot to any pane carrying an `agent`.
-  # `dim = false` lifts herdr's default agent-row dim, which the terminal renders at ~0.52x
-  # toward the bg - no fg can undo it; only the lit twin takes it.
-  # Row 2 is the $pn/$pn_on pair, not the built-in `pane`, for the same reason row 2 of the
-  # spaces panel is $br/$br_on - see herdr-focus-tracker.py::paint_panes.
-  local herdr_agent_rows herdr_pane_git
-  # Row 1 is the built-in state_icon again (0.8.2 status_indicators = "symbols" gives done its own glyph, retiring the $si_* slots); row 2 ($pn_*) stays a dim/lit pair like $br/$br_on, since a custom token's inline style cannot vary by focus on its own.
-  local herdr_pn m
-  herdr_pn=""
-  for m in "$gnohj_color05:o" "$gnohj_color11:r" "$gnohj_color04:b" "$gnohj_color02:g" "$gnohj_color13:x"; do
-    herdr_pn="${herdr_pn:+$herdr_pn, }$(printf '{ token = "$pn_%s", fg = "%s" }, { token = "$pn_%s_on", fg = "%s", dim = false, bold = true }' \
-      "${m#*:}" "${m%%:*}" "${m#*:}" "${m%%:*}")"
-  done
-  herdr_pn="$herdr_pn, $(printf '{ token = "$pn_s", fg = "%s", dim = true }' "$gnohj_color13")"
-  local herdr_state_row='"state_icon", "workspace"'
-  herdr_agent_rows="$(printf 'rows = [[%s], [%s]]' "$herdr_state_row" "$herdr_pn")"
-
-  local herdr_begin="# >>> colorscheme-set: herdr theme palette - generated, do not edit (see generate_herdr_config) >>>"
-  local herdr_end="# <<< colorscheme-set: herdr theme palette <<<"
-  local herdr_block
-  herdr_block="$(
-    cat <<EOF
-$herdr_begin
-[theme.custom]
-panel_bg = "reset"
-# selection_bg must be PINNED, not left unset: the active row resolves as selection_bg-unless-Reset, so an unset one lets the terminal theme grey beat active_row_bg. Both take herdr_sel_bg, surface_dim shares it for dividers and the active-tab ink, and surface0/1 stay gnohj_color26 so only the ACTIVE row lifts.
-selection_bg = "$herdr_sel_bg"
-active_row_bg = "$herdr_sel_bg"
-surface_dim = "$herdr_sel_bg"
-surface0 = "$gnohj_color26"
-surface1 = "$gnohj_color26"
-# overlay0 is the shared DIM role, not a sidebar token - spaces/agents headers, new/menu/grouped, the · separators, the «/» toggle, every UNFOCUSED pane border and the unknown state_icon (0.8.2, verified by swinging it magenta; the └─ connectors and the panel divider did NOT follow, contrary to the old note). color13 -> color46 buys header legibility (3.1:1 -> 5.9:1) at a 2.0:1 unfocused border and an unknown dot as bright as a real state; equals overlay1 now, color13 still carries subtext0.
-overlay0 = "$gnohj_color46"
-overlay1 = "$gnohj_color46"
-# herdr sidebar token map (re-verified live on 0.7.5 by recoloring each token in
-# isolation): text = the ACTIVE entry's FIRST row only (workspace+tab) in BOTH panels -
-# it does NOT reach the pane-title, state_text or \$act rows, so those cannot vary by
-# active state at all. subtext0 = inactive rows. mauve = the active/selected space's branch
-# line, overlay0 the same line on every other space (src/ui/sidebar.rs branch_style) - that
-# pair is the one focus-varying color a row can get, and only a BUILT-IN token receives it.
-# Shared by the spaces AND agents sections, so none of them can be set per-panel.
-# text/subtext0 are SPLIT again - the only focus-varying dim without a twin token, so \$ws stays bare to receive it; \$ws_dirty/\$ws_sync are retired and a dirty tree is now a trailing * inside the name token.
-subtext0 = "$gnohj_color13"
-text = "$gnohj_color14"
-# mauve tracks the scheme now, but only reaches the BUILT-IN branch token these rows no longer
-# use (\$br/\$br_on replaced it) - kept in step with \$br_on/\$pn_on for intent, not for render.
-mauve = "$gnohj_color02"
-# herdr's four agent states are painted by four palette tokens - state_label_color()
-# and state_dot() in 0.7.5 src/ui/status.rs: idle = green, working = yellow,
-# blocked = red, done = teal (done is Idle+unseen, idle is Idle+seen), unknown =
-# overlay0. There is no per-state config key, so anything else using these tokens
-# shifts with them. Mapped 1:1 onto the agent chips:
-# @chip_idle / @chip_working / @chip_input / @chip_done.
-# These paint the SPACES row's state_icon dot, so they must track WS_STATE_SLOT or the dot disagrees with the name beside it: idle blue, working orange, blocked red, done green.
-green = "$gnohj_color04"
-yellow = "$gnohj_color05"
-red = "$gnohj_color11"
-# blue = fallback for custom metadata tokens; \$git/\$sys now carry inline fg, so it no longer decides the git-sign color.
-blue = "$gnohj_color02"
-# teal = done, status.rs its only consumer, so gnohj_color02 matches the \$ws_g slot - accepting that the same green is the _on accent, so a FOCUSED done row goes green top to bottom.
-teal = "$gnohj_color02"
-peach = "$gnohj_color06"
-# No selection_background/foreground: herdr 0.7.5 dropped both from CustomThemeColors, so copy-mode highlight is theme-owned and setting them only earns "unknown config key".
-$herdr_end
-EOF
-  )"
-
-  # Same as generate_ccstatusline_config: target only, because config.toml.tmpl resolves this palette itself at apply time.
-  local herdr_file
-  for herdr_file in "$herdr_target"; do
-    [ -f "$herdr_file" ] || continue
-
-    # 1) [ui] accent: retarget an existing line, else inject under [ui]. The
-    #    inject branch is what makes this work on a target that predates the
-    #    accent line (fresh machine, or before the first `chezmoi apply`) -
-    #    without it the generator would be a silent no-op there.
-    if grep -qE '^[[:space:]]*accent[[:space:]]*=' "$herdr_file"; then
-      HERDR_ACCENT="$herdr_accent" perl -i -pe \
-        's/^(\s*accent\s*=).*/$1 "$ENV{HERDR_ACCENT}"/' "$herdr_file"
-    elif grep -qE '^\[ui\][[:space:]]*$' "$herdr_file"; then
-      HERDR_ACCENT="$herdr_accent" perl -i -pe \
-        'if (/^\[ui\]\s*$/) { $_ .= "accent = \"$ENV{HERDR_ACCENT}\"\n" }' "$herdr_file"
-    fi
-
-    # 1b) rows: matched on $br, the branch token only the styled spaces row carries. NOT $ws - that token was retired for the built-in `workspace`, so the old selector silently matched nothing and this row kept whatever palette it was born with.
-    HERDR_ROWS="$herdr_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /\$br/ && /token\s*=/) { $_ = $ENV{HERDR_ROWS} . "\n" }' "$herdr_file"
-
-    # 1c) agents rows: the OTHER `rows =` line, keyed on $pn since only that one carries it.
-    HERDR_AGENT_ROWS="$herdr_agent_rows" perl -i -pe \
-      'if (/^rows\s*=/ && /\$pn/ && !/\$br/) { $_ = $ENV{HERDR_AGENT_ROWS} . "\n" }' "$herdr_file"
-
-    # 2) [theme.custom] palette: strip any prior managed block (idempotent), then
-    #    re-append the freshly-interpolated one at EOF.
-    HERDR_BEGIN="$herdr_begin" HERDR_END="$herdr_end" perl -0777 -i -pe \
-      's/\n*\Q$ENV{HERDR_BEGIN}\E.*?\Q$ENV{HERDR_END}\E\n?//s' "$herdr_file"
-    printf '\n%s\n' "$herdr_block" >>"$herdr_file"
-  done
-
-  # Hot-reload a running herdr server so colors update without a restart.
-  if command -v herdr >/dev/null 2>&1; then
-    herdr server reload-config >/dev/null 2>&1 || true
-  fi
-  echo "herdr configuration updated (full palette + accent=$herdr_accent)."
-}
-
 generate_tuxedo_theme() {
   # Built-in "Terminal" paints the cursor row and later due dates both ANSI DarkGray, so the date vanishes on the active row.
   # shellcheck disable=SC1091
@@ -2648,7 +2503,6 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
 
     # Omarchy themes ghostty/kitty/btop/neovim/claude/pi from its own files, but ships nothing for these - so they are still generated here, off the Omarchy palette rather than the repo's.
     if [ -r "$HOME/.config/colorscheme/omarchy-palette.sh" ]; then
-      generate_herdr_config
       generate_ccstatusline_config
       generate_hunk_config
       generate_gh_dash_config
@@ -2663,7 +2517,7 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
   fi
   # Claude/Pi settings are shared with the Mac and select the gnohj themes, so Omarchy's themes are written under those names.
   "$HOME/.local/bin/omarchy-agent-themes" || true
-  echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship, plus the surfaces Omarchy ships no theme for (herdr, ccstatusline, hunk, gh-dash, eza, delta, bat, lazydocker, tuxedo) from the Omarchy palette." >&2
+  echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship, plus the surfaces Omarchy ships no theme for (ccstatusline, hunk, gh-dash, eza, delta, bat, lazydocker, tuxedo) from the Omarchy palette." >&2
   echo "To change colours: omarchy theme set <name>" >&2
   exit 0
 fi
@@ -2735,9 +2589,6 @@ full generate_claude_theme
 
 # Recolor the Claude Code status line (ccstatusline widget colors only)
 full generate_ccstatusline_config
-
-# Regenerate herdr's theme palette ([theme.custom] + [ui] accent) + hot-reload
-full generate_herdr_config
 
 # Generate yazi theme
 full generate_yazi_theme

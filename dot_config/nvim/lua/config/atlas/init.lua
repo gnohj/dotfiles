@@ -128,7 +128,7 @@ local function open_pr_links(pr)
 end
 
 local function open_issue_links(issue)
-  local jump = require("config.atlas.herdr-jump")
+  local jump = require("config.atlas.mux-jump")
   jump.linked_prs(issue, function(prs)
     local choices = { jira_choice(issue.key) }
     for _, pr in ipairs(prs) do
@@ -146,7 +146,7 @@ local function jump_counterpart()
     key = "X",
     desc = "Open the linked PR or Jira ticket in a split",
     callback = function(ctx)
-      require("config.atlas.herdr-jump").jump(ctx)
+      require("config.atlas.mux-jump").jump(ctx)
     end,
   }
 end
@@ -169,7 +169,7 @@ local function split_selected_issue()
   local node = require("atlas.issues.ui.dashboard.navigation").current_item()
   local key = type(node) == "table" and node.issue and node.issue.key
   if key then
-    require("config.atlas.herdr-jump").open_jira(key)
+    require("config.atlas.mux-jump").open_jira(key)
   end
   return key ~= nil
 end
@@ -182,7 +182,7 @@ local function open_links()
       if type(ctx) == "table" and ctx.issue then
         return open_issue_links(ctx.issue)
       end
-      open_pr_links(require("config.atlas.herdr-jump").current_pr())
+      open_pr_links(require("config.atlas.mux-jump").current_pr())
     end,
   }
 end
@@ -1032,7 +1032,7 @@ local function extend_standalone_detail()
       vim.schedule(fill_standalone_detail)
       return unpack(result)
     end
-    -- q on a full-tab detail has no window to fall back to, so it ends nvim and its herdr pane.
+    -- q on a full-tab detail has no window to fall back to, so it ends nvim and its pane.
     local detail = require("atlas." .. name .. ".ui.detail")
     local close = detail.close
     detail.close = function(...)

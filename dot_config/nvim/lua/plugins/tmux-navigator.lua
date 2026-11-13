@@ -5,12 +5,10 @@ return {
   -- actually drives <C-hjkl> nvim<->tmux pane navigation.
   {
     "christoomey/vim-tmux-navigator",
-    -- Skip entirely inside a herdr pane (HERDR_SOCKET_PATH set): there,
-    -- herdr-navigator.lua owns <C-hjkl>. Everywhere else (the Mac under tmux)
-    -- this loads exactly as before, so no behavior change off-herdr.
+    -- Skip in a Rex pane with no tmux inside it, where nvim keeps its own <C-hjkl> window maps.
     cond = function()
       local bare_rex = vim.env.REX_BLOCK ~= nil and vim.env.TMUX == nil
-      return vim.env.HERDR_SOCKET_PATH == nil and not bare_rex
+      return not bare_rex
     end,
     -- Own every <C-hjkl> mapping ourselves (below) so the plugin never installs
     -- its default <C-h> → TmuxNavigateLeft over our custom sidebar-aware one.

@@ -1,33 +1,10 @@
-# Canonical "which multiplexer is live" answer. Sourced by absolute path, never
-# executed — same contract as mux-env.sh, and for the same reason: callers span herdr
-# keybinds (frozen server env), tmux run-shell jobs (near-empty PATH), the kitty
-# quake (no pane env at all) and launchd/systemd units.
+# Canonical "which multiplexer is live" answer, sourced by absolute path like mux-env.sh since callers include near-empty-PATH jobs and daemons.
 #
 # Consumers: `mux kind` (the dispatcher verb) and active_mux() in launcher.sh.
 # nvim's config/mux.lua deliberately re-implements this in Lua — it can't source
 # bash, and an in-process answer avoids a subprocess per keypress.
 #
-# Order is load-bearing:
-#   1. Own pane env: herdr, Rex with TERM_PROGRAM=rex, then tmux.
-#   2. herdr server reachable. The quake and any daemon have no pane env, so the
-#      socket is the only signal there. Probed BEFORE tmux on purpose: that ordering
-#      is what stops a merely-DETACHED tmux server from claiming to be the live mux,
-#      which is exactly the bug the launcher had when it checked tmux panes first.
-#   3. Rex server, then any tmux server as the last resort.
-#
-# `herdr status server` and not `herdr api snapshot`: the status probe needs no jq,
-# so detection keeps working in the stripped-PATH chains above, and it is ~2x cheaper.
-
-# Live herdr socket: the default session, else the first running named one (`herdr --remote` boxes run only fm-remote).
-herdr_live_socket() {
-  local herdr_bin="${HERDR_BIN_PATH:-herdr}"
-  command -v "$herdr_bin" >/dev/null 2>&1 || return 1
-  if "$herdr_bin" status server 2>/dev/null | grep -q '^status: running'; then
-    "$herdr_bin" session list 2>/dev/null | awk '$1 == "default" { print $NF; exit }'
-    return 0
-  fi
-  "$herdr_bin" session list 2>/dev/null | awk 'NR > 1 && $2 == "running" { print $NF; found = 1; exit } END { exit !found }'
-}
+# Order: own pane env (Rex, then tmux) > reachable Rex server > any tmux server, so a detached tmux never claims to be live.
 
 rex_bin() {
   if [ -n "${REX_BIN_DIR:-}" ] && [ -x "$REX_BIN_DIR/rex" ]; then printf '%s' "$REX_BIN_DIR/rex"
@@ -37,7 +14,7 @@ rex_bin() {
   fi
 }
 
-# Prints herdr | rex | tmux | none.
+# Prints rex | tmux | none.
 #
 # Deliberately NOT memoized in here. A cache variable set inside this function is
 # invisible to the caller whenever it is invoked as `$(mux_kind)`, because that forks
@@ -45,22 +22,15 @@ rex_bin() {
 # time. Callers that ask repeatedly must resolve ONCE into their own shell variable;
 # see MUX_LIVE in launcher.sh.
 mux_kind() {
-  local kind rex herdr_bin="${HERDR_BIN_PATH:-herdr}"
+  local kind rex
   # An explicit choice wins: a detached caller inherits whatever pane env it started in, by accident.
   case "${MUX_FORCE_KIND:-}" in
-  herdr | rex | tmux) echo "${MUX_FORCE_KIND}"; return 0 ;;
+  rex | tmux) echo "${MUX_FORCE_KIND}"; return 0 ;;
   esac
-  if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
-    kind=herdr
-  elif [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ]; then
+  if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ]; then
     kind=rex
   elif [ -n "${TMUX:-}" ]; then
     kind=tmux
-  elif command -v "$herdr_bin" >/dev/null 2>&1 &&
-    "$herdr_bin" status server 2>/dev/null | grep -q '^status: running'; then
-    kind=herdr
-  elif herdr_live_socket >/dev/null; then
-    kind=herdr
   elif rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
     kind=rex
   elif command -v tmux >/dev/null 2>&1 && tmux ls >/dev/null 2>&1; then

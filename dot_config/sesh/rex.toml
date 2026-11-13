@@ -1,4 +1,4 @@
-# Rex-only sesh entries (never read by sesh, herdr or tmux): rex_host is the host each opens on, rex_label its session name there.
+# Rex-only sesh entries (never read by sesh or tmux): rex_host is the host each opens on, rex_label its session name there.
 
 [[session]]
 name = "hermes-devbox"

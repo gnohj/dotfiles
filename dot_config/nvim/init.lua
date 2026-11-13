@@ -25,7 +25,10 @@ if vim.g.theme_transparent == "transparent" then
   clear_bg()
   -- Re-assert once in case a default colorscheme repaints an opaque bg before
   -- tokyonight loads.
-  vim.api.nvim_create_autocmd("ColorScheme", { once = true, callback = clear_bg })
+  vim.api.nvim_create_autocmd(
+    "ColorScheme",
+    { once = true, callback = clear_bg }
+  )
 end
 
 vim.g.loaded_netrwPlugin = 1
@@ -34,17 +37,9 @@ vim.g.loaded_matchit = 1
 
 require("config.lazy")
 
--- Per-pane RPC socket so external tools (yazi launcher, lazygit-nvim-edit, etc.)
--- can ask THIS nvim instance for the current buffer / open a file. Keyed off the
--- pane id so the right nvim is queried when several run. Works under BOTH tmux
--- (TMUX_PANE) and herdr (HERDR_PANE_ID). herdr takes precedence when both are set
--- (herdr runs inside the `thh` tmux wrapper, whose single TMUX_PANE would collide
--- across herdr panes), so each herdr pane's nvim gets a distinct socket.
+-- Per-pane RPC socket (REX_BLOCK or TMUX_PANE) so external tools reach THIS nvim when several run.
 local pane_key
-if vim.env.HERDR_PANE_ID and vim.env.HERDR_PANE_ID ~= "" then
-  -- HERDR_PANE_ID looks like "w1:p2" — sanitize non-alphanumerics for the filename.
-  pane_key = "herdr-" .. vim.env.HERDR_PANE_ID:gsub("[^%w]", "-")
-elseif vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK then
+if vim.env.TERM_PROGRAM == "rex" and vim.env.REX_BLOCK then
   pane_key = "rex-" .. vim.env.REX_BLOCK:gsub("[^%w]", "-")
 elseif vim.env.TMUX_PANE then
   pane_key = vim.env.TMUX_PANE:gsub("%%", "")

@@ -3,7 +3,7 @@ local c = require("common")
 
 local M = {}
 
--- Keyboard session switches record the two sessions last left, as rex-herdr ids (<host>~<id> for another host), for ctrl+enter.
+-- Keyboard session switches record the two sessions last left, as rex-sesh-ctl ids (<host>~<id> for another host), for ctrl+enter.
 local function session_ref(ctx)
   if ctx.session_id == nil then return nil end
   local id = (ctx.session_id:gsub("^session:", ""))
@@ -44,7 +44,7 @@ local function go_to_session(ctx, target)
     rex.client.queue("session.select", { session_id = "session:" .. target })
     return
   end
-  c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-herdr" workspace focus "$0"', target },
+  c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "$HOME/.local/bin/mux/rex/rex-sesh-ctl" workspace focus "$0"', target },
                                   { detach = true, env = c.REX_ENV })))
 end
 
@@ -76,7 +76,7 @@ function M.setup()
     end,
   }
 
-  -- herdr hack-herdr-last-workspace.sh; Rex sends no event for a mouse switch, so rex-last-session.lua ranks sessions by when the app last showed them.
+  -- Last session toggle; Rex sends no event for a mouse switch, so rex-last-session.lua ranks sessions by when the app last showed them.
   rex.action{
     name = "last_session",
     title = "Last Session Toggle",
@@ -89,7 +89,7 @@ function M.setup()
     end,
   }
 
-  -- herdr-next-priority-agent.sh across hosts: rex-attention.lua scans the Mac and every `rex hosts` entry.
+  -- Next agent needing attention across hosts: rex-attention.lua scans the Mac and every `rex hosts` entry.
   rex.action{
     name = "next_attention",
     title = "Next Agent Needing Attention",
@@ -101,7 +101,7 @@ function M.setup()
     end,
   }
 
-  -- Called by rex-herdr before the picker deletes the session it runs in; the CLI names no host, so the ref is found by id.
+  -- Called by rex-sesh-ctl before the picker deletes the session it runs in; the CLI names no host, so the ref is found by id.
   rex.action{
     name = "return_from_session",
     title = "Return From a Closing Session",

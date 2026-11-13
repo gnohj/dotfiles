@@ -2,7 +2,7 @@
 # Smart-switch binding for rctrl - '.
 # Reads the latest session that emitted an idle banner (tracked by
 # notify-idle.sh in /tmp/notify-idle.latest), switches to it, then clears all
-# displayed banners. Every jump goes through a `mux` verb, never herdr/tmux directly.
+# displayed banners. Every jump goes through a `mux` verb, never tmux directly.
 
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
@@ -89,7 +89,7 @@ vault\|*)
       printf '%s │ %-9s │ %-18s │ %s\t%s\n' "$mtime" "$outcome" "$entry" "$slug" "$path"
     done <<< "$RECENT_NOTES" > "$PICK_LIST"
 
-    # Staged as a script so mux popup can draw it or exec it inline under herdr.
+    # Staged as a script so mux popup can draw it or exec it inline under Rex.
     PICK_SH=$(mktemp -t notify-idle-picker.XXXXXX.sh)
     chmod +x "$PICK_SH"
     cat > "$PICK_SH" <<EOF
@@ -123,10 +123,10 @@ EOF
   WORKTREE_PATH=""
   case "$ENTRY" in *\|*) WORKTREE_PATH="${ENTRY#*|}" ;; esac
 
-  # RAW is a pane id (herdr wA:pN / tmux %N) or a bare session; only the latter has a label.
+  # RAW is a tmux pane id (%N) or a bare session; only the latter has a label.
   SESSION_LABEL=""
   case "$RAW" in
-    "" | *:p* | %*) ;;
+    "" | %*) ;;
     *) SESSION_LABEL="$RAW" ;;
   esac
 

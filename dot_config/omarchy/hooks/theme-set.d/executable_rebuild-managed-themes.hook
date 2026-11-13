@@ -1,5 +1,5 @@
 #!/bin/bash
-# `omarchy theme set` repoints ghostty/kitty/btop at its own theme files, but herdr and ccstatusline have none - colorscheme-set.sh generates those from the Omarchy palette, so it has to re-run here or they stay on the previous theme.
+# `omarchy theme set` repoints ghostty/kitty/btop at its own theme files, but ships none for ccstatusline, hunk, gh-dash and the rest - colorscheme-set.sh generates those from the Omarchy palette, so it has to re-run here or they stay on the previous theme.
 
 set -e
 

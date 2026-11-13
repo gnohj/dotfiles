@@ -43,7 +43,7 @@ local function is_personal_vault()
 end
 
 -- Smart multiplexer split for AI agent CLIs (claude, pi, ...). Dispatches to
--- tmux or herdr depending on the live multiplexer; see config/mux.lua.
+-- Rex or tmux depending on the live multiplexer; see config/mux.lua.
 local function agent_split(cmd)
   require("config.mux").agent_split(cmd)
 end
@@ -267,7 +267,8 @@ end
 
 local function header_intact()
   for _, r in ipairs(fade.header.rows) do
-    local line = vim.api.nvim_buf_get_lines(fade.buf, r.row, r.row + 1, false)[1]
+    local line =
+      vim.api.nvim_buf_get_lines(fade.buf, r.row, r.row + 1, false)[1]
     if line ~= r.text then
       return false
     end
@@ -375,10 +376,7 @@ local function get_header()
     { link = "SnacksDashboardDesc" }
   )
 
-  -- Derive the header name from the cwd (worktree) basename. We used to read
-  -- the tmux session name (`#S`), but herdr manages tmux sessions with numeric
-  -- names (`12`) and keeps the human label in its own state, so `#S` rendered a
-  -- meaningless number. The cwd basename is the worktree/branch name we want.
+  -- Derive the header name from the cwd basename, which is the worktree/branch name.
   local name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
 
   -- Cap the header at ~12 chars so a long branch slug (e.g.

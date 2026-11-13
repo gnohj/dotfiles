@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# wl-copy shim: herdr-pluck offers wl-copy only when WAYLAND_DISPLAY is set and has no OSC 52 path, so route the copy through `to-desktop clip`.
+# wl-copy shim: when WAYLAND_DISPLAY is the to-desktop-shim sentinel, route the copy through `to-desktop clip`.
 set -uo pipefail
 
 # A real WAYLAND_DISPLAY belongs to the real tool: hand off rather than shadow it, and rather than loop back through to-desktop's own wl-copy tier.
-if [ "${WAYLAND_DISPLAY:-}" != herdr-pluck-shim ]; then
+case "${WAYLAND_DISPLAY:-}" in *-shim) ;; *)
   while read -r candidate; do
     [ "$candidate" -ef "$0" ] || exec "$candidate" "$@"
   done < <(type -aP wl-copy 2>/dev/null)
   echo "wl-copy shim: no real wl-copy on PATH and WAYLAND_DISPLAY is not the shim sentinel" >&2
   exit 1
-fi
+  ;;
+esac
 
 # Fail closed instead of forking: to-desktop's do_clip prefers wl-copy, so a wrong display check would route straight back here.
 if [ -n "${WL_COPY_SHIM_ACTIVE:-}" ]; then
@@ -18,7 +19,7 @@ if [ -n "${WL_COPY_SHIM_ACTIVE:-}" ]; then
 fi
 export WL_COPY_SHIM_ACTIVE=1
 
-# wl-copy's own flags are accepted and ignored - a future pluck passing --trim-newline must not make this fail closed on the caller.
+# wl-copy's own flags are accepted and ignored so a caller passing --trim-newline does not fail closed.
 for arg in "$@"; do
   case "$arg" in
     -h | --help)
@@ -35,9 +36,5 @@ if ! command -v to-desktop >/dev/null 2>&1; then
   exit 1
 fi
 
-# Delete this shim and the WAYLAND_DISPLAY export once herdr-pluck grows an OSC 52 fallback or a configurable copy command.
+# Delete this shim and the WAYLAND_DISPLAY export once no caller needs wl-copy without an OSC 52 path.
 printf '%s' "$payload" | to-desktop clip - || exit
-
-case "$(ps -o args= -p "$PPID" 2>/dev/null)" in
-  *herdr-pluck\ pick\ *) "$HOME/.local/bin/mux/herdr/pluck-open.sh" "$PPID" "$payload" || true ;;
-esac

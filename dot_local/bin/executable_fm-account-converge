@@ -34,11 +34,10 @@ fp() { printf '%s' "${1:-}" | sha256_digest | cut -c1-12; }
 want_fp=$(fp "$want")
 want_dir=$(CLAUDE_ACCOUNT="$pin" claude-account dir 2>/dev/null || true)
 
-# A Rex-backed mate records no herdr pane; "rex|<session>|<block>" stands in for one.
+# A Rex-backed mate is addressed as "rex|<session>|<block>".
 mate_pane() { # <meta>
-  local p s b
-  p=$(grep -m1 '^herdr_pane_id=' "$1" 2>/dev/null | cut -d= -f2- || true)
-  if [ -z "$p" ] && grep -q '^backend=rex$' "$1" 2>/dev/null; then
+  local p="" s b
+  if grep -q '^backend=rex$' "$1" 2>/dev/null; then
     s=$(grep -m1 '^rex_session_id=' "$1" 2>/dev/null | cut -d= -f2- || true)
     b=$(grep -m1 '^rex_block_id=' "$1" 2>/dev/null | cut -d= -f2- || true)
     [ -n "$s" ] && [ -n "$b" ] && p="rex|$s|$b"
@@ -50,7 +49,6 @@ process_info() { # <pane>
   local rest
   case "$1" in
     rex\|*) rest="${1#rex|}"; "$HOME/.local/bin/mux/rex/rex-process-info" "${rest%%|*}" "${rest#*|}" ;;
-    *) herdr pane process-info --pane "$1" 2>/dev/null ;;
   esac
 }
 
@@ -73,7 +71,7 @@ for meta in "$FM_HOME"/state/*.meta; do
   id=$(basename "$meta" .meta)
   pane=$(mate_pane "$meta")
   if [ -z "$pane" ]; then
-    echo "$SELF: $id records no herdr pane or Rex block; skipped"
+    echo "$SELF: $id records no Rex block; skipped"
     continue
   fi
   pid=$(live_pid "$pane")

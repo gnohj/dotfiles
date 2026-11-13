@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""thread-status - keep each thread file under ~/.local/state/threads/ current with its PR, CI and vault note.
+
+Walks the thread files themselves: each one records the worktree and branch it describes, so no
+multiplexer is involved. It is the WRITER of record for `pr_url` / `ci_status` / `pr_last_checked` /
+`vault_note`; ticket-band, sb-ticket-log and the freeze queue read those fields.
+
+Slow on purpose. The `gh` call per thread is a network round-trip against the API rate limit, so the
+default interval is minutes. A failed call (offline, not a gh repo, `gh auth` never run) leaves the PR
+fields UNTOUCHED, so a transient error can never clobber good state.
+
+CI rides on that ONE call, via the PR's statusCheckRollup: `gh run list` reads the Actions REST endpoint,
+which GitHub rate-limits per repo far below the core quota, so CI froze silently while the PR half kept
+succeeding. Its entries are CheckRun (status/conclusion) or the legacy StatusContext (state), so PR_JQ
+matches both shapes. Cost: a branch with no open PR shows no CI.
+
+Per host: it reads that host's thread files and checkouts, and needs `gh` authenticated there.
+Stdlib only, no jq (gh embeds its own).
+
+  thread-status           daemon: refresh every $THREAD_STATUS_INTERVAL seconds
+  thread-status --once    one pass over every thread file, then exit
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+sys.dont_write_bytecode = True  # no __pycache__ in the deployed scripts dir
+
+# Minutes, not seconds: every pass is a network call per thread against a rate limit.
+INTERVAL = int(os.environ.get("THREAD_STATUS_INTERVAL", "180"))
+# A `…/review` checkout is a POOL reused across PRs, so a thread file pointing at it describes a long-shipped ticket.
+REVIEW_POOL_LEAF = "review"
+THREADS_DIR = os.path.join(
+    os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "threads"
+)
+# Shared with wtrm's deferral path: both drop a thread-file copy here for sb-drain to freeze.
+FINISH_QUEUE = os.path.join(
+    os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+    "sb-ticket-finish-pending",
+)
+# Same ticket-key shape wt-setup matches, so both writers agree on the id.
+TICKET_RE = re.compile(r"([A-Z]+-[0-9]+)")
+# Lowercase fallback for branches like `fm/web-ihrweb-24720-...`; tried only AFTER the strict pass, so every branch that resolves today keeps resolving to the same key.
+TICKET_RE_LOOSE = re.compile(r"([A-Za-z]+-[0-9]+)")
+
+
+def ticket_key(text):
+    """The ticket in `text` as an UPPERCASE key, or None.
+
+    Uppercase-first, so a branch carrying both a real key and a lowercase near-miss still picks
+    the real one. The result is upper()ed either way: the key is the thread FILENAME, and a
+    lowercase twin would sit beside the canonical file as a second record of one ticket.
+    """
+    match = TICKET_RE.search(text) or TICKET_RE_LOOSE.search(text)
+    return match.group(1).upper() if match else None
+# Absolute path: a launchd or systemd daemon's PATH is minimal.
+VAULT_NOTE = os.path.expanduser("~/.local/bin/vault-note")
+
+# Newest open PR -> "<url>\t<ci state>", or "" for none.
+PR_JQ = (
+    '.[0] | if . == null then "" else .url + "\\t" '
+    '+ ((.statusCheckRollup // []) | if length == 0 then "" '
+    'elif map(select(.status == "IN_PROGRESS" or .status == "QUEUED" '
+    'or .state == "PENDING")) | length > 0 then "running" '
+    'elif map(select(.conclusion == "FAILURE" or .conclusion == "TIMED_OUT" '
+    'or .conclusion == "CANCELLED" or .state == "FAILURE" or .state == "ERROR")) '
+    '| length > 0 then "failure" else "success" end) end'
+)
+
+
+def out(args, cwd=None, timeout=20):
+    """stdout of a command, or None if it failed — every caller treats None as "no data"."""
+    try:
+        done = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def thread_files():
+    """Every thread file, parsed. Small (one per worktree), so a full read per pass is fine."""
+    entries = []
+    try:
+        names = os.listdir(THREADS_DIR)
+    except OSError:
+        return entries
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(THREADS_DIR, name)
+        try:
+            with open(path) as handle:
+                entries.append((path, json.load(handle)))
+        except (OSError, ValueError):
+            continue
+    return entries
+
+
+def fetch(branch, worktree):
+    """(pr_url, ci_status, reached) from one gh call; None where it gave nothing."""
+    pr = out(
+        ["gh", "pr", "list", "--head", branch, "--state", "open",
+         "--json", "url,statusCheckRollup", "--jq", PR_JQ],
+        cwd=worktree,
+    )
+    if pr is None:
+        return None, None, False
+    if not pr:
+        # "" = checked, no open PR (distinct from "not checked"), and no PR means no CI to show.
+        return "", "", True
+    parts = pr.split("\t")
+    return parts[0] or None, parts[1] if len(parts) > 1 else "", True
+
+
+def ticket_pr_fallback(key, worktree, entries):
+    """(pr_url, ci_status) for the TICKET when this branch has no PR of its own.
+
+    Several branches can feed one ticket's single PR - the three IHRWEB-12345 worktrees all
+    contribute to one, and none of them carries a PR itself, so their records stayed empty while
+    the ticket's PR sat there with real CI state. The ticket is what the worktree is about, so
+    the ticket's PR is the honest thing to record.
+
+    Only ever a FALLBACK: a branch with its own PR keeps reporting that one, never the ticket's.
+    """
+    if not key:
+        return None, None
+    url = next((d.get("pr_url") for _, d in entries
+                if d.get("id") == key and d.get("pr_url")), None)
+    if not url:
+        return None, None
+    # PR_JQ starts at `.[0]` for `gh pr list`'s array, so `gh pr view`'s single object is wrapped rather than the filter duplicated.
+    raw = out(["gh", "pr", "view", url, "--json",
+               "url,statusCheckRollup", "--jq", "[.] | " + PR_JQ], cwd=worktree)
+    if not raw:
+        return None, None
+    parts = raw.split("\t")
+    return parts[0] or None, parts[1] if len(parts) > 1 else ""
+
+
+def enqueue_finish(path, data, cwd):
+    """A known PR left the open set — if it MERGED, queue the vault-note freeze for sb-drain.
+
+    Costs one extra `gh` call only on the pass where the PR disappears, never per pass, so the
+    rate-limit budget the module docstring guards is unaffected. Closed-without-merge is ignored:
+    nothing shipped, so there is nothing to freeze.
+    """
+    old = data.get("pr_url")
+    if not old or data.get("pr_merged_at"):
+        return
+    info = out(
+        ["gh", "pr", "view", old, "--json", "state,mergedAt,mergeCommit",
+         "--jq", '.state + "\t" + (.mergedAt // "") + "\t" + (.mergeCommit.oid // "")'],
+        cwd=cwd,
+    )
+    if not info:
+        return
+    parts = info.split("\t")
+    if parts[0] != "MERGED":
+        return
+    data["pr_merged_at"] = (parts[1] if len(parts) > 1 and parts[1]
+                            else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+    data["merge_commit"] = parts[2] if len(parts) > 2 and parts[2] else None
+    # From the record's `id`, not the filename: a `<KEY>__<branch>.json` sibling would hand sb-drain a key no Jira ticket answers to.
+    ticket = data.get("id") or os.path.basename(path)[:-len(".json")]
+    try:
+        os.makedirs(FINISH_QUEUE, exist_ok=True)
+        # O_EXCL: never re-queue a freeze the drain is already working through.
+        job = os.path.join(FINISH_QUEUE, ticket + ".json")
+        with open(os.open(job, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644), "w") as handle:
+            json.dump(data, handle, indent=2)
+    except (FileExistsError, OSError):
+        return
+
+
+def persist(path, data, url, ci, note):
+    """Atomic write-back of the status fields. tmp+rename so no reader sees half."""
+    data.pop("pr_approvals", None)
+    if url is not None:
+        data["pr_url"] = url or None
+    if ci is not None:
+        data["ci_status"] = ci or None
+    # Mirror, not append-only: a deleted or renamed note clears the field.
+    data["vault_note"] = note or None
+    if url is not None or ci is not None:
+        data["pr_last_checked"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w") as handle:
+            json.dump(data, handle, indent=2)
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def vault_note(cwd):
+    """Vault-relative path of this checkout's ticket note, or "" — the lookup is vault-note's."""
+    return out([VAULT_NOTE, "--relative", cwd], timeout=6) or ""
+
+
+def refresh_once():
+    """One pass over every thread file whose worktree still exists and still sits on the thread's branch."""
+    # No gh skips only the PR half: the vault note is a local lookup and still persists.
+    have_gh = bool(out(["gh", "--version"], timeout=5))
+    entries = thread_files()
+    for path, data in entries:
+        cwd = (data.get("worktree") or "").rstrip("/")
+        branch = data.get("branch") or ""
+        if not cwd or not branch or not os.path.isdir(cwd):
+            continue
+        if os.path.basename(cwd) == REVIEW_POOL_LEAF:
+            continue
+        # A recycled treehouse slot on another branch no longer belongs to this file; a detached HEAD (crewmate PR tips) still does.
+        current = out(["git", "-C", cwd, "branch", "--show-current"], timeout=4)
+        if current is None or (current and current != branch):
+            continue
+        key = data.get("id") or ticket_key(branch)
+        note = vault_note(cwd)
+        url, ci, reached = fetch(branch, cwd) if have_gh else (None, None, False)
+        # Captured BEFORE the fallback: borrowing the ticket's still-open PR would suppress the vault-note freeze forever.
+        own_pr_url = url
+        if reached and not url:
+            alt_url, alt_ci = ticket_pr_fallback(key, cwd, entries)
+            if alt_url:
+                url, ci = alt_url, alt_ci
+        # Must run BEFORE persist, which clears pr_url to None once the PR leaves the open set.
+        if reached and own_pr_url == "" and data.get("pr_url"):
+            enqueue_finish(path, data, cwd)
+        if reached or note != (data.get("vault_note") or ""):
+            persist(path, data, url, ci, note)
+
+
+def main():
+    if "--once" in sys.argv:
+        refresh_once()
+        return
+    while True:
+        refresh_once()
+        time.sleep(INTERVAL)
+
+
+if __name__ == "__main__":
+    main()

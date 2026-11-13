@@ -26,11 +26,8 @@ WT="${1:-}"
 [ -f "$WT/pnpm-lock.yaml" ] || exit 0
 command -v pnpm >/dev/null 2>&1 || exit 0
 
-# Which multiplexer are we under? The notify must route per-mux — tmux commands
-# silently no-op under herdr. Env vars work from the treehouse hook; `mux kind`
-# covers review-open.sh, which gh-dash runs nohup-detached with no $TMUX.
-if [ -n "${HERDR_SOCKET_PATH:-}" ]; then MUX=herdr
-elif [ -n "${TMUX:-}" ]; then MUX=tmux
+# tmux commands no-op under Rex; `mux kind` covers review-open.sh, which gh-dash runs detached with no $TMUX.
+if [ -n "${TMUX:-}" ]; then MUX=tmux
 else MUX="$("$HOME/.local/bin/mux/mux" kind 2>/dev/null || echo none)"; fi
 
 label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
@@ -53,10 +50,6 @@ label="${WT#"$HOME"/.treehouse/}" # e.g. review-130256/2/review
         | awk -F'|' -v w="$WT" '$1==w||index($1,w"/")==1{print $2; exit}')"
       [ -n "$sess" ] && command -v tmux >/dev/null 2>&1 && tmux display-message -d 6000 -t "$sess" "$msg" 2>/dev/null
       command -v mac-notify >/dev/null 2>&1 && mac-notify -t "treehouse deps" -m "$msg" -T 5 2>/dev/null
-      ;;
-    herdr)
-      # herdr's own toast (its desktop-class notify) over the socket API.
-      command -v herdr >/dev/null 2>&1 && herdr notification show "treehouse deps" --body "$msg" --sound done 2>/dev/null || true
       ;;
     rex)
       "$HOME/.local/bin/mux/mux" notify --title "treehouse deps" "$msg" 2>/dev/null || true

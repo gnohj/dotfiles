@@ -97,107 +97,6 @@ spawn_in_new_window() {
   fi
 }
 
-# --- herdr path (backwards-compat) ------------------------------------------
-# When lazygit runs inside a herdr pane there is no LAZYGIT_HOST_PANE (herdr
-# launches lazygit directly, not via lazygit.sh). Instead we ASK herdr for the
-# sibling pane in this tab that's running (n)vim, resolve its RPC socket (named
-# by init.lua as /tmp/nvim-herdr-<sanitized pane id>.sock), open the file there,
-# then close lazygit and refocus that pane. Falls through to the tmux path below
-# when not under herdr, so tmux behaviour is unchanged.
-herdr_edit_and_exit() {
-  local herdr cur_tab host_nvim host_shell info deep key sock dir newp panes focused
-  herdr="${HERDR_BIN_PATH:-herdr}"
-  command -v jq >/dev/null 2>&1 || return 0
-
-  panes=$("$herdr" pane list 2>/dev/null)
-  [ -n "$panes" ] || return 0
-
-  # A herdr popup is not a pane, so $HERDR_PANE_ID is unset and `pane current` has no caller: the focused pane is the only anchor.
-  focused=$(printf '%s' "$panes" | jq -r '[.result.panes[] | select(.focused==true)][0].pane_id // empty' 2>/dev/null)
-  [ -n "$focused" ] || focused=$("$herdr" pane current --current 2>/dev/null | jq -r '.result.pane.pane_id // empty')
-  cur_tab=$(printf '%s' "$panes" | jq -r --arg p "$focused" '[.result.panes[] | select(.pane_id==$p)][0].tab_id // empty' 2>/dev/null)
-  echo "  herdr: focused=$focused tab=$cur_tab" >> "$DEBUG_LOG"
-  [ -n "$cur_tab" ] || return 0
-
-  # nvim | shell | busy — busy means an agent or other TUI owns the pane.
-  classify_pane() {
-    local i d
-    i=$("$herdr" pane process-info --pane "$1" 2>/dev/null)
-    if printf '%s' "$i" | jq -e '.result.process_info.foreground_processes[]?.name
-        | select(test("^(view|l?n?vim?x?)$";"i"))' >/dev/null 2>&1; then echo nvim; return; fi
-    d=$(printf '%s' "$i" | jq -r '.result.process_info.foreground_processes[-1].name // empty' 2>/dev/null)
-    if printf '%s' "$d" | grep -qiE '^(bash|zsh|fish|sh|dash|ksh|tcsh|nu)$'; then echo shell; else echo busy; fi
-  }
-
-  # Classify sibling panes in this tab: a running (n)vim (open via its socket),
-  # or an IDLE SHELL prompt (deepest foreground process is a bare shell → nothing
-  # running, so we can safely send `nvim <file>` into it). Panes running an agent
-  # or another TUI are skipped (send-keys would corrupt them).
-  host_nvim=""; host_shell=""
-
-  # Prefer the ACTIVE pane; only fall back to scanning siblings when it is busy.
-  if [ -n "$focused" ] && [ "$focused" != "${HERDR_PANE_ID:-}" ]; then
-    case "$(classify_pane "$focused")" in
-      nvim)  host_nvim="$focused";  echo "  herdr: active pane $focused runs nvim" >> "$DEBUG_LOG" ;;
-      shell) host_shell="$focused"; echo "  herdr: active pane $focused is an idle prompt" >> "$DEBUG_LOG" ;;
-      *)     echo "  herdr: active pane $focused is busy; scanning siblings" >> "$DEBUG_LOG" ;;
-    esac
-  fi
-
-  [ -n "$host_nvim" ] || [ -n "$host_shell" ] ||
-  while IFS= read -r pid; do
-    [ -n "$pid" ] || continue
-    info=$("$herdr" pane process-info --pane "$pid" 2>/dev/null)
-    if printf '%s' "$info" | jq -e '.result.process_info.foreground_processes[]?.name
-        | select(test("^(view|l?n?vim?x?)$";"i"))' >/dev/null 2>&1; then
-      [ -z "$host_nvim" ] && host_nvim="$pid"
-      continue
-    fi
-    deep=$(printf '%s' "$info" | jq -r '.result.process_info.foreground_processes[-1].name // empty' 2>/dev/null)
-    if printf '%s' "$deep" | grep -qiE '^(bash|zsh|fish|sh|dash|ksh|tcsh|nu)$'; then
-      [ -z "$host_shell" ] && host_shell="$pid"
-    fi
-  done < <("$herdr" pane list 2>/dev/null \
-    | jq -r --arg t "$cur_tab" --arg self "${HERDR_PANE_ID:-}" \
-        '.result.panes[] | select(.tab_id==$t and .pane_id!=$self) | .pane_id')
-
-  # 1) An existing nvim — open the file via its RPC socket (key must match
-  #    init.lua: "herdr-" + HERDR_PANE_ID, non-alphanumerics → "-").
-  if [ -n "$host_nvim" ]; then
-    key="herdr-$(printf '%s' "$host_nvim" | sed 's/[^A-Za-z0-9]/-/g')"
-    sock="/tmp/nvim-${key}.sock"
-    echo "  herdr nvim pane=$host_nvim sock=$sock exists=$([ -S "$sock" ] && echo yes || echo no)" >> "$DEBUG_LOG"
-    if [ -S "$sock" ]; then
-      nvim --server "$sock" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1
-      "$HOME/.local/bin/mux/mux" focus "$host_nvim" >/dev/null 2>&1
-      close_popup_deferred
-      exit 0
-    fi
-  fi
-
-  # 2) An idle shell prompt — open nvim IN that pane (reuse it, don't spawn).
-  if [ -n "$host_shell" ]; then
-    echo "  herdr: opening nvim in idle shell pane $host_shell" >> "$DEBUG_LOG"
-    "$herdr" pane send-keys "$host_shell" ctrl+u >/dev/null 2>&1   # clear partial input
-    "$herdr" pane send-text "$host_shell" "cd $Q_DIR && nvim $Q_FILE" >/dev/null 2>&1
-    "$herdr" pane send-keys "$host_shell" enter >/dev/null 2>&1
-    "$HOME/.local/bin/mux/mux" focus "$host_shell" >/dev/null 2>&1
-    close_popup_deferred
-    exit 0
-  fi
-
-  # 3) Nothing reusable — open the file in a fresh herdr pane split.
-  dir="$OPEN_DIR"
-  newp=$("$herdr" pane split --direction right --cwd "$dir" --focus 2>/dev/null \
-    | jq -r '.result.pane.pane_id // .result.pane_id // empty' 2>/dev/null)
-  if [ -n "$newp" ]; then
-    "$herdr" pane send-text "$newp" "nvim $Q_FILE" >/dev/null 2>&1
-    "$herdr" pane send-keys "$newp" enter >/dev/null 2>&1
-  fi
-  echo "  herdr: no reusable pane; split pane $newp in $dir" >> "$DEBUG_LOG"
-  close_popup_deferred
-  exit 0
-}
 # The ctrl+g popup floats over its window, so a sibling block's nvim (socket named by init.lua) is the editor to reuse.
 rex_edit_and_exit() {
   local rex blocks b sock
@@ -221,12 +120,8 @@ rex_edit_and_exit() {
   exit 0
 }
 
-# Ask the dispatcher, not $HERDR_PANE_ID: a popup sets no pane env, so the old guard fell through to tmux and opened the file on an unwatched server.
+# Ask the dispatcher, not the pane env: a popup sets none, so a pane-env guard would fall through to tmux.
 case "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" in
-  herdr)
-    echo "  mux kind: herdr → herdr path" >> "$DEBUG_LOG"
-    herdr_edit_and_exit
-    ;;
   rex)
     echo "  mux kind: rex → Rex path" >> "$DEBUG_LOG"
     [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit

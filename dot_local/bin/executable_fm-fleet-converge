@@ -25,24 +25,22 @@ sha256_digest() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else 
 
 field() { grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2-; }
 
-# A Rex-backed mate records no herdr pane; "rex|<session>|<block>" stands in for one.
+# A Rex-backed mate is addressed as "rex|<session>|<block>".
 mate_pane() { # <meta>
-  local p s b
-  p="$(field "$1" herdr_pane_id)"
-  if [ -z "$p" ] && [ "$(field "$1" backend)" = rex ]; then
+  local p="" s b
+  if [ "$(field "$1" backend)" = rex ]; then
     s="$(field "$1" rex_session_id)"; b="$(field "$1" rex_block_id)"
     [ -n "$s" ] && [ -n "$b" ] && p="rex|$s|$b"
   fi
   printf '%s' "$p"
 }
 
-pane_label() { local p; p="$(field "$1" herdr_pane_id)"; printf '%s' "${p:-$(field "$1" rex_block_id)}"; }
+pane_label() { field "$1" rex_block_id; }
 
 process_info() { # <pane>
   local rest
   case "$1" in
     rex\|*) rest="${1#rex|}"; "$HOME/.local/bin/mux/rex/rex-process-info" "${rest%%|*}" "${rest#*|}" ;;
-    *) herdr pane process-info --pane "$1" 2>/dev/null ;;
   esac
 }
 
@@ -187,7 +185,7 @@ tok_personal=""; tok_work=""
 [ -r "$HOME/.local/state/claude/oauth-personal" ] && read -r tok_personal <"$HOME/.local/state/claude/oauth-personal"
 [ -r "$HOME/.local/state/claude/oauth-work" ] && read -r tok_work <"$HOME/.local/state/claude/oauth-work"
 
-# One python3 pass over all panes: the herdr calls are ~5ms, the interpreter start is not, and per-mate cost more than the rest of the snapshot.
+# One python3 pass over all panes: the process-info calls are cheap, the interpreter start is not, and per-mate cost more than the rest of the snapshot.
 build_pane_pids() {
   local panes="$1" p
   [ -n "$panes" ] || return 0
@@ -278,25 +276,10 @@ EOF_PRIMARY
   sm_line="$(awk 'NF && $1 !~ /^#/ {print; exit}' "$FM_HOME/config/secondmate-harness" 2>/dev/null)"
   {
     printf '{"schema":1,'
-    # The primary records no pane, so narrow by panes at the code root and confirm against the pid the session lock holds.
+    # The primary records no pane; a Rex primary's block is in its own env, as fm-goto reads it.
     primary_pane=""
-    if [ -n "$lockpid" ]; then
-      for cand in $(herdr pane list 2>/dev/null | python3 -c '
-import json,sys
-try: d=json.load(sys.stdin)
-except Exception: sys.exit(0)
-root=sys.argv[1]
-print(" ".join(p["pane_id"] for p in d.get("result",{}).get("panes",[])
-                if p.get("cwd")==root or p.get("foreground_cwd")==root))
-' "$ROOT" 2>/dev/null); do
-        if herdr pane process-info --pane "$cand" 2>/dev/null | grep -q "\"pid\":$lockpid"; then
-          primary_pane="$cand"; break
-        fi
-      done
-      # A Rex primary has no herdr pane; its block is in its own env, as fm-goto reads it.
-      if [ -z "$primary_pane" ] && proc_env "$lockpid" | grep -qx 'TERM_PROGRAM=rex'; then
-        primary_pane="$(proc_env "$lockpid" | sed -n 's/^REX_BLOCK=//p' | head -1)"
-      fi
+    if [ -n "$lockpid" ] && proc_env "$lockpid" | grep -qx 'TERM_PROGRAM=rex'; then
+      primary_pane="$(proc_env "$lockpid" | sed -n 's/^REX_BLOCK=//p' | head -1)"
     fi
     # The home's registered projects, from the registry firstmate keeps in data/projects.md.
     projects="$(awk '/^- /{sub(/^- /,""); sub(/ .*$/,""); printf "%s%s", sep, $0; sep=", "}' \
@@ -650,7 +633,7 @@ if [ "$MODE" = crew-account ]; then
       cm="$home/state/$t.meta"
       [ "$(field "$cm" harness)" = claude ] || { echo "  $t: $(field "$cm" harness) - no claude credential to compare"; continue; }
       pane="$(mate_pane "$cm")"
-      [ -n "$pane" ] || { echo "  $t: records no herdr pane or Rex block; skipped"; continue; }
+      [ -n "$pane" ] || { echo "  $t: records no Rex block; skipped"; continue; }
       pid="$(live_pid "$pane")"
       [ -n "$pid" ] || { echo "  $t: no live agent; skipped"; continue; }
       tok="$(proc_env "$pid" | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)"

@@ -1,4 +1,4 @@
--- Rex state shaped like `herdr api snapshot` for herdr-sesh.sh, ids nested as <session>:<window|block>; other `rex hosts` lead theirs with <host>~.
+-- Rex state as the snapshot JSON rex-sesh-picker.sh reads (workspaces, tabs, panes), ids nested as <session>:<window|block>; other `rex hosts` lead theirs with <host>~.
 local TERM = "com.superlogical.terminal"
 
 local function bare(id) return (id or ""):gsub("^%a+:", "") end

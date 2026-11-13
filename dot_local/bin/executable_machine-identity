@@ -5,7 +5,7 @@ set -uo pipefail
 
 _os() { case "$(uname -s)" in Darwin) echo darwin ;; *) echo linux ;; esac; }
 
-# Not $SSH_CONNECTION (the herdr server bakes it in forever). Linux-only: BSD pgrep lacks -a, macOS lacks ss.
+# Not $SSH_CONNECTION (a long-lived mux server bakes it in forever). Linux-only: BSD pgrep lacks -a, macOS lacks ss.
 _attached_ips() {
   [ "$(_os)" = linux ] || return 0
   pgrep -af 'be-child ssh' 2>/dev/null | grep -oE 'remote-ip=[0-9.]+' | cut -d= -f2

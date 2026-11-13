@@ -49,7 +49,7 @@ local function return_to_pane(source, zoomed, copied)
 end
 
 function M.setup()
-  -- herdr lazygit popup, 90%, on the pane's repo.
+  -- lazygit popup, 90%, on the pane's repo.
   rex.action{
     name = "lazygit",
     title = "Lazygit (floating)",
@@ -89,7 +89,7 @@ function M.setup()
     end,
   }
 
-  -- herdr yazi-herdr.sh: yazi in a new tab at the pane's cwd.
+  -- yazi in a new tab at the pane's cwd.
   rex.action{
     name = "yazi_tab",
     title = "Yazi in New Tab",
@@ -102,7 +102,7 @@ function M.setup()
     end,
   }
 
-  -- herdr scrollback-viewer: the pane's scrollback (or its agent transcript) in nvim, over the pane.
+  -- The pane's scrollback (or its agent transcript) in nvim, over the pane.
   rex.action{
     name = "scrollback_view",
     title = "Scrollback in Nvim",
@@ -135,7 +135,7 @@ function M.setup()
     end,
   }
 
-  -- herdr pluck: hint labels over the pane's visible tokens.
+  -- pluck: hint labels over the pane's visible tokens.
   rex.action{
     name = "pluck",
     title = "Pluck Visible Token",

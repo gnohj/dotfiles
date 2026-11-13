@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# rex-pluck SOURCE_BLOCK SOURCE_WINDOW - herdr pluck for Rex, run by init.lua's twin block: a label copies and opens its token, shift+label only copies.
+# rex-pluck SOURCE_BLOCK SOURCE_WINDOW - pluck for Rex, run by init.lua's twin block: a label copies and opens its token, shift+label only copies.
 import json
 import os
 from pathlib import Path

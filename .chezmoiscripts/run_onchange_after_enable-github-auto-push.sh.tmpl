@@ -15,7 +15,7 @@ command -v systemctl >/dev/null 2>&1 || exit 0
 
 systemctl --user daemon-reload
 
-# --now is safe here (unlike herdr-server): the service is a oneshot that holds no
+# --now is safe here: the service is a oneshot that holds no
 # live state, so starting it immediately just runs one autopush cycle.
 systemctl --user enable --now github-auto-push.timer
 

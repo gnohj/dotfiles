@@ -43,10 +43,6 @@ services:
         source: ${HERMES_WORKSPACE}
         target: /workspace
       - type: bind
-        source: ${HERDR_CLIPBOARD_DIR}
-        target: ${HERDR_CLIPBOARD_DIR}
-        read_only: true
-      - type: bind
         source: ${TERMINAL_IMAGE_DIR}
         target: ${TERMINAL_IMAGE_DIR}
         read_only: true

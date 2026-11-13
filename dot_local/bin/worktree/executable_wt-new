@@ -33,7 +33,6 @@ REL="$BRANCH"
 [ "$BUCKET" = '(none)' ] || REL="$BUCKET/$BRANCH"
 
 case "$("$HOME/.local/bin/mux/mux" kind 2>/dev/null)" in
-  herdr) export WORKTREE_OPEN_IN=herdr ;;
   rex) export WORKTREE_OPEN_IN=rex ;;
 esac
 

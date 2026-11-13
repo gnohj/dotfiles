@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Global hook (core.hooksPath, every repo): only enqueue the sha for herdr-sb-drain to batch - a hook that blocks on a model call makes committing unusable. Every path exits 0.
+# Global hook (core.hooksPath, every repo): only enqueue the sha for sb-drain to batch - a hook that blocks on a model call makes committing unusable. Every path exits 0.
 
 set -u
 

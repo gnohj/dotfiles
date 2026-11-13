@@ -27,7 +27,6 @@ Host tailscale
 # RemoteForward exposes this mac's Chrome CDP port on the box for chrome-devtools-mcp.
 # LocalForward points this mac's 8085 at the box's, so radioctl's OAuth callback
 # (redirect_uri is hardcoded 127.0.0.1:8085) reaches the listener waiting on the box.
-# herdr --remote includes this file, so the forward rides the session you already have.
 Host {{ .devbox_host }} {{ .devbox_host }}-* tailscale
   ForwardAgent yes
   IdentityFile ~/.ssh/id_ed25519

@@ -135,7 +135,7 @@ path_w=${#d}
 # Resolved even in path mode: --align needs both widths to pick one shared column.
 ref=''
 ref_w=0
-# 📁 non-git, per herdr's vocabulary - it also keeps row 1's leader 3 columns wide outside a repo, so the two rows' text never falls out of step.
+# 📁 non-git - it also keeps row 1's leader 3 columns wide outside a repo, so the two rows' text never falls out of step.
 kind_glyph='📁'
 inside='' gd='' gcd='' head_ref=''
 needs_git=1
@@ -218,7 +218,7 @@ if [ "$mode" = git-ref ]; then
   exit 0
 fi
 
-# 🌳 worktree, 🌿 plain repo - herdr's workspace-label vocabulary (mux/herdr/herdr-sesh-layout.sh), so a pane and the status line agree on what checkout you are in.
+# 🌳 worktree, 🌿 plain repo - the session-label vocabulary (mux/rex/rex-sesh-picker.sh), so a pane and the status line agree on what checkout you are in.
 if [ "$glyph" = 1 ] && [ -n "$kind_glyph" ]; then
   emit "$kind_glyph " 0 "$d" tail
 else

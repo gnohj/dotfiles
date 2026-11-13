@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # review-open.sh - open a PR-review window layout (hunk / Claude)
-# for one PR in tmux/herdr windows. Dispatches on <mode> to match each gh-dash
+# for one PR in Rex/tmux windows. Dispatches on <mode> to match each gh-dash
 # `prs` binding.
 #
 #   review-open.sh <mode> <pr-number> <repo-name> <repo-path>
@@ -52,7 +52,6 @@ review_mux_adopt "$repo_path"
 
 notify_msg() {
   case "$("$HOME/.local/bin/mux/mux" kind)" in
-    herdr) "${HERDR_BIN_PATH:-herdr}" notification show "gh-dash review" --body "$1" --sound request >/dev/null 2>&1 || true ;;
     tmux) tmux display-message -d 6000 "$1" 2>/dev/null || true ;;
     # Rex has no toast and a detached dev-box run has no viewer, so banner the workstation.
     *) printf '%s\n%s' "gh-dash review" "$1" | "$HOME/.local/bin/to-desktop" notify - >/dev/null 2>&1 || true ;;
@@ -165,10 +164,10 @@ resolve_review_claude_account() {
 
 # Reviews drive Chrome through chrome-devtools-axi, so the stdio browser MCPs only cost ~640MB and a launch spike each.
 REVIEW_SETTINGS='--setting-sources user --settings "$HOME/.config/gh-dash/review-claude-settings.json"'
-# Bitwarden's scope-less GH_TOKEN shadows the keyring login and 404s every private iheartradio repo; panes inherit it from herdr, not from here.
+# Bitwarden's scope-less GH_TOKEN shadows the keyring login and 404s every private iheartradio repo; panes inherit it from the multiplexer, not from here.
 unset GH_TOKEN GITHUB_TOKEN
 GH_KEYRING='unset GH_TOKEN GITHUB_TOKEN; '
-# A herdr server started from a firstmate home inherits .zshenv's medium effort, and that env outranks --effort.
+# A multiplexer server started from a firstmate home inherits .zshenv's medium effort, and that env outranks --effort.
 AGENT_FLAGS_WIN='unset CLAUDE_CODE_EFFORT_LEVEL CLAUDE_EFFORT ANTHROPIC_MODEL; '
 
 # A dead token or an Anthropic outage otherwise opens a background pane that only ever shows an error.

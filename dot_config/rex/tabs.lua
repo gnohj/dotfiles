@@ -68,7 +68,7 @@ function M.setup()
     end,
   }
 
-  -- Bounce to the tab last left by a keyboard switch (herdr hack-herdr-last-tab.sh).
+  -- Bounce to the tab last left by a keyboard switch.
   rex.action{
     name = "last_tab",
     title = "Last Tab Toggle",
@@ -86,7 +86,7 @@ function M.setup()
     end,
   }
 
-  -- herdr hack-herdr-close-other-tabs.sh.
+  -- Close every tab but the first.
   rex.action{
     name = "close_other_tabs",
     title = "Close All Tabs but the First",

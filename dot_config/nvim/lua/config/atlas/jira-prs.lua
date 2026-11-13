@@ -12,7 +12,7 @@ local STATE_HL = {
 local function refresh(issue)
   local key = issue.key
   cache[key] = { prs = cache[key] and cache[key].prs, at = os.time() }
-  require("config.atlas.herdr-jump").dev_panel_prs(issue.id, function(prs)
+  require("config.atlas.mux-jump").dev_panel_prs(issue.id, function(prs)
     vim.schedule(function()
       cache[key] = { prs = prs, at = os.time() }
       local state = require("atlas.issues.ui.detail.state")

@@ -1,0 +1,24 @@
+{
+  "daemons": {
+    "scriptDir": ".local/bin",
+    "logDir": ".logs",
+    "list": {
+      "sb-drain": {
+        "desc": "second-brain drain (Work Log entries from queued commits, note freeze on PR merge)",
+        "script": "sb-drain",
+        "args": "",
+        "interp": "",
+        "needsPath": true,
+        "note": "drives Codex luna 6 xhigh through codex-headless for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. codex-headless falls back to Claude Sonnet when Codex refuses (auth, quota, 5xx). The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
+      },
+      "thread-status": {
+        "desc": "thread-status (PR url, CI and vault note into thread files)",
+        "script": "thread-status",
+        "args": "",
+        "interp": "/usr/bin/python3",
+        "needsPath": true,
+        "note": "gh only feeds the PR and CI fields; the vault note is a local lookup and still persists without it"
+      }
+    }
+  }
+}

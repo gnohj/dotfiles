@@ -6,10 +6,7 @@
 #
 # fzf shows field 1 (--with-nth=1) and the caller connects to field 2.
 #
-# 🌳 a LINKED worktree, 🌿 the repo's own primary checkout - the same vocabulary as
-# herdr-sesh-layout.sh's workspace labels. `git worktree list` always emits the
-# primary first, so that ordering is the whole classifier; no extra git call. A
-# bare-layout repo's primary IS the .bare dir, dropped below, so its rows are all 🌳.
+# 🌳 linked worktree, 🌿 primary checkout (`git worktree list` emits it first); a bare repo's primary is dropped, so its rows are all 🌳.
 # Rows group by repo, so a 🌿 sits with its own trees, not wherever its name sorts.
 #
 # Scan roots:

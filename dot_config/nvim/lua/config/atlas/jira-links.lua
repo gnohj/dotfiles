@@ -235,16 +235,12 @@ local function resolve(url)
   return provider and target, provider
 end
 
--- A herdr or Rex split beside the dashboard; elsewhere, or inside that split already, the panel itself.
+-- A Rex split beside the dashboard; elsewhere, or inside that split already, the panel itself.
 local function use_split()
   if vim.env.ATLAS_COMPANION then
     return false
   end
-  local kind = require("config.mux").kind()
-  if kind == "herdr" then
-    return vim.env.HERDR_PANE_ID ~= nil
-  end
-  return kind == "rex" and vim.env.REX_BLOCK ~= nil
+  return require("config.mux").kind() == "rex" and vim.env.REX_BLOCK ~= nil
 end
 
 -- X inside a Rex split still splits, so the ticket and its PR sit side by side.
@@ -283,7 +279,7 @@ end
 
 function M.follow(url)
   local target, provider = resolve(url)
-  local jump = require("config.atlas.herdr-jump")
+  local jump = require("config.atlas.mux-jump")
   if target and target.entity == "issue" and provider then
     local ref = provider.issue_ref(target)
     if ref then

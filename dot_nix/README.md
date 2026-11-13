@@ -2,7 +2,7 @@
 
 Cross-platform Nix setup that pulls one shared CLI toolchain (`common/package-list.nix`) through a single `flake.lock`, so macOS and the Linux VPS resolve identical binaries.
 
-Nix owns the flake-pinned CLI core, chezmoi owns the dotfiles, and mise owns the language runtimes plus the fast-moving tools that need same-day upstream releases (the AI agents, `herdr`, `rtk`, the AXI CLIs, `no-mistakes`, `treehouse`, and the handful of binaries nixpkgs doesn't carry).
+Nix owns the flake-pinned CLI core, chezmoi owns the dotfiles, and mise owns the language runtimes plus the fast-moving tools that need same-day upstream releases (the AI agents, `rtk`, the AXI CLIs, `no-mistakes`, `treehouse`, and the handful of binaries nixpkgs doesn't carry).
 On macOS, Homebrew (via nix-darwin) owns the GUI apps and services.
 
 One deliberate exception: `firstmate` is in neither.

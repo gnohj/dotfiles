@@ -4,7 +4,7 @@
 # System-config + runtime remainder for a Linux VPS. The bulk CLI toolchain (nvim,
 # tmux, ripgrep, lazygit, gitmux/sesh, …) now comes from Nix/home-manager, which
 # runs BEFORE this script (see linux-vps-setup.sh). PRIMARY path: agents live in
-# tmux/herdr, reached over Tailscale (mosh/ssh from the laptop).
+# Rex/tmux, reached over Tailscale (mosh/ssh from the laptop).
 # This script installs what Nix deliberately doesn't: apt system base + monitoring,
 # zinit, tpm, ghostty terminfo, mise runtimes/AI agents.
 # Skipped on macOS via .chezmoiignore. The interactive `tailscale up` is a separate
@@ -20,9 +20,6 @@ if ! command -v mise >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mise" ]; then
   curl -fsSL https://mise.run | sh || echo "!! mise install failed — install manually: https://mise.run"
 fi
 MISE="$(command -v mise 2>/dev/null || echo "$HOME/.local/bin/mise")"
-
-# 2. herdr now comes from mise (config.toml [tools]), installed by the mise-install
-#    run_onchange that runs after this script — no curl|sh installer here any more.
 
 # 3. zinit — zsh plugin manager (zshrc self-clones too; seed it here).
 ZINIT_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/zinit/zinit.git"
@@ -164,7 +161,7 @@ fi
 # Colorscheme seed lives in run_once_after_seed-default-theme.sh, not duplicated here.
 
 echo "==> bootstrap done."
-echo "    Confirm on PATH: mise git zsh nvim tmux mosh herdr node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker"
+echo "    Confirm on PATH: mise git zsh nvim tmux mosh node pnpm claude codex gemini rg fd lazygit yazi jq gh btop delta yq tv gh-dash lazydocker"
 echo "    LSP servers / tree-sitter parsers install on first nvim launch."
 echo "    Monitoring: 'systemctl status sysstat atop' should be active; export with 'vps-usage-export.sh'."
 echo "    NEXT: 'sudo tailscale up' (no --ssh: OpenSSH over the tailnet), then run 'claude'/'codex' once for OAuth."

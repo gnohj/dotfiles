@@ -4,18 +4,17 @@ let
   homeDir = if config ? users && config.users ? users && config.users.users ? ${config.system.primaryUser}
             then config.users.users.${config.system.primaryUser}.home
             else "/Users/${config.system.primaryUser}";
-  # One declaration per herdr daemon, shared with the Linux generator. Rendered by chezmoi from .chezmoidata/mux-daemons.json, since nix evaluates from ~/.nix and cannot read that.
-  muxDaemons = builtins.fromJSON (builtins.readFile ./mux-daemons.json);
+  # One declaration per daemon, shared with the Linux generator. Rendered by chezmoi from .chezmoidata/daemons.json, since nix evaluates from ~/.nix and cannot read that.
+  daemons = builtins.fromJSON (builtins.readFile ./daemons.json);
 
   # macOS PATH for daemons that shell out (gh). Deliberately not the Linux string, which leads with ~/.local/bin.
   daemonPath = "${homeDir}/.nix-profile/bin:${homeDir}/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
-  # herdr is retired, so only manifest daemons marked standalone run here.
-  standaloneAgents = lib.mapAttrs (name: d:
+  manifestAgents = lib.mapAttrs (name: d:
     let
       interp = if (d ? macos && d.macos ? interp) then d.macos.interp else d.interp;
       cmd = (if interp == "" then "" else interp + " ")
-            + "${homeDir}/${muxDaemons.scriptDir}/${d.script}"
+            + "${homeDir}/${daemons.scriptDir}/${d.script}"
             + (if d.args == "" then "" else " " + d.args);
       pathLine = if (d ? needsPath) then "export PATH=\"${daemonPath}\"\n" else "";
     in {
@@ -31,7 +30,7 @@ let
         StandardOutPath = "${homeDir}/.logs/" + name + "/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/" + name + "/launchagent.err.log";
       };
-    }) (lib.filterAttrs (_: d: d ? standalone && d.standalone) muxDaemons.list);
+    }) daemons.list;
 in
 {
   # LaunchAgents and LaunchDaemons
@@ -370,7 +369,7 @@ in
       };
     };
 
-    # Logs which processes, apps, windows and herdr panes are responsible each time a sketchybar resource widget changes colour.
+    # Logs which processes, apps, windows and tmux panes are responsible each time a sketchybar resource widget changes colour.
     resource-watch = {
       serviceConfig = {
         ProgramArguments = [
@@ -386,7 +385,6 @@ in
         ThrottleInterval = 30;
         EnvironmentVariables = {
           PATH = "${homeDir}/.local/bin:${daemonPath}:/usr/sbin:/sbin";
-          HERDR_SOCKET_PATH = "${homeDir}/${muxDaemons.socket}";
         };
         StandardOutPath = "${homeDir}/.logs/resource-watch/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/resource-watch/launchagent.err.log";
@@ -641,7 +639,7 @@ in
         StandardErrorPath = "${homeDir}/.logs/cleanup/launchagent.err.log";
       };
     };
-  } // standaloneAgents;
+  } // manifestAgents;
 
   # System LaunchDaemons (run as root)
   launchd.daemons = {

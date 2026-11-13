@@ -5,20 +5,19 @@
 set -uo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:$HOME/.local/share/mise/shims:$PATH"
-herdr="${HERDR_BIN_PATH:-herdr}"
 
 # mux_kind() — shared with launcher.sh so there is one definition of "which mux is live".
 # shellcheck source=/dev/null
 . "$HOME/.local/bin/mux/shared/mux-detect.sh"
 
 die() { printf 'mux: %s\n' "$1" >&2; exit "${2:-1}"; }
-need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for herdr or Rex"; }
+need_jq() { command -v jq >/dev/null 2>&1 || die "jq required for Rex"; }
 
 cmd_help() {
   cat <<'EOF'
-mux - multiplexer operations against whichever of herdr/Rex/tmux is live.
+mux - multiplexer operations against whichever of Rex/tmux is live.
 
-  mux kind                                 herdr | rex | tmux | none
+  mux kind                                 rex | tmux | none
   mux session-label                        workspace/session name, emoji stripped
   mux window [OPTS] <name> <cwd> <cmd>     open a command in the invoking workspace
   mux split  <cwd> <cmd>                   run a command beside the current pane
@@ -46,15 +45,15 @@ window options:
   --focus             switch to it even when it lands in another workspace, for
                       a window the user explicitly asked to look at
   --env KEY=VALUE     set an env var in the new window (repeatable)
-  --workspace ID      override the target herdr workspace / Rex or tmux session;
+  --workspace ID      override the target Rex or tmux session;
                       defaults to the one this process was invoked from
-  --popup             prefer a modal popup; herdr and Rex
-                      fall back to a normal focused tab
+  --popup             prefer a modal popup; Rex
+                      falls back to a normal focused tab
   --popup-size WxH    popup size, tmux only (default 80%x90%)
-Detection: pane env herdr, Rex (TERM_PROGRAM=rex and REX_BLOCK), then tmux;
-otherwise live servers herdr, Rex, then tmux. MUX_FORCE_KIND overrides this.
+Detection: pane env Rex (TERM_PROGRAM=rex and REX_BLOCK), then tmux;
+otherwise live servers Rex, then tmux. MUX_FORCE_KIND overrides this.
 notify options:
-  --title TEXT        herdr toast / Rex desktop banner title (default "notice")
+  --title TEXT        Rex desktop banner title (default "notice")
   --duration MS       tmux status-line duration, tmux only (default 5000)
 popup options:
   --width W  --height H    tmux popup size (default 70% x 30%)
@@ -63,16 +62,8 @@ EOF
 
 cmd_kind() { mux_kind; }
 
-# herdr numbers its tmux sessions, so `#S` is meaningless there; read the label.
 cmd_session_label() {
   case "$(cmd_kind)" in
-    herdr)
-      command -v jq >/dev/null 2>&1 || return 0
-      [ -n "${HERDR_WORKSPACE_ID:-}" ] || return 0
-      "$herdr" workspace get "$HERDR_WORKSPACE_ID" 2>/dev/null |
-        jq -r '.result.workspace.label // empty' 2>/dev/null |
-        sed 's/^[^[:alnum:]]*//'
-      ;;
     rex)
       need_jq
       [ -n "${REX_SESSION:-}" ] || return 0
@@ -89,7 +80,6 @@ cmd_session_label() {
 # Where this process was SPAWNED, from the pane env: frozen, so it survives a detached delay.
 origin_workspace() {
   case "$(cmd_kind)" in
-    herdr) printf '%s' "${HERDR_WORKSPACE_ID:-}" ;;
     rex) printf '%s' "${REX_SESSION:-}" ;;
     tmux)
       [ -n "${TMUX_PANE:-}" ] || return 0
@@ -98,20 +88,12 @@ origin_workspace() {
   esac
 }
 
-# herdr only; empty under tmux, where focus never crosses sessions.
-focused_workspace() {
-  command -v jq >/dev/null 2>&1 || return 0
-  "$herdr" workspace list 2>/dev/null |
-    jq -r 'first(.result.workspaces[]? | select(.focused == true) | .workspace_id) // empty' 2>/dev/null
-}
-
 rex_app_client() {
   "$1" --autostart=false client ls --json 2>/dev/null | jq -r \
     '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty'
 }
 
-# tmux runs the command AS the window process so it closes on exit; herdr spawns a
-# persistent shell, so "; exit" is appended to match that close-on-exit contract.
+# The window closes when <cmd> exits, unless --keep-open.
 cmd_window() {
   local print_pane="" popup="" popup_size="80%x90%" ws="" keep="" no_focus="" force_focus="" envs=() e
   while [ $# -gt 0 ]; do
@@ -138,48 +120,6 @@ cmd_window() {
   [ -n "$ws" ] || ws="$(origin_workspace)"
 
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      # An empty --label BLANKS the tab, costing it herdr's number badge.
-      local args=(tab create)
-      [ -n "$name" ] && args+=(--label "$name")
-      [ -n "$cwd" ] && args+=(--cwd "$cwd")
-      # An unresolvable origin (daemon, quake, stripped env) falls back to the active workspace.
-      if [ -n "$ws" ]; then
-        args+=(--workspace "$ws")
-        # Crossing workspaces is silent by default; only an explicit --focus moves the desktop.
-        if [ -n "$force_focus" ] && [ -z "$no_focus" ]; then
-          [ "$ws" != "$(focused_workspace)" ] && "$herdr" workspace focus "$ws" >/dev/null 2>&1
-          args+=(--focus)
-        elif [ -n "$no_focus" ] || [ "$ws" != "$(focused_workspace)" ]; then
-          args+=(--no-focus)
-        else
-          args+=(--focus)
-        fi
-      elif [ -n "$no_focus" ]; then
-        args+=(--no-focus)
-      else
-        args+=(--focus)
-      fi
-      for e in "${envs[@]:-}"; do [ -n "$e" ] && args+=(--env "$e"); done
-      local out pane tab_id num
-      out="$("$herdr" "${args[@]}" 2>/dev/null)"
-      pane="$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty' 2>/dev/null)"
-      [ -n "$pane" ] || die "herdr tab create failed"
-      # A custom label replaces herdr's number badge, so re-add "<number>." to
-      # match the numbered sesh-layout tabs.
-      tab_id="$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty' 2>/dev/null)"
-      num="$(printf '%s' "$out" | jq -r '.result.tab.number // empty' 2>/dev/null)"
-      [ -n "$name" ] && [ -n "$tab_id" ] && [ -n "$num" ] &&
-        "$herdr" tab rename "$tab_id" "$num.$name" >/dev/null 2>&1
-      if [ -n "$keep" ]; then
-        herdr_pane_run "$pane" "$command"
-      else
-        herdr_pane_run "$pane" "$command; exit"
-      fi
-      [ -n "$print_pane" ] && printf '%s\n' "$pane"
-      return 0
-      ;;
     rex)
       need_jq
       local rex out pane window client size_args=() rargs=(window new)
@@ -189,7 +129,7 @@ cmd_window() {
       [ -n "$cwd" ] && rargs+=(-c "$cwd")
       [ -n "$keep" ] && rargs+=(--keep-open)
       [ -n "$no_focus" ] && rargs+=(--focus=false)
-      # -i so .zshrc exports THEME_TRANSPARENT and the API tokens, as herdr panes get.
+      # -i so .zshrc exports THEME_TRANSPARENT and the API tokens.
       rargs+=(--shell=none --json -- env SKIP_FETCH=1)
       for e in "${envs[@]:-}"; do [ -n "$e" ] && rargs+=("$e"); done
       rargs+=("${SHELL:-/bin/sh}" -lic "$command")
@@ -237,39 +177,7 @@ cmd_window() {
       # `new-window -t other-session` leaves the client put, so --focus must move it explicitly.
       [ -n "$force_focus" ] && [ -z "$no_focus" ] && [ -n "$ws" ] && tmux switch-client -t "$ws:" 2>/dev/null
       ;;
-    none) die "no herdr, Rex or tmux session detected" ;;
-  esac
-}
-
-# herdr pane run intermittently delivers the text without the committing newline, stranding the command at the prompt; an idle pane lists its own shell as the only foreground process.
-herdr_pane_run() {
-  local pane="${1:?herdr_pane_run: missing <pane-id>}" command="${2:?herdr_pane_run: missing <command>}"
-  local waited=0 info n
-  "$herdr" pane run "$pane" "$command" >/dev/null 2>&1
-  while [ "$waited" -lt 15 ]; do
-    info="$("$herdr" pane process-info --pane "$pane" 2>/dev/null)"
-    # A vanished pane means the command already ran and `; exit` closed it.
-    case "$info" in *pane_not_found*) return 0 ;; esac
-    n="$(printf '%s' "$info" | jq -r '.result.process_info as $p |
-      [$p.foreground_processes[]? | select(.pid != $p.shell_pid)] | length' 2>/dev/null)"
-    case "$n" in ''|null|0) ;; *) return 0 ;; esac
-    sleep 0.2
-    waited=$((waited + 1))
-  done
-  # Nothing is running, so the shell is idle at a prompt and this commits the stranded line.
-  "$herdr" pane send-keys "$pane" enter >/dev/null 2>&1
-}
-
-# Panes sharing the caller's herdr tab; 1 on failure, so the split isn't mis-sized.
-herdr_tab_pane_count() {
-  local tab n
-  tab="$("$herdr" pane current --current 2>/dev/null | jq -r '.result.tab_id // empty' 2>/dev/null)"
-  [ -n "$tab" ] || { printf '1'; return; }
-  n="$("$herdr" pane list 2>/dev/null |
-    jq -r --arg t "$tab" '[.result.panes[]? | select(.tab_id == $t)] | length' 2>/dev/null)"
-  case "$n" in
-    ''|*[!0-9]*|0) printf '1' ;;
-    *)             printf '%s' "$n" ;;
+    none) die "no Rex or tmux session detected" ;;
   esac
 }
 
@@ -281,21 +189,12 @@ cmd_split() {
   cwd="${cwd/#\~/$HOME}"
 
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      local ratio=0.75 pane
-      [ "$(herdr_tab_pane_count)" -gt 1 ] && ratio=0.66
-      pane="$("$herdr" pane split --current --direction right --ratio "$ratio" \
-        --cwd "$cwd" --focus 2>/dev/null | jq -r '.result.pane.pane_id // empty' 2>/dev/null)"
-      [ -n "$pane" ] || die "herdr pane split failed"
-      herdr_pane_run "$pane" "$command; exit"
-      ;;
     rex)
       need_jq
       [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] || die "split: not inside a Rex block"
       local rex ratio=25 n
       rex="$(rex_bin)" || die "Rex CLI unavailable"
-      # --ratio is the NEW block's share, so 25/34 mirror herdr's 0.75/0.66 for the caller.
+      # --ratio is the NEW block's share, so the caller keeps ~75%, or ~66% beside others.
       n="$("$rex" --autostart=false block ls -s "$REX_SESSION" --json 2>/dev/null | jq -r --arg b "$REX_BLOCK" \
         '(.blocks // []) as $all | (first($all[] | select(.block_id == $b) | .window_id) // "") as $w
         | [$all[] | select(.window_id == $w)] | length' 2>/dev/null)"
@@ -311,7 +210,7 @@ cmd_split() {
         tmux select-layout even-horizontal >/dev/null 2>&1
       fi
       ;;
-    none) die "no herdr, Rex or tmux session detected" ;;
+    none) die "no Rex or tmux session detected" ;;
   esac
 }
 
@@ -319,9 +218,6 @@ cmd_split() {
 cmd_focus() {
   local pane="${1:?mux focus: missing <pane-id>}" session
   case "$pane" in
-    *:p*)
-      "$HOME/.local/bin/mux/herdr/herdr-focus-pane.sh" "$pane" >/dev/null 2>&1
-      ;;
     %*)
       session="$(tmux display-message -t "$pane" -p '#{session_name}' 2>/dev/null)" || return 1
       [ -n "$session" ] || return 1
@@ -341,7 +237,6 @@ cmd_send_keys() {
   shift
   [ $# -gt 0 ] || die "send-keys: missing <key>" 2
   case "$pane" in
-    *:p*) "$herdr" pane send-keys "$pane" "$@" >/dev/null 2>&1 ;;
     %*)   tmux send-keys -t "$pane" "$@" 2>/dev/null ;;
     *)    return 2 ;;
   esac
@@ -351,11 +246,6 @@ cmd_send_keys() {
 cmd_pane_pids() {
   local pane="${1:?mux pane-pids: missing <pane-id>}" pid
   case "$pane" in
-    *:p*)
-      need_jq
-      "$herdr" pane process-info --pane "$pane" 2>/dev/null |
-        jq -r '.result.process_info.foreground_processes[]?.pid // empty' 2>/dev/null
-      ;;
     %*)
       pid="$(tmux display-message -pt "$pane" '#{pane_pid}' 2>/dev/null)" || return 0
       [ -n "$pid" ] || return 0
@@ -370,22 +260,41 @@ cmd_pane_pids() {
 cmd_pane_width() {
   local pane="${1:?mux pane-width: missing <pane-id>}"
   case "$pane" in
-    *:p*)
-      need_jq
-      "$herdr" pane layout --pane "$pane" 2>/dev/null |
-        jq -r --arg p "$pane" 'first(.result.layout.panes[]? | select(.pane_id == $p) | .rect.width) // empty' 2>/dev/null
-      ;;
     %*) tmux display-message -pt "$pane" '#{pane_width}' 2>/dev/null || true ;;
     *)  return 2 ;;
   esac
 }
 
-# The herdr workspace labelled $1, comparing on the emoji-stripped tail.
-herdr_workspace_named() {
-  "$herdr" workspace list 2>/dev/null |
-    jq -r --arg w "$1" '.result.workspaces[]?
-      | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w)
-      | .workspace_id' 2>/dev/null | head -1
+sesh_label() {
+  local dir="$1" label="" rel s1 rest s2 after2 s3 key
+  [ -d "$dir" ] || return 1
+  case "$dir" in
+    "$HOME"/Developer/*)
+      rel="${dir#"$HOME"/Developer/}"; rel="${rel%/}"
+      s1="${rel%%/*}"
+      rest="${rel#"$s1"}"; rest="${rest#/}"
+      s2="${rest%%/*}"
+      after2="${rest#"$s2"}"; after2="${after2#/}"
+      s3="${after2%%/*}"
+      if [ -n "$s3" ]; then
+        key=$(printf '%s' "$s3" | grep -oE '^[A-Z]+-[0-9]+' | head -n1)
+        [ -n "$key" ] && s3="${key##*-}"
+      fi
+      label="$s1${s2:+/$s2}${s3:+/$s3}"
+      ;;
+    "$HOME"/*)
+      rel="${dir#"$HOME"/}"; rel="${rel%/}"
+      if [ -n "$rel" ]; then
+        if [ "$(printf '%s' "$rel" | awk -F/ '{print NF}')" -ge 3 ]; then
+          label="${rel##*/}"
+        else
+          label="$rel"
+        fi
+      fi
+      ;;
+  esac
+  [ -n "$label" ] || label=$(basename "$dir")
+  printf '%s\n' "$label"
 }
 
 # "Attach if it exists, else build it". Without <cwd> it only focuses; --no-focus builds it in the background.
@@ -405,26 +314,12 @@ cmd_session() {
   [ -n "$label" ] || [ -n "$cwd" ] || die "session: need --label or <cwd>" 2
 
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      local ws=""
-      [ -n "$label" ] && ws="$(herdr_workspace_named "$label")"
-      if [ -n "$ws" ]; then
-        [ -n "$no_focus" ] || "$herdr" workspace focus "$ws" >/dev/null 2>&1
-        return 0
-      fi
-      [ -n "$cwd" ] || return 1
-      # herdr-sesh-layout.sh is the herdr counterpart of `sesh connect`.
-      local layout=("$cwd")
-      [ -n "$label" ] && layout+=("$label")
-      HERDR_SESH_NO_FOCUS="$no_focus" "$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" "${layout[@]}" >/dev/null 2>&1
-      ;;
     rex)
       need_jq
       local rex sid client
       rex="$(rex_bin)" || die "Rex CLI unavailable"
-      # herdr-sesh-layout.sh's label, so either mux finds the same session again.
-      [ -n "$label" ] || label="$("$HOME/.local/bin/mux/herdr/herdr-sesh-layout.sh" --print-label "$cwd")" || return 1
+      # The directory-derived label, so the session is found again by the same name.
+      [ -n "$label" ] || label="$(sesh_label "$cwd")" || return 1
       sid="$("$rex" --autostart=false ls --json 2>/dev/null | jq -r --arg w "$label" \
         'first(.sessions[]? | select(((.label // "") | sub("^[^[:alnum:]]*";"")) == $w) | .session_id) // empty')"
       [ -n "$sid" ] && [ -n "$no_focus" ] && return 0
@@ -448,7 +343,7 @@ cmd_session() {
       tmux switch-client -t "$label" 2>/dev/null ||
         tmux attach-session -t "$label" 2>/dev/null || true
       ;;
-    none) die "no herdr, Rex or tmux session detected" ;;
+    none) die "no Rex or tmux session detected" ;;
   esac
 }
 
@@ -485,33 +380,7 @@ rex_list() {
 }
 
 cmd_all_muxes() {
-  local query="$1" sessions sockets socket workspaces ws rex
-  if command -v "$herdr" >/dev/null 2>&1; then
-    local status
-    status="$("$herdr" status server 2>/dev/null || true)"
-    if sessions="$("$herdr" session list 2>/dev/null)"; then
-      sockets="$(printf '%s\n' "$sessions" | awk 'NR > 1 && $2 == "running" { print $NF }' | sort -u)"
-      if [ -z "$sockets" ] && [[ "$status" == *'status: running'* ]]; then return 1; fi
-      while IFS= read -r socket; do
-        [ -n "$socket" ] || continue
-        need_jq
-        if [ "$query" = tabs ]; then
-          workspaces="$(HERDR_SOCKET_PATH="$socket" "$herdr" workspace list 2>/dev/null |
-            mux_json_list result.workspaces | jq -r '.[].workspace_id')" || return 1
-          while IFS= read -r ws; do
-            [ -n "$ws" ] || continue
-            HERDR_SOCKET_PATH="$socket" "$herdr" tab list --workspace "$ws" 2>/dev/null |
-              mux_json_list result.tabs | jq -r '.[] | "\(.tab_id)\t\(.label // "")"' || return 1
-          done <<<"$workspaces"
-        else
-          HERDR_SOCKET_PATH="$socket" "$herdr" pane list 2>/dev/null |
-            mux_json_list result.panes | jq -r '.[] | (.foreground_cwd // .cwd // empty)' || return 1
-        fi
-      done <<<"$sockets"
-    elif [[ "$status" == *'status: running'* ]]; then
-      return 1
-    fi
-  fi
+  local query="$1" rex
   if rex="$(rex_bin)" && "$rex" --autostart=false server status >/dev/null 2>&1; then
     rex_list "$query" || return 1
   fi
@@ -528,16 +397,6 @@ cmd_all_muxes() {
 cmd_tabs() {
   if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes tabs; return; fi
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      "$herdr" workspace list 2>/dev/null |
-        jq -r '.result.workspaces[]?.workspace_id // empty' 2>/dev/null |
-        while IFS= read -r ws; do
-          [ -n "$ws" ] || continue
-          "$herdr" tab list --workspace "$ws" 2>/dev/null |
-            jq -r '.result.tabs[]? | "\(.tab_id)\t\(.label // "")"' 2>/dev/null
-        done || true
-      ;;
     rex) rex_list tabs || true ;;
     tmux) tmux list-windows -a -F "#{window_id}"$'\t'"#{window_name}" 2>/dev/null || true ;;
   esac
@@ -547,11 +406,6 @@ cmd_tabs() {
 cmd_pane_cwds() {
   if [ "${1:-}" = --all-muxes ]; then cmd_all_muxes pane-cwds; return; fi
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      "$herdr" pane list 2>/dev/null |
-        jq -r '.result.panes[]? | (.foreground_cwd // .cwd // empty)' 2>/dev/null || true
-      ;;
     rex) rex_list pane-cwds || true ;;
     tmux) tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true ;;
   esac
@@ -561,19 +415,9 @@ cmd_pane_cwds() {
 cmd_close() {
   local id="${1:?mux close: missing <id>}"
   case "$(cmd_kind)" in
-    herdr)
-      need_jq
-      # herdr 0.8.0 closes the workspace when its LAST tab closes; `mux close` means the tab only.
-      local ws n
-      ws="${id%%:*}"
-      n="$("$herdr" tab list --workspace "$ws" 2>/dev/null | jq -r '(.result.tabs? // []) | length' 2>/dev/null)"
-      if [ "${n:-0}" -gt 1 ]; then
-        "$herdr" tab close "$id" >/dev/null 2>&1 || true
-      fi
-      ;;
     rex)
       need_jq
-      # Same rule as herdr: an emptied Rex session lingers in the sidebar until killed.
+      # Never close the last window: an emptied Rex session lingers in the sidebar until killed.
       local rex sid="${id%%/*}" n
       rex="$(rex_bin)" || return 0
       n="$("$rex" --autostart=false window ls -s "$sid" --json 2>/dev/null | jq -r '(.windows? // []) | length' 2>/dev/null)"
@@ -598,8 +442,6 @@ cmd_notify() {
   done
   local msg="${1:?mux notify: missing <message>}"
   case "$(cmd_kind)" in
-    # herdr has no status line, so --duration is tmux-only.
-    herdr) "$herdr" notification show "$title" --body "$msg" >/dev/null 2>&1 || printf '%s\n' "$msg" >&2 ;;
     tmux)  tmux display-message -d "$duration" "$msg" 2>/dev/null || printf '%s\n' "$msg" >&2 ;;
     # Rex has no toast CLI; the guard stops to-desktop's own `mux notify` fallback looping back here.
     rex)
@@ -629,7 +471,7 @@ cmd_popup() {
   [ -x "$script" ] || chmod +x "$script" 2>/dev/null || true
   case "$(cmd_kind)" in
     tmux) tmux display-popup -E -w "$width" -h "$height" "$script" ;;
-    # herdr has no popup CLI; in herdr mode these captures already run in the quake.
+    # Rex has no popup CLI, so the script runs inline.
     *)    clear 2>/dev/null || true; "$script" ;;
   esac
 }

@@ -10,7 +10,7 @@ command -v systemctl >/dev/null 2>&1 || exit 0
 
 systemctl --user daemon-reload
 
-# --now is safe here (unlike herdr-server): the oneshot holds no live state, so starting it just appends one sample row.
+# --now is safe here: the oneshot holds no live state, so starting it just appends one sample row.
 systemctl --user enable --now usage-sample.timer
 
 echo "usage-sample.timer enabled (every 5 minutes)."

@@ -60,7 +60,7 @@ case "$repo" in
   *) repo_path="$HOME/Developer/${repo#*/}" ;;
 esac
 . "$HOME/.config/gh-dash/review-mux.sh"
-target="$(review_mux_target "$repo_path")" || { echo "review-devbox: no Rex or herdr review workspace is open" >&2; exit 1; }
+target="$(review_mux_target "$repo_path")" || { echo "review-devbox: no Rex review workspace is open" >&2; exit 1; }
 ws="$(printf '%s' "$target" | jq -r '.workspace')"
 envs=()
 if [ "$harness" = pi ] && ! grep -q REVIEW_HARNESS "$HOME/.config/gh-dash/review-open.sh"; then

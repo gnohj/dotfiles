@@ -1,7 +1,7 @@
 #!/bin/bash
 # ql quake: runs the launcher LOCALLY in a kitty quick-access window (skhd
 # cmd+rctrl+r, the only kitty quake), via interactive login shell (zsh -l -i -c)
-# so it inherits PATH/herdr-socket/env.
+# so it inherits PATH/env.
 # Foreground, NOT --detach: --detach silently dies on this machine before init.
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 

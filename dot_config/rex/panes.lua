@@ -1,10 +1,10 @@
--- Pane actions: close pane-or-tab, last-pane toggle, and ctrl+h/j/k/l navigation that yields to vim/tmux/herdr/ssh.
+-- Pane actions: close pane-or-tab, last-pane toggle, and ctrl+h/j/k/l navigation that yields to vim/tmux/ssh.
 local c = require("common")
 local sessions = require("sessions")
 
 local M = {}
 
-local PASS_THROUGH = { "vim", "tmux", "herdr", "ssh" }
+local PASS_THROUGH = { "vim", "tmux", "ssh" }
 
 local function owns_ctrl_hjkl(block_id)
   local fg = c.foreground(block_id)
@@ -217,7 +217,7 @@ function M.navigate(dir)
 end
 
 function M.setup()
-  -- block.close takes a tab with its last pane (herdr close_pane); an emptied session lingers, so close it and return to the last.
+  -- block.close takes a tab with its last pane; an emptied session lingers, so close it and return to the last.
   rex.action{
     name = "close_pane",
     title = "Close Pane or Last-Pane Tab",
@@ -291,7 +291,7 @@ function M.setup()
     end,
   }
 
-  -- Previous pane in the current tab (herdr hack-herdr-last-pane.sh), tracked per tab on press.
+  -- Previous pane in the current tab, tracked per tab on press.
   rex.action{
     name = "last_pane",
     title = "Last Pane Toggle",

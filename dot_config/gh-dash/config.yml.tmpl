@@ -58,11 +58,7 @@ defaults:
         width: 20
         hidden: true
   refetchIntervalMinutes: 30
-# Every window is spawned via ~/.local/bin/mux/mux window, which detects the live
-# multiplexer and dispatches: tmux new-window on the Mac (off-herdr), or
-# `herdr tab create` + `pane run` under herdr (where panes have no backing tmux
-# server, so a bare `tmux new-window` silently fails). Backward compatible with
-# both. See mux window for the tmux-vs-herdr command model.
+# Every window is spawned via ~/.local/bin/mux/mux window, which opens a Rex tab or a tmux window for the live multiplexer.
 keybindings:
   prs:
     - key: M

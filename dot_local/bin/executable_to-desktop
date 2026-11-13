@@ -53,7 +53,7 @@ do_media() {
 }
 
 # The wl-copy shim's sentinel names no compositor, so it must not read as a display and send a headless box down do_clip.
-real_wayland() { case "${WAYLAND_DISPLAY:-}" in '' | herdr-pluck-shim) ;; *) printf '%s' "$WAYLAND_DISPLAY" ;; esac; }
+real_wayland() { case "${WAYLAND_DISPLAY:-}" in '' | *-shim) ;; *) printf '%s' "$WAYLAND_DISPLAY" ;; esac; }
 
 # DESKTOP_OS is stamped by kitty-remote-quake.sh; its presence means someone upstream owns the display. Rest is fallback for a bare ssh.
 at_desktop() {
@@ -65,7 +65,7 @@ at_desktop() {
   esac
 }
 
-# herdr relays OSC 52 as a protocol-level clipboard write, so this reaches the workstation even over --remote.
+# The multiplexer relays OSC 52 to the attached terminal, so this reaches the workstation even over ssh.
 osc_clip() { printf '\033]52;c;%s\a' "$(printf '%s' "$1" | base64 | tr -d '\n')"; }
 
 front_app() { osascript -e "tell application \"System Events\" to $1 of first process whose frontmost is true" 2>/dev/null; }

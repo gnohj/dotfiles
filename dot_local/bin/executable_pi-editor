@@ -12,21 +12,6 @@ PI_ROOT = os.environ.get("PI_CODING_AGENT_DIR") or os.path.expanduser("~/.pi/age
 SESSIONS = os.path.realpath(os.path.join(PI_ROOT, "sessions"))
 
 
-def herdr_session():
-    pane = os.environ.get("HERDR_PANE_ID")
-    if not pane:
-        return None
-    try:
-        panes = json.loads(subprocess.run(["herdr", "pane", "list"], capture_output=True, text=True, timeout=5).stdout)
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return None
-    for entry in panes.get("result", {}).get("panes", []):
-        session = entry.get("agent_session") or {}
-        if entry.get("pane_id") == pane and entry.get("agent") == "pi" and session.get("kind") == "path":
-            return session.get("value")
-    return None
-
-
 def newest_session(cwd):
     directory = os.path.join(SESSIONS, "-%s--" % cwd.rstrip("/").replace("/", "-"))
     try:
@@ -37,11 +22,6 @@ def newest_session(cwd):
 
 
 def session_file():
-    candidate = herdr_session()
-    if candidate:
-        real = os.path.realpath(candidate)
-        if real.startswith(SESSIONS + os.sep) and os.path.isfile(real):
-            return real
     return newest_session(os.getcwd())
 
 

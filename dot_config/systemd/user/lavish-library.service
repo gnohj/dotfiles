@@ -9,7 +9,6 @@ Type=oneshot
 # ensure_server spawns the server detached and returns; process mode keeps that child alive when this oneshot ends.
 KillMode=process
 Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
-Environment=HERDR_SOCKET_PATH=%h/.config/herdr/herdr.sock
 ExecStart=/usr/bin/python3 -c "import sys; sys.path.insert(0, '%h/Developer/agents/shared/skills/lavish-library'); import library; library.ensure_server()"
 TimeoutStartSec=60
 

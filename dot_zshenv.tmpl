@@ -1,55 +1,33 @@
 #  Zshell entry point
 export ZDOTDIR=$HOME/.config/zshrc
 
-# herdr panes inherit no LANG; C locale miscounts 3-byte prompt glyphs. C.UTF-8 needs no locale-gen.
+# Some panes inherit no LANG; C locale miscounts 3-byte prompt glyphs. C.UTF-8 needs no locale-gen.
 case "$OSTYPE" in
   darwin*) export LANG="${LANG:-en_US.UTF-8}" ;;
   *) export LANG="${LANG:-C.UTF-8}" ;;
 esac
 
-# A launcher app started from a herdr pane leaks HERDR_* into every app it opens; a login parent means a real terminal window, not a pane - drop the stale identity there.
-if [[ -n "$HERDR_ENV" && "$(ps -o comm= -p $PPID 2>/dev/null)" == (*/|)login ]]; then
-  unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH HERDR_BIN_PATH
-fi
-
-if [[ "${HERDR_ENV:-}" == 1 ]]; then
-  export PI_IMAGE_PROTOCOL=none
-fi
-
-# PATH lives here, not .zshrc, so herdr/tmux/skhd `zsh -l -c` chains resolve ~/.local/bin; -U lets .zshrc re-prepend without duplicates.
+# PATH lives here, not .zshrc, so Rex/tmux/skhd `zsh -l -c` chains resolve ~/.local/bin; -U lets .zshrc re-prepend without duplicates.
 typeset -U path PATH
-# nix-profile (home-manager pkgs: lazygit, yazi) - needed by the non-interactive herdr server, same reason as .local/bin below
+# nix-profile (home-manager pkgs: lazygit, yazi) - needed by non-interactive chains, same reason as .local/bin below
 export PATH="$HOME/.nix-profile/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-# mux/ helper dirs (not top-level `herdr`/`tmux`, those are binaries) for bare-name calls from herdr/tmux binds; herdr needs a server restart.
-export PATH="$HOME/.local/bin/mux/herdr:$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared:$PATH"
+# mux/ helper dirs (not top-level `tmux`, that is a binary) for bare-name calls from Rex/tmux binds.
+export PATH="$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared:$PATH"
 # Same deal for the mux/ and worktree/ folders, so bare `mux …` / `worktree …` plus worktree/'s worktree-list and wtsync resolve from these non-interactive chains too.
 export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
-# mise only activates in .zshrc, so its shims are APPENDED for these chains' bare `herdr`, keeping nix/system precedence.
+# mise only activates in .zshrc, so its shims are APPENDED for these chains' bare tool calls, keeping nix/system precedence.
 export PATH="$PATH:$HOME/.local/share/mise/shims"
 # nix-darwin's /etc/zshenv resets PATH in Rex panes, dropping the rex CLI dir Rex prepended; ahead of mux/ and its rex/ folder.
 [[ -n "${REX_BIN_DIR:-}" && -d "$REX_BIN_DIR" ]] && (( ! ${path[(Ie)$REX_BIN_DIR]} )) && path=("$REX_BIN_DIR" $path)
 # Linux runs Rex from rex.service, so a rex call while it is down must fail, not start a stray server; mirrors environment.d.
 [[ "$OSTYPE" == linux* ]] && export REX_AUTOSTART=0
 
-# A long-lived herdr server hands new panes a HERDR_BIN_PATH that mise deleted on upgrade; repoint it once here.
-if [[ -n "${HERDR_BIN_PATH:-}" && ! -x "$HERDR_BIN_PATH" ]]; then
-  # Not ${commands[herdr]}: that hash matches the mux/herdr helper DIRECTORY on PATH.
-  if [[ -x "$HOME/.local/bin/herdr" ]]; then
-    export HERDR_BIN_PATH="$HOME/.local/bin/herdr"
-  else
-    unset HERDR_BIN_PATH
-  fi
-fi
-
-# ctrl+h/j/k/l pass through to fzf (herdr-sesh picker) instead of moving herdr focus; here so the herdr server inherits it (restart to apply).
-export HERDR_NAV_PASSTHROUGH_RE='^fzf$'
-
-# Here, not .zshrc: the herdr server's `zsh -l -c` chain never reads .zshrc, so $EDITOR was unset and its scrollback fell back to plain vi.
+# Here, not .zshrc: non-interactive `zsh -l -c` chains never read .zshrc, so $EDITOR would be unset and scrollback falls back to plain vi.
 export EDITOR="nvim"
 export VISUAL="nvim"
 
-# Same reason: ~/.zsh_gnohj_env sets these from .zshrc, so the server fell back to ~/Library/Application Support.
+# Same reason: ~/.zsh_gnohj_env sets these from .zshrc, so non-interactive chains fell back to ~/Library/Application Support.
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
@@ -62,14 +40,7 @@ export REX_AUTOSTART=false
 export _ZO_DATA_DIR="$ZDOTDIR"
 export _ZO_EXCLUDE_DIRS="$HOME/.git:*/.git:*/.git/*:$HOME/.claude:$HOME/.claude/*:*/.claude:*/.claude/*:$HOME/.local/share/chezmoi:$HOME/.local/share/chezmoi/*:$HOME/.treehouse/chezmoi-*"
 
-# yazi-herdr.sh hands the tab its target here so yazi replaces the shell before .zshrc's ~2s init.
-if [[ -n "${YAZI_FAST_TARGET:-}" ]]; then
-  _yazi_target="$YAZI_FAST_TARGET"
-  unset YAZI_FAST_TARGET
-  exec yazi "$_yazi_target"
-fi
-
-# tuxedo/todo.txt-cli paths. Here, not .zshrc: the Reminders bridge runs from launchd and herdr's non-interactive chain, neither of which reads .zshrc.
+# tuxedo/todo.txt-cli paths. Here, not .zshrc: the Reminders bridge runs from launchd, which never reads .zshrc.
 export TODO_DIR="$XDG_DATA_HOME/tasks"
 export TODO_FILE="$TODO_DIR/todo.txt"
 export DONE_FILE="$TODO_DIR/done.txt"
@@ -84,7 +55,7 @@ export TASKS_EVENT_DAYS=14
 # Trees mise trusts without prompting (repos, review worktrees, chezmoi, no-mistakes runs, Infinitary); an env var because config.toml warns inside chezmoi.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/Developer:$HOME/.treehouse:$HOME/.local/share/chezmoi:$HOME/.no-mistakes:$HOME/.config/infinitary/work"
 
-# Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: herdr's panes skip it.
+# Headless xdg-open is a no-op, so urls route to the attached workstation. Here not .zshrc: non-interactive chains skip it.
 export BROWSER="desktop-open"
 # Read before BROWSER by cli/go-gh, so gh-dash and gh CLI reach the wrapper without touching xdg-open.
 export GH_BROWSER="desktop-open"
@@ -92,10 +63,10 @@ export GH_BROWSER="desktop-open"
 # Read-only status/diff refreshes skip index.lock, so prompts, gitsigns, lazygit and agents stop colliding in the web monorepo.
 export GIT_OPTIONAL_LOCKS=0
 
-# Fakes a Wayland session so herdr-pluck picks wl-copy, which ~/.local/bin shims to `to-desktop clip`; only interactive and herdr shells get it, since Infinitary's ssh setup skips its own Xvfb when it sees this.
+# A fake Wayland display so tools that copy through `wl-copy` reach the desktop clipboard via the `~/.local/bin/wl-copy` shim and `to-desktop clip`.
 {{- if ne .chezmoi.os "darwin" }}
-if [[ -o interactive || $ZSH_EXECUTION_STRING == *herdr* ]]; then
-  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-herdr-pluck-shim}"
+if [[ -o interactive ]]; then
+  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-to-desktop-shim}"
 fi
 
 # Lavish reads its allowlist once at server start and outlives its starter, so every shell sets it; cached because `tailscale status` is too slow per-shell.

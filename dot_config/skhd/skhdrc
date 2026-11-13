@@ -10,7 +10,7 @@ cmd - 0x27 : ~/.local/bin/baby-menu-toggle
 # kitty's quick-access takes an instance group + its own config and command, so
 # rctrl stays distinguishable.
 # The ssh/yazi/plain quakes that used to sit on s/y/k are retired: the launcher
-# resolves tmux-vs-herdr at runtime (active_mux in launcher.sh), so a separate key
+# resolves tmux-vs-Rex at runtime (active_mux in launcher.sh), so a separate key
 # per mux was never the thing encoding it.
 cmd + rctrl - r : ~/.config/skhd/kitty-ql-quake.sh
 # Same launcher, but running ON the dev box, resolved live from the tailnet at press time. dev-context only overrides the target; a banner explains any no-op.

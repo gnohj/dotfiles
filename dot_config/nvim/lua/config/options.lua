@@ -69,7 +69,7 @@ opt.signcolumn = "yes:1" -- Keep minimal sign column for git/diagnostics
 -- OSC52 clipboard when working over SSH (remote dev box). Locally on the Mac the native
 -- provider (pbcopy) stays in charge; over SSH there's no pbcopy on a headless box, so
 -- route yanks through the terminal's OSC52 escape → they land in the LOCAL Mac clipboard.
--- Keyed on "no native Mac provider", not $SSH_TTY: herdr's systemd-spawned panes never inherit SSH_TTY, so yanks silently fell back to the VPS's wl-copy.
+-- Keyed on "no native Mac provider", not $SSH_TTY: systemd-spawned panes never inherit SSH_TTY, so yanks would silently fall back to the VPS's wl-copy.
 if
   vim.fn.has("mac") == 0
   or os.getenv("SSH_TTY") ~= nil
@@ -77,7 +77,7 @@ if
 then
   local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
   if ok then
-    -- Paste stays local: herdr's panes never answer the OSC52 read query, so osc52.paste() hangs 10s per register.
+    -- Paste stays local: an unanswered OSC52 read query makes osc52.paste() hang 10s per register.
     local paste_local = function()
       return {
         vim.fn.split(vim.fn.getreg('"'), "\n"),

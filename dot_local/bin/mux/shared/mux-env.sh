@@ -1,16 +1,13 @@
-# Canonical PATH for every mux helper. Sourced by absolute path, never executed: a herdr keybind inherits the server's frozen env and a tmux run-shell job gets a near-empty PATH, so each helper must set its own.
+# Canonical PATH for every mux helper. Sourced by absolute path, never executed: Rex, tmux run-shell, launchd and systemd callers get a minimal PATH, so each helper must set its own.
 
-_mux_path="$HOME/.local/bin/mux/herdr:$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared"
+_mux_path="$HOME/.local/bin/mux/tmux:$HOME/.local/bin/mux/shared"
 _mux_path="$_mux_path:$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$HOME/.local/bin"
 _mux_path="$_mux_path:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.nix-profile/bin:/run/current-system/sw/bin"
-# bun's global bin dir - a frozen herdr env has no bun shell init to add it.
+# bun's global bin dir - a minimal caller env has no bun shell init to add it.
 _mux_path="$_mux_path:$HOME/.bun/bin"
 
 # ~/.local/bin MUST stay ahead of /usr/bin: tmux 3.6b lives there, apt ships 3.4, and the mismatch fails every tmux call.
 _mux_path="$_mux_path:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-
-# herdr's real bin dir first: the mise shim costs ~46ms a call against 2ms, and the dir holds only herdr, so it shadows nothing.
-_mux_path="$HOME/.local/share/mise/installs/herdr/latest:$_mux_path"
 
 # mise shims are appended, never prepended, so nix and homebrew keep front precedence.
 export PATH="$_mux_path:$PATH:$HOME/.local/share/mise/shims"

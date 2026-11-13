@@ -138,7 +138,7 @@
       "key": "│ ├ ",
       "keyColor": "blue",
     },
-    // terminalfont reads nothing inside herdr, so the terminal closes the branch.
+    // terminalfont is left out, so the terminal closes the branch.
     {
       "type": "terminal",
       "key": "└ └ ",

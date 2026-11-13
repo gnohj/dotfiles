@@ -14,11 +14,7 @@ set -euo pipefail
 
 SELF="${BASH_SOURCE[0]}"
 
-# Backend mode. `tmux` (default): the launcher runs inside a tmux popup, so
-# window-opening / pane actions drive tmux. `herdr`: the launcher runs standalone
-# (e.g. the ghostty quake), so those actions drive herdr's socket API instead.
-# Entry points set this; ALL the menu/registry/engine logic below is shared and
-# identical for both. See launcher-quake.sh for the herdr entry point.
+# `tmux` (default) runs in a tmux popup and drives tmux; `quake` runs standalone as a persistent loop and drives the live mux.
 LAUNCHER_MODE="${LAUNCHER_MODE:-tmux}"
 
 # fzf re-forks --preview per cursor move, so each mode skips the startup work it never reads.
@@ -46,10 +42,6 @@ else
   MUX_LIVE=$(mux_kind)
   [ "$MUX_LIVE" = none ] && MUX_LIVE=""
   export MUX_LIVE
-  # Outside a pane, herdr calls hit the default socket; point them at the session that is actually running.
-  if [ "$MUX_LIVE" = herdr ] && [ -z "${HERDR_SOCKET_PATH:-}" ]; then
-    HERDR_SOCKET_PATH=$(herdr_live_socket) && export HERDR_SOCKET_PATH || unset HERDR_SOCKET_PATH
-  fi
 fi
 
 # mux_kind answers "which mux"; the dispatcher answers "do the thing".
@@ -83,7 +75,7 @@ case "$LAUNCHER_ROLE" in mac) LAUNCHER_OS=darwin ;; *) LAUNCHER_OS=linux ;; esac
 #                  OS (filtered at every derivation path, so it can't be dispatched
 #                  off-OS either). scope is field 9; os is field 10 — set an empty
 #                  scope (||) when an entry needs os but not mac.
-#   mux            omitted = all | tmux | herdr. Field 11, same treatment as os but
+#   mux            omitted = all | tmux | rex. Field 11, same treatment as os but
 #                  against the LIVE mux — set empty scope+os (|||) to reach it.
 CATEGORIES=(
   "AI|🤖 AI|🤖 AI ›|AI|AI > |static|generic|static"
@@ -251,7 +243,7 @@ action_fn() {
   return 1
 }
 
-# Run a terminal action, then return to the caller. In herdr mode the launcher is
+# Run a terminal action, then return to the caller. In quake mode the launcher is
 # a persistent root-menu loop (see the entry point), so every action — a process,
 # a GUI hand-off, a worktree capture — returns to the root menu the moment it
 # finishes. Nothing dismisses the quake per-action; only an explicit Ctrl+C tears
@@ -406,7 +398,7 @@ main_menu() {
       --preview "$PREVIEW_CMD" --preview-window 'right:50%:wrap:border-left') || rc=$?
   quit_on_interrupt "$rc"
   printf '\033[2J\033[H'
-  # Empty = Esc / aborted fzf. Never an exit: in herdr mode the loop just redraws
+  # Empty = Esc / aborted fzf. Never an exit: in quake mode the loop just redraws
   # root (only Ctrl+C quits); in tmux mode returning falls through to the end of
   # the script, closing the popup as before.
   [ -z "$choice" ] && return 0
@@ -500,31 +492,11 @@ aliases_menu() {
 #     '#{pane_current_path}'` can resolve to the popup itself (same trap fixed
 #     in act_copy_pane_address), so we read it from `list-panes` instead —
 #     popups are excluded from `list-panes`, so the real pane wins every time.
-#   * herdr (launcher drawn in the tmux popup): the `-L herdr` tmux host is an
-#     INVISIBLE shell — its only pane runs the `herdr` client, and the actual
-#     repo pane is managed by herdr, not tmux (so tmux only ever reports the
-#     herdr host's cwd, ~). Detect that (active tmux pane command == herdr) and
-#     ask herdr's socket API for the focused pane's cwd instead.
-#   * NO multiplexer around us (run via the `launcher` alias in the ghostty quake
-#     or any plain shell): tmux reports nothing, so ask herdr's socket for its
-#     GLOBALLY-focused pane cwd (see herdr_focused_cwd above).
+#   * Rex with no tmux around us: ask Rex for the focused block's cwd (rex_focused_cwd).
 #
 # Empty output lets callers fall back to $PWD. Every step is guarded so a
 # missing tool / stopped server degrades to the plain-tmux path, never worse
 # than the pre-fix behavior.
-# herdr's GLOBALLY-focused pane cwd, straight over the socket API — needs neither
-# tmux nor the HERDR pane env, so it resolves from the ghostty quake or any
-# standalone shell. herdr's own focus does not move when macOS focus shifts to
-# the quake window, so this still points at the pane you were looking at.
-herdr_focused_cwd() {
-  command -v herdr >/dev/null 2>&1 || return 1
-  command -v jq >/dev/null 2>&1 || return 1
-  herdr api snapshot 2>/dev/null | jq -r '
-    .result.snapshot as $s
-    | $s.panes[]? | select(.pane_id == $s.focused_pane_id)
-    | .foreground_cwd // .cwd // empty' 2>/dev/null
-}
-
 rex_focused_cwd() {
   [ -n "${REX_SESSION:-}" ] || return 1
   command -v jq >/dev/null 2>&1 || return 1
@@ -541,7 +513,7 @@ focused_pane_path() {
   local line cmd path hcwd
   # `|| true` so a failing tmux (running standalone, e.g. from the quake, where
   # there is no tmux server) does not trip `set -euo pipefail` and abort the whole
-  # launcher before the herdr-focus fallback below can run.
+  # launcher before the Rex fallback below can run.
   # session_attached for the same reason as active_mux: a detached session's active
   # pane would otherwise win and hand back a cwd you are not actually looking at.
   line=$(tmux list-panes -s -f '#{&&:#{session_attached},#{&&:#{window_active},#{pane_active}}}' \
@@ -549,22 +521,9 @@ focused_pane_path() {
   cmd=${line%%$'\t'*}
   path=${line#*$'\t'}
 
-  if [ "$cmd" = herdr ] && command -v herdr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-    hcwd=$(herdr pane process-info --current 2>/dev/null |
-      jq -r '[.result.process_info.foreground_processes[].cwd]
-               | map(select(. != null and . != "")) | .[-1] // empty' 2>/dev/null) || hcwd=""
-    [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
-  fi
-
   if [ -z "$path" ] && [ "$(active_mux)" = rex ]; then
     hcwd=$(rex_focused_cwd) && [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
     return 0
-  fi
-
-  # No tmux context around us (run via the `launcher` alias in the ghostty quake
-  # or any plain shell): ask herdr's socket for its globally-focused pane cwd.
-  if [ -z "$path" ]; then
-    hcwd=$(herdr_focused_cwd) && [ -n "$hcwd" ] && { printf '%s' "$hcwd"; return; }
   fi
 
   printf '%s' "$path"
@@ -581,7 +540,7 @@ clip() {
 
 # Transient message. tmux mode uses the tmux status line; standalone prints inline.
 notify() {
-  if [ "$LAUNCHER_MODE" = herdr ]; then
+  if [ "$LAUNCHER_MODE" = quake ]; then
     echo "$1"
     sleep 1.5
   else
@@ -590,7 +549,7 @@ notify() {
 }
 
 # Which multiplexer to open INTO — the live one, not whatever LAUNCHER_MODE assumes
-# (the quake is LAUNCHER_MODE=herdr for its own UI, but you may be running tmux).
+# (the quake is LAUNCHER_MODE=quake for its own UI, but you may be running tmux).
 # Delegates to mux_kind() from mux/shared/mux-detect.sh, sourced at the top of this
 # file, so the dispatcher and the launcher can't drift on the answer; mux_kind itself
 # is NOT memoized, which is why the result is resolved once into MUX_LIVE at startup.
@@ -628,7 +587,7 @@ sgr() {
 
 # Colored badge for the live multiplexer plus the box it's on — shown in the
 # launcher header so you always know both where an "open window/tab" action will
-# land and which machine you're aimed at (matters over ssh / herdr --remote).
+# land and which machine you're aimed at (matters over ssh).
 # Palette-driven (the colorscheme is sourced at the top of this file): both muxes
 # wear the purple and the LABEL names which one, so the eye goes to host@city in red
 # — the thing that changes when you're aimed at another box. Hex fallbacks keep it
@@ -639,7 +598,7 @@ mux_indicator() {
   host=$(sgr "${gnohj_color11:-#da858e}")
   mux=$(active_mux)
   case "$mux" in
-    herdr | rex | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
+    rex | tmux) badge="$(sgr "${gnohj_color01:-#c0aed2}" 1)● ${mux}${off}" ;;
     *) badge="$(sgr "${gnohj_color08:-#505e62}" 1)● no mux${off}" ;;
   esac
   printf '%s %s·%s %s%s%s' "$badge" "$dim" "$off" "$host" "$(mux_host_label)" "$off"
@@ -657,7 +616,7 @@ open_window() {
 open_named_window() {
   local emoji="$1" name="$2" cmd="$3" close_on_exit="${4:-}" keep=""
   [ "$close_on_exit" = true ] || keep=1
-  if [ "$(active_mux)" = herdr ] || [ "$(active_mux)" = rex ]; then
+  if [ "$(active_mux)" = rex ]; then
     open_window "$emoji" "$cmd" "" "$keep"
   else
     ~/.local/bin/mux/tmux/tmux-window-simple.sh "$emoji" "$name" "$cmd" $close_on_exit &&
@@ -668,7 +627,7 @@ open_named_window() {
 # Hide the quake after a hand-off: kitty socket, then its tty escape channel (survives the
 # remote quake's ssh hop), then a frontmost-guarded Escape. ALWAYS returns 0 (set -e).
 dismiss_quake() {
-  [ "$LAUNCHER_MODE" = herdr ] || return 0
+  [ "$LAUNCHER_MODE" = quake ] || return 0
   # No --no-response: saves nothing measured, and the response is what lets a failure fall through.
   if [ -n "${KITTY_LISTEN_ON:-}" ] && command -v kitten >/dev/null 2>&1 &&
     kitten @ --to "$KITTY_LISTEN_ON" action hide_macos_app >/dev/null 2>&1; then
@@ -694,7 +653,7 @@ dismiss_quake() {
 open_url() { to-desktop open "$1"; }
 
 # Ctrl+C is a hard quit from any picker. fzf-vim.sh exits 130 on Ctrl+C (esc
-# exits 1 = go back). The persistent herdr-mode loop treats an aborted picker as
+# exits 1 = go back). The persistent quake-mode loop treats an aborted picker as
 # "redraw root", so without this Ctrl+C would just bounce back to the menu — the
 # user wants it to bypass that and tear the launcher (and the quake) down. Called
 # right after each picker with its captured exit code; runs in the main shell (the
@@ -707,16 +666,16 @@ quit_on_interrupt() {
   exit 0
 }
 
-# Navigate "up one level" to the root menu. In herdr mode the launcher is a
+# Navigate "up one level" to the root menu. In quake mode the launcher is a
 # persistent loop (see the entry point), so returning unwinds to it and root
 # re-renders. In tmux mode there's no loop, so recurse into main_menu to redraw
 # root in place — the original single-popup behavior, unchanged.
 back_to_root() {
-  [ "$LAUNCHER_MODE" = herdr ] && return 0
+  [ "$LAUNCHER_MODE" = quake ] && return 0
   main_menu
 }
 
-# Guard for actions still wired only to tmux: in herdr mode, say so and bail
+# Guard for actions still wired only to tmux: when tmux is not live, say so and bail
 # instead of aborting the launcher under `set -euo pipefail`.
 require_tmux() {
   # Allow whenever tmux is the LIVE mux (even from the quake); block otherwise.
@@ -793,8 +752,7 @@ act_notes_current() {
   # No note is an ordinary exit 1, and this script runs under set -e.
   MATCHES=$("$HOME/.local/bin/vault-note" --all --ticket "$ID" "${pane_path:-$PWD}" 2>/dev/null) || MATCHES=""
   COUNT=$(printf '%s' "$MATCHES" | grep -c .) || COUNT=0
-  # open_window abstracts the multiplexer: a new tmux window in tmux mode, a new
-  # herdr tab in herdr mode. (Avoids nested popups: the launcher may itself run in
+  # open_window abstracts the multiplexer: a new tmux window or a new Rex tab. (Avoids nested popups: the launcher may itself run in
   # a tmux popup, and display-popup-from-popup races the outer one's lifecycle.)
   case "$COUNT" in
   0) notify "no vault note for $ID" ;;
@@ -825,7 +783,7 @@ act_fzf_logs() {
   log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
   [ -n "$log_file" ] || return 0
   # Quake mode hands off: `exec` would replace the persistent launcher loop with nvim.
-  if [ "$LAUNCHER_MODE" = herdr ]; then
+  if [ "$LAUNCHER_MODE" = quake ]; then
     open_window "📋" "nvim '$log_file'"
   else
     exec nvim "$log_file"
@@ -901,24 +859,24 @@ act_system_up() {
   zsh -c "source ~/.config/zshrc/.zshrc 2>/dev/null; up; echo; echo 'Press any key to continue...'; read -k1"
 }
 
-# AI capture per host: tmux hands off via run-shell -b (popups can't nest); herdr and Rex run inline with WORKTREE_OPEN_IN naming the mux.
+# AI capture per host: tmux hands off via run-shell -b (popups can't nest); Rex runs inline with WORKTREE_OPEN_IN naming the mux.
 run_worktree_capture() {
   local verb="$1" mux
   mux=$(active_mux)
-  if [ "$mux" = herdr ] || [ "$mux" = rex ]; then
+  if [ "$mux" = rex ]; then
     WORKTREE_OPEN_IN=$mux "$HOME/.local/bin/worktree/worktree" "$verb" && dismiss_quake
   else
     tmux run-shell -b "$HOME/.local/bin/worktree/worktree $verb"
   fi
 }
 
-# wt-new runs inline and self-detects its host: tmux → sesh connect, herdr/Rex → new workspace/session.
+# wt-new runs inline and self-detects its host: tmux → sesh connect, Rex → new session.
 act_worktree_add() { ~/.local/bin/worktree/wt-new && dismiss_quake; }
 act_worktree_ai_prompt() { run_worktree_capture prompt; }
 act_worktree_jira() {
   local mux
   mux=$(active_mux)
-  if [ "$mux" = herdr ] || [ "$mux" = rex ]; then
+  if [ "$mux" = rex ]; then
     WORKTREE_OPEN_IN=$mux ~/.local/bin/worktree/worktree jira && dismiss_quake
   else
     ~/.local/bin/worktree/worktree jira
@@ -927,7 +885,7 @@ act_worktree_jira() {
 act_worktree_clipboard() { run_worktree_capture clipboard; }
 act_worktree_bug() { run_worktree_capture bug; }
 act_worktree_retry() { run_worktree_capture retry; }
-# wtrm sweeps both tmux sessions and herdr workspaces in the worktree.
+# wtrm sweeps the worktree's tmux and Rex sessions.
 act_worktree_delete() { ~/.local/bin/worktree/wtrm; }
 
 act_outdated() {
@@ -1045,7 +1003,7 @@ if [[ "${1:-}" == "--category" ]]; then
   exit 0
 fi
 
-if [ "$LAUNCHER_MODE" = herdr ]; then
+if [ "$LAUNCHER_MODE" = quake ]; then
   # Persistent root-menu picker: every action returns here when it finishes, and
   # Esc / an aborted fzf just redraws root. The only way out is an explicit Ctrl+C
   # (SIGINT), which dismisses the quake on the way down. `|| true` keeps a

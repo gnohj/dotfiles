@@ -97,7 +97,7 @@ local function previewable(attachment)
     and image.supports_file(attachment.filename)
 end
 
--- Full-size screenshots never reach the screen through herdr, so float a small normalized copy.
+-- Full-size screenshots can fail to reach the screen, so float a small normalized copy.
 local function preview_copy(path, on_ready)
   local preview = vim.fs.dirname(path) .. "/preview.png"
   if vim.uv.fs_stat(preview) then

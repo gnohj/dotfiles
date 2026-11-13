@@ -1,6 +1,6 @@
 -- ctrl+;: cycle panes wanting you on every `rex hosts` entry, blocked first, then unseen error and done, newest first.
 local TERM = "com.superlogical.terminal"
-local SEEN = os.getenv("HOME") .. "/.local/state/rex-herdr-keys/attention-seen"
+local SEEN = os.getenv("HOME") .. "/.local/state/rex-keys/attention-seen"
 local TIER = { blocked = 1, error = 2, done = 3 }
 
 local function epoch(ts)

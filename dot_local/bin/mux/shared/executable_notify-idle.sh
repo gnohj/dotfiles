@@ -3,8 +3,6 @@
 set -uo pipefail
 . "$HOME/.local/bin/mux/shared/mux-env.sh"
 
-[ -n "${HERDR_SOCKET_PATH:-}" ] && exit 0
-
 # Log every invocation with caller info so we can spot rogue triggers.
 LOG_DIR="$HOME/.logs"
 mkdir -p "$LOG_DIR"

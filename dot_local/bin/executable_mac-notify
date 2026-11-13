@@ -4,7 +4,7 @@
 # across the worktree dispatcher (runner, capture, abort, retry and every
 # capture entry point) and notify-idle.sh. Named for its macOS origin, but
 # every caller is cross-platform now: off darwin it emits through mux
-# (herdr / tmux) so the dev box gets the same banners.
+# (Rex / tmux) so the dev box gets the same banners.
 #
 # Usage:
 #   mac-notify --title "T" --message "M" [opts]
@@ -38,7 +38,7 @@
 #   - Falls back to `osascript display notification` when
 #     terminal-notifier isn't installed. The fallback can't honor
 #     group/sound/icon/execute — those are silently ignored.
-#   - Off darwin: emits via `mux notify` (herdr toast / tmux message),
+#   - Off darwin: emits via `mux notify` (Rex desktop banner / tmux message),
 #     then notify-send, then stderr. group/timeout/icon/execute are
 #     dropped — no multiplexer toast has an equivalent.
 #   - Always exits 0; notifications are best-effort. Errors are
@@ -81,9 +81,9 @@ if [ -z "$TITLE" ] && [ -z "$MESSAGE" ]; then
 fi
 
 # Off darwin there is no terminal-notifier, but the banner still has somewhere to
-# land: mux owns the live multiplexer's toast (herdr notification / tmux message),
+# land: mux owns the live multiplexer's toast (Rex desktop banner / tmux message),
 # so the devbox gets the same start/heartbeat/outcome banners the Mac does. Args
-# terminal-notifier owns alone are dropped - herdr's CLI has no group replacement
+# terminal-notifier owns alone are dropped - no multiplexer toast has a group replacement
 # (heartbeats stack instead of replacing), timeout, content image, or click action.
 if [[ "$OSTYPE" != darwin* ]]; then
   if command -v mux >/dev/null 2>&1 && [ "$(mux kind 2>/dev/null)" != none ]; then

@@ -14,7 +14,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient), [Atuin](https://github.com/atuinsh/atuin) (shell history)
 - **Editor**: [Neovim](https://neovim.io/) (LazyVim)
-- **Multiplexer**: [herdr](https://herdr.dev) (primary, including `herdr --remote` into the VPS), with [Tmux](https://github.com/tmux/tmux) kept working as the fallback
+- **Multiplexer**: Rex is the main multiplexer, with [Tmux](https://github.com/tmux/tmux) in Ghostty as the fallback
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Version Control**: Git worktrees (bare repos + `wt-add`/`wtrm` helpers), [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
 - **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; each platform also runs a lightweight background recorder - see below)
@@ -32,7 +32,7 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 
 ### Linux VPS (remote dev box)
 
-Headless, so the desktop categories above collapse into CLI equivalents: the terminal and keyboard remapping stay on the Mac client, herdr does the windowing (attached from the Mac with `herdr --remote`), and the CLI core is the **same Nix toolchain as the Mac**.
+Headless, so the desktop categories above collapse into CLI equivalents: the terminal and keyboard remapping stay on the Mac client, Rex does the windowing, and the CLI core is the **same Nix toolchain as the Mac**.
 
 - **System & Packages**: [Nix](https://nixos.org/) via [home-manager](https://github.com/nix-community/home-manager) provides the CLI toolchain from the same `flake.lock` as the Mac (home-manager is the Linux analog to nix-darwin); [apt](https://wiki.debian.org/apt) supplies the thin base (build tools, monitoring, source-built tmux); [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
 - **Networking**: [Tailscale](https://tailscale.com/) mesh (the only way in - no public SSH), [Mosh](https://mosh.org/) for roaming attach
@@ -196,6 +196,6 @@ mise outdated    # list      mise install   # install missing      mise upgrade 
 
 ### Tailscale + from-source tools
 
-Tailscale rides along with apt (`sudo tailscale update` to force). **herdr:** `curl -fsSL https://herdr.dev/install.sh | sh`.
+Tailscale rides along with apt (`sudo tailscale update` to force).
 
 </details>

@@ -14,17 +14,10 @@ end
 -- `false` = probed and found nothing; memoized so a bare env doesn't re-probe.
 local probed = nil
 
--- Own pane env first (herdr wins: a herdr pane can sit atop a tmux session).
+-- Own pane env first, then the `mux kind` probe.
 function M.kind()
-  if
-    vim.env.MUX_FORCE_KIND == "herdr"
-    or vim.env.MUX_FORCE_KIND == "rex"
-    or vim.env.MUX_FORCE_KIND == "tmux"
-  then
+  if vim.env.MUX_FORCE_KIND == "rex" or vim.env.MUX_FORCE_KIND == "tmux" then
     return vim.env.MUX_FORCE_KIND
-  end
-  if vim.env.HERDR_SOCKET_PATH and vim.env.HERDR_SOCKET_PATH ~= "" then
-    return "herdr"
   end
   if
     vim.env.TERM_PROGRAM == "rex"
@@ -44,11 +37,11 @@ function M.kind()
   return probed or nil
 end
 
--- Fire-and-forget: the herdr path makes several CLI calls, none worth blocking on.
+-- Fire-and-forget: the dispatcher makes several CLI calls, none worth blocking on.
 local function dispatch(args, what)
   if not M.kind() then
     vim.notify(
-      "No herdr, Rex or tmux session detected - can't " .. what,
+      "No Rex or tmux session detected - can't " .. what,
       vim.log.levels.WARN
     )
     return
@@ -82,8 +75,7 @@ local label = nil
 
 local function label_cache_file()
   local kind = M.kind()
-  local id = (kind == "rex" and vim.env.REX_SESSION)
-    or (kind == "herdr" and vim.env.HERDR_WORKSPACE_ID)
+  local id = kind == "rex" and vim.env.REX_SESSION
   if not id or id == "" then
     return nil
   end

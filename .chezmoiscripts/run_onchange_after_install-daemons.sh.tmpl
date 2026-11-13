@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Keeps the daemons in .chezmoidata/daemons.json current: on Linux writes + enables their systemd units and prunes units whose script is gone, on macOS restarts the equivalent launchd agents.
+# manifest sha256: {{ include ".chezmoidata/daemons.json" | sha256sum }}
+# codex-headless sha256: {{ include "dot_local/bin/executable_codex-headless" | sha256sum }}
+{{ range $name, $d := .daemons.list -}}
+# {{ $name }} sha256: {{ include (printf "dot_local/bin/executable_%s" $d.script) | sha256sum }}
+{{ end -}}
+set -eu
+
+# macOS has no systemd: nix-darwin reloads a launchd agent only when its PLIST changes, not when the script it execs does, so a script edit leaves stale code running until reboot.
+if [ "$(uname)" = "Darwin" ]; then
+  command -v launchctl >/dev/null 2>&1 || exit 0
+  # Mirror `systemctl try-restart`: restart only what already runs; a new agent starts on the next darwin-rebuild.
+  RUNNING=$(launchctl list | awk '$1 != "-" { print $3 }')
+  RESTARTED=0
+{{ range $name, $d := .daemons.list -}}
+  if printf '%s\n' "$RUNNING" | grep -qxF "org.nixos.{{ $name }}"; then
+    launchctl kickstart -k "gui/$(id -u)/org.nixos.{{ $name }}" >/dev/null 2>&1 && RESTARTED=$((RESTARTED + 1))
+  fi
+{{ end -}}
+  echo "daemons: restarted $RESTARTED running launchd agent(s)"
+  exit 0
+fi
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+UNIT_DIR="$HOME/.config/systemd/user"
+mkdir -p "$UNIT_DIR"
+
+KEEP="{{ range $name, $d := .daemons.list }}{{ $name }} {{ end }}"
+
+write_unit() {  # write_unit <path> <content>; only touches disk when the content changed
+  local path="$1" content="$2"
+  if [ -f "$path" ] && [ "$(cat "$path")" = "$content" ]; then return 1; fi
+  printf '%s' "$content" > "$path"
+  return 0
+}
+
+CHANGED=""
+
+{{ range $name, $d := .daemons.list }}
+# ---------- {{ $name }} ----------
+{{- $interp := $d.interp }}
+{{- $env := list }}
+{{- if hasKey $d "linux" }}{{ if hasKey $d.linux "interp" }}{{ $interp = $d.linux.interp }}{{ end }}{{ if hasKey $d.linux "env" }}{{ $env = $d.linux.env }}{{ end }}{{ end }}
+SERVICE=$(cat <<'UNIT_EOF'
+# GENERATED from .chezmoidata/daemons.json - edit the manifest, not this file.
+{{- if hasKey $d "note" }}
+# {{ $d.note }}
+{{- end }}
+[Unit]
+Description={{ $d.desc }}
+
+[Service]
+Type=simple
+{{- if hasKey $d "needsPath" }}
+Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin
+{{- end }}
+ExecStart={{ if $interp }}{{ $interp }} {{ end }}%h/{{ $.daemons.scriptDir }}/{{ $d.script }}{{ if $d.args }} {{ $d.args }}{{ end }}
+{{- range $e := $env }}
+Environment={{ if or (contains " " $e.v) (contains "{" $e.v) }}"{{ $e.k }}={{ $e.v }}"{{ else }}{{ $e.k }}={{ $e.v }}{{ end }}
+{{- end }}
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
+UNIT_EOF
+)
+
+write_unit "$UNIT_DIR/{{ $name }}.service" "$SERVICE" && CHANGED="$CHANGED {{ $name }}"
+{{ end }}
+
+# A unit whose ExecStart script no longer exists belongs to a retired daemon: stop it instead of letting it restart-loop.
+for unit in "$UNIT_DIR"/*.service; do
+  [ -e "$unit" ] || continue
+  base=$(basename "$unit" .service)
+  case " $KEEP " in *" $base "*) continue ;; esac
+  script=$(sed -n 's/^ExecStart=//p' "$unit" | tr ' ' '\n' | sed "s#^%h/#$HOME/#" | grep -m1 "^$HOME/.local/bin/" || true)
+  [ -n "$script" ] && [ ! -e "$script" ] || continue
+  echo "daemons: pruning $base (missing $script)"
+  systemctl --user disable --now "$base.service" "$base.path" 2>/dev/null || true
+  rm -f "$UNIT_DIR/$base.service" "$UNIT_DIR/$base.path"
+  CHANGED="$CHANGED $base"
+done
+
+[ -n "$CHANGED" ] && systemctl --user daemon-reload
+
+# Unguarded by $CHANGED: the sha256 comments above re-run this whenever a daemon script changes, so reaching here means a running daemon holds stale code.
+{{ range $name, $d := .daemons.list -}}
+if systemctl --user is-active --quiet {{ $name }}.service; then systemctl --user restart {{ $name }}.service; else systemctl --user enable --now {{ $name }}.service; fi 2>/dev/null || true
+{{ end -}}
+echo "daemons: applied ($KEEP)"

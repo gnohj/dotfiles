@@ -10,7 +10,7 @@ command -v systemctl >/dev/null 2>&1 || exit 0
 
 systemctl --user daemon-reload
 
-# --now is safe here (unlike herdr-server): the oneshot holds no live state, so starting it just prunes ~/.logs one pass early.
+# --now is safe here: the oneshot holds no live state, so starting it just prunes ~/.logs one pass early.
 systemctl --user enable --now cleanup-logs.timer
 
 echo "cleanup-logs.timer enabled (every 72 hours)."

@@ -9,10 +9,6 @@ config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 compose_file=$config_home/hermes-container/compose.yaml
 
-if [[ ${HERDR_ENV:-} == 1 ]]; then
-  export HERDR_AGENT=hermes
-fi
-
 case $system in
   Darwin)
     temp_root=/private/tmp
@@ -30,11 +26,10 @@ esac
 export HERMES_UID=$uid
 export HERMES_GID=$gid
 export HERMES_WORKSPACE=${HERMES_WORKSPACE:-$data_home/hermes/workspace}
-export HERDR_CLIPBOARD_DIR=${HERDR_CLIPBOARD_DIR:-$temp_root/herdr-clipboard-images-$uid}
 export TERMINAL_IMAGE_DIR=${TERMINAL_IMAGE_DIR:-$temp_root/terminal-image-paste-$uid}
 
-mkdir -p "$HERMES_WORKSPACE" "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"
-chmod 700 "$HERMES_WORKSPACE" "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"
+mkdir -p "$HERMES_WORKSPACE" "$TERMINAL_IMAGE_DIR"
+chmod 700 "$HERMES_WORKSPACE" "$TERMINAL_IMAGE_DIR"
 
 if [[ $system == Linux ]]; then
   command -v setfacl >/dev/null 2>&1 || {
@@ -48,10 +43,8 @@ if [[ $system == Linux ]]; then
   }
   container_uid=$((subuid_start + uid - 1))
   setfacl -m "u:$container_uid:rwx,d:u:$container_uid:rwx,d:u:$uid:rwx" "$HERMES_WORKSPACE"
-  for image_dir in "$HERDR_CLIPBOARD_DIR" "$TERMINAL_IMAGE_DIR"; do
-    setfacl -R -m "u:$container_uid:rX" "$image_dir"
-    find "$image_dir" -type d -exec setfacl -m "d:u:$container_uid:rx" {} +
-  done
+  setfacl -R -m "u:$container_uid:rX" "$TERMINAL_IMAGE_DIR"
+  find "$TERMINAL_IMAGE_DIR" -type d -exec setfacl -m "d:u:$container_uid:rx" {} +
 fi
 
 dashboard_port=9119

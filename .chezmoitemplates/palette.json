@@ -1,7 +1,6 @@
 {{- /* The gnohj_color* palette as JSON, resolved at apply time so a config chezmoi renders matches byte-for-byte what colorscheme-set.sh writes - otherwise chezmoi reads the generated file as drift and reverts it on the next apply. */ -}}
 {{- $seed := printf `. "%s/dot_config/colorscheme/list/executable_evergarden-winter-mute-colors.sh" 2>/dev/null
-. "%s/dot_config/colorscheme/executable_relight.sh" 2>/dev/null
-. "%s/dot_config/colorscheme/executable_palette.sh" 2>/dev/null` .chezmoi.sourceDir .chezmoi.sourceDir .chezmoi.sourceDir -}}
+. "%s/dot_config/colorscheme/executable_palette.sh" 2>/dev/null` .chezmoi.sourceDir .chezmoi.sourceDir -}}
 {{- $script := print $seed `
 printf '{'
 sep=
@@ -11,8 +10,5 @@ for v in $(compgen -v | grep '^gnohj_color[0-9]*$'); do
   printf '%s"%s":"%s"' "$sep" "${v#gnohj_}" "$val"
   sep=,
 done
-# Omarchy hands over its own selection fill; off it this must reproduce generate_herdr_config's relight, or the key renders empty and herdr falls back to the terminal's own selection colours.
-selection_bg="${omarchy_selection_bg:-}"
-[ -n "$selection_bg" ] || selection_bg="$(gnohj_relight "$gnohj_color04" 0.20)"
-printf '%s"selection_bg":"%s","text":"%s","text_muted":"%s","selection":"%s","accent":"%s"}' "$sep" "$selection_bg" "$gnohj_text" "$gnohj_text_muted" "$gnohj_selection" "$gnohj_accent"` -}}
+printf '%s"text":"%s","text_muted":"%s","selection":"%s","accent":"%s"}' "$sep" "$gnohj_text" "$gnohj_text_muted" "$gnohj_selection" "$gnohj_accent"` -}}
 {{- output "bash" "-c" $script -}}

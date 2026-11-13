@@ -16,7 +16,6 @@ import os
 import plistlib
 import re
 import shutil
-import socket
 import subprocess
 import sys
 import time
@@ -45,7 +44,6 @@ REMOTE_EVENTS = os.environ.get("RESOURCE_WATCH_REMOTE_EVENTS", "~/.local/state/r
 LIBRARY = os.path.join(HOME, "Developer", "agents", "shared", "skills", "lavish-library", "library.py")
 LIBRARY_PROJECT = "System Resource Report"
 CPU_TEMP = os.path.join(HOME, ".local", "bin", "cpu-temp")
-HERDR = shutil.which("herdr") or os.path.join(HOME, ".local", "bin", "herdr")
 RIFT = shutil.which("rift-cli") or "/opt/homebrew/bin/rift-cli"
 CLK_TCK = os.sysconf("SC_CLK_TCK") if LINUX else 100
 
@@ -219,39 +217,12 @@ def short_args(args, limit=140):
     return args if len(args) <= limit else args[: limit - 1] + "…"
 
 
-def herdr_sockets():
-    """Every live herdr server: the flat socket plus each named session (the dev-box runs as session fm-remote)."""
-    root = os.path.join(HOME, ".config", "herdr")
-    candidates = [os.environ.get("HERDR_SOCKET_PATH"), os.path.join(root, "herdr.sock")]
-    try:
-        candidates += [os.path.join(root, "sessions", name, "herdr.sock") for name in sorted(os.listdir(os.path.join(root, "sessions")))]
-    except OSError:
-        pass
-    result = []
-    for path in candidates:
-        if path and path not in result and os.path.exists(path):
-            result.append(path)
-    return result
-
-
-def herdr_request(sock, method, params):
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.settimeout(3)
-        s.connect(sock)
-        s.sendall((json.dumps({"id": "resource-watch", "method": method, "params": params}) + "\n").encode())
-        with s.makefile("rb") as stream:
-            line = stream.readline()
-    return json.loads(line) if line else {}
-
-
 class Context:
 
-    shell_pids = {}
     bundles = {}
 
     def __init__(self):
-        self.panes = self.herdr_panes()
-        self.panes.update(self.tmux_panes())
+        self.panes = self.tmux_panes()
         self.windows = self.rift_windows() if DARWIN else self.hypr_windows()
         self.window_pids = {w["pid"] for w in self.windows}
         self.launchd_jobs = self.launchd_job_pids() if DARWIN else set()
@@ -260,45 +231,6 @@ class Context:
     def launchd_job_pids():
         rows = (line.split("\t", 1)[0] for line in run(["launchctl", "list"]).splitlines())
         return {int(pid) for pid in rows if pid.isdigit()}
-
-    def herdr_panes(self):
-        result = {}
-        for sock in herdr_sockets():
-            result.update(self.herdr_session(sock))
-        return result
-
-    def herdr_session(self, sock):
-        try:
-            out = subprocess.run([HERDR, "api", "snapshot"], capture_output=True, text=True, timeout=5,
-                                 env=dict(os.environ, HERDR_SOCKET_PATH=sock)).stdout
-            snap = json.loads(out).get("result", {}).get("snapshot", {})
-        except (OSError, ValueError, subprocess.SubprocessError):
-            return {}
-        session = os.path.basename(os.path.dirname(sock)) if os.sep + "sessions" + os.sep in sock else ""
-        prefix = f"herdr[{session}]" if session else "herdr"
-        workspaces = {w["workspace_id"]: w.get("label", "") for w in snap.get("workspaces", [])}
-        tabs = {t["tab_id"]: t.get("label", "") for t in snap.get("tabs", [])}
-        result = {}
-        for pane in snap.get("panes", []):
-            key = (sock, pane["pane_id"])
-            if key not in Context.shell_pids:
-                try:
-                    info = herdr_request(sock, "pane.process_info", {"pane_id": pane["pane_id"]}).get("result", {}).get("process_info", {})
-                except (OSError, ValueError):
-                    info = {}
-                if info.get("shell_pid"):
-                    Context.shell_pids[key] = info["shell_pid"]
-            pid = Context.shell_pids.get(key)
-            if not pid:
-                continue
-            title = pane.get("title") or pane.get("terminal_title_stripped") or ""
-            result[pid] = {
-                "kind": "herdr",
-                "key": f"herdr:{session}:{pane['pane_id']}",
-                "label": f"{prefix} {workspaces.get(pane['workspace_id'], '?')} › {tabs.get(pane['tab_id'], '?')}",
-                "detail": " · ".join(x for x in (pane.get("agent"), title, (pane.get("cwd") or "").replace(HOME, "~")) if x),
-            }
-        return result
 
     def tmux_panes(self):
         if not shutil.which("tmux"):

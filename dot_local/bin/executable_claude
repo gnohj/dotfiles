@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Single source of Claude Code account auth: every launcher (zsh `claude`, cs, cr, herdr, systemd) goes through here, so a non-interactive spawn authenticates exactly like an interactive one.
+# Single source of Claude Code account auth: every launcher (zsh `claude`, cs, cr, Rex, systemd) goes through here, so a non-interactive spawn authenticates exactly like an interactive one.
 set -euo pipefail
 
 # Resolve the REAL binary, never this wrapper: mise owns the install and only .zshrc adds its bin dir, so a bare PATH lookup fails outside an interactive zsh.
@@ -162,12 +162,12 @@ unset CLAUDE_CONFIG_DIR
 export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
 claude-account seed-config --dir "${_expected:-ordinary}"
 
-# Claude Code trusts kitty graphics only from terminals it names; herdr and Rex pass them through unnamed.
-if [ "${TERM_PROGRAM:-}" = herdr ] || [ "${TERM_PROGRAM:-}" = rex ]; then
+# Claude Code trusts kitty graphics only from terminals it names; Rex passes them through unnamed.
+if [ "${TERM_PROGRAM:-}" = rex ]; then
   export CLAUDE_CODE_FORCE_TERMINAL_IMAGES="${CLAUDE_CODE_FORCE_TERMINAL_IMAGES:-1}"
 fi
 
-# herdr's restore resumes a firstmate home as a bare `claude --resume`; scoped here so nothing else started there inherits medium.
+# A firstmate home can be resumed as a bare `claude --resume`; scoped here so nothing else started there inherits medium.
 _fm_home_model() {
   case "$PWD" in
     "$HOME/Developer/firstmate") echo claude-sonnet-5-5 ;;

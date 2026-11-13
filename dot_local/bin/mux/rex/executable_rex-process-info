@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rex-process-info <session-id> <block-id> - a Rex block's foreground process in `herdr pane process-info` shape.
+# rex-process-info <session-id> <block-id> - a Rex block's foreground process as {result: {process_info: {foreground_processes: [...]}}} JSON.
 set -uo pipefail
 
 . "$HOME/.local/bin/mux/shared/mux-detect.sh"
