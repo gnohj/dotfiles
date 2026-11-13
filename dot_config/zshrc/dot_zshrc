@@ -1674,6 +1674,7 @@ fi
 # export DO_NOT_TRACK=1
 # export DISABLE_TELEMETRY=1 # commented out: blocks Claude Code Remote Control
 # export DISABLE_AUTOUPDATER=1
+export TERMINAL_BROWSER_NO_TELEMETRY=1
 export HOMEBREW_NO_AUTO_UPDATE="1"
 
 # Force ghostty detection for snacks image - https://github.com/folke/snacks.nvim/blob/main/docs/image.md
