@@ -1117,7 +1117,11 @@ function M.opts()
       repo_config = { paths = review_paths },
       github = {
         views = {
-          { name = "My PRs", search = "is:open author:@me", layout = "grouped" },
+          {
+            name = "My PRs",
+            search = "is:open author:@me",
+            layout = "grouped",
+          },
           {
             name = "Needs Review",
             search = "is:open review-requested:@me",
@@ -1158,20 +1162,13 @@ function M.setup(opts)
     board_id = jira_board_id,
     sprint_field = "customfield_10010",
   })
-  -- The theme's CursorLine is transparent, so Atlas windows use herdr's sidebar active_row_bg.
-  local function sidebar_row_bg()
-    local ok, lines =
-      pcall(vim.fn.readfile, vim.fn.expand("~/.config/herdr/config.toml"))
-    for _, line in ipairs(ok and lines or {}) do
-      local hex = line:match('^%s*active_row_bg%s*=%s*"(#%x+)"')
-      if hex then
-        return hex
-      end
-    end
-    return require("config.colors")["gnohj_color13"]
-  end
+  -- The theme's CursorLine is transparent, so Atlas windows use the selection role.
   local function set_cursorline_hl()
-    vim.api.nvim_set_hl(0, "AtlasCursorLine", { bg = sidebar_row_bg() })
+    vim.api.nvim_set_hl(
+      0,
+      "AtlasCursorLine",
+      { bg = require("config.colors")["gnohj_selection"] }
+    )
   end
   set_cursorline_hl()
   vim.api.nvim_create_autocmd("ColorScheme", { callback = set_cursorline_hl })

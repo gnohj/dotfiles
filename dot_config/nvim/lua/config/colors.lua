@@ -29,6 +29,7 @@ local function load_colors()
 end
 
 local colors = load_colors()
+colors.gnohj_selection = colors.gnohj_selection or colors.gnohj_color17
 
 if _G.vim then
   for name, hex in pairs(colors) do
