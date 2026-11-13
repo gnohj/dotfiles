@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Keeps every herdr daemon in .chezmoidata/mux-daemons.json current: on Linux writes + enables its systemd units and prunes retired ones, on macOS restarts the equivalent launchd agents. herdr-server is excluded on both: it is the server, not a socket-activated daemon.
+# Keeps the standalone daemons in .chezmoidata/mux-daemons.json current: on Linux writes + enables their systemd units and prunes every other herdr daemon, on macOS restarts the equivalent launchd agents. herdr-server units belong to the retire-herdr-server script.
 # manifest sha256: {{ include ".chezmoidata/mux-daemons.json" | sha256sum }}
-# socket-resolver sha256: {{ include "dot_local/bin/mux/shared/executable_herdr-socket-path" | sha256sum }}
-# daemon-exec sha256: {{ include "dot_local/bin/mux/shared/executable_herdr-daemon-exec" | sha256sum }}
 # codex-headless sha256: {{ include "dot_local/bin/executable_codex-headless" | sha256sum }}
 {{ range $name, $d := .muxDaemons.list -}}
 # {{ $name }} sha256: {{ include (printf "dot_local/bin/mux/herdr/executable_%s" $d.script) | sha256sum }}
@@ -30,10 +28,7 @@ command -v systemctl >/dev/null 2>&1 || exit 0
 UNIT_DIR="$HOME/.config/systemd/user"
 mkdir -p "$UNIT_DIR"
 
-SOCKET="%h/{{ .muxDaemons.socket }}"
-SCRIPTS="%h/{{ .muxDaemons.scriptDir }}"
-
-KEEP="{{ range $name, $d := .muxDaemons.list }}{{ $name }} {{ end }}"
+KEEP="{{ range $name, $d := .muxDaemons.list }}{{ if hasKey $d "standalone" }}{{ $name }} {{ end }}{{ end }}"
 
 write_unit() {  # write_unit <path> <content>; only touches disk when the content changed
   local path="$1" content="$2"
@@ -44,48 +39,30 @@ write_unit() {  # write_unit <path> <content>; only touches disk when the conten
 
 CHANGED=""
 
-{{ range $name, $d := .muxDaemons.list }}
+{{ range $name, $d := .muxDaemons.list }}{{ if hasKey $d "standalone" }}
 # ---------- {{ $name }} ----------
 {{- $interp := $d.interp }}
 {{- $env := list }}
 {{- if hasKey $d "linux" }}{{ if hasKey $d.linux "interp" }}{{ $interp = $d.linux.interp }}{{ end }}{{ if hasKey $d.linux "env" }}{{ $env = $d.linux.env }}{{ end }}{{ end }}
 SERVICE=$(cat <<'UNIT_EOF'
 # GENERATED from .chezmoidata/mux-daemons.json — edit the manifest, not this file.
-# Keyed off the socket, not herdr-server.service: the real server is usually lazy-spawned via `herdr --remote`, so that unit sits failing "already running" and cannot anchor a lifecycle.
 {{- if hasKey $d "note" }}
 # {{ $d.note }}
 {{- end }}
 [Unit]
 Description={{ $d.desc }}
-Documentation=https://herdr.dev/docs/configuration/
-# Bounds the Restart=always below: five fast exits inside a minute means no socket to reach, so stop and let .path start us when one reappears.
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 [Service]
 Type=simple
 {{- if hasKey $d "needsPath" }}
 Environment=PATH=%h/.local/bin:%h/.nix-profile/bin:%h/.local/share/mise/shims:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin
 {{- end }}
-ExecStart=%h/{{ $.muxDaemons.daemonExec }} {{ if $interp }}{{ $interp }} {{ end }}%h/{{ $.muxDaemons.scriptDir }}/{{ $d.script }}{{ if $d.args }} {{ $d.args }}{{ end }}
+ExecStart={{ if $interp }}{{ $interp }} {{ end }}%h/{{ $.muxDaemons.scriptDir }}/{{ $d.script }}{{ if $d.args }} {{ $d.args }}{{ end }}
 {{- range $e := $env }}
 Environment={{ if or (contains " " $e.v) (contains "{" $e.v) }}"{{ $e.k }}={{ $e.v }}"{{ else }}{{ $e.k }}={{ $e.v }}{{ end }}
 {{- end }}
-# always, not on-failure: a daemon holding a live herdr connection exits 0 when that connection drops, and the socket is REPLACED rather than removed, so PathExists never goes false->true and .path never re-triggers - measured 2026-09-21, four daemons exited 0 together and stayed dead 1h42m with a valid socket present throughout. The start limit above keeps the genuinely-socketless case behaving as before.
 Restart=always
-RestartSec=5
-UNIT_EOF
-)
-
-PATHUNIT=$(cat <<'UNIT_EOF'
-# GENERATED from .chezmoidata/mux-daemons.json — edit the manifest, not this file.
-[Unit]
-Description=Run {{ if hasKey $d "pathDesc" }}{{ $d.pathDesc }}{{ else }}{{ $name }}{{ end }} only while the herdr socket exists
-
-# Both layouts OR'd: 0.9.0 moved a named session's socket under sessions/<name>/, and watching only the flat path kept every daemon down.
-[Path]
-PathExists=%h/{{ $.muxDaemons.socket }}
-PathExistsGlob=%h/{{ $.muxDaemons.socketGlob }}
+RestartSec=30
 
 [Install]
 WantedBy=default.target
@@ -93,14 +70,18 @@ UNIT_EOF
 )
 
 write_unit "$UNIT_DIR/{{ $name }}.service" "$SERVICE" && CHANGED="$CHANGED {{ $name }}"
-write_unit "$UNIT_DIR/{{ $name }}.path"    "$PATHUNIT" && CHANGED="$CHANGED {{ $name }}"
-{{ end }}
+if [ -e "$UNIT_DIR/{{ $name }}.path" ]; then
+  systemctl --user disable --now {{ $name }}.path 2>/dev/null || true
+  rm -f "$UNIT_DIR/{{ $name }}.path"
+  CHANGED="$CHANGED {{ $name }}"
+fi
+{{ end }}{{ end }}
 
-# A unit on disk but absent from the manifest is a retired daemon — remove it.
-for unit in "$UNIT_DIR"/herdr-*.path; do
+# Every .path unit and every non-standalone daemon belongs to the retired herdr server.
+for unit in "$UNIT_DIR"/herdr-*.path "$UNIT_DIR"/herdr-*.service; do
   [ -e "$unit" ] || continue
-  base=$(basename "$unit" .path)
-  [ "$base" = "herdr-server" ] && continue
+  base=$(basename "$unit"); base="${base%.*}"
+  case "$base" in herdr-server | herdr-server@*) continue ;; esac
   case " $KEEP " in
     *" $base "*) continue ;;
   esac
@@ -111,16 +92,10 @@ for unit in "$UNIT_DIR"/herdr-*.path; do
   CHANGED="$CHANGED $base"
 done
 
-# Unit churn and script churn are separate triggers, and only unit churn needs systemd retaught.
-if [ -n "$CHANGED" ]; then
-  systemctl --user daemon-reload
-{{ range $name, $d := .muxDaemons.list -}}
-  systemctl --user enable --now {{ $name }}.path 2>/dev/null || true
-{{ end -}}
-fi
+[ -n "$CHANGED" ] && systemctl --user daemon-reload
 
 # Unguarded by $CHANGED: the sha256 comments above re-run this whenever a daemon script changes, so reaching here means a running daemon holds stale code.
-{{ range $name, $d := .muxDaemons.list -}}
-systemctl --user try-restart {{ $name }}.service 2>/dev/null || true
-{{ end -}}
-echo "herdr-daemons: applied ({{ len .muxDaemons.list }} daemons)"
+{{ range $name, $d := .muxDaemons.list }}{{ if hasKey $d "standalone" -}}
+if systemctl --user is-active --quiet {{ $name }}.service; then systemctl --user restart {{ $name }}.service; else systemctl --user enable --now {{ $name }}.service; fi 2>/dev/null || true
+{{ end }}{{ end -}}
+echo "herdr-daemons: applied ($KEEP)"

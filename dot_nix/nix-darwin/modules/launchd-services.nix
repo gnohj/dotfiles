@@ -10,7 +10,7 @@ let
   # macOS PATH for daemons that shell out (gh). Deliberately not the Linux string, which leads with ~/.local/bin.
   daemonPath = "${homeDir}/.nix-profile/bin:${homeDir}/.local/share/mise/shims:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin";
 
-  # herdr is retired on the Mac, so only manifest daemons marked macos.standalone run here.
+  # herdr is retired, so only manifest daemons marked standalone run here.
   standaloneAgents = lib.mapAttrs (name: d:
     let
       interp = if (d ? macos && d.macos ? interp) then d.macos.interp else d.interp;
@@ -31,7 +31,7 @@ let
         StandardOutPath = "${homeDir}/.logs/" + name + "/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/" + name + "/launchagent.err.log";
       };
-    }) (lib.filterAttrs (_: d: d ? macos && d.macos ? standalone && d.macos.standalone) muxDaemons.list);
+    }) (lib.filterAttrs (_: d: d ? standalone && d.standalone) muxDaemons.list);
 in
 {
   # LaunchAgents and LaunchDaemons

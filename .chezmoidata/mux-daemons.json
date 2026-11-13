@@ -50,7 +50,7 @@
         "interp": "",
         "token": "vault work log",
         "needsPath": true,
-        "macos": { "standalone": true },
+        "standalone": true,
         "note": "drives Codex luna 6 xhigh through codex-headless for `/sb-ticket-log --from-commits` and `/sb-ticket-finish`. codex-headless falls back to Claude Sonnet when Codex refuses (auth, quota, 5xx). The post-commit hook only enqueues, because a hook that blocks on a model call makes committing unusable."
       },
       "herdr-thread-status": {

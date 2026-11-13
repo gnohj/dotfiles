@@ -183,11 +183,6 @@ Library/
 # matches the TARGET name (source .chezmoiscripts/run_onchange_after_linux-bootstrap.sh.tmpl).
 .chezmoiscripts/linux-bootstrap.sh
 
-# herdr systemd user services + .path activation units — Linux/systemd only (macOS
-# would be launchd jobs). The enable scripts (run_onchange_after_enable-herdr-*.sh.tmpl)
-# self-guard on uname, so only the unit files need skipping here.
-.config/systemd/user/herdr-server.service
-
 # Rex personal server - Linux only; on macOS the Rex app runs its own server.
 .config/systemd/user/rex.service.d
 
