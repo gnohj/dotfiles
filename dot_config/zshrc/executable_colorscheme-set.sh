@@ -2661,6 +2661,8 @@ if [ "$OMARCHY_OWNS_THEME" = 1 ]; then
       echo "omarchy-palette.sh not applied yet; skipping the surfaces Omarchy does not theme." >&2
     fi
   fi
+  # Claude/Pi settings are shared with the Mac and select the gnohj themes, so Omarchy's themes are written under those names.
+  "$HOME/.local/bin/omarchy-agent-themes" || true
   echo "Omarchy owns theming here - regenerated behaviour-only lazygit + gitmux + starship, plus the surfaces Omarchy ships no theme for (herdr, ccstatusline, hunk, gh-dash, eza, delta, bat, lazydocker, tuxedo) from the Omarchy palette." >&2
   echo "To change colours: omarchy theme set <name>" >&2
   exit 0

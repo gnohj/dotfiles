@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Write the active Omarchy theme under the names the shared Claude/Pi settings select, so Omarchy wins over the Mac palette synced through the agents monorepo.
+set -euo pipefail
+
+theme="$HOME/.local/state/omarchy/current/theme"
+
+install_theme() {
+  local src="$1" dir="$2" file="$3" filter="$4" tmp
+  [ -r "$src" ] || return 0
+  [ -d "$(dirname "$dir")" ] || return 0
+  if [ -L "$dir" ]; then
+    echo "omarchy-agent-themes: $dir links into the agents monorepo; run setup_symlinks.py to make it local" >&2
+    return 0
+  fi
+  mkdir -p "$dir"
+  tmp=$(mktemp "$dir/$file.XXXXXX")
+  jq "$filter" "$src" >"$tmp"
+  mv "$tmp" "$dir/$file"
+}
+
+install_theme "$theme/claude.json" "$HOME/.claude/themes" gnohj-theme.json .
+install_theme "$theme/claude.json" "$HOME/.claude-work/themes" gnohj-theme.json .
+install_theme "$theme/pi.json" "$HOME/.pi/agent/themes" gnohj.json '.name = "gnohj"'
