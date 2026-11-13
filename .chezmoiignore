@@ -106,6 +106,7 @@ Library/
 .local/bin/build-pinned-tmux
 .local/bin/review-window
 .local/bin/helium-personal
+.local/bin/wallpaper-apply
 .local/bin/macos-upgrade-check
 .local/bin/media-control-bridge
 .local/bin/sketchybar-update

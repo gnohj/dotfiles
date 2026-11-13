@@ -2614,19 +2614,6 @@ if [ -f "$HOME/.config/tmux/generate-tmux-colors.sh" ]; then
 fi
 
 # Set the wallpaper (skip if file doesn't exist)
-if [[ "$OSTYPE" == darwin* ]] && [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
-  # NSWorkspace instead of System Events so the scaling is pinned to Fill Screen
-  osascript -l JavaScript -e '
-  ObjC.import("AppKit");
-  function run(argv) {
-    const workspace = $.NSWorkspace.sharedWorkspace;
-    const url = $.NSURL.fileURLWithPath(argv[0]);
-    const options = $.NSMutableDictionary.alloc.init;
-    options.setObjectForKey($.NSNumber.numberWithInt($.NSImageScaleProportionallyUpOrDown), $.NSWorkspaceDesktopImageScalingKey);
-    options.setObjectForKey($.NSNumber.numberWithBool(true), $.NSWorkspaceDesktopImageAllowClippingKey);
-    const screens = $.NSScreen.screens;
-    for (let i = 0; i < screens.count; i++) {
-      workspace.setDesktopImageURLForScreenOptionsError(url, screens.objectAtIndex(i), options, null);
-    }
-  }' "$wallpaper" >/dev/null 2>&1 || true
+if [ -n "$wallpaper" ] && [ -x "$HOME/.local/bin/wallpaper-apply" ]; then
+  "$HOME/.local/bin/wallpaper-apply" "$wallpaper"
 fi

@@ -5,3 +5,5 @@ require("items.workspace")
 
 -- Right items
 require("items.widgets")
+
+require("items.wallpaper")
