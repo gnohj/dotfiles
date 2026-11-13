@@ -392,6 +392,17 @@ def on_tick(now):
         reclaim(key, wid, now)
 
 
+def expire_armed(now):
+    # An app left frontmost with no windows (Preview after cmd+w) never moves focus, so nothing triggers the armed refocus.
+    global armed
+    if armed is None or now <= armed[2]:
+        return
+    key, target, _ = armed
+    armed = None
+    if current_focus is not None and not any(current_focus in m for m in members.values()):
+        focus(key, target, now)
+
+
 def follow_settled(now):
     # Rift's own auto-switch flips without end between two windows of one app, so only a settled focus is followed.
     global settling, claimed
@@ -563,6 +574,7 @@ def main():
                 on_title_changed(event, now)
             elif kind == "tick":
                 on_tick(now)
+            expire_armed(now)
             follow_settled(now)
         if parent == 1 or os.getppid() == parent:
             status = proc.poll() or 1
