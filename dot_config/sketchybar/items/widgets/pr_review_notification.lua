@@ -10,7 +10,7 @@ local pr_review = sbar.add("item", "widgets.pr_review_notification", {
 	updates = "on",
 	icon = {
 		string = "",
-		color = colors.blue,
+		color = colors.accent,
 		padding_left = 0,
 		padding_right = 2,
 	},

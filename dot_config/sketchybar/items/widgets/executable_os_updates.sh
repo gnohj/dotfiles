@@ -4,7 +4,7 @@ export PATH="/usr/sbin:/usr/bin:/bin:$PATH"
 source "$HOME/.config/sketchybar/config/colors.sh"
 
 paint() {
-  sketchybar --set "widgets.group_glyph.$1" background.color="$([[ $2 == yes ]] && echo "$GREEN" || echo "$ICON_BLUE")"
+  sketchybar --set "widgets.group_glyph.$1" background.color="$([[ $2 == yes ]] && echo "$GREEN" || echo "$ACCENT")"
 }
 
 case "$1" in

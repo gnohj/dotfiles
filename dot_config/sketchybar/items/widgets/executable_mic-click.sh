@@ -37,7 +37,7 @@ render_panel() {
     --set mic.pop.header
     icon="$([ "$on" = on ] && printf '\xef\x84\xb0' || printf '\xef\x84\xb1')  Input"
     icon.align=left icon.width=$((POPUP_WIDTH - 52)) icon.padding_left=12 icon.padding_right=0
-    icon.color="$([ "$on" = on ] && echo "$ICON_BLUE" || echo "$GREY")" icon.font.style=Bold
+    icon.color="$([ "$on" = on ] && echo "$ACCENT" || echo "$GREY")" icon.font.style=Bold
     label="×" label.align=center label.width=40 label.padding_left=0 label.padding_right=0 label.font.size=22 label.color="$RED"
     click_script="sketchybar --set $NAME popup.drawing=off")
 

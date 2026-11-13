@@ -12,13 +12,13 @@ local vpn = sbar.add("item", constants.items.VPN, {
 	icon = {
 		string = settings.icons.text.vpn.on,
 		font = { size = 14.0 },
-		color = colors.blue,
+		color = colors.accent,
 		padding_left = 0,
 		padding_right = 2,
 	},
 	label = {
 		string = "—",
-		color = colors.cyan,
+		color = colors.text,
 		padding_left = 0,
 	},
 	script = "~/.config/sketchybar/items/widgets/vpn.sh",

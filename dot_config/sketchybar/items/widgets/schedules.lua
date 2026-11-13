@@ -16,7 +16,7 @@ local schedules = sbar.add("item", constants.items.SCHEDULES, {
 	label = { drawing = false },
 	icon = {
 		string = settings.icons.text.clock,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		padding_left = 0,
 		padding_right = 0,
 	},
@@ -31,7 +31,7 @@ local header = sbar.add("item", constants.items.SCHEDULES .. ".header", {
 		width = popupWidth - 52,
 		padding_left = 12,
 		padding_right = 0,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		font = { style = settings.fonts.styles.bold },
 	},
 	label = popup.close_label(),
@@ -102,7 +102,7 @@ local function parse(result)
 end
 
 local function updateIcon(state)
-	local color = settings.colors.blue
+	local color = settings.colors.accent
 	for _, row in ipairs(state.rows) do
 		if row.kind == "job" and row.status == "failed" then
 			color = settings.colors.red

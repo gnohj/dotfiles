@@ -61,11 +61,11 @@ label="$(region_label "$region")"
 
 case "$state" in
   Connected)
-    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ICON_BLUE" icon.padding_right=2 \
-      label="$label" label.color="$BLUE" label.drawing=on ;;
+    sketchybar --set "$NAME" icon="$ICON_ON" icon.color="$ACCENT" icon.padding_right=2 \
+      label="$label" label.color="$TEXT" label.drawing=on ;;
   Connecting | Disconnecting | DisconnectingToReconnect | Interrupting | StillNeedsRetry)
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" icon.padding_right=2 \
-      label="…" label.color="$BLUE" label.drawing=on ;;
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ACCENT" icon.padding_right=2 \
+      label="…" label.color="$TEXT" label.drawing=on ;;
   *)
-    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ICON_BLUE" icon.padding_right=0 label.drawing=off ;;
+    sketchybar --set "$NAME" icon="$ICON_OFF" icon.color="$ACCENT" icon.padding_right=0 label.drawing=off ;;
 esac

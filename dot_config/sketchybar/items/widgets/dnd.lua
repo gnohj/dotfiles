@@ -29,7 +29,7 @@ local function update()
 	if file then
 		file:close()
 	end
-	local color = state:gsub("\n+$", "") == "on" and colors.blue or colors.red
+	local color = state:gsub("\n+$", "") == "on" and colors.accent or colors.red
 	if color ~= displayedColor then
 		dnd:set({ icon = { color = color } })
 		displayedColor = color

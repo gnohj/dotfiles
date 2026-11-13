@@ -3,7 +3,7 @@
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 source "$HOME/.config/sketchybar/config/colors.sh"
-VPS_COLOR="$BLUE"
+VPS_COLOR="$TEXT"
 
 # fleet-dev-box has no port forwards, so it never clashes with an interactive session.
 while read -r name value tier; do
@@ -42,16 +42,16 @@ if [[ "$cpu" =~ ^[0-9]+$ && "$mem" =~ ^[0-9]+$ && "$disk" =~ ^[0-9]+$ ]]; then
   cpu=$((10#$cpu)) mem=$((10#$mem)) disk=$((10#$disk))
   cpu_color=$(tier_color "$cpu_tier") mem_color=$(tier_color "$mem_tier") disk_color=$(tier_color "$disk_tier")
   sketchybar --set widgets.vps_uptime label="$uptime_label" \
-             --set widgets.vps_cpu label="${cpu}%  " icon.color="${cpu_color:-$ICON_BLUE}" label.color="${cpu_color:-$VPS_COLOR}" \
-             --set widgets.vps_memory label="${mem}%  " icon.color="${mem_color:-$ICON_BLUE}" label.color="${mem_color:-$VPS_COLOR}" \
-             --set widgets.vps_disk label="${disk}%  " icon.color="${disk_color:-$ICON_BLUE}" label.color="${disk_color:-$VPS_COLOR}" \
-             --set widgets.vps_temp label="$temp_label" icon.color="${temp_color:-$ICON_BLUE}" label.color="${temp_color:-$VPS_COLOR}" \
+             --set widgets.vps_cpu label="${cpu}%  " icon.color="${cpu_color:-$ACCENT}" label.color="${cpu_color:-$VPS_COLOR}" \
+             --set widgets.vps_memory label="${mem}%  " icon.color="${mem_color:-$ACCENT}" label.color="${mem_color:-$VPS_COLOR}" \
+             --set widgets.vps_disk label="${disk}%  " icon.color="${disk_color:-$ACCENT}" label.color="${disk_color:-$VPS_COLOR}" \
+             --set widgets.vps_temp label="$temp_label" icon.color="${temp_color:-$ACCENT}" label.color="${temp_color:-$VPS_COLOR}" \
              --trigger group_refresh
 else
   sketchybar --set widgets.vps_uptime label="$uptime_label" \
-             --set widgets.vps_cpu label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
-             --set widgets.vps_memory label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
-             --set widgets.vps_disk label="--" icon.color="$ICON_BLUE" label.color="$GREY" \
-             --set widgets.vps_temp label="--°" icon.color="$ICON_BLUE" label.color="$GREY" \
+             --set widgets.vps_cpu label="--" icon.color="$ACCENT" label.color="$GREY" \
+             --set widgets.vps_memory label="--" icon.color="$ACCENT" label.color="$GREY" \
+             --set widgets.vps_disk label="--" icon.color="$ACCENT" label.color="$GREY" \
+             --set widgets.vps_temp label="--°" icon.color="$ACCENT" label.color="$GREY" \
              --trigger group_refresh
 fi

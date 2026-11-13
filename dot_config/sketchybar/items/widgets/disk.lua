@@ -9,12 +9,12 @@ local disk = sbar.add("item", constants.items.DISK, {
 	icon = {
 		font = { size = 14.0 },
 		string = "󰋊",
-		color = colors.blue,
+		color = colors.accent,
 		padding_right = 2,
 	},
 	label = {
 		string = "??%",
-		color = colors.cyan,
+		color = colors.text,
 		padding_left = 0,
 		-- Real padding, not the trailing spaces this used to append: a glyph is not a spacing unit.
 		padding_right = 10,

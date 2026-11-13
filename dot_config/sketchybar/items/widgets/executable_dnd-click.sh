@@ -39,7 +39,7 @@ if [ "$state" = "on" ]; then
 else
   TARGET_SHORTCUT="FocusOn"
   new_state="on"
-  new_color="$ICON_BLUE"
+  new_color="$ACCENT"
 fi
 
 echo "[$(ts)] state=$state, running $TARGET_SHORTCUT" >>"$LOG"

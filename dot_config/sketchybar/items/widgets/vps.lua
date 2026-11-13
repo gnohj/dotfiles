@@ -6,7 +6,7 @@ local function add(name, icon, padding_left, padding_right)
 		position = "right",
 		padding_left = padding_left,
 		padding_right = padding_right,
-		icon = { string = icon, color = colors.blue, padding_right = 2, font = { size = 14.0 } },
+		icon = { string = icon, color = colors.accent, padding_right = 2, font = { size = 14.0 } },
 		label = { string = "--", color = colors.grey, padding_left = 0, padding_right = 10 },
 	})
 end
@@ -23,7 +23,12 @@ return {
 	end,
 	cpu = function()
 		local cpu = add("widgets.vps_cpu", "", -12, 0)
-		cpu:set({ icon = { padding_left = 8 }, update_freq = 15, updates = "on", script = "~/.config/sketchybar/items/widgets/vps.sh" })
+		cpu:set({
+			icon = { padding_left = 8 },
+			update_freq = 15,
+			updates = "on",
+			script = "~/.config/sketchybar/items/widgets/vps.sh",
+		})
 		cpu:subscribe({ "forced", "routine", "system_woke" })
 	end,
 }

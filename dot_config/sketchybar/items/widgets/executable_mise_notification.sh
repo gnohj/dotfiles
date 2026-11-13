@@ -110,6 +110,6 @@ case "$COUNT" in
   ;;
 esac
 
-sketchybar --set "$NAME" label="$COUNT" label.color="$COLOR" icon.color="$BLUE"
+sketchybar --set "$NAME" label="$COUNT" label.color="$COLOR" icon.color="$ACCENT"
 
 log_message "INFO" "Mise check completed - Count: $COUNT"

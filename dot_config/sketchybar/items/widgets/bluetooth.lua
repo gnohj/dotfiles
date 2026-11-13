@@ -16,7 +16,7 @@ local bluetooth = sbar.add("item", constants.items.BLUETOOTH, {
 	icon = {
 		string = settings.icons.text.bluetooth.on,
 		font = { size = 14.0 },
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		padding_left = 0,
 		padding_right = 0,
 	},
@@ -31,7 +31,7 @@ local header = sbar.add("item", constants.items.BLUETOOTH .. ".header", {
 		width = popupWidth - 52,
 		padding_left = 12,
 		padding_right = 0,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		font = { style = settings.fonts.styles.bold },
 	},
 	label = popup.close_label(),
@@ -179,9 +179,9 @@ local function applyIcon(state)
 	if state.power ~= "on" then
 		icon, color = settings.icons.text.bluetooth.off, settings.colors.red
 	elseif #state.connected > 0 then
-		icon, color = settings.icons.text.bluetooth.connected, settings.colors.blue
+		icon, color = settings.icons.text.bluetooth.connected, settings.colors.accent
 	else
-		icon, color = settings.icons.text.bluetooth.on, settings.colors.blue
+		icon, color = settings.icons.text.bluetooth.on, settings.colors.accent
 	end
 	if icon ~= displayedIcon or color ~= displayedColor then
 		bluetooth:set({ icon = { string = icon, color = color } })
@@ -196,7 +196,7 @@ local function applyPopup(state)
 	header:set({
 		icon = {
 			string = (on and settings.icons.text.bluetooth.on or settings.icons.text.bluetooth.off) .. "  Bluetooth",
-			color = on and settings.colors.blue or settings.colors.grey,
+			color = on and settings.colors.accent or settings.colors.grey,
 		},
 	})
 	addRow({

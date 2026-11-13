@@ -67,7 +67,7 @@ local spotifyIcon = sbar.add("item", constants.items.SPOTIFY .. ".icon", {
 	drawing = false,
 	icon = {
 		string = GLYPH_SPOTIFY,
-		color = settings.colors.cyan,
+		color = settings.colors.accent,
 		font = { size = 14.0 },
 		width = 34,
 		padding_left = 0,
@@ -245,7 +245,7 @@ local function updateSpotifyInfo()
 			log_message("INFO", "Music detected: " .. displayText)
 		end
 
-		local color = isPlaying and settings.colors.cyan or settings.colors.dark_grey
+		local color = isPlaying and settings.colors.accent or settings.colors.muted
 
 		fallbackGlyph = isPodcast and GLYPH_PODCAST or GLYPH_SPOTIFY
 		spotifyIcon:set({ drawing = true, icon = { color = color } })

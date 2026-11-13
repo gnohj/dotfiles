@@ -64,7 +64,7 @@ for i = 1, 8 do
 		},
 		label = {
 			font = { size = 14.0 },
-			color = settings.colors.dark_grey,
+			color = settings.colors.muted,
 			padding_left = 0,
 			padding_right = 3,
 		},
@@ -78,13 +78,13 @@ local workspaceItem = sbar.add("item", constants.items.SPACES, {
 	icon = {
 		string = utf8.char(0xF0635),
 		font = { size = 12.0 },
-		color = settings.colors.cyan,
+		color = settings.colors.accent,
 		padding_left = 6,
 		padding_right = 2,
 	},
 	label = {
 		font = { style = settings.fonts.styles.bold, size = 14.0 },
-		color = settings.colors.cyan,
+		color = settings.colors.accent,
 		padding_left = 0,
 		padding_right = 11,
 	},
@@ -125,7 +125,7 @@ local shownSignature = nil
 local function selectFocusedWindow(frontAppName)
 	for appName, app in pairs(frontApps) do
 		local isSelected = appName == frontAppName
-		local color = isSelected and settings.colors.cyan or settings.colors.dark_grey
+		local color = isSelected and settings.colors.accent or settings.colors.muted
 		app:set({ label = { color = color } })
 	end
 end

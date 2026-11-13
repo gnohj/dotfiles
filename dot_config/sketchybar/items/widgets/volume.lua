@@ -13,7 +13,7 @@ local volumeValue = sbar.add("item", constants.items.VOLUME .. ".value", {
 		string = "??%",
 		-- net 2px to the glyph, matching cpu/memory/mic; the icons above carry no padding of their own.
 		padding_left = -8,
-		color = settings.colors.cyan,
+		color = settings.colors.text,
 	},
 })
 
@@ -46,7 +46,7 @@ local volumeHeader = sbar.add("item", constants.items.VOLUME .. ".header", {
 		width = popupWidth - 52,
 		padding_left = 12,
 		padding_right = 0,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		font = { style = settings.fonts.styles.bold },
 	},
 	label = popup.close_label(),
@@ -88,7 +88,7 @@ local function updateHeader()
 		volumeHeader:set({
 			icon = {
 				string = (on and settings.icons.text.volume._100 or settings.icons.text.volume._0) .. "  Output",
-				color = on and settings.colors.blue or settings.colors.grey,
+				color = on and settings.colors.accent or settings.colors.grey,
 			},
 		})
 		volumeToggle:set({
@@ -142,7 +142,7 @@ volumeValue:subscribe("volume_change", function(env)
 		volumeValue:set({
 			icon = {
 				string = icon,
-				color = hasVolume and settings.colors.blue or settings.colors.red,
+				color = hasVolume and settings.colors.accent or settings.colors.red,
 			},
 			label = {
 				string = hasVolume and lead .. volume .. "%" or "",

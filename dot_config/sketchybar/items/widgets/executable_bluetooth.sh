@@ -86,10 +86,10 @@ update() {
     color="$RED"
   elif [ "$count" -gt 0 ]; then
     icon="$ICON_BT_CONNECTED"
-    color="$ICON_BLUE"
+    color="$ACCENT"
   else
     icon="$ICON_BT"
-    color="$ICON_BLUE"
+    color="$ACCENT"
   fi
 
   sketchybar --set "$NAME" icon="$icon" icon.color="$color"

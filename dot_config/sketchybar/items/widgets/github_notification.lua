@@ -10,7 +10,7 @@ local push = sbar.add("item", constants.items.GITHUB_NOTIFICATION, {
 	padding_right = 0,
 	updates = "on",
 	icon = { drawing = false },
-	label = { string = "\u{f09b} \u{f062}", color = colors.blue, padding_left = 0, padding_right = 0 },
+	label = { string = "\u{f09b} \u{f062}", color = colors.accent, padding_left = 0, padding_right = 0 },
 })
 
 local function update()

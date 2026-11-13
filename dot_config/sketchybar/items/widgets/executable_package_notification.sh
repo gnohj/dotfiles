@@ -141,10 +141,10 @@ if [ $TIMEOUT_OCCURRED -eq 1 ]; then
   COLOR=$GREY
   LABEL="?"
 elif [ $TOTAL_COUNT -eq 0 ]; then
-  COLOR=$BLUE
+  COLOR=$TEXT
   LABEL="􀆅"
 elif [ $TOTAL_COUNT -le 9 ]; then
-  COLOR=$BLUE
+  COLOR=$TEXT
 elif [ $TOTAL_COUNT -le 29 ]; then
   COLOR=$ORANGE
 else
@@ -154,6 +154,6 @@ fi
 sketchybar --set "$NAME" \
   label="$LABEL" \
   label.color="$COLOR" \
-  icon.color="$ICON_BLUE"
+  icon.color="$ACCENT"
 
 log_message "INFO" "Package check completed - Total: $TOTAL_COUNT (Brew: $BREW_COUNT, MAS: $MAS_COUNT, Mise: $MISE_COUNT, Nix: $NIX_COUNT)"

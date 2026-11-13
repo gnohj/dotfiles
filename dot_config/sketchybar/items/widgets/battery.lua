@@ -22,7 +22,7 @@ local batteryPopup = sbar.add("item", battery.name .. ".header", {
 		width = popupWidth - 52,
 		padding_left = 12,
 		padding_right = 0,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 	},
 	label = popup.close_label(),
 	click_script = popup.close_script(battery.name),
@@ -39,7 +39,7 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 			label = charge .. "%"
 		end
 
-		local color = settings.colors.blue
+		local color = settings.colors.accent
 		local charging, _, _ = batteryInfo:find("AC Power")
 
 		isCharging = charging
@@ -76,7 +76,7 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 				color = color,
 			},
 			label = {
-				color = settings.colors.cyan,
+				color = settings.colors.text,
 				string = lead .. label,
 				padding_left = -8,
 			},

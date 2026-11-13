@@ -65,11 +65,11 @@ local expanded = false
 local current
 
 local function paint(item, style, text, active)
-	local color = settings.colors.dark_grey
+	local color = settings.colors.muted
 	item:set({
 		drawing = shown and (expanded or active),
-		icon = { string = style.icon, color = active and settings.colors.blue or color },
-		label = { string = text, color = active and settings.colors.cyan or color },
+		icon = { string = style.icon, color = active and settings.colors.accent or color },
+		label = { string = text, color = active and settings.colors.accent or color },
 		background = {
 			color = settings.colors.glass.pill,
 			border_color = settings.colors.glass.rim,

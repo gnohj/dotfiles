@@ -19,8 +19,8 @@ local function refresh()
 				shown[metric] = key
 				local color = colors[TIER_COLORS[tonumber(tier)]]
 				widget.item:set({
-					icon = { color = color or colors.blue },
-					label = { string = text, color = color or (value and colors.cyan or colors.grey) },
+					icon = { color = color or colors.accent },
+					label = { string = text, color = color or (value and colors.text or colors.grey) },
 				})
 				changed = true
 			end

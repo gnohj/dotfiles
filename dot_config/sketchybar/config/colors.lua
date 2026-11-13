@@ -4,7 +4,7 @@ local function load_colors()
 
 	if file then
 		for line in file:lines() do
-			local key, value = line:match("^(gnohj_color%w+)=(.+)")
+			local key, value = line:match("^(gnohj_%w+)=(.+)")
 			if key and value then
 				-- Remove quotes and # from hex values
 				value = value:gsub('"', ""):gsub("#", "")
@@ -40,8 +40,11 @@ local function build(colorscheme)
 		other_purple = hex_to_sketchybar(colorscheme.gnohj_color13 or "4A5F7A"),
 		cyan = hex_to_sketchybar(colorscheme.gnohj_color03 or "04d1f9"),
 		grey = hex_to_sketchybar(colorscheme.gnohj_color09 or "6272A4"),
+		-- Roles: values wear text, icons and active markers the accent, secondary and inactive labels muted.
+		text = hex_to_sketchybar(colorscheme.gnohj_text or colorscheme.gnohj_color14 or "c0caf5"),
+		muted = hex_to_sketchybar(colorscheme.gnohj_color09 or "6272A4"),
+		accent = hex_to_sketchybar(colorscheme.gnohj_color03 or "04d1f9"),
 		dirty_white = hex_to_sketchybar(colorscheme.gnohj_color14 or "c0caf5", "c8"),
-		dark_grey = hex_to_sketchybar(colorscheme.gnohj_color13 or "4A5F7A"),
 		transparent = 0x00000000,
 
 		bar = {
@@ -51,7 +54,8 @@ local function build(colorscheme)
 
 		glass = {
 			bar = 0x00000000,
-			pill = 0x14ffffff,
+			-- The theme background at 70%, so bar text keeps the contrast it was checked for whatever the wallpaper.
+			pill = hex_to_sketchybar(colorscheme.gnohj_color10 or "021c31", "b3"),
 			rim = 0x33ffffff,
 			shadow = 0x59000000,
 		},

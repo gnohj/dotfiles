@@ -131,8 +131,8 @@ function M.uptime(group, name)
 		position = "right",
 		padding_left = 0,
 		padding_right = 0,
-		icon = { string = "󰁝", color = colors.blue, padding_left = 0, padding_right = 0, font = { size = 14.0 } },
-		label = { string = "--", color = colors.cyan, padding_left = 0, padding_right = 10 },
+		icon = { string = "󰁝", color = colors.accent, padding_left = 0, padding_right = 0, font = { size = 14.0 } },
+		label = { string = "--", color = colors.text, padding_left = 0, padding_right = 10 },
 	})
 	table.insert(groups[group].members, name)
 	groups[group].uptime = name

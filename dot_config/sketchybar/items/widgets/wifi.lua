@@ -33,7 +33,7 @@ local header = sbar.add("item", constants.items.WIFI .. ".header", {
 		width = rowWidth - 52,
 		padding_left = 12,
 		padding_right = 0,
-		color = settings.colors.blue,
+		color = settings.colors.accent,
 		font = { style = settings.fonts.styles.bold },
 	},
 	label = popup.close_label(),
@@ -175,7 +175,7 @@ local function applyPopup(state)
 	header:set({
 		icon = {
 			string = settings.icons.text.wifi.connected .. "  " .. (state.ssid ~= "" and state.ssid or "Wi-Fi"),
-			color = on and settings.colors.blue or settings.colors.grey,
+			color = on and settings.colors.accent or settings.colors.grey,
 		},
 	})
 	addRow({
@@ -260,7 +260,7 @@ local function refreshIcon()
 
 		if ip ~= "" then
 			wifiIcon = settings.icons.text.wifi.connected
-			wifiColor = settings.colors.blue
+			wifiColor = settings.colors.accent
 
 			-- iOS reserves 172.20.10.0/28 for Personal Hotspot, so the prefix alone identifies tethering.
 			if ip:match("^172%.20%.10%.") then

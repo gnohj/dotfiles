@@ -12,7 +12,7 @@ state="off"
 [ -r "$STATE_FILE" ] && state="$(cat "$STATE_FILE" 2>/dev/null)"
 
 if [ "$state" = "on" ]; then
-  sketchybar --set "$NAME" icon.color="$ICON_BLUE"
+  sketchybar --set "$NAME" icon.color="$ACCENT"
 else
   sketchybar --set "$NAME" icon.color="$RED"
 fi
