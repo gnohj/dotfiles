@@ -34,26 +34,7 @@ local function restart()
   local atlas = vim.iter(vim.v.argv):any(function(arg)
     return arg:match("^Atlas ")
   end)
-  if not _G.neorex then
-    vim.cmd(atlas and "restart!" or "restart")
-    return
-  end
-  local marker = vim.env.NEOREX_RESTART_FILE
-  if not marker then
-    vim.notify("neorex can't :restart; launch it via the zsh nvim function", vim.log.levels.WARN)
-    return
-  end
-  local session = ""
-  if not atlas then
-    session = marker .. ".vim"
-    vim.cmd("mksession! " .. vim.fn.fnameescape(session))
-  end
-  vim.fn.writefile({ session }, marker)
-  local ok, err = pcall(vim.cmd, "qall")
-  if not ok then
-    vim.fn.delete(marker)
-    vim.notify(err, vim.log.levels.ERROR)
-  end
+  vim.cmd(atlas and "restart!" or "restart")
 end
 
 -- Restart Neovim (nvim 0.12+)

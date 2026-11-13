@@ -1,23 +1,6 @@
-{ config, pkgs, lib, inputs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
-  # macOS-only (kqueue); runtime/ ships its 16-colour colorscheme and lualine theme.
-  neorex = pkgs.stdenv.mkDerivation {
-    pname = "neorex";
-    version = "0-unstable-${inputs.neorex.shortRev}";
-    src = inputs.neorex;
-    # Split-pane helper leads the tty's foreground group, else Rex sees only the root login.
-    patches = [ ./neorex-pane-foreground.patch ];
-    nativeBuildInputs = [ pkgs.zig_0_17.hook ];
-    postInstall = ''
-      mkdir -p $out/share/neorex $out/libexec/neorex
-      cp -r runtime $out/share/neorex/
-      # Rex picks the nvim icon by binary name; splits re-exec the resolved path
-      mv $out/bin/neorex $out/libexec/neorex/nvim
-      ln -s ../libexec/neorex/nvim $out/bin/neorex
-    '';
-  };
-
   # Lua environment for sketchybar's config (sketchybarrc puts /run/current-system/sw/bin first)
   sketchybarLua = pkgs.lua5_3.withPackages (ps: [
     ps.cjson          # JSON encoding/decoding
@@ -36,9 +19,6 @@ in
 
     # Lua environment for sketchybar (lua-cjson for Rift and Spotify JSON)
     sketchybarLua
-
-    # Rex-native Neovim frontend; launched by the `nvim` zsh function in bare Rex panes only
-    neorex
   ];
 
   # systemPackages fonts are invisible to GUI apps; fonts.packages installs into /Library/Fonts.

@@ -11,12 +11,6 @@
     # past 4.24.1 lands in nixpkgs-unstable.
     nixpkgs-ghdash.url = "github:NixOS/nixpkgs/c92a446a730c";
 
-    # Rex-native Neovim frontend, built from source (not in nixpkgs); bump with `nix flake update neorex`.
-    neorex = {
-      url = "github:alexrlocke/neorex";
-      flake = false;
-    };
-
     darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";

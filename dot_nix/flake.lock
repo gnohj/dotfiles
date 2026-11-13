@@ -40,22 +40,6 @@
         "type": "github"
       }
     },
-    "neorex": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1794500397,
-        "narHash": "sha256-rTQQ5WKnqi7MY7LCgEg5zGrt+Q1F0cWagbflnUMay3Y=",
-        "owner": "alexrlocke",
-        "repo": "neorex",
-        "rev": "b3e92161a1f28025033fe4d2d3dd40315ed4be5f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "alexrlocke",
-        "repo": "neorex",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1794495034,
@@ -92,7 +76,6 @@
       "inputs": {
         "darwin": "darwin",
         "home-manager": "home-manager",
-        "neorex": "neorex",
         "nixpkgs": "nixpkgs",
         "nixpkgs-ghdash": "nixpkgs-ghdash"
       }

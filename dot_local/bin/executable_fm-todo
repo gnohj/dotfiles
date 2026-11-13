@@ -341,7 +341,7 @@ pr_nvim_sock() {
 
 # lsof can't see unix sockets on macOS, but each pr_open nvim carries its socket in argv.
 pr_nvim_live() {
-  case "$(ps -eo args=)" in *"serverstart('$PR_OPEN_DIR/.nvim-$1-$2-"*) return 0 ;; esac
+  case "$(ps -eo args=)" in *"--listen $PR_OPEN_DIR/.nvim-$1-$2-"*) return 0 ;; esac
   return 1
 }
 
@@ -363,7 +363,7 @@ pr_lease_sweep() {
   done
   for sock in "$PR_OPEN_DIR"/.nvim-*.sock; do
     [ -S "$sock" ] || continue
-    case "$(ps -eo args=)" in *"serverstart('$sock')"*) ;; *) rm -f "$sock" ;; esac
+    case "$(ps -eo args=)" in *"--listen $sock"*) ;; *) rm -f "$sock" ;; esac
   done
   return 0
 }
@@ -400,8 +400,8 @@ pr_open() {
     nvim --server "$sock" --remote-expr "execute(['tabedit +$line ' .. fnameescape('$vim_file'), '$diff_base'])" >/dev/null
   else
     rm -f "$sock"
-    # -i loads .zshrc (THEME_TRANSPARENT, neorex wrapper); neorex owns --listen, hence serverstart.
-    nvim_cmd=$(printf '%q ' nvim --cmd "call serverstart('$sock')" -R "+$line" ${diff_base:+-c "$diff_base"} "$file")
+    # -i loads .zshrc for THEME_TRANSPARENT.
+    nvim_cmd=$(printf '%q ' nvim --listen "$sock" -R "+$line" ${diff_base:+-c "$diff_base"} "$file")
     window=$(rex window new -s "$sid" "$label" -c "$wt" --shell=none --json -- env SKIP_FETCH=1 "${SHELL:-/bin/zsh}" -lic "$nvim_cmd" | jq -r '.window_id // empty')
   fi
   [ -n "$window" ] || { echo "fm-todo: could not open the nvim tab" >&2; exit 1; }
