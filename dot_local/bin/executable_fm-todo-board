@@ -574,7 +574,9 @@ def board_tab(raw, b):
     stuck_panes(groups, b)
     take_ready(groups, b)
     ages = stamp_items(groups, int(datetime.now().timestamp()))
-    for lv, owners in enumerate(groups):
+    progress = next(i for i, lv in enumerate(LEVELS) if lv[1] == "In progress")
+    for lv in [progress, *(i for i in range(len(LEVELS)) if i != progress)]:
+        owners = groups[lv]
         if not owners:
             continue
         count = sum(len(entries) for entries in owners.values())
