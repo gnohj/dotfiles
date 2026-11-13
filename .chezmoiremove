@@ -219,3 +219,5 @@ scripts/open-tmux-attach.sh
 # herdr servers retired on the dev-box 2026-11-12: Rex owns every pane there, and a live herdr server made mux_kind report herdr.
 .config/systemd/user/herdr-server.service
 .config/systemd/user/herdr-server@.service
+# nvim reads the active theme link itself now; this was its private copy of the palette.
+.config/nvim/lua/config/active-colorscheme.sh

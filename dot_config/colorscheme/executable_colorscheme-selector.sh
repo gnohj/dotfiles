@@ -13,7 +13,12 @@ new_row="+ new from wallpaper"
 # ANSI indexes, not palette hexes, so the picker's own chrome follows the terminal as it repaints.
 fzf_colors="bg+:8,fg+:7,hl+:4,fg:2,info:8,prompt:4,pointer:4,marker:4,header:8,border:6"
 
-pending() { want=$(cat "$state/want" 2>/dev/null) && [ -f "$list/$want" ] && ! cmp -s "$list/$want" "$active"; }
+current() {
+  local to
+  to=$(readlink "$active" 2>/dev/null) && [ -f "$list/${to##*/}" ] && printf '%s' "${to##*/}"
+}
+
+pending() { want=$(cat "$state/want" 2>/dev/null) && [ -f "$list/$want" ] && [ "$want" != "$(current)" ]; }
 
 # One worker at a time, always applying the newest request, so fast scrolling never lands an older theme last.
 worker() {
@@ -34,7 +39,9 @@ settle() {
 
 revert() {
   settle
-  cmp -s "$state/origin" "$active" || { cp "$state/origin" "$active" && "$setter" --preview >/dev/null 2>&1; }
+  local origin
+  origin=$(cat "$state/origin" 2>/dev/null)
+  [ -z "$origin" ] || [ "$origin" = "$(current)" ] || "$setter" --preview "$origin" >/dev/null 2>&1
 }
 
 # Kitty unicode placeholders are plain text cells, so fzf lays the image out like any line; returns 1 where the terminal cannot draw them.
@@ -49,7 +56,8 @@ preview() {
   [ -f "$list/$1" ] || return 0
   . "$list/$1"
   local live=OFF cols="${FZF_PREVIEW_COLUMNS:-60}" c
-  if [ ! -e "$state/live-off" ]; then
+  # With no named theme to return to, Esc could not undo a preview, so nothing is previewed.
+  if [ ! -e "$state/live-off" ] && [ -s "$state/origin" ]; then
     live=ON
     printf '%s' "$1" >"$state/want"
     # Own process group: fzf kills the preview's group on every cursor move, and a half-finished apply must not die with it.
@@ -154,14 +162,14 @@ if [ -f "${1:-}" ]; then
 fi
 
 shopt -s nullglob nocasematch
-new="" first="" rest=""
+new="" first="" rest="" cur=$(current)
 [ -f "$list/${THEME_NEW:-}" ] && new="$THEME_NEW"$'\n'
 for f in "$list"/*.sh; do
   n="${f##*/}"
   [ "$n" = "${THEME_NEW:-}" ] && continue
   case "$n" in *"${1:-}"*) ;; *) continue ;; esac
   # The active scheme leads so the cursor opens on it and nothing repaints until you move.
-  if cmp -s "$f" "$active"; then first="$n"$'\n'; else rest+="$n"$'\n'; fi
+  if [ "$n" = "$cur" ]; then first="$n"$'\n'; else rest+="$n"$'\n'; fi
 done
 if [ -z "$new$first$rest" ]; then
   echo "No color scheme scripts found in $list."
@@ -171,7 +179,7 @@ fi
 mkdir -p "$state"
 rmdir "$lock" 2>/dev/null
 rm -f "$state/want"
-cp "$active" "$state/origin"
+printf '%s' "$cur" >"$state/origin"
 trap revert EXIT
 trap 'exit 129' HUP INT TERM
 

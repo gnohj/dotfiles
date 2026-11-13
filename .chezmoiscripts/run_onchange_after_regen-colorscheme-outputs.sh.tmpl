@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # generator sha256: {{ include "dot_config/zshrc/executable_colorscheme-set.sh" | sha256sum }}
+# schemes sha256: {{ range glob (joinPath .chezmoi.sourceDir "dot_config/colorscheme/list/*") }}{{ include . | sha256sum }} {{ end }}
 
-# Nothing runs colorscheme-set.sh when only its heredocs change, so this hash does.
+# Nothing runs colorscheme-set.sh when only its heredocs or a scheme's colours change, so these hashes do.
 set -uo pipefail
 
 setter="$HOME/.config/zshrc/colorscheme-set.sh"

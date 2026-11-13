@@ -37,6 +37,8 @@ tasks
 # colorscheme-set.sh is the sole owner (same pattern as tmux-colors.conf above).
 .config/ghostty/ghostty-theme
 .config/kitty/kitty-theme.conf
+# A link colorscheme-set.sh points at the picked scheme; a source copy would be put back over it on every apply.
+.config/colorscheme/active/active-colorscheme.sh
 # Same story: colorscheme-set.sh (generate_lazygit/gitmux/btop/starship/yazi)
 # does a full `cat >` overwrite of each on every theme switch, re-resolving colors
 # from the active colorscheme. Tracking them as source = perpetual `chezmoi diff`

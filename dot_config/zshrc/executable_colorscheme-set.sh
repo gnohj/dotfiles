@@ -43,6 +43,22 @@ if [ ! -f "$colorscheme_file" ]; then
   error "Colorscheme file '$colorscheme_file' does not exist."
 fi
 
+# The active file is a link into list/, so its target is the theme's name and no copy can go stale.
+point_active() {
+  mkdir -p "$(dirname "$active_file")"
+  ln -s "../list/$1" "$active_file.new.$$" && mv -f "$active_file.new.$$" "$active_file"
+}
+
+# A machine set up before the link holds a copy here; adopt it while it still matches a scheme.
+if [ -f "$active_file" ] && [ ! -L "$active_file" ]; then
+  for _scheme in "$HOME"/.config/colorscheme/list/*.sh; do
+    if cmp -s "$_scheme" "$active_file"; then
+      point_active "${_scheme##*/}"
+      break
+    fi
+  done
+fi
+
 generate_ghostty_theme() {
   ghostty_conf_file="$HOME/.config/ghostty/ghostty-theme"
   mkdir -p "$(dirname "$ghostty_conf_file")"
@@ -2658,10 +2674,7 @@ else
   echo "Updating active colorscheme to '$colorscheme_profile'."
 fi
 
-# Rebuilding the active scheme makes these one path, and cp would then error out
-[ "$colorscheme_file" = "$active_file" ] || cp "$colorscheme_file" "$active_file"
-
-full cp "$colorscheme_file" "$HOME/.config/nvim/lua/config/active-colorscheme.sh"
+[ "$colorscheme_file" = "$active_file" ] || point_active "$colorscheme_profile"
 
 # shellcheck disable=SC1091
 source "$HOME/.config/colorscheme/palette.sh"
