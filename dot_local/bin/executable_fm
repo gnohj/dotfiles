@@ -47,6 +47,14 @@ USAGE
 done
 set -- ${args+"${args[@]}"}
 
+# rex-recover replays fmw/fmp/fm after a Rex restart; follow the current account pin and continue its latest fleet conversation.
+if [ -n "${REX_RECOVER_LAUNCH_DIR:-}" ] && [ "$flag_harness" != pi ] && [ "$flag_harness" != pi-signed ]; then
+  flag_state=""
+  flag_token=""
+  set -- --continue
+fi
+unset REX_RECOVER_LAUNCH_DIR
+
 for pair in "state:$flag_state" "token:$flag_token"; do
   value="${pair#*:}"
   [ -z "$value" ] && continue
