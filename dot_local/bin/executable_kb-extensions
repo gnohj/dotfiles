@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Fetch kb's Web Store extensions unpacked; Chrome drops --load-extension ones on exit, so Vimium C's install-only options tab is patched out.
+set -euo pipefail
+
+dest="$HOME/.kittybrowser/extensions"
+extensions=(
+  "vimium-c hfjbmagddngcpeloejdejnfgbamkjaeg"
+)
+
+if pgrep -f "$HOME/.kittybrowser/profile" >/dev/null; then
+  echo "kb-extensions: quit every kb first (Ctrl+Q)" >&2
+  exit 1
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$dest"
+
+for entry in "${extensions[@]}"; do
+  read -r name id <<<"$entry"
+  curl -fsSL -o "$tmp/$name.crx" "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=157.0&acceptformat=crx2,crx3&x=id%3D${id}%26uc"
+  mkdir "$tmp/$name"
+  unzip -qo "$tmp/$name.crx" -d "$tmp/$name" 2>/dev/null || [[ -f "$tmp/$name/manifest.json" ]]
+  rm -rf "$tmp/$name/_metadata"
+  if [[ "$name" == vimium-c ]]; then
+    file="$tmp/$name/background/others.js"
+    needle='c.Je({u:n.Ze.Qe+"#commands"})'
+    grep -qF "$needle" "$file" || { echo "kb-extensions: vimium-c install-tab code changed; patch not applied" >&2; exit 1; }
+    perl -pi -e 's/\Qc.Je({u:n.Ze.Qe+"#commands"})\E/void 0/' "$file"
+  fi
+  rm -rf "${dest:?}/$name"
+  mv "$tmp/$name" "$dest/$name"
+  echo "$name $(jq -r .version "$dest/$name/manifest.json")"
+done
+
+# Chrome keeps running its cached copy of an extension's service worker, ignoring new files on disk.
+for profile in "$HOME"/.kittybrowser/profile*/Default; do
+  rm -rf "$profile/Service Worker"
+done

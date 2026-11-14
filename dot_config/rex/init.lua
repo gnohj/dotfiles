@@ -95,6 +95,7 @@ rex.bind("ctrl+g", "lazygit")
 rex.bind(P .. "y", "yazi_tab")
 rex.bind(P .. "e", "scrollback_view")
 rex.bind(P .. "shift+f", "pluck")
+rex.bind(P .. "b", "kb_fill")
 
 -- UI: sidebar on prefix+E, tab style, activity, settings, palette, reload, find.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")

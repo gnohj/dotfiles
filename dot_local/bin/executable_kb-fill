@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Fill the login form open in kb from Bitwarden via rbw: username, password, or a one-time code, whichever fields the page shows.
+set -euo pipefail
+
+die() { echo "kb-fill: $*" >&2; exit 1; }
+
+url=$(kb ctl status 2>/dev/null | sed -n 's/^url: //p')
+[[ -n "$url" ]] || die "no kb page open"
+host=$(sed -E 's#^[a-z]+://([^/:]+).*#\1#' <<<"$url")
+
+rbw unlocked >/dev/null 2>&1 || rbw unlock
+
+pick_id() {
+  local rows
+  rows=$(rbw search --fields id,name,user "$1" 2>/dev/null || true)
+  [[ -n "$rows" ]] || return 1
+  if [[ $(wc -l <<<"$rows") -eq 1 ]]; then
+    cut -f1 <<<"$rows"
+  else
+    local choice
+    choice=$(fzf --with-nth=2.. --delimiter='\t' --prompt="$host > " <<<"$rows") || exit 0
+    cut -f1 <<<"$choice"
+  fi
+}
+
+id=""
+domain=$host
+while [[ -z "$id" && "$domain" == *.* ]]; do
+  if id=$(pick_id "$domain"); then
+    [[ -n "$id" ]] || exit 0
+  else
+    domain=${domain#*.}
+  fi
+done
+[[ -n "$id" ]] || die "no Bitwarden entry matches $host"
+
+fields=$(kb ctl eval '(() => {
+  const visible = el => el.offsetParent !== null && !el.disabled && !el.readOnly;
+  const inputs = [...document.querySelectorAll("input")].filter(visible);
+  document.querySelectorAll("[data-kbfill]").forEach(el => el.removeAttribute("data-kbfill"));
+  const otp = inputs.find(el => el.autocomplete === "one-time-code" || /otp|totp|mfa|2fa|passcode|verification|token/i.test(el.name + " " + el.id + " " + el.placeholder));
+  const pass = inputs.find(el => el.type === "password");
+  const user = inputs.find(el => el !== otp && (el.autocomplete === "username" || el.type === "email" || /user|login|email|identifier/i.test(el.name + " " + el.id))) ||
+    (pass ? inputs.slice(0, inputs.indexOf(pass)).reverse().find(el => ["text", "email", "tel"].includes(el.type)) : null);
+  const marked = [];
+  if (otp && !pass) { otp.dataset.kbfill = "otp"; marked.push("otp"); }
+  if (user) { user.dataset.kbfill = "user"; marked.push("user"); }
+  if (pass) { pass.dataset.kbfill = "pass"; marked.push("pass"); }
+  return marked.join(" ");
+})()')
+[[ -n "$fields" ]] || die "no login fields on $host"
+
+entry=$(rbw get --raw "$id")
+for field in $fields; do
+  case $field in
+    user) value=$(jq -r '.data.username // empty' <<<"$entry") ;;
+    pass) value=$(jq -r '.data.password // empty' <<<"$entry") ;;
+    otp) value=$(rbw code "$id") ;;
+    *) continue ;;
+  esac
+  [[ -n "$value" ]] && kb ctl type "[data-kbfill=$field]" "$value" --clear >/dev/null
+done
+echo "kb-fill: filled $fields for $(jq -r .name <<<"$entry")"

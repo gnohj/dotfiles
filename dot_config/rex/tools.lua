@@ -185,6 +185,16 @@ function M.setup()
     end,
   }
 
+  -- Fills the open kb page's login from Bitwarden; the popup stays open only to show an error.
+  rex.action{
+    name = "kb_fill",
+    title = "Fill kb Login from Bitwarden",
+    category = "Tools",
+    run = function(ctx, args)
+      c.popup(ctx, 0.25, 0.3, { "/bin/bash", "-c", '"$HOME/.local/bin/kb-fill" || { printf "\\nPress any key to close"; read -rsn1 _; }' })
+    end,
+  }
+
   -- Moves the dev-box package to the Mac app's build, restarting its server when no agent runs.
   rex.action{
     name = "update_devbox_rex",

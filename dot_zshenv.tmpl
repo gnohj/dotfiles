@@ -18,6 +18,8 @@ export PATH="$HOME/.local/bin/mux/shared:$PATH"
 export PATH="$HOME/.local/bin/mux:$HOME/.local/bin/worktree:$PATH"
 # mise only activates in .zshrc, so its shims are APPENDED for these chains' bare tool calls, keeping nix/system precedence.
 export PATH="$PATH:$HOME/.local/share/mise/shims"
+# cargo-installed CLIs (kb) for the same non-interactive chains.
+export PATH="$PATH:$HOME/.cargo/bin"
 # nix-darwin's /etc/zshenv resets PATH in Rex panes, dropping the rex CLI dir Rex prepended; ahead of mux/ and its rex/ folder.
 [[ -n "${REX_BIN_DIR:-}" && -d "$REX_BIN_DIR" ]] && (( ! ${path[(Ie)$REX_BIN_DIR]} )) && path=("$REX_BIN_DIR" $path)
 # Linux runs Rex from rex.service, so a rex call while it is down must fail, not start a stray server; mirrors environment.d.
@@ -62,6 +64,13 @@ export GH_BROWSER="desktop-open"
 
 # Read-only status/diff refreshes skip index.lock, so prompts, gitsigns, lazygit and agents stop colliding in the web monorepo.
 export GIT_OPTIONAL_LOCKS=0
+
+{{- if eq .chezmoi.os "darwin" }}
+
+# kb (KittyBrowser) runs Helium because branded Chrome 137+ ignores --load-extension; kb-extensions fetches and patches Vimium C.
+export KB_CHROME="/Applications/Helium.app/Contents/MacOS/Helium"
+export KB_CHROME_ARGS="--load-extension=$HOME/.kittybrowser/extensions/vimium-c"
+{{- end }}
 
 # A fake Wayland display so tools that copy through `wl-copy` reach the desktop clipboard via the `~/.local/bin/wl-copy` shim and `to-desktop clip`.
 {{- if ne .chezmoi.os "darwin" }}

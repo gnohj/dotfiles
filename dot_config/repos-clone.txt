@@ -37,3 +37,5 @@ https://github.com/ayghri/i-have-adhd.git ~/Developer/i-have-adhd
 https://github.com/DietrichGebert/ponytail.git ~/Developer/ponytail
 # rex-recover (nexxai, MIT) relaunches apps.conf commands in their Rex panes after a server restart; the rex-recover daemon and the zshrc capture hook run straight from this clone.
 https://github.com/nexxai/rex-recover.git ~/Developer/rex-recover
+# kittybrowser (graiz, MIT) is kb, the terminal-pane browser; its skill/ dir is symlinked into the agents monorepo and `update` rebuilds kb from this clone.
+https://github.com/graiz/kittybrowser.git ~/Developer/kittybrowser

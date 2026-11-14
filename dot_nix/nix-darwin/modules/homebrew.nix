@@ -97,7 +97,6 @@
       # Terminals
       "ghostty"
       "kitty" # adhoc-signed Nix build fails launch constraints; use cask
-      "terminal-browser"
 
       # Productivity
       "kunchenguid/tap/baby-menu"
