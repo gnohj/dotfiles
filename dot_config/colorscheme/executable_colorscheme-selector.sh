@@ -164,13 +164,13 @@ fi
 
 shopt -s nullglob nocasematch
 new="" first="" rest="" cur=$(current)
-[ -f "$list/${THEME_NEW:-}" ] && new="$THEME_NEW"$'\n'
+[ -f "$list/${THEME_NEW:-}" ] && new="$THEME_NEW"$'\t'"$THEME_NEW"$'\n'
 for f in "$list"/*.sh; do
   n="${f##*/}"
   [ "$n" = "${THEME_NEW:-}" ] && continue
   case "$n" in *"${1:-}"*) ;; *) continue ;; esac
   # The active scheme leads so the cursor opens on it and nothing repaints until you move.
-  if [ "$n" = "$cur" ]; then first="$n"$'\n'; else rest+="$n"$'\n'; fi
+  if [ "$n" = "$cur" ]; then first="$n"$'\t'"$n  "$'\e[34m● active\e[m\n'; else rest+="$n"$'\t'"$n"$'\n'; fi
 done
 if [ -z "$new$first$rest" ]; then
   echo "No color scheme scripts found in $list."
@@ -187,12 +187,13 @@ trap 'exit 129' HUP INT TERM
 # Open on the scheme below the new-theme row; with no active or new scheme, stay on that row so opening repaints nothing.
 pos=2
 [ -n "$new$first" ] || pos=1
-sel=$(printf '%s\n%s' "$new_row" "$new$first$rest" |
+sel=$(printf '%s\t%s\n%s' "$new_row" "$new_row" "$new$first$rest" |
   FZF_VIM_HEADER="${2:-Select a Color Scheme}" FZF_VIM_NORMAL_BINDS="tab:execute-silent($0 --toggle)+refresh-preview" \
     "$HOME/.local/bin/fzf-vim.sh" --prompt="${3:-Theme > }" \
     --color "$fzf_colors" \
-    --wrap --bind "load:pos($pos)" --preview "$0 --preview {}" --preview-window 'right:55%:border-left')
+    --ansi --delimiter '\t' --with-nth 2 --wrap --bind "load:pos($pos)" --preview "$0 --preview {1}" --preview-window 'right:55%:border-left')
 rc=$?
+sel="${sel%%$'\t'*}"
 # fzf-vim.sh runs fzf with --no-clear, which leaves the terminal on the alternate screen; step off it so a shell prompt does not draw over the picker.
 leave_screen() { printf '\e[?1049l' >/dev/tty 2>/dev/null; }
 leave_screen
