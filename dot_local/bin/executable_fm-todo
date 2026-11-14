@@ -154,10 +154,18 @@ set_tabs() {
   return 0
 }
 
-viewer_open() {
+viewer_block() {
   local sid id
   read -r sid id 2>/dev/null <"$VIEWER_FILE" || return 1
   [ -n "$id" ] && rex block inspect -s "$sid" "$id" >/dev/null 2>&1
+}
+
+# Rex restores the Todo pane after a server restart as a bare shell, so the block alone doesn't mean rexpad is running.
+viewer_open() {
+  local sid id
+  viewer_block || return 1
+  read -r sid id <"$VIEWER_FILE"
+  [ "$(rex block call -s "$sid" -b "$id" process 2>/dev/null | jq -r '.child.name // empty')" = rexpad ]
 }
 
 status() {
@@ -215,6 +223,7 @@ hold_ratio() {
 show() {
   local sid=${1%% *} anchor=${1#* } id
   if viewer_open; then cat "$VIEWER_FILE"; return; fi
+  hide
   if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
   local opener=$HOME/.local/bin/fm-todo-open
@@ -228,7 +237,7 @@ show() {
 
 hide() {
   local sid id
-  if viewer_open; then
+  if viewer_block; then
     read -r sid id <"$VIEWER_FILE"
     rex block close -s "$sid" "$id" >/dev/null 2>&1 || true
   fi
