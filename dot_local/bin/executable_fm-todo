@@ -80,7 +80,7 @@ task_kinds() {
       slug = substr($1, 1, RSTART - 1) "-" substr($1, RSTART + RLENGTH)
       gsub(/-+/, "-", slug); gsub(/^-|-$/, "", slug)
       print key tail slug "\t" $4 "\t" $5 "\t" me pane
-    }
+    } else print "task:" $1 tail slug "\t" $4 "\t" $5 "\t" me pane
     if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 "\t" me pane }
   }'
 }

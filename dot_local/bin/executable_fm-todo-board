@@ -19,6 +19,12 @@ LEVELS = [("🔴", "Blocked", "red", "red"), ("🟡", "Needs your call", "yellow
           ("♻", "In progress", "cyan", "cyan"), ("🟢", "Waiting on others", "green", ""), ("✅", "Done", "green", "green")]
 REPOS = {"inferno": "iheartradio/inferno-monorepo", "web": "iheartradio/web", "chezmoi": "gnohj/dotfiles", "dotfiles": "gnohj/dotfiles"}
 COMPONENT_COLORS = {"inferno": "magenta"}
+KIND_MARK = {"scout": "\U0001f52d", "ship": "⛵"}
+
+
+def crew_mark(task):
+    glyph = KIND_MARK.get(task.get("kind", ""))
+    return glyph + " " if glyph else ""
 
 
 def load(name, default):
@@ -209,8 +215,8 @@ class Board:
         key = m[0] if m else ""
         pr = re.search(r"PR #?(\d+)", head)
         pr_name = f"{repo}#{pr[1]}" if pr and repo else (self.pr_for(key) if key else "")
-        task = self.tasks.get(key) or self.tasks.get(pr_name) or {}
-        self.claimed.add(key)
+        task = self.tasks.get(key) or self.tasks.get(pr_name) or self.tasks.get(head) or {}
+        self.claimed.add(key or head)
         if pr_name:
             self.claimed_prs.add(pr_name)
         meta, action = [], ""
@@ -235,6 +241,9 @@ class Board:
             meta.pop(0)
             number = ticket_link(key)
             title = number if name == key else f"{number} {name}"
+        elif task:
+            title = pill(name)
+        title = crew_mark(task) + title
         if task.get("me"):
             title += f" · `{task['me']}`"
         if flag := state_flag(self, task.get("block", "")):
@@ -348,7 +357,11 @@ def board(raw, b):
         last_repo = repo
         m = REF.search(body)
         mate = "sm-" + project if "sm-" + project in b.mates else "fm"
-        if not m:
+        crew = next((k for k in b.tasks if k.startswith("task:") and k[5:] in body), "")
+        if crew and not m:
+            home, tab, lines = b.block(crew, "", repo, lv, body.replace(crew[5:], "").strip(" :,-()"))
+            blocks = [(home or mate, tab, lines)]
+        elif not m:
             blocks = [(mate, "", [f"* {body}\t{chat(body, project, b.cur_qid)}"])]
         else:
             lead = body[:m.start()].strip(" :,-(")
@@ -627,7 +640,7 @@ def prs_tab(b):
         bits, action = b.pr_bits(name)
         title, key = pr_title(pr), (keys[0] if keys else "")
         task = b.tasks.get(name) or b.tasks.get(key) or {}
-        head = f"{ticket_link(key)} {title}" if key else title
+        head = crew_mark(task) + (f"{ticket_link(key)} {title}" if key else title)
         if task.get("me"):
             head += f" · `{task['me']}`"
         if flag := state_flag(b, task.get("block", "")):
