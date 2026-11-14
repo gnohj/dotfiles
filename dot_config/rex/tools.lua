@@ -76,6 +76,19 @@ function M.setup()
     end,
   }
 
+  -- Firstmate's Todo board beside its pane, at fm-todo's held width; focuses the board when it is already open.
+  rex.action{
+    name = "fm_todo_open",
+    title = "Firstmate: Open Todo Board",
+    description = "The fm-todo board in a pane right of the firstmate session's pane.",
+    category = "Firstmate",
+    keywords = "firstmate fm todo board rexpad tasks prs tickets pane",
+    run = function(ctx, args)
+      local run = [[PATH="${REX_BIN_DIR:+$REX_BIN_DIR:}$PATH"; f="${XDG_STATE_HOME:-$HOME/.local/state}/rexpad/firstmate.viewer"; before=$(cat "$f" 2>/dev/null); after=$("$HOME/.local/bin/fm-todo" show) || exit 1; if [ -n "$before" ] && [ "$before" = "$after" ]; then rex focus -s "${after%% *}" "${after#* }"; else "$HOME/.local/bin/fm-todo" refresh; fi]]
+      c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", run }, { detach = true, env = c.REX_ENV })))
+    end,
+  }
+
   -- The lazygit popup calls this when lazygit quits on its own (esc, q); skipped once focus has left the popup.
   rex.action{
     name = "popup_return",
