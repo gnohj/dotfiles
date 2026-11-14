@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Claude start on the personal account; the claude wrapper derives its config dir and token from CLAUDE_ACCOUNT.
-if [ -n "${REX_RECOVER_LAUNCH_DIR:-}" ]; then # rex-recover restores csp only in the dotfiles session, continuing
+if [ -n "${REX_RECOVER_LAUNCH_DIR:-}" ]; then # rex-recover restores csp only in the dotfiles session, resuming this pane's conversation
   label=$(rex --autostart=false session inspect "${REX_SESSION:-}" --json 2>/dev/null | jq -r '.label // empty')
-  case "$label" in *dotfiles) set -- --continue ;; *) exit 0 ;; esac
+  case "$label" in *dotfiles) ;; *) exit 0 ;; esac
+  id=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/claude-rex-sessions/${REX_BLOCK#block:}" 2>/dev/null)
+  case "$id" in "" | *[!a-zA-Z0-9-]*) set -- --continue ;; *) set -- --resume "$id" ;; esac
 fi
 unset REX_RECOVER_LAUNCH_DIR
 CLAUDE_ACCOUNT=personal exec "$HOME/.local/bin/cs" "$@"

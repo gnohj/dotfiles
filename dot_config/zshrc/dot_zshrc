@@ -895,9 +895,6 @@ btop2() {
   command btop -c "$mem_conf"
 }
 
-# Github Dash
-alias ghd='env -u GH_TOKEN -u GITHUB_TOKEN gh-dash'
-
 # GitHub Actions runs: bare `ghe` opens the current branch's PR checks, else all repo runs
 ghe() {
   if (( $# == 0 )); then
@@ -1301,15 +1298,8 @@ _pi_sp() {
 	local sp="$HOME/Developer/agents/shared/system-prompt.md"
 	[ -f "$sp" ] && print -r -- --append-system-prompt "$sp"
 }
-pis() { pi $(_pi_sp) "$@"; }      # pi start (new session)
 pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
-# Named providers pin provider-qualified models; luna always runs at xhigh on openai-codex.
-pio() { pi --provider openai-codex --model openai-codex/gpt-6.1-sol:high $(_pi_sp) "$@"; }
-pig() { pi --provider openai-codex --model openai-codex/gpt-6-luna:xhigh $(_pi_sp) "$@"; }
-pic() { pi --provider claude-code --model claude-code/claude-opus-5-5:high $(_pi_sp) "$@"; }
-pior() { pi -r --provider openai-codex --model openai-codex/gpt-6.1-sol:high $(_pi_sp) "$@"; }
-pigr() { pi -r --provider openai-codex --model openai-codex/gpt-6-luna:xhigh $(_pi_sp) "$@"; }
-picr() { pi -r --provider claude-code --model claude-code/claude-opus-5-5:high $(_pi_sp) "$@"; }
+# pis/pio/pig/pic and their -r twins are ~/.local/bin/pi-start symlinks, so rex-recover can relaunch them.
 
 webtoken() {
   export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://platform.example.com | grep APP_TOKEN | cut -d= -f2 | xargs)
