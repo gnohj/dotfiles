@@ -1,0 +1,15 @@
+# Reopens the autostart entries.toml sessions (hermes, the review dashboards) after the dev-box server starts with --restore=false.
+[Unit]
+Description=Reopen autostart Rex sessions
+After=rex.service
+PartOf=rex.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rex --autostart=false do %h/.local/bin/mux/rex/rex-autostart-sessions.lua
+# The server socket may not answer yet right after rex.service starts.
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=rex.service

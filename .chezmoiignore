@@ -188,6 +188,9 @@ Library/
 # Rex tab numberer unit - Linux only; macOS runs the same script from its launchd agent `rex-tab-numbers`.
 .config/systemd/user/rex-tab-numbers.service
 
+# Rex autostart-sessions unit - Linux only; the Mac's server restores its own sessions.
+.config/systemd/user/rex-autostart-sessions.service
+
 # Autopush timer — same story: macOS schedules the identical script through the
 # nix-darwin launchd agent `github-auto-push` instead.
 .config/systemd/user/github-auto-push.service

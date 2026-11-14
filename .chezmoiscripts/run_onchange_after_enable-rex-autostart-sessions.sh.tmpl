@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Enable the Rex autostart-sessions unit; Linux/systemd only, the Mac's server restores its own sessions.
+# service sha256: {{ include "dot_config/systemd/user/rex-autostart-sessions.service" | sha256sum }}
+set -eu
+
+[ "$(uname)" = "Linux" ] || exit 0
+command -v systemctl >/dev/null 2>&1 || exit 0
+
+systemctl --user daemon-reload
+systemctl --user enable rex-autostart-sessions.service
+
+echo "rex-autostart-sessions.service enabled."

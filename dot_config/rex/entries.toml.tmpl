@@ -68,6 +68,7 @@ name = "inferno/review"
 path = "~/Developer/inferno/review"
 alias = "ir"
 startup_command = "ghd"
+autostart = "true"
 {{- if eq .chezmoi.os "darwin" }}
 rex_host = "Dev Box"
 {{- end }}
@@ -121,6 +122,7 @@ name = "web/review"
 path = "~/Developer/web/review"
 alias = "wr"
 startup_command = "ghd"
+autostart = "true"
 {{- if eq .chezmoi.os "darwin" }}
 rex_host = "Dev Box"
 {{- end }}
@@ -200,6 +202,7 @@ name = "hermes"
 path = "~/.local/share/hermes/workspace"
 alias = "hm"
 startup_command = "hermes-container"
+autostart = "true"
 
 [[session]]
 name = "fm"

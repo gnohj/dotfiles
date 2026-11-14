@@ -147,4 +147,13 @@ function M.setup()
   return aliases
 end
 
+-- Opens each autostart entry that isn't a session yet, unselected; the dev-box server runs --restore=false, so a restart drops them.
+function M.autostart()
+  for _, e in ipairs(read_entries(c.HOME .. "/.config/rex/entries.toml")) do
+    if e.autostart == "true" and e.name ~= nil and e.path ~= nil then
+      open_session(e.name, (e.path:gsub("^~", c.HOME):gsub("(.)/$", "%1")), e.startup_command, true)
+    end
+  end
+end
+
 return M
