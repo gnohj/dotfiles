@@ -35,3 +35,5 @@ https://github.com/kunchenguid/vision.git ~/Developer/vision
 https://github.com/ayghri/i-have-adhd.git ~/Developer/i-have-adhd
 # ponytail is an Agent Skills package (DietrichGebert, MIT); reached through typed-only commands, since its frontmatter would otherwise self-invoke on every coding task.
 https://github.com/DietrichGebert/ponytail.git ~/Developer/ponytail
+# rex-recover (nexxai, MIT) relaunches apps.conf commands in their Rex panes after a server restart; the rex-recover daemon and the zshrc capture hook run straight from this clone.
+https://github.com/nexxai/rex-recover.git ~/Developer/rex-recover

@@ -112,8 +112,8 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
-# owner/name slugs, not bare paths: firstmate, vision, i-have-adhd and ponytail are upstream clones, not gnohj repos.
-typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail)
+# owner/name slugs, not bare paths: firstmate, vision, i-have-adhd, ponytail and rex-recover are upstream clones, not gnohj repos.
+typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail nexxai/rex-recover)
 
 _update_summary_repos() {
   print -l "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
@@ -247,6 +247,7 @@ update() {
   else
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
+  local rr_head=$(git -C "$HOME/Developer/rex-recover" rev-parse HEAD 2>/dev/null)
   if command -v git >/dev/null 2>&1; then
     for slug in $_update_repo_slugs; do
       name=${slug:t}
@@ -266,6 +267,15 @@ update() {
       _update_ff "$repo" ||
         { print -P "%F{red}   $name pull failed - left untouched (dirty/diverged?)%f"; failed+=("$name pull"); }
     done
+    # A pull swaps files under the running watcher, so restart it onto the new code.
+    if [[ -n "$rr_head" && "$(git -C "$HOME/Developer/rex-recover" rev-parse HEAD 2>/dev/null)" != "$rr_head" ]]; then
+      print -P "%F{cyan}==> restarting rex-recover watcher%f"
+      if [[ "$OSTYPE" == darwin* ]]; then
+        ! launchctl print "gui/$(id -u)/org.nixos.rex-recover" >/dev/null 2>&1 || launchctl kickstart -k "gui/$(id -u)/org.nixos.rex-recover" >/dev/null 2>&1
+      else
+        systemctl --user try-restart rex-recover.service
+      fi || failed+=("rex-recover restart")
+    fi
   else
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
@@ -1553,6 +1563,12 @@ export PATH="$HOME/.local/bin:$PATH"
 #                  Script Integrations
 #-------------------------------------------------------------------------------
 
+# -----------------------------  Rex Recover launch capture (apps in ~/.config/rex-recover/apps.conf)
+unset REX_RECOVER_LAUNCH_DIR # set only on the command recovery types, so a shell inheriting it is not a recovery
+if [[ -n "${REX_SESSION:-}" && -n "${REX_BLOCK:-}" && -r "$HOME/Developer/rex-recover/shell/rex-recover.zsh" ]]; then
+  source "$HOME/Developer/rex-recover/shell/rex-recover.zsh"
+fi
+
 # -----------------------------  Sketchybar Package Notification (Unified)
 # Setup unified package notification widget that monitors brew, mas, and mise
 if command -v sketchybar &>/dev/null; then
@@ -1744,8 +1760,11 @@ if command -v sketchybar &>/dev/null; then
 fi
 
 # -----------------------------  System Fetch
-# Only in a new terminal's top shell, not in SKIP_FETCH one-off windows.
-if [[ "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
+# Only in a new terminal's top shell, not SKIP_FETCH one-offs, nor a pane rex-recover will replay into (it skips a busy pane).
+_rr_checkpoint="${XDG_STATE_HOME:-$HOME/.local/state}/rex-recover/checkpoint.json"
+_rr_restore=0
+[[ -n "${REX_BLOCK:-}" && -r "$_rr_checkpoint" && "$(<$_rr_checkpoint)" == *"\"$REX_BLOCK\""* ]] && _rr_restore=1
+if [[ "$SHLVL" -eq 1 && -z "$SKIP_FETCH" && $_rr_restore -eq 0 ]]; then
     if command -v fastfetch &>/dev/null; then
         # The image plus the 36-column boxes need ~75 columns; narrower panes drop the image, and below the boxes skip it.
         _fetch_draw() {
@@ -1790,6 +1809,7 @@ if [[ "$SHLVL" -eq 1 && -z "$SKIP_FETCH" ]]; then
         _fetch_render
     fi
 fi
+unset _rr_checkpoint _rr_restore
 
 #-------------------------------------------------------------------------------
 #                  Eval Integrations (Cached)
