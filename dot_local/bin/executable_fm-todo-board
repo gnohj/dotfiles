@@ -834,7 +834,8 @@ def buttons(acts):
     for i, a in enumerate(acts):
         m = BUTTON.match(a)
         if m:
-            chip = f"{m[1]} {m[4]}:{m[2]}!" if i == 0 else f"{m[1]} {m[4]}"
+            text = m[4] if m[1] == m[4] else f"{m[1]} {m[4]}"
+            chip = f"{text}:{m[2]}!" if i == 0 else text
             a = f"[{{{{{chip}}}}}]{m[3]}" + a[m.end():]
         out.append(a)
     return out
@@ -1051,11 +1052,12 @@ def slack_bar():
     else:
         title = f"swept {datetime.fromtimestamp(sl['last_at']).strftime('%H:%M')}" if sl.get("last_at") else "not swept yet"
         meta = ""
-    duty = [f"on call: {o.get('role')} @{outside(str(o.get('group', '')))}" for o in sl.get("oncall") or []
-            if isinstance(o, dict) and o.get("role") in ("primary", "secondary")]
-    if duty:
-        meta = join_meta([f"{{{{{d}:yellow.}}}}" for d in duty] + ([meta] if meta else []))
-    check = [link("{{check now:magenta}}", act("slack/check"), "[K]")]
+    on = [o for o in sl.get("oncall") or [] if isinstance(o, dict) and o.get("role") in ("primary", "secondary")]
+    for o in on:
+        rank = "1st" if o["role"] == "primary" else "2nd"
+        group = f" @{outside(str(o.get('group', '')))}" if len(on) > 1 else ""
+        title += f" · {{{{on call · {rank}{group}:yellow.}}}}"
+    check = [link("{{K:magenta}}", act("slack/check"), "[K]")]
     return ["\n# {pin:bottom}", *bar("{{slack:red}}", title, check, meta)]
 
 
@@ -1073,7 +1075,7 @@ def standup_bar():
                       "edited" if edited else "", f"next {next_standup(now)}",
                       f"{{{{{defuse(st['error'])}:yellow.}}}}" if st.get("error") else ""])
     right = ([link("{{copy:green}}", act("standup/copy"), "[C]")] if draft else []) + [
-        link("{{edit:blue}}", act("standup/edit"), "[E]"), link("{{write now:blue}}", act("standup/write"), "[W]")]
+        link("{{edit:blue}}", act("standup/edit"), "[E]"), link("{{run now:blue}}", act("standup/write"), "[R]")]
     title = "Standup"
     if st.get("date"):
         day = datetime.strptime(st["date"], "%Y-%m-%d") + timedelta(days=1)
@@ -1179,7 +1181,7 @@ def review_ask_bar(b):
     prs = needs_reviews(b)
     if not prs:
         return []
-    copy = [link("{{copy ask:green}}", act("reviews/copy", prs=",".join(n for n, *_ in prs)), "[Y]")]
+    copy = [link("{{Y:green}}", act("reviews/copy", prs=",".join(n for n, *_ in prs)), "[Y]")]
     rows = [f"{repo_label(pr.get('repo', ''))} #{pr.get('number')} {pr_title(pr)} · {have}/{need}" for _, pr, have, need in prs]
     title = f"{len(prs)} PR{'s' if len(prs) != 1 else ''} need dev review"
     return ["\n# {pin:bottom}", *bar("{{review:magenta}}", title, right=copy, details=rows)]
