@@ -202,10 +202,14 @@ status() {
 # Redraws from firstmate's last block, its saved tasks and the Library's current files; launchd runs it each minute.
 # Asks an idle firstmate to repost the board when its last status is 4h old: weekdays 9-19, at most once per 4h.
 nudge_status() {
-  local sid block
+  local sid block away
   [ "$(date +%u)" -le 5 ] && [ "$(date +%H)" -ge 9 ] && [ "$(date +%H)" -lt 19 ] || return 0
   [ -n "$(find "$RAW_FILE" -mmin -240 2>/dev/null)" ] && return 0
   [ -n "$(find "$NUDGE_FILE" -mmin -240 2>/dev/null)" ] && return 0
+  # Away (/afk) or quiet, any typed line reads as the captain returning, so the board never prompts then.
+  for away in "$HOME"/.local/share/firstmate*/state/.afk-contract "$HOME"/.local/share/firstmate*/state/.afk; do
+    [ -e "$away" ] && return 0
+  done
   read -r sid block 2>/dev/null <"$ANCHOR_FILE" || true
   [ -n "${block:-}" ] || read -r sid block <<<"$(REX_BLOCK= fm_pane)"
   [ -n "${block:-}" ] || return 0
