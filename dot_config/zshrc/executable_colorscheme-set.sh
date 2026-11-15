@@ -2379,6 +2379,32 @@ generate_ccstatusline_config() {
   fi
 }
 
+# Baby Menu has no theme setting; its operations extension injects this palette over the built-in one and hot-reloads on write.
+generate_baby_menu_theme() {
+  local dir="$HOME/.baby-menu-sidebar/extensions/operations" tmp
+  [ -d "$dir" ] || return 0
+  tmp=$(mktemp "$dir/.theme.XXXXXX")
+  cat >"$tmp" <<EOF
+export type ThemePalette = {
+  background: string;
+  text: string;
+  live: string;
+  warn: string;
+  danger: string;
+};
+
+export const palette: ThemePalette | null = {
+  background: "$gnohj_color10",
+  text: "$gnohj_text",
+  live: "$gnohj_color02",
+  warn: "$gnohj_color12",
+  danger: "$gnohj_color11",
+};
+EOF
+  mv "$tmp" "$dir/theme.ts"
+  echo "Baby Menu theme updated at '$dir/theme.ts'."
+}
+
 generate_tuxedo_theme() {
   # Built-in "Terminal" paints the cursor row and later due dates both ANSI DarkGray, so the date vanishes on the active row.
   # shellcheck disable=SC1091
@@ -2486,6 +2512,7 @@ if [[ "$OSTYPE" == darwin* ]]; then
   pkill -USR2 -x ghostty 2>/dev/null || true
   generate_rex_theme
   generate_kitty_theme
+  generate_baby_menu_theme
 fi
 
 # Generate the btop theme
