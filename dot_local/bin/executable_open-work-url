@@ -1,6 +1,7 @@
 #!/bin/zsh -f
-# Open a work URL (Finicky routes it to Helium Work), then focus the Work window showing its Jira key or PR number.
+# Open a work URL in a new tab of an open Helium Work window (Finicky's new window only when none is open), then focus it.
 emulate -L zsh
+path=(/run/current-system/sw/bin /opt/homebrew/bin /usr/local/bin $path)
 url=${1:?usage: open-work-url URL}
 
 case $url in
@@ -8,6 +9,39 @@ case $url in
   */pull/*) match="#${${url##*/pull/}%%[?#/]*}" ;;
   *) match="" ;;
 esac
+
+# Only the hosts Finicky sends to the Work profile take a tab; the rest (Slack, Teams, personal) still route through Finicky.
+work_host=""
+case $url in
+  https://*.atlassian.net/* | https://github.com/iheartradio/* | https://*.iheart.com/* | https://*.internal.example.com/* | https://*.ts.net/* | https://*.ts.net:*) work_host=1 ;;
+esac
+
+# AppleScript names a window by its tab title; Rift's title adds " - Helium - Work", which is how a Work window is told apart.
+names=""
+[[ -n $work_host ]] && names=$(rift-cli query workspaces 2>/dev/null |
+  jq -r '[.[] | .windows[] | select(.bundle_id == "net.imput.helium" and (.title | endswith(" - Work"))) | .title | sub(" - Helium - Work$"; "") | sub(" - Work$"; "")] | (map(select(. != "review")) + map(select(. == "review"))) | .[]')
+
+if [[ -n $names ]] && osascript - "$url" ${(f)names} <<'OSA' >/dev/null 2>&1; then
+on run argv
+	set u to item 1 of argv
+	tell application id "net.imput.helium"
+		repeat with i from 2 to count of argv
+			set n to item i of argv
+			repeat with w in windows
+				if name of w is n then
+					tell w to make new tab at end of tabs with properties {URL:u}
+					set index of w to 1
+					return
+				end if
+			end repeat
+		end repeat
+	end tell
+	error "no Work window"
+end run
+OSA
+  ~/.local/bin/focus-work-browser "$match"
+  exit 0
+fi
 
 open "$url"
 ~/.local/bin/focus-work-browser "$match"
