@@ -60,7 +60,7 @@ def chat(title, ref="", qid=""):
 
 
 def diff_chip(repo, number, key=""):
-    return link("{{review:blue}}", act("diff", repo=repo, number=number, key=key), f"[v] Open PR #{number} in Hunk")
+    return link("{{diff:blue}}", act("diff", repo=repo, number=number, key=key), f"[v] Open PR #{number} in Hunk")
 
 
 def pill(text):
@@ -802,16 +802,14 @@ def actions(it, section, b):
     if section == "done":
         ident, fp = seen_key(it)
         return [link("{{seen:green}}", act("seen", id=ident, fp=fp), "[s]"), chat(*it["chat"], it["qid"])]
-    if it["call_chip"]:
-        acts.append(it["call_chip"])
     tid = task.get("id", "")
     if task.get("block"):
         acts.append(link("{{pane:blue}}", act("pane", key=tid), "[o]"))
     if task.get("wt"):
+        # The worktree's whole branch against its base, pushed or not, plus uncommitted edits: a superset of the PR's diff.
         acts.append(link("{{edit:blue}}", act("edit", key=tid), "[e]"))
-        if changes(task, it["pr"]):
-            acts.append(link("{{diff:blue}}", act("wtdiff", key=tid), "[D]"))
-    if it["pr"]:
+        acts.append(link("{{diff:blue}}", act("wtdiff", key=tid), "[D]"))
+    elif it["pr"]:
         acts.append(diff_chip(*it["pr"].partition("#")[::2], it["key"]))
     if it["action"]:
         acts.append(it["action"])
@@ -820,8 +818,8 @@ def actions(it, section, b):
         ident, fp = seen_key(it)
         acts.append(link("{{seen:green}}", act("seen", id=ident, fp=fp), "[s]"))
     talk = chat(*it["chat"], it["qid"])
-    if it["call"] and not it["answered"] and not it["call_chip"]:
-        acts.insert(0, talk.replace("{{chat:blue}}", "{{answer:yellow}}", 1))
+    if it["call"] and not it["answered"]:
+        acts.insert(0, talk)
     else:
         acts.append(talk)
     return acts
@@ -907,7 +905,8 @@ def slack_items(out):
             chips.insert(0, f"{{{{on-call · {outside(str(x['oncall']))}:yellow.}}}}")
         extra = [link("{{hand to fm:magenta}}", act("slack/hand", link=link_), "[t] Hand this to firstmate to research and draft a reply?"),
                  link("{{done:green}}", act("slack/act", op="done", link=link_), "[x]"),
-                 link("{{skip:blue}}", act("slack/act", op="skip", link=link_), "[z]")]
+                 link("{{skip:blue}}", act("slack/act", op="skip", link=link_), "[z]"),
+                 chat(title, f"Slack {link_}", "")]
         out["needs" if x.get("kind") == "ask" else "new"].append(new_item(
             title=title, badge="{{slack:red}}", cat="slack", refs=[link(tint("open in Slack"), link_)], chips=chips,
             lines=[f"| {outside(str(x.get('text', '')))}"], extra=extra, custom=True, at=int(x.get("at") or 0)))

@@ -233,6 +233,112 @@ def card(title, ref, qid):
         subprocess.run(["bash", "-c", "read -r -n1 -s"])
 
 
+def card_plain(text):
+    """Text from firstmate for the card: no links, chips or hotkeys of its own."""
+    return plain(text).replace("[", "［").replace("]", "］").replace("{{", "{ {").replace("}}", "} }").replace("`", "'")
+
+
+def card_md(title, ref, qid):
+    """The answer/chat card as a rexpad list: firstmate's context pinned on top, each option its own row, the keys pinned below."""
+    from fm_todo_action import act
+    item = find(qid) if qid else None
+    details = item["details"] if item else context_lines(title)
+    out = ["# {pin:top}", f"- [ ] {{{{🚢 fm:green}}}} {card_plain(title)}"]
+    if ref and ref not in title:
+        out.append(f"  : {card_plain(ref)}")
+    for d in details:
+        if QUESTION.match(d) or OPTION.match(d) or RECOMMEND.match(d):
+            continue
+        out.append(f"  | {card_plain(d)}")
+    options = item["options"] if item and item["question"] else []
+    if item and item["question"]:
+        out.append(f"  * Your call: {card_plain(item['question'])}")
+    if options:
+        ranked = sorted(options, key=lambda o: o["letter"] != item["recommend"])
+        out += ["", f"# Options · {len(ranked)} {{blue}}"]
+        for n, o in enumerate(ranked[:9], 1):
+            best = o["letter"] == item["recommend"]
+            tag = f"{{{{★ ({o['letter']}):green}}}}" if best else f"{{{{({o['letter']}):blue}}}}"
+            out.append(f"- [ ] {tag} {card_plain(o['label'])}")
+            why = item["why"] if best and item["why"] else o["why"]
+            meta = " · ".join(x for x in ("recommended" if best else "", card_plain(why)) if x)
+            if meta:
+                out.append(f"  : {meta}")
+            face = "green!" if best else ""
+            chip = f"{{{{choose · {n}:{face}}}}}" if face else f"{{{{choose · {n}}}}}"
+            out.append(f"  : [{chip}]({act('answer', qid=qid, fp=item['fp'], letter=o['letter'])} \"[{n}]\")")
+    keys = "1-9 or Enter choose · i add a note, Enter sends it · Esc close" if options else "i write a note · Enter sends it to firstmate · Esc close"
+    out += ["", "# {pin:bottom}", f"- [ ] {{{{keys:blue}}}} {keys}"]
+    return "\n".join(out) + "\n"
+
+
+def card_json(title, ref, qid):
+    """The answer/chat card for `rexpad card`: firstmate's words as the body, its call in a callout, each option a choice."""
+    from fm_todo_action import act
+    item = find(qid) if qid else None
+    details = item["details"] if item else context_lines(title)
+    words = [plain(d) for d in details if not (QUESTION.match(d) or OPTION.match(d) or RECOMMEND.match(d))]
+    asks = bool(item and item["question"])
+    spec = {"status": "Needs you" if asks else "Firstmate", "color": "yellow" if asks else "blue",
+            "ref": plain(ref), "title": plain(title), "sections": [], "rows": [], "options": [],
+            "send": card_send(title, ref, qid), "preview": card_preview(title, ref)}
+    if words:
+        spec["sections"].append({"label": "Firstmate", "text": " ".join(words)})
+    if asks:
+        spec["callout"] = {"label": "Your call", "text": plain(item["question"])}
+        best = next((o for o in item["options"] if o["letter"] == item["recommend"]), None)
+        if best:
+            spec["rows"].append({"label": "Recommends", "text": f"({best['letter']}) {plain(best['label'])}" + (f": {plain(item['why'])}" if item["why"] else "")})
+        for o in sorted(item["options"], key=lambda o: o["letter"] != item["recommend"])[:9]:
+            spec["options"].append({"key": o["letter"], "label": f"({o['letter']}) {plain(o['label'])}", "why": plain(o["why"]),
+                                    "recommended": o["letter"] == item["recommend"],
+                                    "url": act("answer", qid=qid, fp=item["fp"], letter=o["letter"])})
+    return json.dumps(spec)
+
+
+LIBRARY = os.path.expanduser("~/.local/state/lavish-library")
+PREVIEWS = os.path.join(STATE, "previews")
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def card_preview(title, ref):
+    """The newest Lavish artifact for the item's ticket, screenshotted once per version through the Library's preview page."""
+    keys = TICKET.findall(f"{title} {ref}")
+    try:
+        with open(os.path.join(LIBRARY, "catalog.json")) as f:
+            arts = json.load(f).get("artifacts", [])
+        base = open(os.path.join(LIBRARY, "public-url")).read().strip()
+    except (OSError, ValueError):
+        return None
+    if not keys or not base:
+        return None
+    hits = [a for a in arts if a.get("exists") and any(k in str(a.get("title") or "") for k in keys)]
+    if not hits:
+        return None
+    art = max(hits, key=lambda a: str(a.get("updated") or ""))
+    ident = str(art.get("id") or "")
+    shot = os.path.join(PREVIEWS, re.sub(r"[^A-Za-z0-9_-]", "_", f"{ident}-{str(art.get('digest') or '')[:12]}") + ".png")
+    if not os.path.exists(shot) and os.access(CHROME, os.X_OK):
+        os.makedirs(PREVIEWS, exist_ok=True)
+        try:
+            subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--window-size=1280,900",
+                            f"--screenshot={shot}", f"{base}/preview/{ident}"], capture_output=True, timeout=15)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if not os.path.exists(shot):
+        return None
+    return {"image": shot, "url": f"{base}/open/{ident}", "label": plain(str(art.get("title") or ""))}
+
+
+def card_send(title, ref, qid):
+    """Where Enter in the card's note goes: the call's answer with just the note, else a plain message about the item."""
+    from fm_todo_action import act
+    item = find(qid) if qid else None
+    if item and item["question"]:
+        return act("answer", qid=qid, fp=item["fp"], letter="")
+    return act("say", title=title, ref=ref)
+
+
 def context_lines(title):
     want = re.sub(r"\s+", " ", title).strip()
     for name in ("firstmate", "firstmate.work", "firstmate.tickets", "firstmate.outputs"):
@@ -247,8 +353,9 @@ def context_lines(title):
                 t = sub.strip()
                 if not sub.startswith("  ") or t.startswith(("* ", "- [")):
                     break
-                out.append(board_plain(t[2:] if t[:2] in (": ", "| ", "> ") else t))
-            return out
+                if t[:2] in ("| ", "> "):
+                    out.append(board_plain(t[2:]))
+            return [ln for ln in out if ln]
     return []
 
 
@@ -264,6 +371,15 @@ def main(argv):
     cmd, args = (argv[0], argv[1:]) if argv else ("", [])
     if cmd == "card":
         return card(*(args + ["", "", ""])[:3])
+    if cmd == "card-md":
+        sys.stdout.write(card_md(*(args + ["", "", ""])[:3]))
+        return
+    if cmd == "card-json":
+        print(card_json(*(args + ["", "", ""])[:3]))
+        return
+    if cmd == "card-send":
+        print(card_send(*(args + ["", "", ""])[:3]))
+        return
     if cmd == "show":
         print(json.dumps(find(args[0]) or {}, indent=2))
         return

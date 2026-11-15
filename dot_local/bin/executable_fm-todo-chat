@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-# Todo pane chat popup: the item's context and any call as an fzf card; pick a choice, type your own words, or both.
+# Todo pane chat popup: the item and any call as a rexpad card; pick an option, add a note, or both. Falls back to the fzf card.
 set -uo pipefail
 
 title=${1:?usage: fm-todo-chat TITLE [REF] [QID]}
-exec python3 "$HOME/.local/bin/fm_todo_ask.py" card "$title" "${2:-}" "${3:-}"
+ref=${2:-} qid=${3:-}
+ask="$HOME/.local/bin/fm_todo_ask.py"
+rexpad="$HOME/.local/bin/rexpad"
+spec="${XDG_STATE_HOME:-$HOME/.local/state}/rexpad/fm-card.json"
+
+if [ -x "$rexpad" ] && python3 "$ask" card-json "$title" "$ref" "$qid" >"$spec" 2>/dev/null && [ -s "$spec" ]; then
+  exec env REXPAD_OPEN="$HOME/.local/bin/fm-todo-open" "$rexpad" card "$spec"
+fi
+exec python3 "$ask" card "$title" "$ref" "$qid"

@@ -124,7 +124,13 @@ def run(path, q):
     if path in ("pane", "edit", "wtdiff"):
         return task(path, q)
     if path == "answer":
-        return fm_todo_ask.answer(q["qid"], q["fp"], q.get("letter", ""))
+        return fm_todo_ask.answer(q["qid"], q["fp"], q.get("letter", ""), os.environ.get("REXPAD_NOTE", ""))
+    if path == "say":
+        note = " ".join(os.environ.get("REXPAD_NOTE", "").split())
+        if note:
+            about = f"{q['title']} ({q['ref']})" if q.get("ref") else q["title"]
+            fm_todo_ask.send(f"Captain, about {about}: {note}")
+        return
     if path == "start":
         library("POST", "/api/start-ticket", {"key": q["key"]})
     elif path == "merge":
