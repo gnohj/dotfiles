@@ -4,7 +4,20 @@ set -euo pipefail
 
 die() { echo "kb-fill: $*" >&2; exit 1; }
 
-url=$(kb ctl status 2>/dev/null | sed -n 's/^url: //p')
+kbs=$(kb list 2>/dev/null || true)
+[[ -n "$kbs" ]] || die "no kb page open"
+inst=""
+for block in "$@"; do
+  inst=$(awk -F'\t' -v b="$block" '$3 == b { print $1; exit }' <<<"$kbs")
+  [[ -n "$inst" ]] && break
+done
+if [[ -z "$inst" ]]; then
+  [[ $(wc -l <<<"$kbs") -eq 1 ]] || die "no kb in this tab"
+  inst=$(cut -f1 <<<"$kbs")
+fi
+kbctl() { kb ctl -i "$inst" "$@"; }
+
+url=$(kbctl status 2>/dev/null | sed -n 's/^url: //p')
 [[ -n "$url" ]] || die "no kb page open"
 host=$(sed -E 's#^[a-z]+://([^/:]+).*#\1#' <<<"$url")
 
@@ -34,7 +47,7 @@ while [[ -z "$id" && "$domain" == *.* ]]; do
 done
 [[ -n "$id" ]] || die "no Bitwarden entry matches $host"
 
-fields=$(kb ctl eval '(() => {
+fields=$(kbctl eval '(() => {
   const visible = el => el.offsetParent !== null && !el.disabled && !el.readOnly;
   const inputs = [...document.querySelectorAll("input")].filter(visible);
   document.querySelectorAll("[data-kbfill]").forEach(el => el.removeAttribute("data-kbfill"));
@@ -58,6 +71,6 @@ for field in $fields; do
     otp) value=$(rbw code "$id") ;;
     *) continue ;;
   esac
-  [[ -n "$value" ]] && kb ctl type "[data-kbfill=$field]" "$value" --clear >/dev/null
+  [[ -n "$value" ]] && kbctl type "[data-kbfill=$field]" "$value" --clear >/dev/null
 done
 echo "kb-fill: filled $fields for $(jq -r .name <<<"$entry")"

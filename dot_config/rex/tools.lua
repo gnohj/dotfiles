@@ -191,7 +191,16 @@ function M.setup()
     title = "Fill kb Login from Bitwarden",
     category = "Tools",
     run = function(ctx, args)
-      c.popup(ctx, 0.25, 0.3, { "/bin/bash", "-c", '"$HOME/.local/bin/kb-fill" || { printf "\\nPress any key to close"; read -rsn1 _; }' })
+      local blocks = { ctx.block_id }
+      local window = c.tab_of_block(c.windows(), ctx.block_id)
+      for _, layer in ipairs(window and window.layers or {}) do
+        for _, b in ipairs(layer.blocks or {}) do
+          if b.block_id ~= ctx.block_id then table.insert(blocks, b.block_id) end
+        end
+      end
+      local cmd = { "/bin/bash", "-c", '"$HOME/.local/bin/kb-fill" "$@" || { printf "\\nPress any key to close"; read -rsn1 _; }', "kb-fill" }
+      for _, id in ipairs(blocks) do table.insert(cmd, id) end
+      c.popup(ctx, 0.25, 0.3, cmd)
     end,
   }
 
