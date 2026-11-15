@@ -1,6 +1,10 @@
 on open location theURL
 	set urlPrefix to my plistValue("PWAURLPrefix")
 	set theURL to my stripScheme(theURL)
+	-- Slack permalinks open a desktop-app handoff page; its web client takes the thread URL directly.
+	if urlPrefix is "https://app.slack.com/" then
+		set theURL to do shell script "\"$HOME/.config/finicky/slack-client-url.sh\" " & quoted form of theURL
+	end if
 	set pwaBundle to my pwaBundleId(urlPrefix)
 	if pwaBundle is "" then
 		display notification "No Helium app installed for " & urlPrefix with title "PWA link"

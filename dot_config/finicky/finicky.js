@@ -13,6 +13,11 @@ const outlookApp = {
   appType: "bundleId",
 };
 
+const slackApp = {
+  name: "com.gnohj.slack-link",
+  appType: "bundleId",
+};
+
 export default {
   defaultBrowser: { name: "Helium", profile: "personal" },
   options: {
@@ -26,6 +31,10 @@ export default {
     {
       match: ["teams.microsoft.com/*", "teams.cloud.microsoft/*"],
       browser: teamsApp,
+    },
+    {
+      match: ["*.slack.com/archives/*", "app.slack.com/client/*"],
+      browser: slackApp,
     },
     {
       match: [
@@ -42,6 +51,7 @@ export default {
         "*.iheart.com/*",
         "*.internal.example.com/*",
         "*.ts.net/*",
+        "*.ts.net:*",
         "*.safelinks.protection.outlook.com/*",
         "iheartmedia.sharepoint.com/*",
         "*teams.microsoft.com/*",
