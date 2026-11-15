@@ -351,7 +351,15 @@ task_open() {
   if [ "$what" = edit ]; then
     name="📝 $slug" cmd='nvim .'
   else
-    name="± $slug" cmd='b=$(git rev-list --topo-order HEAD --not --remotes | tail -1); exec hunk diff --watch "${b:+$b^}${b:-HEAD}"'
+    # The diff opens here, in the firstmate session, so its Hunk notes reach firstmate; hunk-wt reads a remote worktree over ssh.
+    read -r ses _ <<<"$(REX_BLOCK= fm_pane)"
+    [ -n "$ses" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
+    name="± $slug"
+    window=$(window_by_label "$ses" "$name")
+    [ -n "$window" ] || window=$(rex window new -s "$ses" "$name" --json -- "$HOME/.local/bin/fm-todo" hunk-wt "$key" | jq -r '.window_id // empty')
+    [ -n "$window" ] || { echo "fm-todo: could not open $name" >&2; exit 1; }
+    show_window "$ses" "$window"
+    return
   fi
   window=$(window_by_label "$ses" "$name" "$label")
   if [ -z "$window" ]; then
@@ -524,6 +532,34 @@ hunk_pr() {
   FM_HUNK_PR="$repo#$number" FM_HUNK_TICKET="$key" hunk patch "$patch" --watch
 }
 
+# A crewmate's whole branch in local Hunk (remote worktrees over ssh, re-read every few seconds); FM_HUNK_PR lets S send notes to firstmate.
+hunk_wt() {
+  local key=$1 row slug block host wt dir patch pr ticket work fetch refresher
+  row=$(awk -F'\t' -v k="$key" '$1 == k { print $3 "\037" $9 "\037" $10 "\037" $11; exit }' "$TASKS_FILE" 2>/dev/null)
+  [ -n "$row" ] || { echo "fm-todo: $key is not on the board" >&2; read -rsn1 -p "Press any key to close" || true; return 1; }
+  IFS=$'\037' read -r slug block host wt <<<"$row"
+  [ -n "$wt" ] || { echo "fm-todo: $slug has no worktree" >&2; read -rsn1 -p "Press any key to close" || true; return 1; }
+  pr=$(awk -F'\t' -v b="$block" -v s="$slug" '($9 == b && b != "" || $3 == s) && $1 ~ /#[0-9]+$/ { print $1; exit }' "$TASKS_FILE")
+  ticket=$(awk -F'\t' -v b="$block" -v s="$slug" '($9 == b && b != "" || $3 == s) && $1 ~ /^[A-Z][A-Z]+-[0-9]+$/ { print $1; exit }' "$TASKS_FILE")
+  work=${pr:-task $slug}
+  dir=$(mktemp -d "${TMPDIR:-/tmp}/fm-hunk-wt.XXXXXX")
+  patch="$dir/$slug.diff"
+  # shellcheck disable=SC2016
+  fetch='cd "$1" || exit 1; b=$(git merge-base HEAD origin/HEAD 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null || echo HEAD); git diff --no-color "$b"; git ls-files --others --exclude-standard -z | xargs -0 -n1 git diff --no-color --no-index /dev/null 2>/dev/null; true'
+  read_diff() {
+    if [ -n "$host" ]; then
+      printf '%s' "$fetch" | ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" sh -s "$(printf %q "$wt")"
+    else
+      sh -c "$fetch" sh "$wt"
+    fi
+  }
+  read_diff >"$patch" || { echo "fm-todo: could not read the diff of $slug" >&2; rm -rf "$dir"; read -rsn1 -p "Press any key to close" || true; return 1; }
+  ( while sleep 6; do read_diff >"$patch.new" 2>/dev/null && ! cmp -s "$patch.new" "$patch" && mv "$patch.new" "$patch"; rm -f "$patch.new"; done ) &
+  refresher=$!
+  trap "kill $refresher 2>/dev/null; rm -rf $(printf %q "$dir")" EXIT HUP INT TERM
+  FM_HUNK_PR="$work" FM_HUNK_TICKET="$ticket" hunk patch "$patch" --watch
+}
+
 # Re-fetches the patch of every open Hunk tab whose PR head moved, read from the Library's pr-status.json.
 hunk_refresh() {
   local record repo number head patch new
@@ -574,6 +610,7 @@ case "$cmd" in pane | edit | wtdiff) task_open "$cmd" "${1:?usage: fm-todo $cmd 
 [ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
 [ "$cmd" = pr-open ] && { pr_open "${1:?usage: fm-todo pr-open REPO NUMBER old|new LINE PATH [TICKET]}" "${2:?}" "${3:?}" "${4:?}" "${5:?}" "${6:-}"; exit; }
 [ "$cmd" = hunk-pr ] &&{ hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
+[ "$cmd" = hunk-wt ] && { hunk_wt "${1:?usage: fm-todo hunk-wt KEY}"; exit; }
 block=""
 while [ $# -gt 0 ]; do
   case "$1" in
