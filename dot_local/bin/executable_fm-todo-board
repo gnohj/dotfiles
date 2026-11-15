@@ -2,15 +2,17 @@
 """Turn firstmate's status block (stdin) plus the Lavish Library's PR and ticket files into a rexpad board."""
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 import re
+import subprocess
 import sys
 
 import fm_todo_ask
 from fm_todo_action import act
 
 LIBRARY = os.path.expanduser(os.environ.get("FM_TODO_LIBRARY", "~/.local/state/lavish-library"))
+INBOX = os.path.expanduser(os.environ.get("FM_INBOX_STATE", "~/.local/state/fm-inbox"))
 JIRA = "https://jira.example.com/browse/"
 TICKET = r"[A-Z][A-Z]+-[0-9][0-9]+"
 JIRA_KEY = r"IHR[A-Z]*-[0-9]+"
@@ -54,11 +56,11 @@ def load_handoffs():
 
 
 def chat(title, ref="", qid=""):
-    return link("{{💬:blue}}", act("chat", title=title, ref=ref, **({"qid": qid} if qid else {})), "[c]")
+    return link("{{chat:blue}}", act("chat", title=title, ref=ref, **({"qid": qid} if qid else {})), "[c]")
 
 
 def diff_chip(repo, number, key=""):
-    return link("{{⎇:blue}}", act("diff", repo=repo, number=number, key=key), f"[v] Open PR #{number} in Hunk")
+    return link("{{review:blue}}", act("diff", repo=repo, number=number, key=key), f"[v] Open PR #{number} in Hunk")
 
 
 def pill(text):
@@ -94,22 +96,45 @@ def link(label, url, title=""):
     return f'[{label}]({url} "{title}")' if title else f"[{label}]({url})"
 
 
+SECTIONS = [("needs", "Needs you", "yellow"), ("progress", "In progress", "cyan"), ("prs", "Your PRs", "blue"),
+            ("requests", "Review requests", "magenta"), ("new", "New for you", "green"), ("done", "Done", "green")]
+SEEN_SECTIONS = ("new", "done")
+WORK_SECTIONS = ("prs", "progress")
+
+
+def new_item(**kw):
+    item = {"title": "", "glyph": "", "flag": "", "refs": [], "chips": [], "lines": [], "details": [], "action": "",
+            "task": {}, "pr": "", "key": "", "owner": "", "qid": "", "call": None, "answered": False, "call_chip": "",
+            "done": False, "draft": False, "chat": ("", ""), "extra": [], "badge": "", "cat": "", "at": 0, "custom": False}
+    item.update(kw)
+    return item
+
+
+def problems(bits):
+    """Only chips that ask for attention: failing or running CI, approvals still missing."""
+    return [b for b in bits if ":red." in b or ":yellow." in b]
+
+
+def summary_of(t):
+    return re.sub(r"^\[[^\]]+\]\s*", "", defuse(" ".join(str((t or {}).get("summary") or "").split())))
+
+
 class Board:
     def __init__(self, tasks_env, lavish_env):
         self.tasks, self.mates, self.states, self.kinds, self.claimed, self.claimed_prs = {}, {}, {}, {}, set(), set()
-        self.ready = []
-        self.cur_qid, self.answers = "", fm_todo_ask.answers()
+        self.cur_qid, self.answers, self.seen = "", fm_todo_ask.answers(), fm_todo_ask.seen()
         for row in filter(None, tasks_env.split("\n")):
             f = row.split("\t")
+            col = lambda i: f[i] if len(f) > i else ""
             if f[0].startswith("mate:"):
-                self.mates[f[0][5:]] = f[1] if len(f) > 1 else ""
+                self.mates[f[0][5:]] = col(1)
             elif f[0].startswith("state:"):
-                self.states[f[0][6:]] = f[1] if len(f) > 1 else ""
-                self.kinds[f[0][6:]] = f[2] if len(f) > 2 else ""
+                self.states[f[0][6:]] = col(1)
+                self.kinds[f[0][6:]] = col(2)
             elif len(f) >= 4:
-                self.tasks.setdefault(f[0], {"kind": f[1], "slug": f[2], "home": f[3],
-                                             "tab": f[4] if len(f) > 4 else "", "me": f[5] if len(f) > 5 else "",
-                                             "block": f[8] if len(f) > 8 else ""})
+                self.tasks.setdefault(f[0], {"id": f[0], "kind": f[1], "slug": f[2], "home": f[3], "tab": col(4),
+                                             "me": col(5), "ses": col(7), "block": col(8), "host": col(9), "wt": col(10), "dirty": col(11),
+                                             "unpushed": col(12), "branch": col(13)})
                 if f[3].startswith("sm-"):
                     self.mates.setdefault(f[3], "")
         self.lavish, self.lavish_titles = {}, {}
@@ -118,6 +143,15 @@ class Board:
             (self.lavish_titles if k.startswith("title:") else self.lavish)[k.removeprefix("title:")] = url
         self.my_prs = {f"{r['repo']}#{r['number']}": r for r in load("my-prs.json", []) if isinstance(r, dict)}
         self.status = load("pr-status.json", {}).get("items", {})
+        self.ci_since = ci_failing_since(self.status, self.my_prs)
+        # Firstmate's task record can miss its PR; the worktree's branch is the PR's head branch, so join on that too.
+        by_branch = {}
+        for pr, st in self.status.items():
+            if st.get("branch") and (pr in self.my_prs or st.get("state") in ("merged", "closed")):
+                by_branch.setdefault(st["branch"], []).append(pr)
+        for task in list(self.tasks.values()):
+            for pr in by_branch.get(task.get("branch") or "", []):
+                self.tasks.setdefault(pr, task)
         self.tickets = [t for t in load("my-tickets.json", []) if isinstance(t, dict)]
         catalog = load("catalog.json", {})
         self.queue = [q for q in catalog.get("queue", []) if isinstance(q, dict)]
@@ -128,6 +162,9 @@ class Board:
         self.me = {(t.get("assignee") or {}).get("name") for t in self.tickets} - {None}
         self.handoffs = load_handoffs()
         self.jira = {t["key"]: t for t in self.tickets if t.get("key")}
+        sprint = load("sprint-tickets.json", None)
+        self.sprint = {t["key"]: t for t in sprint if isinstance(t, dict) and t.get("key")} if isinstance(sprint, list) else None
+        self.pr_titles = {f"{r.get('repo')}#{r.get('number')}": pr_title(r) for r in [*self.my_prs.values(), *self.merged]}
         for pr in self.my_prs.values():
             for t in pr.get("jira") or []:
                 if isinstance(t, dict) and t.get("key"):
@@ -146,7 +183,7 @@ class Board:
         return ""
 
     def jira_meta(self, key):
-        t = self.jira.get(key)
+        t = (self.sprint or {}).get(key) or self.jira.get(key)
         parts = [ticket_link(key)]
         if not t:
             return parts
@@ -179,7 +216,7 @@ class Board:
             parts.append("{{CI running:yellow.}}")
         approvals, needed = st.get("approvals") or 0, self.required.get(repo, 1)
         if st:
-            marks = "✓" * min(approvals, 3) if approvals else f"0/{needed}"
+            marks = "✓" * min(approvals, 3) if approvals >= needed else f"{approvals}/{needed}"
             parts.append(f"{{{{Approvals {marks}:{'green' if approvals >= needed else 'yellow'}.}}}}")
         draft = st.get("is_draft") or mine.get("draft")
         threads = mine.get("threads_awaiting") or 0
@@ -195,7 +232,7 @@ class Board:
             action = link("{{Resolve:yellow}}", act("resolve", repo=repo, number=number),
                           f"Resolve {threads} open thread{'s' if threads > 1 else ''} on #{number}?")
         elif approvals >= needed and ci in ("passing", "none"):
-            action = link("{{▶:green}}", act("merge", repo=repo, number=number, sha=st.get("head", "")),
+            action = link("{{merge:green}}", act("merge", repo=repo, number=number, sha=st.get("head", "")),
                           f"Merge #{number} into {st.get('base') or 'its base'}?")
         return parts, action
 
@@ -219,46 +256,45 @@ class Board:
         self.claimed.add(key or head)
         if pr_name:
             self.claimed_prs.add(pr_name)
-        meta, action = [], ""
+        refs, chips, action = [], [], ""
         if key:
-            meta += self.jira_meta(key)
+            refs.append(ticket_link(key))
         if pr_name:
             bits, action = self.pr_bits(pr_name)
-            meta[1:1] = bits[:1]
-            meta += bits[1:]
+            refs.append(bits[0])
+            chips = problems(bits[1:])
         if key and self.lavish_link(key):
-            meta.insert(min(2, len(meta)), self.lavish_link(key))
+            refs.append(self.lavish_link(key))
         if task:
             name = task["slug"]
         else:
-            label = (lead + " " + REF.sub("", head)).strip(" /()-·")
-            name = label or defuse((self.jira.get(key) or {}).get("summary") or "") or key or head
-        refs = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
-        diff = diff_chip(*pr_name.partition("#")[::2], key) if pr_name else ""
-        right = " ".join(x for x in (chat(name, refs, self.cur_qid), diff, action) if x)
-        title = name
-        if key:
-            meta.pop(0)
-            number = ticket_link(key)
-            title = number if name == key else f"{number} {name}"
-        elif task:
-            title = pill(name)
-        title = crew_mark(task) + title
-        if task.get("me"):
-            title += f" · `{task['me']}`"
-        if flag := state_flag(self, task.get("block", "")):
-            title += f" {flag}"
-        lines = [f"* {title}\t{right}"]
-        if meta:
-            lines.append(": " + join_meta(meta))
+            name = re.sub(r"\b(no ticket|unticketed)\b", "", lead + " " + REF.sub("", head)).strip(" /()-·")
+            if len(name.split()) < 3:
+                name = summary_of(self.jira.get(key)) or self.pr_titles.get(pr_name, "")
+            if not name:
+                name, tail = " ".join(f"{lead} {head} {tail}".split()).strip(" /()-·"), ""
+        ref_text = " · ".join(x for x in (key, f"PR #{pr_name.partition('#')[2]}" if pr_name else "") if x)
         if task and lead:
             tail = (re.sub(r"\s+(for|on|of|to)$", "", lead) + " " + tail).strip()
         tail = re.sub(r"(then )?merge words?( for)?", "ready to merge", tail).strip()
         tail = re.sub(r"^answers?$", "needs your answers", tail)
+        st = self.status.get(pr_name, {}) if pr_name else {}
+        if st and re.search(r"\breview", tail) and (st.get("approvals") or 0) >= self.required.get(repo, 1):
+            tail = "approved and ready to merge" if (st.get("checks") or {}).get("state") in ("passing", "none") else "approved"
+        elif (short := approvals_short(pr_name, self)) and re.search(r"\breview|\bmerge", tail):
+            tail = f"needs {short} teammate approval{'s' if short > 1 else ''}"
+        lines = []
         if tail:
             color = LEVELS[level][3]
             lines.append(f"| {{{{→ {tail}:{color}.}}}}" if color else f"| → {tail}")
-        return task.get("home", ""), task.get("tab", ""), lines
+        return new_item(title=name, glyph=crew_mark(task), flag=state_flag(self, task.get("block", "")), refs=refs,
+                        chips=chips, lines=lines, action=action, task=task, pr=pr_name, key=key,
+                        owner=task.get("home", ""), qid=self.cur_qid, chat=(name, ref_text))
+
+
+def outside(text):
+    """Text from Slack or Jira: no links, chips or hotkeys of its own, only words."""
+    return defuse(text).replace("[", "［").replace("]", "］").replace("{{", "{ {").replace("}}", "} }").replace("`", "'")
 
 
 def defuse(text):
@@ -309,10 +345,9 @@ def split_refs(rest):
     return out
 
 
-def ask_lines(lines, item, b):
+def ask_lines(it, item, b):
     sent = b.answers.get(item["qid"]) or {}
     done = sent.get("fp") == item["fp"]
-    head, _, right = lines[0].partition("\t")
     label = next((o["label"] for o in item["options"] if o["letter"] == item["recommend"]), "")
     call = f"| **Your call:** {defuse(item['question'])}" + (f" · recommends **({item['recommend']}) {defuse(label)}**" if label else "")
     if sent and not done:
@@ -321,18 +356,18 @@ def ask_lines(lines, item, b):
     if done:
         picked = f"({sent['letter']}) " if sent.get("letter") else ""
         shown.append(f"| {{{{answered {picked}· {{ago:{int(sent.get('at', 0))}}}:green.}}}}")
-    else:
+    elif item["options"]:
         title = re.sub(r"^\S+\s+-\s+", "", item["head"])
-        if item["options"]:
-            chip = link("{{Your call:yellow}}", act("ask", qid=item["qid"], fp=item["fp"], title=title, ref=item["ref"]), "[a] menu:Your call")
-            lines[0] = f"{head}\t{chip} {right}".rstrip()
-    at = 2 if len(lines) > 1 and lines[1].startswith(": ") else 1
-    lines[at:at] = shown
+        it["call_chip"] = link("{{answer:yellow}}", act("ask", qid=item["qid"], fp=item["fp"], title=title, ref=item["ref"]), "[a] menu:Your call")
+    it["details"][0:0] = ["> " + ln[2:] for ln in it["lines"]]
+    it["lines"] = shown
+    it["call"], it["answered"] = item, done
 
 
 def board(raw, b):
-    groups = [dict() for _ in LEVELS]
-    last = None
+    """firstmate's status lines as items, by level; "> " lines are an item's folded details."""
+    levels = [[] for _ in LEVELS]
+    last, last_repo = None, ""
     calls, asks = fm_todo_ask.parse(raw), []
     for line in raw.split("\n"):
         if not line.strip():
@@ -340,16 +375,16 @@ def board(raw, b):
         if line.lstrip().startswith(">"):
             detail = line.lstrip()[1:].strip()
             if last is not None and not fm_todo_ask.QUESTION.match(detail):
-                last.append("> " + b.linkify(detail, last_repo))
+                last["details"].append("> " + b.linkify(detail, last_repo))
             continue
         lv = level_of(line)
         if lv < 0 or not re.search(r"[0-9]+\.", line):
             if last is not None and line[:1] in " \t":
-                last.append("| " + b.linkify(clean(line), last_repo))
+                last["lines"].append("| " + b.linkify(clean(line), last_repo))
             continue
         number = re.search(r"([0-9]+)\.", line)
-        item = calls.get(int(number[1])) if number else None
-        b.cur_qid = item["qid"] if item else ""
+        call = calls.get(int(number[1])) if number else None
+        b.cur_qid = call["qid"] if call else ""
         text = clean(line)
         project = text.split(" ", 1)[0]
         body = text.split(" - ", 1)[1] if " - " in text else text[len(project):].strip()
@@ -359,57 +394,302 @@ def board(raw, b):
         mate = "sm-" + project if "sm-" + project in b.mates else "fm"
         crew = next((k for k in b.tasks if k.startswith("task:") and k[5:] in body), "")
         if crew and not m:
-            home, tab, lines = b.block(crew, "", repo, lv, body.replace(crew[5:], "").strip(" :,-()"))
-            blocks = [(home or mate, tab, lines)]
+            items = [b.block(crew, "", repo, lv, body.replace(crew[5:], "").strip(" :,-()"))]
         elif not m:
-            blocks = [(mate, "", [f"* {body}\t{chat(body, project, b.cur_qid)}"])]
+            items = [new_item(title=body, qid=b.cur_qid, chat=(body, project))]
         else:
             lead = body[:m.start()].strip(" :,-(")
-            blocks = []
+            items = []
             for head, tail in split_refs(body[m.start():]):
                 hint = re.search(r" ?\((inferno|web|chezmoi|dotfiles)\)", head)
-                r = REPOS.get(hint[1], repo) if hint else repo
-                home, tab, lines = b.block(head, tail, r, lv, lead)
-                blocks.append((home or mate, tab, lines))
+                items.append(b.block(head, tail, REPOS.get(hint[1], repo) if hint else repo, lv, lead))
         target = None
-        for owner, tab, lines in blocks:
-            entries = groups[lv].setdefault(owner, [])
-            same = next((e for e in entries if e[1][0].split("\t")[0] == lines[0].split("\t")[0]), None)
+        for it in items:
+            it["owner"] = it["owner"] or mate
+            same = next((e for e in levels[lv] if (e["title"], e["key"], e["pr"]) == (it["title"], it["key"], it["pr"])), None)
             if same:
-                same[1].extend(ln for ln in lines[1:] if not ln.startswith(": "))
-                lines[:] = same[1]
-                target = same[1]
+                same["lines"] += [ln for ln in it["lines"] if ln not in same["lines"]]
+                target = same
             else:
-                entries.append((int(tab) if tab.isdigit() else 9999, lines))
-                target = lines
-        last = target if target is not None else blocks[-1][2]
-        if item and item["question"] and target is not None:
-            asks.append((target, item))
+                levels[lv].append(it)
+                target = it
+        last = target
+        if call and call["question"] and target is not None:
+            asks.append((target, call))
     b.cur_qid = ""
-    for lines, item in asks:
-        ask_lines(lines, item, b)
-    return groups
+    for it, call in asks:
+        ask_lines(it, call, b)
+    return levels
 
 
-def tickets_group(b):
-    items = []
-    for t in b.tickets:
-        key = t.get("key", "")
-        if not key or key in b.tasks or key in b.claimed:
+def asks_question(it):
+    return it["title"].rstrip().endswith("?") or any(d.rstrip().endswith("?") for d in it["details"])
+
+
+CI_FAIL_FILE = os.path.expanduser("~/.local/state/rexpad/firstmate.cifail.json")
+CI_GRACE = 15 * 60
+
+
+def ci_failing_since(status, mine):
+    """When each of your open PRs' CI was first seen failing, kept across redraws; a PR leaves once it stops failing."""
+    try:
+        with open(CI_FAIL_FILE) as f:
+            old = json.load(f)
+    except (OSError, ValueError):
+        old = {}
+    now = int(datetime.now().timestamp())
+    new = {pr: old.get(pr) or now for pr, st in status.items()
+           if pr in mine and st.get("state") == "open" and (st.get("checks") or {}).get("state") == "failing"}
+    if new != old:
+        try:
+            tmp = CI_FAIL_FILE + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(new, f)
+            os.replace(tmp, CI_FAIL_FILE)
+        except OSError:
+            pass
+    return new
+
+
+def stalled_fix(it, b):
+    """Your own PR with CI failing past the grace period or review threads open, no fix sent, and nobody working on it."""
+    if it["pr"] not in b.my_prs or b.states.get(it["task"].get("block", "")) == "working":
+        return False
+    if "/resolve?" in it["action"]:
+        return True
+    since = b.ci_since.get(it["pr"])
+    return "/fixci?" in it["action"] and since is not None and datetime.now().timestamp() - since >= CI_GRACE
+
+
+def approvals_short(pr, b):
+    """How many more approvals your own open PR needs, else 0."""
+    if pr not in b.my_prs:
+        return 0
+    st = b.status.get(pr, {})
+    return max(0, b.required.get(pr.partition("#")[0], 1) - (st.get("approvals") or 0))
+
+
+def place(it, lv, b):
+    level = LEVELS[lv][1]
+    pr_state = b.status.get(it["pr"], {}).get("state") if it["pr"] else ""
+    if pr_state in ("merged", "closed"):
+        it["done"], it["action"] = True, ""
+        it["chips"] = [f"{{{{{pr_state}:{'green' if pr_state == 'merged' else 'red'}.}}}}"]
+        return "done"
+    if level == "Done":
+        it["done"] = True
+        return "done"
+    if level == "Blocked" or b.states.get(it["task"].get("block", "")) == "blocked" or stalled_fix(it, b):
+        return "needs"
+    short = approvals_short(it["pr"], b)
+    if it["call"] and not it["answered"] and short and re.search(r"merge", it["call"]["question"], re.I):
+        it["details"][0:0] = ["> Your call: " + it["call"]["question"]]
+        it["lines"] = [f"| {{{{needs {short} teammate approval{'s' if short > 1 else ''}:yellow.}}}}"]
+        it["call"], it["call_chip"] = None, ""
+        return "prs"
+    if it["call"]:
+        return "progress" if it["answered"] else "needs"
+    if level == "Needs your call":
+        return "needs" if asks_question(it) else "prs" if it["pr"] else "new"
+    return "prs" if "/merge?" in it["action"] else "progress"
+
+
+PROMPT_FILE = os.path.expanduser("~/.local/state/rexpad/firstmate.prompts.json")
+BOX = re.compile(r"^[\s│┃|╭╮╰╯─━┌┐└┘╷╵]+|[\s│┃|╭╮╰╯─━┌┐└┘╷╵]+$")
+
+
+def prompt_of(screen):
+    """The question a blocked agent shows, with the line above it (often the command): box borders dropped."""
+    lines = [BOX.sub("", ln) for ln in screen.splitlines()]
+    lines = [ln for ln in lines if ln.strip() and not set(ln.strip()) <= set("─━-=·.>❯ ")][-14:]
+    ask = max((i for i, ln in enumerate(lines) if "?" in ln), default=max(0, len(lines) - 4))
+    return [" ".join(ln.split())[:160] for ln in lines[max(0, ask - 1):ask + 5]]
+
+
+def blocked_prompts(b):
+    """Each blocked pane's prompt, read from its screen once when it blocks and kept until it unblocks: one local Rex call per block."""
+    try:
+        with open(PROMPT_FILE) as f:
+            old = json.load(f)
+    except (OSError, ValueError):
+        old = {}
+    new = {}
+    for task in b.tasks.values():
+        block = task.get("block", "")
+        if not block or b.states.get(block) != "blocked" or block in new:
             continue
-        summary = defuse(" ".join(str(t.get("summary") or key).split()))
-        comps = []
-        m = re.match(r"^\[([^\]]+)\]\s*", summary)
-        if m:
-            comps, summary = [c.strip() for c in m[1].split(",")], summary[m.end():]
-        start = link("{{▶:green}}", act("start", key=key), f"Start {key}? Firstmate dispatches a crewmate.")
-        meta = b.jira_meta(key)[1:]
-        if comps:
-            more = f" +{len(comps) - 1}" if len(comps) > 1 else ""
-            meta.append(f"{{{{{comps[0]}{more}:{COMPONENT_COLORS.get(comps[0], 'blue')}.}}}}")
-        head = f"{ticket_link(key)} {summary}"
-        items.append((b.owner_of(key, label=comps[0] if comps else ""), [f"* {head}\t{chat(summary, key)} {start}", ": " + join_meta(meta)]))
-    return items
+        if block in old:
+            new[block] = old[block]
+            continue
+        cmd = ["rex", "--autostart=false", "--timeout", "3s", *(["-S", task["host"]] if task.get("host") else []),
+               "capture", *(["-s", task["ses"]] if task.get("ses") else []), "-b", block, "--trim", "--unwrap"]
+        try:
+            screen = subprocess.run(cmd, capture_output=True, text=True, timeout=6).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if screen.strip():
+            new[block] = prompt_of(screen[-20000:])
+    if new != old:
+        try:
+            with open(PROMPT_FILE + ".tmp", "w") as f:
+                json.dump(new, f)
+            os.replace(PROMPT_FILE + ".tmp", PROMPT_FILE)
+        except OSError:
+            pass
+    return new
+
+
+NOTIFIED_FILE = os.path.expanduser("~/.local/state/rexpad/firstmate.notified.json")
+
+
+def notify_new(out):
+    """A Rex notification from the Firstmate pane for each item new to Needs you or Jira mention; the first run only records."""
+    now = {}
+    for it in out["needs"]:
+        now[seen_key(it)[0]] = (plain_text(it["title"]), plain_text(it["lines"][0]) if it["lines"] else "")
+    for it in out["new"]:
+        if it["qid"].startswith("jira:") and "@you" in "".join(it["chips"]):
+            now[it["qid"]] = (plain_text(it["title"]), plain_text(it["lines"][0]) if it["lines"] else "")
+    try:
+        with open(NOTIFIED_FILE) as f:
+            old = json.load(f)
+    except (OSError, ValueError):
+        old = None
+    fresh = [] if old is None else [(k, v) for k, v in now.items() if k not in old][:3]
+    if fresh:
+        try:
+            pid = subprocess.run(["pgrep", "-f", "rexpad --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
+            tty = subprocess.run(["ps", "-o", "tty=", "-p", pid], capture_output=True, text=True).stdout.strip()
+            with open(f"/dev/{tty}", "w") as term:
+                for _, (title, body) in fresh:
+                    clean = lambda t: re.sub(r"[\x00-\x1f\x7f-\x9f;]+", " ", t).strip()[:180]
+                    term.write(f"\033]777;notify;{clean(title)};{clean(body) or 'Needs you'}\007")
+        except (OSError, IndexError):
+            pass
+    if old is None or set(now) != set(old):
+        try:
+            with open(NOTIFIED_FILE + ".tmp", "w") as f:
+                json.dump(list(now), f)
+            os.replace(NOTIFIED_FILE + ".tmp", NOTIFIED_FILE)
+        except OSError:
+            pass
+
+
+def add_prompts(out, b):
+    prompts = blocked_prompts(b)
+    for it in out["needs"]:
+        lines = prompts.get(it["task"].get("block", ""))
+        if lines:
+            code = [defuse(ln).replace("`", "'") for ln in lines]
+            it["lines"] += [f"| {{{{waiting on:red.}}}} `{code[0]}`"] + [f"| `{ln}`" for ln in code[1:]]
+
+
+def stuck_panes(out, b):
+    """Blocked panes firstmate never mentioned still land under Needs you."""
+    shown = {it["task"].get("block") for items in out.values() for it in items}
+    for key, task in b.tasks.items():
+        pane = task.get("block", "")
+        if b.states.get(pane) != "blocked" or pane in shown:
+            continue
+        shown.add(pane)
+        repo, _, number = key.partition("#")
+        tail = f"waiting in tab {task['tab']}" if task.get("tab") else "waiting on a prompt"
+        it = b.block(f"PR #{number}" if number else key, tail, repo if number else "", 1)
+        it["owner"] = it["owner"] or "fm"
+        out["needs"].append(it)
+    listed = {it["owner"] for items in out.values() for it in items}
+    for mate in b.mates:
+        if mate != "fm" and mate not in listed and b.states.get(mate) == "blocked":
+            out["needs"].append(new_item(title=f"{mate} is waiting on a prompt", owner=mate, chat=(f"{mate} is waiting", mate)))
+
+
+def unlisted_tasks(out, b):
+    """Every live crew or scout pane no item covers still shows; one that looks finished asks to be retired under Needs you."""
+    shown = {it["task"].get("block") for items in out.values() for it in items if not it["done"]}
+    prs = {}
+    for key, task in b.tasks.items():
+        if "#" in key and task.get("block"):
+            prs.setdefault(task["block"], []).append(key)
+    for task in b.tasks.values():
+        block = task.get("block", "")
+        if task.get("kind") not in ("ship", "scout") or not block or block in shown:
+            continue
+        shown.add(block)
+        state = b.states.get(block, "")
+        closed = [pr for pr in prs.get(block, []) if b.status.get(pr, {}).get("state") in ("merged", "closed")]
+        clean = task.get("dirty") == "0" and task.get("unpushed") == "0"
+        finished = state not in ("working", "blocked") and clean and (not prs.get(block) or len(closed) == len(prs[block]))
+        if state == "blocked":
+            note = "waiting on a prompt"
+        elif state == "working":
+            note = "working"
+        elif finished:
+            why = f"{', '.join('#' + pr.partition('#')[2] for pr in closed)} merged or closed" if closed else "not on firstmate's status"
+            note = f"looks finished: idle, worktree clean, {why}"
+        else:
+            note = "idle, not on firstmate's status"
+        retire = [link("{{retire:red}}", act("retire", slug=task["slug"], home=task.get("home", "")),
+                       f"[X] Ask firstmate to retire {task['slug']}? It checks nothing is unpushed first.")] if finished else []
+        out["needs" if state == "blocked" or finished else "progress"].append(new_item(
+            title=task["slug"], glyph=crew_mark(task), flag=state_flag(b, block), task=task, owner=task.get("home", ""),
+            lines=[f"| → {note}"], qid=f"task:{task['slug']}", extra=retire, chat=(task["slug"], task["slug"])))
+
+
+def repo_label(repo):
+    return next((k for k, v in REPOS.items() if v == repo), repo.split("/")[-1])
+
+
+def repo_chip(repo):
+    label = repo_label(repo)
+    return f"{{{{{label}:{COMPONENT_COLORS.get(label, 'blue')}.}}}}"
+
+
+def pr_title(pr):
+    title = re.sub(r"^\s*\[[^\]]*\]\s*", "", defuse(" ".join(str(pr.get("title") or "").split())))
+    return re.sub(rf"^#?{pr.get('number')}\b\s*", "", title)
+
+
+def pr_keys(pr):
+    return [t["key"] for t in pr.get("jira") or [] if isinstance(t, dict) and t.get("key")]
+
+
+def my_pr_items(out, b):
+    """Open PRs of yours firstmate didn't mention, and the ones merged today."""
+    for name, pr in b.my_prs.items():
+        keys = pr_keys(pr)
+        if name in b.claimed_prs or any(k in b.claimed for k in keys):
+            continue
+        b.claimed_prs.add(name)
+        b.claimed.update(keys)
+        repo, number = name.partition("#")[::2]
+        st = b.status.get(name, {})
+        bits, action = b.pr_bits(name)
+        title, key = pr_title(pr), (keys[0] if keys else "")
+        task = b.tasks.get(name) or b.tasks.get(key) or {}
+        draft = bool(st.get("is_draft") or pr.get("draft"))
+        it = new_item(
+            title=title, glyph=crew_mark(task), flag=state_flag(b, task.get("block", "")),
+            refs=([ticket_link(key)] if key else []) + bits[:1], chips=problems(bits[1:]) + (["{{draft:magenta.}}"] if draft else []),
+            action=action, task=task, pr=name, key=key, owner=b.owner_of(key, name, repo_label(repo)), qid=f"pr:{name}",
+            draft=draft, chat=(title, " · ".join(x for x in (key, f"PR #{number}") if x)))
+        out["needs" if not draft and stalled_fix(it, b) else "prs"].append(it)
+    today = datetime.now().astimezone().date()
+    for pr in b.merged:
+        name = f"{pr.get('repo')}#{pr.get('number')}"
+        try:
+            when = datetime.fromisoformat(str(pr.get("merged_at")).replace("Z", "+00:00")).astimezone().date()
+        except ValueError:
+            continue
+        keys = pr_keys(pr)
+        if when != today or name in b.claimed_prs or any(k in b.claimed for k in keys):
+            continue
+        b.claimed_prs.add(name)
+        b.claimed.update(keys)
+        key = keys[0] if keys else ""
+        out["done"].append(new_item(
+            title=pr_title(pr), refs=([ticket_link(key)] if key else []) + [pr_link(pr["repo"], pr["number"])],
+            chips=["{{merged:green.}}"], key=key, done=True, qid=f"merged:{name}",
+            owner=b.owner_of(key, name, repo_label(pr["repo"])), chat=(pr_title(pr), key or name)))
 
 
 LEVEL_COLORS = {"easy": "green", "medium": "yellow", "hard": "red"}
@@ -428,70 +708,40 @@ def since(iso):
     return unit(hours, "hr") if hours < 24 else unit(hours / 24, "day")
 
 
-def reviews_group(b):
+def review_items(b):
+    """PRs teammates asked you to review."""
     items = []
     for q in sorted(b.queue, key=lambda q: q.get("requested_at") or ""):
         repo, number = q.get("repo", ""), q.get("number")
         if not repo or not number or f"{repo}#{number}" in b.claimed_prs:
             continue
-        b.claimed_prs.add(f"{repo}#{number}")
+        name = f"{repo}#{number}"
+        b.claimed_prs.add(name)
         title = defuse(" ".join(str(q.get("title") or "").split()))
         m = re.match(r"^\[([^\]]+)\]\s*", title)
         tag = m[1] if m else ""
         if m:
             title = title[m.end():]
         ticketed = re.fullmatch(JIRA_KEY, tag)
-        head = f"{ticket_link(tag)} {title}" if ticketed else title
-        meta = [pr_link(repo, number)] if ticketed else [tag or "unticketed", pr_link(repo, number)]
-        if q.get("author"):
-            meta.append(defuse(str(q["author"])))
+        refs = ([ticket_link(tag)] if ticketed else [tag or "unticketed"]) + [pr_link(repo, number)]
+        chips = [defuse(str(q["author"]))] if q.get("author") else []
         if ago := since(q.get("requested_at")):
-            meta.append(f"{{{{{ago}:yellow.}}}}")
-        level = (q.get("size") or {}).get("level")
-        if level:
-            meta.append(f"{{{{●:{LEVEL_COLORS.get(level, '')}.}}}} {level}")
+            chips.append(f"{{{{waiting {ago}:yellow.}}}}")
+        if level := (q.get("size") or {}).get("level"):
+            chips.append(f"{{{{●:{LEVEL_COLORS.get(level, '')}.}}}} {level}")
         scopes = q.get("repo_scopes") or []
         label = (scopes[0] + (f" +{len(scopes) - 1}" if len(scopes) > 1 else "")) if scopes else q.get("repo_label", "")
         if label:
-            meta.append(f"{{{{{label}:{COMPONENT_COLORS.get(label.split('.')[0], 'blue')}.}}}}")
-        right = chat(title, f"{repo}#{number}")
-        lines = [": " + join_meta(meta)]
+            chips.append(f"{{{{{label}:{COMPONENT_COLORS.get(label.split('.')[0], 'blue')}.}}}}")
+        lines, extra = [], []
         if q.get("running"):
             lines.append(f"| {{{{→ reviewing on {q.get('running_host') or 'this Mac'}:cyan.}}}}")
         else:
-            right += " " + link("{{⎇:blue}}", act("review-diff", repo=repo, number=number), f"[v] Open #{number} in Hunk with an agent beside it on the dev box?")
-            right += " " + link("{{▶:yellow}}", act("review", repo=repo, number=number), f"[z] Review #{number} on the dev box?")
-        items.append((b.owner_of(tag if ticketed else "", f"{repo}#{number}", repo_label(repo)), [f"* {head}\t{right}", *lines]))
+            extra = [link("{{review:blue}}", act("review-diff", repo=repo, number=number), f"[v] Open #{number} in Hunk with an agent beside it on the dev box?"),
+                     link("{{start review:yellow}}", act("review", repo=repo, number=number), f"[z] Review #{number} on the dev box?")]
+        items.append(new_item(title=title, refs=refs, chips=chips, lines=lines, extra=extra, qid=f"review:{name}",
+                              owner=b.owner_of(tag if ticketed else "", name, repo_label(repo)), chat=(title, name)))
     return items
-
-
-def take_ready(groups, b):
-    for owners in groups:
-        for owner in list(owners):
-            keep = []
-            for tab, lines in owners[owner]:
-                if "/merge?" in lines[0].split("\t", 1)[-1]:
-                    b.ready.append((owner, tab, lines))
-                else:
-                    keep.append((tab, lines))
-            if keep:
-                owners[owner] = keep
-            else:
-                del owners[owner]
-
-
-def with_model(line, me):
-    head, tab, rest = line.partition("\t")
-    if not me or not line.startswith("* ") or "`" in head:
-        return line
-    return f"{head} · `{me}`{tab}{rest}"
-
-
-def ready_tail(line):
-    if not line.startswith("| "):
-        return line
-    left = re.sub(r"\s*(and )?(then )?ready to merge\s*", " ", line).replace("→  ", "→ ").replace(" :", ":")
-    return "" if re.fullmatch(r"\| \{\{→\s*:[a-z]+\.\}\}|\| →\s*", left) else left
 
 
 def state_flag(b, pane):
@@ -502,34 +752,242 @@ def state_flag(b, pane):
     return "{{error:red.}}" if state == "error" else ""
 
 
-def stuck_panes(groups, b):
-    """Blocked panes firstmate never mentioned still land under Needs your call."""
-    shown = {t.get("block") for k, t in b.tasks.items() if k in b.claimed or k in b.claimed_prs}
-    for key, task in b.tasks.items():
-        pane = task.get("block", "")
-        if b.states.get(pane) != "blocked" or pane in shown:
-            continue
-        shown.add(pane)
-        repo, _, number = key.partition("#")
-        tail = f"waiting in tab {task['tab']}" if task.get("tab") else "waiting on a prompt"
-        home, tab, lines = b.block(f"PR #{number}" if number else key, tail, repo if number else "", 1)
-        groups[1].setdefault(home or "fm", []).append((int(tab) if tab.isdigit() else 9999, lines))
-    listed = {o for owners in groups for o in owners}
-    for mate in b.mates:
-        if mate != "fm" and mate not in listed and b.states.get(mate) == "blocked":
-            groups[1][mate] = [(0, [f"* {mate} is waiting on a prompt\t{chat(f'{mate} is waiting', mate)}"])]
+def plural(n, word):
+    return f"{n} {word}{'' if n == '1' else 's'}"
 
 
-def with_age(line, at):
-    head, tab, rest = line.partition("\t")
-    return f"{head} · `{{ago:{at}}}`{tab}{rest}" if at else line
+def changes(task, has_pr):
+    """What the task's worktree holds that no remote does: uncommitted files and unpushed commits."""
+    parts = []
+    if task.get("dirty", "") not in ("", "0"):
+        parts.append(plural(task["dirty"], "file"))
+    if task.get("unpushed", "") not in ("", "0"):
+        parts.append(f"{task['unpushed']} unpushed" if has_pr else plural(task["unpushed"], "commit") + ", no PR")
+    return " · ".join(parts)
 
 
 LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 
 
-def stamp_items(groups, now):
-    """When each entry last changed - firstmate's text, or its CI, approvals, Jira fields and action chips - kept across redraws."""
+def plain_text(text):
+    return LINK.sub(r"\1", text)
+
+
+def seen_key(it):
+    ident = f"{it['qid'] or it['pr']}|{plain_text(it['title'])}"
+    fp = hashlib.sha1(json.dumps([plain_text(it["title"]), [plain_text(x) for x in it["lines"] + it["details"]]]).encode()).hexdigest()[:10]
+    return ident, fp
+
+
+def actions(it, section, b):
+    task, acts = it["task"], []
+    if it["custom"]:
+        return it["extra"]
+    if section == "done":
+        ident, fp = seen_key(it)
+        return [link("{{seen:green}}", act("seen", id=ident, fp=fp), "[s]"), chat(*it["chat"], it["qid"])]
+    if it["call_chip"]:
+        acts.append(it["call_chip"])
+    tid = task.get("id", "")
+    if task.get("block"):
+        acts.append(link("{{pane:blue}}", act("pane", key=tid), "[o]"))
+    if task.get("wt"):
+        acts.append(link("{{edit:blue}}", act("edit", key=tid), "[e]"))
+        if changes(task, it["pr"]):
+            acts.append(link("{{diff:blue}}", act("wtdiff", key=tid), "[D]"))
+    if it["pr"]:
+        acts.append(diff_chip(*it["pr"].partition("#")[::2], it["key"]))
+    if it["action"]:
+        acts.append(it["action"])
+    acts += it["extra"]
+    if section in SEEN_SECTIONS:
+        ident, fp = seen_key(it)
+        acts.append(link("{{seen:green}}", act("seen", id=ident, fp=fp), "[s]"))
+    talk = chat(*it["chat"], it["qid"])
+    if it["call"] and not it["answered"] and not it["call_chip"]:
+        acts.insert(0, talk.replace("{{chat:blue}}", "{{answer:yellow}}", 1))
+    else:
+        acts.append(talk)
+    return acts
+
+
+BUTTON = re.compile(r'^\[\{\{([^:{}]+):([a-z]+)\}\}\](\(\S+ "\[(.)\])')
+
+
+def buttons(acts):
+    """Each button names its hotkey; the first is filled in its color as the main action, the rest are plain outlines."""
+    out = []
+    for i, a in enumerate(acts):
+        m = BUTTON.match(a)
+        if m:
+            chip = f"{m[1]} {m[4]}:{m[2]}!" if i == 0 else f"{m[1]} {m[4]}"
+            a = f"[{{{{{chip}}}}}]{m[3]}" + a[m.end():]
+        out.append(a)
+    return out
+
+
+PILL_REF = re.compile(r"\{\{([^{}:]+):([a-z]+)\}\}")
+
+
+def as_text(ref):
+    return PILL_REF.sub(r"{{\1:\2.}}", ref)
+
+
+def badge(it, section):
+    if it["badge"]:
+        return it["badge"]
+    kind = it["task"].get("kind", "")
+    if kind == "ship":
+        return "{{⛵ crew:blue}}"
+    if kind == "scout":
+        return "{{🔭 scout:magenta}}"
+    if section == "requests":
+        return "{{review:magenta}}"
+    return "{{PR:cyan}}" if it["pr"] else "{{fm:green}}"
+
+
+def categories(it, section):
+    """The Inbox filter chips an item counts under: a crew or scout task is Agents, anything with a PR is PRs, and one can be both."""
+    if it["cat"]:
+        return [it["cat"]]
+    cats = ["agents"] if it["task"].get("kind") in ("ship", "scout") else []
+    if it["pr"] or section == "requests":
+        cats.append("PRs")
+    return cats
+
+
+def inbox_state(name):
+    try:
+        with open(os.path.join(INBOX, name)) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def clock(at):
+    return datetime.fromtimestamp(at).strftime("%a %H:%M") if at else ""
+
+
+def slack_items(out):
+    """Open Slack asks under Needs you and FYIs under New for you, from fm-inbox's sweep."""
+    for x in inbox_state("slack.json").get("items", []):
+        if not str(x.get("permalink", "")).startswith("https://"):
+            continue
+        link_ = x["permalink"]
+        title = f"{outside(str(x.get('from', '')))} in {outside(str(x.get('channel', '')))}" + (f" · due {outside(str(x['due']))}" if x.get("due") else "")
+        if x.get("ticked"):
+            # Ticked asks wait in Done for the week the sweep keeps them, so a wrong done or skip can be undone.
+            by = {"you": "done by you", "skipped": "skipped", "sweep": "you replied"}.get(x.get("by") or "", "done")
+            out["done"].append(new_item(
+                title=title, badge="{{slack:red}}", cat="slack", refs=[link(tint("open in Slack"), link_)],
+                chips=[f"{{{{{by}:green.}}}}"], lines=[f"| {outside(str(x.get('text', '')))}"], done=True, custom=True,
+                extra=[link("{{undo:yellow}}", act("slack/act", op="undo", link=link_), "[U]")], at=int(x.get("ticked_at") or 0)))
+            continue
+        chips = (["{{urgent:red.}}"] if x.get("urgent") else []) + (["{{handed to fm:cyan.}}"] if x.get("handed") else [])
+        extra = [link("{{hand to fm:magenta}}", act("slack/hand", link=link_), "[t] Hand this to firstmate to research and draft a reply?"),
+                 link("{{done:green}}", act("slack/act", op="done", link=link_), "[x]"),
+                 link("{{skip:blue}}", act("slack/act", op="skip", link=link_), "[z]")]
+        out["needs" if x.get("kind") == "ask" else "new"].append(new_item(
+            title=title, badge="{{slack:red}}", cat="slack", refs=[link(tint("open in Slack"), link_)], chips=chips,
+            lines=[f"| {outside(str(x.get('text', '')))}"], extra=extra, custom=True, at=int(x.get("at") or 0)))
+
+
+def jira_items(out):
+    """Comments and status moves others made on your tickets, from the Library's Jira activity, under New for you."""
+    state = load("jira-activity.json", {})
+    if state.get("error"):
+        out["needs"].append(new_item(
+            title="Jira stopped answering the Library", badge="{{jira:blue}}", custom=True,
+            lines=[f"| {{{{{defuse(str(state['error']))}:red.}}}}",
+                   "| If the API token expired, make a new one at id.atlassian.com, update JIRA_API_TOKEN, then run `library.py save-jira-env`."]))
+    for x in state.get("items", []):
+        if not str(x.get("url", "")).startswith("https://"):
+            continue
+        key, who = outside(str(x.get("key", ""))), outside(str(x.get("who", "")))
+        verb = "commented on" if x.get("kind") == "comment" else "moved"
+        out["new"].append(new_item(
+            title=f"{who} {verb} {key}", badge="{{jira:blue}}", qid=f"jira:{x.get('id')}", key=key,
+            refs=[ticket_link(key)] + ([tint(outside(str(x.get("summary", ""))))] if x.get("summary") else []),
+            chips=["{{@you:yellow.}}"] if x.get("mention") else [], lines=[f"| {outside(str(x.get('text', '')))}"],
+            extra=[link("{{open:blue}}", x["url"], "[o]")], chat=(f"{who} {verb} {key}", key), at=int(x.get("at") or 0)))
+
+
+def next_standup(now):
+    d = datetime.fromtimestamp(now).replace(minute=0, second=0, microsecond=0)
+    for days in range(8):
+        day = d + timedelta(days=days)
+        if day.weekday() < 5 and day.replace(hour=23) > datetime.fromtimestamp(now):
+            return day.replace(hour=23).strftime("%a %H:%M")
+    return ""
+
+
+def bar(badge_, title, right=(), meta="", below=(), details=()):
+    """A pinned one-item bar: tag, title and right-aligned buttons, then an optional status line, a button row and folded details."""
+    rows = [f"- [ ] {badge_} {title}" + (f"\t{' '.join(buttons(list(right)))}" if right else "")]
+    if meta:
+        rows.append("  : " + meta)
+    if below:
+        rows.append("  : " + " ".join(buttons(list(below))))
+    return rows + [f"  > {defuse(d)}" for d in details]
+
+
+def slack_bar():
+    """The Slack sweep's state, pinned at the foot over the review and standup bars."""
+    sl = inbox_state("slack.json")
+    status = sl.get("status") or {}
+    if status.get("running"):
+        title, meta = "sweeping…", ""
+    elif status.get("connected") is False or status.get("error"):
+        title = "not connected" if status.get("connected") is False else "sweep failed"
+        meta = f"{{{{{defuse(str(status.get('error') or 'not connected'))}:red.}}}}"
+    else:
+        title = f"swept {datetime.fromtimestamp(sl['last_at']).strftime('%H:%M')}" if sl.get("last_at") else "not swept yet"
+        meta = ""
+    check = [link("{{check now:magenta}}", act("slack/check"), "[K]")]
+    return ["\n# {pin:bottom}", *bar("{{slack:red}}", title, check, meta)]
+
+
+def standup_bar():
+    """The standup draft, pinned at the foot of the Inbox; its bullets fold under the title."""
+    st = inbox_state("standup.json")
+    md = os.path.join(INBOX, "standup.md")
+    try:
+        draft = [ln for ln in open(md).read().splitlines() if ln.strip()]
+        edited = abs(os.path.getmtime(md) - (st.get("mtime") or 0)) > 1
+    except OSError:
+        draft, edited = [], False
+    now = datetime.now().timestamp()
+    meta = join_meta(["writing a new draft…" if st.get("running") else f"written {clock(st.get('at'))}" if st.get("at") else "no draft yet",
+                      "edited" if edited else "", f"next {next_standup(now)}",
+                      f"{{{{{defuse(st['error'])}:yellow.}}}}" if st.get("error") else ""])
+    right = ([link("{{copy:green}}", act("standup/copy"), "[y]")] if draft else []) + [
+        link("{{edit:blue}}", act("standup/edit"), "[E]"), link("{{write now:blue}}", act("standup/write"), "[W]")]
+    title = "Standup"
+    if st.get("date"):
+        day = datetime.strptime(st["date"], "%Y-%m-%d") + timedelta(days=1)
+        while day.weekday() >= 5:
+            day += timedelta(days=1)
+        title = f"{day:%A} standup · covers {st['label']}"
+    return ["\n# {pin:bottom}", *bar("{{standup:green}}", title, meta=meta, below=right, details=draft)]
+
+
+def item_lines(it, b, section, at=0):
+    task = it["task"]
+    box = "[x]" if it["done"] else "[~]" if b.states.get(task.get("block", "")) == "working" else "[ ]"
+    head = f"- {box} {badge(it, section)} {defuse(it['title'])}" + (f" {it['flag']}" if it["flag"] else "")
+    head += "".join(f" {{f:{c}}}" for c in categories(it, section)) if section in WORK_SECTIONS else ""
+    if at:
+        head += f"\t`{{ago:{at}}}`"
+    chg = changes(task, it["pr"]) if task.get("wt") else ""
+    chips = [] if section == "done" and not it["custom"] else it["chips"] + ([f"{{{{± {chg}:blue.}}}}"] if chg else [])
+    meta = join_meta([as_text(r) for r in it["refs"]] + [it["owner"]] + chips)
+    rows = [head, "  : " + meta, *("  " + ln for ln in it["lines"]), "  : " + " ".join(buttons(actions(it, section, b)))]
+    return rows + ["  " + d for d in it["details"]]
+
+
+def stamp_items(out, now):
+    """When each item last changed - firstmate's text, or its CI, approvals and action chips - kept across redraws."""
     path = os.environ.get("FM_TODO_STAMPS", "")
     try:
         with open(path) as f:
@@ -537,17 +995,15 @@ def stamp_items(groups, now):
     except (OSError, ValueError):
         old = {}
     new, ages = {}, {}
-    for lv, owners in enumerate(groups):
-        for owner, entries in owners.items():
-            for _, lines in entries:
-                ident = f"{lv}\t{owner}\t{lines[0].split(chr(9))[0]}"
-                chips = lines[0].partition("\t")[2]
-                body = [LINK.sub(r"\1", ln) for ln in [chips, *lines[1:]] if "{{answered" not in ln]
-                fp = hashlib.sha1("\n".join(body).encode()).hexdigest()[:12]
-                prev = old.get(ident) or {}
-                at = prev["at"] if prev.get("fp") == fp and prev.get("at") else now
-                new[ident] = {"fp": fp, "at": at}
-                ages[id(lines)] = at
+    for section, items in out.items():
+        for it in items:
+            ident = f"{section}\t{it['key']}\t{it['pr']}\t{plain_text(it['title'])}"
+            body = [plain_text(x) for x in it["refs"] + it["chips"] + [it["action"]] + it["lines"] + it["details"] if "{{answered" not in x]
+            fp = hashlib.sha1("\n".join(body).encode()).hexdigest()[:12]
+            prev = old.get(ident) or {}
+            at = prev["at"] if prev.get("fp") == fp and prev.get("at") else now
+            new[ident] = {"fp": fp, "at": at}
+            ages[id(it)] = at
     if path:
         try:
             with open(path + ".tmp", "w") as f:
@@ -558,136 +1014,114 @@ def stamp_items(groups, now):
     return ages
 
 
-def owner_rows(owners, b, done=False, model=True, ages=None):
-    """One checklist row per mate, newest first (fm, then tab order, on ties), its entries nested beneath the same way."""
-    out, ages = [], ages or {}
-    newest = {o: max((ages.get(id(lines), 0) for _, lines in owners[o]), default=0) for o in owners}
-    for owner in sorted(owners, key=lambda o: (-newest[o], o != "fm", o)):
-        me, state = b.mates.get(owner, ""), b.states.get(owner, "")
-        box = "[x]" if done else "[~]" if state == "working" else "[ ]"
-        flag = state_flag(b, owner)
-        out.append(f"- {box} **{owner}**" + (f" · `{me}`" if me else "") + (f" {flag}" if flag else ""))
-        for _, lines in sorted(owners[owner], key=lambda x: (-ages.get(id(x[1]), 0), x[0])):
-            rows = [with_model(ln, me) if model else ln for ln in lines]
-            rows[0] = with_age(rows[0], ages.get(id(lines)))
-            out += ["  " + ln for ln in rows]
-    return out
-
-
-def section(title, tag, items, b, done=False, model=True):
-    """A tab heading over its (owner, lines) items grouped by mate, keeping the items' own order within a mate."""
-    owners = {}
-    for i, (owner, lines) in enumerate(items):
-        owners.setdefault(owner, []).append((i, lines))
-    return ["", f"# {title} · {len(items)} {tag}", *owner_rows(owners, b, done, model)] if items else []
-
-
 def board_tab(raw, b):
-    out, groups = [], board(raw, b)
-    stuck_panes(groups, b)
-    take_ready(groups, b)
-    ages = stamp_items(groups, int(datetime.now().timestamp()))
-    progress = next(i for i, lv in enumerate(LEVELS) if lv[1] == "In progress")
-    for lv in [progress, *(i for i in range(len(LEVELS)) if i != progress)]:
-        owners = groups[lv]
-        if not owners:
+    out = {name: [] for name, _, _ in SECTIONS}
+    for lv, items in enumerate(board(raw, b)):
+        for it in items:
+            out[place(it, lv, b)].append(it)
+    stuck_panes(out, b)
+    my_pr_items(out, b)
+    unlisted_tasks(out, b)
+    add_prompts(out, b)
+    slack_items(out)
+    jira_items(out)
+    out["requests"] = review_items(b)
+    ages = stamp_items(out, int(datetime.now().timestamp()))
+    ages.update({id(it): it["at"] for items in out.values() for it in items if it["at"]})
+    for name in SEEN_SECTIONS:
+        out[name] = [it for it in out[name] if b.seen.get(seen_key(it)[0], {}).get("fp") != seen_key(it)[1]]
+    notify_new(out)
+    inbox, work = [], []
+    for name, title, color in SECTIONS:
+        items = sorted(out[name], key=lambda it: (it["draft"], not it["flag"], -ages.get(id(it), 0)))
+        if not items:
             continue
-        count = sum(len(entries) for entries in owners.values())
-        fold = " {folded}" if lv == len(LEVELS) - 1 else ""
-        out.append(f"\n# {LEVELS[lv][1]} · {count} {{{LEVELS[lv][2]}}}{fold}")
-        out += owner_rows(owners, b, done=lv == len(LEVELS) - 1, ages=ages)
-    return out
+        lines = work if name in WORK_SECTIONS else inbox
+        lines.append(f"\n# {title} · {len(items)} {{{color}}}" + (" {folded}" if name == "done" else ""))
+        for it in items:
+            lines += item_lines(it, b, name, ages.get(id(it), 0))
+    return inbox + slack_bar() + review_ask_bar(b) + standup_bar(), work
 
 
-def reviews_tab(b):
-    return section("Requested of you", "{yellow}", reviews_group(b), b, model=False)
+CATEGORY_ORDER = {"new": 0, "indeterminate": 1, "done": 2}
 
 
-def repo_label(repo):
-    return next((k for k, v in REPOS.items() if v == repo), repo.split("/")[-1])
-
-
-def repo_chip(repo):
-    label = repo_label(repo)
-    return f"{{{{{label}:{COMPONENT_COLORS.get(label, 'blue')}.}}}}"
-
-
-def pr_title(pr):
-    return re.sub(rf"^\s*(\[[^\]]*\]\s*)?#?{pr.get('number')}\b\s*", "", defuse(" ".join(str(pr.get("title") or "").split())))
-
-
-def pr_keys(pr):
-    return [t["key"] for t in pr.get("jira") or [] if isinstance(t, dict) and t.get("key")]
-
-
-def prs_tab(b):
-    buckets = {k: [] for k in ("attention", "ready", "moving", "draft", "merged")}
-
-    def put(bucket, owner, task, lines, tab=None):
-        tab = tab if tab is not None else int(task["tab"]) if task.get("tab", "").isdigit() else 9999
-        buckets[bucket].append((tab, owner, lines))
-
-    for owner, tab, lines in b.ready:
-        put("ready", owner, {}, [lines[0], *filter(None, map(ready_tail, lines[1:]))], tab)
-    for name, pr in b.my_prs.items():
-        keys = pr_keys(pr)
-        if name in b.claimed_prs or any(k in b.claimed for k in keys):
-            continue
-        b.claimed_prs.add(name)
-        b.claimed.update(keys)
-        repo, number = name.partition("#")[::2]
-        st = b.status.get(name, {})
-        bits, action = b.pr_bits(name)
-        title, key = pr_title(pr), (keys[0] if keys else "")
-        task = b.tasks.get(name) or b.tasks.get(key) or {}
-        head = crew_mark(task) + (f"{ticket_link(key)} {title}" if key else title)
-        if task.get("me"):
-            head += f" · `{task['me']}`"
-        if flag := state_flag(b, task.get("block", "")):
-            head += f" {flag}"
-        right = " ".join(x for x in (chat(title, " · ".join(x for x in (key, f"PR #{number}") if x)), diff_chip(repo, number, key), action) if x)
-        meta = bits[:1] + (b.jira_meta(key)[1:] if key else []) + bits[1:] + [repo_chip(repo)]
-        ci = (st.get("checks") or {}).get("state", "none")
-        if st.get("is_draft") or pr.get("draft"):
-            bucket = "draft"
-        elif ci == "failing" or pr.get("threads_awaiting"):
-            bucket = "attention"
-        elif "/merge?" in action:
-            bucket = "ready"
-        else:
-            bucket = "moving"
-        put(bucket, b.owner_of(key, name, repo_label(repo)), task, [f"* {head}\t{right}", ": " + join_meta(meta)])
-    today = datetime.now().astimezone().date()
-    for pr in b.merged:
-        name = f"{pr.get('repo')}#{pr.get('number')}"
-        try:
-            when = datetime.fromisoformat(str(pr.get("merged_at")).replace("Z", "+00:00")).astimezone().date()
-        except ValueError:
-            continue
-        keys = pr_keys(pr)
-        if when != today or name in b.claimed_prs or any(k in b.claimed for k in keys):
-            continue
-        b.claimed_prs.add(name)
-        b.claimed.update(keys)
-        key = keys[0] if keys else ""
-        head = f"{ticket_link(key)} {pr_title(pr)}" if key else pr_title(pr)
-        task = b.tasks.get(name) or b.tasks.get(key) or {}
-        put("merged", b.owner_of(key, name, repo_label(pr["repo"])), task,
-            [f"* {head}", ": " + join_meta([pr_link(pr['repo'], pr['number']), repo_chip(pr['repo'])])])
+def needs_reviews(b):
+    """Your open PRs still short of approvals, by the Library's rule: not a draft, ticket started, under the repo's required count."""
     out = []
-    for title, bucket, tag in (("Needs attention", "attention", "{red}"), ("Ready to merge", "ready", "{green}"),
-                               ("Still moving", "moving", "{yellow}"), ("Drafts", "draft", "{folded}"), ("Merged today", "merged", "{green}")):
-        items = [(owner, lines) for _, owner, lines in sorted(buckets[bucket], key=lambda x: x[0])]
-        out += section(title, tag, items, b, done=bucket == "merged")
+    for name, pr in sorted(b.my_prs.items()):
+        st = b.status.get(name, {})
+        lead = next((t for t in pr.get("jira") or [] if isinstance(t, dict)), {})
+        if pr.get("draft") or st.get("is_draft") or lead.get("category") == "new":
+            continue
+        have, need = st.get("approvals") or 0, b.required.get(pr.get("repo"), 1)
+        if have < need:
+            out.append((name, pr, have, need))
     return out
+
+
+def review_ask_bar(b):
+    """A pinned bar over the standup one: the PRs needing dev review, and Y copies the ask for Slack."""
+    prs = needs_reviews(b)
+    if not prs:
+        return []
+    copy = [link("{{copy ask:green}}", act("reviews/copy", prs=",".join(n for n, *_ in prs)), "[Y]")]
+    rows = [f"{repo_label(pr.get('repo', ''))} #{pr.get('number')} {pr_title(pr)} · {have}/{need}" for _, pr, have, need in prs]
+    title = f"{len(prs)} PR{'s' if len(prs) != 1 else ''} need dev review"
+    return ["\n# {pin:bottom}", *bar("{{review:magenta}}", title, right=copy, details=rows)]
 
 
 def tickets_tab(b):
-    return section("Assigned, not started", "{blue}", tickets_group(b), b, model=False)
+    """The Library's Mine filter (assignee or Developer is you, open sprint, not done) by Jira status, whoever holds it now."""
+    groups = {}
+    for key, t in (b.jira if b.sprint is None else b.sprint).items():
+        groups.setdefault(t.get("name") or "No status", []).append((key, t))
+    lines = []
+    for status in sorted(groups, key=lambda s: (CATEGORY_ORDER.get(groups[s][0][1].get("category"), 1), s)):
+        rows = sorted(groups[status], key=lambda kt: kt[0])
+        done = rows[0][1].get("category") == "done"
+        lines.append(f"\n# {status} · {len(rows)} " + ("{green} {folded}" if done else "{blue}"))
+        for key, t in rows:
+            summary = defuse(" ".join(str(t.get("summary") or key).split()))
+            comps = []
+            if m := re.match(r"^\[([^\]]+)\]\s*", summary):
+                comps, summary = [c.strip() for c in m[1].split(",")], summary[m.end():]
+            pr = b.pr_for(key)
+            task = b.tasks.get(key) or b.tasks.get(pr) or {}
+            chips = b.jira_meta(key)[1:]
+            if comps:
+                more = f" +{len(comps) - 1}" if len(comps) > 1 else ""
+                chips.append(f"{{{{{comps[0]}{more}:{COMPONENT_COLORS.get(comps[0], 'blue')}.}}}}")
+            if state := b.states.get(task.get("block", "")):
+                label = {"done": "idle", "blocked": "needs you"}.get(state, state)
+                chips.append(f"{{{{{label}:{'red' if state in ('blocked', 'error') else 'cyan'}.}}}}")
+            extra = [] if task or pr or key not in {t.get("key") for t in b.tickets} else [link("{{start:green}}", act("start", key=key), f"Start {key}? Firstmate dispatches a crewmate.")]
+            it = new_item(title=summary, glyph=crew_mark(task), refs=[ticket_link(key)] + ([pr_link(*pr.partition("#")[::2])] if pr else []),
+                          chips=chips, task=task, pr=pr, key=key, extra=extra, chat=(summary, key), done=t.get("category") == "done",
+                          owner=b.owner_of(key, pr, comps[0] if comps else ""))
+            lines += item_lines(it, b, "tickets")
+    return lines
 
 
 OUTPUT_SKIP = {"System Resource Report", "Claude Billing Watch"}
 OUTPUT_OLDER = 40
+
+
+def owner_rows(owners, b):
+    out = []
+    for owner in sorted(owners, key=lambda o: (o != "fm", o)):
+        out.append(f"- [ ] **{owner}**")
+        for _, lines in owners[owner]:
+            out += ["  " + ln for ln in lines]
+    return out
+
+
+def section(title, tag, items, b):
+    """A tab heading over its (owner, lines) items grouped by mate, keeping the items' own order within a mate."""
+    owners = {}
+    for i, (owner, lines) in enumerate(items):
+        owners.setdefault(owner, []).append((i, lines))
+    return ["", f"# {title} · {len(items)} {tag}", *owner_rows(owners, b)] if items else []
 
 
 def outputs_tab(b):
@@ -737,18 +1171,16 @@ def outputs_tab(b):
     out = []
     for title, items, tag in (("Live", live, "{green}"), ("Today", day, "{cyan}"), ("This week", week, "{folded}"),
                               ("Older", older, "{folded}")):
-        out += section(title, tag, items, b, model=False)
+        out += section(title, tag, items, b)
     return out
 
 
 def render_tabs(raw, b):
-    """Board claims first, so each later tab skips what an earlier one shows: nothing appears twice."""
-    tabs = {"board": board_tab(raw, b)}
-    tabs["prs"] = prs_tab(b)
-    tabs["tickets"] = tickets_tab(b)
-    tabs["reviews"] = reviews_tab(b)
-    tabs["outputs"] = outputs_tab(b)
+    """The Inbox holds what wants you, Work the ongoing PRs and tasks, Tickets every sprint ticket by status."""
+    inbox, work = board_tab(raw, b)
+    tabs = {"board": inbox, "work": work, "tickets": tickets_tab(b), "outputs": outputs_tab(b)}
     return {name: "\n".join(lines).strip() + "\n" if lines else "" for name, lines in tabs.items()}
+
 
 if __name__ == "__main__":
     raw = sys.stdin.read() if not sys.stdin.isatty() else ""

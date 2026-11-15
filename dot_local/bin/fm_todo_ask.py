@@ -13,6 +13,7 @@ import time
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "rexpad")
 RAW_FILE = os.path.join(STATE, "firstmate.status")
 ANSWERS_FILE = os.path.join(STATE, "firstmate.answers.json")
+SEEN_FILE = os.path.join(STATE, "firstmate.seen.json")
 FM_TODO = os.path.expanduser("~/.local/bin/fm-todo")
 LEVEL = r"🔴|🟡|♻️|♻|🟢|✅"
 LINE = re.compile(rf"^\s*({LEVEL})\s*([0-9]+)\.\s*(.*)$")
@@ -109,6 +110,26 @@ def record(item, letter, note):
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
     os.replace(tmp, ANSWERS_FILE)
+
+
+def seen():
+    try:
+        with open(SEEN_FILE) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def mark_seen(ident, fp):
+    data = seen()
+    data[ident] = {"fp": fp, "at": int(time.time())}
+    cutoff = time.time() - 7 * 86400
+    data = {k: v for k, v in data.items() if isinstance(v, dict) and v.get("at", 0) > cutoff}
+    tmp = SEEN_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, SEEN_FILE)
 
 
 def send(text):
@@ -214,7 +235,7 @@ def card(title, ref, qid):
 
 def context_lines(title):
     want = re.sub(r"\s+", " ", title).strip()
-    for name in ("firstmate", "firstmate.prs", "firstmate.tickets", "firstmate.reviews", "firstmate.outputs"):
+    for name in ("firstmate", "firstmate.work", "firstmate.tickets", "firstmate.outputs"):
         got = subprocess.run(["rexpad", "--list", name, "get"], capture_output=True, text=True)
         lines = got.stdout.split("\n")
         for i, line in enumerate(lines):

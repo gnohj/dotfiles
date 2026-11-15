@@ -8,12 +8,13 @@ VIEWER_FILE=$STATE_DIR/$LIST.viewer
 RAW_FILE=$STATE_DIR/$LIST.status
 TASKS_FILE=$STATE_DIR/$LIST.tasks
 ANCHOR_FILE=$STATE_DIR/$LIST.anchor
+NUDGE_FILE=$STATE_DIR/$LIST.nudged
 REXPAD=rexpad
 RATIO=20
 TABS_DIR=$STATE_DIR/$LIST.tabs
 HUNK_DIR=$STATE_DIR/hunk
-TAB_NAMES="prs tickets reviews outputs"
-TABS="Board=$LIST,PRs=$LIST.prs,Tickets=$LIST.tickets,Reviews=$LIST.reviews,Outputs=$LIST.outputs"
+TAB_NAMES="work tickets outputs"
+TABS="Inbox=$LIST,Work=$LIST.work,Tickets=$LIST.tickets,Outputs=$LIST.outputs"
 
 LIBRARY=$HOME/.local/state/lavish-library
 
@@ -39,7 +40,15 @@ for f in "$HOME"/.local/share/firstmate*/state/*.meta; do
   if [ -n "$srv" ] && [ -n "$ses" ] && [ -n "$win" ] && command -v rex >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
     tab=$(rex --autostart=false --timeout 2s -S "$srv" window ls -s "$ses" --json 2>/dev/null | jq -r --arg w "$win" '.windows[]? | select(.window_id == $w) | .label' | sed -n 's/^\([0-9][0-9]*\)\. .*/\1/p')
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab" "$(sed -n 's/^model=//p' "$f")" "$(sed -n 's/^effort=//p' "$f")" "$srv" "$ses" "$(sed -n 's/^rex_block_id=//p' "$f")"
+  wt=$(sed -n 's/^worktree=//p' "$f"); dirty=""; unpushed=""; branch=""
+  if [ -n "$wt" ] && [ -e "$wt/.git" ]; then
+    dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+    unpushed=$(git -C "$wt" rev-list --count HEAD --not --remotes 2>/dev/null)
+    branch=$(git -C "$wt" branch --show-current 2>/dev/null)
+  else
+    wt=""
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(basename "$f" .meta)" "$kind" "$(sed -n 's/^pr=//p' "$f")" "$home" "$tab" "$(sed -n 's/^model=//p' "$f")" "$(sed -n 's/^effort=//p' "$f")" "$srv" "$ses" "$(sed -n 's/^rex_block_id=//p' "$f")" "$wt" "$dirty" "$unpushed" "$branch"
 done
 SH
 }
@@ -73,7 +82,7 @@ task_kinds() {
   $2 == "secondmate" { print "mate:" $1 "\t" model_effort($6, $7); next }
   {
     me = model_effort($6, $7)
-    pane = "\t" $8 "\t" $9 "\t" $10 "\t" $11
+    pane = "\t" $8 "\t" $9 "\t" $10 "\t" $15 "\t" $11 "\t" $12 "\t" $13 "\t" $14
     slug = $1; tail = "\t" $2 "\t"
     if (match(toupper($1), /[A-Z][A-Z]+-[0-9][0-9]+/)) {
       key = substr(toupper($1), RSTART, RLENGTH)
@@ -83,6 +92,14 @@ task_kinds() {
     } else print "task:" $1 tail slug "\t" $4 "\t" $5 "\t" me pane
     if (match($3, /github\.com\/[^\/]+\/[^\/]+\/pull\/[0-9]+/)) { u = substr($3, RSTART + 11, RLENGTH - 11); sub(/\/pull\//, "#", u); print u tail slug "\t" $4 "\t" $5 "\t" me pane }
   }'
+}
+
+# A remote host that can't be reached would drop its tasks from a rebuilt list, so a rebuild waits for all of them.
+remotes_reachable() {
+  local h
+  for h in $(cat "$HOME"/.local/share/firstmate*/state/*.meta 2>/dev/null | sed -n 's/^remote_host=//p' | sort -u); do
+    ssh -o ConnectTimeout=2 -o BatchMode=yes "$h" true </dev/null >/dev/null 2>&1 || return 1
+  done
 }
 
 fm_mate_row() {
@@ -182,16 +199,36 @@ status() {
   set_tabs
 }
 
-# Redraws from firstmate's last block, its saved tasks and the Library's current files; no SSH, so launchd can run it.
+# Redraws from firstmate's last block, its saved tasks and the Library's current files; launchd runs it each minute.
+# Asks an idle firstmate to repost the board when its last status is 4h old: weekdays 9-19, at most once per 4h.
+nudge_status() {
+  local sid block
+  [ "$(date +%u)" -le 5 ] && [ "$(date +%H)" -ge 9 ] && [ "$(date +%H)" -lt 19 ] || return 0
+  [ -n "$(find "$RAW_FILE" -mmin -240 2>/dev/null)" ] && return 0
+  [ -n "$(find "$NUDGE_FILE" -mmin -240 2>/dev/null)" ] && return 0
+  read -r sid block 2>/dev/null <"$ANCHOR_FILE" || true
+  [ -n "${block:-}" ] || read -r sid block <<<"$(REX_BLOCK= fm_pane)"
+  [ -n "${block:-}" ] || return 0
+  case "$(pane_state "" "$sid" "$block" | cut -f1)" in idle | done) ;; *) return 0 ;; esac
+  touch "$NUDGE_FILE"
+  send "Captain: the Todo pane's status is over 4 hours old. Repost the board, nothing else." >/dev/null 2>&1 || true
+}
+
 refresh() {
   hunk_refresh
   pr_lease_sweep
   viewer_open || return 0
   local list tasks
+  # Worktree change counts and new tasks come from task_kinds; rerun it when firstmate hasn't posted a status for 5 minutes.
+  if [ -z "$(find "$TASKS_FILE" -mmin -5 2>/dev/null)" ] && remotes_reachable; then
+    tasks=$(task_kinds; fm_mate_row)
+    [ -n "$tasks" ] && printf '%s\n' "$tasks" >"$TASKS_FILE"
+  fi
   tasks=$(cat "$TASKS_FILE" 2>/dev/null) || tasks=$(fm_mate_row)
   list=$( { cat "$RAW_FILE" 2>/dev/null || true; } | TASKS="$tasks"$'\n'"$(mate_states "$tasks")" to_checklist)
   [ -n "$list" ] && printf '%s\n' "$list" | "$REXPAD" --list "$LIST" set >/dev/null
   set_tabs
+  nudge_status
 }
 
 fm_pane() {
@@ -227,7 +264,7 @@ show() {
   if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
   local opener=$HOME/.local/bin/fm-todo-open
-  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Todo -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top --tabs "$TABS" | awk 'END { print $NF }')
+  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Firstmate -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top --tabs "$TABS" | awk 'END { print $NF }')
   mkdir -p "$STATE_DIR"
   echo "$sid $id" >"$VIEWER_FILE"
   echo "$sid $anchor" >"$ANCHOR_FILE"
@@ -277,19 +314,65 @@ pr_diff() {
   show_window "$sid" "$window"
 }
 
-# Server-side focus never moves the app's selected tab, so ask the app to show it.
+# Server-side focus never moves the app's selected tab, so ask the app to show it; HOST is a Rex host label for a remote session.
 show_window() {
-  local sid=$1 window=$2 client
-  client=$(rex client ls --json 2>/dev/null | jq -r '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
+  local sid=$1 window=$2 host=${3:-} client
+  client=$(rex --autostart=false ${host:+-S "$host"} client ls --json 2>/dev/null | jq -r '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')
   if [ -n "$client" ]; then
-    rex -C "$client" do session.select "session_id=$sid" "window_id=$window" >/dev/null
+    rex --autostart=false ${host:+-S "$host"} -C "$client" do session.select "session_id=$sid" "window_id=$window" >/dev/null
   else
-    rex window focus -s "$sid" "$window" >/dev/null
+    rex --autostart=false ${host:+-S "$host"} window focus -s "$sid" "$window" >/dev/null
   fi
 }
 
 window_by_label() {
-  rex window ls -s "$1" --json | jq -r --arg l "$2" '.windows[] | select((.label | sub("^[0-9]+\\. "; "")) == $l) | .window_id' | head -1
+  rex --autostart=false ${3:+-S "$3"} window ls -s "$1" --json | jq -r --arg l "$2" '.windows[] | select((.label | sub("^[0-9]+\\. "; "")) == $l) | .window_id' | head -1
+}
+
+# The board's Pane, Edit and Diff buttons: a firstmate task's agent pane, or nvim or Hunk in its worktree, as a tab in the task's own session.
+task_open() {
+  local what=$1 key=$2 row slug ses block host wt label="" window name cmd
+  # Tab is whitespace to read, so empty columns would collapse; split on a unit separator instead.
+  row=$(awk -F'\t' -v k="$key" '$1 == k { print $3 "\037" $8 "\037" $9 "\037" $10 "\037" $11; exit }' "$TASKS_FILE" 2>/dev/null)
+  [ -n "$row" ] || { echo "fm-todo: $key is not on the board" >&2; exit 1; }
+  IFS=$'\037' read -r slug ses block host wt <<<"$row"
+  if [ -n "$host" ]; then label=$(rex_host_label "$host") || { echo "fm-todo: no Rex host for $host" >&2; exit 1; }; fi
+  [ -n "$ses" ] || read -r ses _ <<<"$(REX_BLOCK= fm_pane)"
+  [ -n "$ses" ] || { echo "fm-todo: no Rex session for $slug" >&2; exit 1; }
+  if [ "$what" = pane ]; then
+    [ -n "$block" ] || { echo "fm-todo: $slug has no Rex pane" >&2; exit 1; }
+    window=$(rex --autostart=false ${label:+-S "$label"} session inspect "$ses" --json | jq -r --arg b "$block" 'first(.windows[] | select(any(.layers[].blocks[]; .block_id == $b)) | .window_id) // empty')
+    [ -n "$window" ] || { echo "fm-todo: the pane of $slug is gone" >&2; exit 1; }
+    rex --autostart=false ${label:+-S "$label"} focus -s "$ses" "$block" >/dev/null 2>&1 || true
+    show_window "$ses" "$window" "$label"
+    return
+  fi
+  [ -n "$wt" ] || { echo "fm-todo: $slug has no worktree" >&2; exit 1; }
+  if [ "$what" = edit ]; then
+    name="📝 $slug" cmd='nvim .'
+  else
+    name="± $slug" cmd='b=$(git rev-list --topo-order HEAD --not --remotes | tail -1); exec hunk diff --watch "${b:+$b^}${b:-HEAD}"'
+  fi
+  window=$(window_by_label "$ses" "$name" "$label")
+  if [ -z "$window" ]; then
+    # -i loads .zshrc so nvim and hunk resolve through mise.
+    window=$(rex --autostart=false ${label:+-S "$label"} window new -s "$ses" "$name" -c "$wt" --shell=none --json -- zsh -lic "$cmd" | jq -r '.window_id // empty')
+  fi
+  [ -n "$window" ] || { echo "fm-todo: could not open $name" >&2; exit 1; }
+  show_window "$ses" "$window" "$label"
+}
+
+# nvim on a local file in a tab of the firstmate session, reused while it stays open.
+open_file() {
+  local file=$1 sid name window
+  [ -f "$file" ] || { echo "fm-todo: no file $file" >&2; exit 1; }
+  read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
+  [ -n "$sid" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
+  name="📝 $(basename "$file")"
+  window=$(window_by_label "$sid" "$name")
+  [ -n "$window" ] || window=$(rex window new -s "$sid" "$name" -c "$(dirname "$file")" --shell=none --json -- "${SHELL:-/bin/zsh}" -lic "$(printf '%q ' nvim "$file")" | jq -r '.window_id // empty')
+  [ -n "$window" ] || { echo "fm-todo: could not open $name" >&2; exit 1; }
+  show_window "$sid" "$window"
 }
 
 origin_is() {
@@ -466,8 +549,8 @@ note_stage() {
 # Prints mate, recorded stage and the crewmate pane's Rex state for a PR, tab separated.
 note_progress() {
   local pr=$1 row home srv ses block host label="" stage="" state=""
-  row=$(awk -F'\t' -v k="$pr" '$1 == k { print; exit }' "$TASKS_FILE" 2>/dev/null)
-  IFS=$'\t' read -r _ _ _ home _ _ srv ses block host <<<"$row" || true
+  row=$(awk -F'\t' -v k="$pr" '$1 == k { print $4 "\037" $7 "\037" $8 "\037" $9 "\037" $10; exit }' "$TASKS_FILE" 2>/dev/null)
+  IFS=$'\037' read -r home srv ses block host <<<"$row" || true
   stage=$(jq -r '.stage // empty' "$(note_file "$pr")" 2>/dev/null || true)
   if [ -n "${block:-}" ]; then
     [ -n "${host:-}" ] && { label=$(rex_host_label "$host") || label=""; }
@@ -481,6 +564,8 @@ shift || true
 [ "$cmd" = note-stage ] && { note_stage "${1:?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${2?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${3:-}"; exit; }
 [ "$cmd" = note-progress ] && { note_progress "${1:?usage: fm-todo note-progress OWNER/REPO#N}"; exit; }
 [ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
+[ "$cmd" = open-file ] && { open_file "${1:?usage: fm-todo open-file PATH}"; exit; }
+case "$cmd" in pane | edit | wtdiff) task_open "$cmd" "${1:?usage: fm-todo $cmd TASK}"; exit ;; esac
 [ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
 [ "$cmd" = pr-open ] && { pr_open "${1:?usage: fm-todo pr-open REPO NUMBER old|new LINE PATH [TICKET]}" "${2:?}" "${3:?}" "${4:?}" "${5:?}" "${6:-}"; exit; }
 [ "$cmd" = hunk-pr ] &&{ hunk_pr "${1:?}" "${2:?}" "${3:-}"; exit; }
@@ -498,5 +583,5 @@ case "$cmd" in
   status) status ;;
   refresh) refresh ;;
   print) "$REXPAD" --list "$LIST" get ;;
-  *) echo "usage: fm-todo [show|hide|print|refresh|send TEXT|diff REPO NUMBER [TICKET]] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
+  *) echo "usage: fm-todo [show|hide|print|refresh|send TEXT|diff REPO NUMBER [TICKET]|pane|edit|wtdiff TASK] [-b SESSION BLOCK] | fm-todo status < block" >&2; exit 2 ;;
 esac

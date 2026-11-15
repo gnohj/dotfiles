@@ -82,11 +82,42 @@ def diff(q):
         raise SystemExit(result.stderr.strip() or "could not open the PR diff")
 
 
+def task(path, q):
+    result = subprocess.run([os.path.expanduser("~/.local/bin/fm-todo"), path, q["key"]], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(result.stderr.strip() or f"could not open {path} for {q['key']}")
+
+
+INBOX = os.path.expanduser("~/.local/state/fm-inbox")
+FM_INBOX = os.path.expanduser("~/.local/bin/fm-inbox")
+
+
+def inbox(*args, background=False):
+    if background:
+        subprocess.Popen([FM_INBOX, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return
+    result = subprocess.run([FM_INBOX, *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(result.stderr.strip() or f"fm-inbox {args[0]} failed")
+
+
+def slack_hand(link):
+    with open(os.path.join(INBOX, "slack.json")) as f:
+        item = next((x for x in json.load(f).get("items", []) if x.get("permalink") == link), None)
+    if item is None:
+        raise SystemExit("That Slack item is no longer on the board.")
+    fm_todo_ask.send(f"Captain, Slack ask from {item['from']} in {item['channel']}: \"{item['text']}\" {link} - dispatch a scout to read "
+                     "the thread, research it in the code, Jira and Slack, and draft a reply I can paste. Read only: post nothing in Slack.")
+    inbox("slack-act", "hand", link)
+
+
 def run(path, q):
     if path == "chat":
         return chat(q)
     if path == "diff":
         return diff(q)
+    if path in ("pane", "edit", "wtdiff"):
+        return task(path, q)
     if path == "answer":
         return fm_todo_ask.answer(q["qid"], q["fp"], q.get("letter", ""))
     if path == "start":
@@ -102,6 +133,28 @@ def run(path, q):
         library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": path})
     elif path == "review-diff":
         library("POST", "/api/start-review", {"repo": q["repo"], "number": q["number"], "mode": "diff"})
+    elif path == "slack/hand":
+        return slack_hand(q["link"])
+    elif path == "slack/act":
+        inbox("slack-act", q["op"], q["link"])
+    elif path == "slack/check":
+        inbox("slack", "--force", background=True)
+    elif path == "retire":
+        fm_todo_ask.send(f"Captain: the Todo pane shows {q['home']} task {q['slug']} idle with a clean worktree and its work merged, "
+                         "closed or no longer on your status. Retire it if nothing is unpushed and no open PR still needs it, "
+                         "otherwise tell me what it is waiting on.")
+    elif path == "reviews/copy":
+        prs = [n.partition("#") for n in q["prs"].split(",") if "#" in n]
+        text = "\n".join(["Can I please get reviews:", *(f"• https://github.com/{r}/pull/{n}" for r, _, n in prs)])
+        subprocess.run(["pbcopy"] if sys.platform == "darwin" else ["wl-copy"], input=text, text=True, check=True)
+    elif path == "standup/copy":
+        return inbox("standup-copy")
+    elif path == "standup/write":
+        inbox("standup", "--force", background=True)
+    elif path == "standup/edit":
+        return task("open-file", {"key": os.path.join(INBOX, "standup.md")})
+    elif path == "seen":
+        fm_todo_ask.mark_seen(q["id"], q["fp"])
     elif path == "jira/transition":
         library("POST", "/api/jira/transition", {"key": q["key"], "id": q["id"]})
     elif path == "jira/assign-to":
