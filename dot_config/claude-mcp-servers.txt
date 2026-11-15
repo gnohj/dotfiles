@@ -20,12 +20,14 @@
 #   - atlassian (Jira/Confluence) needs a one-time browser OAuth per config
 #     dir: run /mcp inside Claude and pick Authenticate.
 #   - newrelic (NRQL): Mac work profile only, OAuth via /mcp; Linux would need an API key header.
+#   - slack: Mac work profile only, read by fm-inbox's headless sweep; Slack's own OAuth client, sign in via /mcp (an admin may need to approve the app).
 
 all   all      http  context7       https://mcp.context7.com/mcp -H 'CONTEXT7_API_KEY: ${CONTEXT7_API_KEY}'
 all   all      http  atlassian      https://mcp.atlassian.com/v2/mcp
 all   all      http  unblocked      https://getunblocked.com/api/mcpsse
 all   all      http  superlogical   https://www.superlogical.com/rex/community-mcp
 mac   work     http  newrelic       https://mcp.newrelic.com/mcp/
+mac   work     http  slack          https://mcp.slack.com/mcp --client-id 1601185624273.8899143856786 --callback-port 3118
 all   all      stdio playwright     npx @playwright/mcp@latest --headless
 mac   all      stdio chrome-devtools chrome-devtools-mcp-launch
 linux all      stdio chrome-devtools npx -y chrome-devtools-mcp@1.8.0 --browserUrl http://127.0.0.1:9222 --acceptInsecureCerts

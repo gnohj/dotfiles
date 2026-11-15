@@ -1,0 +1,409 @@
+#!/usr/bin/env python3
+"""The Todo pane's Slack sweep and standup draft: headless work-account Claude runs that write JSON the Inbox reads.
+
+  fm-inbox tick               launchd: run whatever is due (Slack sweep, standup draft)
+  fm-inbox slack [--force]    sweep DMs and @-mentions now
+  fm-inbox slack-act OP LINK  done | skip | undo | hand on one Slack item
+  fm-inbox standup [--force]  write the standup draft now
+  fm-inbox standup-copy       copy the draft to the clipboard
+"""
+import fcntl
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import datetime, timedelta
+
+HOME = os.path.expanduser("~")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local/state"), "fm-inbox")
+SLACK_FILE = os.path.join(STATE, "slack.json")
+STANDUP_FILE = os.path.join(STATE, "standup.json")
+STANDUP_MD = os.path.join(STATE, "standup.md")
+LOG = os.path.join(STATE, "runs.log")
+CLAUDE = os.path.join(HOME, ".local/bin/claude")
+VAULT = os.path.join(HOME, "Developer/second-brain-work")
+
+SLACK_HOURS = range(int(os.environ.get("FM_INBOX_SLACK_FROM", "9")), int(os.environ.get("FM_INBOX_SLACK_TO", "19")) + 1)
+SLACK_EVERY = float(os.environ.get("FM_INBOX_SLACK_EVERY_HOURS", "1")) * 3600
+STANDUP_HOURS = [int(h) for h in os.environ.get("FM_INBOX_STANDUP_HOURS", "23").split(",")]
+CUTOVER = 18
+DAY = 86400
+
+# The Todo pane's opener and launchd start this with a bare PATH; the claude wrapper needs claude-account beside it, and gh and mise.
+_extra = [os.path.join(HOME, ".local/bin"), os.path.join(HOME, ".nix-profile/bin"), os.path.join(HOME, ".local/share/mise/shims"),
+          "/run/current-system/sw/bin", "/opt/homebrew/bin"]
+os.environ["PATH"] = ":".join(dict.fromkeys(_extra + os.environ.get("PATH", "/usr/bin:/bin").split(":")))
+os.environ.setdefault("USER", os.path.basename(HOME))
+
+SLACK_READ = ["slack_search_public_and_private", "slack_search_public", "slack_read_channel", "slack_read_thread",
+              "slack_read_user_profile", "slack_search_users", "slack_list_user_channels", "slack_search_channels"]
+SLACK_TOOLS = [f"mcp__slack__{t}" for t in SLACK_READ]
+JIRA_TOOLS = ["mcp__atlassian__atlassianUserInfo", "mcp__atlassian__searchJiraIssuesUsingJql", "mcp__atlassian__getJiraIssue",
+              "mcp__atlassian__listJiraIssueComments"]
+
+ITEM = {"type": "object", "required": ["permalink", "kind", "from", "channel", "text", "urgent"],
+        "properties": {"permalink": {"type": "string"}, "kind": {"enum": ["ask", "fyi"]}, "from": {"type": "string"},
+                       "channel": {"type": "string"}, "text": {"type": "string"}, "due": {"type": "string"}, "urgent": {"type": "boolean"}}}
+SLACK_SCHEMA = {"type": "object", "required": ["items", "resolved", "error", "connected"],
+                "properties": {"me": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "tz": {"type": "string"}}},
+                               "items": {"type": "array", "items": ITEM}, "resolved": {"type": "array", "items": {"type": "string"}},
+                               "error": {"type": "string"}, "connected": {"type": "boolean"}}}
+STANDUP_SCHEMA = {"type": "object", "required": ["text", "error"], "properties": {"text": {"type": "string"}, "error": {"type": "string"}}}
+
+
+def log(msg):
+    os.makedirs(STATE, exist_ok=True)
+    with open(LOG, "a") as f:
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+
+
+def load(path, default):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, type(default)) else default
+    except (OSError, ValueError):
+        return default
+
+
+def save(path, data):
+    os.makedirs(STATE, exist_ok=True)
+    with open(path + ".tmp", "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(path + ".tmp", path)
+
+
+def locked(name):
+    """One run of a kind at a time; a second one returns None and leaves."""
+    os.makedirs(STATE, exist_ok=True)
+    fd = os.open(os.path.join(STATE, f".{name}.lock"), os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd
+    except OSError:
+        os.close(fd)
+        return None
+
+
+def refresh():
+    subprocess.Popen([os.path.join(HOME, ".local/bin/fm-todo"), "refresh"], stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def claude(prompt, tools, schema, model, budget, timeout):
+    """One headless run on the work account with only the named read tools; returns its structured output."""
+    os.makedirs(os.path.join(STATE, "claude"), exist_ok=True)
+    args = [CLAUDE, "-p", prompt, "--model", model, "--tools", "ToolSearch", "--allowedTools", ",".join(["ToolSearch", *tools]),
+            "--output-format", "json", "--no-session-persistence", "--max-budget-usd", budget, "--json-schema", json.dumps(schema)]
+    env = {**os.environ, "CLAUDE_ACCOUNT": "work"}
+    r = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=os.path.join(STATE, "claude"), env=env)
+    try:
+        out = json.loads(r.stdout)
+    except ValueError:
+        raise RuntimeError((r.stderr or r.stdout or f"claude exited {r.returncode}").strip().splitlines()[-1][:200])
+    if out.get("is_error"):
+        raise RuntimeError(str(out.get("result") or out.get("subtype") or "claude failed")[:200])
+    data = out.get("structured_output")
+    if data is None:
+        try:
+            data = json.loads(out.get("result") or "")
+        except ValueError:
+            raise RuntimeError("claude returned no structured output")
+    return data, out.get("total_cost_usd") or 0
+
+
+
+def slack_state():
+    return {"me": None, "last_at": 0, "items": [], "dismissed": [], "handled": [], "status": {}, **load(SLACK_FILE, {})}
+
+
+def slack_prompt(st, now):
+    after = datetime.fromtimestamp(st["last_at"] - 600 if st["last_at"] else now - DAY)
+    open_items = [f"- {i['permalink']} | {i['from']} in {i['channel']}: {i['text'][:100]}" for i in st["items"] if not i.get("ticked")]
+    me = f"{st['me']['name']} ({st['me']['id']}), timezone {st['me'].get('tz', '')}" if st.get("me") else "unknown yet: read my own profile first and return it as me"
+    return f"""You run one headless Slack sweep for me. Nobody reads a chat; your answer is the JSON. Load the Slack tools with ToolSearch first.
+Me: {me}.
+Now: {datetime.fromtimestamp(now).isoformat()}. Look at messages since {after.isoformat()}.
+
+1. Look only at DMs and group DMs to me, and messages anywhere that @-mention me. Nothing else.
+2. For each candidate, read its thread. Skip it if I already replied or someone else settled it.
+3. kind "ask": needs my answer or action. due: the deadline in words if one is stated, else empty. urgent: true for a blocker, a deadline today, or a direct ask from my manager. kind "fyi": I should know, nothing to do. Leave out chatter, bots, and anything I wrote.
+4. These are still open from earlier sweeps. Put a permalink in resolved when I have since replied or it no longer needs me:
+{chr(10).join(open_items) if open_items else "(none)"}
+Do not return those again as items unless something new happened in them.
+
+text: the ask in one sentence, in the asker's words where possible, under 200 characters. channel: "#name", or "DM", or "group DM". from: the person's display name.
+Read only: never post, reply, react, draft, schedule or change anything.
+connected: false when no Slack tools are available or they say I need to sign in; then return empty lists.
+If the Slack tools are there but keep failing, return empty lists and one short reason in error; otherwise error is ""."""
+
+
+def log_handled(st, item, now):
+    if item["kind"] != "ask":
+        return
+    keep = [h for h in st["handled"] if h["permalink"] != item["permalink"] and now - h["at"] < 14 * DAY]
+    st["handled"] = keep + [{k: item.get(k) for k in ("permalink", "from", "channel", "text", "by")} | {"at": now}]
+
+
+def slack_merge(st, out, now):
+    if (out.get("me") or {}).get("id"):
+        st["me"] = out["me"]
+    for it in out.get("items") or []:
+        if not it.get("permalink") or it["permalink"] in st["dismissed"]:
+            continue
+        old = next((x for x in st["items"] if x["permalink"] == it["permalink"]), None)
+        if old:
+            old.update({k: v for k, v in it.items()})
+        else:
+            st["items"].append({**it, "at": now, "ticked": False, "ticked_at": None})
+    for link in out.get("resolved") or []:
+        x = next((i for i in st["items"] if i["permalink"] == link), None)
+        if x and not x["ticked"]:
+            x.update(ticked=True, ticked_at=now, by="sweep")
+            log_handled(st, x, now)
+    for x in st["items"]:
+        if x["ticked"] and now - (x["ticked_at"] or now) > 7 * DAY:
+            st["dismissed"].append(x["permalink"])
+    st["items"] = [i for i in st["items"] if i["permalink"] not in st["dismissed"]]
+    st["dismissed"] = st["dismissed"][-500:]
+    st["last_at"] = now
+
+
+def slack(force=False):
+    fd = locked("slack")
+    if fd is None:
+        return
+    st, now = slack_state(), int(time.time())
+    st["status"] = {**st["status"], "running": True, "started": now}
+    save(SLACK_FILE, st)
+    refresh()
+    try:
+        out, cost = claude(slack_prompt(st, now), SLACK_TOOLS, SLACK_SCHEMA, os.environ.get("FM_INBOX_SLACK_MODEL", "sonnet"), "1", 600)
+        st = slack_state()
+        if out.get("connected") is False:
+            st["status"] = {"connected": False, "error": "Slack is not connected: run /mcp in a work Claude session and authenticate slack", "at": now}
+        else:
+            slack_merge(st, out, now)
+            st["status"] = {"connected": True, "error": out.get("error") or "", "at": now, "cost": cost}
+        log(f"slack swept: {len(out.get('items') or [])} items, ${cost:.2f}")
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        st = slack_state()
+        st["status"] = {**st["status"], "error": str(e), "at": now}
+        log(f"slack failed: {e}")
+    st["status"].pop("running", None)
+    save(SLACK_FILE, st)
+    refresh()
+
+
+def slack_act(op, link):
+    st, now = slack_state(), int(time.time())
+    for x in st["items"]:
+        if x["permalink"] != link:
+            continue
+        if op == "done":
+            x.update(ticked=True, ticked_at=now, by="you")
+            log_handled(st, x, now)
+        elif op == "skip":
+            x.update(ticked=True, ticked_at=now, by="skipped")
+            st["handled"] = [h for h in st["handled"] if h["permalink"] != link]
+        elif op == "hand":
+            x["handed"] = now
+        elif op == "undo":
+            x.update(ticked=False, ticked_at=None, by=None)
+            st["handled"] = [h for h in st["handled"] if h["permalink"] != link]
+    save(SLACK_FILE, st)
+    refresh()
+
+
+def slack_due(now):
+    st = slack_state()
+    hour = datetime.fromtimestamp(now).hour
+    status = st.get("status") or {}
+    if hour not in SLACK_HOURS or datetime.fromtimestamp(now).weekday() >= 5:
+        return False
+    last = max(st.get("last_at") or 0, status.get("at") or 0)
+    return now - last >= SLACK_EVERY and status.get("connected") is not False
+
+
+
+def window(now):
+    """Before the cutover hour, the previous working day (Friday on Monday); from it on, today."""
+    d = datetime.fromtimestamp(now)
+    if d.hour < CUTOVER:
+        d -= timedelta(days=1)
+        while d.weekday() >= 5:
+            d -= timedelta(days=1)
+    start = d.replace(hour=0, minute=0, second=0, microsecond=0)
+    return {"date": start.strftime("%Y-%m-%d"), "label": start.strftime("%A"), "from": int(start.timestamp()),
+            "to": int(start.timestamp()) + DAY - 1}
+
+
+def slot(now):
+    """The latest scheduled weekday time at or before now, as an id like 2026-11-13@23."""
+    d = datetime.fromtimestamp(now)
+    for back in range(4):
+        day = d - timedelta(days=back)
+        if day.weekday() >= 5:
+            continue
+        for h in sorted(STANDUP_HOURS, reverse=True):
+            at = day.replace(hour=h, minute=0, second=0, microsecond=0)
+            if at <= d:
+                return f"{at:%Y-%m-%d}@{h}", int(at.timestamp())
+    return None, 0
+
+
+def sh(args, cwd=None, env=None, timeout=20):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, cwd=cwd, env=env, timeout=timeout).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def gather(win):
+    since, until = datetime.fromtimestamp(win["from"]).isoformat(), datetime.fromtimestamp(win["to"]).isoformat()
+    commits, seen = [], set()
+    for git in sorted(glob.glob(os.path.join(HOME, "Developer/*/.git"))):
+        repo = os.path.dirname(git)
+        if sh(["claude-account", "cwd", repo]).strip() != "work":
+            continue
+        email = sh(["git", "config", "user.email"], cwd=repo).strip()
+        if not email:
+            continue
+        out = sh(["git", "log", "--all", f"--author={email}", f"--since={since}", f"--until={until}", "--no-merges", "--pretty=%s", "-n", "25"], cwd=repo)
+        for subject in filter(None, out.splitlines()):
+            if (repo, subject) not in seen:
+                seen.add((repo, subject))
+                commits.append(f"{os.path.basename(repo)}: {subject}")
+    env = {k: v for k, v in os.environ.items() if k not in ("GH_TOKEN", "GITHUB_TOKEN")}
+    token = sh(["gh", "auth", "token"], env=env).strip()
+    if token:
+        env["GH_TOKEN"] = token
+    prs = []
+    try:
+        for p in json.loads(sh(["gh", "search", "prs", "--author=@me", f"--updated={win['date']}..{win['date']}", "--json",
+                                "number,title,url,repository,state,isDraft", "--limit", "30"], env=env) or "[]"):
+            prs.append(f"{(p.get('repository') or {}).get('name', '')} #{p['number']} {p['title']} ({'draft' if p.get('isDraft') else p['state'].lower()}) {p['url']}")
+    except ValueError:
+        pass
+    logs = []
+    for note in glob.glob(os.path.join(VAULT, "Notes/work/*.md")):
+        key = re.match(r"([A-Z]+-\d+)", os.path.basename(note))
+        try:
+            text = open(note).read()
+        except OSError:
+            continue
+        for m in re.finditer(rf"^- {win['date']} \d\d:\d\d · (.+)$", text, re.M):
+            logs.append(f"{key[1] if key else os.path.basename(note)[:-3]}: {m[1]}")
+    slack_done = [f"{h['from']} ({h['channel']}) asked: \"{h['text']}\" ({'I replied in Slack' if h.get('by') == 'sweep' else 'I marked it done'})"
+                  for h in slack_state()["handled"] if win["from"] <= h["at"] <= win["to"]]
+    return {"commits": commits[:80], "prs": prs, "logs": logs[:40], "slack": slack_done[:20]}
+
+
+def standup_prompt(win, local):
+    def section(title, xs):
+        return f"{title}:\n" + ("\n".join(f"- {x}" for x in xs) if xs else "(none)")
+    return f"""Write my standup answer to "What did you accomplish?" for {win['label']}, {win['date']}. Nobody reads a chat; your answer is the JSON.
+Load the Jira and Slack tools with ToolSearch, then:
+1. Jira: issues assigned to me, or where I am the Developer, that changed status or that I commented on between {win['date']} 00:00 and 23:59 my time. Read only.
+2. Slack: messages I sent in that window (from:me), for work that left no commit: reviews, debugging help, decisions. Read only. Skip this step if the Slack tools are missing.
+
+What I did that day, from local records:
+{section("Commits", local["commits"])}
+
+{section("Pull requests I opened or updated", local["prs"])}
+
+{section("Ticket work log entries", local["logs"])}
+
+{section("Slack asks I handled", local["slack"])}
+
+Write 3 to 7 bullets, one line each, outcome first, grouped by ticket or project where it helps. Name Jira keys and PR numbers.
+Merge the work log entries with the commits instead of repeating them. Skip trivia (formatting, typo fixes, merges).
+A Slack ask earns a bullet only when it was real work (a review, a fix, a decision, an unblock); fold it into the matching
+project bullet when there is one, and leave out acknowledgements and quick answers.
+Plain, direct sentences: no filler, no "successfully", no hype. If something is blocked, end with one line starting "Blocked:".
+text: just the bullets, each starting with "- ".
+Never post, comment or change anything. If the tools fail, still write from the local records and put one short reason in error."""
+
+
+def standup(force=False):
+    fd = locked("standup")
+    if fd is None:
+        return
+    now = int(time.time())
+    win = window(now)
+    st = load(STANDUP_FILE, {})
+    sid, _ = slot(now)
+    if not force and st.get("date") == win["date"] and edited(st):
+        save(STANDUP_FILE, {**st, "slot": sid})
+        return
+    st.update(running=True, started=now)
+    save(STANDUP_FILE, st)
+    refresh()
+    try:
+        out, cost = claude(standup_prompt(win, gather(win)), JIRA_TOOLS + SLACK_TOOLS[:3], STANDUP_SCHEMA,
+                           os.environ.get("FM_INBOX_STANDUP_MODEL", "sonnet"), "1", 420)
+        text = "\n".join(ln for ln in (out.get("text") or "").splitlines() if ln.strip())
+        with open(STANDUP_MD, "w") as f:
+            f.write(text + "\n")
+        st = {**win, "at": now, "slot": sid, "error": out.get("error") or "", "cost": cost, "mtime": os.path.getmtime(STANDUP_MD)}
+        log(f"standup written for {win['date']}, ${cost:.2f}")
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        st = {**load(STANDUP_FILE, {}), "error": str(e), "slot": sid}
+        log(f"standup failed: {e}")
+    st.pop("running", None)
+    save(STANDUP_FILE, st)
+    refresh()
+
+
+def edited(st):
+    """You changed the draft file since it was written, so the schedule leaves it alone."""
+    try:
+        return abs(os.path.getmtime(STANDUP_MD) - st.get("mtime", 0)) > 1
+    except OSError:
+        return False
+
+
+def standup_due(now):
+    sid, at = slot(now)
+    st = load(STANDUP_FILE, {})
+    return bool(sid) and st.get("slot") != sid and now - at < 12 * 3600
+
+
+def standup_copy():
+    try:
+        text = open(STANDUP_MD).read()
+    except OSError:
+        raise SystemExit("no standup draft yet")
+    subprocess.run(["pbcopy"] if sys.platform == "darwin" else ["wl-copy"], input=text, text=True, check=True)
+
+
+def tick():
+    now = int(time.time())
+    if slack_due(now):
+        slack()
+    if standup_due(now):
+        standup()
+
+
+def main(argv):
+    cmd = argv[0] if argv else ""
+    force = "--force" in argv
+    if cmd == "tick":
+        tick()
+    elif cmd == "slack":
+        slack(force)
+    elif cmd == "slack-act" and len(argv) == 3 and argv[1] in ("done", "skip", "undo", "hand"):
+        slack_act(argv[1], argv[2])
+    elif cmd == "standup":
+        standup(force)
+    elif cmd == "standup-copy":
+        standup_copy()
+    else:
+        raise SystemExit(__doc__)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

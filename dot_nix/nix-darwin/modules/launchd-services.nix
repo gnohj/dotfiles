@@ -556,6 +556,26 @@ in
       };
     };
 
+    # Todo pane Inbox sources - every 10 min runs whatever is due: the Slack sweep (hourly, 9-19 weekdays) and the standup draft (weekdays 23:00).
+    fm-inbox-tick = {
+      serviceConfig = {
+        ProgramArguments = [
+          "/bin/bash"
+          "-c"
+          ''
+            mkdir -p ${homeDir}/.logs/fm-inbox
+            exec ${homeDir}/.local/bin/fm-inbox tick
+          ''
+        ];
+        StartInterval = 600;
+        EnvironmentVariables = {
+          PATH = "${homeDir}/.local/bin:${daemonPath}";
+        };
+        StandardOutPath = "${homeDir}/.logs/fm-inbox/launchagent.out.log";
+        StandardErrorPath = "${homeDir}/.logs/fm-inbox/launchagent.err.log";
+      };
+    };
+
     # Screenshot Mirror - copies each new capture to the dev-box so remote crewmates can open a pasted Mac path.
     screenshot-mirror = {
       serviceConfig = {
