@@ -176,8 +176,10 @@ class Board:
         mate = "sm-" + label.lower()
         return task.get("home") or (mate if mate in self.mates else "fm")
 
-    def pr_for(self, key):
-        for name, pr in self.my_prs.items():
+    def pr_for(self, key, merged=False):
+        """The ticket's open PR, and with merged its newest merged one: merging can leave the ticket in TE or stakeholder review."""
+        merged_prs = ((f"{r.get('repo')}#{r.get('number')}", r) for r in self.merged) if merged else ()
+        for name, pr in [*self.my_prs.items(), *merged_prs]:
             if any(isinstance(t, dict) and t.get("key") == key for t in pr.get("jira") or []):
                 return name
         return ""
@@ -231,7 +233,7 @@ class Board:
         elif threads:
             action = link("{{Resolve:yellow}}", act("resolve", repo=repo, number=number),
                           f"Resolve {threads} open thread{'s' if threads > 1 else ''} on #{number}?")
-        elif approvals >= needed and ci in ("passing", "none"):
+        elif approvals >= needed and ci in ("passing", "none") and name in self.my_prs:
             action = link("{{merge:green}}", act("merge", repo=repo, number=number, sha=st.get("head", "")),
                           f"Merge #{number} into {st.get('base') or 'its base'}?")
         return parts, action
@@ -280,7 +282,8 @@ class Board:
         tail = re.sub(r"^answers?$", "needs your answers", tail)
         st = self.status.get(pr_name, {}) if pr_name else {}
         if st and re.search(r"\breview", tail) and (st.get("approvals") or 0) >= self.required.get(repo, 1):
-            tail = "approved and ready to merge" if (st.get("checks") or {}).get("state") in ("passing", "none") else "approved"
+            green = (st.get("checks") or {}).get("state") in ("passing", "none")
+            tail = ("approved and ready to merge" if pr_name in self.my_prs else "approved · not your PR, merge it on GitHub") if green else "approved"
         elif (short := approvals_short(pr_name, self)) and re.search(r"\breview|\bmerge", tail):
             tail = f"needs {short} teammate approval{'s' if short > 1 else ''}"
         lines = []
@@ -603,6 +606,19 @@ def stuck_panes(out, b):
             out["needs"].append(new_item(title=f"{mate} is waiting on a prompt", owner=mate, chat=(f"{mate} is waiting", mate)))
 
 
+STALE_AFTER = 6 * 3600
+
+
+def flag_stale(out, ages, b):
+    """A firstmate "in progress" item with no live agent behind it and no change for hours most likely finished or died unreported."""
+    now = datetime.now().timestamp()
+    for it in out["progress"]:
+        block = it["task"].get("block", "")
+        alive = block and b.states.get(block) in ("working", "blocked", "done", "idle")
+        if it.get("level") == 2 and not alive and now - ages.get(id(it), now) > STALE_AFTER:
+            it["lines"].append("| {{no agent running · likely finished or lost, ask firstmate:yellow.}}")
+
+
 def unlisted_tasks(out, b):
     """Every live crew or scout pane no item covers still shows; one that looks finished asks to be retired under Needs you."""
     shown = {it["task"].get("block") for items in out.values() for it in items if not it["done"]}
@@ -838,12 +854,14 @@ def badge(it, section):
         return it["badge"]
     kind = it["task"].get("kind", "")
     if kind == "ship":
-        return "{{⛵ crew:blue}}"
+        return "{{⛵ fm:blue}}"
     if kind == "scout":
-        return "{{🔭 scout:magenta}}"
+        return "{{🔭 fm:magenta}}"
     if section == "requests":
         return "{{review:magenta}}"
-    return "{{PR:cyan}}" if it["pr"] else "{{fm:green}}"
+    if section == "tickets" and not it["pr"]:
+        return "{{ticket:blue}}"
+    return "{{PR:cyan}}" if it["pr"] else "{{🚢 fm:green}}"
 
 
 def categories(it, section):
@@ -885,12 +903,102 @@ def slack_items(out):
                 extra=[link("{{undo:yellow}}", act("slack/act", op="undo", link=link_), "[U]")], at=int(x.get("ticked_at") or 0)))
             continue
         chips = (["{{urgent:red.}}"] if x.get("urgent") else []) + (["{{handed to fm:cyan.}}"] if x.get("handed") else [])
+        if x.get("oncall"):
+            chips.insert(0, f"{{{{on-call · {outside(str(x['oncall']))}:yellow.}}}}")
         extra = [link("{{hand to fm:magenta}}", act("slack/hand", link=link_), "[t] Hand this to firstmate to research and draft a reply?"),
                  link("{{done:green}}", act("slack/act", op="done", link=link_), "[x]"),
                  link("{{skip:blue}}", act("slack/act", op="skip", link=link_), "[z]")]
         out["needs" if x.get("kind") == "ask" else "new"].append(new_item(
             title=title, badge="{{slack:red}}", cat="slack", refs=[link(tint("open in Slack"), link_)], chips=chips,
             lines=[f"| {outside(str(x.get('text', '')))}"], extra=extra, custom=True, at=int(x.get("at") or 0)))
+
+
+SCOUT_DAYS = 4
+SCOUT_REPORTS = ["~/.local/share/firstmate*/data/*/report.md", "~/.local/share/firstmate/data/remote-secondmates/*/data/*/report.md"]
+ANSWER = re.compile(r"^#+\s*(answer|bottom line|summary|tl;?dr|verdict|findings)\b", re.I)
+
+
+def report_summary(path):
+    """A report's title and its first line of answer, under its Answer or Bottom line heading when it has one."""
+    try:
+        with open(path, errors="replace") as f:
+            lines = [ln.strip() for ln in f.read(40000).splitlines()]
+    except OSError:
+        return "", ""
+    title = next((ln.lstrip("# ").strip() for ln in lines if ln.startswith("# ")), "")
+    start = next((i + 1 for i, ln in enumerate(lines) if ANSWER.match(ln)), 0)
+    body = ""
+    for ln in lines[start:]:
+        if ln.startswith("#") and body:
+            break
+        if not ln or ln.startswith(("#", ">", "Scope", "No PR", "|", "---")):
+            continue
+        bullet = re.sub(r"^([-*]|[0-9]+[.)])\s+", "", ln)
+        body = f"{body} {bullet}".strip()
+        if len(body) >= 70 and not body.endswith(":"):
+            break
+    return title, re.sub(r"[*`]", "", body)[:240]
+
+
+REGISTERED_FILE = os.path.expanduser("~/.local/state/rexpad/firstmate.registered.json")
+
+
+def preregister(art, host, b):
+    """Register a scout's artifact with its Library in the background, once, so opening it later is instant."""
+    item = (host + ":" if host else "") + hashlib.sha256(art.encode()).hexdigest()[:12]
+    if any(a.get("id") == item for a in b.artifacts):
+        return
+    try:
+        with open(REGISTERED_FILE) as f:
+            tried = json.load(f)
+    except (OSError, ValueError):
+        tried = {}
+    if tried.get(item, 0) > datetime.now().timestamp() - 86400:
+        return
+    tried[item] = int(datetime.now().timestamp())
+    try:
+        with open(REGISTERED_FILE + ".tmp", "w") as f:
+            json.dump({k: v for k, v in tried.items() if v > datetime.now().timestamp() - 7 * 86400}, f)
+        os.replace(REGISTERED_FILE + ".tmp", REGISTERED_FILE)
+        subprocess.Popen([os.path.expanduser("~/.local/bin/fm-todo-open"), act("artifact/register", file=art, host=host)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        pass
+
+
+def scout_items(out, b):
+    """Reports a finished scout left behind, as New for you until seen: firstmate need not close its line for you to see them."""
+    import glob
+    newest = {}
+    for pattern in SCOUT_REPORTS:
+        for path in glob.glob(os.path.expanduser(pattern)):
+            try:
+                at = os.path.getmtime(path)
+            except OSError:
+                continue
+            folder = os.path.basename(os.path.dirname(path))
+            if at > datetime.now().timestamp() - SCOUT_DAYS * 86400 and at > newest.get(folder, (0, ""))[0]:
+                newest[folder] = (at, path)
+    live = [t["slug"] for t in b.tasks.values() if t.get("block") and t.get("slug")]
+    for folder, (at, path) in newest.items():
+        if any(folder == slug or folder.endswith("-" + slug) for slug in live):
+            continue
+        title, body = report_summary(path)
+        home = re.search(r"remote-secondmates/([^/]+)/|firstmate-([^/]+)/data", path)
+        home = (home[1] or home[2]) if home else "fm"
+        remote = re.search(r"remote-secondmates/([^/]+)/data/", path)
+        if remote:
+            art, host = f"/home/{os.environ.get('USER') or 'gnohj'}/.local/share/firstmate-{remote[1]}/data/{folder}/artifact.html", "dev-box"
+        else:
+            art, host = os.path.join(os.path.dirname(path), "artifact.html"), ""
+        has_art = remote or os.path.exists(art)
+        if has_art:
+            preregister(art, host, b)
+        extra = [link("{{artifact:blue}}", act("artifact", file=art, host=host), "[A]")] if has_art else []
+        extra.append(link("{{report:blue}}", act("report", file=path), "[o]"))
+        out["new"].append(new_item(
+            title=f"Scout finished: {outside(title or folder)}", badge="{{🔭 fm:magenta}}", qid=f"scout:{folder}", owner=home,
+            lines=[f"| {outside(body)}"] if body else [], extra=extra, chat=(title or folder, folder), at=int(at)))
 
 
 def jira_items(out):
@@ -944,6 +1052,10 @@ def slack_bar():
     else:
         title = f"swept {datetime.fromtimestamp(sl['last_at']).strftime('%H:%M')}" if sl.get("last_at") else "not swept yet"
         meta = ""
+    duty = [f"on call: {o.get('role')} @{outside(str(o.get('group', '')))}" for o in sl.get("oncall") or []
+            if isinstance(o, dict) and o.get("role") in ("primary", "secondary")]
+    if duty:
+        meta = join_meta([f"{{{{{d}:yellow.}}}}" for d in duty] + ([meta] if meta else []))
     check = [link("{{check now:magenta}}", act("slack/check"), "[K]")]
     return ["\n# {pin:bottom}", *bar("{{slack:red}}", title, check, meta)]
 
@@ -961,7 +1073,7 @@ def standup_bar():
     meta = join_meta(["writing a new draft…" if st.get("running") else f"written {clock(st.get('at'))}" if st.get("at") else "no draft yet",
                       "edited" if edited else "", f"next {next_standup(now)}",
                       f"{{{{{defuse(st['error'])}:yellow.}}}}" if st.get("error") else ""])
-    right = ([link("{{copy:green}}", act("standup/copy"), "[y]")] if draft else []) + [
+    right = ([link("{{copy:green}}", act("standup/copy"), "[C]")] if draft else []) + [
         link("{{edit:blue}}", act("standup/edit"), "[E]"), link("{{write now:blue}}", act("standup/write"), "[W]")]
     title = "Standup"
     if st.get("date"):
@@ -1018,6 +1130,7 @@ def board_tab(raw, b):
     out = {name: [] for name, _, _ in SECTIONS}
     for lv, items in enumerate(board(raw, b)):
         for it in items:
+            it["level"] = lv
             out[place(it, lv, b)].append(it)
     stuck_panes(out, b)
     my_pr_items(out, b)
@@ -1025,9 +1138,11 @@ def board_tab(raw, b):
     add_prompts(out, b)
     slack_items(out)
     jira_items(out)
+    scout_items(out, b)
     out["requests"] = review_items(b)
     ages = stamp_items(out, int(datetime.now().timestamp()))
     ages.update({id(it): it["at"] for items in out.values() for it in items if it["at"]})
+    flag_stale(out, ages, b)
     for name in SEEN_SECTIONS:
         out[name] = [it for it in out[name] if b.seen.get(seen_key(it)[0], {}).get("fp") != seen_key(it)[1]]
     notify_new(out)
@@ -1086,7 +1201,7 @@ def tickets_tab(b):
             comps = []
             if m := re.match(r"^\[([^\]]+)\]\s*", summary):
                 comps, summary = [c.strip() for c in m[1].split(",")], summary[m.end():]
-            pr = b.pr_for(key)
+            pr = b.pr_for(key, merged=True)
             task = b.tasks.get(key) or b.tasks.get(pr) or {}
             chips = b.jira_meta(key)[1:]
             if comps:
@@ -1096,7 +1211,7 @@ def tickets_tab(b):
                 label = {"done": "idle", "blocked": "needs you"}.get(state, state)
                 chips.append(f"{{{{{label}:{'red' if state in ('blocked', 'error') else 'cyan'}.}}}}")
             extra = [] if task or pr or key not in {t.get("key") for t in b.tickets} else [link("{{start:green}}", act("start", key=key), f"Start {key}? Firstmate dispatches a crewmate.")]
-            it = new_item(title=summary, glyph=crew_mark(task), refs=[ticket_link(key)] + ([pr_link(*pr.partition("#")[::2])] if pr else []),
+            it = new_item(title=summary, glyph=crew_mark(task), badge="{{merged:green}}" if pr and pr not in b.my_prs and not task else "", refs=[ticket_link(key)] + ([pr_link(*pr.partition("#")[::2])] if pr else []),
                           chips=chips, task=task, pr=pr, key=key, extra=extra, chat=(summary, key), done=t.get("category") == "done",
                           owner=b.owner_of(key, pr, comps[0] if comps else ""))
             lines += item_lines(it, b, "tickets")
@@ -1105,23 +1220,6 @@ def tickets_tab(b):
 
 OUTPUT_SKIP = {"System Resource Report", "Claude Billing Watch"}
 OUTPUT_OLDER = 40
-
-
-def owner_rows(owners, b):
-    out = []
-    for owner in sorted(owners, key=lambda o: (o != "fm", o)):
-        out.append(f"- [ ] **{owner}**")
-        for _, lines in owners[owner]:
-            out += ["  " + ln for ln in lines]
-    return out
-
-
-def section(title, tag, items, b):
-    """A tab heading over its (owner, lines) items grouped by mate, keeping the items' own order within a mate."""
-    owners = {}
-    for i, (owner, lines) in enumerate(items):
-        owners.setdefault(owner, []).append((i, lines))
-    return ["", f"# {title} · {len(items)} {tag}", *owner_rows(owners, b)] if items else []
 
 
 def outputs_tab(b):
@@ -1146,12 +1244,11 @@ def outputs_tab(b):
         repo = a.get("pr_repo") or {"Inferno": REPOS["inferno"], "Web": REPOS["web"]}.get(project, "")
         if pr:
             title = title[:pr.start()]
-        head = (ticket_link(key) + " " if key else "") + link(title, url)
         is_live = a.get("status") == "open" and (now - when).total_seconds() < 86400
-        right = ""
+        acts = [link("{{open:blue}}", url, "[o]")]
         if not is_live and a.get("lifecycle") == "reopenable" and str(a.get("action_url") or "").startswith("https://"):
-            right = "\t" + link("{{▶:green}}", a["action_url"])
-        meta = []
+            acts.append(link("{{reopen:green}}", a["action_url"], "[R]"))
+        meta = [ticket_link(key)] if key else []
         if pr and repo:
             meta.append(pr_link(repo, pr[1]))
         if project:
@@ -1159,7 +1256,9 @@ def outputs_tab(b):
         if ago := since(a.get("updated")):
             meta.append(ago)
         meta.append("{{Live:green.}}" if is_live else "Ended" if a.get("status") == "ended" else "")
-        row = (b.owner_of(key, f"{repo}#{pr[1]}" if pr and repo else "", project), [f"* {head}{right}", ": " + join_meta(meta)])
+        owner = b.owner_of(key, f"{repo}#{pr[1]}" if pr and repo else "", project)
+        meta.insert(len(meta) - 2 if len(meta) >= 2 else len(meta), owner)
+        row = [f"- [ ] {{{{🚢 fm:green}}}} {title}", "  : " + join_meta(meta), "  : " + " ".join(buttons(acts))]
         if is_live:
             live.append(row)
         elif when.astimezone().date() == today:
@@ -1171,7 +1270,8 @@ def outputs_tab(b):
     out = []
     for title, items, tag in (("Live", live, "{green}"), ("Today", day, "{cyan}"), ("This week", week, "{folded}"),
                               ("Older", older, "{folded}")):
-        out += section(title, tag, items, b)
+        if items:
+            out += ["", f"# {title} · {len(items)} {tag}", *(ln for row in items for ln in row)]
     return out
 
 

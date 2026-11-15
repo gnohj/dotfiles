@@ -362,15 +362,20 @@ task_open() {
   show_window "$ses" "$window" "$label"
 }
 
-# nvim on a local file in a tab of the firstmate session, reused while it stays open.
+# nvim on a local file in a reused firstmate tab; "view" opens it read-only with render-markdown for reports.
 open_file() {
-  local file=$1 sid name window
+  local file=$1 mode=${2:-} sid name window cmd
   [ -f "$file" ] || { echo "fm-todo: no file $file" >&2; exit 1; }
   read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
   [ -n "$sid" ] || { echo "fm-todo: no firstmate Rex session found" >&2; exit 1; }
   name="📝 $(basename "$file")"
+  cmd=$(printf '%q ' nvim "$file")
+  if [ "$mode" = view ]; then
+    name="📖 $(basename "$(dirname "$file")")"
+    cmd=$(printf '%q ' nvim -R -c 'setlocal nonumber norelativenumber nomodifiable' -c 'RenderMarkdown enable' "$file")
+  fi
   window=$(window_by_label "$sid" "$name")
-  [ -n "$window" ] || window=$(rex window new -s "$sid" "$name" -c "$(dirname "$file")" --shell=none --json -- "${SHELL:-/bin/zsh}" -lic "$(printf '%q ' nvim "$file")" | jq -r '.window_id // empty')
+  [ -n "$window" ] || window=$(rex window new -s "$sid" "$name" -c "$(dirname "$file")" --shell=none --json -- "${SHELL:-/bin/zsh}" -lic "$cmd" | jq -r '.window_id // empty')
   [ -n "$window" ] || { echo "fm-todo: could not open $name" >&2; exit 1; }
   show_window "$sid" "$window"
 }
@@ -564,7 +569,7 @@ shift || true
 [ "$cmd" = note-stage ] && { note_stage "${1:?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${2?usage: fm-todo note-stage OWNER/REPO#N STAGE [MATE]}" "${3:-}"; exit; }
 [ "$cmd" = note-progress ] && { note_progress "${1:?usage: fm-todo note-progress OWNER/REPO#N}"; exit; }
 [ "$cmd" = send ] && { send "${1:?usage: fm-todo send TEXT}"; exit; }
-[ "$cmd" = open-file ] && { open_file "${1:?usage: fm-todo open-file PATH}"; exit; }
+[ "$cmd" = open-file ] && { open_file "${1:?usage: fm-todo open-file PATH [view]}" "${2:-}"; exit; }
 case "$cmd" in pane | edit | wtdiff) task_open "$cmd" "${1:?usage: fm-todo $cmd TASK}"; exit ;; esac
 [ "$cmd" = diff ] && { pr_diff "${1:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${2:?usage: fm-todo diff REPO NUMBER [TICKET]}" "${3:-}"; exit; }
 [ "$cmd" = pr-open ] && { pr_open "${1:?usage: fm-todo pr-open REPO NUMBER old|new LINE PATH [TICKET]}" "${2:?}" "${3:?}" "${4:?}" "${5:?}" "${6:-}"; exit; }

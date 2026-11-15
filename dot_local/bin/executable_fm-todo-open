@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Todo pane opener: fm-todo.invalid links act through the Lavish Library's own routes, other links open as work URLs."""
+import hashlib
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -13,6 +16,8 @@ import fm_todo_ask
 from fm_todo_action import ACT, act, parse
 
 LIBRARY = os.path.expanduser("~/.local/state/lavish-library")
+LIBRARY_PY = "~/Developer/agents/shared/skills/lavish-library/library.py"
+ARTIFACT = re.compile(r"^/(Users|home)/[^/]+/\.local/share/firstmate[^/]*/data/[^/]+/artifact\.html$")
 PORT = os.environ.get("LAVISH_LIBRARY_PORT", "4390")
 
 
@@ -151,6 +156,17 @@ def run(path, q):
         return inbox("standup-copy")
     elif path == "standup/write":
         inbox("standup", "--force", background=True)
+    elif path == "artifact":
+        return open_artifact(q["file"], q.get("host", ""))
+    elif path == "artifact/register":
+        if ARTIFACT.match(q["file"]) and re.fullmatch(r"[A-Za-z0-9._-]*", q.get("host", "")) and not known_artifact(q["file"], q.get("host", "")):
+            register_artifact(q["file"], q.get("host", ""))
+    elif path == "report":
+        report = os.path.realpath(q["file"])
+        if not (report.endswith("/report.md") and "/.local/share/firstmate" in report):
+            raise SystemExit("not a firstmate report")
+        subprocess.run([os.path.expanduser("~/.local/bin/fm-todo"), "open-file", report, "view"], check=False)
+        return
     elif path == "standup/edit":
         return task("open-file", {"key": os.path.join(INBOX, "standup.md")})
     elif path == "seen":
@@ -169,10 +185,57 @@ def run(path, q):
 
 def notify(message):
     print(message, file=sys.stderr)
+    try:
+        pid = subprocess.run(["pgrep", "-f", "rexpad --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
+        tty = subprocess.run(["ps", "-o", "tty=", "-p", pid], capture_output=True, text=True).stdout.strip()
+        with open(f"/dev/{tty}", "w") as term:
+            clean = re.sub(r"[\x00-\x1f\x7f-\x9f;]+", " ", message).strip()[:200]
+            term.write("\033]777;notify;Firstmate;" + clean + "\007")
+    except (OSError, IndexError):
+        pass
     if sys.platform == "darwin":
         subprocess.run(["osascript", "-e", f"display notification {json.dumps(message)} with title \"Todo pane\""], check=False)
     elif shutil.which("notify-send"):
         subprocess.run(["notify-send", "Todo pane", message], check=False)
+
+
+def known_artifact(file, host):
+    """The artifact's Library id when the Mac catalog already lists it: ids are a hash of the path, so no call is needed."""
+    item = (host + ":" if host else "") + hashlib.sha256(file.encode()).hexdigest()[:12]
+    try:
+        with open(os.path.join(LIBRARY, "catalog.json")) as f:
+            return item if any(a.get("id") == item for a in json.load(f).get("artifacts", [])) else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def register_artifact(file, host):
+    """`library.py observe` on the machine holding the artifact; returns its Library id, or raises with the reason."""
+    observe = f"python3 {LIBRARY_PY} observe {shlex.quote(file)}"
+    cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ClearAllForwardings=yes", host, observe] if host \
+        else ["python3", os.path.expanduser(LIBRARY_PY), "observe", file]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+    found = re.search(r"^observed: (\S+)", result.stdout, re.M)
+    if not found:
+        raise RuntimeError((result.stderr.strip().splitlines() or ["no answer"])[-1][:200])
+    return (host + ":" if host else "") + found[1]
+
+
+def open_artifact(file, host):
+    """Open a scout's artifact through the Mac Library, registering it with the Library that holds it first if needed."""
+    if not ARTIFACT.match(file) or (host and not re.fullmatch(r"[A-Za-z0-9._-]+", host)):
+        raise SystemExit("not a firstmate artifact")
+    item = known_artifact(file, host)
+    if not item:
+        try:
+            item = register_artifact(file, host)
+        except (OSError, subprocess.TimeoutExpired, RuntimeError) as error:
+            return notify(f"The Library could not take that artifact: {error}")
+    try:
+        base = open(os.path.join(LIBRARY, "public-url")).read().strip()
+    except OSError:
+        return notify("The Mac Library has no public URL yet: run /lavish-library open once.")
+    open_url(f"{base}/open/{quote(item, safe=':')}")
 
 
 def open_url(url):
