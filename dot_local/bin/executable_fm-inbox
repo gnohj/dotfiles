@@ -46,10 +46,15 @@ JIRA_TOOLS = ["mcp__atlassian__atlassianUserInfo", "mcp__atlassian__searchJiraIs
 
 ITEM = {"type": "object", "required": ["permalink", "kind", "from", "channel", "text", "urgent"],
         "properties": {"permalink": {"type": "string"}, "kind": {"enum": ["ask", "fyi"]}, "from": {"type": "string"},
-                       "channel": {"type": "string"}, "text": {"type": "string"}, "due": {"type": "string"}, "urgent": {"type": "boolean"}}}
+                       "channel": {"type": "string"}, "text": {"type": "string"}, "due": {"type": "string"}, "urgent": {"type": "boolean"},
+                       "oncall": {"type": "string"}}}
+ONCALL = {"type": "object", "required": ["group", "role"],
+          "properties": {"group": {"type": "string"}, "role": {"enum": ["primary", "secondary", "none"]},
+                         "since": {"type": "string"}, "post": {"type": "string"}}}
 SLACK_SCHEMA = {"type": "object", "required": ["items", "resolved", "error", "connected"],
                 "properties": {"me": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "tz": {"type": "string"}}},
                                "items": {"type": "array", "items": ITEM}, "resolved": {"type": "array", "items": {"type": "string"}},
+                               "oncall": {"type": "array", "items": ONCALL},
                                "error": {"type": "string"}, "connected": {"type": "boolean"}}}
 STANDUP_SCHEMA = {"type": "object", "required": ["text", "error"], "properties": {"text": {"type": "string"}, "error": {"type": "string"}}}
 
@@ -120,6 +125,38 @@ def slack_state():
     return {"me": None, "last_at": 0, "items": [], "dismissed": [], "handled": [], "status": {}, **load(SLACK_FILE, {})}
 
 
+ONCALL_FILE = os.path.join(STATE, "oncall-groups")
+
+
+def oncall_groups():
+    """Rotating Slack user groups to watch, one handle per line in local state (kept out of the dotfiles)."""
+    try:
+        with open(ONCALL_FILE) as f:
+            return [ln.strip().lstrip("@") for ln in f if ln.strip() and not ln.startswith("#")]
+    except OSError:
+        return []
+
+
+def oncall_section(st, after):
+    groups = oncall_groups()
+    if not groups:
+        return ""
+    known = {o.get("group"): o for o in st.get("oncall") or [] if isinstance(o, dict)}
+    rows = []
+    for g in groups:
+        k = known.get(g)
+        rows.append(f"- @{g}: " + (f"last known {k.get('role')} since {k.get('since') or '?'} from {k.get('post') or 'an earlier post'}" if k else "not known yet"))
+    return f"""
+On-call: these user groups rotate between people every week:
+{chr(10).join(rows)}
+For each, find the newest rotation announcement that names its Primary and Secondary (a bot post like "rotated oncall shifts", tagging the group).
+Search for one newer than the last known post; if there is none, keep the last known role. Return every group in oncall with my role
+(primary, secondary or none), since (the post's date) and post (its permalink).
+If my role is primary or secondary, also look at messages since {after.isoformat()} that @-mention that group, read each thread, and treat
+each one like a direct ask to me: kind "ask", oncall "<role> @<group>". Primary: urgent true. Secondary: urgent only when the primary
+has not replied in the thread. Skip it if I or the other on-call person already handled it. When my role is none, ignore the group's mentions."""
+
+
 def slack_prompt(st, now):
     after = datetime.fromtimestamp(st["last_at"] - 600 if st["last_at"] else now - DAY)
     open_items = [f"- {i['permalink']} | {i['from']} in {i['channel']}: {i['text'][:100]}" for i in st["items"] if not i.get("ticked")]
@@ -128,7 +165,7 @@ def slack_prompt(st, now):
 Me: {me}.
 Now: {datetime.fromtimestamp(now).isoformat()}. Look at messages since {after.isoformat()}.
 
-1. Look only at DMs and group DMs to me, and messages anywhere that @-mention me. Nothing else.
+1. Look only at DMs and group DMs to me, messages anywhere that @-mention me, and the on-call group mentions below when I am on call. Nothing else.
 2. For each candidate, read its thread. Skip it if I already replied or someone else settled it.
 3. kind "ask": needs my answer or action. due: the deadline in words if one is stated, else empty. urgent: true for a blocker, a deadline today, or a direct ask from my manager. kind "fyi": I should know, nothing to do. Leave out chatter, bots, and anything I wrote.
 4. These are still open from earlier sweeps. Put a permalink in resolved when I have since replied or it no longer needs me:
@@ -136,6 +173,7 @@ Now: {datetime.fromtimestamp(now).isoformat()}. Look at messages since {after.is
 Do not return those again as items unless something new happened in them.
 
 text: the ask in one sentence, in the asker's words where possible, under 200 characters. channel: "#name", or "DM", or "group DM". from: the person's display name.
+{oncall_section(st, after)}
 Read only: never post, reply, react, draft, schedule or change anything.
 connected: false when no Slack tools are available or they say I need to sign in; then return empty lists.
 If the Slack tools are there but keep failing, return empty lists and one short reason in error; otherwise error is ""."""
@@ -151,6 +189,8 @@ def log_handled(st, item, now):
 def slack_merge(st, out, now):
     if (out.get("me") or {}).get("id"):
         st["me"] = out["me"]
+    if out.get("oncall"):
+        st["oncall"] = [o for o in out["oncall"] if isinstance(o, dict) and o.get("group")]
     for it in out.get("items") or []:
         if not it.get("permalink") or it["permalink"] in st["dismissed"]:
             continue
@@ -299,7 +339,17 @@ def gather(win):
             logs.append(f"{key[1] if key else os.path.basename(note)[:-3]}: {m[1]}")
     slack_done = [f"{h['from']} ({h['channel']}) asked: \"{h['text']}\" ({'I replied in Slack' if h.get('by') == 'sweep' else 'I marked it done'})"
                   for h in slack_state()["handled"] if win["from"] <= h["at"] <= win["to"]]
-    return {"commits": commits[:80], "prs": prs, "logs": logs[:40], "slack": slack_done[:20]}
+    replies = []
+    try:
+        with open(os.path.join(HOME, ".local/state/lavish-library/jira-activity.json")) as f:
+            activity = json.load(f).get("items", [])
+    except (OSError, ValueError):
+        activity = []
+    for x in activity:
+        if isinstance(x, dict) and win["from"] <= int(x.get("at") or 0) <= win["to"] + DAY:
+            what = f"commented: {str(x.get('text', ''))[:200]}" if x.get("kind") == "comment" else f"moved it {x.get('text', '')}"
+            replies.append(f"{x.get('key')} ({str(x.get('summary', ''))[:80]}) - {x.get('who')} {what}")
+    return {"commits": commits[:80], "prs": prs, "logs": logs[:40], "slack": slack_done[:20], "jira": replies[:20]}
 
 
 def standup_prompt(win, local):
@@ -319,11 +369,14 @@ What I did that day, from local records:
 
 {section("Slack asks I handled", local["slack"])}
 
+{section("Others on my Jira tickets (context only, not my work)", local.get("jira", []))}
+
 Write 3 to 7 bullets, one line each, outcome first, grouped by ticket or project where it helps. Name Jira keys and PR numbers.
 Merge the work log entries with the commits instead of repeating them. Skip trivia (formatting, typo fixes, merges).
 A Slack ask earns a bullet only when it was real work (a review, a fix, a decision, an unblock); fold it into the matching
 project bullet when there is one, and leave out acknowledgements and quick answers.
 Plain, direct sentences: no filler, no "successfully", no hype. If something is blocked, end with one line starting "Blocked:".
+Use "Others on my Jira tickets" only to say what I am now waiting on or what got unblocked, naming the person; never as my own work.
 text: just the bullets, each starting with "- ".
 Never post, comment or change anything. If the tools fail, still write from the local records and put one short reason in error."""
 
