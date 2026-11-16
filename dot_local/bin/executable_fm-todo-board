@@ -21,6 +21,7 @@ LEVELS = [("🔴", "Blocked", "red", "red"), ("🟡", "Needs your call", "yellow
           ("♻", "In progress", "cyan", "cyan"), ("🟢", "Waiting on others", "green", ""), ("✅", "Done", "green", "green")]
 REPOS = {"inferno": "iheartradio/inferno-monorepo", "web": "iheartradio/web", "chezmoi": "gnohj/dotfiles", "dotfiles": "gnohj/dotfiles"}
 COMPONENT_COLORS = {"inferno": "magenta"}
+DONE, IN_PROGRESS = (next(i for i, lv in enumerate(LEVELS) if lv[1] == name) for name in ("Done", "In progress"))
 KIND_MARK = {"scout": "\U0001f52d", "ship": "⛵"}
 
 
@@ -310,11 +311,16 @@ def defuse(text):
 def clean(s):
     s = re.sub(r"🔴|🟡|♻️|♻|🟢|✅|\*\*|`", "", s)
     s = re.sub(r" ?\(https?://[^)]*\)| https?://\S+", "", s)
-    return defuse(re.sub(r"^\s*[0-9]+\.\s*", "", s)).strip()
+    return defuse(re.sub(r"^\s*[^\w\s]{0,3}\s*[0-9]+\.\s*", "", s)).strip()
+
+
+STATUS_LINE = re.compile(r"^\s*[^\w\s>*]{1,3}\s*[0-9]+\.\s*\*\*")
 
 
 def level_of(line):
-    return next((i for i, lv in enumerate(LEVELS) if lv[0] in line), -1)
+    """An off-spec colour still starts its own item, filed as In progress, so its details never land on the item above."""
+    lv = next((i for i, lv in enumerate(LEVELS) if lv[0] in line), -1)
+    return IN_PROGRESS if lv < 0 and STATUS_LINE.match(line) else lv
 
 
 def split_refs(rest):
@@ -410,9 +416,12 @@ def board(raw, b):
         target = None
         for it in items:
             it["owner"] = it["owner"] or mate
-            same = next((e for e in levels[lv] if (e["title"], e["key"], e["pr"]) == (it["title"], it["key"], it["pr"])), None)
+            ident = lambda e: e["pr"] or (e["title"], e["key"])
+            pool = [levels[lv]] if lv == DONE else [x for i, x in enumerate(levels) if i != DONE]
+            same = next((e for lvl in pool for e in lvl if ident(e) == ident(it)), None)
             if same:
-                same["lines"] += [ln for ln in it["lines"] if ln not in same["lines"]]
+                bare = lambda ln: re.sub(r":[a-z]+\.?\}\}", "}}", ln)
+                same["lines"] += [ln for ln in it["lines"] if bare(ln) not in map(bare, same["lines"])]
                 target = same
             else:
                 levels[lv].append(it)
