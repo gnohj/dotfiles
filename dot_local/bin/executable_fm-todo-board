@@ -1095,7 +1095,8 @@ def item_lines(it, b, section, at=0):
         head += f"\t`{{ago:{at}}}`"
     chg = changes(task, it["pr"]) if task.get("wt") else ""
     chips = [] if section == "done" and not it["custom"] else it["chips"] + ([f"{{{{± {chg}:blue.}}}}"] if chg else [])
-    meta = join_meta([as_text(r) for r in it["refs"]] + [it["owner"]] + chips)
+    me = f"`{task['me']}`" if task.get("me") and section != "done" else ""
+    meta = join_meta([as_text(r) for r in it["refs"]] + [it["owner"], me] + chips)
     rows = [head, "  : " + meta, *("  " + ln for ln in it["lines"]), "  : " + " ".join(buttons(actions(it, section, b)))]
     return rows + ["  " + d for d in it["details"]]
 
