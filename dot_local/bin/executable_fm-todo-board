@@ -230,13 +230,13 @@ class Board:
         elif handoff and (ci == "failing" or threads):
             action = f"{{{{{'Queued for fm' if handoff == 'queued' else 'CI fix sent' if ci == 'failing' else 'Resolve sent'}:yellow.}}}}"
         elif ci == "failing":
-            action = link("{{Fix CI:red}}", act("fixci", repo=repo, number=number), f"Fix failing CI on #{number}?")
+            action = link("{{Fix CI:red}}", act("fixci", repo=repo, number=number), f"[F] Fix failing CI on #{number}?")
         elif threads:
             action = link("{{Resolve:yellow}}", act("resolve", repo=repo, number=number),
-                          f"Resolve {threads} open thread{'s' if threads > 1 else ''} on #{number}?")
+                          f"[T] Resolve {threads} open thread{'s' if threads > 1 else ''} on #{number}?")
         elif approvals >= needed and ci in ("passing", "none") and name in self.my_prs:
             action = link("{{merge:green}}", act("merge", repo=repo, number=number, sha=st.get("head", "")),
-                          f"Merge #{number} into {st.get('base') or 'its base'}?")
+                          f"[m] Merge #{number} into {st.get('base') or 'its base'}?")
         return parts, action
 
     def linkify(self, text, repo):
