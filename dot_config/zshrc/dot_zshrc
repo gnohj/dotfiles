@@ -300,6 +300,11 @@ update() {
       { print -P "%F{red}   agent symlink setup failed%f"; failed+=("agent symlink setup"); }
   fi
   if [[ "$OSTYPE" == darwin* ]] && command -v brew >/dev/null 2>&1; then
+    # Upgrade rift alone and re-sign it at once, so its bindings are not dead for the rest of brew upgrade.
+    if [ -x "$HOME/.local/bin/tcc-sign" ] && brew outdated --quiet rift 2>/dev/null | grep -qx rift; then
+      print -P "%F{cyan}==> brew upgrade: rift%f"
+      _without_tap_deprecations brew upgrade rift && { "$HOME/.local/bin/tcc-sign" rift || failed+=("tcc-sign rift"); }
+    fi
     print -P "%F{cyan}==> brew upgrade%f"
     _without_tap_deprecations brew upgrade || { print -P "%F{red}   brew upgrade failed - continuing%f"; failed+=("brew upgrade"); }
     # Source-built brew binaries (rift) come out ad-hoc signed, which orphans their Accessibility grant.
