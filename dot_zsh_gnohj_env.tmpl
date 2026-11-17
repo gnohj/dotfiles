@@ -59,7 +59,7 @@ export CHEZMOI_ARCH="{{ .chezmoi.arch }}"
 #-------------------------------------------------------------------------------
 # Secrets are fetched from Bitwarden only when the secret list (vars.txt) changes,
 # via run_onchange_after_bitwarden-secrets.sh — much faster than fetching every apply.
-# To add one: rbw add SECRET_NAME --folder env-vars, add it to vars.txt, then apply.
+# To add one: rbw add SECRET_NAME --folder env-vars, add it to vars.txt in dotfiles-work, then czw apply.
 if [ -f "$HOME/.zsh_gnohj_env.secrets" ]; then
   source "$HOME/.zsh_gnohj_env.secrets"
 fi
