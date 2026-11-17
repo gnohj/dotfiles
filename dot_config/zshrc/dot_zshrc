@@ -974,38 +974,41 @@ alias test='pnpm turbo test --affected'
 alias typecheck='pnpm turbo typecheck --affected'
 
 # Select a file with nvim in curr dir
-# File pickers using television (tv)
+# File pickers using fzf
 fzc() {
     local file
-    file=$(tv files)
-    file="${file%"${file##*[![:space:]]}"}"  # trim trailing whitespace
+    file=$(fd -t f | fzf --preview 'bat -n --color=always {}')
     [[ -n "$file" ]] && nvim "$file"
 }
 
 fzh() {
     local file
-    file=$(tv recent-files)
+    file=$({ git diff --name-only HEAD~10 HEAD 2>/dev/null || find . -type f -mtime -7 -not -path '*/.*' 2>/dev/null | head -100; } | fzf --preview 'bat -n --color=always {}')
     [[ -n "$file" ]] && nvim "$file"
 }
 
 fzz() {
     local file
-    file=$(tv zoxide)
+    file=$(zoxide query -l | fzf --no-sort --preview 'ls -la --color=always {}')
     [[ -n "$file" ]] && nvim "$file"
 }
 
 fze() {
-    local value
-    value=$(tv env)
-    if [[ -n "$value" ]]; then
-        echo -n "$value" | pbcopy
-        echo "Copied to clipboard"
+    local line value
+    line=$(printenv | fzf --preview 'printf "%s\n" {}' --preview-window=down,30%,wrap)
+    [[ -n "$line" ]] || return 0
+    value=${line#*=}
+    if command -v pbcopy >/dev/null 2>&1; then
+        printf '%s' "$value" | pbcopy
+    else
+        printf '\033]52;c;%s\a' "$(printf '%s' "$value" | base64 | tr -d '\n')"
     fi
+    echo "Copied to clipboard"
 }
 
 fzl() {
     local log_file
-    log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
+    log_file=$(fd --type f . ~/.logs | fzf --preview 'bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}')
     [[ -n "$log_file" ]] && nvim "$log_file"
 }
 
@@ -1013,10 +1016,8 @@ fzl() {
 unalias fza 2>/dev/null  # Remove old alias if it exists
 fza() {
     local selected
-    selected=$(tv alias)
-    if [[ -n "$selected" ]]; then
-        print -z "$selected"
-    fi
+    selected=$(alias | fzf --preview 'printf "%s\n" {}' --preview-window=down,30%,wrap)
+    [[ -n "$selected" ]] && print -z "${selected%%=*}"
 }
 
 # Trigger Spotify Sketchybar Update

@@ -48,7 +48,6 @@ with pkgs;
   yq-go      # Yaml processor (mikefarah/yq; nixpkgs `yq` is the python jq-wrapper, no `-o json`)
 
   # Terminal & Shell
-  television # fuzzy finder TUI (was Homebrew on macOS)
   # starship managed by zinit (see zshrc). atuin: Homebrew on macOS (aarch64 rustc
   # lag), Nix on Linux — see the isLinux bucket below.
 
@@ -99,8 +98,7 @@ with pkgs;
 
 # Linux-only — on macOS atuin comes from Homebrew because aarch64-darwin needs a
 # newer rustc than nixpkgs ships (nix can only build 18.16.1 there); x86_64-linux
-# builds current atuin straight from the binary cache. The rest of the old Homebrew
-# CLIs (television) are shared-core above now — one source, both OSes.
+# builds current atuin straight from the binary cache.
 ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
   atuin       # shell history
 ]

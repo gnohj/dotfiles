@@ -55,7 +55,7 @@ zig = 'latest'          # used for GhosttyFetch
 "npm:gnhf" = "latest"
 {{- if ne .chezmoi.os "darwin" }}
 
-# Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/television/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
+# Linux VPS: nix (home-manager, dot_nix/common/package-list.nix) owns the BULK CLI toolchain — the same source the Mac's nix-darwin set pulls from, so both boxes resolve identical binaries from one flake.lock. That deletes the old two-tier mise pin: nvim/yazi/atuin + ~15 others now come from nix (nvim & yazi version-parity is the flake.lock's job, not a hand pin).
 # mise here owns only what nix deliberately doesn't (AI agents are shared, above):
 # NOTE: apply this trim TOGETHER with `home-manager switch --flake ~/.local/share/chezmoi/dot_nix#gnohj-linux-x86_64`.
 # Applying the trim without home-manager active would drop nvim/rg/etc. off the box.

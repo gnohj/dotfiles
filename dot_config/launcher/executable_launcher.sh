@@ -102,8 +102,8 @@ ACTIONS=(
   "🌐 Browser|🐙 Open Dotfiles|act_browser_dotfiles|Open the dotfiles repo on GitHub|mac"
 
   "🔎 Fzf|🔎 Aliases (fza)|act_fzf_aliases|Browse and copy alias names via fzf|mac"
-  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env|Browse and copy env var values via television|mac"
-  "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via television"
+  "🔎 Fzf|🔍 Env Vars (fze)|act_fzf_env|Browse and copy env var values via fzf|mac"
+  "🔎 Fzf|📋 Logs (fzl)|act_fzf_logs|Open a log file in nvim via fzf"
 
   "🔁 Sync|🚀 Autopush Repos|act_sync_autopush|Run github-auto-push on all tracked repos"
   "🔁 Sync|🔄 Update Repos|act_sync_update|Pull config repos: chezmoi update + agents||darwin"
@@ -708,8 +708,9 @@ act_fzf_aliases() { aliases_menu; }
 
 act_fzf_env() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-  value=$(tv env)
-  if [ -n "$value" ]; then
+  line=$(printenv | fzf --preview 'printf "%s\n" {}' --preview-window=down,30%,wrap)
+  value=${line#*=}
+  if [ -n "$line" ]; then
     printf '%s' "$value" | clip
     echo "Copied to clipboard"
   fi
@@ -718,7 +719,7 @@ act_fzf_env() {
 
 act_fzf_logs() {
   export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-  log_file=$(tv --source-command "fd --type f . ~/.logs" --input-header "logs" --preview-command "bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}")
+  log_file=$(fd --type f . ~/.logs | fzf --preview 'bat -n --color=always --line-range=-500 {} 2>/dev/null || tail -500 {}')
   [ -n "$log_file" ] || return 0
   # Quake mode hands off: `exec` would replace the persistent launcher loop with nvim.
   if [ "$LAUNCHER_MODE" = quake ]; then
