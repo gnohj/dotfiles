@@ -1,4 +1,4 @@
-local jira_url = "https://jira.example.com"
+local jira_url = ((vim.env.WORK_JIRA_URL or ""):gsub("/$", ""))
 local jira_board_id = 1254
 
 local function jira_provider()

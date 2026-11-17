@@ -244,6 +244,10 @@ update() {
   if command -v chezmoi >/dev/null 2>&1; then
     print -P "%F{cyan}==> chezmoi update%f"
     chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; failed+=("chezmoi update"); }
+    if [[ -d "$HOME/Developer/dotfiles-work/.git" ]]; then
+      print -P "%F{cyan}==> chezmoi update (work)%f"
+      chezmoi --config "$HOME/.config/chezmoi-work/chezmoi.toml" update || { print -P "%F{red}   chezmoi work update failed - continuing%f"; failed+=("chezmoi update (work)"); }
+    fi
   else
     print -P "%F{8}(skip chezmoi - not installed)%f"
   fi
@@ -861,6 +865,8 @@ alias cz='chezmoi'
 alias czd='chezmoi diff'
 alias czs='chezmoi status'
 alias cza='chezmoi re-add'
+# Private work overlay (gnohj/dotfiles-work): its own source, config and state.
+alias czw='chezmoi --config ~/.config/chezmoi-work/chezmoi.toml'
 
 # btopc / btopm: proc-only fullscreen tables, cpu- or memory-sorted ("cpu direct" is a strict live top-to-bottom sort; "cpu lazy" smooths order over time and looks unsorted).
 # Extra args are key=value btop.conf overrides. Cache dir, not /tmp: on Linux /tmp is shared between users.
@@ -1106,7 +1112,7 @@ ticket() {
     echo "No Jira ticket key found in branch: $branch" >&2
     return 1
   fi
-  open "https://jira.example.com/browse/$key"
+  open "${WORK_JIRA_URL:?no WORK_JIRA_URL; apply dotfiles-work}/browse/$key"
   echo "Opened ticket: $key"
 }
 
@@ -1313,7 +1319,7 @@ pir() { pi -r $(_pi_sp) "$@"; }   # pi resume (interactive session picker)
 # pis/pio/pig/pic and their -r twins are ~/.local/bin/pi-start symlinks, so rex-recover can relaunch them.
 
 webtoken() {
-  export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform https://platform.example.com | grep APP_TOKEN | cut -d= -f2 | xargs)
+  export APP_TOKEN=$(radioctl app env ~/Developer/web/master/apps/account --app web-account-staging --platform "${WORK_RADIOEDIT_URL:?no WORK_RADIOEDIT_URL; apply dotfiles-work}" | grep APP_TOKEN | cut -d= -f2 | xargs)
   echo "✓ APP_TOKEN set"
 }
 

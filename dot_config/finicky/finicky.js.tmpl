@@ -49,7 +49,10 @@ export default {
         "*.atlassian.net/*",
         "github.com/iheartradio/*",
         "*.iheart.com/*",
-        "*.internal.example.com/*",
+{{- $env := joinPath .chezmoi.homeDir ".config/work/env" }}
+{{- if stat $env }}{{ with regexFind "(?m)^WORK_INTERNAL_DOMAIN=.+$" (include $env) }}
+        "*.{{ trimPrefix "WORK_INTERNAL_DOMAIN=" . | trim }}/*",
+{{- end }}{{ end }}
         "*.ts.net/*",
         "*.ts.net:*",
         "*.safelinks.protection.outlook.com/*",

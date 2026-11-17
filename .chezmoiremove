@@ -206,9 +206,6 @@ scripts/open-tmux-attach.sh
 # chrome-review-window renamed review-window: it now follows the default browser.
 .local/bin/chrome-review-window
 
-# work-sso-time only existed to read Chrome's TCC-protected history; SSO is Helium-only now.
-.local/libexec/work-sso-time
-.local/libexec/work-sso-time.swift
 
 # rex-server.service replaced 2026-11-04 by a drop-in over the packaged rex.service (Linux preview.13).
 .config/systemd/user/rex-server.service
@@ -329,3 +326,5 @@ scripts/open-tmux-attach.sh
 .local/bin/mux/tmux/yazi-launch.sh
 .config/tmux/tmux-colors.conf
 .config/gitmux/gitmux.yml
+# local-dev-auth moved into the private work overlay at modules/work/.
+.nix/nix-darwin/modules/local-dev-auth.nix

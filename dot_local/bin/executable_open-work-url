@@ -3,6 +3,8 @@
 emulate -L zsh
 path=(/run/current-system/sw/bin /opt/homebrew/bin /usr/local/bin $path)
 url=${1:?usage: open-work-url URL}
+[[ -r ~/.config/work/env ]] && . ~/.config/work/env
+idomain=${WORK_INTERNAL_DOMAIN:-invalid.invalid}
 
 case $url in
   */browse/*) match=${${url##*/browse/}%%[?#/]*} ;;
@@ -13,7 +15,7 @@ esac
 # Only the hosts Finicky sends to the Work profile take a tab; the rest (Slack, Teams, personal) still route through Finicky.
 work_host=""
 case $url in
-  https://*.atlassian.net/* | https://github.com/iheartradio/* | https://*.iheart.com/* | https://*.internal.example.com/* | https://*.ts.net/* | https://*.ts.net:*) work_host=1 ;;
+  https://*.atlassian.net/* | https://github.com/iheartradio/* | https://*.iheart.com/* | https://*.$idomain/* | https://*.ts.net/* | https://*.ts.net:*) work_host=1 ;;
 esac
 
 # AppleScript names a window by its tab title; Rift's title adds " - Helium - Work", which is how a Work window is told apart.

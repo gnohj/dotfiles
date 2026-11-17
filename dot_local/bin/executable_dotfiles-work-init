@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Clone the private work overlay (gnohj/dotfiles-work) if missing, then apply it with its own chezmoi config.
+set -euo pipefail
+src="$HOME/Developer/dotfiles-work"
+cfg="$HOME/.config/chezmoi-work/chezmoi.toml"
+if [ ! -d "$src/.git" ]; then
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "dotfiles-work-init: gh is not logged in; run 'gh auth login', then rerun this" >&2
+    exit 1
+  fi
+  gh repo clone gnohj/dotfiles-work "$src"
+fi
+chezmoi --config "$cfg" apply --force "$@"

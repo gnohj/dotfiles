@@ -1,6 +1,9 @@
 #  Zshell entry point
 export ZDOTDIR=$HOME/.config/zshrc
 
+# Internal work hostnames, deployed by the private dotfiles-work overlay.
+[[ -r $HOME/.config/work/env ]] && { set -a; . $HOME/.config/work/env; set +a; }
+
 # Some panes inherit no LANG; C locale miscounts 3-byte prompt glyphs. C.UTF-8 needs no locale-gen.
 case "$OSTYPE" in
   darwin*) export LANG="${LANG:-en_US.UTF-8}" ;;

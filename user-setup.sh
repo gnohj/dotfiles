@@ -252,6 +252,9 @@ else
   print_success "Dotfiles applied"
 fi
 
+print_info "Applying the private work overlay (gnohj/dotfiles-work)..."
+"$HOME/.local/bin/dotfiles-work-init" || print_warning "Work overlay skipped; run dotfiles-work-init after gh auth login"
+
 # --- PHASE 5.5: WORK ACCOUNT AND SECRETS TEMPLATE SETUP ---
 print_info "› Phase 5.5: Configuring work account state..."
 

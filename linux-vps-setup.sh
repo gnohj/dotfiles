@@ -224,6 +224,9 @@ fi
 print_info "Applying dotfiles + Linux toolchain bootstrap (chezmoi apply)…"
 "$CHEZMOI" apply
 
+print_info "Applying the private work overlay (gnohj/dotfiles-work)…"
+PATH="$(dirname "$CHEZMOI"):$PATH" "$HOME/.local/bin/dotfiles-work-init" || print_warning "Work overlay skipped; run dotfiles-work-init after gh auth login"
+
 print_success "=========================================="
 print_success "Linux bootstrap complete"
 print_success "=========================================="

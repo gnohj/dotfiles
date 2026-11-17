@@ -11,10 +11,9 @@
     ./modules/helium-pwas.nix
     ./modules/packages.nix
     ./modules/launchd-services.nix
-    ./modules/local-dev-auth.nix
     ./modules/wifi-ssid-sudoers.nix
     ./modules/afk-sudoers.nix
-  ];
+  ] ++ (if builtins.pathExists ./modules/work then [ ./modules/work ] else [ ]);
 
   # Nix package manager settings
   nix = {

@@ -658,7 +658,8 @@ act_browser_jira() {
   else
     key=$(printf '%s' "$branch" | grep -oE '[A-Z]+-[0-9]+' | head -n1)
     if [ -n "$key" ]; then
-      open_url "https://jira.example.com/browse/$key"
+      [ -r "$HOME/.config/work/env" ] && . "$HOME/.config/work/env"
+      open_url "${WORK_JIRA_URL:?no WORK_JIRA_URL; apply dotfiles-work}/browse/$key"
       echo "Opened ticket: $key"
     else
       echo "No Jira ticket key found in branch: $branch"

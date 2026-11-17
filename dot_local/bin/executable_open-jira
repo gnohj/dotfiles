@@ -2,6 +2,8 @@
 # Open a Jira ticket by number (IHRWEB) or full key, then focus the Helium Work window it lands in.
 emulate -L zsh
 setopt extendedglob
+[[ -r ~/.config/work/env ]] && . ~/.config/work/env
+[[ -n $WORK_JIRA_URL ]] || { print -u2 "open-jira: no WORK_JIRA_URL; apply dotfiles-work"; exit 1; }
 input=${(U)1//[[:space:]#]/}
 
 case $input in
@@ -10,5 +12,5 @@ case $input in
   *) osascript -e 'display notification "not a Jira ticket" with title "open-jira"' 2>/dev/null; print -u2 "open-jira: not a Jira ticket"; exit 1 ;;
 esac
 
-open "https://jira.example.com/browse/$key"
+open "$WORK_JIRA_URL/browse/$key"
 ~/.local/bin/focus-work-browser "$key"
