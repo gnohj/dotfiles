@@ -120,6 +120,11 @@ for REPO_PATH in "${REPO_LIST[@]}"; do
     continue
   }
 
+  # A repo can keep derived copies in sync with its own hook; it runs on the tree from the last pull.
+  if [[ -x "$REPO_PATH/.autopush-post-sync" ]]; then
+    "$REPO_PATH/.autopush-post-sync" >>"$LOG_FILE" 2>&1 || log_message "ERROR" "$REPO_NAME" ".autopush-post-sync failed"
+  fi
+
   BRANCH=$(git branch --show-current)
   TRACKING_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
   if [[ -z "$BRANCH" || "$TRACKING_BRANCH" != "origin/$BRANCH" ]]; then

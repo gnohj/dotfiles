@@ -328,3 +328,5 @@ scripts/open-tmux-attach.sh
 .config/gitmux/gitmux.yml
 # local-dev-auth moved into the private work overlay at modules/work/.
 .nix/nix-darwin/modules/local-dev-auth.nix
+# captain-shared.md moved to the agents monorepo (shared/firstmate/).
+.config/firstmate/captain-shared.md
