@@ -330,3 +330,5 @@ scripts/open-tmux-attach.sh
 .nix/nix-darwin/modules/local-dev-auth.nix
 # captain-shared.md moved to the agents monorepo (shared/firstmate/).
 .config/firstmate/captain-shared.md
+# Model prices now come from ~/.cache/model-prices.json (agents/shared/model-prices).
+.config/review-lavish/rates.json
