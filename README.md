@@ -12,32 +12,32 @@ macOS is the daily driver; a headless Linux VPS (Ubuntu) runs the same shell/edi
 
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Shell**: Zsh with [Starship](https://starship.rs/) prompt (transient), [Atuin](https://github.com/atuinsh/atuin) (shell history)
-- **Editor**: [Neovim](https://neovim.io/) (LazyVim)
-- **Multiplexer**: Rex
+- **Shell**: Zsh with [Starship](https://starship.rs/) prompt, [Atuin](https://github.com/atuinsh/atuin)
+- **Editor**: [Neovim](https://neovim.io/)
+- **Multiplexer**: [Rex](https://www.superlogical.com)
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Version Control**: Git worktrees (bare repos + `wt-add`/`wtrm` helpers), [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
-- **System Monitor**: [btop](https://github.com/aristocratos/btop) (interactive; each platform also runs a lightweight background recorder - see below)
+- **Version Control**: Git worktrees, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **System Monitor**: [btop](https://github.com/aristocratos/btop)
 
-### macOS desktop
+### macOS
 
-- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin) (declarative macOS settings + packages)
-- **Package Management**: [Homebrew](https://brew.sh/) (managed via Nix-Darwin)
-- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw) (hash-based caching)
-- **Window Management**: [Rift](https://github.com/acsandmann/rift) (tiling WM), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (window borders), [Sketchybar](https://github.com/FelixKratz/SketchyBar) (status bar)
+- **System Management**: [Nix-Darwin](https://github.com/LnL7/nix-darwin)
+- **Package Management**: [Homebrew](https://brew.sh/)
+- **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw)
+- **Window Management**: [Rift](https://github.com/acsandmann/rift), [JankyBorders](https://github.com/FelixKratz/JankyBorders), [Sketchybar](https://github.com/FelixKratz/SketchyBar)
 - **Launcher**: [Tinycast](https://github.com/abue-ammar/tinycast)
-- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty) (primary), [Kitty](https://github.com/kovidgoyal/kitty) (kept at config parity)
-- **Keyboard**: [Kanata](https://github.com/jtroo/kanata) (laptop remapping), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne) (external keyboards)
-- **Monitoring**: `usage-sampler` LaunchAgent records CPU/mem/swap/pressure every 5 min to `~/.local/state/usage/*.csv` (trend via `usage-report.sh`) - the macOS analog to the VPS's sysstat/atop
+- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty), [Kitty](https://github.com/kovidgoyal/kitty)
+- **Keyboard**: [Kanata](https://github.com/jtroo/kanata), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne)
+- **Monitoring**: `usage-sampler` LaunchAgent records CPU/mem/swap/pressure every 5 min to `~/.local/state/usage/*.csv` - the macOS analog to the VPS's sysstat/atop
 
 ### Linux VPS (remote dev box)
 
-Headless, so the desktop categories above collapse into CLI equivalents: the terminal and keyboard remapping stay on the Mac client, Rex does the windowing, and the CLI core is the **same Nix toolchain as the Mac**.
+Headless, so the macOS categories above collapse into CLI equivalents: the terminal and keyboard remapping stay on the Mac client, Rex does the windowing, and the CLI core is the **same Nix toolchain as the Mac**.
 
-- **System & Packages**: [Nix](https://nixos.org/) via [home-manager](https://github.com/nix-community/home-manager) provides the CLI toolchain from the same `flake.lock` as the Mac (home-manager is the Linux analog to nix-darwin); [apt](https://wiki.debian.org/apt) supplies the thin base (build tools, monitoring); [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
-- **Networking**: [Tailscale](https://tailscale.com/) mesh (the only way in - no public SSH), [Mosh](https://mosh.org/) for roaming attach
-- **Secrets Management**: scoped tokens in `~/.zsh_gnohj_env.local` (no full Bitwarden unlock on the box)
-- **Monitoring**: [sysstat](https://github.com/sysstat/sysstat) + [atop](https://www.atoptool.nl/) (file-based, near-zero RAM)
+- **System & Packages**: [Nix](https://nixos.org/) via [home-manager](https://github.com/nix-community/home-manager) provides the CLI toolchain from the same `flake.lock` as the Mac; [apt](https://wiki.debian.org/apt) supplies the thin base; [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
+- **Networking**: [Tailscale](https://tailscale.com/) mesh, [Mosh](https://mosh.org/) for roaming attach
+- **Secrets Management**: scoped tokens in `~/.zsh_gnohj_env.local`
+- **Monitoring**: [sysstat](https://github.com/sysstat/sysstat) + [atop](https://www.atoptool.nl/)
 
 ## Bootstrap New Mac (Apple Silicon)
 
