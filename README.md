@@ -6,18 +6,18 @@ My personal dotfiles for macOS and Linux.
 
 ## Key Tools & Configurations
 
-### Shared core (macOS + Linux)
+### Shared core
 
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
 - **Shell**: Zsh, [Starship](https://starship.rs/), [Atuin](https://github.com/atuinsh/atuin)
 - **Editor**: [Neovim](https://neovim.io/)
 - **Multiplexer**: [Rex](https://www.superlogical.com)
-- **Networking**: [Tailscale](https://tailscale.com/) mesh
+- **Networking**: [Tailscale](https://tailscale.com/)
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Version Control**: Git worktrees, [Delta](https://github.com/dandavison/delta), [Lazygit](https://github.com/jesseduffield/lazygit)
+- **Version Control**: [Delta](https://github.com/dandavison/delta), [Lazygit](https://github.com/jesseduffield/lazygit)
 - **System Monitor**: [btop](https://github.com/aristocratos/btop)
-- **Keyboards**: custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne)
+- **Keyboards**: [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne) (ZMK)
 
 ### macOS
 
@@ -32,4 +32,3 @@ My personal dotfiles for macOS and Linux.
 ### Linux
 
 - **OS**: [Omarchy](https://omarchy.org/) on [Arch](https://archlinux.org/) with [Hyprland](https://hypr.land/)
-- **Package Management**: pacman + [yay](https://github.com/Jguer/yay); [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
