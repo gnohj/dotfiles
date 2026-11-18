@@ -10,13 +10,14 @@ My personal dotfiles for macOS and Linux.
 
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
 - **Language/Environment Management**: [Mise](https://mise.jdx.dev/)
-- **Shell**: Zsh with [Starship](https://starship.rs/) prompt, [Atuin](https://github.com/atuinsh/atuin)
+- **Shell**: Zsh, [Starship](https://starship.rs/), [Atuin](https://github.com/atuinsh/atuin)
 - **Editor**: [Neovim](https://neovim.io/)
 - **Multiplexer**: [Rex](https://www.superlogical.com)
 - **Networking**: [Tailscale](https://tailscale.com/) mesh
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
-- **Version Control**: Git worktrees, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
+- **Version Control**: Git worktrees, [Delta](https://github.com/dandavison/delta), [Lazygit](https://github.com/jesseduffield/lazygit)
 - **System Monitor**: [btop](https://github.com/aristocratos/btop)
+- **Keyboards**: custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne)
 
 ### macOS
 
@@ -26,7 +27,7 @@ My personal dotfiles for macOS and Linux.
 - **Window Management**: [Rift](https://github.com/acsandmann/rift), [JankyBorders](https://github.com/FelixKratz/JankyBorders), [Sketchybar](https://github.com/FelixKratz/SketchyBar)
 - **Launcher**: [Tinycast](https://github.com/abue-ammar/tinycast)
 - **Hotkeys**: [skhd](https://github.com/koekeishiya/skhd)
-- **Keyboard**: [Kanata](https://github.com/jtroo/kanata), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne)
+- **Keyboard**: [Kanata](https://github.com/jtroo/kanata)
 
 ### Linux
 
