@@ -25,7 +25,7 @@ My personal dotfiles for macOS and Linux.
 - **Secrets Management**: [Bitwarden](https://bitwarden.com/) via [rbw](https://github.com/doy/rbw)
 - **Window Management**: [Rift](https://github.com/acsandmann/rift), [JankyBorders](https://github.com/FelixKratz/JankyBorders), [Sketchybar](https://github.com/FelixKratz/SketchyBar)
 - **Launcher**: [Tinycast](https://github.com/abue-ammar/tinycast)
-- **Terminal**: [Ghostty](https://github.com/ghostty-org/ghostty), [Kitty](https://github.com/kovidgoyal/kitty)
+- **Hotkeys**: [skhd](https://github.com/koekeishiya/skhd)
 - **Keyboard**: [Kanata](https://github.com/jtroo/kanata), custom zmk layouts for [Glove80](https://github.com/gnohj/glove80) & [Corne](https://github.com/gnohj/hypersonic-corne)
 
 ### Linux
