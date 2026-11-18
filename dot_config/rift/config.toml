@@ -126,7 +126,6 @@ app_rules = [
   { app_id = "com.whimsical.desktop", workspace = "X" },
   { app_id = "com.anthropic.claudefordesktop", workspace = "X" },
   { app_name = "zoom", workspace = "X" },
-  { app_id = "com.kunchenguid.baby-menu", floating = true },
   { app_id = "com.gnohj.baby-menu-sidebar", floating = true },
   { app_id = "com.tinycast.app.beta", floating = true },
   { app_id = "org.videolan.vlc", floating = true },

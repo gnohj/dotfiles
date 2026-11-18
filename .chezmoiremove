@@ -332,3 +332,6 @@ scripts/open-tmux-attach.sh
 .config/firstmate/captain-shared.md
 # Model prices now come from ~/.cache/model-prices.json (agents/shared/model-prices).
 .config/review-lavish/rates.json
+
+# baby-menu-position targeted the retired upstream Baby Menu; the swiftc-built binary was never chezmoi-managed.
+.local/bin/baby-menu-position

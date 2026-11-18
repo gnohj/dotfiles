@@ -99,7 +99,6 @@
       "kitty" # adhoc-signed Nix build fails launch constraints; use cask
 
       # Productivity
-      "kunchenguid/tap/baby-menu"
       "infinitary-labs/tap/infinitary"
       "bitwarden"
       "localsend"

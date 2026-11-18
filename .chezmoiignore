@@ -88,7 +88,6 @@ Library/
 .config/sketchybar/
 
 # macOS-desktop-only configs (inert dead weight on a headless VPS)
-.baby-menu/
 .local/bin/baby-menu-toggle
 .local/bin/review-window
 .local/bin/helium-personal
@@ -108,7 +107,6 @@ Library/
 .local/bin/screenshot-cleanup.sh
 .local/bin/screenshot-mirror.sh
 .local/bin/tinycast-clipboard
-.local/share/baby-menu/
 .config/kanata/
 .config/ghosttyfetch/
 # Linux keeps Omarchy's /etc/fastfetch layout and takes only the logo image.
