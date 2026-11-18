@@ -13,6 +13,7 @@ My personal dotfiles for macOS and Linux.
 - **Shell**: Zsh with [Starship](https://starship.rs/) prompt, [Atuin](https://github.com/atuinsh/atuin)
 - **Editor**: [Neovim](https://neovim.io/)
 - **Multiplexer**: [Rex](https://www.superlogical.com)
+- **Networking**: [Tailscale](https://tailscale.com/) mesh
 - **File Manager**: [Yazi](https://yazi-rs.github.io/)
 - **Version Control**: Git worktrees, [Delta](https://github.com/dandavison/delta) pager, [Lazygit](https://github.com/jesseduffield/lazygit) TUI
 - **System Monitor**: [btop](https://github.com/aristocratos/btop)
@@ -31,4 +32,3 @@ My personal dotfiles for macOS and Linux.
 
 - **OS**: [Omarchy](https://omarchy.org/) on [Arch](https://archlinux.org/) with [Hyprland](https://hypr.land/)
 - **Package Management**: pacman + [yay](https://github.com/Jguer/yay); [Mise](https://mise.jdx.dev/) handles language runtimes + agent CLIs
-- **Networking**: [Tailscale](https://tailscale.com/) mesh, [Mosh](https://mosh.org/) for roaming attach
