@@ -335,3 +335,6 @@ scripts/open-tmux-attach.sh
 
 # baby-menu-position targeted the retired upstream Baby Menu; the swiftc-built binary was never chezmoi-managed.
 .local/bin/baby-menu-position
+
+# rex-float-picker retired: float_minimize picks floats with rex.ui.pick.
+.local/bin/mux/rex/rex-float-picker

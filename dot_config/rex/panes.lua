@@ -294,13 +294,32 @@ function M.setup()
               return
             end
           end
-          table.insert(floats, layer.layer_id)
+          table.insert(floats, layer)
         end
       end
-      if #floats == 1 then
-        c.fail(select(2, rex.session.set_layer_state{ session_id = ctx.session_id, layer_id = floats[1], state = "normal", focus = true }))
-      elseif #floats > 1 then
-        c.popup(ctx, 0.3, 0.3, { c.HOME .. "/.local/bin/mux/rex/rex-float-picker", window.window_id })
+      local pick = floats[1] and floats[1].layer_id
+      if #floats > 1 then
+        local items = {}
+        for _, layer in ipairs(floats) do
+          local block = layer.blocks[1].block_id
+          local fg = c.foreground(block) or {}
+          local name = fg.name or "shell"
+          local t = rex.block.call(c.TERM, "title", { block_id = block })
+          if t ~= nil and t.title ~= nil and t.title ~= "" and t.title ~= name then name = name .. ": " .. t.title end
+          table.insert(items, {
+            id = layer.layer_id,
+            title = name,
+            subtitle = fg.cwd and (fg.cwd:gsub("^" .. (c.HOME:gsub("%p", "%%%0")), "~")) or nil,
+            icon = "terminal",
+            detail = layer.state == "minimized" and "minimized" or nil,
+          })
+        end
+        pick = rex.ui.pick{ title = "Floating panes", placeholder = "Filter floats", confirm = "Restore", items = items }
+        -- The closing palette hands focus back to the pane it opened from, so restore after it has gone.
+        if pick ~= nil then rex.exec{ "sleep", "0.15" } end
+      end
+      if pick ~= nil then
+        c.fail(select(2, rex.session.set_layer_state{ session_id = ctx.session_id, layer_id = pick, state = "normal", focus = true }))
       end
     end,
   }
