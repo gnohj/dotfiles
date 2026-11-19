@@ -315,11 +315,16 @@ function M.setup()
           })
         end
         pick = rex.ui.pick{ title = "Floating panes", placeholder = "Filter floats", confirm = "Restore", items = items }
-        -- The closing palette hands focus back to the pane it opened from, so restore after it has gone.
-        if pick ~= nil then rex.exec{ "sleep", "0.15" } end
       end
       if pick ~= nil then
         c.fail(select(2, rex.session.set_layer_state{ session_id = ctx.session_id, layer_id = pick, state = "normal", focus = true }))
+        -- After a palette pick the app refocuses the pane the key came from once the action ends, so focus the float after that.
+        for _, layer in ipairs(floats) do
+          if layer.layer_id == pick and #floats > 1 then
+            rex.exec.start({ "/bin/sh", "-c", 'sleep 0.2; exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false focus -s "$0" "$1"',
+                             ctx.session_id, layer.blocks[1].block_id }, { detach = true, env = c.REX_ENV })
+          end
+        end
       end
     end,
   }
