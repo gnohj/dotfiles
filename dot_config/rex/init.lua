@@ -9,6 +9,7 @@ local panes = require("panes")
 panes.setup()
 local entry_aliases = require("entries").setup()
 local has_paste = require("paste").setup()
+require("worktrees").setup()
 
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
@@ -84,8 +85,9 @@ rex.bind(P .. "shift+d", "close_session")
 rex.bind(P .. "shift+x", "close_tab")
 rex.bind(P .. "shift+n", "new_session_here")
 
--- Sessions: ctrl+t picker, and each entries.toml alias as prefix, space, alias.
+-- Sessions: ctrl+t picker, cmd+shift+n project palette, and each entries.toml alias as prefix, space, alias.
 rex.bind("ctrl+t", "session_picker")
+rex.bind("cmd+shift+n", "project_picker")
 for _, a in ipairs(entry_aliases) do
   rex.bind(P .. "space>" .. a.keys, a.action)
 end
