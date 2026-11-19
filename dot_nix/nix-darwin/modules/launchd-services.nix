@@ -381,7 +381,7 @@ in
       };
     };
 
-    # Numbers Rex tabs by position; --autostart=false never relaunches a closed Rex, KeepAlive retries.
+    # Numbers Rex tabs by position; rex-app finds the bundle under either app name; --autostart=false never relaunches a closed Rex, KeepAlive retries.
     rex-tab-numbers = {
       serviceConfig = {
         ProgramArguments = [
@@ -389,7 +389,7 @@ in
           "-c"
           ''
             mkdir -p ${homeDir}/.logs/rex-tab-numbers
-            exec "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" --autostart=false do --all ${homeDir}/.local/bin/mux/rex/rex-tab-numbers.lua
+            exec "$(${homeDir}/.local/bin/rex-app --cli)" --autostart=false do --all ${homeDir}/.local/bin/mux/rex/rex-tab-numbers.lua
           ''
         ];
         KeepAlive = true;
@@ -408,13 +408,14 @@ in
           "-c"
           ''
             mkdir -p ${homeDir}/.logs/fm-rex-labels
+            PATH="$(dirname "$(${homeDir}/.local/bin/rex-app --cli)"):$PATH"
             exec /usr/bin/python3 ${homeDir}/.local/bin/fm-rex-labels
           ''
         ];
         StartInterval = 30;
         RunAtLoad = true;
         EnvironmentVariables = {
-          PATH = "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS:${daemonPath}";
+          PATH = daemonPath;
         };
         StandardOutPath = "${homeDir}/.logs/fm-rex-labels/launchagent.out.log";
         StandardErrorPath = "${homeDir}/.logs/fm-rex-labels/launchagent.err.log";

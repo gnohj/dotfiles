@@ -20,7 +20,7 @@ state="$(printf '%s' "$json" | jq -r '.BackendState // "NoState"' 2>/dev/null)"
 exit_node="$(printf '%s' "$json" | jq -r 'first(.Peer[]? | select(.ExitNode==true) | .HostName) // ""' 2>/dev/null)"
 
 # A Rex server started with a shell's XDG env runs its own tsnet node logged out, while the system daemon stays Running.
-REX="/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex"
+REX="$("$HOME/.local/bin/rex-app" --cli 2>/dev/null)"
 if [ "$state" = Running ] && [ -x "$REX" ] &&
   "$REX" --autostart=false --timeout 3s server status 2>/dev/null | grep -q '^tailscale: needs login'; then
   state=RexNeedsLogin

@@ -98,6 +98,7 @@ Library/
 .local/bin/msteams-open
 .local/bin/open-pr
 .local/bin/rex
+.local/bin/rex-app
 .local/bin/open-jira
 .local/bin/open-work-url
 .local/bin/focus-work-browser

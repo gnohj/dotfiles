@@ -20,7 +20,7 @@ agents() {
 status=$(r server status 2>/dev/null) || exit 1
 if [ "$(uname)" = Darwin ]; then
   # Rex.app moves its staged server into Versions/Current only when it restarts it.
-  installed=$("/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" --autostart=false version | awk 'NR == 1 { print $2 }')
+  installed=$("$("$HOME/.local/bin/rex-app" --cli)" --autostart=false version | awk 'NR == 1 { print $2 }')
 else
   installed=$(r version | awk 'NR == 1 { print $2 }')
 fi

@@ -1,0 +1,13 @@
+#!/bin/bash
+# rex-app [--cli] - the installed Rex app bundle (Rex.app, or Rex Beta.app that Sparkle kept in place); --cli prints its server CLI.
+for app in "/Applications/Rex.app" "/Applications/Rex Beta.app"; do
+  [ -d "$app" ] || continue
+  if [ "${1:-}" = --cli ]; then
+    printf '%s\n' "$app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex"
+  else
+    printf '%s\n' "$app"
+  fi
+  exit 0
+done
+echo "rex-app: no Rex app in /Applications" >&2
+exit 1
