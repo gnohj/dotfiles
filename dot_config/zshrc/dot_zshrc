@@ -246,7 +246,8 @@ update() {
     chezmoi update || { print -P "%F{red}   chezmoi update failed - continuing%f"; failed+=("chezmoi update"); }
     if [[ -d "$HOME/Developer/dotfiles-work/.git" ]]; then
       print -P "%F{cyan}==> chezmoi update (work)%f"
-      chezmoi --config "$HOME/.config/chezmoi-work/chezmoi.toml" update || { print -P "%F{red}   chezmoi work update failed - continuing%f"; failed+=("chezmoi update (work)"); }
+      # git-autopush pulls this repo every ~3 min; a fetch at the same moment clobbers FETCH_HEAD, so retry once.
+      chezmoi --config "$HOME/.config/chezmoi-work/chezmoi.toml" update || { sleep 3; chezmoi --config "$HOME/.config/chezmoi-work/chezmoi.toml" update; } || { print -P "%F{red}   chezmoi work update failed - continuing%f"; failed+=("chezmoi update (work)"); }
     fi
   else
     print -P "%F{8}(skip chezmoi - not installed)%f"
