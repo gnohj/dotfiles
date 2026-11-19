@@ -97,14 +97,15 @@ rex.bind(P .. "e", "scrollback_view")
 rex.bind(P .. "shift+f", "pluck")
 rex.bind(P .. "b", "kb_fill")
 
--- UI: sidebar on prefix+E, tab style, activity, settings, palette, reload, find.
+-- UI: sidebar on prefix+E, tab style, activity, settings, palette, reload, copy mode on prefix+[, find on prefix+/.
 rex.bind(P .. "shift+e", "client.sidebar.toggle")
 rex.bind(P .. "shift+v", "client.tab_style.toggle")
 rex.bind(P .. "a", "client.sidebar.activity.toggle")
 rex.bind(P .. "s", "client.settings")
 rex.bind(P .. "shift+/", "client.palette.toggle")
 rex.bind(P .. "shift+r", "client.config.reload")
-rex.bind(P .. "[", "client.find.open")
+rex.bind(P .. "[", "pane.copy_mode.enter")
+rex.bind(P .. "/", "client.find.open")
 rex.bind(P .. "u", "client.prompt.previous")
 
 -- cmd+shift+v: copied files or a copied image sent to the pane's host and pasted as paths.
