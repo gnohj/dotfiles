@@ -381,7 +381,7 @@ def ask_lines(it, item, b):
         it["call_chip"] = link("{{answer:yellow}}", act("ask", qid=item["qid"], fp=item["fp"], title=title, ref=item["ref"]), "[a] menu:Your call")
     it["details"][0:0] = ["> " + ln[2:] for ln in it["lines"]]
     it["lines"] = shown
-    it["call"], it["answered"] = item, done
+    it["call"], it["answered"], it["qid"] = item, done, item["qid"]
 
 
 def board(raw, b):
