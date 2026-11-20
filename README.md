@@ -2,8 +2,6 @@
 
 My personal dotfiles for macOS and Linux.
 
-<img width="2557" height="1440" alt="ghostty-current" src="https://github.com/user-attachments/assets/dbe927ed-fda1-4d92-958a-d92d1220b9ee" />
-
 ## Key Tools & Configurations
 
 ### Shared core
