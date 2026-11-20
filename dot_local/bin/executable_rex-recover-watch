@@ -6,7 +6,8 @@ clone="$HOME/Developer/rex-recover"
 [ -x "$clone/bin/rex-recover" ] || { echo "rex-recover-watch: no clone at $clone (run update)" >&2; exit 1; }
 
 if [ "$(uname)" = Darwin ]; then
-  rex=$("$HOME/.local/bin/rex-app" --cli)
+  rex="$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+  [ -x "$rex" ] || rex=$("$HOME/.local/bin/rex-app" --cli)
 else
   rex=/usr/bin/rex
 fi
