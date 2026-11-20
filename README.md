@@ -2,8 +2,6 @@
 
 My personal dotfiles for macOS and Linux.
 
-## Key Tools & Configurations
-
 ### Shared core
 
 - **Dotfiles Management**: [Chezmoi](https://www.chezmoi.io/)
