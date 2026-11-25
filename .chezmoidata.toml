@@ -4,3 +4,6 @@ github_user_email = "gnohj@users.noreply.github.com"
 
 # Tailnet name of the remote dev box - renders into the Mac's ~/.ssh/config Host line (which carries the CDP + radioctl forwards) and into ~/.config/devbox-host, which devbox-web.sh reads instead of prompting. Rename the box here, not in either consumer.
 devbox_host = "dev-box"
+
+# iHeart Alumni Slack workspace, opened by the "Slack iHeart Alumni" launcher in the personal Helium profile and kept out of the work Slack PWA's link handler.
+slack_iheart_alumni_team = "T097KV8L08L"

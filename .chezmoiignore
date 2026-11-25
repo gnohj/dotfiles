@@ -72,6 +72,7 @@ tasks
 .chezmoiscripts/karabiner-driverkit.sh
 .chezmoiscripts/claude-desktop-launchers.sh
 .chezmoiscripts/msteams-url-handler.sh
+.chezmoiscripts/helium-app-launchers.sh
 
 # macOS LaunchAgents/Daemons
 Library/
@@ -91,6 +92,7 @@ Library/
 .local/bin/baby-menu-toggle
 .local/bin/review-window
 .local/bin/helium-personal
+.local/bin/helium-app
 .local/bin/wallpaper-apply
 .local/bin/macos-upgrade-check
 .local/bin/media-control-bridge

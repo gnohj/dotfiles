@@ -145,6 +145,7 @@ app_rules = [
   { app_id = "org.localsend.localsendApp", workspace = "F" },
   { app_id = "com.apple.Photos", workspace = "F" },
   { app_id = "com.apple.systempreferences", floating = true, workspace = "F" },
+  { app_id = "net.imput.helium", title_regex = "Slack - personal$", workspace = "W" },
   { app_id = "net.imput.helium", title_regex = " - work$", workspace = "Q" },
   # Incognito titles never name the profile, so the window stays on the workspace it was opened from.
   { app_id = "net.imput.helium", title_regex = "[(]Incognito[)]$", floating = false },

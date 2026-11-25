@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# helium-app <profile-dir> <url> <title-regex> - focus the Helium app window whose Rift title matches, else open <url> as an app window in that profile.
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:$PATH"
+
+[ $# -eq 3 ] || { echo "usage: helium-app <profile-dir> <url> <title-regex>" >&2; exit 2; }
+profile="$1" url="$2" title_regex="$3"
+
+window=$(rift-cli query workspaces 2>/dev/null | jq -c --arg re "$title_regex" '
+  [.[] as $ws | $ws.windows[] | select(.bundle_id == "net.imput.helium" and (.title | test($re; "i"))) | {id, ws: $ws.index}] | first // empty') || window=""
+
+if [ -z "$window" ]; then
+  bin="/Applications/Helium.app/Contents/MacOS/Helium"
+  [ -x "$bin" ] || bin="$(mdfind "kMDItemCFBundleIdentifier == 'net.imput.helium'" | head -1)/Contents/MacOS/Helium"
+  nohup "$bin" --profile-directory="$profile" --app="$url" </dev/null >/dev/null 2>&1 &
+  exit 0
+fi
+
+rift-cli execute workspace switch "$(jq -r .ws <<<"$window")" >/dev/null 2>&1 || true
+rift-cli execute window focus --window-id "$(jq -c .id <<<"$window")" >/dev/null 2>&1 || open -a Helium
