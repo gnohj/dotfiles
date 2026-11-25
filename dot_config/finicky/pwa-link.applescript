@@ -56,9 +56,11 @@ on pwaBundleId(urlPrefix)
 end pwaBundleId
 
 on pwaWindow(urlPrefix)
+	set excludePrefix to my plistValue("PWAExcludePrefix")
 	tell application "Helium"
 		repeat with w in windows
-			if URL of active tab of w starts with urlPrefix then return w
+			set u to URL of active tab of w
+			if u starts with urlPrefix and (excludePrefix is "" or u does not start with excludePrefix) then return w
 		end repeat
 	end tell
 	return missing value

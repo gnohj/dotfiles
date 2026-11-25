@@ -14,7 +14,7 @@ lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchS
 
 # Each handler loads finicky-routed links into the already open Helium PWA window instead of a new one.
 build_link_app() {
-  local name="$1" bundle_id="$2" url_prefix="$3" scheme="${4:-}"
+  local name="$1" bundle_id="$2" url_prefix="$3" scheme="${4:-}" exclude_prefix="${5:-}"
   local app="$HOME/Applications/$name.app"
   local plist="$app/Contents/Info.plist"
   local tmp
@@ -27,6 +27,7 @@ build_link_app() {
   /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $bundle_id" "$plist"
   /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$plist"
   /usr/libexec/PlistBuddy -c "Add :PWAURLPrefix string $url_prefix" "$plist"
+  [ -z "$exclude_prefix" ] || /usr/libexec/PlistBuddy -c "Add :PWAExcludePrefix string $exclude_prefix" "$plist"
   if [ -n "$scheme" ]; then
     /usr/libexec/PlistBuddy -c "Add :PWAScheme string $scheme" "$plist"
     /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$plist"
@@ -42,6 +43,6 @@ build_link_app() {
 
 build_link_app "Discord Link" com.gnohj.discord-link "https://discord.com/"
 build_link_app "Teams Link" com.gnohj.teams-link "https://teams.cloud.microsoft/"
-build_link_app "Slack Link" com.gnohj.slack-link "https://app.slack.com/"
+build_link_app "Slack Link" com.gnohj.slack-link "https://app.slack.com/" "" "https://app.slack.com/client/{{ .slack_iheart_alumni_team }}"
 # The teams-links extension hands Outlook links from browser tabs over as outlook-pwa:<url>.
 build_link_app "Outlook Link" com.gnohj.outlook-link "https://outlook.cloud.microsoft/" outlook-pwa
