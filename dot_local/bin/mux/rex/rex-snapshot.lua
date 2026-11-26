@@ -14,6 +14,18 @@ local function each_block(layout, out)
 end
 
 local here = os.getenv("REX_SESSION")
+local me = os.getenv("REX_BLOCK")
+
+local function holds(view, block)
+  for _, w in ipairs((view and view.windows) or {}) do
+    for _, layer in ipairs(w.layers or {}) do
+      for _, bid in ipairs(each_block(layer.layout, {})) do
+        if bid == block then return true end
+      end
+    end
+  end
+  return false
+end
 local snap = { workspaces = {}, tabs = {}, panes = {} }
 
 local function collect(api, host)
@@ -22,6 +34,7 @@ local function collect(api, host)
   for _, s in ipairs((list and list.sessions) or {}) do
     api.call("session.attach", { session_id = s.session_id })
     local view = api.call("session.view", { session_id = s.session_id })
+    if not host and not here and me and holds(view, me) then here = s.session_id end
     local sid = prefix .. bare(s.session_id)
     table.insert(snap.workspaces, { workspace_id = sid, label = s.label, host = host })
     for n, w in ipairs((view and view.windows) or {}) do

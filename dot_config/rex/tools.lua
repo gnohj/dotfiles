@@ -59,7 +59,7 @@ function M.setup()
       local cwd = c.block_cwd(ctx.block_id)
       local repo = rex.exec{ "git", "-C", cwd, "rev-parse", "--git-dir" }
       if repo == nil or not repo.ok then return end
-      local run = 'lazygit; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
+      local run = 'lazygit; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_BLOCK" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
       c.popup(ctx, 0.05, 0.05, { "/bin/sh", "-c", run, ctx.block_id }, { cwd = cwd, label = "lazygit" })
     end,
   }
@@ -71,7 +71,7 @@ function M.setup()
     category = "Tools",
     args = { title = "string", ref = "string?", qid = "string?" },
     run = function(ctx, args)
-      local run = '"$HOME/.local/bin/fm-todo-chat" "$1" "$2" "$3"; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_SESSION" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
+      local run = '"$HOME/.local/bin/fm-todo-chat" "$1" "$2" "$3"; "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "$REX_BLOCK" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1'
       c.popup(ctx, 0.16, 0.18, { "/bin/sh", "-c", run, ctx.block_id, args.title, args.ref or "", args.qid or "" }, { label = "fm-chat" })
     end,
   }

@@ -708,7 +708,7 @@ while true; do
   START_POS=1
   [ "$CACHED" = 1 ] || [ ! -r "$FOCUS_FILE" ] || read -r START_POS <"$FOCUS_FILE"
   # Cached rows have no focus file yet, so locate the current session's row up front.
-  HERE_ID="${REX_SESSION:-}"
+  HERE_ID="${REX_SESSION:-$("${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false session inspect "${REX_BLOCK:-}" --json 2>/dev/null | jq -r '.session_id // empty')}"
   HERE_ID="${HERE_ID#session:}"
   if [ "$CACHED" = 1 ] && [ -n "$HERE_ID" ]; then
     START_POS=$(awk -F'\t' -v a="ws:$HERE_ID" -v b="~$HERE_ID" '$NF == a || substr($NF, length($NF) - length(b) + 1) == b {print NR; exit}' "$ROWS_FILE")

@@ -56,10 +56,10 @@ cmd_session_label() {
   case "$(cmd_kind)" in
     rex)
       need_jq
-      [ -n "${REX_SESSION:-}" ] || return 0
+      [ -n "${REX_SESSION:-}${REX_BLOCK:-}" ] || return 0
       local rex
       rex="$(rex_bin)" || return 1
-      "$rex" --autostart=false session inspect "$REX_SESSION" --json 2>/dev/null |
+      "$rex" --autostart=false session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null |
         jq -r '.label // empty' 2>/dev/null |
         sed 's/^[^[:alnum:]]*//'
       ;;
@@ -69,8 +69,15 @@ cmd_session_label() {
 # Where this process was SPAWNED, from the pane env: frozen, so it survives a detached delay.
 origin_workspace() {
   case "$(cmd_kind)" in
-    rex) printf '%s' "${REX_SESSION:-}" ;;
+    rex) rex_session_id ;;
   esac
+}
+
+# Rex stopped exporting REX_SESSION in preview.23; one set explicitly (review-mux) still wins.
+rex_session_id() {
+  [ -n "${REX_SESSION:-}" ] && { printf '%s' "$REX_SESSION"; return 0; }
+  [ -n "${REX_BLOCK:-}" ] || return 0
+  "$(rex_bin)" --autostart=false session inspect "$REX_BLOCK" --json 2>/dev/null | jq -r '.session_id // empty'
 }
 
 rex_app_client() {
@@ -124,7 +131,7 @@ cmd_window() {
       "$rex" --autostart=false block call ${size_args[@]+"${size_args[@]}"} -b "$pane" resize \
         '{"columns":200,"rows":50}' >/dev/null 2>&1 || printf 'mux: could not resize Rex block %s\n' "$pane" >&2
       # Server focus repaints the app but not its selected tab, so ctrl+N/ctrl+tab would no-op.
-      if [ -z "$no_focus" ] && { [ -n "$force_focus" ] || [ "$ws" = "${REX_SESSION:-}" ]; }; then
+      if [ -z "$no_focus" ] && { [ -n "$force_focus" ] || [ "$ws" = "$(rex_session_id)" ]; }; then
         window="$(printf '%s' "$out" | jq -r '.window_id // empty')"
         client="$(rex_app_client "$rex")"
         [ -n "$client" ] || die "Rex window created but no connected app is available to focus it"
@@ -149,15 +156,15 @@ cmd_split() {
   case "$(cmd_kind)" in
     rex)
       need_jq
-      [ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] || die "split: not inside a Rex block"
+      [ -n "${REX_BLOCK:-}" ] || die "split: not inside a Rex block"
       local rex ratio=25 n
       rex="$(rex_bin)" || die "Rex CLI unavailable"
       # --ratio is the NEW block's share, so the caller keeps ~75%, or ~66% beside others.
-      n="$("$rex" --autostart=false block ls -s "$REX_SESSION" --json 2>/dev/null | jq -r --arg b "$REX_BLOCK" \
+      n="$("$rex" --autostart=false block ls -s "$REX_BLOCK" --json 2>/dev/null | jq -r --arg b "$REX_BLOCK" \
         '(.blocks // []) as $all | (first($all[] | select(.block_id == $b) | .window_id) // "") as $w
         | [$all[] | select(.window_id == $w)] | length' 2>/dev/null)"
       case "$n" in ''|*[!0-9]*|0|1) ;; *) ratio=34 ;; esac
-      "$rex" --autostart=false split -s "$REX_SESSION" -b "$REX_BLOCK" --split=right --ratio "$ratio" \
+      "$rex" --autostart=false split -s "$REX_BLOCK" -b "$REX_BLOCK" --split=right --ratio "$ratio" \
         -c "$cwd" --shell=none -- env SKIP_FETCH=1 "${SHELL:-/bin/sh}" -lic "$command" >/dev/null || die "Rex split failed"
       ;;
     none) die "no Rex session detected" ;;

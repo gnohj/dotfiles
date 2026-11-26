@@ -82,7 +82,7 @@ case "${1:-} ${2:-}" in
   "workspace close")
     on_host "$3"
     # The picker's own session: go back to the last one first, else Rex lands on a neighbour once it is gone.
-    [ "${#server[@]}" != 0 ] || [ "session:$sid" != "${REX_SESSION:-}" ] || home_do return_from_session session_id="$sid"
+    [ "${#server[@]}" != 0 ] || [ "session:$sid" != "$("$rex" --autostart=false session inspect "${REX_BLOCK:-}" --json 2>/dev/null | jq -r '.session_id // empty')" ] || home_do return_from_session session_id="$sid"
     remote kill "session:$sid" >/dev/null 2>&1
     ;;
   "tab focus")

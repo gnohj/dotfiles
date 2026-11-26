@@ -482,14 +482,14 @@ aliases_menu() {
 
 # The focused Rex block's cwd; empty lets callers fall back to $PWD.
 rex_focused_cwd() {
-  [ -n "${REX_SESSION:-}" ] || return 1
+  [ -n "${REX_BLOCK:-}" ] || return 1
   command -v jq >/dev/null 2>&1 || return 1
   local rex block
   rex=$(rex_bin) || return 1
-  block=$("$rex" --autostart=false session inspect "$REX_SESSION" --json 2>/dev/null |
+  block=$("$rex" --autostart=false session inspect "$REX_BLOCK" --json 2>/dev/null |
     jq -r '.active_window_id as $w | first(.windows[]? | select(.window_id == $w) | .focused_block_id) // empty' 2>/dev/null) || return 1
   [ -n "$block" ] || return 1
-  "$rex" --autostart=false block call -s "$REX_SESSION" -b "$block" process 2>/dev/null |
+  "$rex" --autostart=false block call -s "$REX_BLOCK" -b "$block" process 2>/dev/null |
     jq -r '.foreground.cwd // .child.cwd // empty' 2>/dev/null
 }
 

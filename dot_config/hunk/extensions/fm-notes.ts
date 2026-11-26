@@ -282,7 +282,7 @@ async function hunkTabmate(): Promise<{
 } | null> {
   const env = process.env;
   if (env.TERM_PROGRAM === "rex" && env.REX_BLOCK) {
-    const rexSession = env.REX_SESSION ?? "";
+    const rexSession = env.REX_SESSION ?? env.REX_BLOCK;
     const me = env.REX_BLOCK;
     const { out } = await run("rex", [
       "--autostart=false",

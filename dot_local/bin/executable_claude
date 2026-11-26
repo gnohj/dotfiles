@@ -167,6 +167,12 @@ if [ "${TERM_PROGRAM:-}" = rex ]; then
   export CLAUDE_CODE_FORCE_TERMINAL_IMAGES="${CLAUDE_CODE_FORCE_TERMINAL_IMAGES:-1}"
 fi
 
+# Rex 0.1.0-preview.23 stopped exporting REX_SESSION, which firstmate's Rex backend still requires to detect Rex.
+if [ "${TERM_PROGRAM:-}" = rex ] && [ -z "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ]; then
+  _rex_sid="$("${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false session inspect "$REX_BLOCK" --json 2>/dev/null | jq -r '.session_id // empty' 2>/dev/null || true)"
+  [ -z "$_rex_sid" ] || export REX_SESSION="$_rex_sid"
+fi
+
 # A firstmate home can be resumed as a bare `claude --resume`; scoped here so nothing else started there inherits medium.
 _fm_home_model() {
   case "$PWD" in
@@ -178,6 +184,11 @@ _fm_home_model() {
 _fm_model="$(_fm_home_model)"
 if [ -n "$_fm_model" ]; then
   export ANTHROPIC_MODEL="$_fm_model" CLAUDE_CODE_EFFORT_LEVEL=medium
+fi
+
+# fm exports FM_HOME, but a Rex program resume starts `claude --resume` with a fresh terminal's environment.
+if [ "$PWD" = "$HOME/Developer/firstmate" ] && [ -z "${FM_HOME:-}" ]; then
+  export FM_HOME="$HOME/.local/share/firstmate"
 fi
 
 exec "$_bin" ${_resume[@]+"${_resume[@]}"} "$@"

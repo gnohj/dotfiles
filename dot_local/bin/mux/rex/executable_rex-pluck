@@ -14,7 +14,7 @@ import tty
 import unicodedata
 
 REX = str(Path(os.environ["REX_BIN_DIR"]) / "rex") if os.environ.get("REX_BIN_DIR") else "rex"
-SESSION = os.environ["REX_SESSION"]
+SESSION = os.environ.get("REX_SESSION") or os.environ["REX_BLOCK"]
 SELF = os.environ["REX_BLOCK"]
 LABELS = "asdfghjklqwertyuiopzxcvbnm"
 TOKEN = re.compile(

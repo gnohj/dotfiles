@@ -35,12 +35,12 @@ rex_cli() {
 
 # A primary inside Rex owns its block outright: show its session and block, wherever this `fm` was typed.
 if [ -n "$lockpid" ] && [ "$(primary_env TERM_PROGRAM)" = rex ]; then
-  session="$(primary_env REX_SESSION)"
   block="$(primary_env REX_BLOCK)"
   [ -n "$block" ] && [ "$block" = "${REX_BLOCK:-}" ] && exit 1
   if rex="$(rex_cli)"; then
+    session=$("$rex" --autostart=false session inspect "$block" --json 2>/dev/null | jq -r '.session_id // empty')
     "$rex" --autostart=false do session.select "session_id=$session" >/dev/null 2>&1 || true
-    "$rex" --autostart=false focus -s "$session" "$block" >/dev/null 2>&1 || true
+    "$rex" --autostart=false focus -s "$block" "$block" >/dev/null 2>&1 || true
   fi
   echo "fm: the fleet is already sailing in Rex block $block - focused it." >&2
   echo "fm: to browse or edit it from here instead, run: fm-compass" >&2

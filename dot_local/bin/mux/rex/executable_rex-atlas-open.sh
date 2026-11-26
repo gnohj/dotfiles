@@ -13,7 +13,7 @@ case "$target" in
   *[!A-Za-z0-9:/._#-]*) echo "unsafe target: $target"; exit 1 ;;
 esac
 
-blocks=$("$rex" --autostart=false block ls -s "${REX_SESSION:?REX_SESSION unset}" --json --short=false 2>/dev/null)
+blocks=$("$rex" --autostart=false block ls -s "${REX_BLOCK:?REX_BLOCK unset}" --json --short=false 2>/dev/null)
 window=$(printf '%s' "$blocks" | jq -r --arg o "$origin" 'first(.blocks[] | select(.block_id == $o) | .window_id) // empty')
 [ -n "$window" ] || { echo "unknown block $origin"; exit 1; }
 siblings=$(printf '%s' "$blocks" | jq -c --arg w "$window" '[.blocks[] | select(.window_id == $w)]')

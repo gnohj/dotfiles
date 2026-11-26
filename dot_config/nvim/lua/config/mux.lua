@@ -72,7 +72,7 @@ local label = nil
 
 local function label_cache_file()
   local kind = M.kind()
-  local id = kind == "rex" and vim.env.REX_SESSION
+  local id = kind == "rex" and (vim.env.REX_SESSION or vim.env.REX_BLOCK)
   if not id or id == "" then
     return nil
   end

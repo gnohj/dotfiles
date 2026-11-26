@@ -71,7 +71,7 @@ new_window_and_exit() {
 rex_edit_and_exit() {
   local rex blocks b sock
   rex="$(. "$HOME/.local/bin/mux/shared/mux-detect.sh" && rex_bin)" || return 1
-  blocks="$("$rex" --autostart=false block ls -s "$REX_SESSION" --json 2>/dev/null | jq -r --arg me "$REX_BLOCK" \
+  blocks="$("$rex" --autostart=false block ls -s "$REX_BLOCK" --json 2>/dev/null | jq -r --arg me "$REX_BLOCK" \
     '(.blocks // []) as $all | (first($all[] | select(.block_id == $me) | .window_id) // "") as $w
      | $all[] | select(.window_id == $w and .block_id != $me) | .block_id' 2>/dev/null)"
   for b in $blocks; do
@@ -79,7 +79,7 @@ rex_edit_and_exit() {
     [ -S "$sock" ] || continue
     if nvim --server "$sock" --remote "$ABS_FILE" >>"$DEBUG_LOG" 2>&1; then
       echo "  rex: opened in $b via $sock" >> "$DEBUG_LOG"
-      "$rex" --autostart=false focus -s "$REX_SESSION" "$b" >/dev/null 2>&1
+      "$rex" --autostart=false focus -s "$REX_BLOCK" "$b" >/dev/null 2>&1
       close_popup_deferred
       exit 0
     fi
@@ -88,5 +88,5 @@ rex_edit_and_exit() {
   new_window_and_exit
 }
 
-[ -n "${REX_SESSION:-}" ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit
+[ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ] && rex_edit_and_exit
 new_window_and_exit

@@ -73,8 +73,8 @@ def menu(path, q):
 
 def chat(q):
     args = json.dumps({"title": q.get("title", ""), "ref": q.get("ref", ""), "qid": q.get("qid", "")})
-    session, block = os.environ.get("REX_SESSION", ""), os.environ.get("REX_BLOCK", "")
-    where = ["-s", session, "-b", block] if session and block else []
+    block = os.environ.get("REX_BLOCK", "")
+    where = ["-s", block, "-b", block] if block else []
     result = subprocess.run(["rex", "--autostart=false", "do", *where, "fm_chat", "--args", args], capture_output=True, text=True)
     if result.returncode != 0:
         raise SystemExit(result.stderr.strip() or "could not open the chat popup")
