@@ -11,9 +11,9 @@ fi
 appcast=https://blob.superlogical.com/public/rex-app/snapshot-arm64/appcast.xml
 have=$(pacman -Q rex | awk '{ print $2 }')
 
-# Rex.app reports only its Sparkle build; the appcast maps it to a Rex version.
+# Rex.app reports only its Sparkle build, as `0.1.0-snapshot.<build>` (older apps `0.1.0 (<build>)`); the appcast maps it to a Rex version.
 builds=$(rex --autostart=false client ls --json </dev/null 2>/dev/null |
-  jq -r '.clients[].info | select(.kind == "app" and .platform == "macos") | .version | capture("\\((?<b>[0-9]+)\\)").b' | sort -un)
+  jq -r '.clients[].info | select(.kind == "app" and .platform == "macos") | .version | capture("(?:snapshot\\.|\\()(?<b>[0-9]+)\\)?$").b' | sort -un)
 case $(grep -c . <<<"$builds") in
 0) echo "rex-update: no Mac app is connected to this server, so rex stays at $have"; exit 0 ;;
 1) ;;
