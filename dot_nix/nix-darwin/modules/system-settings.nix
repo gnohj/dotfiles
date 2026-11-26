@@ -189,6 +189,11 @@ in
       "Workspace.terminalSelectionForeground" = "theme";
       "Workspace.terminalUseThemePalette" = false;
       "Workspace.experiments.usesNewQuickSwitcher" = true;
+      # Quick Terminal (cmd+ctrl+t) on the Dev Box host; the host id is the app's own record id for it
+      "Workspace.experiments.isQuickTerminalEnabled" = true;
+      "Workspace.quickTerminalHostID" = "4C03A90F-3DAA-4416-A063-C0DCC40F91AC";
+      "Workspace.quickTerminalPin" = "top";
+      "Workspace.quickTerminalPinHeightPercent" = 26;
       # remoteControl must stay on: colorscheme-set.sh imports the theme through the app client
       "rex.client.label" = "macbook";
       "rex.client.remoteControl" = true;

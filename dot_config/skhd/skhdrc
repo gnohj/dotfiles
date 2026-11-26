@@ -10,8 +10,7 @@ cmd - 0x27 : ~/.local/bin/baby-menu-toggle
 # kitty's quick-access takes an instance group + its own config and command, so
 # rctrl stays distinguishable.
 cmd + rctrl - r : ~/.config/skhd/kitty-ql-quake.sh
-# Same launcher, but running ON the dev box, resolved live from the tailnet at press time. dev-context only overrides the target; a banner explains any no-op.
-cmd + rctrl - t : ~/.config/skhd/kitty-remote-quake.sh
+# cmd+ctrl+t is Rex's own Quick Terminal shortcut now (the launcher on the Dev Box host); skhd leaves it alone.
 
 # Needs to work local / remote
 rctrl - escape : ~/.local/bin/mux/shared/notify-idle-clear.sh # clear stuck banners + state (uname-branched: Darwin dismisses banners, Linux clears the marker)
