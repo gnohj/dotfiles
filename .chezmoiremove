@@ -343,3 +343,7 @@ scripts/open-tmux-attach.sh
 .local/bin/rex-recover-watch
 .local/bin/claude-rex-session
 .config/rex-recover/apps.conf
+
+# The kitty remote quake (cmd+rctrl+t) retired 2026-11-26: cmd+ctrl+t is Rex's Quick Terminal; cmd+rctrl+r keeps the local kitty quake.
+.config/skhd/kitty-remote-quake.sh
+.config/kitty/quick-access-terminal-remote.conf

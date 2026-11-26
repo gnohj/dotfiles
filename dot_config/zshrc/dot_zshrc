@@ -11,13 +11,6 @@
 #-------------------------------------------------------------------------------
 #--                      Zsh Configuration
 #-------------------------------------------------------------------------------
-# Rex's Quick Terminal opens a plain shell in a session labelled quick-terminal; that shell becomes the launcher.
-if [[ $SHLVL -eq 1 && -z ${ZSH_EXECUTION_STRING:-} && ${TERM_PROGRAM:-} == rex && -n ${REX_BLOCK:-} ]] &&
-  [[ "$("${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null | jq -r '.label // empty' 2>/dev/null)" == quick-terminal ]]; then
-  stty -echo 2>/dev/null
-  exec "$HOME/.config/launcher/launcher-quake.sh"
-fi
-
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
 # Cache command output to speed up shell startup
