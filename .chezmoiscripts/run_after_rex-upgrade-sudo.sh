@@ -16,12 +16,14 @@ cat >"$dir/rex-upgrade" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 export PATH=/usr/bin
-if [ "$#" != 1 ] || ! [[ "$1" =~ ^[0-9]+(\.[0-9]+)*(_g[0-9a-f]+)?-[0-9]+$ ]]; then
+if [ "$#" != 1 ] || ! [[ "$1" =~ ^[0-9]+(\.[0-9]+)*((preview|alpha)[0-9]+|_g[0-9a-f]+)?-[0-9]+$ ]]; then
   echo "usage: rex-upgrade PKGVER-PKGREL" >&2
   exit 2
 fi
 arch="$(uname -m)"
 server="$(sed -n 's/^Server *= *//p' /etc/pacman.d/rex.conf | head -n 1)"
+# Preview builds live in the preview repo beside the configured snapshot one.
+case "$1" in *preview*) server="${server/\/snapshot\//\/preview\/}" ;; esac
 conf="$(mktemp)"
 trap 'rm -f "$conf"' EXIT
 printf '[options]\nArchitecture = auto\nRemoteFileSigLevel = Required\n' >"$conf"

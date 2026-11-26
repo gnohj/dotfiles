@@ -25,31 +25,13 @@ case $(grep -c . <<<"$builds") in
 esac
 
 cast=$(curl -fsS --max-time 15 "$appcast") || { echo "rex-update: could not fetch $appcast" >&2; exit 1; }
-commit_of() { awk -F'`' -v b="$1" '/<sparkle:version>/ { gsub(/[^0-9]/, ""); build = $0 } /^Rex [0-9]/ && (b == "" || build == b) { print $2; exit }' <<<"$cast"; }
-commit=$(commit_of "$builds")
-[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "rex-update: Mac app build $builds is not in the appcast, rex stays at $have" >&2; exit 1; }
-[ "$(commit_of "")" != "$commit" ] && echo "rex-update: a newer Rex is out; Install Update in the Mac app and the next update brings the dev-box along"
-# The repo db lists only the newest build, so an installed match must not depend on finding its package.
-[[ "$have" == *"_g${commit:0:6}-"* ]] && exit 0
-
-# Preview releases rename the Mac version (0.1.0-preview.N), but arch packages keep 0.0.<ts>_g<sha>, so match by commit.
-want=$(awk -v c="$commit" '$1 == "Rex" && $2 ~ /^0\.0\.[0-9]+-g[0-9a-f]+$/ && index($0, "`" c "`") { print $2; exit }' <<<"$cast")
-if [ -z "$want" ]; then
-  server=$(sed -n 's/^Server *= *//p' /etc/pacman.d/rex.conf | head -n 1)
-  want=$(curl -fsSL --max-time 15 "${server//\$arch/$(uname -m)}/rex.db" | bsdtar -tf - 2>/dev/null |
-    sed -n "s|^rex-\(0\.0\.[0-9]*_g${commit:0:6}\)-[0-9]*/\$|\1|p" | head -n 1)
-fi
-# Once the snapshot db moves past the commit, the preview channel's BUILDDATE is the snapshot timestamp.
-preview=$(awk -v c="$commit" '$1 == "Rex" && $2 ~ /^0\.1\.0-preview\.[0-9]+$/ && index($0, "`" c "`") { print $2; exit }' <<<"$cast")
-if [ -z "$want" ] && [ -n "$preview" ]; then
-  ts=$(curl -fsSL --max-time 15 "${server%/snapshot/*}/preview/$(uname -m)/rex.db" |
-    bsdtar -xOf - "rex-${preview/-preview./preview}-1/desc" 2>/dev/null | awk 'f { print; exit } /^%BUILDDATE%$/ { f = 1 }')
-  [[ "$ts" =~ ^[0-9]+$ ]] && want="0.0.$ts-g${commit:0:6}"
-fi
-[ -n "$want" ] || { echo "rex-update: no arch package found for Mac app commit ${commit:0:7} (build $builds), rex stays at $have" >&2; exit 1; }
-
-pkg="${want/-g/_g}-1"
-[ "${have%-*}" = "${pkg%-*}" ] && exit 0
+version_of() { awk -v b="$1" '/<sparkle:version>/ { gsub(/[^0-9]/, ""); build = $0 } /^Rex [0-9]/ && (b == "" || build == b) { print $2; exit }' <<<"$cast"; }
+version=$(version_of "$builds")
+[[ "$version" =~ ^[0-9]+(\.[0-9]+)*-(preview|alpha)\.[0-9]+$ ]] || { echo "rex-update: Mac app build $builds names no packaged Rex in the appcast (${version:-none}), rex stays at $have" >&2; exit 1; }
+[ "$(version_of "")" != "$version" ] && echo "rex-update: a newer Rex is out; Install Update in the Mac app and the next update brings the dev-box along"
+# Arch packages spell 0.1.0-preview.25 as 0.1.0preview25 (preview repo) and snapshots as 0.1.0alphaN (snapshot repo).
+pkg="$(sed -E 's/-(preview|alpha)\.([0-9]+)$/\1\2/' <<<"$version")-1"
+[ "$have" = "$pkg" ] && exit 0
 upgrade=/usr/local/sbin/rex-upgrade
 if ! sudo -n "$upgrade" "$pkg"; then
   echo "rex-update: $upgrade $pkg failed or needs a password - run chezmoi apply in a terminal on this box to install it" >&2
