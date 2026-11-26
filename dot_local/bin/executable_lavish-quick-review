@@ -45,9 +45,8 @@ BRIEF
 # The brief lands inside a double-quoted string in the pane's shell, where $, ` and \ still expand.
 shquote() { local s=${1//\\/\\\\}; s=${s//\$/\\$}; s=${s//\`/\\\`}; printf '%s' "${s//\"/\\\"}"; }
 
-sp="$HOME/Developer/agents/shared/system-prompt.md"
-sp_arg=""
-[ -f "$sp" ] && sp_arg="--append-system-prompt-file $sp"
+# The Operating Contract as an output style, not --append-system-prompt-file, which Rex's resume drops.
+sp_arg="--settings '{\"outputStyle\":\"operating-contract\"}'"
 
 model_arg=""
 [ -n "${LAVISH_AGENT_MODEL:-}" ] && model_arg="--model $LAVISH_AGENT_MODEL"

@@ -3,9 +3,8 @@
 # Account (config dir + token) comes from the ~/.local/bin/claude wrapper; export CLAUDE_CONFIG_DIR / CLAUDE_CODE_OAUTH_TOKEN first to override per-pane.
 
 # Optional so a machine that has not cloned the agents monorepo yet still launches; claude hard-errors on a missing file.
-sp="$HOME/Developer/agents/shared/system-prompt.md"
-sp_arg=()
-[ -f "$sp" ] && sp_arg=(--append-system-prompt-file "$sp")
+# The Operating Contract as an output style, not --append-system-prompt-file, which Rex's resume drops.
+sp_arg=(--settings '{"outputStyle":"operating-contract"}')
 
 exec "$HOME/.local/bin/claude" \
   --dangerously-skip-permissions \
