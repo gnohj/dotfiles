@@ -1,0 +1,16 @@
+#!/bin/sh
+# gh-dash on the keyring login, since GH_TOKEN would shadow it; a bare launch reports to Rex's program resume, which comes back through here.
+self=$(cd "$(dirname "$0")" && pwd -P)
+real=
+IFS=:
+for d in $PATH; do
+  [ -n "$d" ] && [ -x "$d/gh-dash" ] && [ ! -d "$d/gh-dash" ] || continue
+  [ "$(cd "$d" && pwd -P)" = "$self" ] && continue
+  real=$d/gh-dash
+  break
+done
+unset IFS
+[ -n "$real" ] || { echo "gh-dash: no binary found on PATH beyond $self" >&2; exit 127; }
+[ "$#" -eq 0 ] && "$self/rex-resume-report" "$$" gh-dash </dev/null >/dev/null 2>&1 &
+unset OSC7577_TOKEN
+exec env -u GH_TOKEN -u GITHUB_TOKEN "$real" "$@"

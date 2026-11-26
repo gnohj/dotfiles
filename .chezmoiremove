@@ -338,3 +338,8 @@ scripts/open-tmux-attach.sh
 
 # rex-float-picker retired: float_minimize picks floats with rex.ui.pick.
 .local/bin/mux/rex/rex-float-picker
+
+# rex-recover (nexxai) retired 2026-11-26: Rex's native program resume (OSC 7577, server preview.25) restarts programs after a server restart.
+.local/bin/rex-recover-watch
+.local/bin/claude-rex-session
+.config/rex-recover/apps.conf

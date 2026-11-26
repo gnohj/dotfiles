@@ -18,14 +18,6 @@
         "interp": "/usr/bin/python3",
         "needsPath": true,
         "note": "gh only feeds the PR and CI fields; the vault note is a local lookup and still persists without it"
-      },
-      "rex-recover": {
-        "desc": "rex-recover (relaunch apps.conf commands in their Rex panes after a server restart)",
-        "script": "rex-recover-watch",
-        "args": "",
-        "interp": "",
-        "needsPath": true,
-        "note": "runs nexxai/rex-recover from its ~/Developer clone, which update fast-forwards; never starts Rex, waits for it to come back"
       }
     }
   }

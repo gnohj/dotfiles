@@ -11,20 +11,4 @@ pis) ;;
 *) echo "pi-start: run it as pis, pio, pig, pic, pior, pigr or picr" >&2; exit 2 ;;
 esac
 
-if [ -n "${REX_RECOVER_LAUNCH_DIR:-}" ]; then # rex-recover restores pi only in the dotfiles session, resuming this pane's session
-  label=$(rex --autostart=false session inspect "${REX_SESSION:-}" --json 2>/dev/null | jq -r '.label // empty')
-  case "$label" in *dotfiles) ;; *) exit 0 ;; esac
-  [ "${flags[0]:-}" = -r ] && flags=("${flags[@]:1}")
-  record="${XDG_STATE_HOME:-$HOME/.local/state}/pi-rex-sessions/${REX_BLOCK#block:}"
-  if [ -r "$record" ]; then
-    file=$(cat "$record")
-    if [ -f "$file" ]; then set -- --session "$file"; else set --; fi
-  else
-    set -- --continue
-  fi
-fi
-unset REX_RECOVER_LAUNCH_DIR
-
-sp="$HOME/Developer/agents/shared/system-prompt.md"
-[ -f "$sp" ] && flags+=(--append-system-prompt "$sp")
 exec pi ${flags[@]+"${flags[@]}"} "$@"

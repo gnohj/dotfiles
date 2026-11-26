@@ -11,6 +11,15 @@ local entry_aliases = require("entries").setup()
 local has_paste = require("paste").setup()
 require("worktrees").setup()
 
+-- Program resume: what Rex may restart after a server restart (nvim reports itself; the rest report through rex-resume-shim).
+if rex.set then
+  rex.set("resume.trust.nvim", { command = { "nvim" }, flags = { ["--cmd"] = { "drop", values = 1 }, ["-c"] = { "keep", values = 1 } } })
+  rex.set("resume.trust.tuxedo", { command = { "tuxedo" } })
+  rex.set("resume.trust.kb", { command = { "kb" } })
+  rex.set("resume.trust.gh-dash", { command = { "gh-dash" } })
+  rex.set("resume.trust.pi", { command = { "pi", "--session", rex.match.under("~/.pi/agent/sessions") } })
+end
+
 -- Prefix and the pass-through for a literal ctrl+a (readline beginning-of-line).
 rex.bind(P .. "ctrl+a", "pane.send_key", { key = "ctrl+a" })
 

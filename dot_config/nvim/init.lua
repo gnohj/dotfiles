@@ -35,6 +35,7 @@ vim.g.loaded_netrwPlugin = 1
 vim.g.loaded_netrw = 1
 vim.g.loaded_matchit = 1
 
+require("config.rex-resume")
 require("config.lazy")
 
 -- Per-pane RPC socket (REX_BLOCK) so external tools reach THIS nvim when several run.

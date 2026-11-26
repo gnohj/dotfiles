@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-# gh-dash on the keyring login; GH_TOKEN would shadow it. A script, not an alias, so rex-recover can relaunch it.
+# gh-dash; the ~/.local/bin/gh-dash shim it reaches strips GH_TOKEN and reports to Rex's program resume.
 exec env -u GH_TOKEN -u GITHUB_TOKEN gh-dash "$@"

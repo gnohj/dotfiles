@@ -1,0 +1,17 @@
+#!/bin/sh
+# Symlinked as an app's name in ~/.local/bin: a bare launch reports itself to Rex's program resume, then runs the real binary later on PATH.
+name=$(basename "$0")
+self=$(cd "$(dirname "$0")" && pwd -P)
+real=
+IFS=:
+for d in $PATH; do
+  [ -n "$d" ] && [ -x "$d/$name" ] && [ ! -d "$d/$name" ] || continue
+  [ "$(cd "$d" && pwd -P)" = "$self" ] && continue
+  real=$d/$name
+  break
+done
+unset IFS
+[ -n "$real" ] || { echo "$name: no binary found on PATH beyond $self" >&2; exit 127; }
+[ "$#" -eq 0 ] && "$self/rex-resume-report" "$$" "$name" </dev/null >/dev/null 2>&1 &
+unset OSC7577_TOKEN
+exec "$real" "$@"

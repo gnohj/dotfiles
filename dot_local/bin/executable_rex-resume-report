@@ -1,0 +1,20 @@
+#!/bin/sh
+# rex-resume-report PID CMD [ARG...] - once PID runs CMD (Rex records the owner's name on arrival), tell Rex's program resume (OSC 7577) it resumes as CMD.
+[ -n "${OSC7577_TOKEN:-}" ] && [ "$#" -ge 2 ] || exit 0
+( : >/dev/tty ) 2>/dev/null || exit 0
+pid=$1
+shift
+want=$(basename "$1")
+i=0
+while :; do
+  now=$(ps -o command= -p "$pid" 2>/dev/null) || exit 0
+  now=${now%% *}
+  [ "$(basename "$now")" = "$want" ] && break
+  i=$((i + 1))
+  [ "$i" -lt 60 ] || exit 0
+  sleep 0.05
+done
+args=$(for a in "$@"; do printf '%s' "$a" | base64 | tr -d '\n'; echo; done | paste -sd, -)
+body="pid=$pid:time=$(date +%s):argv=$args"
+mac=$(printf '%s:%s' "$body" "$OSC7577_TOKEN" | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c1-64)
+printf '\033]7577;%s:mac=%s\033\\' "$body" "$mac" >/dev/tty
