@@ -891,7 +891,7 @@ btop2() {
   cpu_conf="$(_btop_proc_conf 'cpu direct')" || return
   mem_conf="$(_btop_mem_conf)" || return
   if [[ "$TERM_PROGRAM" == rex && -n "$REX_BLOCK" ]]; then
-    if ! "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false split -s "$REX_BLOCK" -b "$REX_BLOCK" \
+    if ! "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false split -s "${REX_SESSION:-$REX_BLOCK}" -b "$REX_BLOCK" \
       --split=right --ratio 50 --focus=false -- btop -c "$cpu_conf" >/dev/null 2>&1; then
       echo "btop2: could not split the Rex block; run btopm and btopc separately"
       return 1
@@ -1302,7 +1302,7 @@ cw() {
 alias cauto='unset CLAUDE_ACCOUNT && echo "CLAUDE_ACCOUNT cleared → auto (by git remote)"'
 
 # Pi agent shortcuts (parallel to cs/cr but 3-letter — `pn`/`pr` are taken
-# The operating contract cs/cr append reaches every pi session through ~/.pi/agent/APPEND_SYSTEM.md.
+# pi gets the Operating Contract from the agents repo's operating-contract extension.
 pir() { pi -r "$@"; }   # pi resume (interactive session picker)
 # pis/pio/pig/pic and their -r twins are ~/.local/bin/pi-start symlinks, picked by name.
 

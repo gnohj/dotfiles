@@ -10,7 +10,7 @@ command -v rex >/dev/null 2>&1 || exit 0
 
 viewer=${XDG_STATE_HOME:-$HOME/.local/state}/rexpad/firstmate.viewer
 read -r sid bid 2>/dev/null <"$viewer" || exit 0
-[ "$(rex session inspect "${REX_BLOCK:-}" --json 2>/dev/null | jq -r '.session_id // empty')" = "$sid" ] || exit 0
+[ "$(rex session inspect "${REX_SESSION:-${REX_BLOCK:-}}" --json 2>/dev/null | jq -r '.session_id // empty')" = "$sid" ] || exit 0
 rex block inspect -s "$sid" "$bid" >/dev/null 2>&1 || exit 0
 
 transcript=$(jq -r '.transcript_path // empty' <<<"$input")

@@ -486,10 +486,10 @@ rex_focused_cwd() {
   command -v jq >/dev/null 2>&1 || return 1
   local rex block
   rex=$(rex_bin) || return 1
-  block=$("$rex" --autostart=false session inspect "$REX_BLOCK" --json 2>/dev/null |
+  block=$("$rex" --autostart=false session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null |
     jq -r '.active_window_id as $w | first(.windows[]? | select(.window_id == $w) | .focused_block_id) // empty' 2>/dev/null) || return 1
   [ -n "$block" ] || return 1
-  "$rex" --autostart=false block call -s "$REX_BLOCK" -b "$block" process 2>/dev/null |
+  "$rex" --autostart=false block call -s "${REX_SESSION:-$REX_BLOCK}" -b "$block" process 2>/dev/null |
     jq -r '.foreground.cwd // .child.cwd // empty' 2>/dev/null
 }
 

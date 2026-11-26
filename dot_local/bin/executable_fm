@@ -150,13 +150,13 @@ fm_state="${XDG_STATE_HOME:-$HOME/.local/state}/fm"
 mkdir -p "$fm_state" && "$HOME/.local/bin/agent-label" "$fm_model" "$fm_effort" >"$fm_state/primary-model-effort" 2>/dev/null || true
 rex_label_window() {
   local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" win
-  win=$("$rex" --autostart=false window ls -s "$REX_BLOCK" --json |
+  win=$("$rex" --autostart=false window ls -s "${REX_SESSION:-$REX_BLOCK}" --json |
     jq -r --arg b "$REX_BLOCK" 'first(.windows[] | select(any(.layers[].blocks[]; .block_id == $b)) | .window_id) // empty')
-  [ -n "$win" ] && "$rex" --autostart=false window rename -s "$REX_BLOCK" "$win" "🚢 fm"
+  [ -n "$win" ] && "$rex" --autostart=false window rename -s "${REX_SESSION:-$REX_BLOCK}" "$win" "🚢 fm"
 }
 if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ]; then
   (rex_label_window) >/dev/null 2>&1 &
-  rex_sid=$("${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false session inspect "$REX_BLOCK" --json 2>/dev/null | jq -r '.session_id // empty')
+  rex_sid=$("${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null | jq -r '.session_id // empty')
   [ -n "$rex_sid" ] && ("$HOME/.local/bin/fm-todo" show -b "$rex_sid" "$REX_BLOCK" && "$HOME/.local/bin/fm-todo" refresh) </dev/null >/dev/null 2>&1 &
 fi
 

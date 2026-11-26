@@ -239,7 +239,7 @@ fm_pane() {
   local sid
   sid=$(rex ls --json | jq -r '.sessions[] | select(.label | test("(^| )fm$")) | .session_id' | head -1)
   [ -n "$sid" ] || return 0
-  if [ -n "${REX_BLOCK:-}" ] && [ "$(rex session inspect "$REX_BLOCK" --json 2>/dev/null | jq -r '.session_id // empty')" = "$sid" ]; then
+  if [ -n "${REX_BLOCK:-}" ] && [ "$(rex session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null | jq -r '.session_id // empty')" = "$sid" ]; then
     echo "$sid $REX_BLOCK"
     return
   fi
@@ -495,7 +495,7 @@ pr_open() {
   fi
   file=$wt/$path
   [ -f "$file" ] || { echo "fm-todo: $path is not in ${sha:0:7}" >&2; exit 1; }
-  sid=$([ -n "${REX_BLOCK:-}" ] && rex session inspect "$REX_BLOCK" --json 2>/dev/null | jq -r '.session_id // empty' || true)
+  sid=$([ -n "${REX_BLOCK:-}" ] && rex session inspect "${REX_SESSION:-$REX_BLOCK}" --json 2>/dev/null | jq -r '.session_id // empty' || true)
   [ -n "$sid" ] || read -r sid _ <<<"$(REX_BLOCK= fm_pane)"
   label="📝 #$number${key:+ · $key}"
   mkdir -p "$PR_OPEN_DIR"

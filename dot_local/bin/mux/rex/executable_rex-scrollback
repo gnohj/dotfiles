@@ -8,7 +8,7 @@ zoomed=${2:-}
 init="${REX_SCROLLBACK_INIT:-$HOME/.config/rex/lib/scrollback-nvim-init.lua}"
 
 terminal() {
-  "$rex" api call -s "$REX_BLOCK" "com.superlogical.terminal.$1" "{\"block_id\":\"$block\",\"args\":{}}" 2>/dev/null
+  "$rex" api call -s "${REX_SESSION:-$REX_BLOCK}" "com.superlogical.terminal.$1" "{\"block_id\":\"$block\",\"args\":{}}" 2>/dev/null
 }
 
 dir=$(mktemp -d -t rex-scrollview-XXXXXX)
@@ -25,7 +25,7 @@ esac
 
 # Agents redraw a full screen and keep no scrollback, so their history comes from the session transcript.
 if [ -z "$agent" ] || [ -z "$cwd" ] || ! "$HOME/.local/bin/mux/shared/agent-transcript.py" "$agent" "$kind" "$value" "$cwd" >"$dir/raw" 2>/dev/null; then
-  "$rex" capture -s "$REX_BLOCK" -b "$block" --format vt --unwrap --trim >"$dir/raw" 2>/dev/null
+  "$rex" capture -s "${REX_SESSION:-$REX_BLOCK}" -b "$block" --format vt --unwrap --trim >"$dir/raw" 2>/dev/null
 fi
 
 # Replayed into a terminal, so only text and SGR survive; cursor-forward becomes spaces.
@@ -33,5 +33,5 @@ perl -0777 -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~]
 
 REX_SCROLLBACK_COPIED="$dir/copied" nvim -u "$init" "$dir/view" -c 'lua RexScrollbackView({ terminal = true, copy_key = "<CR>", copied_file = vim.env.REX_SCROLLBACK_COPIED })'
 
-"$rex" do -s "$REX_BLOCK" -b "$REX_BLOCK" scrollback_return source="$block" zoomed="$([ -n "$zoomed" ] && echo true || echo false)" copied="$([ -e "$dir/copied" ] && echo true || echo false)" >/dev/null 2>&1
+"$rex" do -s "${REX_SESSION:-$REX_BLOCK}" -b "$REX_BLOCK" scrollback_return source="$block" zoomed="$([ -n "$zoomed" ] && echo true || echo false)" copied="$([ -e "$dir/copied" ] && echo true || echo false)" >/dev/null 2>&1
 exit 0
