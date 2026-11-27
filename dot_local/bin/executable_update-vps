@@ -21,8 +21,8 @@ result="$dir/$id.result"
 rc_file="${XDG_RUNTIME_DIR:-/tmp}/update-vps-$id.rc"
 # The pane closes itself on success and stays open on failure so the output is there to read.
 printf -v run '{ UPDATE_RESULT_FILE=%q %s; } 2>&1 | tee %q; rc=${pipestatus[1]}; print $rc > %q' "$result" "$steps" "$out" "$rc_file"
-# A Rex session outlives its last block, so success kills it; SKIP_FETCH keeps the greeting from clearing a failure's output.
-rex_cmd="$run; [ \$rc = 0 ] && exec rex --autostart=false kill \"\$REX_BLOCK\"; exec zsh -i"
+# A Rex session outlives its last block, so success kills it by session id (kill rejects a block id); SKIP_FETCH keeps the greeting from clearing a failure's output.
+rex_cmd="$run; [ \$rc = 0 ] && exec rex --autostart=false kill \"\$REX_SESSION\"; exec zsh -i"
 if [ "${1:-}" = rex ] && rex --autostart=false new "🔄 update" --cwd "$HOME" --window update -- env SKIP_FETCH=1 zsh -ic "$rex_cmd" >/dev/null 2>&1; then
   echo "update-vps: running in Rex session '🔄 update'"
 else
