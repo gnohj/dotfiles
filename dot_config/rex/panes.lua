@@ -329,21 +329,15 @@ function M.setup()
     end,
   }
 
-  -- Previous pane in the current tab, tracked per tab on press.
+  -- Previous pane in the current tab, from Rex's focus history.
   rex.action{
     name = "last_pane",
     title = "Last Pane Toggle",
     category = "Panes",
     run = function(ctx, args)
-      local view = c.windows()
-      local tab = c.tab_of_block(view, ctx.block_id)
-      local key = "last-pane-" .. (tab and tab.window_id or view.active_window_id):gsub("[^%w]", "_")
-      local target = c.read_state(key)
-      c.write_state(key, ctx.block_id)
-      if target ~= nil and target ~= ctx.block_id then
-        local _, err = rex.session.focus_block{ block_id = target }
-        if err == nil then return end
-      end
+      local tab = c.tab_of_block(c.windows(), ctx.block_id)
+      local back = tab ~= nil and rex.call("focus_history.reverse", { window_id = tab.window_id })
+      if back and back.reversed then return end
       c.fail(select(2, rex.session.focus_previous_pane{}))
     end,
   }
