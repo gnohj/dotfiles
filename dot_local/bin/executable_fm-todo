@@ -267,13 +267,19 @@ show() {
   hide
   if [ -z "$anchor" ] || [ "$anchor" = "$1" ]; then read -r sid anchor <<<"$(fm_pane)"; fi
   [ -n "$anchor" ] || { echo "fm-todo: no firstmate Rex pane found; pass -b SESSION BLOCK" >&2; exit 1; }
-  local opener=$HOME/.local/bin/fm-todo-open
-  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Firstmate -- env REXPAD_OPEN="$opener" "$(command -v "$REXPAD")" --list "$LIST" view --top --tabs "$TABS" | awk 'END { print $NF }')
+  id=$(rex split -s "$sid" -b "$anchor" --focus=false --split right --ratio "$RATIO" --shell=none --label Firstmate -- "$HOME/.local/bin/fm-todo" view | awk 'END { print $NF }')
   mkdir -p "$STATE_DIR"
   echo "$sid $id" >"$VIEWER_FILE"
   echo "$sid $anchor" >"$ANCHOR_FILE"
   hold_ratio "$sid" "$anchor" "$id" </dev/null >/dev/null 2>&1 &
   echo "$sid $id"
+}
+
+# The Todo pane's command: rexpad runs as argv0 fm-todo so Rex's resume trust rule matches it after a server restart.
+view() {
+  "$HOME/.local/bin/rex-resume-report" "$$" fm-todo view </dev/null >/dev/null 2>&1 &
+  unset OSC7577_TOKEN
+  REXPAD_OPEN=$HOME/.local/bin/fm-todo-open exec -a fm-todo "$(command -v "$REXPAD" || echo "$HOME/.local/bin/$REXPAD")" --list "$LIST" view --top --tabs "$TABS"
 }
 
 hide() {
@@ -625,6 +631,7 @@ done
 
 case "$cmd" in
   show) show "$block" ;;
+  view) view ;;
   hide) hide ;;
   status) status ;;
   refresh) refresh ;;

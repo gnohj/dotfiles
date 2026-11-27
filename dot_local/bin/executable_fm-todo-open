@@ -192,7 +192,7 @@ def run(path, q):
 def notify(message):
     print(message, file=sys.stderr)
     try:
-        pid = subprocess.run(["pgrep", "-f", "rexpad --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
+        pid = subprocess.run(["pgrep", "-f", "(rexpad|fm-todo) --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
         tty = subprocess.run(["ps", "-o", "tty=", "-p", pid], capture_output=True, text=True).stdout.strip()
         with open(f"/dev/{tty}", "w") as term:
             clean = re.sub(r"[\x00-\x1f\x7f-\x9f;]+", " ", message).strip()[:200]

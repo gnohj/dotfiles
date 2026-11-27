@@ -581,7 +581,7 @@ def notify_new(out):
     fresh = [] if old is None else [(k, v) for k, v in now.items() if k not in old][:3]
     if fresh:
         try:
-            pid = subprocess.run(["pgrep", "-f", "rexpad --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
+            pid = subprocess.run(["pgrep", "-f", "(rexpad|fm-todo) --list firstmate view"], capture_output=True, text=True).stdout.split()[0]
             tty = subprocess.run(["ps", "-o", "tty=", "-p", pid], capture_output=True, text=True).stdout.strip()
             with open(f"/dev/{tty}", "w") as term:
                 for _, (title, body) in fresh:
