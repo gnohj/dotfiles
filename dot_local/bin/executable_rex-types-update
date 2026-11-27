@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Regenerate the Rex Lua definitions (~/Developer/rex-types/.local/types) from the running server and its custom actions; silent when current.
+set -uo pipefail
+
+repo=$HOME/Developer/rex-types
+out=$repo/.local/types
+stamp=$out/.built
+
+[ -f "$repo/scripts/generate.py" ] || exit 0
+rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
+command -v "$rex" >/dev/null 2>&1 || exit 0
+# Needs a running server with one app connected; without either there is nothing to describe yet.
+api=$("$rex" --autostart=false api call server.version 2>/dev/null | jq -c . 2>/dev/null) || exit 0
+[ -n "$api" ] || exit 0
+config=${XDG_CONFIG_HOME:-$HOME/.config}/rex
+want="$api $(git -C "$repo" rev-parse HEAD 2>/dev/null) $(cat "$config"/*.lua 2>/dev/null | cksum)"
+[ "$(cat "$stamp" 2>/dev/null)" = "$want" ] && exit 0
+
+if python3 "$repo/scripts/generate.py" --rex "$rex" --output "$out" --include-custom-actions >/dev/null 2>&1; then
+  printf '%s\n' "$want" >"$stamp"
+  printf '\033[36m==> regenerated Rex Lua types\033[0m\n'
+fi
+exit 0

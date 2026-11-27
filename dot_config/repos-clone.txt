@@ -39,3 +39,5 @@ https://github.com/ayghri/i-have-adhd.git ~/Developer/i-have-adhd
 https://github.com/DietrichGebert/ponytail.git ~/Developer/ponytail
 # kittybrowser (graiz, MIT) is kb, the terminal-pane browser; its skill/ dir is symlinked into the agents monorepo and `update` rebuilds kb from this clone.
 https://github.com/graiz/kittybrowser.git ~/Developer/kittybrowser
+# rex-types is the Lua language server definitions for Rex's Lua API; rex-types-update regenerates them from the running build into its ignored .local/.
+https://github.com/jocades/rex-types.git ~/Developer/rex-types

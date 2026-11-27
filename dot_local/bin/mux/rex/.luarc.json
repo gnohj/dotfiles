@@ -1,0 +1,4 @@
+{
+  "runtime.plugin": "~/Developer/rex-types/plugin.lua",
+  "workspace.library": ["~/Developer/rex-types/.local/types"]
+}

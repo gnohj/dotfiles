@@ -112,8 +112,8 @@ if [[ "$OSTYPE" != darwin* ]]; then
   fi
 fi
 
-# owner/name slugs, not bare paths: firstmate, vision, i-have-adhd, ponytail and kittybrowser are upstream clones, not gnohj repos.
-typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail graiz/kittybrowser)
+# owner/name slugs, not bare paths: firstmate, vision, i-have-adhd, ponytail, kittybrowser and rex-types are upstream clones, not gnohj repos.
+typeset -ga _update_repo_slugs=(gnohj/agents gnohj/baby-menu-sidebar gnohj/vps-linux-provision kunchenguid/firstmate kunchenguid/vision ayghri/i-have-adhd DietrichGebert/ponytail graiz/kittybrowser jocades/rex-types)
 
 _update_summary_repos() {
   print -l "$HOME/.local/share/chezmoi" "$HOME/Developer/${(@)^_update_repo_slugs:t}"
@@ -281,6 +281,7 @@ update() {
     print -P "%F{8}(skip git pulls - git not installed)%f"
   fi
   [ -x "$HOME/.local/bin/rexpad-update" ] && { "$HOME/.local/bin/rexpad-update" || failed+=("rexpad rebuild"); }
+  [ -x "$HOME/.local/bin/rex-types-update" ] && { "$HOME/.local/bin/rex-types-update" || failed+=("rex types"); }
   [ -x "$HOME/.local/bin/sketchybar-update" ] && { "$HOME/.local/bin/sketchybar-update" || failed+=("sketchybar rebuild"); }
   # After the pulls, so the divergence check sees the fresh monorepo copy; silent when nothing is wrong.
   if [ -x "$HOME/.local/bin/claude-settings-relink" ]; then
