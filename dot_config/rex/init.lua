@@ -18,6 +18,7 @@ if rex.set then
   rex.set("resume.trust.kb", { command = { "kb" } })
   rex.set("resume.trust.gh-dash", { command = { "gh-dash" } })
   rex.set("resume.trust.fm-todo", { command = { "fm-todo", "view" } })
+  rex.set("resume.trust.hermes-container", { command = { "hermes-container" } })
   rex.set("resume.trust.pi", { command = { "pi", "--session", rex.match.under("~/.pi/agent/sessions") } })
 end
 

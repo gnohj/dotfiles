@@ -1,4 +1,4 @@
-# Reopens the autostart entries.toml sessions (hermes, the review dashboards) after the dev-box server starts with --restore=false.
+# Opens the autostart entries.toml sessions (hermes, the review dashboards) a fresh dev-box server lacks; a restart restores the rest.
 [Unit]
 Description=Reopen autostart Rex sessions
 After=rex.service

@@ -110,6 +110,12 @@ case $action in
   chat)
     shift || true
     [[ ${#exec_options[@]} -eq 0 && " $* " != *" --cli "* ]] && exec_options=(-e HERMES_TUI=1)
+    # A bare launch runs as argv0 hermes-container so Rex's resume trust rule matches it after a server restart.
+    if [[ $# -eq 0 ]]; then
+      "$HOME/.local/bin/rex-resume-report" "$$" hermes-container </dev/null >/dev/null 2>&1 &
+      unset OSC7577_TOKEN
+      exec -a hermes-container "${compose[@]}" exec "${exec_options[@]}" hermes hermes
+    fi
     exec "${compose[@]}" exec "${exec_options[@]}" hermes hermes "$@"
     ;;
   shell)
