@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# dev [CMD...] - run a project's dev server so Rex resumes it after a server restart; CMD is remembered per directory and a bare `dev` runs it again.
+set -uo pipefail
+
+# Rex resumes only a process that is the program its rule names, so this runs as argv0 dev and keeps the server as a child.
+[ "${DEV_SELF:-}" = 1 ] || DEV_SELF=1 exec -a dev bash "$0" "$@"
+unset DEV_SELF
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}/dev-resume"
+file="$state/$(pwd -P | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c1-16)"
+
+if [ "$#" -gt 0 ]; then
+  mkdir -p "$state" && printf '%s\0' "$@" >"$file"
+elif [ -r "$file" ]; then
+  args=()
+  while IFS= read -r -d '' arg; do args+=("$arg"); done <"$file"
+  set -- "${args[@]}"
+else
+  echo "dev: no command remembered for $(pwd) - run: dev <command...>" >&2
+  exit 2
+fi
+
+"$HOME/.local/bin/rex-resume-report" "$$" dev </dev/null >/dev/null 2>&1 &
+unset OSC7577_TOKEN
+# The server gets Ctrl-C through the process group; the trap keeps this shell waiting while it shuts down.
+trap : INT TERM HUP
+"$@"
