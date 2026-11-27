@@ -221,14 +221,31 @@ do_notify() {
   else printf '%s: %s\n' "$1" "$2"; fi
 }
 
-# Relaying a loopback url would open the WORKSTATION's loopback, where nothing is listening.
-box_local_url() {
+url_host() {
   local host
   host="${1#*://}"; host="${host%%/*}"; host="${host%%\?*}"; host="${host##*@}"
   case "$host" in \[*\]*) host="${host#\[}"; host="${host%%\]*}" ;; *) host="${host%%:*}" ;; esac
-  case "$host" in localhost | 127.*.*.* | ::1) return 0 ;; esac
+  printf '%s' "$host"
+}
+
+loopback_url() { case "$(url_host "$1")" in localhost | 127.*.*.* | ::1) return 0 ;; *) return 1 ;; esac; }
+
+# Relaying a loopback url would open the WORKSTATION's loopback, where nothing is listening.
+box_local_url() {
+  local host
+  loopback_url "$1" && return 0
+  host="$(url_host "$1")"
   # 127.0.0.1 only: Debian parks this box's own name on 127.0.1.1, which IS reachable over MagicDNS.
   awk -v h="$host" '$1 == "127.0.0.1" || $1 == "::1" { for (i = 2; i <= NF; i++) if ($i == h) { found = 1; exit } } END { exit found ? 0 : 1 }' /etc/hosts
+}
+
+# The attached Rex app forwards the port itself and opens the link, the one way a loopback url works on the workstation.
+rex_open() {
+  local rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex" client
+  loopback_url "$1" && command -v "$rex" >/dev/null 2>&1 || return 1
+  client="$("$rex" --autostart=false client ls --json 2>/dev/null | jq -r '[.clients[]? | select(.info.kind == "app" and .info.platform != "ios" and .connection_state == "connected")] | max_by(.connected_at).client_id // empty')"
+  [ -n "$client" ] || return 1
+  "$rex" --autostart=false -C "$client" do client.url.open url="$1" >/dev/null 2>&1
 }
 
 relay_host() { "$HOME/.local/bin/machine-identity" mac-host 2>/dev/null; }
@@ -287,7 +304,7 @@ case "$verb" in
     if at_desktop; then
       do_open "$url"
     elif box_local_url "$url"; then
-      die "refusing box-local url: $url would open the workstation's loopback, not this box's server - forward the port first (LocalForward in the Mac's 'Host dev-box' block)"
+      rex_open "$url" || die "refusing box-local url: $url would open the workstation's loopback, not this box's server - no Rex app is attached to forward it (else LocalForward in the Mac's 'Host dev-box' block)"
     elif ! relay open ${bg_arg[@]+"${bg_arg[@]}"} "$url" && ! ship open "$url"; then
       # Nobody attached: park it on the workstation's clipboard, since a browser here would be headless.
       osc_clip "$url"
