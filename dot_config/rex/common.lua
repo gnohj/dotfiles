@@ -33,8 +33,11 @@ function M.read_state(name)
 end
 
 function M.write_state(name, value)
-  rex.exec({ "mkdir", "-p", M.STATE_DIR })
   local f = io.open(M.STATE_DIR .. "/" .. name, "w")
+  if f == nil then
+    rex.exec({ "mkdir", "-p", M.STATE_DIR })
+    f = io.open(M.STATE_DIR .. "/" .. name, "w")
+  end
   if f == nil then return end
   f:write(value)
   f:close()

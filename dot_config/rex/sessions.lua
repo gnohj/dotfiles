@@ -76,14 +76,25 @@ function M.setup()
     end,
   }
 
-  -- Last session toggle; Rex sends no event for a mouse switch, so rex-last-session.lua ranks sessions by when the app last showed them.
+  -- Last session toggle; a previous session on another host, or none recorded, goes to rex-last-session.lua, which ranks sessions by when the app last showed them.
   rex.action{
     name = "last_session",
     title = "Last Session Toggle",
     category = "Sessions",
     run = function(ctx, args)
-      local prev = previous_session(session_ref(ctx), ctx.server == nil) or ""
+      local here = session_ref(ctx)
+      local prev = previous_session(here, ctx.server == nil) or ""
       M.leave_session(ctx)
+      -- A previous session on this server needs no scan: select it directly when it is still live.
+      local host, id = prev:match("^(.-)~(.+)$")
+      if prev ~= "" and here ~= nil and (host or "") == (here:match("^(.-)~") or "") then
+        for _, s in ipairs((rex.call("session.list") or {}).sessions or {}) do
+          if s.session_id == "session:" .. (id or prev) then
+            rex.client.queue("session.select", { session_id = s.session_id })
+            return
+          end
+        end
+      end
       c.fail(select(2, rex.exec.start({ "/bin/zsh", "-lc", 'exec "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" --autostart=false do "$HOME/.local/bin/mux/rex/rex-last-session.lua" client="$0" session="$1" prev="$2"',
                                         ctx.client_id or "", ctx.session_id or "", prev }, { detach = true, env = c.REX_ENV })))
     end,
