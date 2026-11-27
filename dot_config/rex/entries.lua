@@ -127,7 +127,7 @@ function M.setup()
       sessions.leave_session(ctx)
       -- rex-session-ctl marks REX_POPUP_MOVED when it switches focus, else focus returns to the opening pane; REX_SESSION is passed since Rex no longer exports it.
       local run = 'm=$(mktemp); export REX_SESSION="$1"; REX_POPUP_MOVED="$m" "$HOME/.local/bin/mux/rex/rex-session-picker.sh"; [ -s "$m" ] || "${REX_BIN_DIR:+$REX_BIN_DIR/}rex" do -s "${REX_SESSION:-$REX_BLOCK}" -b "$REX_BLOCK" popup_return source="$0" >/dev/null 2>&1; rm -f "$m"'
-      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", run, ctx.block_id, ctx.session_id }, { self_sized = true, label = "sessions" })
+      c.popup(ctx, 0.26, 0.15, { "/bin/sh", "-c", run, ctx.block_id, ctx.session_id }, { label = "sessions" })
     end,
   }
 

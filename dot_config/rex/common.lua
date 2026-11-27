@@ -99,12 +99,27 @@ end
 -- Rex window width in px and its display scale (rift), then the sidebar width in points; Mac only.
 local WINDOW_PX = [[PATH=/opt/homebrew/bin:$PATH; { rift-cli query workspaces; rift-cli query displays; } 2>/dev/null | jq -rs '(.[0] | [.[].windows[]? | select(.bundle_id == "com.superlogical.rex")] | (map(select(.is_focused)) + .)[0].frame) as $w | (.[1] | map(select($w.origin.x >= .frame.origin.x and $w.origin.x < .frame.origin.x + .frame.size.width and $w.origin.y >= .frame.origin.y and $w.origin.y < .frame.origin.y + .frame.size.height))[0].backing_scale // 2) as $s | "\($w.size.width * $s)"' 2>/dev/null]]
 
--- Sidebar width as a share of the pane area's; 0 when hidden or unknown.
-local function sidebar_share(window, block_id)
+local function measure(window, block_id)
   local layout = window and M.tiled_layout(window)
   local rect = layout and M.layout_rect(layout, block_id)
+  if rect and window.zoomed_block_id == block_id then rect = { 0, 0, 1, 1 } end
   local size = rect and rex.block.call(M.TERM, "size", { block_id = block_id })
-  if size == nil or size.cell_width_px == nil then return 0 end
+  if size == nil or size.columns == nil then return nil end
+  return rect, size
+end
+
+-- A new layer is 80x24 until the app sizes it, so its program starts at the size the bounds come to: every pane spends 2 columns and 3 rows on padding and its header.
+local function layer_size(rect, size, w, h)
+  if rect == nil or size == nil then return nil end
+  return {
+    columns = math.max(1, math.floor((size.columns + 2) / rect[3] * w) - 2),
+    rows = math.max(1, math.floor((size.rows + 3) / rect[4] * h) - 3),
+  }
+end
+
+-- Sidebar width as a share of the pane area's; 0 when hidden or unknown.
+local function sidebar_share(rect, size)
+  if rect == nil or size == nil or size.cell_width_px == nil then return 0 end
   local r = rex.exec{ "/bin/sh", "-c", WINDOW_PX }
   local window_px = tonumber(((r and r.stdout or ""):match("^(%S+)")) or "")
   if window_px == nil then return 0 end
@@ -118,8 +133,6 @@ end
 -- Toggle popup in one floating layer that Rex frames and closes on exit; bounds are {x,y,w,h}.
 M.POPUP_LABEL = "popup"
 M.POPUP_LABELS = { [M.POPUP_LABEL] = true, lazygit = true, sessions = true, ["fm-chat"] = true }
--- A new layer is 80x24 until Rex sizes it; wait, or the first frame is drawn too narrow.
-local RUN_SIZED = [["$HOME/.local/bin/mux/rex/rex-wait-size"; exec "$@"]]
 
 -- Only popups toggle closed; a pane floated with pane.float is left alone.
 function M.is_popup(layer)
@@ -140,12 +153,6 @@ local function close_popups(view, window)
     end
   end
   return open
-end
-
-local function sized(command)
-  local argv = { "/bin/sh", "-c", RUN_SIZED, "sh" }
-  for _, a in ipairs(command) do table.insert(argv, a) end
-  return argv
 end
 
 local function popup_key(window)
@@ -169,12 +176,14 @@ function M.popup(ctx, side, top, command, opts)
   end
   if window ~= nil then M.write_state(popup_key(window), ctx.block_id) end
   -- Centred on the whole window, as far as the box fits beside the sidebar.
-  local left = math.max(0.01, side - sidebar_share(window, ctx.block_id) / 2)
+  local rect, size = measure(window, ctx.block_id)
+  local left = math.max(0.01, side - sidebar_share(rect, size) / 2)
+  local w, h = 1 - 2 * side, 1 - 2 * top
   M.fail(select(2, rex.session.new_layer{
     window_id = window and window.window_id,
-    bounds = { left, top, 1 - 2 * side, 1 - 2 * top },
+    bounds = { left, top, w, h },
     focus = true,
-    layout = rex.layout.block{ flavor = M.SHELL, label = opts.label or M.POPUP_LABEL, options = { command = opts.self_sized and command or sized(command), cwd = opts.cwd } },
+    layout = rex.layout.block{ flavor = M.SHELL, label = opts.label or M.POPUP_LABEL, options = { command = command, cwd = opts.cwd, size = layer_size(rect, size, w, h) } },
   }))
 end
 
@@ -206,12 +215,13 @@ function M.pane_popup(ctx, command)
   local view = M.windows()
   if close_popups(view, M.tab_of_block(view, ctx.block_id)) then return nil end
   local window, bounds = M.pane_bounds(view, ctx.block_id)
-  if window == nil then error("Pane not found in the session layout", 0) end
+  if window == nil or bounds == nil then error("Pane not found in the session layout", 0) end
+  local rect, size = measure(window, ctx.block_id)
   local created, err = rex.session.new_layer{
     window_id = window.window_id,
     bounds = bounds,
     focus = true,
-    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = sized(command) } },
+    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = command, size = layer_size(rect, size, bounds[3], bounds[4]) } },
   }
   M.fail(err)
   return created.block_ids[1]

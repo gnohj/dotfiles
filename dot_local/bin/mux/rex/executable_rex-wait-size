@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# rex-wait-size - a new Rex layer is 80x24 until Rex sizes it ~60ms later; return on that SIGWINCH, or after 300ms.
-trap 'sized=1' WINCH
-if [ "$(stty size 2>/dev/null)" = "24 80" ]; then
-  sleep 0.3 &
-  [ -n "${sized:-}" ] || wait "$!"
-  kill "$!" 2>/dev/null
-fi
-exit 0

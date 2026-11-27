@@ -347,3 +347,6 @@ scripts/open-tmux-attach.sh
 # The kitty remote quake (cmd+rctrl+t) retired 2026-11-26: cmd+ctrl+t is Rex's Quick Terminal; cmd+rctrl+r keeps the local kitty quake.
 .config/skhd/kitty-remote-quake.sh
 .config/kitty/quick-access-terminal-remote.conf
+
+# rex-wait-size retired 2026-11-27: popups pass Rex the size their bounds come to, so no program starts at 80x24.
+.local/bin/mux/rex/rex-wait-size

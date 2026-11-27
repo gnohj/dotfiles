@@ -670,8 +670,6 @@ focus_target() {
 # Looped so ctrl-g can re-enter with a different view, and so the picker comes back after lazygit exits. esc no longer returns here from a sub-menu: it closes the popup from wherever you are.
 # GIT_ONLY rides the same loop: ctrl-g flips it and re-enters, so the filter is a rebuild rather than an fzf-side query.
 GIT_ONLY=0
-# Rex opens this popup unsized; waiting here, after startup, overlaps most of Rex's ~60ms sizing.
-"$HOME/.local/bin/mux/rex/rex-wait-size"
 while true; do
   # Exported, not a prefix assignment: ctrl-d's --rebuild re-runs build_list in a CHILD $SELF.
   export PICKER_GIT_ONLY="$GIT_ONLY"
