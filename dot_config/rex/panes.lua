@@ -244,8 +244,8 @@ function M.setup()
       end
       c.fail(select(2, rex.call("block.close", { session_id = ctx.session_id, block_id = ctx.block_id })))
       if was_popup then c.restore_popup_source(window) end
-      local windows = c.windows().windows
-      if type(windows) ~= "table" or #windows == 0 then sessions.close_session(ctx) end
+      local view = rex.session.view{}
+      if view == nil or type(view.windows) ~= "table" or #view.windows == 0 then sessions.close_session(ctx) end
     end,
   }
 

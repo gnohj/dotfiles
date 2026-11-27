@@ -60,7 +60,9 @@ end
 
 function M.close_session(ctx)
   local here = session_ref(ctx)
-  c.fail(select(2, rex.call("session.destroy", { session_id = ctx.session_id })))
+  -- The app removes a session whose last tab closed, so by now it may already be gone.
+  local _, err = rex.call("session.destroy", { session_id = ctx.session_id })
+  if err ~= nil and not tostring(err):find("not found", 1, true) then c.fail(err) end
   return_from(ctx, here)
 end
 
