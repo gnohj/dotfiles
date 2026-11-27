@@ -381,7 +381,7 @@ in
       };
     };
 
-    # Numbers Rex tabs by position; rex-app finds the bundle under either app name; --autostart=false never relaunches a closed Rex, KeepAlive retries.
+    # Numbers Rex tabs by position; rex-app names the app bundle; --autostart=false never relaunches a closed Rex, KeepAlive retries.
     rex-tab-numbers = {
       serviceConfig = {
         ProgramArguments = [

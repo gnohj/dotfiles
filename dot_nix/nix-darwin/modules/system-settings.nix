@@ -34,7 +34,7 @@ in
         "/Applications/Google Chrome.app"
         "/Applications/Helium.app"
         "/Applications/Ghostty.app"
-        "/Applications/Rex Beta.app"
+        "/Applications/Rex.app"
       ];
     };
 
