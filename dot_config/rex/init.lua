@@ -20,6 +20,7 @@ if rex.set then
   rex.set("resume.trust.gh-dash", { command = { "gh-dash" } })
   rex.set("resume.trust.fm-todo", { command = { "fm-todo", "view" } })
   rex.set("resume.trust.hermes-container", { command = { "hermes-container" } })
+  rex.set("resume.trust.mdd", { command = { "mdd", rex.match.under("~") } })
   rex.set("resume.trust.dev", { command = { "dev" }, dir = "~/Developer" })
   rex.set("resume.trust.pi", { command = { "pi", "--session", rex.match.under("~/.pi/agent/sessions") } })
 end
@@ -108,6 +109,7 @@ end
 -- Tools: lazygit popup, yazi tab, scrollback in nvim, pluck.
 rex.bind("ctrl+g", "lazygit")
 rex.bind(P .. "y", "yazi_tab")
+rex.bind(P .. "d", "markdown_view")
 rex.bind(P .. "e", "scrollback_view")
 rex.bind(P .. "shift+f", "pluck")
 rex.bind(P .. "b", "kb_fill")

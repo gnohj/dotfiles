@@ -73,6 +73,9 @@ export GIT_OPTIONAL_LOCKS=0
 # kb (KittyBrowser) runs Helium because branded Chrome 137+ ignores --load-extension; kb-extensions fetches and patches Vimium C.
 export KB_CHROME="/Applications/Helium.app/Contents/MacOS/Helium"
 export KB_CHROME_ARGS="--load-extension=$HOME/.kittybrowser/extensions/vimium-c"
+
+# mddog takes the 1x of the external display when two displays differ, which halves its text on the Retina screen Rex is on.
+export MDDOG_SCALE=2
 {{- end }}
 
 # A fake Wayland display so tools that copy through `wl-copy` reach the desktop clipboard via the `~/.local/bin/wl-copy` shim and `to-desktop clip`.

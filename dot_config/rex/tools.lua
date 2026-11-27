@@ -114,6 +114,22 @@ function M.setup()
     end,
   }
 
+  -- mddog beside the pane on its folder's Markdown files; zsh reads zshenv for the mise shim and MDDOG_SCALE.
+  rex.action{
+    name = "markdown_view",
+    title = "Markdown Viewer",
+    category = "Tools",
+    run = function(ctx, args)
+      c.fail(select(2, rex.session.new_split{
+        anchor_id = ctx.block_id,
+        direction = "horizontal",
+        side = "after",
+        focus = true,
+        layout = rex.layout.block{ flavor = c.SHELL, label = "markdown", options = { command = { "/bin/zsh", "-c", "exec mdd" }, cwd = c.block_cwd(ctx.block_id) } },
+      }))
+    end,
+  }
+
   -- The pane's scrollback (or its agent transcript) in nvim, over the pane.
   rex.action{
     name = "scrollback_view",

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# mdv [FILE|DIR] - rendered Markdown (mddog) in a Rex split beside this pane, or in place outside Rex; a folder, or no argument, lists its Markdown files.
+set -uo pipefail
+
+target=${1:-.}
+[ -e "$target" ] || { echo "mdv: no such file: $target" >&2; exit 1; }
+if [ -d "$target" ]; then
+  target=$(cd "$target" && pwd -P)
+  dir=$target
+else
+  dir=$(cd "$(dirname "$target")" && pwd -P)
+  target=$dir/$(basename "$target")
+fi
+
+rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
+if [ "${TERM_PROGRAM:-}" = rex ] && [ -n "${REX_BLOCK:-}" ] && command -v "$rex" >/dev/null 2>&1; then
+  exec "$rex" --autostart=false split -b "$REX_BLOCK" --split=right --focus=false -c "$dir" -- mdd "$target" >/dev/null
+fi
+exec mdd "$target"
