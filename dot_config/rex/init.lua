@@ -14,6 +14,7 @@ require("worktrees").setup()
 -- Program resume: what Rex may restart after a server restart (nvim reports itself; the rest report through rex-resume-shim).
 if rex.set then
   rex.set("resume.trust.nvim", { command = { "nvim" }, flags = { ["--cmd"] = { "drop", values = 1 }, ["-c"] = { "keep", values = 1 } } })
+  rex.set("resume.trust.nvim-session", { command = { "nvim", "-S", rex.match.under("~/.local/state/nvim/rex-resume") } })
   rex.set("resume.trust.tuxedo", { command = { "tuxedo" } })
   rex.set("resume.trust.kb", { command = { "kb" } })
   rex.set("resume.trust.gh-dash", { command = { "gh-dash" } })
