@@ -25,10 +25,9 @@ end
 -- Toggle-closing kills rex-scrollback before it can restore, so the action remembers each popup's pane.
 local scrollback_sources = {}
 
--- Opening a float unzooms the tab, and closing it leaves focus on some other pane.
-local function return_to_pane(source, zoomed, copied)
+-- A float whose program exits on its own leaves focus on some other pane.
+local function return_to_pane(source, copied)
   c.fail(select(2, rex.session.focus_block{ block_id = source }))
-  if zoomed then c.fail(select(2, rex.session.zoom_block{ block_id = source, zoom = true })) end
   if not copied then return end
   local window, bounds = c.pane_bounds(c.windows(), source)
   local size = rex.block.call(c.TERM, "size", { block_id = source })
@@ -122,14 +121,12 @@ function M.setup()
     category = "Tools",
     run = function(ctx, args)
       local closing = scrollback_sources[ctx.block_id]
-      local overlay, zoomed = c.pane_popup(ctx, function(zoomed)
-        return { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-scrollback" "$0" "$1"', ctx.block_id, zoomed and "zoomed" or "" }
-      end)
+      local overlay = c.pane_popup(ctx, { "/bin/sh", "-c", 'exec "$HOME/.local/bin/mux/rex/rex-scrollback" "$0"', ctx.block_id })
       if overlay ~= nil then
-        scrollback_sources[overlay] = { source = ctx.block_id, zoomed = zoomed }
+        scrollback_sources[overlay] = ctx.block_id
       elseif closing ~= nil then
         scrollback_sources[ctx.block_id] = nil
-        return_to_pane(closing.source, closing.zoomed, false)
+        return_to_pane(closing, false)
       end
     end,
   }
@@ -139,12 +136,12 @@ function M.setup()
     name = "scrollback_return",
     title = "Return From Scrollback",
     category = "Tools",
-    args = { source = "string", zoomed = "boolean?", copied = "boolean?" },
+    args = { source = "string", copied = "boolean?" },
     run = function(ctx, args)
       scrollback_sources[ctx.block_id] = nil
       local window = c.tab_of_block(c.windows(), args.source)
       if window == nil or window.focused_block_id ~= ctx.block_id then return end
-      return_to_pane(args.source, args.zoomed, args.copied)
+      return_to_pane(args.source, args.copied)
     end,
   }
 

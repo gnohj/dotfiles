@@ -189,12 +189,12 @@ end
 function M.pane_bounds(view, block_id)
   local window = M.tab_of_block(view, block_id)
   if window == nil then return nil end
-  if window.zoomed_block_id == block_id then return window, { 0, 0, 1, 1 }, true end
+  if window.zoomed_block_id == block_id then return window, { 0, 0, 1, 1 } end
   for _, layer in ipairs(window.layers or {}) do
     local rect = layer.layout ~= nil and M.layout_rect(layer.layout, block_id)
     if rect then
       local x, y = math.max(0, rect[1]), math.max(0, rect[2])
-      return window, { x, y, math.min(rect[3], 1 - x), math.min(rect[4], 1 - y) }, false
+      return window, { x, y, math.min(rect[3], 1 - x), math.min(rect[4], 1 - y) }
     end
   end
 end
@@ -202,16 +202,16 @@ end
 function M.pane_popup(ctx, command)
   local view = M.windows()
   if close_popups(view, M.tab_of_block(view, ctx.block_id)) then return nil end
-  local window, bounds, zoomed = M.pane_bounds(view, ctx.block_id)
+  local window, bounds = M.pane_bounds(view, ctx.block_id)
   if window == nil then error("Pane not found in the session layout", 0) end
   local created, err = rex.session.new_layer{
     window_id = window.window_id,
     bounds = bounds,
     focus = true,
-    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = sized(command(zoomed)) } },
+    layout = rex.layout.block{ flavor = M.SHELL, label = M.POPUP_LABEL, options = { command = sized(command) } },
   }
   M.fail(err)
-  return created.block_ids[1], zoomed
+  return created.block_ids[1]
 end
 
 return M

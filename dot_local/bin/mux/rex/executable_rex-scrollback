@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# rex-scrollback BLOCK [zoomed] - the prefix+e viewer for a Rex block: a claude/pi transcript, else the block's own scrollback, in nvim.
+# rex-scrollback BLOCK - the prefix+e viewer for a Rex block: a claude/pi transcript, else the block's own scrollback, in nvim.
 set -uo pipefail
 
 rex="${REX_BIN_DIR:+$REX_BIN_DIR/}rex"
-block=${1:?usage: rex-scrollback BLOCK [zoomed]}
-zoomed=${2:-}
+block=${1:?usage: rex-scrollback BLOCK}
 init="${REX_SCROLLBACK_INIT:-$HOME/.config/rex/lib/scrollback-nvim-init.lua}"
 
 terminal() {
@@ -33,5 +32,5 @@ perl -0777 -pe 's/\e\[(\d*)C/" " x ($1 || 1)/ge; s/\e\[[0-9;:?<=>]*[ -\/]*([@-~]
 
 REX_SCROLLBACK_COPIED="$dir/copied" nvim -u "$init" "$dir/view" -c 'lua RexScrollbackView({ terminal = true, copy_key = "<CR>", copied_file = vim.env.REX_SCROLLBACK_COPIED })'
 
-"$rex" do -s "${REX_SESSION:-$REX_BLOCK}" -b "$REX_BLOCK" scrollback_return source="$block" zoomed="$([ -n "$zoomed" ] && echo true || echo false)" copied="$([ -e "$dir/copied" ] && echo true || echo false)" >/dev/null 2>&1
+"$rex" do -s "${REX_SESSION:-$REX_BLOCK}" -b "$REX_BLOCK" scrollback_return source="$block" copied="$([ -e "$dir/copied" ] && echo true || echo false)" >/dev/null 2>&1
 exit 0
