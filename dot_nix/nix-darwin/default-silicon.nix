@@ -79,8 +79,8 @@
   # Platform configuration
   nixpkgs.hostPlatform = "aarch64-darwin";
 
-  # Primary user for user-specific settings (required for homebrew)
-  system.primaryUser = "gnohj";
+  # Primary user for user-specific settings (required for homebrew). chezmoi renders primary-user.json with the account that applied ~/.nix.
+  system.primaryUser = (builtins.fromJSON (builtins.readFile ./primary-user.json)).name;
 
   # Used for backwards compatibility, please read the changelog before changing.
   # $ darwin-rebuild changelog

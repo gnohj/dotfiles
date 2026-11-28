@@ -103,7 +103,7 @@ fi
 print_info "› Phase 2: Checking Nix configuration..."
 
 CHEZMOI_SOURCE="$HOME/.local/share/chezmoi"
-NIX_CONFIG_DIR="$CHEZMOI_SOURCE/dot_nix"
+NIX_CONFIG_DIR="$HOME/.nix"
 DOTFILES_REPO="https://github.com/gnohj/dotfiles.git"
 
 if [ ! -d "$CHEZMOI_SOURCE" ]; then
@@ -127,18 +127,19 @@ fi
 
 print_success "Nix config found in chezmoi source directory"
 
-# Check if chezmoi has been applied to ~/.nix
-if [ -f "$NIX_CONFIG_DIR/flake.nix" ]; then
-  print_success "Nix config already applied at $NIX_CONFIG_DIR"
+# nix-darwin builds from ~/.nix, not the source tree: daemons.json and primary-user.json only exist once chezmoi renders them.
+print_info "Rendering ~/.nix with chezmoi..."
+if command -v chezmoi &>/dev/null; then
+  chezmoi apply --source "$CHEZMOI_SOURCE" --exclude scripts "$NIX_CONFIG_DIR"
 else
-  print_info "Nix config exists in chezmoi but not yet applied"
-  print_info "It will be applied when you run: chezmoi apply"
-  print_warning "For now, creating symlink to chezmoi source..."
-
-  # Create symlink as temporary solution
-  ln -sf "$CHEZMOI_SOURCE/dot_nix" "$NIX_CONFIG_DIR"
-  print_success "Symlinked ~/.nix to chezmoi source"
+  nix run nixpkgs#chezmoi -- apply --source "$CHEZMOI_SOURCE" --exclude scripts "$NIX_CONFIG_DIR"
 fi
+
+if [ ! -f "$NIX_CONFIG_DIR/flake.nix" ]; then
+  print_error "chezmoi did not render $NIX_CONFIG_DIR/flake.nix"
+  exit 1
+fi
+print_success "Nix config rendered at $NIX_CONFIG_DIR"
 
 # --- PHASE 3: INSTALL NIX-DARWIN ---
 print_info "› Phase 3: Installing nix-darwin..."
