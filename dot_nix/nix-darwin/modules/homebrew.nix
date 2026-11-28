@@ -128,13 +128,16 @@
       "vlc"
 
       # VPN & Security
-      "private-internet-access"
       "tailscale-app"
 
       # Fonts
       "font-sf-pro"
       "font-space-mono-nerd-font"
       "sf-symbols"
+    ]
+    # Personal Macs always use the gnohj account; a work laptop gets no personal VPN.
+    ++ lib.optionals (config.system.primaryUser == "gnohj") [
+      "private-internet-access"
     ];
 
     # No masApps: mas needs an App Store sign-in or darwin-rebuild fails; Xcode 497799835 and Brother 1193539993 stay manual.
