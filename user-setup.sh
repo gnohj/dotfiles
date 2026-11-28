@@ -313,6 +313,8 @@ print_info "› Phase 6: Installing language runtimes via mise..."
 if command -v mise &>/dev/null; then
   print_info "Installing language runtimes from ~/.config/mise/config.toml..."
   mise install
+  # Later phases call the tools mise just installed (bun, cargo); this script's PATH has no shims until a new shell.
+  export PATH="$HOME/.local/share/mise/shims:$PATH"
   print_success "Language runtimes installed"
 else
   print_warning "mise not found. Skipping language runtime installation."
