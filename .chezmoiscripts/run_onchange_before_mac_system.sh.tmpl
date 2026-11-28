@@ -46,9 +46,6 @@ osascript -e 'tell application "System Settings" to quit' 2>/dev/null
 echo "Creating ~/Developer directory..."
 mkdir -p "$HOME/Developer"
 
-echo "Creating ~/Obsidian directory..."
-mkdir -p "$HOME/Obsidian"
-
 echo "Configuring login items"
 # NOTE: Only apps that exist in /Applications (GUI apps only, not LaunchAgents)
 loginItems=(
