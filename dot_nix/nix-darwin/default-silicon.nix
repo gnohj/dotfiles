@@ -15,32 +15,33 @@
     ./modules/afk-sudoers.nix
   ] ++ (if builtins.pathExists ./modules/work then [ ./modules/work ] else [ ]);
 
-  # Nix package manager settings
-  nix = {
-    package = pkgs.nix;
+  # Determinate Nix runs its own daemon, so nix-darwin must leave the install alone there. chezmoi renders nix-install.json from the machine it applies on.
+  nix =
+    if (builtins.fromJSON (builtins.readFile ./nix-install.json)).determinate then
+      { enable = false; }
+    else {
+      package = pkgs.nix;
 
-    settings = {
-      experimental-features = [ "nix-command" "flakes" ];
+      settings = {
+        experimental-features = [ "nix-command" "flakes" ];
 
-      # Allow unfree packages (like Obsidian, Discord, etc.)
-      # This is required for many GUI apps from Homebrew casks
-      # that Nix might need to reference
-      # Note: This doesn't affect Homebrew packages
-    };
-
-    optimise.automatic = true;
-
-    # Garbage collection - keep system clean
-    gc = {
-      automatic = true;
-      interval = {
-        Weekday = 0;
-        Hour = 2;
-        Minute = 0;
+        # Unfree GUI apps from Homebrew casks may need nix references
+        # Note: This doesn't affect Homebrew packages
       };
-      options = "--delete-older-than 30d";
+
+      optimise.automatic = true;
+
+      # Garbage collection - keep system clean
+      gc = {
+        automatic = true;
+        interval = {
+          Weekday = 0;
+          Hour = 2;
+          Minute = 0;
+        };
+        options = "--delete-older-than 30d";
+      };
     };
-  };
 
   # Allow unfree packages globally
   nixpkgs.config.allowUnfree = true;
