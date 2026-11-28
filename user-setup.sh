@@ -101,7 +101,7 @@ if [ "$NEED_BITWARDEN_UNLOCK" = "true" ]; then
       print_info "Setting up Bitwarden access for SSH keys and environment secrets..."
 
       # Configure rbw email
-      CURRENT_EMAIL=$(rbw config show 2>/dev/null | grep '"email"' | cut -d'"' -f4)
+      CURRENT_EMAIL=$(rbw config show 2>/dev/null | grep '"email"' | cut -d'"' -f4 || true)
       if [ "$CURRENT_EMAIL" != "$BW_EMAIL" ]; then
         rbw config set email "$BW_EMAIL"
         print_info "Configured rbw email: $BW_EMAIL"
