@@ -1,0 +1,4 @@
+{{- $name := "macbook" -}}
+{{- $override := joinPath .chezmoi.homeDir ".config/machine/hostname" -}}
+{{- if stat $override }}{{ $name = include $override | trim }}{{ end -}}
+{{ dict "name" $name | toJson }}

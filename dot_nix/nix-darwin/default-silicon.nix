@@ -74,8 +74,9 @@
   programs.zsh.promptInit = "";
   programs.bash.enable = true;
 
-  networking.hostName = "macbook";
-  networking.computerName = "macbook";
+  # Defaults to "macbook"; another Mac names itself in ~/.config/machine/hostname, which chezmoi renders into hostname.json.
+  networking.hostName = (builtins.fromJSON (builtins.readFile ./hostname.json)).name;
+  networking.computerName = config.networking.hostName;
 
   # Platform configuration
   nixpkgs.hostPlatform = "aarch64-darwin";

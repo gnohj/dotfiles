@@ -194,7 +194,7 @@ in
       "Workspace.quickTerminalPin" = "top";
       "Workspace.quickTerminalPinHeightPercent" = 26;
       # remoteControl must stay on: colorscheme-set.sh imports the theme through the app client
-      "rex.client.label" = "macbook";
+      "rex.client.label" = config.networking.hostName;
       "rex.client.remoteControl" = true;
       "rex.server.run-mode" = "bundled";
       "rex.server.automatic-restart-enabled" = true;
