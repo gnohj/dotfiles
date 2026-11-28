@@ -341,6 +341,19 @@ else
   print_warning "bun not found. Skipping bun global CLI tools (status line will render blank)."
 fi
 
+# --- PHASE 6.3: BUILD SKETCHYBAR (no brew formula: upstream release + local patches) ---
+print_info "› Phase 6.3: Building sketchybar..."
+
+if [ -x "$HOME/.local/bin/sketchybar-update" ]; then
+  if "$HOME/.local/bin/sketchybar-update"; then
+    print_success "sketchybar is built at ~/.local/bin/sketchybar"
+  else
+    print_warning "sketchybar build failed. Retry with: ~/.local/bin/sketchybar-update"
+  fi
+else
+  print_warning "sketchybar-update not found. Skipping the sketchybar build."
+fi
+
 # --- PHASE 6.5: SYMLINK ICLOUD VAULT TO ~/Obsidian ---
 print_info "› Phase 6.5: Configuring iCloud-backed Obsidian vault..."
 
