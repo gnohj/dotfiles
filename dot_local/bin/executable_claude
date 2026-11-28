@@ -45,6 +45,10 @@ auth | doctor)
     ;;
   esac
   ;;
+# Minting the first token cannot require one: a fresh machine has no account token yet.
+setup-token)
+  exec env -u CLAUDE_CODE_OAUTH_TOKEN -u CLAUDE_CONFIG_DIR -u CLAUDE_ACCOUNT "$_bin" "$@"
+  ;;
 esac
 
 # claude-account-state-v1
