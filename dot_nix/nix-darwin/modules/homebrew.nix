@@ -79,6 +79,7 @@
     casks = [
       # AI Tools — claude-code CLI moved to mise (npm:@anthropic-ai/claude-code, both OSes).
       # Moshi Desktop has no cask; run_onchange_after_install-moshi-desktop.sh pulls the dmg.
+      "claude" # Claude Desktop; the Claude Desktop launchers script needs /Applications/Claude.app
       "opensuperwhisper"
 
       # Browsers
